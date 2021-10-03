@@ -1,0 +1,3822 @@
+<!-- 警告：このファイルは直接編集しないでください！
+1. catalogs.sgmlを編集したら、split-catalogs.shを起動します。
+2. するとcatalogs[0-4].sgmlが生成されます。
+3. catalogs.sgmlとともにcatalogs[0-4].sgmlのうち変更されたファイルをcommit/pushしてpull requestを作成してください。
+4. レビューはcatalogs[0-4].sgmlに対して行います。
+5. 指摘された点があればcatalogs.sgmlに反映し、1に戻ります。
+6. catalogs.sgmlの変更がなければ、pull requestをマージして終了です。お疲れ様でした！
+-->
+<!-- split-catalogs2-start -->
+
+ <sect1 id="catalog-pg-partitioned-table">
+  <title><structname>pg_partitioned_table</structname></title>
+
+  <indexterm zone="catalog-pg-partitioned-table">
+   <primary>pg_partitioned_table</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_partitioned_table</structname> stores
+   information about how tables are partitioned.
+-->
+カタログ<structname>pg_partitioned_table</structname>はテーブルがどのようにパーティションに分けられているかに関する情報を格納します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_partitioned_table</structname> Columns</title>
+-->
+   <title><structname>pg_partitioned_table</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the <structname>pg_class</structname> entry for this partitioned table
+-->
+このパーティションテーブルの<structname>pg_class</structname>のエントリのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partstrat</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       Partitioning strategy; <literal>h</literal> = hash partitioned table,
+       <literal>l</literal> = list partitioned table, <literal>r</literal> = range partitioned table
+-->
+パーティショニング戦略。
+<literal>h</literal>ならハッシュパーティションテーブル、<literal>l</literal>ならリストパーティションテーブル、<literal>r</literal>なら範囲パーティションテーブル。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partnatts</structfield> <type>int2</type>
+      </para>
+      <para>
+<!--
+       The number of columns in partition key
+-->
+パーティションキーの列の数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partdefid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the <structname>pg_class</structname> entry for the default partition
+       of this partitioned table, or zero if this partitioned table does not
+       have a default partition.
+-->
+このパーティションのデフォルトパーティションの<structname>pg_class</structname>エントリのOID。
+このパーティションテーブルにデフォルトパーティションがなければ0。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partattrs</structfield> <type>int2vector</type>
+       (references <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attnum</structfield>)
+      </para>
+      <para>
+<!--
+       This is an array of <structfield>partnatts</structfield> values that
+       indicate which table columns are part of the partition key.  For
+       example, a value of <literal>1 3</literal> would mean that the first
+       and the third table columns make up the partition key.  A zero in this
+       array indicates that the corresponding partition key column is an
+       expression, rather than a simple column reference.
+-->
+これは<structfield>partnatts</structfield>値の配列で、どのテーブル列がパーティションキーの一部となっているかを示します。
+例えば、値が<literal>1 3</literal>であれば、テーブルの1番目と3番目の列がパーティションキーを構成することを意味します。
+この配列がゼロの場合は、対応するパーティションキー列が式であって、単なる列参照ではないことを示します。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partclass</structfield> <type>oidvector</type>
+       (references <link linkend="catalog-pg-opclass"><structname>pg_opclass</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       For each column in the partition key, this contains the OID of the
+       operator class to use.  See
+       <link linkend="catalog-pg-opclass"><structname>pg_opclass</structname></link> for details.
+-->
+これは、パーティションキーの各列について、使用する演算子クラスのOIDが入ります。
+詳細については<link linkend="catalog-pg-opclass"><structname>pg_opclass</structname></link>を参照してください。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partcollation</structfield> <type>oidvector</type>
+       (references <link linkend="catalog-pg-collation"><structname>pg_collation</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       For each column in the partition key, this contains the OID of the
+       collation to use for partitioning, or zero if the column is not
+       of a collatable data type.
+-->
+これは、パーティションキーの各列について、パーティショニングで使用する照合のOIDが入ります。
+列が照合できないデータ型の場合はゼロが入ります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>partexprs</structfield> <type>pg_node_tree</type>
+      </para>
+      <para>
+<!--
+       Expression trees (in <function>nodeToString()</function>
+       representation) for partition key columns that are not simple column
+       references.  This is a list with one element for each zero
+       entry in <structfield>partattrs</structfield>.  Null if all partition key columns
+       are simple references.
+-->
+単純な列参照ではないパーティションキー列についての（<function>nodeToString()</function>形式での）式ツリーです。
+<structfield>partattrs</structfield>がゼロの各エントリについて1つの要素があるリストになっています。
+すべてのパーティションキー列が単純な参照ならNULLとなります。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+
+ <sect1 id="catalog-pg-policy">
+  <title><structname>pg_policy</structname></title>
+
+  <indexterm zone="catalog-pg-policy">
+   <primary>pg_policy</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_policy</structname> stores row level
+   security policies for tables.  A policy includes the kind of
+   command that it applies to (possibly all commands), the roles that it
+   applies to, the expression to be added as a security-barrier
+   qualification to queries that include the table, and the expression
+   to be added as a <literal>WITH CHECK</literal> option for queries that attempt to
+   add new records to the table.
+-->
+カタログ<structname>pg_policy</structname>はテーブルの行単位セキュリティのポリシーを格納します。
+ポリシーには、それが適用されるコマンドの種類（すべてのコマンドのこともあります）、それが適用されるロール、セキュリティバリアの制約として、そのテーブルを含む問い合わせに追加される式、そしてテーブルに新しいレコードを追加しようとする問い合わせのために<literal>WITH CHECK</literal>オプションとして追加される式が含まれます。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_policy</structname> Columns</title>
+-->
+   <title><structname>pg_policy</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>polname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       The name of the policy
+-->
+ポリシーの名前
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>polrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The table to which the policy applies
+-->
+ポリシーが適用されるテーブル
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>polcmd</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       The command type to which the policy is applied:
+       <literal>r</literal> for <command>SELECT</command>,
+       <literal>a</literal> for <command>INSERT</command>,
+       <literal>w</literal> for <command>UPDATE</command>,
+       <literal>d</literal> for <command>DELETE</command>,
+       or <literal>*</literal> for all
+-->
+ポリシーが適用されるコマンドの種類：
+<literal>r</literal> <command>SELECT</command>、
+<literal>a</literal> <command>INSERT</command>、
+<literal>w</literal> <command>UPDATE</command>、
+<literal>d</literal> <command>DELETE</command>、
+<literal>*</literal> すべて
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>polpermissive</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       Is the policy permissive or restrictive?
+-->
+許容(permissive)ポリシーか、制限(restrictive)ポリシーか
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>polroles</structfield> <type>oid[]</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The roles to which the policy is applied
+-->
+ポリシーが適用されるロール
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>polqual</structfield> <type>pg_node_tree</type>
+      </para>
+      <para>
+<!--
+       The expression tree to be added to the security barrier qualifications for queries that use the table
+-->
+テーブルを使用する問い合わせにセキュリティバリアの制約として追加される式のツリー
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>polwithcheck</structfield> <type>pg_node_tree</type>
+      </para>
+      <para>
+<!--
+       The expression tree to be added to the WITH CHECK qualifications for queries that attempt to add rows to the table
+-->
+テーブルに行を追加する問い合わせにWITH CHECKの制約として追加される式のツリー
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <note>
+   <para>
+<!--
+    Policies stored in <structname>pg_policy</structname> are applied only when
+    <structname>pg_class</structname>.<structfield>relrowsecurity</structfield> is set for
+    their table.
+-->
+<structname>pg_policy</structname>に格納されるポリシーは、そのテーブルに<structname>pg_class</structname>.<structfield>relrowsecurity</structfield>が設定されている場合にのみ適用されます。
+   </para>
+  </note>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-proc">
+  <title><structname>pg_proc</structname></title>
+
+  <indexterm zone="catalog-pg-proc">
+   <primary>pg_proc</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_proc</structname> stores information about
+   functions, procedures, aggregate functions, and window functions
+   (collectively also known as routines).  See <xref
+   linkend="sql-createfunction"/>, <xref linkend="sql-createprocedure"/>, and
+   <xref linkend="xfunc"/> for more information.
+-->
+<structname>pg_proc</structname>カタログは関数、プロシージャ、集約関数あるいはWINDOW関数（これらをまとめてルーチンとも言います）に関する情報を格納します。
+<xref linkend="sql-createfunction"/>と<xref linkend="xfunc"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   If <structfield>prokind</structfield> indicates that the entry is for an
+   aggregate function, there should be a matching row in
+   <structfield>pg_aggregate</structfield>.
+-->
+<structfield>prokind</structfield>がそのエントリが集約関数であることを示しているなら、<structfield>pg_aggregate</structfield>に一致する行があるはずです。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_proc</structname> Columns</title>
+-->
+   <title><structname>pg_proc</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Name of the function
+-->
+関数名
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pronamespace</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the namespace that contains this function
+-->
+この関数を含む名前空間のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proowner</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Owner of the function
+-->
+関数の所有者
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prolang</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-language"><structname>pg_language</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Implementation language or call interface of this function
+-->
+この関数の実装言語または呼び出しインタフェース
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>procost</structfield> <type>float4</type>
+      </para>
+      <para>
+<!--
+       Estimated execution cost (in units of
+       <xref linkend="guc-cpu-operator-cost"/>); if <structfield>proretset</structfield>,
+       this is cost per row returned
+-->
+推定実行コスト(<xref linkend="guc-cpu-operator-cost"/>単位です)。
+<structfield>proretset</structfield>の場合は、返される行毎のコストになります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prorows</structfield> <type>float4</type>
+      </para>
+      <para>
+<!--
+       Estimated number of result rows (zero if not <structfield>proretset</structfield>)
+-->
+結果の推定行数(<structfield>proretset</structfield>でなければゼロになります)
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>provariadic</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Data type of the variadic array parameter's elements,
+       or zero if the function does not have a variadic parameter
+-->
+可変配列パラメータの要素のデータ型。関数が可変パラメータを持っていない場合はゼロになります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prosupport</structfield> <type>regproc</type>
+       (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Optional planner support function for this function
+       (see <xref linkend="xfunc-optimization"/>)
+-->
+この関数に対する任意のプランナサポート関数
+（<xref linkend="xfunc-optimization"/>参照）
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prokind</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       <literal>f</literal> for a normal function, <literal>p</literal>
+       for a procedure, <literal>a</literal> for an aggregate function, or
+       <literal>w</literal> for a window function
+-->
+<literal>f</literal>なら通常の関数、<literal>p</literal>ならプロシージャ、<literal>a</literal>なら集約関数、<literal>w</literal>ならWINDOW関数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prosecdef</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       Function is a security definer (i.e., a <quote>setuid</quote>
+       function)
+-->
+セキュリティ定義の関数（すなわち<quote>setuid</quote>関数）
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proleakproof</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       The function has no side effects.  No information about the
+       arguments is conveyed except via the return value.  Any function
+       that might throw an error depending on the values of its arguments
+       is not leak-proof.
+-->
+この関数には副作用がありません。引数に関する情報が戻り値以外から伝わることがありません。
+引数の値に依存するエラーを発生する可能性がある関数はすべてリークプルーフ関数ではありません。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proisstrict</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       Function returns null if any call argument is null.  In that
+       case the function won't actually be called at all.  Functions
+       that are not <quote>strict</quote> must be prepared to handle
+       null inputs.
+-->
+関数は呼び出し引数がNULLの場合にはNULLを返します。
+その場合、関数は実際にはまったく呼び出されません。
+<quote>厳密</quote>ではない関数はNULL値入力を取り扱えるようにしなければいけません。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proretset</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       Function returns a set (i.e., multiple values of the specified
+       data type)
+-->
+集合（すなわち指定されたデータ型の複数の値）を返す関数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>provolatile</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       <structfield>provolatile</structfield> tells whether the function's
+       result depends only on its input arguments, or is affected by outside
+       factors.
+       It is <literal>i</literal> for <quote>immutable</quote> functions,
+       which always deliver the same result for the same inputs.
+       It is <literal>s</literal> for <quote>stable</quote> functions,
+       whose results (for fixed inputs) do not change within a scan.
+       It is <literal>v</literal> for <quote>volatile</quote> functions,
+       whose results might change at any time.  (Use <literal>v</literal> also
+       for functions with side-effects, so that calls to them cannot get
+       optimized away.)
+-->
+<structfield>provolatile</structfield>は、関数の結果が入力引数のみで決定されるか、または外部要素に影響されるかを示します。
+<literal>i</literal>は<quote>immutable(不変)</quote>関数を表し、同じ入力に対し常に同じ結果をもたらします。
+<literal>s</literal>は<quote>stable(安定)</quote>関数を表し、（固定入力に対する）結果はスキャン内で変わりません。
+<literal>v</literal>は<quote>volatile(不安定)</quote>関数を表し、どのような場合にも結果は異なる可能性があります。
+（また、副作用を持つ関数に<literal>v</literal>を使用することで、その関数に対する呼び出しが最適化で消されないようにできます。）
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proparallel</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       <structfield>proparallel</structfield> tells whether the function
+       can be safely run in parallel mode.
+       It is <literal>s</literal> for functions which are safe to run in
+       parallel mode without restriction.
+       It is <literal>r</literal> for functions which can be run in parallel
+       mode, but their execution is restricted to the parallel group leader;
+       parallel worker processes cannot invoke these functions.
+       It is <literal>u</literal> for functions which are unsafe in parallel
+       mode; the presence of such a function forces a serial execution plan.
+-->
+<structfield>proparallel</structfield>は関数が並列モードにて安全に実行できるかを示します。
+<literal>s</literal>は、制限なしに並列モードにて実行することが安全である関数を表します。
+<literal>r</literal>は、並列モードにて実行可能な関数を表しますが、実行は並列グループリーダに制限されます。
+並列ワーカプロセスはこれらの関数を呼び出すことができません。
+<literal>u</literal>は、並列モードにて安全ではない関数を表します。
+このような関数が存在すると、直列的な実行プランが強制されます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pronargs</structfield> <type>int2</type>
+      </para>
+      <para>
+<!--
+       Number of input arguments
+-->
+入力の引数の数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pronargdefaults</structfield> <type>int2</type>
+      </para>
+      <para>
+<!--
+       Number of arguments that have defaults
+-->
+デフォルト値を持つ引数の数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prorettype</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Data type of the return value
+-->
+戻り値のデータ型
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proargtypes</structfield> <type>oidvector</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       An array with the data types of the function arguments.  This includes
+       only input arguments (including <literal>INOUT</literal> and
+       <literal>VARIADIC</literal> arguments), and thus represents
+       the call signature of the function.
+-->
+関数の引数のデータ型を格納した配列。
+これは入力引数（<literal>INOUT</literal>と<literal>VARIADIC</literal>も含みます）のみを含んでいて、関数の呼び出しシグネチャを表現します。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proallargtypes</structfield> <type>oid[]</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       An array with the data types of the function arguments.  This includes
+       all arguments (including <literal>OUT</literal> and
+       <literal>INOUT</literal> arguments); however, if all the
+       arguments are <literal>IN</literal> arguments, this field will be null.
+       Note that subscripting is 1-based, whereas for historical reasons
+       <structfield>proargtypes</structfield> is subscripted from 0.
+-->
+関数の引数のデータ型を格納した配列。
+これは（<literal>OUT</literal>と<literal>INOUT</literal>引数を含んだ）全ての引数を含みます。
+しかし、すべての引数が<literal>IN</literal>であった場合は、この列はNULLになります。
+歴史的な理由から<structfield>proargtypes</structfield>は0から番号が振られていますが、添字は1から始まっていることに注意してください。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proargmodes</structfield> <type>char[]</type>
+      </para>
+      <para>
+<!--
+       An array with the modes of the function arguments, encoded as
+       <literal>i</literal> for <literal>IN</literal> arguments,
+       <literal>o</literal> for <literal>OUT</literal> arguments,
+       <literal>b</literal> for <literal>INOUT</literal> arguments,
+       <literal>v</literal> for <literal>VARIADIC</literal> arguments,
+       <literal>t</literal> for <literal>TABLE</literal> arguments.
+       If all the arguments are <literal>IN</literal> arguments,
+       this field will be null.
+       Note that subscripts correspond to positions of
+       <structfield>proallargtypes</structfield> not <structfield>proargtypes</structfield>.
+-->
+関数の引数のモードを格納した配列。
+以下のようにエンコードされています。
+<literal>IN</literal>引数に対しては<literal>i</literal>、
+<literal>OUT</literal>引数に対しては<literal>o</literal>、
+<literal>INOUT</literal>引数に対しては<literal>b</literal>、
+<literal>VARIADIC</literal>引数に対しては<literal>v</literal>、
+<literal>TABLE</literal>引数に対しては<literal>t</literal>。
+もしすべての引数が<literal>IN</literal>引数であった場合は、この列はNULLです。
+添字は<structfield>proargtypes</structfield>ではなく<structfield>proallargtypes</structfield>の位置に対応していることに注意してください。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proargnames</structfield> <type>text[]</type>
+      </para>
+      <para>
+<!--
+       An array with the names of the function arguments.
+       Arguments without a name are set to empty strings in the array.
+       If none of the arguments have a name, this field will be null.
+       Note that subscripts correspond to positions of
+       <structfield>proallargtypes</structfield> not <structfield>proargtypes</structfield>.
+-->
+関数の引数名を格納する配列。
+名前のない引数は、配列内では空文字列で設定されます。
+もしすべての引数に名前がない場合は、この列はNULLです。
+添字は<structfield>proargtypes</structfield>ではなく<structfield>proallargtypes</structfield>の位置に対応していることに注意してください。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proargdefaults</structfield> <type>pg_node_tree</type>
+      </para>
+      <para>
+<!--
+       Expression trees (in <function>nodeToString()</function> representation)
+       for default values.  This is a list with
+       <structfield>pronargdefaults</structfield> elements, corresponding to the last
+       <replaceable>N</replaceable> <emphasis>input</emphasis> arguments (i.e., the last
+       <replaceable>N</replaceable> <structfield>proargtypes</structfield> positions).
+       If none of the arguments have defaults, this field will be null.
+-->
+デフォルト値のための(<function>nodeToString()</function>表現の)演算式ツリー。
+これは<structfield>pronargdefaults</structfield>の要素のリストで、最後の<replaceable>N</replaceable>個の<emphasis>入力</emphasis>引数と対応しています（つまり最後の<replaceable>N</replaceable> <structfield>proargtypes</structfield>の位置ということです）。
+もし引数にデフォルト値がない場合は、この列はNULLになります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>protrftypes</structfield> <type>oid[]</type>
+      </para>
+      <para>
+<!--
+       Data type OIDs for which to apply transforms.
+-->
+変換が適用されるデータ型のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prosrc</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       This tells the function handler how to invoke the function.  It
+       might be the actual source code of the function for interpreted
+       languages, a link symbol, a file name, or just about anything
+       else, depending on the implementation language/call convention.
+-->
+関数の起動方法を関数ハンドラに伝えます。
+実装言語や呼び出し規約に依存して、使用する言語用の関数の実際のソースコード、リンクシンボル、ファイル名などになります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>probin</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       Additional information about how to invoke the function.
+       Again, the interpretation is language-specific.
+-->
+関数の起動方法についての追加情報。
+同じように解釈は言語に依存します。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proconfig</structfield> <type>text[]</type>
+      </para>
+      <para>
+<!--
+       Function's local settings for run-time configuration variables
+-->
+実行時の設定変数に対する関数のローカル設定
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>proacl</structfield> <type>aclitem[]</type>
+      </para>
+      <para>
+<!--
+       Access privileges; see <xref linkend="ddl-priv"/> for details
+-->
+アクセス権限。
+詳細は<xref linkend="ddl-priv"/>を参照してください。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   For compiled functions, both built-in and dynamically loaded,
+   <structfield>prosrc</structfield> contains the function's C-language
+   name (link symbol).  For all other currently-known language types,
+   <structfield>prosrc</structfield> contains the function's source
+   text.  <structfield>probin</structfield> is unused except for
+   dynamically-loaded C functions, for which it gives the name of the
+   shared library file containing the function.
+-->
+コンパイル言語で作成された、組み込みおよび動的にロードされる関数では、<structfield>prosrc</structfield>は関数のC言語名（リンクシンボル）を持ちます。
+他の種類の言語はすべて、<structfield>prosrc</structfield>は関数のソーステキストを持ちます。
+<structfield>probin</structfield>は動的にロードされるC関数に対してその関数を保有する共有ライブラリファイルの名前を与える以外には使用されていません。
+  </para>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-publication">
+  <title><structname>pg_publication</structname></title>
+
+  <indexterm zone="catalog-pg-publication">
+   <primary>pg_publication</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_publication</structname> contains all
+   publications created in the database.  For more on publications see
+   <xref linkend="logical-replication-publication"/>.
+-->
+カタログ<structname>pg_publication</structname>には、データベース内に作成されたすべてのパブリケーションが含まれます。
+パブリケーションについての詳細は<xref linkend="logical-replication-publication"/>を参照してください。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_publication</structname> Columns</title>
+-->
+   <title><structname>pg_publication</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pubname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Name of the publication
+-->
+パブリケーションの名前
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pubowner</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Owner of the publication
+-->
+パブリケーションの所有者
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>puballtables</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, this publication automatically includes all tables
+       in the database, including any that will be created in the future.
+-->
+真の場合、このパブリケーションは、将来作成されるテーブルを含め、データベース内の全テーブルを自動的に含みます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pubinsert</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, <command>INSERT</command> operations are replicated for
+       tables in the publication.
+-->
+真の場合、パブリケーション内のテーブルに対する<command>INSERT</command>操作は複製されます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pubupdate</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, <command>UPDATE</command> operations are replicated for
+       tables in the publication.
+-->
+真の場合、パブリケーション内のテーブルに対する<command>UPDATE</command>操作は複製されます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pubdelete</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, <command>DELETE</command> operations are replicated for
+       tables in the publication.
+-->
+真の場合、パブリケーション内のテーブルに対する<command>DELETE</command>操作は複製されます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pubtruncate</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, <command>TRUNCATE</command> operations are replicated for
+       tables in the publication.
+-->
+真の場合、パブリケーション内のテーブルに対する<command>TRUNCATE</command>操作は複製されます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>pubviaroot</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, operations on a leaf partition are replicated using the
+       identity and schema of its topmost partitioned ancestor mentioned in the
+       publication instead of its own.
+-->
+真の場合、自分自身ではなく、パブリケーションが言及しているパーティションの最上位の祖先の識別子とスキーマを使って、リーフパーティションに対する操作が複製されます。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-publication-rel">
+  <title><structname>pg_publication_rel</structname></title>
+
+  <indexterm zone="catalog-pg-publication-rel">
+   <primary>pg_publication_rel</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_publication_rel</structname> contains the
+   mapping between relations and publications in the database.  This is a
+   many-to-many mapping.  See also <xref linkend="view-pg-publication-tables"/>
+   for a more user-friendly view of this information.
+-->
+カタログ<structname>pg_publication_rel</structname>にはデータベース内のリレーションとパブリケーションのマッピングが含まれます。
+これは多対多のマッピングです。
+この情報のよりユーザフレンドリなビューについては<xref linkend="view-pg-publication-tables"/>を参照してください。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_publication_rel</structname> Columns</title>
+-->
+   <title><structname>pg_publication_rel</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prpubid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-publication"><structname>pg_publication</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Reference to publication
+-->
+パブリケーションの参照
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>prrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Reference to relation
+-->
+リレーションの参照
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-range">
+  <title><structname>pg_range</structname></title>
+
+  <indexterm zone="catalog-pg-range">
+   <primary>pg_range</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_range</structname> stores information about
+   range types.  This is in addition to the types' entries in
+   <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.
+-->
+<structname>pg_range</structname>カタログは、範囲型についての情報を保存します。
+これは<link linkend="catalog-pg-type"><structname>pg_type</structname></link>内の型のエントリに追加されます。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_range</structname> Columns</title>
+-->
+   <title><structname>pg_range</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>rngtypid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the range type
+-->
+範囲型のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>rngsubtype</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the element type (subtype) of this range type
+-->
+この範囲型の要素型(派生元型)のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>rngcollation</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-collation"><structname>pg_collation</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the collation used for range comparisons, or 0 if none
+-->
+範囲比較のために使用される照合のOID。何もない場合はゼロです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>rngsubopc</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-opclass"><structname>pg_opclass</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the subtype's operator class used for range comparisons
+-->
+範囲比較のために使用される派生元型の演算子クラスのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>rngcanonical</structfield> <type>regproc</type>
+       (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the function to convert a range value into canonical form,
+       or 0 if none
+-->
+範囲型を標準型に変換する関数のOID。何もない場合はゼロです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>rngsubdiff</structfield> <type>regproc</type>
+       (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the function to return the difference between two element
+       values as <type>double precision</type>, or 0 if none
+-->
+２つの要素値の間の違いを<type>double precision</type>として返す関数のOID、なければゼロ
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   <structfield>rngsubopc</structfield> (plus <structfield>rngcollation</structfield>, if the
+   element type is collatable) determines the sort ordering used by the range
+   type.  <structfield>rngcanonical</structfield> is used when the element type is
+   discrete.  <structfield>rngsubdiff</structfield> is optional but should be supplied to
+   improve performance of GiST indexes on the range type.
+-->
+   <structfield>rngsubopc</structfield> (および、要素型が照合可能である場合は<structfield>rngcollation</structfield>)は
+   範囲型で使用されるソートの順番を決定します。<structfield>rngcanonical</structfield>は要素型が離散的である場合に使用されます。
+   <structfield>rngsubdiff</structfield>は省略可能ですが、範囲型に対するGiSTインデックスの性能を向上するためには提供しなければなりません。
+  </para>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-replication-origin">
+  <title><structname>pg_replication_origin</structname></title>
+
+  <indexterm zone="catalog-pg-replication-origin">
+   <primary>pg_replication_origin</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The <structname>pg_replication_origin</structname> catalog contains
+   all replication origins created.  For more on replication origins
+   see <xref linkend="replication-origins"/>.
+-->
+<structname>pg_replication_origin</structname>カタログは、作成されたすべてのレプリケーション起点を含んでいます。
+レプリケーション起点についての詳細は<xref linkend="replication-origins"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   Unlike most system catalogs, <structname>pg_replication_origin</structname>
+   is shared across all databases of a cluster: there is only one copy
+   of <structname>pg_replication_origin</structname> per cluster, not one per
+   database.
+-->
+ほとんどのシステムカタログとは異なり、<structname>pg_replication_origin</structname>はクラスタ内の全データベースで共有されます。
+つまりクラスタごとに<structname>pg_pg_replication_origin</structname>の実体は1つだけ存在し、データベースごとに1つではありません。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_replication_origin</structname> Columns</title>
+-->
+   <title><structname>pg_replication_origin</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>roident</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       A unique, cluster-wide identifier for the replication
+       origin. Should never leave the system.
+-->
+クラスタ全体で一意なレプリケーション起点の識別子。
+システムから除かれてはいけません。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>roname</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       The external, user defined, name of a replication
+       origin.
+-->
+レプリケーション起点のユーザ定義の外部名
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-rewrite">
+  <title><structname>pg_rewrite</structname></title>
+
+  <indexterm zone="catalog-pg-rewrite">
+   <primary>pg_rewrite</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_rewrite</structname> stores rewrite rules for tables and views.
+-->
+   <structname>pg_rewrite</structname>カタログはテーブルとビューに対する書き換えルールを保存します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_rewrite</structname> Columns</title>
+-->
+   <title><structname>pg_rewrite</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>rulename</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Rule name
+-->
+ルール名
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>ev_class</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The table this rule is for
+-->
+ルールを適用するテーブル
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>ev_type</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       Event type that the rule is for: 1 = <command>SELECT</command>, 2 =
+       <command>UPDATE</command>, 3 = <command>INSERT</command>, 4 =
+       <command>DELETE</command>
+-->
+ルールを適用するイベントの型：
+1 = <command>SELECT</command>、
+2 = <command>UPDATE</command>、
+3 = <command>INSERT</command>、
+4 = <command>DELETE</command>
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>ev_enabled</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       Controls in which <xref linkend="guc-session-replication-role"/> modes
+       the rule fires.
+       <literal>O</literal> = rule fires in <quote>origin</quote> and <quote>local</quote> modes,
+       <literal>D</literal> = rule is disabled,
+       <literal>R</literal> = rule fires in <quote>replica</quote> mode,
+       <literal>A</literal> = rule fires always.
+-->
+ルールがどの<xref linkend="guc-session-replication-role"/>モードで発行されるかを制御します。
+<literal>O</literal> = ルールは<quote>origin</quote>および<quote>local</quote>モードで発行。
+<literal>D</literal> = ルールは無効。
+<literal>R</literal> = ルールは<quote>replica</quote>モードで発行。
+<literal>A</literal> = ルールは常に発行。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>is_instead</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       True if the rule is an <literal>INSTEAD</literal> rule
+-->
+ルールが<literal>INSTEAD</literal>ルールの場合は真
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>ev_qual</structfield> <type>pg_node_tree</type>
+      </para>
+      <para>
+<!--
+       Expression tree (in the form of a
+       <function>nodeToString()</function> representation) for the
+       rule's qualifying condition
+-->
+ルールの制約条件に対する（<function>nodeToString()</function>表現による）演算式ツリー
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>ev_action</structfield> <type>pg_node_tree</type>
+      </para>
+      <para>
+<!--
+       Query tree (in the form of a
+       <function>nodeToString()</function> representation) for the
+       rule's action
+-->
+ルールのアクションに対する（<function>nodeToString()</function>表現による）問い合わせツリー
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <note>
+   <para>
+<!--
+    <literal>pg_class.relhasrules</literal>
+    must be true if a table has any rules in this catalog.
+-->
+   テーブルがこのカタログ内のルールを持つ場合、<literal>pg_class.relhasrules</literal>は真でなければなりません。
+   </para>
+  </note>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-seclabel">
+  <title><structname>pg_seclabel</structname></title>
+
+  <indexterm zone="catalog-pg-seclabel">
+   <primary>pg_seclabel</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_seclabel</structname> stores security
+   labels on database objects.  Security labels can be manipulated
+   with the <xref linkend="sql-security-label"/> command.  For an easier
+   way to view security labels, see <xref linkend="view-pg-seclabels"/>.
+-->
+<structname>pg_seclabel</structname>カタログにはデータベースオブジェクト上のセキュリティラベルが格納されます。
+セキュリティラベルは<xref linkend="sql-security-label"/>コマンドを用いて操作することができます。
+セキュリティラベルを閲覧するより簡単な方法については<xref linkend="view-pg-seclabels"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   See also <link linkend="catalog-pg-shseclabel"><structname>pg_shseclabel</structname></link>,
+   which performs a similar function for security labels of database objects
+   that are shared across a database cluster.
+-->
+<link linkend="catalog-pg-shseclabel"><structname>pg_shseclabel</structname></link>を参照してください。
+これは、データベースクラスタ間で共有されたデータベースオブジェクトにおけるセキュリティラベルのための類似した機能を提供します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_seclabel</structname> Columns</title>
+-->
+   <title><structname>pg_seclabel</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>objoid</structfield> <type>oid</type>
+       (references any OID column)
+      </para>
+      <para>
+<!--
+       The OID of the object this security label pertains to
+-->
+このセキュリティラベルが関係するオブジェクトのOIDです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>classoid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the system catalog this object appears in
+-->
+このオブジェクトが現れるシステムカタログのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>objsubid</structfield> <type>int4</type>
+      </para>
+      <para>
+<!--
+       For a security label on a table column, this is the column number (the
+       <structfield>objoid</structfield> and <structfield>classoid</structfield> refer to
+       the table itself).  For all other object types, this column is
+       zero.
+-->
+テーブル列上のセキュリティラベルでは、これは列番号です（<structfield>objoid</structfield>および<structfield>classoid</structfield>はテーブル自身を参照します）。
+他のすべての種類のオブジェクトでは、この列はゼロです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>provider</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       The label provider associated with this label.
+-->
+このラベルに関連付いたラベルプロバイダです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>label</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       The security label applied to this object.
+-->
+このオブジェクトに適用されるセキュリティラベルです。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-sequence">
+  <title><structname>pg_sequence</structname></title>
+
+  <indexterm zone="catalog-pg-sequence">
+   <primary>pg_sequence</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_sequence</structname> contains information about
+   sequences.  Some of the information about sequences, such as the name and
+   the schema, is in <structname>pg_class</structname>.
+-->
+カタログ<structname>pg_sequence</structname>にはシーケンスに関する情報が含まれます。
+名前やスキーマなどシーケンスに関する情報の一部は<structname>pg_class</structname>にあります。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_sequence</structname> Columns</title>
+-->
+   <title><structname>pg_sequence</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the <structname>pg_class</structname> entry for this sequence
+-->
+このシーケンスの<structname>pg_class</structname>のエントリのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqtypid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Data type of the sequence
+-->
+シーケンスのデータ型
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqstart</structfield> <type>int8</type>
+      </para>
+      <para>
+<!--
+       Start value of the sequence
+-->
+シーケンスの開始値
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqincrement</structfield> <type>int8</type>
+      </para>
+      <para>
+<!--
+       Increment value of the sequence
+-->
+シーケンスの増分値
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqmax</structfield> <type>int8</type>
+      </para>
+      <para>
+<!--
+       Maximum value of the sequence
+-->
+シーケンスの最大値
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqmin</structfield> <type>int8</type>
+      </para>
+      <para>
+<!--
+       Minimum value of the sequence
+-->
+シーケンスの最小値
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqcache</structfield> <type>int8</type>
+      </para>
+      <para>
+<!--
+       Cache size of the sequence
+-->
+シーケンスのキャッシュサイズ
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>seqcycle</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       Whether the sequence cycles
+-->
+シーケンスが周回するかどうか
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-shdepend">
+  <title><structname>pg_shdepend</structname></title>
+
+  <indexterm zone="catalog-pg-shdepend">
+   <primary>pg_shdepend</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_shdepend</structname> records the
+   dependency relationships between database objects and shared objects,
+   such as roles.  This information allows
+   <productname>PostgreSQL</productname> to ensure that those objects are
+   unreferenced before attempting to delete them.
+-->
+<structname>pg_shdepend</structname>カタログは、データベースオブジェクトとロールのような共有オブジェクト間のリレーション依存関係を保持します。
+この情報は<productname>PostgreSQL</productname>が依存関係を削除しようとする前に、これらのオブジェクトを参照されないようにすることを保証することを許可します。
+  </para>
+
+  <para>
+<!--
+   See also <link linkend="catalog-pg-depend"><structname>pg_depend</structname></link>,
+   which performs a similar function for dependencies involving objects
+   within a single database.
+-->
+<link linkend="catalog-pg-depend"><structname>pg_depend</structname></link>も参照してください。
+<structname>pg_depend</structname>は単一のデータベース内のオブジェクトに関する依存関係について同じような機能を実行します。
+  </para>
+
+  <para>
+<!--
+   Unlike most system catalogs, <structname>pg_shdepend</structname>
+   is shared across all databases of a cluster: there is only one
+   copy of <structname>pg_shdepend</structname> per cluster, not
+   one per database.
+-->
+多くのシステムカタログと異なり<structname>pg_shdepend</structname>はクラスタの全てのデータベースに共有されています。
+データベース毎ではなく、クラスタ毎にただ1つの<structname>pg_shdepend</structname>のコピーがあります。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_shdepend</structname> Columns</title>
+-->
+   <title><structname>pg_shdepend</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>dbid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the database the dependent object is in,
+       or zero for a shared object
+-->
+依存するオブジェクトが格納されたデータベースのOID。共有オブジェクトではゼロ
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>classid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the system catalog the dependent object is in
+-->
+依存するオブジェクトを含んだシステムカタログのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>objid</structfield> <type>oid</type>
+       (references any OID column)
+      </para>
+      <para>
+<!--
+       The OID of the specific dependent object
+-->
+特定の依存するオブジェクトのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>objsubid</structfield> <type>int4</type>
+      </para>
+      <para>
+<!--
+       For a table column, this is the column number (the
+       <structfield>objid</structfield> and <structfield>classid</structfield> refer to the
+       table itself).  For all other object types, this column is zero.
+-->
+テーブル列の場合、これは列番号です(<structfield>objid</structfield>と<structfield>classid</structfield>はテーブル自身を参照します)。
+他のすべての種類のオブジェクトでは、この列はゼロになります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>refclassid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the system catalog the referenced object is in
+       (must be a shared catalog)
+-->
+参照されるオブジェクトが入っているシステムカタログのOID（共有カタログである必要があります）
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>refobjid</structfield> <type>oid</type>
+       (references any OID column)
+      </para>
+      <para>
+<!--
+       The OID of the specific referenced object
+-->
+特定の参照されるオブジェクトのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>deptype</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       A code defining the specific semantics of this dependency relationship; see text
+-->
+この依存関係の特定のセマンティクスを定義するコード（後述）。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   In all cases, a <structname>pg_shdepend</structname> entry indicates that
+   the referenced object cannot be dropped without also dropping the dependent
+   object.  However, there are several subflavors identified by
+   <structfield>deptype</structfield>:
+-->
+すべての場合において、<structname>pg_shdepend</structname>項目は依存するオブジェクトも削除しない限り、参照されるオブジェクトを削除できないことを示します。
+もっとも、<structfield>deptype</structfield>によって指定される以下のようないくつかのオプションもあります。
+
+   <variablelist>
+    <varlistentry>
+     <term><symbol>SHARED_DEPENDENCY_OWNER</symbol> (<literal>o</literal>)</term>
+     <listitem>
+      <para>
+<!--
+       The referenced object (which must be a role) is the owner of the
+       dependent object.
+-->
+       参照されるオブジェクト（ロールである必要があります）が依存するオブジェクトの所有者です。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><symbol>SHARED_DEPENDENCY_ACL</symbol> (<literal>a</literal>)</term>
+     <listitem>
+      <para>
+<!--
+       The referenced object (which must be a role) is mentioned in the
+       ACL (access control list, i.e., privileges list) of the
+       dependent object.  (A <symbol>SHARED_DEPENDENCY_ACL</symbol> entry is
+       not made for the owner of the object, since the owner will have
+       a <symbol>SHARED_DEPENDENCY_OWNER</symbol> entry anyway.)
+-->
+参照されたオブジェクト（ロールである必要があります）が、依存するオブジェクトのACL（アクセス制御リスト。権限リストのこと）内で述べられています。
+（所有者は<symbol>SHARED_DEPENDENCY_OWNER</symbol>項目を持つため、<symbol>SHARED_DEPENDENCY_ACL</symbol>項目は、オブジェクトの所有者に対して作成されません。）
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><symbol>SHARED_DEPENDENCY_POLICY</symbol> (<literal>r</literal>)</term>
+     <listitem>
+      <para>
+<!--
+       The referenced object (which must be a role) is mentioned as the
+       target of a dependent policy object.
+-->
+参照されたオブジェクト（ロールである必要があります）が、依存するポリシーオブジェクトのターゲットとして述べられています。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><symbol>SHARED_DEPENDENCY_PIN</symbol> (<literal>p</literal>)</term>
+     <listitem>
+      <para>
+<!--
+       There is no dependent object; this type of entry is a signal
+       that the system itself depends on the referenced object, and so
+       that object must never be deleted.  Entries of this type are
+       created only by <command>initdb</command>.  The columns for the
+       dependent object contain zeroes.
+-->
+依存するオブジェクトはありません。
+この種類の項目は、システム自体が参照されるオブジェクトに依存している記号です。
+よってオブジェクトは削除されてはいけません。
+この種類の項目は<command>initdb</command>によってのみ作成されます。
+依存するオブジェクトの列はゼロを含んでいます。
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+
+<!--
+   Other dependency flavors might be needed in future.  Note in particular
+   that the current definition only supports roles as referenced objects.
+-->
+他の依存関係のオプションが将来必要になる可能性があります。
+現状の定義は、参照されるオブジェクトとしてロールのみをサポートしていることに特に注意してください。
+  </para>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-shdescription">
+  <title><structname>pg_shdescription</structname></title>
+
+  <indexterm zone="catalog-pg-shdescription">
+   <primary>pg_shdescription</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_shdescription</structname> stores optional
+   descriptions (comments) for shared database objects.  Descriptions can be
+   manipulated with the <xref linkend="sql-comment"/> command and viewed with
+   <application>psql</application>'s <literal>\d</literal> commands.
+-->
+<structname>pg_shdescription</structname>には共有データベースオブジェクトに対する補足説明（コメント）を格納します。
+補足説明は<xref linkend="sql-comment"/>コマンドを使用して編集でき、<application>psql</application>の<literal>\d</literal>コマンドを使用して閲覧することができます。
+  </para>
+
+  <para>
+<!--
+   See also <link linkend="catalog-pg-description"><structname>pg_description</structname></link>,
+   which performs a similar function for descriptions involving objects
+   within a single database.
+-->
+<link linkend="catalog-pg-description"><structname>pg_description</structname></link>も参照してください。
+こちらは、単一データベース内のオブジェクトに関する説明について、同様の機能を行います。
+  </para>
+
+  <para>
+<!--
+   Unlike most system catalogs, <structname>pg_shdescription</structname>
+   is shared across all databases of a cluster: there is only one
+   copy of <structname>pg_shdescription</structname> per cluster, not
+   one per database.
+-->
+他のシステムカタログと異なり、<structname>pg_shdescription</structname>はクラスタ内のすべてのデータベースに渡って共有されます。
+データベース毎に存在するのではなく、1つのクラスタに<structname>pg_shdescription</structname>が1つのみ存在します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_shdescription</structname> Columns</title>
+-->
+   <title><structname>pg_shdescription</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>objoid</structfield> <type>oid</type>
+       (references any OID column)
+      </para>
+      <para>
+<!--
+       The OID of the object this description pertains to
+-->
+この補足説明が属するオブジェクトのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>classoid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the system catalog this object appears in
+-->
+このオブジェクトが現れるシステムカタログのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>description</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       Arbitrary text that serves as the description of this object
+-->
+このオブジェクトの説明となる任意のテキスト
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-shseclabel">
+  <title><structname>pg_shseclabel</structname></title>
+
+  <indexterm zone="catalog-pg-shseclabel">
+   <primary>pg_shseclabel</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_shseclabel</structname> stores security
+   labels on shared database objects.  Security labels can be manipulated
+   with the <xref linkend="sql-security-label"/> command.  For an easier
+   way to view security labels, see <xref linkend="view-pg-seclabels"/>.
+-->
+<structname>pg_shseclabel</structname>カタログは、共有データベースオブジェクト上のセキュリティラベルを保存します。
+セキュリティラベルは<xref linkend="sql-security-label"/>コマンドで操作されます。
+セキュリティラベルを見る簡単な方法は、<xref linkend="view-pg-seclabels"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   See also <link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link>,
+   which performs a similar function for security labels involving objects
+   within a single database.
+-->
+<link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link>も参照してください。
+これは、単一データベース内のオブジェクトを含むセキュリティラベルのための類似した機能を提供します。
+  </para>
+
+  <para>
+<!--
+   Unlike most system catalogs, <structname>pg_shseclabel</structname>
+   is shared across all databases of a cluster: there is only one
+   copy of <structname>pg_shseclabel</structname> per cluster, not
+   one per database.
+-->
+多くのシステムカタログと違い、<structname>pg_shseclabel</structname>はクラスタ内の全てのデータベース間で共有されます。
+<structname>pg_shseclabel</structname>は、データベースごとではなく、クラスタごとに1つのみ存在します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_shseclabel</structname> Columns</title>
+-->
+   <title><structname>pg_shseclabel</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>objoid</structfield> <type>oid</type>
+       (references any OID column)
+      </para>
+      <para>
+<!--
+       The OID of the object this security label pertains to
+-->
+このセキュリティラベルが関係するオブジェクトのOIDです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>classoid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the system catalog this object appears in
+-->
+このオブジェクトが現れるシステムカタログのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>provider</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       The label provider associated with this label.
+-->
+このラベルに関連付いたラベルプロバイダです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>label</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       The security label applied to this object.
+-->
+このオブジェクトに適用されるセキュリティラベルです。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-statistic">
+  <title><structname>pg_statistic</structname></title>
+
+  <indexterm zone="catalog-pg-statistic">
+   <primary>pg_statistic</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_statistic</structname> stores
+   statistical data about the contents of the database.  Entries are
+   created by <xref linkend="sql-analyze"/>
+   and subsequently used by the query planner.  Note that all the
+   statistical data is inherently approximate, even assuming that it
+   is up-to-date.
+-->
+<structname>pg_statistic</structname>カタログはデータベースの内容に関する統計データを保存します。
+項目は<xref linkend="sql-analyze"/>で作成され、後に問い合わせプランナで使用されます。
+最新のものと思ってもすべての統計データは本質的に大雑把なものであることに注意してください。
+  </para>
+
+  <para>
+<!--
+   Normally there is one entry, with <structfield>stainherit</structfield> =
+   <literal>false</literal>, for each table column that has been analyzed.
+   If the table has inheritance children, a second entry with
+   <structfield>stainherit</structfield> = <literal>true</literal> is also created.  This row
+   represents the column's statistics over the inheritance tree, i.e.,
+   statistics for the data you'd see with
+   <literal>SELECT <replaceable>column</replaceable> FROM <replaceable>table</replaceable>*</literal>,
+   whereas the <structfield>stainherit</structfield> = <literal>false</literal> row represents
+   the results of
+   <literal>SELECT <replaceable>column</replaceable> FROM ONLY <replaceable>table</replaceable></literal>.
+-->
+通常は、解析されるテーブル列毎に、<structfield>stainherit</structfield> = <literal>false</literal>を持つ1つの項目が存在します。
+テーブルが継承された子を持つ場合、<structfield>stainherit</structfield> = <literal>true</literal>を持つ2つ目の項目が作成されます。
+この行は継承ツリー全体に渡る列の統計情報、つまり、<literal>SELECT <replaceable>column</replaceable> FROM <replaceable>table</replaceable>*</literal>で確認できるデータに対する統計情報を表します。
+一方で<structfield>stainherit</structfield> = <literal>false</literal>の行は<literal>SELECT <replaceable>column</replaceable> FROM ONLY <replaceable>table</replaceable></literal>の結果を表します。
+  </para>
+
+  <para>
+<!--
+   <structname>pg_statistic</structname> also stores statistical data about
+   the values of index expressions.  These are described as if they were
+   actual data columns; in particular, <structfield>starelid</structfield>
+   references the index.  No entry is made for an ordinary non-expression
+   index column, however, since it would be redundant with the entry
+   for the underlying table column.  Currently, entries for index expressions
+   always have <structfield>stainherit</structfield> = <literal>false</literal>.
+-->
+<structname>pg_statistic</structname>はインデックス式の値についての統計データも格納します。
+これらはあたかも値が実際のデータ列であるかのように表現されます。
+特に<structfield>starelid</structfield>はインデックスを参照します。
+これは元のテーブル列の項目に対して冗長となるので、普通の式を持たないインデックス列では項目は作成されません。
+現在インデックス式用の項目は常に<structfield>stainherit</structfield> = <literal>false</literal>を持ちます。
+  </para>
+
+  <para>
+<!--
+   Since different kinds of statistics might be appropriate for different
+   kinds of data, <structname>pg_statistic</structname> is designed not
+   to assume very much about what sort of statistics it stores.  Only
+   extremely general statistics (such as nullness) are given dedicated
+   columns in <structname>pg_statistic</structname>.  Everything else
+   is stored in <quote>slots</quote>, which are groups of associated columns
+   whose content is identified by a code number in one of the slot's columns.
+   For more information see
+   <filename>src/include/catalog/pg_statistic.h</filename>.
+-->
+異なる種類のデータに対しては違った種類の統計が相応しいことから<structname>pg_statistic</structname>はどのような情報を保存するか深く推定しないように設計されています。
+（例えばNULLであるような）極端に一般的な統計のみ<structname>pg_statistic</structname>の特定の列に入ります。
+その他すべてはスロット列の内の1つのコード番号でその内容が識別される相関している列のグループである<quote>スロット</quote>に保存されます。
+<filename>src/include/catalog/pg_statistic.h</filename>を参照してください。
+  </para>
+
+  <para>
+<!--
+   <structname>pg_statistic</structname> should not be readable by the
+   public, since even statistical information about a table's contents
+   might be considered sensitive.  (Example: minimum and maximum values
+   of a salary column might be quite interesting.)
+   <link linkend="view-pg-stats"><structname>pg_stats</structname></link>
+   is a publicly readable view on
+   <structname>pg_statistic</structname> that only exposes information
+   about those tables that are readable by the current user.
+-->
+<structname>pg_statistic</structname>はテーブル内容に関する統計情報と言えども秘密の情報とみなされますので、一般のユーザが読み取り可能であってはいけません。
+（給与列の最高額と最低額などは誰もが興味をそそられる良い例ですよね。）
+<link linkend="view-pg-stats"><structname>pg_stats</structname></link>は一般のユーザが読み取り可能な<structname>pg_statistic</structname>に対するビューで、既存のユーザが読んでも差し支えないテーブルの情報のみを開示しています。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_statistic</structname> Columns</title>
+-->
+   <title><structname>pg_statistic</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>starelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The table or index that the described column belongs to
+-->
+記述された列が属するテーブルもしくはインデックス
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>staattnum</structfield> <type>int2</type>
+       (references <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attnum</structfield>)
+      </para>
+      <para>
+<!--
+       The number of the described column
+-->
+記述された列数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stainherit</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, the stats include inheritance child columns, not just the
+       values in the specified relation
+-->
+真の場合、統計情報には指定されたテーブルの値だけではなく、継承関係の子の列が含まれます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stanullfrac</structfield> <type>float4</type>
+      </para>
+      <para>
+<!--
+       The fraction of the column's entries that are null
+-->
+NULL値である列項目の割合
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stawidth</structfield> <type>int4</type>
+      </para>
+      <para>
+<!--
+       The average stored width, in bytes, of nonnull entries
+-->
+非NULL項目の平均保存幅（バイト単位）
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stadistinct</structfield> <type>float4</type>
+      </para>
+      <para>
+<!--
+       The number of distinct nonnull data values in the column.
+       A value greater than zero is the actual number of distinct values.
+       A value less than zero is the negative of a multiplier for the number
+       of rows in the table; for example, a column in which about 80% of the
+       values are nonnull and each nonnull value appears about twice on
+       average could be represented by <structfield>stadistinct</structfield> = -0.4.
+       A zero value means the number of distinct values is unknown.
+-->
+列内で非NULL個別値を持つデータ数。
+ゼロより大きい値は実際の個別値の数です。
+ゼロより小さい値はテーブル内の行数に対する乗数を負にしたものです。
+例えば、約80%の値が非NULLで、それぞれの非NULL値が平均して2回ほど出現する列は<structfield>stadistinct</structfield> = -0.4であると表現されます。
+ゼロは個別値の数を特定できない場合です。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stakind<replaceable>N</replaceable></structfield> <type>int2</type>
+      </para>
+      <para>
+<!--
+       A code number indicating the kind of statistics stored in the
+       <replaceable>N</replaceable>th <quote>slot</quote> of the
+       <structname>pg_statistic</structname> row.
+-->
+<structname>pg_statistic</structname>行の<replaceable>N</replaceable>番目の<quote>スロット</quote>に保存されている統計情報の種類を示すコード番号。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>staop<replaceable>N</replaceable></structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-operator"><structname>pg_operator</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       An operator used to derive the statistics stored in the
+       <replaceable>N</replaceable>th <quote>slot</quote>.  For example, a
+       histogram slot would show the <literal>&lt;</literal> operator
+       that defines the sort order of the data.
+-->
+<replaceable>N</replaceable>番目の<quote>スロット</quote>に保存されている統計情報を引き出すために使われる演算子。
+例えば、度数分布スロットはデータの並び換えの順序を定義する<literal>&lt;</literal>演算子を示します。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stacoll<replaceable>N</replaceable></structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-collation"><structname>pg_collation</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The collation used to derive the statistics stored in the
+       <replaceable>N</replaceable>th <quote>slot</quote>.  For example, a
+       histogram slot for a collatable column would show the collation that
+       defines the sort order of the data.  Zero for noncollatable data.
+-->
+<replaceable>N</replaceable>番目の<quote>スロット</quote>に格納された統計情報を派生させるために使われる照合順序。
+たとえば、照合可能な列のヒストグラムスロットはそのデータをソート順を定義する照合順を表示します。
+ゼロなら照合可能ではないデータです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stanumbers<replaceable>N</replaceable></structfield> <type>float4[]</type>
+      </para>
+      <para>
+<!--
+       Numerical statistics of the appropriate kind for the
+       <replaceable>N</replaceable>th <quote>slot</quote>, or null if the slot
+       kind does not involve numerical values
+-->
+<replaceable>N</replaceable>番目の<quote>スロット</quote>に対する適切な種類の数値統計情報、もしくはスロットの種類に数値が含まれない時はNULLです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stavalues<replaceable>N</replaceable></structfield> <type>anyarray</type>
+      </para>
+      <para>
+<!--
+       Column data values of the appropriate kind for the
+       <replaceable>N</replaceable>th <quote>slot</quote>, or null if the slot
+       kind does not store any data values.  Each array's element
+       values are actually of the specific column's data type, or a related
+       type such as an array's element type, so there is no way to define
+       these columns' type more specifically than <type>anyarray</type>.
+-->
+<replaceable>N</replaceable>番目の<quote>スロット</quote>に対する適切な種類の列データの値、もしくはスロットの種類にデータ値が何も保存されていない場合はNULL。
+それぞれの配列要素の値は実際には特定された列のデータ型、もしくは配列要素の型といったような関連のある型になります。ですから<type>anyarray</type>とする以外に列型を定義することはできません。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-statistic-ext">
+  <title><structname>pg_statistic_ext</structname></title>
+
+  <indexterm zone="catalog-pg-statistic-ext">
+   <primary>pg_statistic_ext</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_statistic_ext</structname>
+   holds definitions of extended planner statistics.
+   Each row in this catalog corresponds to a <firstterm>statistics object</firstterm>
+   created with <xref linkend="sql-createstatistics"/>.
+-->
+カタログ<structname>pg_statistic_ext</structname>はプランナの拡張統計情報の定義を保持します。
+このカタログの各行は<xref linkend="sql-createstatistics"/>で作成された<firstterm>統計オブジェクト</firstterm>に対応します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_statistic_ext</structname> Columns</title>
+-->
+   <title><structname>pg_statistic_ext</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Table containing the columns described by this object
+-->
+このオブジェクトが記述する列を含むテーブル
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Name of the statistics object
+-->
+統計オブジェクトの名前
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxnamespace</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the namespace that contains this statistics object
+-->
+この統計オブジェクトを含む名前空間のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxowner</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Owner of the statistics object
+-->
+統計オブジェクトの所有者
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxstattarget</structfield> <type>int4</type>
+      </para>
+      <para>
+<!--
+       <structfield>stxstattarget</structfield> controls the level of detail
+       of statistics accumulated for this statistics object by
+       <xref linkend="sql-analyze"/>.
+       A zero value indicates that no statistics should be collected.
+       A negative value says to use the maximum of the statistics targets of
+       the referenced columns, if set, or the system default statistics target.
+       Positive values of <structfield>stxstattarget</structfield>
+       determine the target number of <quote>most common values</quote>
+       to collect.
+-->
+<structfield>stxstattarget</structfield>は<xref linkend="sql-analyze"/>によるこの列に対する蓄積された統計情報をどの程度詳しく管理するかを規定します。
+値がゼロの場合は統計情報を収集しません。
+負の値の場合は、参照する列の統計情報の収集目標の最大値があればそれを使い、なければシステムのデフォルトの統計目標を使用すべきであるということです。
+正の値の<structfield>stxstattarget</structfield>は、収集する<quote>最も一般的な値</quote>の目標となる数を決定します。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxkeys</structfield> <type>int2vector</type>
+       (references <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attnum</structfield>)
+      </para>
+      <para>
+<!--
+       An array of attribute numbers, indicating which table columns are
+       covered by this statistics object;
+       for example a value of <literal>1 3</literal> would
+       mean that the first and the third table columns are covered
+-->
+属性番号の配列で、どのテーブル列が統計オブジェクトに含まれるかを示します。
+例えば、値が<literal>1 3</literal>なら、テーブルの1番目と3番目の列が含まれるということになります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxkind</structfield> <type>char[]</type>
+      </para>
+      <para>
+<!--
+       An array containing codes for the enabled statistic kinds;
+       valid values are:
+       <literal>d</literal> for n-distinct statistics,
+       <literal>f</literal> for functional dependency statistics, and
+       <literal>m</literal> for most common values (MCV) list statistics
+-->
+有効にされた統計種別のコードが入る配列です。
+有効な値は、N個別統計を表す<literal>d</literal>と、関数従属統計を表す<literal>f</literal>と最も共通した値(MCV)を表す<literal>m</literal>です。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   The <structname>pg_statistic_ext</structname> entry is filled in
+   completely during <command>CREATE STATISTICS</command>, but the actual
+   statistical values are not computed then.
+   Subsequent <command>ANALYZE</command> commands compute the desired values
+   and populate an entry in the
+   <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
+   catalog.
+-->
+<command>CREATE STATISTICS</command>の実行中に<structname>pg_statistic_ext</structname>エントリはすべて満たされますが、実際の統計データ値は計算されません。
+あとで実行される<command>ANALYZE</command>コマンドが必要な値を計算し、<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>カタログのエントリに投入します。
+  </para>
+ </sect1>
+
+ <sect1 id="catalog-pg-statistic-ext-data">
+  <title><structname>pg_statistic_ext_data</structname></title>
+
+  <indexterm zone="catalog-pg-statistic-ext">
+   <primary>pg_statistic_ext_data</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_statistic_ext_data</structname>
+   holds data for extended planner statistics defined in <structname>pg_statistic_ext</structname>.
+   Each row in this catalog corresponds to a <firstterm>statistics object</firstterm>
+   created with <xref linkend="sql-createstatistics"/>.
+-->
+カタログ<structname>pg_statistic_ext_data</structname>は、<structname>pg_statistic_ext</structname>で定義されたプランナの拡張統計情報のデータを保持します。
+このカタログの個々の行は<xref linkend="sql-createstatistics"/>で作成された<firstterm>統計情報オブジェクト</firstterm>に関連します。
+  </para>
+
+  <para>
+<!--
+   Like <structname>pg_statistic</structname>,
+   <structname>pg_statistic_ext_data</structname> should not be
+   readable by the public, since the contents might be considered sensitive.
+   (Example: most common combinations of values in columns might be quite
+   interesting.)
+   <link linkend="view-pg-stats-ext"><structname>pg_stats_ext</structname></link>
+   is a publicly readable view
+   on <structname>pg_statistic_ext_data</structname> (after joining
+   with <structname>pg_statistic_ext</structname>) that only exposes
+   information about those tables and columns that are readable by the
+   current user.
+-->
+<structname>pg_statistic</structname>同様、<structname>pg_statistic_ext_data</structname>はテーブル内容が秘密の情報とみなされますので、一般のユーザが読み取り可能であってはいけません。
+（列の値の最も共通した組み合わせは誰もが興味をそそられる良い例ですよね。）
+<link linkend="view-pg-stats-ext"><structname>pg_stats_ext</structname></link>は一般のユーザが読み取り可能な（<structname>pg_statistic_ext</structname>と結合後の）<structname>pg_statistic_ext_data</structname>に対するビューで、現在のユーザが読んでも差し支えないテーブルと列の情報のみを開示しています。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_statistic_ext_data</structname> Columns</title>
+-->
+   <title><structname>pg_statistic_ext_data</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxoid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Extended statistic object containing the definition for this data
+-->
+このデータの定義を含む拡張統計情報オブジェクト
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxdndistinct</structfield> <type>pg_ndistinct</type>
+      </para>
+      <para>
+<!--
+       N-distinct counts, serialized as <structname>pg_ndistinct</structname> type
+-->
+<structname>pg_ndistinct</structname>型にシリアライズされたN個別値の数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxddependencies</structfield> <type>pg_dependencies</type>
+      </para>
+      <para>
+<!--
+       Functional dependency statistics, serialized
+       as <structname>pg_dependencies</structname> type
+-->
+<structname>pg_dependencies</structname>型にシリアライズされた関数従属統計
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>stxdmcv</structfield> <type>pg_mcv_list</type>
+      </para>
+      <para>
+<!--
+       MCV (most-common values) list statistics, serialized as
+       <structname>pg_mcv_list</structname> type
+-->
+<structname>pg_mcv_list</structname>型にシリアライズされたMCV（最も共通の値）リスト統計情報
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+ </sect1>
+
+ <sect1 id="catalog-pg-subscription">
+  <title><structname>pg_subscription</structname></title>
+
+  <indexterm zone="catalog-pg-subscription">
+   <primary>pg_subscription</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_subscription</structname> contains all existing
+   logical replication subscriptions.  For more information about logical
+   replication see <xref linkend="logical-replication"/>.
+-->
+カタログ<structname>pg_subscription</structname>には、存在するすべての論理レプリケーションのサブスクリプションが入ります。
+論理レプリケーションについての詳細な情報は<xref linkend="logical-replication"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   Unlike most system catalogs, <structname>pg_subscription</structname> is
+   shared across all databases of a cluster: there is only one copy
+   of <structname>pg_subscription</structname> per cluster, not one per
+   database.
+-->
+ほとんどのシステムカタログとは異なり、<structname>pg_subscription</structname>はクラスタ内の全データベースで共有されます。
+つまりクラスタごとに<structname>pg_subscription</structname>の実体は1つだけ存在し、データベースごとに1つではありません。
+  </para>
+
+  <para>
+<!--
+   Access to the column <structfield>subconninfo</structfield> is revoked from
+   normal users, because it could contain plain-text passwords.
+-->
+列<structfield>subconninfo</structfield>には平文のパスワードが含まれる可能性があるため、一般ユーザによるアクセス権は取り消されています。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_subscription</structname> Columns</title>
+-->
+   <title><structname>pg_subscription</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subdbid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the database which the subscription resides in
+-->
+サブスクリプションが存在するデータベースのOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Name of the subscription
+-->
+サブスクリプションの名前
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subowner</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Owner of the subscription
+-->
+サブスクリプションの所有者
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subenabled</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       If true, the subscription is enabled and should be replicating.
+-->
+真の場合、サブスクリプションは有効でレプリケーションが行われています。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subconninfo</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       Connection string to the upstream database
+-->
+上流のデータベースへの接続文字列
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subslotname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Name of the replication slot in the upstream database (also used
+       for the local replication origin name);
+       null represents <literal>NONE</literal>
+-->
+上流のデータベースのレプリケーションスロットの名前。
+（ローカルレプリケーションのオリジン名としても使われます。）
+NULLは<literal>NONE</literal>を表します。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subsynccommit</structfield> <type>text</type>
+      </para>
+      <para>
+<!--
+       Contains the value of the <varname>synchronous_commit</varname>
+       setting for the subscription workers.
+-->
+サブスクリプションワーカの<varname>synchronous_commit</varname>の設定値が入ります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>subpublications</structfield> <type>text[]</type>
+      </para>
+      <para>
+<!--
+       Array of subscribed publication names. These reference the
+       publications on the publisher server. For more on publications
+       see <xref linkend="logical-replication-publication"/>.
+-->
+サブスクライブされるパブリケーション名の配列です。
+パブリッシャーのサーバのパブリケーションを参照します。
+パブリケーションについての詳細は<xref linkend="logical-replication-publication"/>を参照してください。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-subscription-rel">
+  <title><structname>pg_subscription_rel</structname></title>
+
+  <indexterm zone="catalog-pg-subscription-rel">
+   <primary>pg_subscription_rel</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_subscription_rel</structname> contains the
+   state for each replicated relation in each subscription.  This is a
+   many-to-many mapping.
+-->
+カタログ<structname>pg_subscription_rel</structname>には各サブスクリプションで複製される各リレーションの状態が入ります。
+これは多対多のマッピングです。
+  </para>
+
+  <para>
+<!--
+   This catalog only contains tables known to the subscription after running
+   either <command>CREATE SUBSCRIPTION</command> or
+   <command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command>.
+-->
+このカタログには<command>CREATE SUBSCRIPTION</command>あるいは<command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command>を実行した後でサブスクリプションに知られることになったテーブルのみが含まれます。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_subscription_rel</structname> Columns</title>
+-->
+   <title><structname>pg_subscription_rel</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>srsubid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-subscription"><structname>pg_subscription</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Reference to subscription
+-->
+サブスクリプションの参照
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>srrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Reference to relation
+-->
+リレーションの参照
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>srsubstate</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       State code:
+       <literal>i</literal> = initialize,
+       <literal>d</literal> = data is being copied,
+       <literal>s</literal> = synchronized,
+       <literal>r</literal> = ready (normal replication)
+-->
+状態コードで、<literal>i</literal>は初期化、<literal>d</literal>はデータのコピー中、<literal>s</literal>は同期済み、<literal>r</literal>は準備完了（通常のレプリケーション）を表します。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>srsublsn</structfield> <type>pg_lsn</type>
+      </para>
+      <para>
+<!--
+       Remote LSN of the state change used for synchronization coordination
+       when in <literal>s</literal> or <literal>r</literal> states,
+       otherwise null
+-->
+<literal>s</literal>あるいは<literal>r</literal>の状態なら、同期の調停で使われる状態変更のリモートLSNです。
+それ以外の場合はNULLです。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+ <sect1 id="catalog-pg-tablespace">
+  <title><structname>pg_tablespace</structname></title>
+
+  <indexterm zone="catalog-pg-tablespace">
+   <primary>pg_tablespace</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_tablespace</structname> stores information
+   about the available tablespaces.  Tables can be placed in particular
+   tablespaces to aid administration of disk layout.
+-->
+<structname>pg_tablespace</structname>カタログは利用できるテーブル空間についての情報を格納します。
+テーブルは、ディスクの配置を管理できるようにするために特定のテーブル空間に格納することができます。
+  </para>
+
+  <para>
+<!--
+   Unlike most system catalogs, <structname>pg_tablespace</structname>
+   is shared across all databases of a cluster: there is only one
+   copy of <structname>pg_tablespace</structname> per cluster, not
+   one per database.
+-->
+システムカタログの大部分とは違って、<structname>pg_tablespace</structname>は、すべてのクラスタのデータベース間で共有されます。
+（データベース毎ではなく）クラスタ毎に、<structname>pg_tablespace</structname>のコピーが1つだけ存在します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_tablespace</structname> Columns</title>
+-->
+   <title><structname>pg_tablespace</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>spcname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Tablespace name
+-->
+テーブル空間名
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>spcowner</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Owner of the tablespace, usually the user who created it
+-->
+テーブル空間の所有者。たいていはテーブル空間を作成したユーザ
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>spcacl</structfield> <type>aclitem[]</type>
+      </para>
+      <para>
+<!--
+       Access privileges; see <xref linkend="ddl-priv"/> for details
+-->
+アクセス権限。
+詳細は<xref linkend="ddl-priv"/>を参照してください。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>spcoptions</structfield> <type>text[]</type>
+      </para>
+      <para>
+<!--
+       Tablespace-level options, as <quote>keyword=value</quote> strings
+-->
+<quote>keyword=value</quote>文字列のようなテーブル空間レベルのオプション。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+
+ <sect1 id="catalog-pg-transform">
+  <title><structname>pg_transform</structname></title>
+
+  <indexterm zone="catalog-pg-transform">
+   <primary>pg_transform</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_transform</structname> stores information about
+   transforms, which are a mechanism to adapt data types to procedural
+   languages.  See <xref linkend="sql-createtransform"/> for more information.
+-->
+カタログ<structname>pg_transform</structname>は変換についての情報を格納します。
+変換はデータ型を手続き言語に適合させるための機構です。
+詳しくは<xref linkend="sql-createtransform"/>を参照してください。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_transform</structname> Columns</title>
+-->
+   <title><structname>pg_transform</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>trftype</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the data type this transform is for
+-->
+この変換の対象のデータ型のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>trflang</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-language"><structname>pg_language</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       OID of the language this transform is for
+-->
+この変換の対象の言語のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>trffromsql</structfield> <type>regproc</type>
+       (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the function to use when converting the data type for input
+       to the procedural language (e.g., function parameters).  Zero is stored
+       if this operation is not supported.
+-->
+データ型を手続き言語への入力（例えば関数のパラメータ）に変換する時に使う関数のOID。
+この操作がサポートされない場合はゼロが格納されます。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>trftosql</structfield> <type>regproc</type>
+       (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the function to use when converting output from the
+       procedural language (e.g., return values) to the data type.  Zero is
+       stored if this operation is not supported.
+-->
+手続き言語からの出力（例えば戻り値）をデータ型に変換する時に使う関数のOID。
+この操作がサポートされないときはゼロが格納されます。
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+
+ <sect1 id="catalog-pg-trigger">
+  <title><structname>pg_trigger</structname></title>
+
+  <indexterm zone="catalog-pg-trigger">
+   <primary>pg_trigger</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The catalog <structname>pg_trigger</structname> stores triggers on tables
+   and views.
+   See <xref linkend="sql-createtrigger"/>
+   for more information.
+-->
+<structname>pg_trigger</structname>カタログはテーブルおよびビュー上のトリガを保存します。
+<xref linkend="sql-createtrigger"/>を参照してください。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_trigger</structname> Columns</title>
+-->
+   <title><structname>pg_trigger</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The table this trigger is on
+-->
+トリガのかかっているテーブル
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgparentid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-trigger"><structname>pg_trigger</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Parent trigger that this trigger is cloned from, zero if not a clone;
+       this happens when partitions are created or attached to a partitioned
+       table.
+-->
+このトリガが複製された親のトリガです。複製されていなければゼロです。
+パーティションが作成されたか、あるいはパーティションテーブルにアタッチされたときに起こります。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Trigger name (must be unique among triggers of same table)
+-->
+トリガ名（同一テーブル内で一意である必要があります）
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgfoid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The function to be called
+-->
+呼び出される関数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgtype</structfield> <type>int2</type>
+      </para>
+      <para>
+<!--
+       Bit mask identifying trigger firing conditions
+-->
+トリガ発行条件を指定するビットマスク
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgenabled</structfield> <type>char</type>
+      </para>
+      <para>
+<!--
+       Controls in which <xref linkend="guc-session-replication-role"/> modes
+       the trigger fires.
+       <literal>O</literal> = trigger fires in <quote>origin</quote> and <quote>local</quote> modes,
+       <literal>D</literal> = trigger is disabled,
+       <literal>R</literal> = trigger fires in <quote>replica</quote> mode,
+       <literal>A</literal> = trigger fires always.
+-->
+どの<xref linkend="guc-session-replication-role"/>モードでトリガが発行されるかを制御します。
+<literal>O</literal> = <quote>起点</quote>モードと<quote>ローカル</quote>モードでトリガを発行します,
+<literal>D</literal> = トリガは無効です,
+<literal>R</literal> = <quote>replica</quote>モードでトリガを発行します,
+<literal>A</literal> = 常にトリガを発行します.
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgisinternal</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       True if trigger is internally generated (usually, to enforce
+       the constraint identified by <structfield>tgconstraint</structfield>)
+-->
+トリガが(通常<structfield>tgconstraint</structfield>により識別される制約を強制するために)内部的に生成される場合は真。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgconstrrelid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The table referenced by a referential integrity constraint
+-->
+参照整合性制約で参照されるテーブル
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgconstrindid</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The index supporting a unique, primary key, referential integrity,
+       or exclusion constraint
+-->
+一意性、主キー、参照整合性制約や排他制約をサポートするインデックス
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgconstraint</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-constraint"><structname>pg_constraint</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The <structname>pg_constraint</structname> entry associated with the trigger, if any
+-->
+存在する場合は、トリガに関連する<structname>pg_constraint</structname>の項目
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgdeferrable</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       True if constraint trigger is deferrable
+-->
+トリガが遅延可能である場合は真
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tginitdeferred</structfield> <type>bool</type>
+      </para>
+      <para>
+<!--
+       True if constraint trigger is initially deferred
+-->
+トリガの初期状態が遅延可能と宣言されていれば真
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgnargs</structfield> <type>int2</type>
+      </para>
+      <para>
+<!--
+       Number of argument strings passed to trigger function
+-->
+トリガ関数に渡される引数の数
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgattr</structfield> <type>int2vector</type>
+       (references <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attnum</structfield>)
+      </para>
+      <para>
+<!--
+       Column numbers, if trigger is column-specific; otherwise an
+       empty array
+-->
+トリガが列固有であれば列番号。さもなくば空の配列
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgargs</structfield> <type>bytea</type>
+      </para>
+      <para>
+<!--
+       Argument strings to pass to trigger, each NULL-terminated
+-->
+トリガに渡される引数文字列で、それぞれヌル文字で終結
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgqual</structfield> <type>pg_node_tree</type>
+      </para>
+      <para>
+<!--
+       Expression tree (in <function>nodeToString()</function>
+       representation) for the trigger's <literal>WHEN</literal> condition, or null
+       if none
+-->
+トリガの<literal>WHEN</literal>条件に関する(<function>nodeToString()</function>表現による)式ツリー。
+存在しなければNULL
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgoldtable</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       <literal>REFERENCING</literal> clause name for <literal>OLD TABLE</literal>,
+       or null if none
+-->
+<literal>OLD TABLE</literal>に対する<literal>REFERENCING</literal>句の名前、なければNULL
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tgnewtable</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       <literal>REFERENCING</literal> clause name for <literal>NEW TABLE</literal>,
+       or null if none
+-->
+<literal>NEW TABLE</literal>に対する<literal>REFERENCING</literal>句の名前、なければNULL
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   Currently, column-specific triggering is supported only for
+   <literal>UPDATE</literal> events, and so <structfield>tgattr</structfield> is relevant
+   only for that event type.  <structfield>tgtype</structfield> might
+   contain bits for other event types as well, but those are presumed
+   to be table-wide regardless of what is in <structfield>tgattr</structfield>.
+-->
+現在、列固有のトリガ処理は<literal>UPDATE</literal>イベントのみでサポートされていますので、<structfield>tgattr</structfield>はこの種類のイベントにのみ関連します。
+<structfield>tgtype</structfield>にはこの他のイベント用のビットが含まれているかもしれませんが、これらは<structfield>tgattr</structfield>の値とは関係ないテーブル全体のものであると仮定されます。
+  </para>
+
+  <note>
+   <para>
+<!--
+    When <structfield>tgconstraint</structfield> is nonzero,
+    <structfield>tgconstrrelid</structfield>, <structfield>tgconstrindid</structfield>,
+    <structfield>tgdeferrable</structfield>, and <structfield>tginitdeferred</structfield> are
+    largely redundant with the referenced <structname>pg_constraint</structname> entry.
+    However, it is possible for a non-deferrable trigger to be associated
+    with a deferrable constraint: foreign key constraints can have some
+    deferrable and some non-deferrable triggers.
+-->
+<structfield>tgconstraint</structfield>がゼロではないとき、<structfield>tgconstrrelid</structfield>、<structfield>tgconstrindid</structfield>、<structfield>tgdeferrable</structfield>、<structfield>tginitdeferred</structfield>は参照される<structname>pg_constraint</structname>項目と共に冗長となっています。
+しかし遅延不可能なトリガを遅延可能な制約に関連付けさせることが可能です。
+外部キー制約では一部を遅延可能、一部を遅延不可能なトリガを持つことができます。
+   </para>
+  </note>
+
+  <note>
+   <para>
+<!--
+    <literal>pg_class.relhastriggers</literal>
+    must be true if a relation has any triggers in this catalog.
+-->
+<literal>pg_class.relhastriggers</literal>は、リレーションがこのカタログ内にトリガを持っている場合は真とならなければなりません。
+   </para>
+  </note>
+
+ </sect1>
+
+
+ <sect1 id="catalog-pg-ts-config">
+  <title><structname>pg_ts_config</structname></title>
+
+  <indexterm zone="catalog-pg-ts-config">
+   <primary>pg_ts_config</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The <structname>pg_ts_config</structname> catalog contains entries
+   representing text search configurations.  A configuration specifies
+   a particular text search parser and a list of dictionaries to use
+   for each of the parser's output token types.  The parser is shown
+   in the <structname>pg_ts_config</structname> entry, but the
+   token-to-dictionary mapping is defined by subsidiary entries in <link
+   linkend="catalog-pg-ts-config-map"><structname>pg_ts_config_map</structname></link>.
+-->
+<structname>pg_ts_config</structname>カタログは、テキスト検索の設定を表す項目を含みます。
+設定は、特定のテキスト検索パーサと、それぞれのパーサの出力トークン型のために使用される辞書の一覧を指定します。
+パーサは<structname>pg_ts_config</structname>項目内に示されていますが、トークンと辞書の対応付けは、<link linkend="catalog-pg-ts-config-map"><structname>pg_ts_config_map</structname></link>内の補助項目内に定義されています。
+  </para>
+
+  <para>
+<!--
+   <productname>PostgreSQL</productname>'s text search features are
+   described at length in <xref linkend="textsearch"/>.
+-->
+   <productname>PostgreSQL</productname>のテキスト検索機能については<xref linkend="textsearch"/>で詳しく説明します。
+  </para>
+
+  <table>
+<!--
+   <title><structname>pg_ts_config</structname> Columns</title>
+-->
+   <title><structname>pg_ts_config</structname>の列</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+<!--
+       Column Type
+-->
+列 型
+      </para>
+      <para>
+<!--
+       Description
+-->
+説明
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>oid</structfield> <type>oid</type>
+      </para>
+      <para>
+<!--
+       Row identifier
+-->
+行識別子
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>cfgname</structfield> <type>name</type>
+      </para>
+      <para>
+<!--
+       Text search configuration name
+-->
+テキスト検索設定の名称
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>cfgnamespace</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the namespace that contains this configuration
+-->
+この設定を含む名前空間のOID
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>cfgowner</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       Owner of the configuration
+-->
+この設定の所有者
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>cfgparser</structfield> <type>oid</type>
+       (references <link linkend="catalog-pg-ts-parser"><structname>pg_ts_parser</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+<!--
+       The OID of the text search parser for this configuration
+-->
+この設定のためのテキスト検索パーサのOID
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+ </sect1>
+
+<!-- split-catalogs2-end -->

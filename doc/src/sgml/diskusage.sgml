@@ -1,21 +1,34 @@
 <!-- doc/src/sgml/diskusage.sgml -->
 
 <chapter id="diskusage">
+<!--
  <title>Monitoring Disk Usage</title>
+-->
+ <title>ディスク使用量の監視</title>
 
  <para>
+<!--
   This chapter discusses how to monitor the disk usage of a
   <productname>PostgreSQL</productname> database system.
+-->
+本章では<productname>PostgreSQL</productname>データベースシステムのディスク使用量を監視する方法について説明します。
  </para>
 
  <sect1 id="disk-usage">
+<!--
   <title>Determining Disk Usage</title>
+-->
+  <title>ディスク使用量の決定</title>
 
   <indexterm zone="disk-usage">
+<!--
    <primary>disk usage</primary>
+-->
+   <primary>ディスク使用量</primary>
   </indexterm>
 
   <para>
+<!--
    Each table has a primary heap disk file where most of the data is
    stored. If the table has any columns with potentially-wide values,
    there also might be a <acronym>TOAST</acronym> file associated with the table,
@@ -26,9 +39,19 @@
    separate disk file &mdash; possibly more than one file, if the file would
    exceed one gigabyte.  Naming conventions for these files are described
    in <xref linkend="storage-file-layout"/>.
+-->
+各テーブルには、データの大部分が格納されるプライマリヒープディスクファイルが備わっています。
+もしテーブルが、長くなる可能性のある値を持つ列を持つ時は、テーブルに関連付けられた<acronym>TOAST</acronym>ファイルもあるかもしれません。
+このファイルは、メインテーブルに収納するには大き過ぎる値をテーブルに格納するために使用されます（<xref linkend="storage-toast"/>を参照してください）。
+<acronym>TOAST</acronym>テーブルが存在する場合は、そのテーブルに有効なインデックスが1つあります。
+基本テーブルに関連付けられたインデックスが存在することもあります。
+テーブルとインデックスはそれぞれ別のディスクファイルに格納されます。
+このファイルが1ギガバイトを超える場合は、複数のファイルになります。
+これらのファイルの命名規約について<xref linkend="storage-file-layout"/>で説明します。
   </para>
 
   <para>
+<!--
    You can monitor disk space in three ways:
    using the SQL functions listed in <xref linkend="functions-admin-dbsize"/>,
    using the <xref linkend="oid2name"/> module, or
@@ -36,11 +59,20 @@
    The SQL functions are the easiest to use and are generally recommended.
    The remainder of this section shows how to do it by inspection of the
    system catalogs.
+-->
+ディスクスペースの監視は、次の3つの方法で行えます。
+<xref linkend="functions-admin-dbsize"/>にあるSQL関数を使用する方法と
+<xref linkend="oid2name"/>モジュールを使用する方法、およびシステムカタログを手動で調べる方法です。
+SQL関数を使用する方法が、一般的に一番簡単な方法です。
+本セクションの残りの部分で、システムカタログを調査することによりこの方法を示します。
   </para>
 
   <para>
+<!--
    Using <application>psql</application> on a recently vacuumed or analyzed database,
    you can issue queries to see the disk usage of any table:
+-->
+バキュームされて間もないデータベース、もしくは解析されたデータベース上で<application>psql</application>を使用することにより、どのようなテーブルでもディスクの使用量を調べる問い合わせを発行できます。
 <programlisting>
 SELECT pg_relation_filepath(oid), relpages FROM pg_class WHERE relname = 'customer';
 
@@ -49,15 +81,23 @@ SELECT pg_relation_filepath(oid), relpages FROM pg_class WHERE relname = 'custom
  base/16384/16806     |       60
 (1 row)
 </programlisting>
+<!--
    Each page is typically 8 kilobytes. (Remember, <structfield>relpages</structfield>
    is only updated by <command>VACUUM</command>, <command>ANALYZE</command>, and
    a few DDL commands such as <command>CREATE INDEX</command>.)  The file path name
    is of interest if you want to examine the table's disk file directly.
+-->
+1ページは通常8キロバイトです
+（<structfield>relpages</structfield>は<command>VACUUM</command>と<command>ANALYZE</command>、さらに<command>CREATE INDEX</command>といったいくつかのDDLによってのみ更新されることに注意してください）。
+もしテーブルのディスクファイルを直接調べるときは、ファイルのパス名称に注目して下さい。
   </para>
 
   <para>
+<!--
    To show the space used by <acronym>TOAST</acronym> tables, use a query
    like the following:
+-->
+<acronym>TOAST</acronym>テーブルで使用されている容量を示すには、以下のような問い合わせを使用してください。
 <programlisting>
 SELECT relname, relpages
 FROM pg_class,
@@ -78,7 +118,10 @@ ORDER BY relname;
   </para>
 
   <para>
+<!--
    You can easily display index sizes, too:
+-->
+インデックスサイズについても、以下のように簡単に表示できます。
 <programlisting>
 SELECT c2.relname, c2.relpages
 FROM pg_class c, pg_class c2, pg_index i
@@ -94,8 +137,11 @@ ORDER BY c2.relname;
   </para>
 
   <para>
+<!--
    It is easy to find your largest tables and indexes using this
    information:
+-->
+この情報を使用して、以下のように簡単に最大のテーブルとインデックスを見つけ出すことができます。
 <programlisting>
 SELECT relname, relpages
 FROM pg_class
@@ -110,35 +156,57 @@ ORDER BY relpages DESC;
  </sect1>
 
  <sect1 id="disk-full">
+<!--
   <title>Disk Full Failure</title>
+-->
+<title>ディスク容量不足による問題</title>
 
   <para>
+<!--
    The most important disk monitoring task of a database administrator
    is to make sure the disk doesn't become full.  A filled data disk will
    not result in data corruption, but it might prevent useful activity
    from occurring. If the disk holding the WAL files grows full, database
    server panic and consequent shutdown might occur.
+-->
+データベース管理者の最も重要なディスク監視作業は、ディスクが容量不足になっていないことを確認することです。
+容量不足となったディスクにより、データが破壊されることはありません。しかし、データ破壊が起こりやすくなる可能性があります。
+もしWALファイルを持つディスクが一杯になった場合は、データベースサーバはパニックを起こし結果的にシャットダウンします。
   </para>
 
   <para>
+<!--
    If you cannot free up additional space on the disk by deleting
    other things, you can move some of the database files to other file
    systems by making use of tablespaces. See <xref
    linkend="manage-ag-tablespaces"/> for more information about that.
+-->
+他のデータを削除しても、ディスクに空き容量を用意できない場合、
+テーブル空間を使用することによって、データベースファイルのいくつかを
+他のファイルシステムに移動させることができます。詳細は
+<xref linkend="manage-ag-tablespaces"/>を参照してください。
   </para>
 
   <tip>
    <para>
+<!--
     Some file systems perform badly when they are almost full, so do
     not wait until the disk is completely full to take action.
+-->
+一部のファイルシステムは、容量がほぼ一杯になっている場合にパフォーマンスが悪くなります。
+ですから、ディスクがほぼ一杯になる前に余裕をもって対策を取ってください。
    </para>
   </tip>
 
   <para>
+<!--
    If your system supports per-user disk quotas, then the database
    will naturally be subject to whatever quota is placed on the user
    the server runs as.  Exceeding the quota will have the same bad
    effects as running out of disk space entirely.
+-->
+システムでユーザ単位のディスククォータをサポートしている場合、当然ながらデータベースもサーバを実行するユーザに割り当てられたクォータに従います。
+クォータを超えた場合、ディスク容量が完全になくなった時と同じ悪影響が発生します。
   </para>
  </sect1>
 </chapter>

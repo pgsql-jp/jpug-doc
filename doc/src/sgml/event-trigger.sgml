@@ -1,30 +1,47 @@
 <!-- doc/src/sgml/event-trigger.sgml -->
 
  <chapter id="event-triggers">
+<!--
   <title>Event Triggers</title>
+-->
+  <title>イベントトリガ</title>
 
   <indexterm zone="event-triggers">
+<!--
    <primary>event trigger</primary>
+-->
+   <primary>イベントトリガ</primary>
   </indexterm>
 
   <para>
+<!--
    To supplement the trigger mechanism discussed in <xref linkend="triggers"/>,
    <productname>PostgreSQL</productname> also provides event triggers.  Unlike regular
    triggers, which are attached to a single table and capture only DML events,
    event triggers are global to a particular database and are capable of
    capturing DDL events.
+-->
+<xref linkend="triggers"/>で議論されたトリガの機能を補完するために、<productname>PostgreSQL</productname>はイベントトリガを提供します。
+一つのテーブルに付与され、DMLイベントのみ対象にしたこれまでのトリガと違い、イベントトリガは特定のデータベースに大域的であり、DDLイベントを対象に実行できます。
   </para>
 
   <para>
+<!--
    Like regular triggers, event triggers can be written in any procedural
    language that includes event trigger support, or in C, but not in plain
    SQL.
+-->
+これまでのトリガと違い、イベントトリガは普通のSQLではなく、イベントトリガがサポートする手続き言語やC言語で記述することができます。
   </para>
 
   <sect1 id="event-trigger-definition">
+<!--
    <title>Overview of Event Trigger Behavior</title>
+-->
+   <title>イベントトリガ動作の概要</title>
 
    <para>
+<!--
      An event trigger fires whenever the event with which it is associated
      occurs in the database in which it is defined. Currently, the only
      supported events are
@@ -33,9 +50,14 @@
      <literal>table_rewrite</literal>
      and <literal>sql_drop</literal>.
      Support for additional events may be added in future releases.
+-->
+イベントトリガは、関連づけられたイベントが、定義されたデータベースで起こるたびに実行されます。
+現在の所サポートされているイベントは、<literal>ddl_command_start</literal>、<literal>ddl_command_end</literal>、<literal>table_rewrite</literal>、<literal>sql_drop</literal>です。
+今後のリリースで新たなイベントが追加されるかもしれません。
    </para>
 
    <para>
+<!--
      The <literal>ddl_command_start</literal> event occurs just before the
      execution of a <literal>CREATE</literal>, <literal>ALTER</literal>, <literal>DROP</literal>,
      <literal>SECURITY LABEL</literal>,
@@ -49,9 +71,15 @@
      <literal>ddl_command_start</literal> also occurs just before the execution of a
      <literal>SELECT INTO</literal> command, since this is equivalent to
      <literal>CREATE TABLE AS</literal>.
+-->
+<literal>ddl_command_start</literal>イベントは、<literal>CREATE</literal>、<literal>ALTER</literal>、<literal>DROP</literal>、<literal>SECURITY LABEL</literal>、<literal>COMMENT</literal>、<literal>GRANT</literal>、<literal>REVOKE</literal>コマンドの実行の直前に発生します。
+影響するオブジェクトが存在するかどうかのチェックはイベントトリガが実行されるまで行われません。
+しかしながら例外として、共有オブジェクト &mdash; データベース、ロール、テーブルスペース &mdash; を対象としているDDLコマンド、もしくは、イベントトリガ自体をターゲットにしたコマンドに対してのイベントは起こりません。
+<literal>ddl_command_start</literal>はまた、<literal>SELECT INTO</literal>コマンドの実行直前にも発生します。このコマンドは<literal>CREATE TABLE AS</literal>コマンドと同等だからです。
    </para>
 
    <para>
+<!--
     The <literal>ddl_command_end</literal> event occurs just after the execution of
     this same set of commands.  To obtain more details on the <acronym>DDL</acronym>
     operations that took place, use the set-returning function
@@ -60,9 +88,14 @@
     <xref linkend="functions-event-triggers"/>).  Note that the trigger fires
     after the actions have taken place (but before the transaction commits),
     and thus the system catalogs can be read as already changed.
+-->
+<literal>ddl_command_end</literal>イベントは、ddl_command_startイベントが対象とする同様のコマンドの実行後に発生します。
+発生した<acronym>DDL</acronym>操作のより詳細を取得するには、<literal>ddl_command_end</literal>イベントトリガコード(<xref linkend="functions-event-triggers"/>を参照してください)で集合を返す関数<literal>pg_event_trigger_ddl_commands()</literal>を使ってください。
+トリガはアクションが起きた後(ただし、トランザクションのコミットの前)に起動し、システムカタログは既に変更されたものとして読まれることに注意してください。
    </para>
 
    <para>
+<!--
     The <literal>sql_drop</literal> event occurs just before the
     <literal>ddl_command_end</literal> event trigger for any operation that drops
     database objects.  To list the objects that have been dropped, use the
@@ -71,18 +104,27 @@
     <xref linkend="functions-event-triggers"/>). Note that
     the trigger is executed after the objects have been deleted from the
     system catalogs, so it's not possible to look them up anymore.
+-->
+<literal>sql_drop</literal>イベントは、データベースオブジェクトを削除する命令に対する<literal>ddl_command_end</literal>イベントトリガの直前に発生します。
+削除されたオブジェクトを一覧として出力するために、<literal>sql_drop</literal>イベントトリガコード(<xref linkend="functions-event-triggers"/>を参照してください)から<literal>pg_event_trigger_dropped_objects()</literal>という集合を返す関数を使用します。
+トリガはオブジェクトがシステムカタログから削除された後に実行されるため、以後、そのオブジェクトを見ることができないことに注意してください。
    </para>
 
    <para>
+<!--
     The <literal>table_rewrite</literal> event occurs just before a table is
     rewritten by some actions of the commands <literal>ALTER TABLE</literal> and
     <literal>ALTER TYPE</literal>.  While other
     control statements are available to rewrite a table,
     like <literal>CLUSTER</literal> and <literal>VACUUM</literal>,
     the <literal>table_rewrite</literal> event is not triggered by them.
+-->
+コマンド<literal>ALTER TABLE</literal>や<literal>ALTER TYPE</literal>のアクションによりテーブルが書き換えられる直前に、<literal>table_rewrite</literal>イベントは発生します。
+<literal>CLUSTER</literal>や<literal>VACUUM</literal>のような他の制御文でもテーブルを書き換えられますが、それらでは<literal>table_rewrite</literal>イベントは引き起こされません。
    </para>
 
    <para>
+<!--
      Event triggers (like other functions) cannot be executed in an aborted
      transaction.  Thus, if a DDL command fails with an error, any associated
      <literal>ddl_command_end</literal> triggers will not be executed.  Conversely,
@@ -92,45 +134,73 @@
      fails with an error, the effects of the DDL statement will be rolled
      back, just as they would be in any other case where the containing
      transaction aborts.
+-->
+イベントトリガは（他の関数のように）中断したトランザクションでは実行されません。
+従って、DDLコマンドがエラーで失敗した場合、関連する<literal>ddl_command_end</literal>トリガは実行されません。
+逆に、もし<literal>ddl_command_start</literal>トリガがエラーで失敗した場合、他のイベントトリガは起動されず、コマンド自体も実行されません。
+同様に、もし<literal>ddl_command_end</literal>トリガがエラーで失敗した場合、それを含むトランザクションが失敗した場合のようにDDL文はロールバックされます。
    </para>
 
    <para>
+<!--
      For a complete list of commands supported by the event trigger mechanism,
      see <xref linkend="event-trigger-matrix"/>.
+-->
+イベントトリガでサポートされているコマンドの一覧は、<xref linkend="event-trigger-matrix"/>を参照してください。
    </para>
 
    <para>
+<!--
      Event triggers are created using the command <xref linkend="sql-createeventtrigger"/>.
      In order to create an event trigger, you must first create a function with
      the special return type <literal>event_trigger</literal>.  This function
      need not (and may not) return a value; the return type serves merely as
      a signal that the function is to be invoked as an event trigger.
+-->
+イベントトリガを作成するために、まず特別な型<literal>event_trigger</literal>を返す関数を作る必要があります。
+この関数は値を返す必要はありません。というのも、その戻り値型は単にシグナルとして、その関数がイベントトリガを呼び出していることを示しているだけだからです。
    </para>
 
    <para>
+<!--
      If more than one event trigger is defined for a particular event, they will
      fire in alphabetical order by trigger name.
+-->
+特定のイベントに対して複数のイベントトリガが定義された場合、トリガ名のアルファベット順で起動されます。
    </para>
 
    <para>
+<!--
      A trigger definition can also specify a <literal>WHEN</literal>
      condition so that, for example, a <literal>ddl_command_start</literal>
      trigger can be fired only for particular commands which the user wishes
      to intercept. A common use of such triggers is to restrict the range of
      DDL operations which users may perform.
+-->
+トリガ定義は<literal>WHEN</literal>条件で特定されます。そのため、例えば<literal>ddl_command_start</literal>トリガはユーザが望む特定のコマンドのみを契機に実行させることができます。
+このようなトリガの一般的な使い方として、ユーザが実行するかもしれないDDL文の範囲を狭めることができます。
    </para>
   </sect1>
 
   <sect1 id="event-trigger-matrix">
+<!--
    <title>Event Trigger Firing Matrix</title>
+-->
+   <title>イベントトリガ起動マトリクス</title>
 
    <para>
+<!--
      <xref linkend="event-trigger-by-command-tag"/> lists all commands
      for which event triggers are supported.
+-->
+<xref linkend="event-trigger-by-command-tag"/>にて、イベントトリガがサポートするすべてのコマンドが参照できます。
    </para>
 
    <table id="event-trigger-by-command-tag">
+<!--
      <title>Event Trigger Support by Command Tag</title>
+-->
+     <title>コマンドタグによりサポートされるイベントトリガ</title>
      <tgroup cols="6">
       <colspec colname="col1" colwidth="2*"/>
       <colspec colname="col2" colwidth="1*"/>
@@ -140,12 +210,18 @@
       <colspec colname="col6" colwidth="1*"/>
       <thead>
        <row>
+<!--
         <entry>Command Tag</entry>
+-->
+        <entry>コマンドタグ</entry>
         <entry><literal>ddl_&zwsp;command_&zwsp;start</literal></entry>
         <entry><literal>ddl_&zwsp;command_&zwsp;end</literal></entry>
         <entry><literal>sql_&zwsp;drop</literal></entry>
         <entry><literal>table_&zwsp;rewrite</literal></entry>
+<!--
         <entry>Notes</entry>
+-->
+        <entry>注意</entry>
        </row>
       </thead>
       <tbody>
@@ -411,7 +487,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="left">Only for local objects</entry>
+-->
+        <entry align="left">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>CREATE ACCESS METHOD</literal></entry>
@@ -979,7 +1058,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="left">Only for local objects</entry>
+-->
+        <entry align="left">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>IMPORT FOREIGN SCHEMA</literal></entry>
@@ -1003,7 +1085,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="left">Only for local objects</entry>
+-->
+        <entry align="left">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>SECURITY LABEL</literal></entry>
@@ -1011,7 +1096,10 @@
         <entry align="center"><literal>X</literal></entry>
         <entry align="center"><literal>-</literal></entry>
         <entry align="center"><literal>-</literal></entry>
+<!--
         <entry align="left">Only for local objects</entry>
+-->
+        <entry align="left">ローカルオブジェクトに対してのみ</entry>
        </row>
        <row>
         <entry align="left"><literal>SELECT INTO</literal></entry>
@@ -1027,14 +1115,22 @@
   </sect1>
 
   <sect1 id="event-trigger-interface">
+<!--
    <title>Writing Event Trigger Functions in C</title>
+-->
+   <title>C言語によるイベントトリガ関数の書き方</title>
 
    <indexterm zone="event-trigger-interface">
+<!--
     <primary>event trigger</primary>
     <secondary>in C</secondary>
+-->
+    <primary>イベントトリガ</primary>
+    <secondary>C言語による</secondary>
    </indexterm>
 
    <para>
+<!--
     This section describes the low-level details of the interface to an
     event trigger function. This information is only needed when writing
     event trigger functions in C. If you are using a higher-level language
@@ -1042,56 +1138,90 @@
     consider using a procedural language before writing your event triggers
     in C. The documentation of each procedural language explains how to
     write an event trigger in that language.
+-->
+本節ではトリガ関数とのインタフェースについて低レベルな詳細を説明します。
+この情報はC言語でトリガ関数を作成する時にのみ必要です。
+高レベルな言語で作成すれば、こうした詳細は代わりに扱ってもらえます。
+たいていの場合、Cでトリガを作成する前に手続き言語を使用することを検討すべきです。
+各手続き言語の文書で、その言語を使用したイベントトリガの作成方法を説明します。
    </para>
 
    <para>
+<!--
     Event trigger functions must use the <quote>version 1</quote> function
     manager interface.
+-->
+トリガ関数は<quote>version 1</quote>関数マネージャインタフェースを使わなくてはいけません。
    </para>
 
    <para>
+<!--
     When a function is called by the event trigger manager, it is not passed
     any normal arguments, but it is passed a <quote>context</quote> pointer
     pointing to a <structname>EventTriggerData</structname> structure. C functions can
     check whether they were called from the event trigger manager or not by
     executing the macro:
+-->
+関数がイベントトリガマネージャから呼び出される時は、通常の引数が渡されるのではなく、<structname>EventTriggerData</structname>構造体を指す<quote>context</quote>ポインタが渡されます。
+C関数は、イベントトリガマネージャから呼び出されたのかどうかを以下のマクロを実行することで検査することができます。
 <programlisting>
 CALLED_AS_EVENT_TRIGGER(fcinfo)
 </programlisting>
+<!--
     which expands to:
+-->
+これは以下に展開されます。
 <programlisting>
 ((fcinfo)-&gt;context != NULL &amp;&amp; IsA((fcinfo)-&gt;context, EventTriggerData))
 </programlisting>
+<!--
     If this returns true, then it is safe to cast
     <literal>fcinfo-&gt;context</literal> to type <literal>EventTriggerData
     *</literal> and make use of the pointed-to
     <structname>EventTriggerData</structname> structure.  The function must
     <emphasis>not</emphasis> alter the <structname>EventTriggerData</structname>
     structure or any of the data it points to.
+-->
+もしこれが真を返す場合、<literal>fcinfo-&gt;context</literal>を<literal>EventTriggerData *</literal>型にキャストし、指された<structname>EventTriggerData</structname>構造体を使用することは安全です。
+その関数は、<structname>TriggerData</structname>構造体やそれが指すどのようなデータも変更しては<emphasis>いけません</emphasis>。
    </para>
 
    <para>
+<!--
     <structname>struct EventTriggerData</structname> is defined in
     <filename>commands/event_trigger.h</filename>:
+-->
+<structname>struct EventTriggerData</structname>は<filename>commands/event_trigger.h</filename>の中で定義されています。
 
 <programlisting>
 typedef struct EventTriggerData
 {
     NodeTag     type;
+<!--
     const char *event;      /* event name */
     Node       *parsetree;  /* parse tree */
     CommandTag  tag;        /* command tag */
+-->
+    const char *event;      /* イベント名 */
+    Node       *parsetree;  /* 解析ツリー */
+    CommandTag  tag;        /* コマンドタグ */
 } EventTriggerData;
 </programlisting>
 
+<!--
     where the members are defined as follows:
+-->
+メンバは下記のように定義されています。
 
     <variablelist>
      <varlistentry>
       <term><structfield>type</structfield></term>
       <listitem>
        <para>
+<!--
         Always <literal>T_EventTriggerData</literal>.
+-->
+常に<literal>T_EventTriggerData</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -1100,11 +1230,15 @@ typedef struct EventTriggerData
       <term><structfield>event</structfield></term>
       <listitem>
        <para>
+<!--
         Describes the event for which the function is called, one of
         <literal>"ddl_command_start"</literal>, <literal>"ddl_command_end"</literal>,
         <literal>"sql_drop"</literal>, <literal>"table_rewrite"</literal>.
         See <xref linkend="event-trigger-definition"/> for the meaning of these
         events.
+-->
+その関数が呼び出されたイベント、<literal>"ddl_command_start"</literal>、<literal>"ddl_command_end"</literal>、<literal>"sql_drop"</literal>、<literal>"table_rewrite"</literal>のうちの１つを記述します。
+これらのイベントの内容は、<xref linkend="event-trigger-definition"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -1113,9 +1247,14 @@ typedef struct EventTriggerData
       <term><structfield>parsetree</structfield></term>
       <listitem>
        <para>
+<!--
         A pointer to the parse tree of the command.  Check the PostgreSQL
         source code for details.  The parse tree structure is subject to change
         without notice.
+-->
+コマンドの解析ツリーへのポインタです。
+詳細はPostgreSQLのソースコードを確認してください。
+解析ツリーの構造は予告なく変更されることがあります。
        </para>
       </listitem>
      </varlistentry>
@@ -1124,8 +1263,11 @@ typedef struct EventTriggerData
       <term><structfield>tag</structfield></term>
       <listitem>
        <para>
+<!--
         The command tag associated with the event for which the event trigger
         is run, for example <literal>"CREATE FUNCTION"</literal>.
+-->
+イベントトリガの実行対象となるイベントに関連するコマンドタグです。たとえば、<literal>"CREATE FUNCTION"</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -1133,31 +1275,48 @@ typedef struct EventTriggerData
    </para>
 
    <para>
+<!--
     An event trigger function must return a <symbol>NULL</symbol> pointer
     (<emphasis>not</emphasis> an SQL null value, that is, do not
     set <parameter>isNull</parameter> true).
+-->
+イベントトリガ関数は<symbol>NULL</symbol>ポインタ（SQLのNULLでは<emphasis>ありません</emphasis>。したがって、<parameter>isNull</parameter>は真にはなりません）を返さなければなりません。
    </para>
   </sect1>
 
   <sect1 id="event-trigger-example">
+<!--
    <title>A Complete Event Trigger Example</title>
+-->
+   <title>完全なイベントトリガの例</title>
 
    <para>
+<!--
     Here is a very simple example of an event trigger function written in C.
     (Examples of triggers written in procedural languages can be found in
     the documentation of the procedural languages.)
+-->
+C言語で作成したイベントトリガ関数に関するとても簡単な例をここに示します（手続き言語で作成したトリガの例は、その手続き言語の文書に記載されています）。
    </para>
 
    <para>
+<!--
     The function <function>noddl</function> raises an exception each time it is called.
     The event trigger definition associated the function with
     the <literal>ddl_command_start</literal> event.  The effect is that all DDL
     commands (with the exceptions mentioned
     in <xref linkend="event-trigger-definition"/>) are prevented from running.
+-->
+<function>noddl</function>関数は、呼ばれるたびに例外を発生させます。
+このイベントトリガは、この関数と<literal>ddl_command_start</literal>イベントを関連づけます。
+そのため、(<xref linkend="event-trigger-definition"/>で言及した例外はありますが例外を含む)すべてのDDLコマンドは、実行できません。
    </para>
 
    <para>
+<!--
     This is the source code of the trigger function:
+-->
+以下がトリガ関数のソースコードです。
 <programlisting><![CDATA[
 #include "postgres.h"
 #include "commands/event_trigger.h"
@@ -1172,7 +1331,10 @@ noddl(PG_FUNCTION_ARGS)
 {
     EventTriggerData *trigdata;
 
+]]><!--
     if (!CALLED_AS_EVENT_TRIGGER(fcinfo))  /* internal error */
+--><![CDATA[
+    if (!CALLED_AS_EVENT_TRIGGER(fcinfo))  /* 内部エラー */
         elog(ERROR, "not fired by event trigger manager");
 
     trigdata = (EventTriggerData *) fcinfo->context;
@@ -1187,8 +1349,11 @@ noddl(PG_FUNCTION_ARGS)
    </para>
 
    <para>
+<!--
     After you have compiled the source code (see <xref linkend="dfunc"/>),
     declare the function and the triggers:
+-->
+ソースコードをコンパイル（<xref linkend="dfunc"/>を参照してください）した後に、以下の様に関数とトリガを宣言します。
 <programlisting>
 CREATE FUNCTION noddl() RETURNS event_trigger
     AS 'noddl' LANGUAGE C;
@@ -1199,7 +1364,10 @@ CREATE EVENT TRIGGER noddl ON ddl_command_start
    </para>
 
    <para>
+<!--
     Now you can test the operation of the trigger:
+-->
+これで、トリガの操作を確認することができます。
 <screen>
 =# \dy
                      List of event triggers
@@ -1214,10 +1382,14 @@ ERROR:  command "CREATE TABLE" denied
    </para>
 
    <para>
+<!--
     In this situation, in order to be able to run some DDL commands when you
     need to do so, you have to either drop the event trigger or disable it.  It
     can be convenient to disable the trigger for only the duration of a
     transaction:
+-->
+この状況では、DDLコマンドを必要なときに実行できるようにするには、このイベントトリガを削除するか、無効化しなければなりません。
+以下のように、トランザクションの期間中だけトリガを無効化するのが、便利かもしれません。
 <programlisting>
 BEGIN;
 ALTER EVENT TRIGGER noddl DISABLE;
@@ -1225,31 +1397,49 @@ CREATE TABLE foo (id serial);
 ALTER EVENT TRIGGER noddl ENABLE;
 COMMIT;
 </programlisting>
+<!--
     (Recall that DDL commands on event triggers themselves are not affected by
     event triggers.)
+-->
+(イベントトリガ自体が関係するDDLコマンドは、イベントトリガの影響を受けないことを思い出してください。)
    </para>
   </sect1>
 
   <sect1 id="event-trigger-table-rewrite-example">
+<!--
    <title>A Table Rewrite Event Trigger Example</title>
+-->
+   <title>テーブル書き換えイベントトリガの例</title>
 
    <para>
+<!--
     Thanks to the <literal>table_rewrite</literal> event, it is possible to implement
     a table rewriting policy only allowing the rewrite in maintenance windows.
+-->
+<literal>table_rewrite</literal>イベントのおかげで、メンテナンスウィンドウでの書き換えを許可するだけでテーブル書き換えポリシーを実装できます。
    </para>
 
    <para>
+<!--
     Here's an example implementing such a policy.
+-->
+これが、そのようなポリシーを実装した例です。
 <programlisting>
 CREATE OR REPLACE FUNCTION no_rewrite()
  RETURNS event_trigger
  LANGUAGE plpgsql AS
 $$
 ---
---- Implement local Table Rewriting policy:
----   public.foo is not allowed rewriting, ever
----   other tables are only allowed rewriting between 1am and 6am
----   unless they have more than 100 blocks
+<!--
+&#045;&#045;- Implement local Table Rewriting policy:
+&#045;&#045;-   public.foo is not allowed rewriting, ever
+&#045;&#045;-   other tables are only allowed rewriting between 1am and 6am
+&#045;&#045;-   unless they have more than 100 blocks
+-->
+--- ローカルテーブル書き換えポリシーの実装:
+---   public.fooは書き換えが許可されていません
+---   その他のテーブルは100ブロック以下であれば、
+---   午前1時から午前6時までの間だけ書き換えが許可されます
 ---
 DECLARE
   table_oid oid := pg_event_trigger_table_rewrite_oid();

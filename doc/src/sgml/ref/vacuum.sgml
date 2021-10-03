@@ -11,12 +11,20 @@ PostgreSQL documentation
  <refmeta>
   <refentrytitle>VACUUM</refentrytitle>
   <manvolnum>7</manvolnum>
+<!--
   <refmiscinfo>SQL - Language Statements</refmiscinfo>
+-->
+<refmiscinfo>SQL - 言語</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>VACUUM</refname>
+<!--
   <refpurpose>garbage-collect and optionally analyze a database</refpurpose>
+-->
+<refpurpose>
+データベースの不要領域の回収とデータベースの解析（オプション）を行う
+</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -24,7 +32,10 @@ PostgreSQL documentation
 VACUUM [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] [ <replaceable class="parameter">table_and_columns</replaceable> [, ...] ]
 VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="parameter">table_and_columns</replaceable> [, ...] ]
 
+<!--
 <phrase>where <replaceable class="parameter">option</replaceable> can be one of:</phrase>
+-->
+<phrase>ここで<replaceable class="parameter">option</replaceable>は以下の一つであり、</phrase>
 
     FULL [ <replaceable class="parameter">boolean</replaceable> ]
     FREEZE [ <replaceable class="parameter">boolean</replaceable> ]
@@ -37,40 +48,62 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     TRUNCATE [ <replaceable class="parameter">boolean</replaceable> ]
     PARALLEL <replaceable class="parameter">integer</replaceable>
 
+<!--
 <phrase>and <replaceable class="parameter">table_and_columns</replaceable> is:</phrase>
+-->
+<phrase><replaceable class="parameter">table_and_columns</replaceable>は以下の通りです。</phrase>
 
     <replaceable class="parameter">table_name</replaceable> [ ( <replaceable class="parameter">column_name</replaceable> [, ...] ) ]
 </synopsis>
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <command>VACUUM</command> reclaims storage occupied by dead tuples.
    In normal <productname>PostgreSQL</productname> operation, tuples that
    are deleted or obsoleted by an update are not physically removed from
    their table; they remain present until a <command>VACUUM</command> is
    done.  Therefore it's necessary to do <command>VACUUM</command>
    periodically, especially on frequently-updated tables.
+-->
+<command>VACUUM</command> は、無効タプルが使用する領域を回収します。
+<productname>PostgreSQL</productname>の通常動作では、削除されたタプルや更新によって不要となったタプルは、テーブルから物理的には削除されません。
+これらのタプルは<command>VACUUM</command>が完了するまで存在し続けます。
+そのため、特に更新頻度が多いテーブルでは、<command>VACUUM</command>を定期的に実行する必要があります。
   </para>
 
   <para>
+<!--
    Without a <replaceable class="parameter">table_and_columns</replaceable>
    list, <command>VACUUM</command> processes every table and materialized view
    in the current database that the current user has permission to vacuum.
    With a list, <command>VACUUM</command> processes only those table(s).
+-->
+<replaceable class="parameter">table_and_columns</replaceable>リストを指定しない場合、<command>VACUUM</command>は現在のユーザがバキュームできる権限を持つ、現在のデータベース内の全てのテーブルとマテリアライズドビューを処理します。
+リストを指定した場合、<command>VACUUM</command>は指定したテーブルのみを処理します。
   </para>
 
   <para>
+<!--
    <command>VACUUM ANALYZE</command> performs a <command>VACUUM</command>
    and then an <command>ANALYZE</command> for each selected table.  This
    is a handy combination form for routine maintenance scripts.  See
    <xref linkend="sql-analyze"/>
    for more details about its processing.
+-->
+<command>VACUUM ANALYZE</command>は、指定したテーブルの1つひとつに対し、<command>VACUUM</command>を行った後、<command>ANALYZE</command>を行います。
+このコマンドの組合わせは、日常的な管理スクリプトで使うと便利です。
+処理の詳細に関しては、<xref linkend="sql-analyze"/>を参照してください。
   </para>
 
   <para>
+<!--
    Plain <command>VACUUM</command> (without <literal>FULL</literal>) simply reclaims
    space and makes it
    available for re-use.  This form of the command can operate in parallel
@@ -83,34 +116,65 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
    specify parallel workers as zero.  <command>VACUUM FULL</command> rewrites
    the entire contents of the table into a new disk file with no extra space,
    allowing unused space to be returned to the operating system.  This form is
+<<<<<<< HEAD
    much slower and requires an <literal>ACCESS EXCLUSIVE</literal> lock on
    each table while it is being processed.
+=======
+   much slower and requires an exclusive lock on each table while it is being
+   processed.
+-->
+（<literal>FULL</literal>が指定されていない）通常の<command>VACUUM</command>は、単に領域を回収し、そこを再利用可能な状態に変更します。
+この形式のコマンドでは排他的ロックを取得しないため、テーブルへの通常の読み書き操作と並行して実行することができます。
+しかし余った領域はオペレーティングシステムには(ほとんどの場合)返されません。
+同じテーブル内で再利用できるように保持されるだけです。
+また、インデックスを処理するために複数のCPUを活用することもできます。
+この機能は、<firstterm>並列バキューム</firstterm>として知られています。
+この機能を無効にするには、<literal>PARALLEL</literal>オプションでパラレルワーカーの数をゼロに指定します。
+<command>VACUUM FULL</command>では、テーブルの内容全体を新しいディスクファイルに領域を余すことなく書き換えるため、オペレーティングシステムに未使用の領域を返すことができます。
+この形式では、実行速度がかなり低速になります。また、処理中のテーブルに対する排他的ロックが必要になります。
+>>>>>>> doc_ja_13
   </para>
 
   <para>
+<!--
    When the option list is surrounded by parentheses, the options can be
    written in any order.  Without parentheses, options must be specified
    in exactly the order shown above.
    The parenthesized syntax was added in
    <productname>PostgreSQL</productname> 9.0;  the unparenthesized
    syntax is deprecated.
+-->
+オプションリストが括弧でくくられていた場合、オプションを任意の順序で記述することができます。
+括弧がないと、オプションは上で示した通りの順番で指定しなければなりません。
+括弧付きの構文は<productname>PostgreSQL</productname> 9.0で追加されました。
+カッコがない構文は廃止予定です。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Parameters</title>
+-->
+  <title>パラメータ</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>FULL</literal></term>
     <listitem>
      <para>
+<!--
       Selects <quote>full</quote> vacuum, which can reclaim more
       space, but takes much longer and exclusively locks the table.
       This method also requires extra disk space, since it writes a
       new copy of the table and doesn't release the old copy until
       the operation is complete.  Usually this should only be used when a
       significant amount of space needs to be reclaimed from within the table.
+-->
+より多くの領域の回収することができる<quote>完全な</quote>バキュームを選択します。
+ただし、通常よりも処理に時間がかかります。
+また、テーブルに対する排他ロックが必要です。
+またこの方式では、テーブルのコピーを新しく書き出し、操作が終わるまで古いコピーが解放されませんので、余分にディスク領域が必要です。
+通常、大きな容量がテーブルから回収されなければならない場合にのみこれが使用されるべきです。
      </para>
     </listitem>
    </varlistentry>
@@ -119,6 +183,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>FREEZE</literal></term>
     <listitem>
      <para>
+<!--
       Selects aggressive <quote>freezing</quote> of tuples.
       Specifying <literal>FREEZE</literal> is equivalent to performing
       <command>VACUUM</command> with the
@@ -127,6 +192,10 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       set to zero.  Aggressive freezing is always performed when the
       table is rewritten, so this option is redundant when <literal>FULL</literal>
       is specified.
+-->
+積極的なタプルの<quote>凍結</quote>を選択します。
+<literal>FREEZE</literal>指定は、<xref linkend="guc-vacuum-freeze-min-age"/>および<xref linkend="guc-vacuum-freeze-table-age"/>パラメータをゼロとして<command>VACUUM</command>を実行することと同じです。
+テーブルが書き換えられる時は、必ず積極的な凍結が行われるので、<literal>FULL</literal>が指定されているときは、このオプションは冗長です。
      </para>
     </listitem>
    </varlistentry>
@@ -135,7 +204,10 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>VERBOSE</literal></term>
     <listitem>
      <para>
+<!--
       Prints a detailed vacuum activity report for each table.
+-->
+各テーブルについてバキューム処理の詳細な報告を出力します。
      </para>
     </listitem>
    </varlistentry>
@@ -144,8 +216,11 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>ANALYZE</literal></term>
     <listitem>
      <para>
+<!--
       Updates statistics used by the planner to determine the most
       efficient way to execute a query.
+-->
+プランナが使用する統計情報を更新し、問い合わせを実行する最も効率的な方法を決定できるようにします。
      </para>
     </listitem>
    </varlistentry>
@@ -154,6 +229,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>DISABLE_PAGE_SKIPPING</literal></term>
     <listitem>
      <para>
+<!--
       Normally, <command>VACUUM</command> will skip pages based on the <link
       linkend="vacuum-for-visibility-map">visibility map</link>.  Pages where
       all tuples are known to be frozen can always be skipped, and those
@@ -165,6 +241,13 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       be used only when the contents of the visibility map are
       suspect, which should happen only if there is a hardware or software
       issue causing database corruption.
+-->
+通常、<command>VACUUM</command>は<link linkend="vacuum-for-visibility-map">可視性マップ</link>に基いてページをスキップします。
+すべてのタプルが凍結されていることがわかっているページは、常にスキップできます。
+また、すべてのタプルがすべてのトランザクションに対して可視であることがわかっているページは、積極的なバキュームを実行している場合を除き、スキップできます。
+さらに、積極的なバキュームを実行している場合を除き、一部のページは、他のセッションがその使用を終了するのを待つのを避けるため、スキップされます。
+このオプションは、ページをスキップする動作をすべて無効にします。
+これは可視性マップの内容が怪しいときにのみ使用されることを意図したもので、それはデータベースの破損を引き起こすようなハードウェアあるいはソフトウェアの障害がある場合にのみ発生します。
      </para>
     </listitem>
    </varlistentry>
@@ -173,6 +256,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>SKIP_LOCKED</literal></term>
     <listitem>
      <para>
+<!--
       Specifies that <command>VACUUM</command> should not wait for any
       conflicting locks to be released when beginning work on a relation:
       if a relation cannot be locked immediately without waiting, the relation
@@ -185,6 +269,11 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       specified partitioned tables, this option will cause
       <command>VACUUM</command> to skip all partitions if there is a
       conflicting lock on the partitioned table.
+-->
+<command>VACUUM</command>に、リレーションでの作業開始時、衝突するロックが解放されるのを待たないよう指定します。リレーションが待たずにすぐにロックできない場合、そのリレーションは飛ばされます。
+このオプションを指定しても、リレーションのインデックスを開く時に<command>VACUUM</command>はブロックするかもしれないことに注意してください。
+さらに加えて、<command>VACUUM ANALYZE</command>は、パーティションやテーブル継承の子、ある種類の外部テーブルからサンプル行を取得する時にブロックするかもしれません。
+また、<command>VACUUM</command>は通常、指定されたパーティションテーブルの全パーティションを処理しますが、このオプションが指定されると、パーティションテーブルに衝突するロックがある場合<command>VACUUM</command>は全パーティションを飛ばすようになります。
      </para>
     </listitem>
    </varlistentry>
@@ -193,6 +282,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>INDEX_CLEANUP</literal></term>
     <listitem>
      <para>
+<<<<<<< HEAD
       Normally, <command>VACUUM</command> will skip index vacuuming
       when there are very few dead tuples in the table.  The cost of
       processing all of the table's indexes is expected to greatly
@@ -245,7 +335,29 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       exists. This is usually the desired behavior and is the default.
       Setting this option to false may be useful when it is only necessary to
       vacuum the main relation. This option is required when the
+=======
+<!--
+      Specifies that <command>VACUUM</command> should attempt to remove
+      index entries pointing to dead tuples.  This is normally the desired
+      behavior and is the default unless the
+      <literal>vacuum_index_cleanup</literal> option has been set to false
+      for the table to be vacuumed.  Setting this option to false may be
+      useful when it is necessary to make vacuum run as quickly as possible,
+      for example to avoid imminent transaction ID wraparound
+      (see <xref linkend="vacuum-for-wraparound"/>).  However, if index
+      cleanup is not performed regularly, performance may suffer, because
+      as the table is modified, indexes will accumulate dead tuples
+      and the table itself will accumulate dead line pointers that cannot be
+      removed until index cleanup is completed.  This option has no effect
+      for tables that do not have an index and is ignored if the
+>>>>>>> doc_ja_13
       <literal>FULL</literal> option is used.
+-->
+<command>VACUUM</command>に、無効なタプルを指しているインデックスのエントリーの削除を試みるよう指定します。
+これは普通は望まれる振舞いであり、バキュームされるテーブルに対して<literal>vacuum_index_cleanup</literal>オプションが偽に設定されていない限りデフォルトです。
+このオプションを偽に設定するのは、バキュームの実行をできる限り速くする必要がある場合には有用かもしれません。例えば、切迫したトランザクションIDの周回を避ける場合です(<xref linkend="vacuum-for-wraparound"/>を参照してください)。
+しかしながら、インデックスの掃除を定期的に行なわない場合、テーブルが修正されるに従い、インデックスは無効なタプルを蓄積し、テーブル自身もインデックスの掃除が完了するまで削除できない無効な行ポインタを蓄積していきますので、パフォーマンスは悪くなるでしょう。
+このオプションはインデックスを持たないテーブルには影響せず、<literal>FULL</literal>オプションが使われていれば無視されます。
      </para>
     </listitem>
    </varlistentry>
@@ -254,6 +366,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>TRUNCATE</literal></term>
     <listitem>
      <para>
+<!--
       Specifies that <command>VACUUM</command> should attempt to
       truncate off any empty pages at the end of the table and allow
       the disk space for the truncated pages to be returned to
@@ -264,6 +377,11 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       <literal>ACCESS EXCLUSIVE</literal> lock on the table that
       the truncation requires. This option is ignored if the
       <literal>FULL</literal> option is used.
+-->
+<command>VACUUM</command>に、テーブルの最後にある空のページを切り詰め、切り詰めたページのディスクスペースをオペレーティングシステムに返すよう指定します。
+これは普通は望まれる振舞いであり、バキュームされるテーブルに対して<literal>vacuum_truncate</literal>オプションが偽に設定されていない限りデフォルトです。
+このオプションを偽に設定するのは、切り詰めが要求されているテーブルの<literal>ACCESS EXCLUSIVE</literal>ロックを回避するのに有用かもしれません。
+このオプションは<literal>FULL</literal>オプションが使われていれば無視されます。
      </para>
     </listitem>
    </varlistentry>
@@ -272,6 +390,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>PARALLEL</literal></term>
     <listitem>
      <para>
+<!--
       Perform index vacuum and index cleanup phases of <command>VACUUM</command>
       in parallel using <replaceable class="parameter">integer</replaceable>
       background workers (for the details of each vacuum phase, please
@@ -279,7 +398,11 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       to perform the operation is equal to the number of indexes on the
       relation that support parallel vacuum which is limited by the number of
       workers specified with <literal>PARALLEL</literal> option if any which is
+<<<<<<< HEAD
       further limited by <xref linkend="guc-max-parallel-maintenance-workers"/>.
+=======
+      further limited by <xref linkend="guc-max-parallel-workers-maintenance"/>.
+>>>>>>> doc_ja_13
       An index can participate in parallel vacuum if and only if the size of the
       index is more than <xref linkend="guc-min-parallel-index-scan-size"/>.
       Please note that it is not guaranteed that the number of parallel workers
@@ -291,6 +414,18 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       vacuum are launched before the start of each phase and exit at the end of
       the phase.  These behaviors might change in a future release.  This
       option can't be used with the <literal>FULL</literal> option.
+<<<<<<< HEAD
+=======
+-->
+<replaceable class="parameter">integer</replaceable>個のバックグラウンドワーカーを使用して、<command>VACUUM</command>のインデックスバキュームフェーズとインデックスクリーンアップフェーズを並列に実行します（各バキュームフェーズの詳細については、<xref linkend="vacuum-phases"/>を参照してください）。
+操作の実行に使用されるワーカーの数は、並列バキュームをサポートするリレーションのインデックスの数と同じです。この数は<literal>PARALLEL</literal>オプションで指定されたワーカーの数によって制限され、<xref linkend="guc-max-parallel-workers-maintenance"/>パラメータによってさらに制限されます。
+インデックスは、インデックスのサイズが<xref linkend="guc-min-parallel-index-scan-size"/>パラメータよりも大きい場合にのみ、並列バキュームに参加できます。
+<replaceable class="parameter">integer</replaceable>で指定されたパラレルワーカー数が実行中に使用されることは保証されないことに注意してください。
+指定されたワーカー数より少ないワーカーでバキュームが実行されたり、ワーカーがまったくない状態で実行される可能性があります。
+1つのインデックスに使用出来るワーカーは1つだけです。よって、パラレルワーカーはテーブルに少なくとも<literal>2</literal>つのインデックスがある場合にのみ起動されます。
+バキュームのワーカーは、各フェーズの開始前に起動され、フェーズの終了時に終了します。
+これらの動作は将来のリリースで変更される可能性があります。このオプションは<literal>FULL</literal>オプションと一緒に使用することはできません。
+>>>>>>> doc_ja_13
      </para>
     </listitem>
    </varlistentry>
@@ -299,12 +434,17 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><replaceable class="parameter">boolean</replaceable></term>
     <listitem>
      <para>
+<!--
       Specifies whether the selected option should be turned on or off.
       You can write <literal>TRUE</literal>, <literal>ON</literal>, or
       <literal>1</literal> to enable the option, and <literal>FALSE</literal>,
       <literal>OFF</literal>, or <literal>0</literal> to disable it.  The
       <replaceable class="parameter">boolean</replaceable> value can also
       be omitted, in which case <literal>TRUE</literal> is assumed.
+-->
+選択されたオプションを有効にするか無効にするかを指定します。
+オプションを有効にするには<literal>TRUE</literal>、<literal>ON</literal>または<literal>1</literal>と書くことができ、無効にするには<literal>FALSE</literal>、<literal>OFF</literal>または<literal>0</literal>と書くことができます。
+<replaceable class="parameter">boolean</replaceable>値は省略することもでき、その場合には<literal>TRUE</literal>とみなされます。
      </para>
     </listitem>
    </varlistentry>
@@ -313,7 +453,10 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><replaceable class="parameter">integer</replaceable></term>
     <listitem>
      <para>
+<!--
       Specifies a non-negative integer value passed to the selected option.
+-->
+選択したオプションに渡される負でない整数値を指定します。
      </para>
     </listitem>
    </varlistentry>
@@ -322,9 +465,13 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><replaceable class="parameter">table_name</replaceable></term>
     <listitem>
      <para>
+<!--
       The name (optionally schema-qualified) of a specific table or
       materialized view to vacuum.  If the specified table is a partitioned
       table, all of its leaf partitions are vacuumed.
+-->
+バキューム対象のテーブルまたはマテリアライズドビューの名前です（スキーマ修飾名も可）。
+指定したテーブルがパーティションテーブルの場合、そのすべてのリーフパーティションがバキュームされます。
      </para>
     </listitem>
    </varlistentry>
@@ -333,9 +480,14 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><replaceable class="parameter">column_name</replaceable></term>
     <listitem>
      <para>
+<!--
       The name of a specific column to analyze. Defaults to all columns.
       If a column list is specified, <literal>ANALYZE</literal> must also be
       specified.
+-->
+解析の対象とする列名です。
+デフォルトは全列です。
+列リストが指定された場合は<literal>ANALYZE</literal>も指定しなければいけません。
      </para>
     </listitem>
    </varlistentry>
@@ -343,19 +495,30 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
  </refsect1>
 
  <refsect1>
+<!--
   <title>Outputs</title>
+-->
+  <title>出力</title>
 
    <para>
+<!--
     When <literal>VERBOSE</literal> is specified, <command>VACUUM</command> emits
     progress messages to indicate which table is currently being
     processed.  Various statistics about the tables are printed as well.
+-->
+<literal>VERBOSE</literal>が指定された場合、<command>VACUUM</command>は、現在処理中のテーブルを示す進行状況メッセージを表示します。
+同様に、テーブルについての各種の統計情報も表示されます。
    </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
    <para>
+<!--
     To vacuum a table, one must ordinarily be the table's owner or a
     superuser.  However, database owners are allowed to
     vacuum all tables in their databases, except shared catalogs.
@@ -363,20 +526,33 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <command>VACUUM</command> can only be performed by a superuser.)
     <command>VACUUM</command> will skip over any tables that the calling user
     does not have permission to vacuum.
+-->
+テーブルをバキュームするためには、通常はテーブルの所有者もしくはスーパーユーザでなければなりません。
+しかしデータベースの所有者は共有カタログを除くデータベース内の全テーブルをバキュームすることができます。
+（共有カタログに関する制限は、データベース全体の<command>VACUUM</command>はスーパーユーザのみが実行可能であることを意味します。）
+<command>VACUUM</command>は、呼び出したユーザがバキュームするための権限を持たないテーブルはすべて飛ばします。
    </para>
 
    <para>
+<!--
     <command>VACUUM</command> cannot be executed inside a transaction block.
+-->
+トランザクションブロック内で<command>VACUUM</command>を実行することはできません。
    </para>
 
    <para>
+<!--
     For tables with <acronym>GIN</acronym> indexes, <command>VACUUM</command> (in
     any form) also completes any pending index insertions, by moving pending
     index entries to the appropriate places in the main <acronym>GIN</acronym> index
     structure.  See <xref linkend="gin-fast-update"/> for details.
+-->
+<acronym>GIN</acronym>インデックスを持つテーブルでは、<command>VACUUM</command>（全構文）は待ち状態のインデックス挿入を主<acronym>GIN</acronym>インデックス構造内の適切なところに移動させることにより、待ち状態のインデックス挿入をすべて完了させます。
+<xref linkend="gin-fast-update"/>を参照してください。
    </para>
 
    <para>
+<!--
     We recommend that active production databases be
     vacuumed frequently (at least nightly), in order to
     remove dead rows. After adding or deleting a large number
@@ -386,37 +562,60 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     the results of all recent changes, and allow the
     <productname>PostgreSQL</productname> query planner to make better
     choices in planning queries.
+-->
+不要となった行を削除するため、実運用状態のデータベースに対しては定期的に（少なくとも毎晩）<command>VACUUM</command>を実行することを推奨します。
+また、テーブルに対して多数の行を追加/削除した後は、そのテーブルに<command>VACUUM ANALYZE</command>を発行することを推奨します。
+これによりシステムカタログに最近なされた全ての変更が反映されることになり、<productname>PostgreSQL</productname>の問い合わせプランナが、問い合わせ計画の作成時により良い選択をできるようになります。
    </para>
 
    <para>
+<!--
     The <option>FULL</option> option is not recommended for routine use,
     but might be useful in special cases.  An example is when you have deleted
     or updated most of the rows in a table and would like the table to
     physically shrink to occupy less disk space and allow faster table
     scans. <command>VACUUM FULL</command> will usually shrink the table
     more than a plain <command>VACUUM</command> would.
+-->
+<option>FULL</option>オプションを日常的に使用することは推奨しませんが、特殊なケースでは有用となる場合もあります。
+例えば、テーブル内のほとんど全ての行を削除または更新し、そのテーブルによるディスクの使用量を物理的に縮小させて高速なテーブルスキャンを行いたい場合です。
+<command>VACUUM FULL</command>はたいていの場合、通常の<command>VACUUM</command>よりもテーブルを縮小します。
    </para>
 
    <para>
+<!--
      The <option>PARALLEL</option> option is used only for vacuum purposes.
      If this option is specified with the <option>ANALYZE</option> option,
      it does not affect <option>ANALYZE</option>.
+-->
+<option>PARALLEL</option>オプションはバキュームの用途でのみ使用されます。
+このオプションを<option>ANALYZE</option>オプションで指定した場合、<option>ANALYZE</option>には影響しません。
    </para>
 
    <para>
+<!--
     <command>VACUUM</command> causes a substantial increase in I/O traffic,
     which might cause poor performance for other active sessions.  Therefore,
     it is sometimes advisable to use the cost-based vacuum delay feature.  For
     parallel vacuum, each worker sleeps in proportion to the work done by that
     worker.  See <xref linkend="runtime-config-resource-vacuum-cost"/> for
     details.
+-->
+<command>VACUUM</command>によりI/Oトラフィックがかなり増大しますので、実行中の他のセッションの性能が悪化する可能性があります。
+このため、コストベースのバキューム遅延機能の使用が推奨される場合があります。
+並列バキュームの場合、各ワーカーはそのワーカーが行った作業に比例してスリープします。
+詳細は<xref linkend="runtime-config-resource-vacuum-cost"/>を参照してください。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> includes an <quote>autovacuum</quote>
     facility which can automate routine vacuum maintenance.  For more
     information about automatic and manual vacuuming, see
     <xref linkend="routine-vacuuming"/>.
+-->
+<productname>PostgreSQL</productname>には、バキューム保守作業を自動化する<quote>autovacuum</quote>機能があります。
+自動バキューム処理および手作業によるバキューム処理に関する詳細については、<xref linkend="routine-vacuuming"/>を参照してください。
    </para>
    <para>
     Each backend running <command>VACUUM</command> without the
@@ -430,11 +629,17 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
  </refsect1>
 
  <refsect1>
+<!--
   <title>Examples</title>
+-->
+  <title>例</title>
 
   <para>
+<!--
    To clean a single table <literal>onek</literal>, analyze it for
    the optimizer and print a detailed vacuum activity report:
+-->
+<literal>onek</literal> というテーブル1つだけを掃除し、オプティマイザ用に解析し、バキューム処理の詳細な報告を出力するには、次のようにします。
 
 <programlisting>
 VACUUM (VERBOSE, ANALYZE) onek;
@@ -442,15 +647,24 @@ VACUUM (VERBOSE, ANALYZE) onek;
  </refsect1>
 
  <refsect1>
+<!--
   <title>Compatibility</title>
+-->
+  <title>互換性</title>
 
   <para>
+<!--
    There is no <command>VACUUM</command> statement in the SQL standard.
+-->
+標準SQLには<command>VACUUM</command>文はありません。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>See Also</title>
+-->
+  <title>関連項目</title>
 
   <simplelist type="inline">
    <member><xref linkend="app-vacuumdb"/></member>

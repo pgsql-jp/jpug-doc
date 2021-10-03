@@ -1,12 +1,19 @@
 <!-- doc/src/sgml/nls.sgml -->
 
 <chapter id="nls">
+<!--
  <title>Native Language Support</title>
+-->
+ <title>多言語サポート</title>
 
  <sect1 id="nls-translator">
+<!--
   <title>For the Translator</title>
+-->
+  <title>翻訳者へ</title>
 
   <para>
+<!--
    <productname>PostgreSQL</productname>
    programs (server and client) can issue their messages in
    your favorite language &mdash; if the messages have been translated.
@@ -15,24 +22,42 @@
    the <productname>PostgreSQL</productname> effort.  You do not have to be a
    programmer at all
    to do this.  This section explains how to help.
+-->
+<productname>PostgreSQL</productname>プログラムは（サーバ、クライアントともに）メッセージが翻訳されていれば、使い慣れた言語でそのメッセージを出すことができます。
+翻訳メッセージセットの作成と保守は、自分の言語を上手に話し<productname>PostgreSQL</productname>の成果に貢献したい人々の協力が必要です。
+この作業にはプログラマである必要はまったくありません。
+本節ではお手伝いの仕方を説明します。
   </para>
 
   <sect2>
+<!--
    <title>Requirements</title>
+-->
+   <title>必要事項</title>
 
    <para>
+<!--
     We won't judge your language skills &mdash; this section is about
     software tools.  Theoretically, you only need a text editor.  But
     this is only in the unlikely event that you do not want to try out
     your translated messages.  When you configure your source tree, be
-    sure to use the <option>--enable-nls</option> option.  This will
+    sure to use the <option>&#045;-enable-nls</option> option.  This will
     also check for the <application>libintl</application> library and the
     <filename>msgfmt</filename> program, which all end users will need
     anyway.  To try out your work, follow the applicable portions of
     the installation instructions.
+-->
+協力者の言語の熟練度については判断しません。
+本節ではソフトウェアツールについて説明します。
+理論的には、テキストエディタのみが必要です。
+しかし、これは自分で作成した翻訳メッセージを試そうとはしないという、あまりあり得ない場合のみです。
+ソースツリーを構築する際に、<option>--enable-nls</option>オプションを使用していることを確認してください。
+これにより、全てのエンドユーザがとにかく必要とする、<application>libintl</application>ライブラリと<filename>msgfmt</filename>プログラムも同時に検査されます。
+作業を試す際には、インストール手順の適切な部分に従ってください。
    </para>
 
    <para>
+<!--
     If you want to start a new translation effort or want to do a
     message catalog merge (described later), you will need the
     programs <filename>xgettext</filename> and
@@ -41,19 +66,32 @@
     use a packaged source distribution, you won't need
     <filename>xgettext</filename>.  (If working from Git, you will still need
     it.)  <application>GNU Gettext 0.10.36</application> or later is currently recommended.
+-->
+新規に翻訳作業を始めるか、（後述の）メッセージカタログのマージを行いたい場合、GNU版と互換性を持った実装の<filename>xgettext</filename>と<filename>msgmerge</filename>という2つのプログラムがそれぞれ必要です。
+将来はパッケージ化されたソース配布物を使用する場合に<filename>xgettext</filename>を必要としないように変更する予定です
+（Git版で作業をしているのであれば、まだこれが必要です）。
+現在<application>GNU Gettext 0.10.36</application>以上を推奨します。
    </para>
 
    <para>
+<!--
     Your local gettext implementation should come with its own
     documentation.  Some of that is probably duplicated in what
     follows, but for additional details you should look there.
+-->
+使用するマシンのgettextの実装については、文書が一緒に付いてくると思います。
+以下のいくつかはおそらく重複していますが、追補すべき詳細についてはその文書を参照してください。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Concepts</title>
+-->
+   <title>概念</title>
 
    <para>
+<!--
     The pairs of original (English) messages and their (possibly)
     translated equivalents are kept in <firstterm>message
     catalogs</firstterm>, one for each program (although related
@@ -65,19 +103,35 @@
     which is a binary file generated from the respective PO file and
     is used while the internationalized program is run.  Translators
     do not deal with MO files; in fact hardly anyone does.
+-->
+英語による元のメッセージとそれを基に（場合によって）翻訳されたメッセージの組み合わせは<firstterm>メッセージカタログ</firstterm>に、（関連するプログラムはメッセージカタログを共有することができますが）各プログラム、対象とする言語に対して一つずつ保持されます。
+メッセージカタログには2つのファイル形式があります。
+1つは<quote>PO</quote>ファイル（移植可能オブジェクト-Portable Object-を意味します）で翻訳者が編集する特別な構文を持った平文ファイルです。
+2番目は<quote>MO</quote>ファイル（マシンオブジェクト-Machine Object-を意味します)で対応するPOファイルから生成され、国際化プログラムの実行の際に使用されるバイナリファイルです。
+翻訳者は、MOファイルを扱いません。
+実際に扱うことは困難です。
    </para>
 
    <para>
+<!--
     The extension of the message catalog file is to no surprise either
     <filename>.po</filename> or <filename>.mo</filename>.  The base
     name is either the name of the program it accompanies, or the
     language the file is for, depending on the situation.  This is a
     bit confusing.  Examples are <filename>psql.po</filename> (PO file
     for psql) or <filename>fr.mo</filename> (MO file in French).
+-->
+メッセージカタログファイルの拡張子は想像していたかもしれませんが<filename>.po</filename>もしくは<filename>.mo</filename>です。
+基本名（拡張子を除いた部分）は、プログラムが伴っている名前、もしくは翻訳目的とする言語の名前のいずれかで、状況によって変わります。
+少し混乱するかもしれません。
+例えば、<filename>psql.po</filename>（psql用のPOファイル）、もしくは<filename>fr.mo</filename>（フランス語用のMOファイル）です。
    </para>
 
    <para>
+<!--
     The file format of the PO files is illustrated here:
+-->
+POファイルの書式を以下に示します。
 <programlisting>
 # comment
 
@@ -90,26 +144,40 @@ msgstr "another translated"
 
 ...
 </programlisting>
+<!--
     The msgid lines are extracted from the program source.  (They need not
     be, but this is the most common way.)  The msgstr lines are
     initially empty and are filled in with useful strings by the
     translator.  The strings can contain C-style escape characters and
     can be continued across lines as illustrated.  (The next line must
     start at the beginning of the line.)
+-->
+msgidはプログラムのソースから抽出されます。
+（これは必要はありませんが最も一般的な方法です。）
+msgstr行は初期状態では空であり、翻訳者によって有益な文字列が埋め込まれます。
+この文字列には、C言語形式のエスケープ文字を含めることも、上に示したように複数行にまたがって続けることもできます。
+（継続行は必ず行の先頭から始まらなければなりません。）
    </para>
 
    <para>
+<!--
     The # character introduces a comment.  If whitespace immediately
     follows the # character, then this is a comment maintained by the
     translator.  There can also be automatic comments, which have a
     non-whitespace character immediately following the #.  These are
     maintained by the various tools that operate on the PO files and
     are intended to aid the translator.
+-->
+#文字はコメントの開始を示します。
+#文字の直後に空白文字があった場合、それは翻訳者によって保守されるコメントです。
+#の直後に非空白文字が付く、自動的に付与されるコメントもあります。
+これらは、POファイルに対する操作を行う各種ツールによって保守され、翻訳者の補助を意図しています。
 <programlisting>
 #. automatic comment
 #: filename.c:1023
 #, flags, flags
 </programlisting>
+<!--
     The #. style comments are extracted from the source file where the
     message is used.  Possibly the programmer has inserted information
     for the translator, such as about expected alignment.  The #:
@@ -127,21 +195,43 @@ msgstr "another translated"
     template.  This means that the translation should also be a format
     string with the same number and type of placeholders.  There are
     tools that can verify this, which key off the c-format flag.
+-->
+#.スタイルのコメントはそのメッセージが使用されているソースファイルから抽出されます。
+おそらくプログラマが、翻訳者のために追加した、そのようにしてほしいと考える体裁についてなどの情報です。
+#:コメントは、ソース内でそのメッセージが使用される正確な場所を示します。
+翻訳者はプログラムソースを参照する必要はありませんが、翻訳の正確さに疑問がある場合にソースを参照することができます。
+#,コメントは何らかの方法でメッセージを説明するフラグです。
+現在、2つのフラグがあります。
+そのメッセージがプログラムソースの変更によって古いものとなった可能性がある場合、<literal>fuzzy</literal>が設定されます。
+翻訳者はこれを検証し、fuzzyフラグを削除できます。
+fuzzyメッセージはエンドユーザからは利用できないことに注意してください。
+もう1つのフラグは<literal>c-format</literal>で、そのメッセージが<function>printf</function>形式の書式テンプレートであることを示します。
+これは、翻訳側もプレースホルダの型と同じ番号を持った書式文字列でなければならないことを意味します。
+これを検証するツールがあり、それらはc-formatフラグを入力として受け取ります。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Creating and Maintaining Message Catalogs</title>
+-->
+   <title>メッセージカタログの作成と保守</title>
 
    <para>
+<!--
     OK, so how does one create a <quote>blank</quote> message
     catalog?  First, go into the directory that contains the program
     whose messages you want to translate.  If there is a file
     <filename>nls.mk</filename>, then this program has been prepared
     for translation.
+-->
+さて、<quote>空の</quote>メッセージカタログをどうやって作成するのでしょうか。
+まず、翻訳したいメッセージを持つプログラムが存在するディレクトリに移動します。
+<filename>nls.mk</filename>ファイルがあればこのプログラムは翻訳の準備が整っています。
    </para>
 
    <para>
+<!--
     If there are already some <filename>.po</filename> files, then
     someone has already done some translation work.  The files are
     named <filename><replaceable>language</replaceable>.po</filename>,
@@ -159,14 +249,27 @@ msgstr "another translated"
     <filename>pt_BR.po</filename> for Portuguese in Brazil.  If you
     find the language you wanted you can just start working on that
     file.
+-->
+もし、<filename>.po</filename>ファイルが数個既にあれば、誰かがある翻訳作業を行っています。
+そのファイルは<filename><replaceable>language</replaceable>.po</filename> と名前が付けられています。
+ここで、<replaceable>language</replaceable>は<ulink url="https://www.loc.gov/standards/iso639-2/php/English_list.php">ISO 639-1の2文字言語コード（小文字）</ulink>を表します。
+例えば、<filename>fr.po</filename>はフランス語用です。
+1つの言語に複数の翻訳成果が必要である場合そのファイルの名前は<filename><replaceable>language</replaceable>_<replaceable>region</replaceable>.po</filename>のようになります。
+ここで、<replaceable>region</replaceable>は<ulink url="https://www.iso.org/iso-3166-country-codes.html">ISO 3166-1の2文字国コード（大文字）</ulink>を表します。
+例えば、<filename>pt_BR.po</filename>はブラジルでのポルトガル語用を示します。
+翻訳対象とする言語用のファイルがあれば、それを基に作業を始めることができます。
    </para>
 
    <para>
+<!--
     If you need to start a new translation effort, then first run the
     command:
+-->
+新規に翻訳を始める必要がある場合、以下のコマンドを最初に実行してください。
 <programlisting>
 make init-po
 </programlisting>
+<!--
     This will create a file
     <filename><replaceable>progname</replaceable>.pot</filename>.
     (<filename>.pot</filename> to distinguish it from PO files that
@@ -177,39 +280,67 @@ make init-po
     edit it.  To make it known that the new language is available,
     also edit the file <filename>nls.mk</filename> and add the
     language (or language and country) code to the line that looks like:
+-->
+これは、<filename><replaceable>progname</replaceable>.pot</filename>ファイルを作成します。
+（<filename>.pot</filename>は<quote>実用の</quote>POファイルと区別するためのものです。
+<literal>T</literal>は<quote>テンプレート</quote>を意味します。）
+このファイルを<filename><replaceable>language</replaceable>.po</filename>にコピーして編集します。
+新規の言語が利用可能になったことを知らせるために、<filename>nls.mk</filename>を編集し、言語（もしくは言語と国）コードを以下のように追加してください。
 <programlisting>
 AVAIL_LANGUAGES := de fr
 </programlisting>
+<!--
     (Other languages can appear, of course.)
+-->
+（もちろん他の言語があるかもしれません。）
    </para>
 
    <para>
+<!--
     As the underlying program or library changes, messages might be
     changed or added by the programmers.  In this case you do not need
     to start from scratch.  Instead, run the command:
+-->
+対象のプログラムやライブラリの変更に伴い、メッセージはプログラマによって変更、追加されます。
+この場合は始めからやり直す必要はありません。
+その代わりに以下のコマンドを実行してください。
 <programlisting>
 make update-po
 </programlisting>
+<!--
     which will create a new blank message catalog file (the pot file
     you started with) and will merge it with the existing PO files.
     If the merge algorithm is not sure about a particular message it
     marks it <quote>fuzzy</quote> as explained above.  The new PO file
     is saved with a <filename>.po.new</filename> extension.
+-->
+そうすると新しい空のメッセージカタログファイル（最初に使用したpotファイル）が作成され、既存のPOファイルにマージされます。
+このマージのアルゴリズムが特定のメッセージに関して確実でない場合、それは上で説明した<quote>fuzzy</quote>となります。
+新規POファイルは<filename>.po.new</filename>という拡張子付きで保存されます。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Editing the PO Files</title>
+-->
+   <title>POファイルの編集</title>
 
    <para>
+<!--
     The PO files can be edited with a regular text editor.  The
     translator should only change the area between the quotes after
     the msgstr directive, add comments, and alter the fuzzy flag.
     There is (unsurprisingly) a PO mode for Emacs, which I find quite
     useful.
+-->
+POファイルは普通のテキストエディタで編集することができます。
+翻訳者はmsgstrディレクティブの後の引用符の間の部分の変更、コメントの追加、fuzzyフラグの変更のみを行えばよいのです。
+Emacsには（予想通り）POモードがあり、非常に使いやすいものです。
    </para>
 
    <para>
+<!--
     The PO files need not be completely filled in.  The software will
     automatically fall back to the original string if no translation
     (or an empty translation) is available.  It is no problem to
@@ -219,29 +350,50 @@ make update-po
     after doing a merge.  Remember that fuzzy entries will not be
     installed; they only serve as reference for what might be the right
     translation.
+-->
+POファイルを完全に埋めることは必要ありません。
+ソフトウェアは使用できる翻訳がない（もしくは翻訳が空の）場合自動的に元の文字列に戻します。
+他の人が作業を引き継ぐことができますので、ソースツリー内に不完全な翻訳を含めることにも問題はありません。
+しかし、マージの後のfuzzyフラグを削除することを優先に考えることが推奨されています。
+fuzzyエントリはインストールされないことを忘れないでください。
+これらは何が正しい翻訳になり得るかの参照のためにのみ提供されています。
    </para>
 
    <para>
+<!--
     Here are some things to keep in mind while editing the
     translations:
+-->
+以下に、翻訳の編集を行う際に注意すべき点を示します。
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Make sure that if the original ends with a newline, the
        translation does, too.  Similarly for tabs, etc.
+-->
+元の文字列の終端が改行の場合、翻訳も同様になっていることを確認してください。
+タブなども同様です。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        If the original is a <function>printf</function> format string, the translation
        also needs to be.  The translation also needs to have the same
        format specifiers in the same order.  Sometimes the natural
        rules of the language make this impossible or at least awkward.
        In that case you can modify the format specifiers like this:
+-->
+元が<function>printf</function>書式文字列の場合、翻訳も同じでなければなりません。
+また、翻訳は同じ書式識別子を同じ順番で持たなければなりません。
+言語固有の規則によっては不可能な場合や扱いづらい場合も起こります。
+このような場合は、以下の書式指定子を使用することができます。
 <programlisting>
 msgstr "Die Datei %2$s hat %1$u Zeichen."
 </programlisting>
+<!--
        Then the first placeholder will actually use the second
        argument from the list.  The
        <literal><replaceable>digits</replaceable>$</literal> needs to
@@ -250,11 +402,17 @@ msgstr "Die Datei %2$s hat %1$u Zeichen."
        family of functions.  You might not have heard of it before because
        there is little use for it outside of message
        internationalization.)
+-->
+そして、リストの最初のプレースホルダが実際にはこのリストの2番目の引数に使用されます。
+<literal><replaceable>digits</replaceable>$</literal>は%の直後に続く必要があり、他の書式の操作の前に使用する必要があります。
+（この機能は<function>printf</function>系の関数に本当に存在するものです。
+メッセージ国際化以外ではほとんど使用されませんので、聞いたことがないかもしれません。）
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        If the original string contains a linguistic mistake, report
        that (or fix it yourself in the program source) and translate
        normally.  The corrected string can be merged in when the
@@ -262,26 +420,40 @@ msgstr "Die Datei %2$s hat %1$u Zeichen."
        contains a factual mistake, report that (or fix it yourself)
        and do not translate it.  Instead, you can mark the string with
        a comment in the PO file.
+-->
+元の文字列に言語上の間違いがある場合、それを報告し（もしくはプログラムソースを直して）、普通に翻訳してください。
+修正された文字列は、プログラムのソースが修正された時にマージ可能になります。
+元の文字列が事実と異なる場合、それを報告し（もしくは自ら直して）、翻訳を行わないでください。
+その代わりに、POファイルのその文字列にコメントを付けてください。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Maintain the style and tone of the original string.
        Specifically, messages that are not sentences (<literal>cannot
        open file %s</literal>) should probably not start with a
        capital letter (if your language distinguishes letter case) or
        end with a period (if your language uses punctuation marks).
        It might help to read <xref linkend="error-style-guide"/>.
+-->
+元の文字列のスタイルや調子を維持してください。
+特に、（<literal>cannot open file %s</literal>など）文章になっていないメッセージは、（翻訳する言語が大文字小文字を区別するのであれば）おそらく最初の文字を大文字にしてはなりませんし、（翻訳する言語が句読点として使用しているのであれば）ピリオドを終わりに付けてはいけません。
+<xref linkend="error-style-guide"/>を読むと参考になります。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        If you don't know what a message means, or if it is ambiguous,
        ask on the developers' mailing list.  Chances are that English
        speaking end users might also not understand it or find it
        ambiguous, so it's best to improve the message.
+-->
+メッセージの意味がわからない時や、曖昧な場合は、開発者用のメーリングリストに問い合わせてください。
+英語を話すエンドユーザも理解できない、または曖昧であると判断することができる機会となり、メッセージの改良を行う最善のものです。
       </para>
      </listitem>
 
@@ -293,24 +465,40 @@ msgstr "Die Datei %2$s hat %1$u Zeichen."
 
 
  <sect1 id="nls-programmer">
+<!--
   <title>For the Programmer</title>
+-->
+  <title>プログラマへ</title>
 
   <sect2 id="nls-mechanics">
+<!--
    <title>Mechanics</title>
+-->
+   <title>仕組み</title>
 
   <para>
+<!--
    This section describes how to implement native language support in a
    program or library that is part of the
    <productname>PostgreSQL</productname> distribution.
    Currently, it only applies to C programs.
+-->
+本節では、<productname>PostgreSQL</productname>配布物の一部であるプログラムやライブラリにおける各国語サポートの実装方法を説明します。
+現在はCプログラムにのみ適用できます。
   </para>
 
   <procedure>
+<!--
    <title>Adding NLS Support to a Program</title>
+-->
+   <title>プログラムにNLSサポートを追加する</title>
 
    <step>
     <para>
+<!--
      Insert this code into the start-up sequence of the program:
+-->
+プログラムの起動処理に以下のコードを追加してください。
 <programlisting>
 #ifdef ENABLE_NLS
 #include &lt;locale.h&gt;
@@ -324,44 +512,69 @@ bindtextdomain("<replaceable>progname</replaceable>", LOCALEDIR);
 textdomain("<replaceable>progname</replaceable>");
 #endif
 </programlisting>
+<!--
      (The <replaceable>progname</replaceable> can actually be chosen
      freely.)
+-->
+（<replaceable>progname</replaceable>は実際には自由に選択できます。）
     </para>
    </step>
 
    <step>
     <para>
+<!--
      Wherever a message that is a candidate for translation is found,
      a call to <function>gettext()</function> needs to be inserted.  E.g.:
+-->
+どこであろうと翻訳の候補となるメッセージが見つかったら、<function>gettext()</function>の呼び出しが追加される必要があります。
+例えば、
 <programlisting>
 fprintf(stderr, "panic level %d\n", lvl);
 </programlisting>
+<!--
      would be changed to:
+-->
+は、次のように変更されます。
 <programlisting>
 fprintf(stderr, gettext("panic level %d\n"), lvl);
 </programlisting>
+<!--
      (<symbol>gettext</symbol> is defined as a no-op if NLS support is
      not configured.)
+-->
+（NLSサポートが組み込まれていない場合、<symbol>gettext</symbol>はノーオペレーション命令として定義されます。）
     </para>
 
     <para>
+<!--
      This tends to add a lot of clutter.  One common shortcut is to use:
+-->
+これは混乱しがちになります。一般的なショートカットは以下のものです。
 <programlisting>
 #define _(x) gettext(x)
 </programlisting>
+<!--
      Another solution is feasible if the program does much of its
      communication through one or a few functions, such as
      <function>ereport()</function> in the backend.  Then you make this
      function call <function>gettext</function> internally on all
      input strings.
+-->
+他の解決方法は、バックエンドにおける<function>ereport()</function>のように、そのプログラムが通信のほとんどを1つまたは数個の関数で行っている場合有効です。
+その場合、この関数の内部で全ての入力文字列に対し<function>gettext</function>を呼び出すようにすることになります。
     </para>
    </step>
 
    <step>
     <para>
+<!--
      Add a file <filename>nls.mk</filename> in the directory with the
      program sources.  This file will be read as a makefile.  The
      following variable assignments need to be made here:
+-->
+プログラムのソースのあるディレクトリに<filename>nls.mk</filename>を追加してください。
+これはmakefileとして読まれます。
+以下の変数への代入をここで設定する必要があります。
 
      <variablelist>
       <varlistentry>
@@ -369,8 +582,11 @@ fprintf(stderr, gettext("panic level %d\n"), lvl);
 
        <listitem>
         <para>
+<!--
          The program name, as provided in the
          <function>textdomain()</function> call.
+-->
+<function>textdomain()</function>の呼び出しに使用されるプログラム名です。
         </para>
        </listitem>
       </varlistentry>
@@ -380,7 +596,10 @@ fprintf(stderr, gettext("panic level %d\n"), lvl);
 
        <listitem>
         <para>
+<!--
          List of provided translations &mdash; initially empty.
+-->
+用意された翻訳のリストです。初めは空です。
         </para>
        </listitem>
       </varlistentry>
@@ -390,6 +609,7 @@ fprintf(stderr, gettext("panic level %d\n"), lvl);
 
        <listitem>
         <para>
+<!--
          List of files that contain translatable strings, i.e., those
          marked with <function>gettext</function> or an alternative
          solution.  Eventually, this will include nearly all source
@@ -397,6 +617,11 @@ fprintf(stderr, gettext("panic level %d\n"), lvl);
          make the first <quote>file</quote> be a <literal>+</literal>
          and the second word be a file that contains one file name per
          line.
+-->
+翻訳可能文字列を含むファイルの一覧です。
+つまり、これらは<function>gettext</function>もしくは他の解決法として印が付けられます。
+結局、これはプログラムのほとんど全てのソースファイルを含むことになります。
+この一覧があまりに長くなる場合、最初の<quote>file</quote>を<literal>+</literal>とし、2番目の単語を1行に対して1つのファイル名を持ったファイルとすることができます。
         </para>
        </listitem>
       </varlistentry>
@@ -406,6 +631,7 @@ fprintf(stderr, gettext("panic level %d\n"), lvl);
 
        <listitem>
         <para>
+<!--
          The tools that generate message catalogs for the translators
          to work on need to know what function calls contain
          translatable strings.  By default, only
@@ -417,6 +643,12 @@ fprintf(stderr, gettext("panic level %d\n"), lvl);
          If you have a function that supports pluralized messages,
          the item should look like <literal>func:1,2</literal>
          (identifying the singular and plural message arguments).
+-->
+翻訳者が作業を行う上で、どの関数呼び出しが翻訳可能文字列を含むかを知る必要に迫られた場合に、メッセージカタログを生成するツールです。
+デフォルトでは、<function>gettext()</function>呼び出しのみを認識します。
+<function>_</function>や他の識別子を使用した場合、ここに記載しなければなりません。
+翻訳可能文字列がその最初の引数ではない場合、その項目は（例えば2番目の引数の場合）<literal>func:2</literal>という形式でなければなりません。
+複数形メッセージをサポートする関数がある場合、その項目は（単一形および複数形メッセージ引数を特定する）<literal>func:1,2</literal>のようになります。
         </para>
        </listitem>
       </varlistentry>
@@ -427,25 +659,38 @@ fprintf(stderr, gettext("panic level %d\n"), lvl);
   </procedure>
 
   <para>
+<!--
    The build system will automatically take care of building and
    installing the message catalogs.
+-->
+ビルドシステムは、自動的にメッセージカタログの構築およびインストールを行います。
   </para>
   </sect2>
 
   <sect2 id="nls-guidelines">
+<!--
    <title>Message-Writing Guidelines</title>
+-->
+   <title>メッセージ記述の指針</title>
 
   <para>
+<!--
    Here are some guidelines for writing messages that are easily
    translatable.
+-->
+メッセージの翻訳を簡単にするために以下に指針をいくつか示します。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       Do not construct sentences at run-time, like:
+-->
+以下のように実行時に文章を構築することはしないでください。
 <programlisting>
 printf("Files were %s.\n", flag ? "copied" : "removed");
 </programlisting>
+<!--
       The word order within the sentence might be different in other
       languages.  Also, even if you remember to call <function>gettext()</function> on
       each fragment, the fragments might not translate well separately.  It's
@@ -453,42 +698,64 @@ printf("Files were %s.\n", flag ? "copied" : "removed");
       translated is a coherent whole.  Only numbers, file names, and
       such-like run-time variables should be inserted at run time into
       a message text.
+-->
+文章内の単語の順番は言語によって異なる可能性があります。
+さらに全ての断章に対して<function>gettext()</function>を呼び出すことを覚えていたとしても、断章が個別に的確に翻訳されるわけではありません。
+それぞれのメッセージが全て調和して翻訳されるかどうか、ちょっとしたコードの複製を用意するとよいかもしません。
+番号、ファイル名、および実行時変数のみメッセージテキストに実行時に挿入するべきです。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       For similar reasons, this won't work:
+-->
+同様の理由で、以下も上手くいきません。
 <programlisting>
 printf("copied %d file%s", n, n!=1 ? "s" : "");
 </programlisting>
+<!--
       because it assumes how the plural is formed.  If you figured you
       could solve it like this:
+-->
+これは複数形がどのように形成されるかを決めてかかっているからです。
+もし、以下のようにして回避できたと考えると、
 <programlisting>
 if (n==1)
     printf("copied 1 file");
 else
     printf("copied %d files", n):
 </programlisting>
+<!--
       then be disappointed.  Some languages have more than two forms,
       with some peculiar rules.  It's often best to design the message
       to avoid the issue altogether, for instance like this:
+-->
+失望することになります。
+言語の中には、独特の規則によって2つ以上の形式になるものもあります。
+問題全体を回避するためこのメッセージを設計することが最善です。たとえば以下のようにします。
 <programlisting>
 printf("number of copied files: %d", n);
 </programlisting>
      </para>
 
      <para>
+<!--
       If you really want to construct a properly pluralized message,
       there is support for this, but it's a bit awkward.  When generating
       a primary or detail error message in <function>ereport()</function>, you can
       write something like this:
+-->
+適切に複数形を持つメッセージを構築したいと本当に思うのなら、これに対するサポートがありますが、多少厄介です。
+<function>ereport()</function>内の主たる、または詳細なエラーメッセージを生成する場合、以下のように書くことができます。
 <programlisting>
 errmsg_plural("copied %d file",
               "copied %d files",
               n,
               n)
 </programlisting>
+<!--
       The first argument is the format string appropriate for English
       singular form, the second is the format string appropriate for
       English plural form, and the third is the integer control value
@@ -501,27 +768,41 @@ errmsg_plural("copied %d file",
       sees the two English forms as a group and has the opportunity to
       supply multiple substitute strings, with the appropriate one being
       selected based on the run-time value of <replaceable>n</replaceable>.
+-->
+最初の引数は英文の単数形に適切な書式文字列で、二番目は英文の複数形に適切な書式文字列、そして三番目はどの複数形を使用するのかを決定する整数制御値です。引き続く引数はいつものように書式文字列毎に書式化されます。（通常、複数化制御値は書式化されるべき値の内の１つです。）英語では<replaceable>n</replaceable>が１であるか、そうでないかのみ重要ですが、他の言語では数多くの複数書式が存在します。
+翻訳者にはグループとして２つの英文書式を参照し、<replaceable>n</replaceable>の実行時の値に基づいて選択される適切な１つでもって、複数の代替文字列を供給する機会があります。
      </para>
 
      <para>
+<!--
       If you need to pluralize a message that isn't going directly to an
       <function>errmsg</function> or <function>errdetail</function> report, you have to use
       the underlying function <function>ngettext</function>.  See the gettext
       documentation.
+-->
+<function>errmsg</function>あるいは<function>errdetail</function>報告に直接行かない複数形メッセージが必要であれば、基礎となっている関数、<function>ngettext</function>を使用する必要があります。
+gettextのドキュメントを参照してください。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       If you want to communicate something to the translator, such as
       about how a message is intended to line up with other output,
       precede the occurrence of the string with a comment that starts
       with <literal>translator</literal>, e.g.:
+-->
+メッセージをどのように他の出力と合わせる予定なのかなど翻訳者と何か連絡を取り合いたい場合、<literal>translator</literal>で始まるコメントを最初に付けてどうなるかを知らせてください。
+以下のようにします。
 <programlisting>
 /* translator: This message is not what it seems to be. */
 </programlisting>
+<!--
       These comments are copied to the message catalog files so that
       the translators can see them.
+-->
+これらのコメントはメッセージカタログにコピーされますので翻訳者は参照できます。
      </para>
     </listitem>
    </itemizedlist>

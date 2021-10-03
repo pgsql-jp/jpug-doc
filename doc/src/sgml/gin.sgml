@@ -1,42 +1,68 @@
 <!-- doc/src/sgml/gin.sgml -->
 
 <chapter id="gin">
+<!--
 <title>GIN Indexes</title>
+-->
+<title>GINインデックス</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>GIN</secondary>
    </indexterm>
 
 <sect1 id="gin-intro">
+<!--
  <title>Introduction</title>
+-->
+ <title>はじめに</title>
 
  <para>
+<!--
   <acronym>GIN</acronym> stands for Generalized Inverted Index.
   <acronym>GIN</acronym> is designed for handling cases where the items
   to be indexed are composite values, and the queries to be handled by
   the index need to search for element values that appear within
   the composite items.  For example, the items could be documents,
   and the queries could be searches for documents containing specific words.
+-->
+<acronym>GIN</acronym>とは汎用転置インデックス(Generalized Inverted Index)を表します。
+<acronym>GIN</acronym>は、以下のような状況を取り扱うために設計されました。(1)インデックス対象の項目が複合型である。(2)そのインデックスにより処理される問い合わせは、複合型の項目内に存在する要素の値を検索する必要がある。
+例えば、項目は文書であり、問い合わせは特定の単語を含む文書の検索です。
  </para>
 
  <para>
+<!--
   We use the word <firstterm>item</firstterm> to refer to a composite value that
   is to be indexed, and the word <firstterm>key</firstterm> to refer to an element
   value.  <acronym>GIN</acronym> always stores and searches for keys,
   not item values per se.
+-->
+ここでは、インデックス対象の複合型の値を<firstterm>項目</firstterm>と呼びます。また、要素値を<firstterm>キー</firstterm>と呼びます。
+<acronym>GIN</acronym>は項目の値自体ではなく、常にキーを格納し検索します。
  </para>
 
  <para>
+<!--
   A <acronym>GIN</acronym> index stores a set of (key, posting list) pairs,
   where a <firstterm>posting list</firstterm> is a set of row IDs in which the key
   occurs.  The same row ID can appear in multiple posting lists, since
   an item can contain more than one key.  Each key value is stored only
   once, so a <acronym>GIN</acronym> index is very compact for cases
   where the same key appears many times.
+-->
+<acronym>GIN</acronym>インデックスは(キー、ポスティングリスト(posting list))の組み合わせの集合を格納します。
+ここで<firstterm>ポスティングリスト</firstterm>はキーが発生した行IDの集合です。
+項目は１つ以上のキーを含むことができますので、同じ行IDが複数のポスティングリストに現れることがあり得ます。
+キー値はそれぞれ一度のみ格納されます。
+このため<acronym>GIN</acronym>インデックスの容量は、同じキーが何度も現れる場合に非常に小さくなります。
  </para>
 
  <para>
+<!--
   <acronym>GIN</acronym> is generalized in the sense that the
   <acronym>GIN</acronym> access method code does not need to know the
   specific operations that it accelerates.
@@ -44,42 +70,68 @@
   The strategy defines how keys are extracted from indexed items and
   query conditions, and how to determine whether a row that contains
   some of the key values in a query actually satisfies the query.
+-->
+<acronym>GIN</acronym>インデックスは、<acronym>GIN</acronym>アクセスメソッドが高速化対象の操作を把握する必要がないという意味で汎用化されています。
+その代わり、特定のデータ型に対して定義された独自の戦略を使用します。
+戦略は、インデックス付けされた項目と問い合わせ条件からキーを抽出する方法および問い合わせ内のいくつかのキー値を含む行が実際に問い合わせを満たすかどうかを決定する方法を定義します。
  </para>
 
  <para>
+<!--
   One advantage of <acronym>GIN</acronym> is that it allows the development
   of custom data types with the appropriate access methods, by
   an expert in the domain of the data type, rather than a database expert.
   This is much the same advantage as using <acronym>GiST</acronym>.
+-->
+<acronym>GIN</acronym>の利点の1つは、データベース専門家ではなくデータ型の分野における専門家により、適切なアクセスメソッドを持つ独自のデータ型を開発できるという点です。
+これは<acronym>GiST</acronym>の使用とほぼ同じ利点です。
  </para>
 
  <para>
+<!--
   The <acronym>GIN</acronym>
   implementation in <productname>PostgreSQL</productname> is primarily
   maintained by Teodor Sigaev and Oleg Bartunov. There is more
   information about <acronym>GIN</acronym> on their
   <ulink url="http://www.sai.msu.su/~megera/wiki/Gin">website</ulink>.
+-->
+<productname>PostgreSQL</productname>における<acronym>GIN</acronym>の実装は、主にTeodor SigaevとOleg Bartunovにより保守されています。
+<acronym>GIN</acronym>に関する情報は彼らの<ulink url="http://www.sai.msu.su/~megera/wiki/Gin">webサイト</ulink>により多く記載されています。
  </para>
 </sect1>
 
 <sect1 id="gin-builtin-opclasses">
+<!--
  <title>Built-in Operator Classes</title>
+-->
+ <title>組み込み演算子クラス</title>
 
  <para>
+<!--
   The core <productname>PostgreSQL</productname> distribution
   includes the <acronym>GIN</acronym> operator classes shown in
   <xref linkend="gin-builtin-opclasses-table"/>.
   (Some of the optional modules described in <xref linkend="contrib"/>
   provide additional <acronym>GIN</acronym> operator classes.)
+-->
+<productname>PostgreSQL</productname>のコア配布物は<xref linkend="gin-builtin-opclasses-table"/>に示す<acronym>GIN</acronym>演算子クラスを含みます。
+(<xref linkend="contrib"/>に記載された追加モジュールの中には追加の<acronym>GIN</acronym>演算子クラスを提供するものもあります。)
  </para>
 
   <table id="gin-builtin-opclasses-table">
+<!--
    <title>Built-in <acronym>GIN</acronym> Operator Classes</title>
+-->
+   <title>組み込み<acronym>GIN</acronym>演算子クラス</title>
    <tgroup cols="2">
     <thead>
      <row>
+<!--
       <entry>Name</entry>
       <entry>Indexable Operators</entry>
+-->
+      <entry>名前</entry>
+      <entry>インデックス可能な演算子</entry>
      </row>
     </thead>
     <tbody>
@@ -137,35 +189,56 @@
   </table>
 
  <para>
+<!--
   Of the two operator classes for type <type>jsonb</type>, <literal>jsonb_ops</literal>
   is the default.  <literal>jsonb_path_ops</literal> supports fewer operators but
   offers better performance for those operators.
   See <xref linkend="json-indexing"/> for details.
+-->
+<type>jsonb</type>型の2つの演算子クラスのうち、<literal>jsonb_ops</literal>がデフォルトです。
+<literal>jsonb_path_ops</literal>はより少数の演算子しかサポートしませんが、その演算子に対してはより良いパフォーマンスを提供します。
+詳細は<xref linkend="json-indexing"/>を参照してください。
  </para>
 
 </sect1>
 
 <sect1 id="gin-extensibility">
+<!--
  <title>Extensibility</title>
+-->
+ <title>拡張性</title>
 
  <para>
+<!--
    The <acronym>GIN</acronym> interface has a high level of abstraction,
    requiring the access method implementer only to implement the semantics of
    the data type being accessed.  The <acronym>GIN</acronym> layer itself
    takes care of concurrency, logging and searching the tree structure.
+-->
+<acronym>GIN</acronym>インタフェースは高度に抽象化されています。
+アクセスメソッド実装者に要求されることは、アクセスするデータ型の意味を実装することだけです。
+<acronym>GIN</acronym>層自体が同時実行性、ログ処理、ツリー構造の検索処理に関する面倒を見ます。
  </para>
 
  <para>
+<!--
    All it takes to get a <acronym>GIN</acronym> access method working is to
    implement a few user-defined methods, which define the behavior of
    keys in the tree and the relationships between keys, indexed items,
    and indexable queries. In short, <acronym>GIN</acronym> combines
    extensibility with generality, code reuse, and a clean interface.
+-->
+<acronym>GIN</acronym>アクセスメソッドを動作させるために必要なことは、少数のユーザ定義関数を実装することだけです。
+これは、ツリー内のキーの動作とキーとインデックス付けされる項目、インデックス可能な問い合わせ間の関係を定義します。
+すなわち、<acronym>GIN</acronym>は、一般化、コード再利用、整理されたインタフェースによる拡張性を組み合わせます。
  </para>
 
  <para>
+<!--
    There are two methods that an operator class for
    <acronym>GIN</acronym> must provide:
+-->
+<acronym>GIN</acronym>用の演算子クラスが提供しなければならないメソッドは2つあります。
 
   <variablelist>
     <varlistentry>
@@ -173,6 +246,7 @@
         bool **nullFlags)</function></term>
      <listitem>
       <para>
+<!--
        Returns a palloc'd array of keys given an item to be indexed.  The
        number of returned keys must be stored into <literal>*nkeys</literal>.
        If any of the keys can be null, also palloc an array of
@@ -181,6 +255,12 @@
        <literal>*nullFlags</literal> can be left <symbol>NULL</symbol> (its initial value)
        if all keys are non-null.
        The return value can be <symbol>NULL</symbol> if the item contains no keys.
+-->
+インデックス対象値に与えられる、pallocで割り当てられたキーの配列を返します。
+返されるキーの数は<literal>*nkeys</literal>に格納しなければなりません。
+キーのいずれかがNULLになるかもしれない場合、<literal>*nkeys</literal>個の<type>bool</type>の配列をpallocで割り当てそのアドレスを<literal>*nullFlags</literal>に格納し、必要に応じてNULLフラグを設定してください。
+すべてのキーが非NULLであれば、<literal>*nullFlags</literal>を<symbol>NULL</symbol>（初期値）のままにすることができます。
+項目がキーを含まない場合、戻り値は<symbol>NULL</symbol>になるかもしれません。
       </para>
      </listitem>
     </varlistentry>
@@ -191,6 +271,7 @@
         bool **nullFlags, int32 *searchMode)</function></term>
      <listitem>
       <para>
+<!--
        Returns a palloc'd array of keys given a value to be queried; that is,
        <literal>query</literal> is the value on the right-hand side of an
        indexable operator whose left-hand side is the indexed column.
@@ -206,9 +287,20 @@
        <literal>*nullFlags</literal> can be left <symbol>NULL</symbol> (its initial value)
        if all keys are non-null.
        The return value can be <symbol>NULL</symbol> if the <literal>query</literal> contains no keys.
+-->
+問い合わせ対象の値に与えられる、pallocで割り当てられたキーの配列を返します。
+つまり、<literal>query</literal>はインデックス可能な演算子の右辺の値です。
+この左辺はインデックス対象の列です。
+<literal>n</literal>は演算子クラス内の演算子の戦略番号です（<xref linkend="xindex-strategies"/>を参照）。
+<function>extractQuery</function>はしばしば、<literal>query</literal>のデータ型とキー値を抽出するために使用しなければならないメソッドを決定するために、<literal>n</literal>を調べなければなりません。
+返されるキーの数を<literal>*nkeys</literal>に格納しなければなりません。
+キーのいずれかがNULLとなる可能性がある場合はまた、<literal>*nkeys</literal>個の<type>bool</type>の配列をpallocで割り当て、<literal>*nullFlags</literal>にそのアドレスを格納し、必要に応じてNULLフラグを設定してください。
+すべてのキーが非NULLならば<literal>*nullFlags</literal>は<symbol>NULL</symbol>（初期値）のままにしておくことができます。
+<literal>query</literal>がキーを含まない場合、戻り値を<symbol>NULL</symbol>にすることができます。
       </para>
 
       <para>
+<!--
        <literal>searchMode</literal> is an output argument that allows
        <function>extractQuery</function> to specify details about how the search
        will be done.
@@ -231,9 +323,21 @@
        class.)
        The symbols to use for setting this mode are defined in
        <filename>access/gin.h</filename>.
+-->
+<literal>searchMode</literal>は出力引数です。
+これにより<function>extractQuery</function>は検索がどのように行われるかの詳細を指定することができます。
+<literal>*searchMode</literal>が<literal>GIN_SEARCH_MODE_DEFAULT</literal>（呼び出し前にこの値に初期化されます。）に設定された場合、返されるキーの少なくとも１つに一致する項目が合致候補とみなされます。
+<literal>*searchMode</literal>が<literal>GIN_SEARCH_MODE_INCLUDE_EMPTY</literal>に設定された場合、少なくとも１つの一致するキーを含む項目に加え、キーをまったく含まない項目が合致候補とみなされます。
+（このモードは例えば何のサブセットかを求める演算子を実装する際に有用です。）
+<literal>*searchMode</literal>が<literal>GIN_SEARCH_MODE_ALL</literal>に設定された場合、返されるキーのいずれかに一致するかどうかは関係なく、インデックス内の非NULLの項目すべてが合致候補とみなされます。
+（このモードは、基本的にインデックス全体のスキャン処理が必要ですので、他の２つの選択肢と比べてかなり低速になります。
+しかし境界条件を正確に実装するためにこれが必要になるかもしれません。
+おそらく、このモードを必要とする演算子はほとんどの場合、GIN演算子クラス向けに優れた候補ではありません。）
+このモードを設定するために使用する記号は<filename>access/gin.h</filename>で定義されています。
       </para>
 
       <para>
+<!--
        <literal>pmatch</literal> is an output argument for use when partial match
        is supported.  To use it, <function>extractQuery</function> must allocate
        an array of <literal>*nkeys</literal> <type>bool</type>s and store its address at
@@ -243,9 +347,16 @@
        is not required.  The variable is initialized to <symbol>NULL</symbol> before call,
        so this argument can simply be ignored by operator classes that do
        not support partial match.
+-->
+<literal>pmatch</literal>は部分一致が提供されている場合に使用する出力引数です。
+使用するには、<function>extractQuery</function>が<literal>*nkeys</literal>個の<type>bool</type>の配列を割り当て、そのアドレスを<literal>*pmatch</literal>に格納しなければなりません。
+関連するキーが部分一致を必要とするとき、それぞれの配列要素は真に、そうでなければ偽に設定されなければなりません。
+<literal>*pmatch</literal>が<symbol>NULL</symbol>に設定されている場合、GINは部分一致が必要ないと想定します。
+呼び出し前に変数は<symbol>NULL</symbol>に初期化されますので、この引数は部分一致が提供されていない演算子クラスでは、単に無視できます。
       </para>
 
       <para>
+<!--
        <literal>extra_data</literal> is an output argument that allows
        <function>extractQuery</function> to pass additional data to the
        <function>consistent</function> and <function>comparePartial</function> methods.
@@ -257,12 +368,18 @@
        do not require extra data.  If <literal>*extra_data</literal> is set, the
        whole array is passed to the <function>consistent</function> method, and
        the appropriate element to the <function>comparePartial</function> method.
+-->
+<literal>extra_data</literal>は、<function>extractQuery</function>が<function>consistent</function>と<function>comparePartial</function>メソッドに追加データを渡すことができるようにする出力引数です。
+使用するには、<function>extractQuery</function>が<literal>*nkeys</literal>ポインタの配列を割り当て、そのアドレスを<literal>*extra_data</literal>に格納し、そして望まれるものは何でも個別のポインタに格納しなければなりません。
+変数は呼び出し前に<symbol>NULL</symbol>に初期化されますので、追加データを必要としない演算子クラスでこの引数は単に無視できます。
+もし<literal>*extra_data</literal>が設定されれば、配列全部が<function>consistent</function>メソッドに、適切な要素が<function>comparePartial</function>メソッドに渡されます。
       </para>
 
      </listitem>
     </varlistentry>
   </variablelist>
 
+<!--
   An operator class must also provide a function to check if an indexed item
   matches the query. It comes in two flavors, a Boolean <function>consistent</function>
   function, and a ternary <function>triConsistent</function> function.
@@ -272,6 +389,13 @@
   provide both.  If only the Boolean variant is provided, some optimizations
   that depend on refuting index items before fetching all the keys are
   disabled.
+-->
+演算子クラスは、インデックス付けされた項目が問い合わせに一致するか確認する関数も提供しなければなりません。
+それは2つの方法で行なわれます。
+2値の<function>consistent</function>関数と3値の<function>triConsistent</function>関数です。
+<function>triConsistent</function>が両方の機能を含みますので、<function>triConsistent</function>だけを提供しても十分です。
+しかし、2値の亜種を計算するのが著しく安価であれば、両方を提供することは役に立つかもしれません。
+2値の亜種のみが提供されていれば、すべてのキーを取得する前にインデックス項目が一致しないことを確認することに基づく最適化の中には無効となるものもあります。
 
   <variablelist>
     <varlistentry>
@@ -280,6 +404,7 @@
         Datum queryKeys[], bool nullFlags[])</function></term>
      <listitem>
       <para>
+<!--
        Returns true if an indexed item satisfies the query operator with
        strategy number <literal>n</literal> (or might satisfy it, if the recheck
        indication is returned).  This function does not have direct access
@@ -299,9 +424,20 @@
        arrays previously returned by <function>extractQuery</function>.
        <literal>extra_data</literal> is the extra-data array returned by
        <function>extractQuery</function>, or <symbol>NULL</symbol> if none.
+-->
+インデックス付けられた項目が戦略番号<literal>n</literal>を持つ問い合わせ演算子を満たす（または、recheck印が返されたときはたぶん満たすかもしれない）場合に真を返します。
+<acronym>GIN</acronym>は項目を明示的に格納しませんので、この関数はインデックス付けされた項目の値に直接アクセスすることができません。
+どちらかというと、この問い合わせから取り出される指定された問い合わせで現れるキー値に関する知識が利用できるものです。
+<literal>check</literal>配列は長さ<literal>nkeys</literal>であり、この<literal>query</literal>データに対して事前に行われた<function>extractQuery</function>が返したキーの数と同じです。
+インデックス対象の項目が対応する問い合わせキーを持つ場合、<literal>check</literal>配列の各要素は真です。
+つまり、(check[i] == true)の場合、<function>extractQuery</function>の結果配列のi番目のキーがインデックス対象項目内に存在します。
+元の<literal>query</literal>データは、<function>consistent</function>メソッドがそれを調査する必要がある場合に、渡されます。
+このため<literal>queryKeys[]</literal>および<literal>nullFlags[]</literal>は事前に<function>extractQuery</function>によって返されます。
+<literal>extra_data</literal>は<function>extractQuery</function>により返された追加データ配列で、ない場合は<symbol>NULL</symbol>です。
       </para>
 
       <para>
+<!--
        When <function>extractQuery</function> returns a null key in
        <literal>queryKeys[]</literal>, the corresponding <literal>check[]</literal> element
        is true if the indexed item contains a null key; that is, the
@@ -309,9 +445,14 @@
        FROM</literal>.  The <function>consistent</function> function can examine the
        corresponding <literal>nullFlags[]</literal> element if it needs to tell
        the difference between a regular value match and a null match.
+-->
+<function>extractQuery</function>が<literal>queryKeys[]</literal>内でNULLキーを返す時、インデックス対象項目がNULLキーを含む場合は対応する<literal>check[]</literal>要素は真です、
+つまり、<literal>check[]</literal>の意味は<literal>IS NOT DISTINCT FROM</literal>のようなものです。
+<function>consistent</function>関数は、通常の値の合致とNULL合致との違いを通知する必要がある場合、対応する<literal>nullFlags[]</literal>要素を検査することができます。
       </para>
 
       <para>
+<!--
        On success, <literal>*recheck</literal> should be set to true if the heap
        tuple needs to be rechecked against the query operator, or false if
        the index test is exact.  That is, a false return value guarantees
@@ -321,6 +462,9 @@
        <literal>*recheck</literal> set to true means that the heap tuple might match
        the query, so it needs to be fetched and rechecked by evaluating the
        query operator directly against the originally indexed item.
+-->
+成功の場合、<literal>*recheck</literal>はヒープタプルが問い合わせ演算子に対し再検査を必要とすれば真で、インデックス検査が的確であれば偽です。
+つまり、falseという戻り値はヒープタプルが問い合わせに合わないことを保証し、<literal>*recheck</literal>が付いたtrueという戻り値はヒープタプルが問い合わせに一致する可能性があるため、それを取り出し、元のインデックス付けされた項目を直接問い合わせ演算子で評価することで再検査する必要があることを意味します。
       </para>
      </listitem>
     </varlistentry>
@@ -331,6 +475,7 @@
         Datum queryKeys[], bool nullFlags[])</function></term>
      <listitem>
       <para>
+<!--
        <function>triConsistent</function> is similar to <function>consistent</function>,
        but instead of Booleans in the <literal>check</literal> vector, there are
        three possible values for each
@@ -346,12 +491,21 @@
        keys. If the result depends on the <literal>GIN_MAYBE</literal> entries, i.e.,
        the match cannot be confirmed or refuted based on the known query keys,
        the function must return <literal>GIN_MAYBE</literal>.
+-->
+<function>triConsistent</function>は<function>consistent</function>と似ていますが、<literal>check</literal>ベクターの論理値の代わりに、各キーに対して3つの可能な値があります。<literal>GIN_TRUE</literal>、<literal>GIN_FALSE</literal>、<literal>GIN_MAYBE</literal>です。
+<literal>GIN_FALSE</literal>と<literal>GIN_TRUE</literal>は通常の論理値と同じ意味であり、<literal>GIN_MAYBE</literal>はそのキーの存在が分からないこと意味します。
+<literal>GIN_MAYBE</literal>値があれば、インデックス項目が対応する問い合わせキーを含むかどうかに関わらず、項目が確実に一致する場合にのみ関数は<literal>GIN_TRUE</literal>を返すべきです。
+同様に、<literal>GIN_MAYBE</literal>を含むかどうかに関わらず項目が確実に一致しない場合にのみ関数は<literal>GIN_FALSE</literal>を返さなければなりません。
+結果が<literal>GIN_MAYBE</literal>項目に依存する、すなわち、分かっている問い合わせキーに基づいて、一致することもしないことも確認できない場合には、関数は<literal>GIN_MAYBE</literal>を返さなければなりません。
       </para>
       <para>
+<!--
        When there are no <literal>GIN_MAYBE</literal> values in the <literal>check</literal>
        vector, a <literal>GIN_MAYBE</literal> return value is the equivalent of
        setting the <literal>recheck</literal> flag in the
        Boolean <function>consistent</function> function.
+-->
+<literal>check</literal>ベクターに<literal>GIN_MAYBE</literal>値がなければ、<literal>GIN_MAYBE</literal>戻り値は論理値の<function>consistent</function>関数で<literal>recheck</literal>フラグを設定することと同じです。
       </para>
      </listitem>
     </varlistentry>
@@ -359,24 +513,34 @@
  </para>
 
  <para>
+<!--
   In addition, GIN must have a way to sort the key values stored in the index.
   The operator class can define the sort ordering by specifying a comparison
   method:
+-->
+さらに、GINにはインデックス内に格納されているキー値をソートする方法がなければなりません。
+演算子クラスは比較メソッドを指定することでソート順を定義できます。
 
   <variablelist>
     <varlistentry>
      <term><function>int compare(Datum a, Datum b)</function></term>
      <listitem>
       <para>
+<!--
        Compares two keys (not indexed items!) and returns an integer less than
        zero, zero, or greater than zero, indicating whether the first key is
        less than, equal to, or greater than the second.  Null keys are never
        passed to this function.
+-->
+キー（インデックス付けされる項目ではありません）を比較し、0より小さい、0、または0より大きい整数を返します。
+それぞれ、最初のキーが2番目のキーより、小さい、等しい、または大きいことを示します。
+NULLキーがこの関数に渡されることはありません。
       </para>
      </listitem>
     </varlistentry>
   </variablelist>
 
+<!--
   Alternatively, if the operator class does not provide a <function>compare</function>
   method, GIN will look up the default btree operator class for the index
   key data type, and use its comparison function.  It is recommended to
@@ -385,11 +549,18 @@
   cycles.  However, polymorphic GIN operator classes (such
   as <literal>array_ops</literal>) typically cannot specify a single comparison
   function.
+-->
+あるいは、演算子クラスが<function>compare</function>メソッドを提供しない場合には、GINはそのインデックスキーデータ型に対するデフォルトのbtree演算子クラスを探し、その比較関数を使います。
+btree演算子クラスを探すのは処理に多少掛かりますので、GIN演算子クラスの中で比較関数を指定することを勧めます。それはただ一つのデータ型に対するものであることを意味します。
+しかし、(<literal>array_ops</literal>のような)多様GIN演算子クラスでは、通常は単一の比較関数を指定できません。
  </para>
 
  <para>
+<!--
   An operator class for <acronym>GIN</acronym> can optionally supply the
   following methods:
+-->
+省略可能ですが、<acronym>GIN</acronym>に対する演算子クラスは以下のメソッドを提供します。
 
   <variablelist>
     <varlistentry>
@@ -397,6 +568,7 @@
                               Pointer extra_data)</function></term>
      <listitem>
       <para>
+<!--
        Compare a partial-match query key to an index key.  Returns an integer
        whose sign indicates the result: less than zero means the index key
        does not match the query, but the index scan should continue; zero
@@ -408,6 +580,49 @@
        <literal>extra_data</literal> is the corresponding element of the extra-data
        array made by <function>extractQuery</function>, or <symbol>NULL</symbol> if none.
        Null keys are never passed to this function.
+-->
+問い合わせキーとインデックスキーの部分一致を比較します。
+符号が結果を示す整数が返ります。
+ゼロ未満はインデックスキーは問い合わせに一致しないが、インデックススキャンを続けるべきであることを示します。
+ゼロはインデックスキーが問い合わせに一致することを示します。
+ゼロより大きな値はこれ以上の一致はありえないためインデックススキャンを停止すべきであることを示します。
+スキャンをいつ停止するかを決めるためにセマンティクスが必要とされる場合、部分一致問い合わせを生成した演算子の戦略番号<literal>n</literal>が提供されます。
+また<literal>extra_data</literal>は<function>extractQuery</function>で作成される追加データ配列の対応する要素、もしなければ<symbol>NULL</symbol>です。
+NULLキーがこの関数に渡されることはありません。
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term><function>void options(local_relopts *relopts)</function></term>
+     <listitem>
+      <para>
+<!--
+       Defines a set of user-visible parameters that control operator class
+       behavior.
+-->
+演算子クラスの振舞いを制御するユーザに可視のパラメータの集合を定義します。
+      </para>
+
+      <para>
+<!--
+       The <function>options</function> function is passed a pointer to a
+       <replaceable>local_relopts</replaceable> struct, which needs to be
+       filled with a set of operator class specific options.  The options
+       can be accessed from other support functions using the
+       <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
+       <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
+-->
+<function>options</function>関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
+      </para>
+
+      <para>
+<!--
+       Since both key extraction of indexed values and representation of the
+       key in <acronym>GIN</acronym> are flexible, they may depend on
+       user-specified parameters.
+-->
+インデックス付けされた値からのキーの抽出にも<acronym>GIN</acronym>でのキーの表現にも柔軟性がありますので、ユーザに固有のパラメータに依存するかもしれません。
       </para>
      </listitem>
     </varlistentry>
@@ -439,14 +654,20 @@
  </para>
 
  <para>
+<!--
   To support <quote>partial match</quote> queries, an operator class must
   provide the <function>comparePartial</function> method, and its
   <function>extractQuery</function> method must set the <literal>pmatch</literal>
   parameter when a partial-match query is encountered.  See
   <xref linkend="gin-partial-match"/> for details.
+-->
+<quote>部分一致</quote>問い合わせをサポートするためには、演算子クラスは<function>comparePartial</function>メソッドを提供しなければなりません。
+またその<function>extractQuery</function>は、部分一致問い合わせであった時に<literal>pmatch</literal>パラメータを設定しなければなりません。
+詳細については<xref linkend="gin-partial-match"/>を参照してください。
  </para>
 
  <para>
+<!--
   The actual data types of the various <literal>Datum</literal> values mentioned
   above vary depending on the operator class.  The item values passed to
   <function>extractValue</function> are always of the operator class's input type, and
@@ -459,14 +680,24 @@
   recommended that the SQL declarations of these three support functions use
   the opclass's indexed data type for the <literal>query</literal> argument, even
   though the actual type might be something else depending on the operator.
+-->
+上記の各種<literal>Datum</literal>値の実データ型は、演算子クラスに依存して変動します。
+<function>extractValue</function>に渡される項目値は常に演算子クラスの入力型であり、キー値はすべてそのクラスの<literal>STORAGE</literal>型でなければなりません。
+<function>extractQuery</function>、<function>consistent</function>および<function>triConsistent</function>に渡される<literal>query</literal>引数の型は、戦略番号によって識別されるクラスのメンバ演算子の右辺入力型です。
+正しい型のキー値がそこから抽出できる限り、これはインデックス付けされた型と同じである必要はありません。
+しかしながら、この3つのサポート関数のSQL宣言では、実際の型は演算子に依存して何か他のものであるとしても、<literal>query</literal>引数には演算子クラスのインデックス付けされたデータ型を使うことを勧めます。
  </para>
 
 </sect1>
 
 <sect1 id="gin-implementation">
+<!--
  <title>Implementation</title>
+-->
+ <title>実装</title>
 
  <para>
+<!--
   Internally, a <acronym>GIN</acronym> index contains a B-tree index
   constructed over keys, where each key is an element of one or more indexed
   items (a member of an array, for example) and where each tuple in a leaf
@@ -475,24 +706,40 @@
   list</quote>) when the list is small enough to fit into a single index tuple along
   with the key value.  <xref linkend="gin-internals-figure"/> illustrates
   these components of a GIN index.
+-->
+<acronym>GIN</acronym>インデックスはキー全体に対するB-treeインデックスを持ちます。
+そのキーはそれぞれインデックス対象項目の要素（例えば配列のメンバ）であり、リーフページ内のタプルはそれぞれ、ヒープポインタのB-treeへのポインタ（<quote>ポスティングツリー(posting tree)</quote>）か、もしリストがキー値と共に単一インデックスタプルに合う程度十分に小さければヒープポインタの単純なリスト（<quote>ポスティングリスト(posting list)</quote>）です。
+<xref linkend="gin-internals-figure"/>にGINインデックスのこれらのコンポーネントを示します。
  </para>
 
  <para>
+<!--
   As of <productname>PostgreSQL</productname> 9.1, null key values can be
   included in the index.  Also, placeholder nulls are included in the index
   for indexed items that are null or contain no keys according to
   <function>extractValue</function>.  This allows searches that should find empty
   items to do so.
+-->
+<productname>PostgreSQL</productname> 9.1からNULLキー値をインデックスに含められるようになりました。
+またプレースホルダとしてのNULLが、NULLまたは<function>extractValue</function>によるとキーを含まないインデックス対象項目についてインデックスに含められます。
+これにより空の項目を見つけ出すための検索を行うことができます。
  </para>
 
  <para>
+<!--
   Multicolumn <acronym>GIN</acronym> indexes are implemented by building
   a single B-tree over composite values (column number, key value).  The
   key values for different columns can be of different types.
+-->
+複数列に対する<acronym>GIN</acronym>インデックスは複合型の値（列番号、キー値）全体について単一のB-treeを構築することで実装されます。
+異なる列に対するキー値は別の型となるかもしれません。
  </para>
 
  <figure id="gin-internals-figure">
+<!--
   <title>GIN Internals</title>
+-->
+  <title>GINの内部</title>
   <mediaobject>
    <imageobject>
     <imagedata fileref="images/gin.svg" format="SVG" width="100%"/>
@@ -501,9 +748,13 @@
  </figure>
 
  <sect2 id="gin-fast-update">
+<!--
   <title>GIN Fast Update Technique</title>
+-->
+  <title>GIN高速更新手法</title>
 
   <para>
+<!--
    Updating a <acronym>GIN</acronym> index tends to be slow because of the
    intrinsic nature of inverted indexes: inserting or updating one heap row
    can cause many inserts into the index (one for each key extracted
@@ -519,9 +770,17 @@
    <acronym>GIN</acronym> index update speed, even counting the additional
    vacuum overhead.  Moreover the overhead work can be done by a background
    process instead of in foreground query processing.
+-->
+1つのヒープ行の挿入または更新によりインデックスへの挿入が多く発生するという、転置インデックスの本質的な性質のため<acronym>GIN</acronym>インデックスの更新は低速になりがちです。
+（各キー用のヒープ行はインデックス付けされた項目から取り出されます。）
+<productname>PostgreSQL</productname> 8.4から<acronym>GIN</acronym>は、新しいタプルを一時的なソートされていない、待機中の項目リストに挿入することにより、この作業の大部分を遅延させることができるようになりました。
+テーブルがバキュームまたは自動解析された時、<function>gin_clean_pending_list</function>関数が呼ばれたとき、または、待機中のリスト(pending list)が<xref linkend="guc-gin-pending-list-limit"/>よりも大きくなった時、初期のインデックス作成の際に使用されるものと同様の一括挿入技法を使用して、項目は主<acronym>GIN</acronym>データ構造に移動されます。
+これは、バキュームのオーバーヘッドが追加されることを考慮したとしても、<acronym>GIN</acronym>インデックスの更新速度を著しく向上します。
+さらに、フォアグラウンドの問い合わせ処理ではなくバックグラウンド処理でこのオーバーヘッド作業を実行することができます。
   </para>
 
   <para>
+<!--
    The main disadvantage of this approach is that searches must scan the list
    of pending entries in addition to searching the regular index, and so
    a large list of pending entries will slow searches significantly.
@@ -529,21 +788,34 @@
    that causes the pending list to become <quote>too large</quote> will incur an
    immediate cleanup cycle and thus be much slower than other updates.
    Proper use of autovacuum can minimize both of these problems.
+-->
+この手法の大きな欠点は、検索時に通常のインデックス検索に加え待機中の項目リストのスキャンを行わなければならない点です。
+このため、待機中の項目リストが大きくなると検索が顕著に遅くなります。
+他の欠点は、ほとんどの更新は高速ですが、待機中の項目リストが<quote>大きくなりすぎる</quote>きっかけとなった更新は即時の整理処理を招くことになり、他の更新に比べ大きく低速になります。
+自動バキュームを適切に使用することで、これらの両方の問題を最小化することができます。
   </para>
 
   <para>
+<!--
    If consistent response time is more important than update speed,
    use of pending entries can be disabled by turning off the
    <literal>fastupdate</literal> storage parameter for a
    <acronym>GIN</acronym> index.  See <xref linkend="sql-createindex"/>
    for details.
+-->
+一貫した応答時間が更新速度より重要な場合、<acronym>GIN</acronym>インデックスに対する<literal>fastupdate</literal>格納パラメータを無効にすることにより、待機中の項目の使用を無効にすることができます。
+詳細は<xref linkend="sql-createindex"/>を参照してください。
   </para>
  </sect2>
 
  <sect2 id="gin-partial-match">
+<!--
   <title>Partial Match Algorithm</title>
+-->
+  <title>部分一致アルゴリズム</title>
 
   <para>
+<!--
    GIN can support <quote>partial match</quote> queries, in which the query
    does not determine an exact match for one or more keys, but the possible
    matches fall within a reasonably narrow range of key values (within the
@@ -556,30 +828,51 @@
    index key, less than zero for a non-match that is still within the range
    to be searched, or greater than zero if the index key is past the range
    that could match.
+-->
+GINは<quote>部分一致</quote>問い合わせをサポートすることができます。
+この問い合わせは１つ以上のキーに正確に一致することは決定しませんが、キー値の合理的に狭い（<function>compare</function>サポートメソッドで決まるキーのソート順に従った）範囲内に一致する可能性があります。
+<function>extractQuery</function>は、正確に一致したキー値を返す代わりに、検索される範囲の下限となるキー値を返し、<literal>pmatch</literal>フラグを真に設定します。
+そしてキー範囲を<function>comparePartial</function>メソッドを使用して検索します。
+<function>comparePartial</function>は一致するインデックスキーではゼロを、一致しないが検索すべき範囲内にあればゼロ未満の値を、インデックスキーが一致可能な範囲を超えた場合はゼロより大きな値を返さなければなりません。
   </para>
  </sect2>
 
 </sect1>
 
 <sect1 id="gin-tips">
+<!--
 <title>GIN Tips and Tricks</title>
+-->
+<title>GINの小技</title>
 
  <variablelist>
   <varlistentry>
+<!--
    <term>Create vs. insert</term>
+-->
+   <term>作成と挿入</term>
    <listitem>
     <para>
+<!--
      Insertion into a <acronym>GIN</acronym> index can be slow
      due to the likelihood of many keys being inserted for each item.
      So, for bulk insertions into a table it is advisable to drop the GIN
      index and recreate it after finishing bulk insertion.
+-->
+各項目に対して多くのキーが挿入される可能性がありますので、<acronym>GIN</acronym>インデックスへの挿入は低速になることがあります。
+ですので、テーブルに対する大量の挿入では、GINインデックスを削除し、大量の挿入が終わった段階で再作成することを勧めます。
     </para>
 
     <para>
+<!--
      When <literal>fastupdate</literal> is enabled for <acronym>GIN</acronym>
      (see <xref linkend="gin-fast-update"/> for details), the penalty is
      less than when it is not.  But for very large updates it may still be
      best to drop and recreate the index.
+-->
+<productname>PostgreSQL</productname> 8.4から遅延インデックス作成が使用されるため、この勧告は必要性が薄れました。
+（<xref linkend="gin-fast-update"/>を参照してください。）
+しかし非常に大規模な更新では、インデックスの削除と再作成がまだ最善かもしれません。
     </para>
    </listitem>
   </varlistentry>
@@ -588,9 +881,13 @@
    <term><xref linkend="guc-maintenance-work-mem"/></term>
    <listitem>
     <para>
+<!--
      Build time for a <acronym>GIN</acronym> index is very sensitive to
      the <varname>maintenance_work_mem</varname> setting; it doesn't pay to
      skimp on work memory during index creation.
+-->
+<acronym>GIN</acronym>インデックスの構築時間は<varname>maintenance_work_mem</varname>の設定に非常に敏感です。
+インデックス作成時に作業メモリをより少なく使用しようとはしません。
     </para>
    </listitem>
   </varlistentry>
@@ -599,6 +896,7 @@
    <term><xref linkend="guc-gin-pending-list-limit"/></term>
    <listitem>
     <para>
+<!--
      During a series of insertions into an existing <acronym>GIN</acronym>
      index that has <literal>fastupdate</literal> enabled, the system will clean up
      the pending-entry list whenever the list grows larger than
@@ -609,13 +907,22 @@
      or making autovacuum more aggressive.
      However, enlarging the threshold of the cleanup operation means that
      if a foreground cleanup does occur, it will take even longer.
+-->
+<literal>fastupdate</literal>が有効な既存の<acronym>GIN</acronym>インデックスに対して挿入を繰り返す間、待機中の項目リストが<varname>gin_pending_list_limit</varname>より大きくなると、システムはこのリストを整理します。
+観測される応答時間の変動を防ぐためには、待機中リストの整理をバックグラウンド（すなわち自動バキューム）で起きるようにすることが望まれます。
+フォアグラウンドでの整理処理は、<varname>gin_pending_list_limit</varname>を大きくすること、もしくは自動バキュームをより積極的に行うことで防ぐことができます。
+しかし、整理処理の閾値を大きくすることは、フォアグラウンドで整理処理が発生した時により長い時間がかかることを意味します。
     </para>
     <para>
+<!--
      <varname>gin_pending_list_limit</varname> can be overridden for individual
      GIN indexes by changing storage parameters, which allows each
      GIN index to have its own cleanup threshold.
      For example, it's possible to increase the threshold only for the GIN
      index which can be updated heavily, and decrease it otherwise.
+-->
+<varname>gin_pending_list_limit</varname>は格納パラメータを変更することで個々のGINインデックスに対して上書きでき、それにより各GINインデックスが自身の整理閾値を持てます。
+例えば、頻繁に更新される可能性のあるGINインデックスの閾値のみを増やして、それ以外は減らすことができます。
     </para>
    </listitem>
   </varlistentry>
@@ -624,6 +931,7 @@
    <term><xref linkend="guc-gin-fuzzy-search-limit"/></term>
    <listitem>
     <para>
+<!--
      The primary goal of developing <acronym>GIN</acronym> indexes was
      to create support for highly scalable full-text search in
      <productname>PostgreSQL</productname>, and there are often situations when
@@ -633,8 +941,15 @@
      tuples from the disk and sorting them could take a lot of time, this is
      unacceptable for production.  (Note that the index search itself is very
      fast.)
+-->
+<acronym>GIN</acronym>インデックス開発の主な目的は、スケーラビリティが高い全文検索のサポートを<productname>PostgreSQL</productname>で作成することでした。
+全文検索の結果は非常に大規模な結果セットを返します。
+さらに、問い合わせが非常に高頻度な単語を持つ場合、こうした状況はよく発生しますが、大規模な結果セットは有用ですらありません。
+ディスクから大量のタプルを読み、ソートすることは長い時間がかかりますので、実運用レベルでは受け入れられません。
+（インデックス検索自体は非常に高速であることに注意してください。）
     </para>
     <para>
+<!--
      To facilitate controlled execution of such queries,
      <acronym>GIN</acronym> has a configurable soft upper limit on the
      number of rows returned: the
@@ -642,15 +957,25 @@
      It is set to 0 (meaning no limit) by default.
      If a non-zero limit is set, then the returned set is a subset of
      the whole result set, chosen at random.
+-->
+こうした問い合わせの実行を簡単に制御できるように、<acronym>GIN</acronym>は返される行数に対して設定可能なソフト上限、<varname>gin_fuzzy_search_limit</varname>設定パラメータを持ちます。
+これはデフォルトでは0です（無制限を意味します）。
+非0の制限が設定された場合、返されるセットは結果セット全体からランダムに選んだサブセットになります。
     </para>
     <para>
+<!--
      <quote>Soft</quote> means that the actual number of returned results
      could differ somewhat from the specified limit, depending on the query
      and the quality of the system's random number generator.
+-->
+<quote>ソフト</quote>は、問い合わせとシステムの乱数ジェネレータの品質に依存して、返される結果の実際の数が指定した上限より多少異なることを意味します。
     </para>
     <para>
+<!--
      From experience, values in the thousands (e.g., 5000 &mdash; 20000)
      work well.
+-->
+経験上、数千（例えば5000から20000）の値がうまく動作します。
     </para>
    </listitem>
   </varlistentry>
@@ -659,9 +984,13 @@
 </sect1>
 
 <sect1 id="gin-limit">
+<!--
  <title>Limitations</title>
+-->
+ <title>制限</title>
 
  <para>
+<!--
   <acronym>GIN</acronym> assumes that indexable operators are strict.  This
   means that <function>extractValue</function> will not be called at all on a null
   item value (instead, a placeholder index entry is created automatically),
@@ -669,45 +998,68 @@
   value either (instead, the query is presumed to be unsatisfiable).  Note
   however that null key values contained within a non-null composite item
   or query value are supported.
+-->
+<acronym>GIN</acronym>は、インデックス付け可能な演算子は厳密であると仮定します。
+これは<function>extractValue</function>はNULL項目値についてはまったく呼び出されない（代わりにインデックス項目のプレースホルダが自動的に生成される）こと、および、<function>extractQuery</function>は問い合わせの値がNULLの場合に呼び出されない（代わりに問い合わせは不一致であるとみなされる）ことを意味します。
+しかし非NULLの複合型項目内または問い合わせ値内のNULLキー値はサポートされます。
  </para>
 </sect1>
 
 <sect1 id="gin-examples">
+<!--
  <title>Examples</title>
+-->
+ <title>例</title>
 
  <para>
+<!--
   The core <productname>PostgreSQL</productname> distribution
   includes the <acronym>GIN</acronym> operator classes previously shown in
   <xref linkend="gin-builtin-opclasses-table"/>.
   The following <filename>contrib</filename> modules also contain
   <acronym>GIN</acronym> operator classes:
+-->
+<productname>PostgreSQL</productname>のコア配布物は以前<xref linkend="gin-builtin-opclasses-table"/>に示した<acronym>GIN</acronym>演算子クラスを含みます。
+以下の<filename>contrib</filename>モジュールにも<acronym>GIN</acronym>演算子クラスが含まれています。
 
  <variablelist>
   <varlistentry>
    <term><filename>btree_gin</filename></term>
    <listitem>
+<!--
     <para>B-tree equivalent functionality for several data types</para>
+-->
+    <para>さまざまなデータ型に対するB-tree等価の機能</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>hstore</filename></term>
    <listitem>
+<!--
     <para>Module for storing (key, value) pairs</para>
+-->
+    <para>（キー、値）の組み合わせを格納するモジュール</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>intarray</filename></term>
    <listitem>
+<!--
     <para>Enhanced support for <type>int[]</type></para>
+-->
+    <para><type>int[]</type>に対する高度サポート</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>pg_trgm</filename></term>
    <listitem>
+<!--
     <para>Text similarity using trigram matching</para>
+-->
+    <para>トライグラム一致を使用したテキスト類似度</para>
    </listitem>
   </varlistentry>
  </variablelist>

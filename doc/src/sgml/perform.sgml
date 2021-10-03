@@ -1,31 +1,49 @@
 <!-- doc/src/sgml/perform.sgml -->
 
  <chapter id="performance-tips">
+<!--
   <title>Performance Tips</title>
+-->
+<title>性能に関するヒント</title>
 
   <indexterm zone="performance-tips">
+<!--
    <primary>performance</primary>
+-->
+   <primary>性能</primary>
   </indexterm>
 
   <para>
+<!--
    Query performance can be affected by many things. Some of these can
    be controlled by the user, while others are fundamental to the underlying
    design of the system.  This chapter provides some hints about understanding
    and tuning <productname>PostgreSQL</productname> performance.
+-->
+問い合わせの性能は多くの要因に影響されます。
+ユーザが制御できるものもありますが、背後にあるシステム設計に起因する根本的な要因もあります。
+本章では<productname>PostgreSQL</productname>の性能を理解し、チューニングするためのヒントを提供します。
   </para>
 
  <sect1 id="using-explain">
+<!--
   <title>Using <command>EXPLAIN</command></title>
+-->
+<title><command>EXPLAIN</command>の利用</title>
 
    <indexterm zone="using-explain">
     <primary>EXPLAIN</primary>
    </indexterm>
 
    <indexterm zone="using-explain">
+<!--
     <primary>query plan</primary>
+-->
+    <primary>問い合わせ計画</primary>
    </indexterm>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> devises a <firstterm>query
     plan</firstterm> for each query it receives.  Choosing the right
     plan to match the query structure and the properties of the data
@@ -35,29 +53,49 @@
     to see what query plan the planner creates for any query.
     Plan-reading is an art that requires some experience to master,
     but this section attempts to cover the basics.
+-->
+<productname>PostgreSQL</productname>は受理した問い合わせから<firstterm>問い合わせ計画</firstterm>を作り出します。
+問い合わせの構造と含まれるデータの性質に適した正しい問い合わせ計画を選択することが、良い性能を得るために非常に重要になります。
+ですので、システムには優れた計画の選択を試みる複雑な<firstterm>プランナ</firstterm>が存在します。
+<xref linkend="sql-explain"/>コマンドを使えば、任意の問い合わせに対してプランナがどのような問い合わせ計画を作ったのかわかります。
+問い合わせ計画を読みこなすには、ある程度の経験が必要です。
+本節ではその基本を提供しようと考えます。
    </para>
 
    <para>
+<!--
     Examples in this section are drawn from the regression test database
     after doing a <command>VACUUM ANALYZE</command>, using 9.3 development sources.
     You should be able to get similar results if you try the examples
     yourself, but your estimated costs and row counts might vary slightly
     because <command>ANALYZE</command>'s statistics are random samples rather
     than exact, and because costs are inherently somewhat platform-dependent.
+-->
+本節の例は、9.3の開発版ソースを用いて<command>VACUUM ANALYZE</command>を実行した後でリグレッションテストデータベースから取り出したものです。
+実際にこの例を試すと、似たような結果になるはずですが、おそらく推定コストや行数は多少異なることになるでしょう。
+<command>ANALYZE</command>による統計情報は厳密なものではなくランダムなサンプリングを行った結果であり、また、コストは本質的にプラットフォームに何かしら依存するためです。
    </para>
 
    <para>
+<!--
     The examples use <command>EXPLAIN</command>'s default <quote>text</quote> output
     format, which is compact and convenient for humans to read.
     If you want to feed <command>EXPLAIN</command>'s output to a program for further
     analysis, you should use one of its machine-readable output formats
     (XML, JSON, or YAML) instead.
+-->
+例では、簡潔で人が読みやすい<command>EXPLAIN</command>のデフォルトの<quote>text</quote>出力書式を使用します。
+今後の解析で<command>EXPLAIN</command>の出力をプログラムに渡すことを考えているのであれば、代わりに機械読み取りが容易な出力書式（XML、JSON、YAML）のいずれかを使用する必要があります。
    </para>
 
   <sect2 id="using-explain-basics">
+<!--
    <title><command>EXPLAIN</command> Basics</title>
+-->
+   <title><command>EXPLAIN</command>の基本</title>
 
    <para>
+<!--
     The structure of a query plan is a tree of <firstterm>plan nodes</firstterm>.
     Nodes at the bottom level of the tree are scan nodes: they return raw rows
     from a table.  There are different types of scan nodes for different
@@ -78,10 +116,24 @@
     The very first line (the summary line for the topmost
     node) has the estimated total execution cost for the plan; it is this
     number that the planner seeks to minimize.
+-->
+問い合わせ計画は<firstterm>計画ノード</firstterm>のツリー構造です。
+ツリー構造の最下層ノードはスキャンノードで、テーブルから行そのものを返します。
+シーケンシャルスキャン、インデックススキャン、ビットマップインデックススキャンといったテーブルアクセス方法の違いに応じ、スキャンノードの種類に違いがあります。
+また、<literal>VALUES</literal>句や<literal>FROM</literal>内の集合を返す関数など独自のスキャンノード種類を持つ、テーブル行を元にしないものがあります。
+問い合わせが結合、集約、ソートなど、行そのものに対する操作を必要としている場合、スキャンノードの上位に更に、これらの操作を行うためのノードが追加されます。
+これらの操作の実現方法にも通常複数の方法がありますので、異なった種類のノードがここに出現することもあり得ます。
+<command>EXPLAIN</command>には計画ツリー内の各ノードにつき1行の出力があり、基本ノード種類とプランナが生成したその計画ノードの実行に要するコスト推定値を示します。
+さらに、ノードの追加属性を表示するためにノードの要約行からインデント付けされた行が出力される可能性があります。
+最初の1行目（最上位ノード）には、計画全体の実行コスト推定値が含まれます。
+プランナはこの値が最小になるように動作します。
    </para>
 
    <para>
+<!--
     Here is a trivial example, just to show what the output looks like:
+-->
+どのような出力となるのかを示すためだけに、ここで簡単な例を示します。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1;
@@ -93,44 +145,65 @@ EXPLAIN SELECT * FROM tenk1;
    </para>
 
    <para>
+<!--
     Since this query has no <literal>WHERE</literal> clause, it must scan all the
     rows of the table, so the planner has chosen to use a simple sequential
     scan plan.  The numbers that are quoted in parentheses are (left
     to right):
+-->
+この問い合わせには<literal>WHERE</literal>句がありませんので、テーブル行をすべてスキャンしなければなりません。
+このためプランナは単純なシーケンシャルスキャン計画を使用することを選びました。
+（左から右に）括弧で囲まれた数値には以下のものがあります。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Estimated start-up cost.  This is the time expended before the output
        phase can begin, e.g., time to do the sorting in a sort node.
+-->
+初期処理の推定コスト。
+出力段階が開始できるようになる前に消費される時間、例えば、SORTノードで実行されるソート処理の時間です。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Estimated total cost.  This is stated on the assumption that the plan
        node is run to completion, i.e., all available rows are retrieved.
        In practice a node's parent node might stop short of reading all
        available rows (see the <literal>LIMIT</literal> example below).
+-->
+全体推定コスト。
+これは計画ノードが実行完了である、つまりすべての利用可能な行を受け取ることを前提として示されます。
+実際には、ノードの親ノードはすべての利用可能な行を読む前に停止する可能性があります（以下の<literal>LIMIT</literal>の例を参照）。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Estimated number of rows output by this plan node.  Again, the node
        is assumed to be run to completion.
+-->
+この計画ノードが出力する行の推定数。ここでも、ノードが実行を完了することを前提としています。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Estimated average width of rows output by this plan node (in bytes).
+-->
+この計画ノードが出力する行の（バイト単位での）推定平均幅。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     The costs are measured in arbitrary units determined by the planner's
     cost parameters (see <xref linkend="runtime-config-query-constants"/>).
     Traditional practice is to measure the costs in units of disk page
@@ -138,9 +211,15 @@ EXPLAIN SELECT * FROM tenk1;
     set to <literal>1.0</literal> and the other cost parameters are set relative
     to that.  The examples in this section are run with the default cost
     parameters.
+-->
+コストはプランナのコストパラメータ（<xref linkend="runtime-config-query-constants"/>参照）によって決まる任意の単位で測定されます。
+取り出すディスクページ単位でコストを測定することが、伝統的な方式です。
+つまり、<xref linkend="guc-seq-page-cost"/>を慣習的に<literal>1.0</literal>に設定し、他のコストパラメータを相対的に設定します。
+本節の例では、デフォルトのコストパラメータで実行しています。
    </para>
 
    <para>
+<!--
     It's important to understand that the cost of an upper-level node includes
     the cost of all its child nodes.  It's also important to realize that
     the cost only reflects things that the planner cares about.
@@ -149,9 +228,16 @@ EXPLAIN SELECT * FROM tenk1;
     factor in the real elapsed time; but the planner ignores it because
     it cannot change it by altering the plan.  (Every correct plan will
     output the same row set, we trust.)
+-->
+上位ノードのコストには、すべての子ノードのコストもその中に含まれていることを理解することは重要です。
+このコストはプランナが関与するコストのみ反映する点もまた重要です。
+とりわけ、結果の行をクライアントに転送するコストは、実際の処理時間の重要な要因となる可能性があるにもかかわらず、考慮されません。
+プランナは、計画をいかに変更しようと、どうすることもできないため、これを無視します。
+（正しい計画はどんなものであれ、すべて同じ行を結果として出力すると信じています。）
    </para>
 
    <para>
+<!--
     The <literal>rows</literal> value is a little tricky because it is
     not the number of rows processed or scanned by the
     plan node, but rather the number emitted by the node.  This is often
@@ -159,10 +245,17 @@ EXPLAIN SELECT * FROM tenk1;
     <literal>WHERE</literal>-clause conditions that are being applied at the node.
     Ideally the top-level rows estimate will approximate the number of rows
     actually returned, updated, or deleted by the query.
+-->
+<literal>rows</literal>の値は、計画ノードによって処理あるいはスキャンされた行数を表しておらず、ノードによって発行された行数を表すので、多少扱いにくくなっています。
+該当ノードに適用されるすべての<literal>WHERE</literal>句条件によるフィルタ処理の結果、スキャンされる行より少ない行数になることがよくあります。
+理想的には、最上位の行数の推定値は、実際に問い合わせによって返され、更新され、あるいは削除された概算の行数となります。
    </para>
 
    <para>
+<!--
     Returning to our example:
+-->
+例に戻ります。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1;
@@ -174,22 +267,34 @@ EXPLAIN SELECT * FROM tenk1;
    </para>
 
    <para>
+<!--
     These numbers are derived very straightforwardly.  If you do:
+-->
+これらの数値はとても素直に導かれます。以下を実行すると、
 
 <programlisting>
 SELECT relpages, reltuples FROM pg_class WHERE relname = 'tenk1';
 </programlisting>
 
+<!--
     you will find that <classname>tenk1</classname> has 358 disk
     pages and 10000 rows.  The estimated cost is computed as (disk pages read *
     <xref linkend="guc-seq-page-cost"/>) + (rows scanned *
     <xref linkend="guc-cpu-tuple-cost"/>).  By default,
     <varname>seq_page_cost</varname> is 1.0 and <varname>cpu_tuple_cost</varname> is 0.01,
     so the estimated cost is (358 * 1.0) + (10000 * 0.01) = 458.
+-->
+<classname>tenk1</classname>には358のディスクページと10000の行があることがわかります。
+推定コストは（ディスクページ読み取り * <xref linkend="guc-seq-page-cost"/>）+（スキャンした行 * <xref linkend="guc-cpu-tuple-cost"/>）と計算されます。
+デフォルトでは、<varname>seq_page_cost</varname>は1.0、<varname>cpu_tuple_cost</varname>は0.01です。
+ですから、推定コストは(358 * 1.0) + (10000 * 0.01) = 458となります。
    </para>
 
    <para>
+<!--
     Now let's modify the query to add a <literal>WHERE</literal> condition:
+-->
+では、<literal>WHERE</literal>条件を加えて、問い合わせを変更してみます。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 7000;
@@ -200,6 +305,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 7000;
    Filter: (unique1 &lt; 7000)
 </screen>
 
+<!--
     Notice that the <command>EXPLAIN</command> output shows the <literal>WHERE</literal>
     clause being applied as a <quote>filter</quote> condition attached to the Seq
     Scan plan node.  This means that
@@ -211,19 +317,35 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 7000;
     hasn't decreased; in fact it has gone up a bit (by 10000 * <xref
     linkend="guc-cpu-operator-cost"/>, to be exact) to reflect the extra CPU
     time spent checking the <literal>WHERE</literal> condition.
+-->
+<command>EXPLAIN</command>の出力が、Seq Scan計画ノードに付随する<quote>フィルタ</quote>条件として適用される<literal>WHERE</literal>句を表示していることに注意してください。
+これは、この計画ノードがスキャンした各行に対してその条件を検査することを意味し、その条件を通過したもののみが出力されます。
+<literal>WHERE</literal>句があるため、推定出力行数が小さくなっています。
+しかし、依然として10000行すべてをスキャンする必要があるため、コストは小さくなっていません。
+実際には、<literal>WHERE</literal>条件を検査するためにCPU時間が余計にかかることを反映して、ほんの少し（正確には10000 * <xref linkend="guc-cpu-operator-cost"/>）ですがコストが上昇しています。
    </para>
 
    <para>
+<!--
     The actual number of rows this query would select is 7000, but the <literal>rows</literal>
     estimate is only approximate.  If you try to duplicate this experiment,
     you will probably get a slightly different estimate; moreover, it can
     change after each <command>ANALYZE</command> command, because the
     statistics produced by <command>ANALYZE</command> are taken from a
     randomized sample of the table.
+-->
+この問い合わせが選択する実際の行数は7000です。
+しかし、<literal>rows</literal>の推定行数は概算値に過ぎません。
+この実験を2回実行した場合、おそらく多少異なる推定値を得るでしょう。
+もっと言うと、これは<command>ANALYZE</command>コマンドを行う度に変化することがあり得ます。
+なぜなら、<command>ANALYZE</command>で生成される統計情報は、テーブルのランダムな標本から取り出されるからです。
    </para>
 
    <para>
+<!--
     Now, let's make the condition more restrictive:
+-->
+では、条件をより強く制限してみます。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100;
@@ -236,6 +358,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100;
          Index Cond: (unique1 &lt; 100)
 </screen>
 
+<!--
     Here the planner has decided to use a two-step plan: the child plan
     node visits an index to find the locations of rows matching the index
     condition, and then the upper plan node actually fetches those rows
@@ -247,10 +370,21 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100;
     before reading them, to minimize the cost of separate fetches.
     The <quote>bitmap</quote> mentioned in the node names is the mechanism that
     does the sorting.)
+-->
+ここでは、プランナは2段階の計画を使用することを決定しました。
+子の計画ノードは、インデックスを使用して、インデックス条件(index condition)に合う行の場所を検索します。
+そして、上位計画ノードが実際にテーブル自体からこれらの行を取り出します。
+行を別々に取り出すことは、シーケンシャルな読み取りに比べ非常に高価です。
+しかし、テーブルのすべてのページを読み取る必要はありませんので、シーケンシャルスキャンより低価になります。
+（2段階の計画を使用する理由は、別々に行を取り出すコストを最小にするために、上位の計画ノードがインデックスにより識別された行の位置を読み取る前に物理的な順序でソートすることです。
+ノードで記載されている<quote>bitmap</quote>は、ソートを行う機構の名前です。）
    </para>
 
    <para>
+<!--
     Now let's add another condition to the <literal>WHERE</literal> clause:
+-->
+ここで<literal>WHERE</literal>句に別の条件を付与してみましょう。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND stringu1 = 'xxx';
@@ -264,6 +398,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND stringu1 = 'xxx';
          Index Cond: (unique1 &lt; 100)
 </screen>
 
+<!--
     The added condition <literal>stringu1 = 'xxx'</literal> reduces the
     output row count estimate, but not the cost because we still have to visit
     the same set of rows.  Notice that the <literal>stringu1</literal> clause
@@ -271,10 +406,18 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND stringu1 = 'xxx';
     the <literal>unique1</literal> column.  Instead it is applied as a filter on
     the rows retrieved by the index.  Thus the cost has actually gone up
     slightly to reflect this extra checking.
+-->
+追加された<literal>stringu1 = 'xxx'</literal>条件は出力行数推定値を減らしますが、同じ行集合にアクセスしなければなりませんので、コストは減りません。
+このインデックスが<literal>unique1</literal>列に対してのみ存在するため、<literal>stringu1</literal>句をインデックス条件として適用できないことに注意してください。
+代わりに、インデックスによって取り出される行に対するフィルタとして適用されます。
+これにより、追加の検査分を反映するため、コストは実際には少し上がります。
    </para>
 
    <para>
+<!--
     In some cases the planner will prefer a <quote>simple</quote> index scan plan:
+-->
+場合によってはプランナは<quote>単純な</quote>インデックススキャン計画を選択します。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
@@ -285,6 +428,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
    Index Cond: (unique1 = 42)
 </screen>
 
+<!--
     In this type of plan the table rows are fetched in index order, which
     makes them even more expensive to read, but there are so few that the
     extra cost of sorting the row locations is not worth it.  You'll most
@@ -294,13 +438,24 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
     to satisfy the <literal>ORDER BY</literal>.  In this example, adding
     <literal>ORDER BY unique1</literal> would use the same plan because the
     index already implicitly provides the requested ordering.
+-->
+この種の計画では、テーブル行はインデックス順で取り出されます。
+このため読み取りがより高価になりますが、この場合取り出す行数が少ないため、改めて行位置をソートし直すための追加コストは割に合いません。
+単一の行のみを取り出す問い合わせでは、この計画種類がよく現れます。
+また、<literal>ORDER BY</literal>を満たすために必要となる余分な必要なソート処理がないため、インデックスの順序に一致する<literal>ORDER BY</literal>条件を持つ問い合わせでよく使用されます。
+この例では、<literal>ORDER BY unique1</literal>を追加すると、要求された順序がインデックスによってすでに暗黙的に提供されているため、同じ計画が使用されます。
    </para>
 
    <para>
+<!--
      The planner may implement an <literal>ORDER BY</literal> clause in several
      ways.  The above example shows that such an ordering clause may be
      implemented implicitly.  The planner may also add an explicit
      <literal>sort</literal> step:
+-->
+プランナは<literal>ORDER BY</literal>句をいくつかの方法で実装できます。
+上の例ではこのような<literal>ORDER BY</literal>句を暗黙的に実装できることを示しています。
+プランナは明示的な<literal>sort</literal>ステップを追加もします。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 ORDER BY unique1;
@@ -311,9 +466,12 @@ EXPLAIN SELECT * FROM tenk1 ORDER BY unique1;
    ->  Seq Scan on tenk1  (cost=0.00..445.00 rows=10000 width=244)
 </screen>
 
+<!--
     If a part of the plan guarantees an ordering on a prefix of the
     required sort keys, then the planner may instead decide to use an
     <literal>incremental sort</literal> step:
+-->
+ソートキーで必要な接頭辞の順序がプランの一部で保証されている場合、<literal>インクリメンタルソート(incremental sort)</literal>ステップを使用することを決定できます。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 ORDER BY four, ten LIMIT 100;
@@ -326,18 +484,26 @@ EXPLAIN SELECT * FROM tenk1 ORDER BY four, ten LIMIT 100;
          ->  Index Scan using index_tenk1_on_four on tenk1  (cost=0.29..1510.08 rows=10000 width=244)
 </screen>
 
+<!--
     Compared to regular sorts, sorting incrementally allows returning tuples
     before the entire result set has been sorted, which particularly enables
     optimizations with <literal>LIMIT</literal> queries.  It may also reduce
     memory usage and the likelihood of spilling sorts to disk, but it comes at
     the cost of the increased overhead of splitting the result set into multiple
     sorting batches.
+-->
+通常のソートと比較して、インクリメンタルソートは、結果セット全体がソートされる前にタプルを戻すことができます。
+これにより、特に<literal>LIMIT</literal>がある問い合わせで最適化が可能になります。
+また、メモリ使用量が削減され、ソートがディスクにオーバーフローする可能性が減少しますが、結果セットを複数のソートバッチに分割するオーバーヘッドが増加という代償を払うことになります。
    </para>
 
    <para>
+<!--
     If there are separate indexes on several of the columns referenced
     in <literal>WHERE</literal>, the planner might choose to use an AND or OR
     combination of the indexes:
+-->
+<literal>WHERE</literal>句で参照される複数の列に対して別々のインデックスが存在する場合、プランナはインデックスをANDやORで組み合わせて使用することを選択する可能性があります。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000;
@@ -353,14 +519,22 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000;
                Index Cond: (unique2 &gt; 9000)
 </screen>
 
+<!--
     But this requires visiting both indexes, so it's not necessarily a win
     compared to using just one index and treating the other condition as
     a filter.  If you vary the ranges involved you'll see the plan change
     accordingly.
+-->
+しかし、これは両方のインデックスを参照する必要があります。
+そのため、インデックスを1つ使用し、他の条件についてはフィルタとして扱う方法と比べて常に勝るとは限りません。
+含まれる範囲を変更すると、それに伴い計画も変わることが分かるでしょう。
    </para>
 
    <para>
+<!--
     Here is an example showing the effects of <literal>LIMIT</literal>:
+-->
+以下に<literal>LIMIT</literal>の影響を示す例を示します。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000 LIMIT 2;
@@ -375,6 +549,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000 LIMIT 2
    </para>
 
    <para>
+<!--
     This is the same query as above, but we added a <literal>LIMIT</literal> so that
     not all the rows need be retrieved, and the planner changed its mind about
     what to do.  Notice that the total cost and row count of the Index Scan
@@ -385,10 +560,22 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000 LIMIT 2
     previous plan because the Limit could not avoid paying the startup cost
     of the bitmap scan, so the total cost would be something over 25 units
     with that approach.
+-->
+これは上と同じ問い合わせですが、すべての行を取り出す必要がないため<literal>LIMIT</literal>を付けています。
+プランナはどうすべきかについて考えを変えました。
+インデックススキャンノードの総コストと総行数があたかも実行完了したかのように表示されていることに注意してください。
+しかしLimitノードが、これらの行の1/5だけを取り出した後で停止することが想定されています。
+そのため総コストは1/5程度のみとなり、これが問い合わせの実際の推定コストとなります。
+この計画は、以前の計画にLimitノードを追加することより好まれます。
+Limitはビットマップスキャンの起動コストを払うことを避けることができないためです。
+このため総コストはこの方法に25単位ほど増加します。
    </para>
 
    <para>
+<!--
     Let's try joining two tables, using the columns we have been discussing:
+-->
+今まで説明に使ってきたフィールドを使って2つのテーブルを結合してみましょう。
 
 <screen>
 EXPLAIN SELECT *
@@ -408,6 +595,7 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
    </para>
 
    <para>
+<!--
     In this plan, we have a nested-loop join node with two table scans as
     inputs, or children.  The indentation of the node summary lines reflects
     the plan tree structure.  The join's first, or <quote>outer</quote>, child
@@ -430,14 +618,30 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
     costs of the loop node are then set on the basis of the cost of the outer
     scan, plus one repetition of the inner scan for each outer row (10 * 7.91,
     here), plus a little CPU time for join processing.
+-->
+この計画では、入力または子として２つのテーブルスキャンを持つネステッドループ結合ノードがあります。
+計画のツリー構造を反映して、ノード要約行はインデント付けされます。
+結合の先頭、<quote>外部</quote>、子は以前に説明したものと似たビットマップスキャンです。
+そのコストと行数は、該当ノードに<literal>unique1 &lt; 10</literal> <literal>WHERE</literal>句が適用されるため、<literal>SELECT ... WHERE unique1 &lt; 10</literal>で得られたものと同じです。
+この段階では<literal>t1.unique2 = t2.unique2</literal>句は関係しておらず、外部スキャンにおける出力行数に影響していません。
+ネステッドループ結合ノードは、外部の子から得られた行毎に、その２番目または<quote>内部の</quote>子を一回実行します。
+現在の外部の行からの列の値は内部スキャンに組み込まれます。
+ここで、外部行からの<literal>t1.unique2</literal>の値が利用できますので、上述の単純な<literal>SELECT ... WHERE t2.unique2 = <replaceable>constant</replaceable></literal>の場合に示したものと似た計画とコストが得られます。
+（実際、推定コストは、<literal>t2</literal>に対するインデックススキャンが繰り返される間に発生することが想定されるキャッシュの結果、上で示した値よりわずかに低くなります。）
+ループノードのコストは、外部スキャンのコストと、各々の外部の行に対して内部スキャンが繰り返されることによるコスト（ここでは10 * 7.91）を加え、さらに結合処理を行うための少々のCPU時間を加えたものになります。
    </para>
 
    <para>
+<!--
     In this example the join's output row count is the same as the product
     of the two scans' row counts, but that's not true in all cases because
     there can be additional <literal>WHERE</literal> clauses that mention both tables
     and so can only be applied at the join point, not to either input scan.
     Here's an example:
+-->
+この例では、結合の出力行数は2つのスキャンの出力行数の積に等しくなっていますが、いつもそうなるわけではありません。
+2つのテーブルに関係する<literal>WHERE</literal>句は、入力スキャン時ではなく、結合を行う際に適用されるからです。
+以下が例です。
 
 <screen>
 EXPLAIN SELECT *
@@ -457,13 +661,19 @@ WHERE t1.unique1 &lt; 10 AND t2.unique2 &lt; 10 AND t1.hundred &lt; t2.hundred;
                Index Cond: (unique2 &lt; 10)
 </screen>
 
+<!--
     The condition <literal>t1.hundred &lt; t2.hundred</literal> can't be
     tested in the <literal>tenk2_unique2</literal> index, so it's applied at the
     join node.  This reduces the estimated output row count of the join node,
     but does not change either input scan.
+-->
+条件<literal>t1.hundred &lt; t2.hundred</literal>は<literal>tenk2_unique2</literal>インデックスの中では試験されません。
+このため結合ノードで適用されます。
+これは結合ノードの推定出力行数を減らしはしますが、入力スキャンには影響しません。
    </para>
 
    <para>
+<!--
     Notice that here the planner has chosen to <quote>materialize</quote> the inner
     relation of the join, by putting a Materialize plan node atop it.  This
     means that the <literal>t2</literal> index scan will be done just once, even
@@ -471,9 +681,14 @@ WHERE t1.unique1 &lt; 10 AND t2.unique2 &lt; 10 AND t1.hundred &lt; t2.hundred;
     for each row from the outer relation.  The Materialize node saves the data
     in memory as it's read, and then returns the data from memory on each
     subsequent pass.
+-->
+ここではプランナが、具体化計画ノードをその上に挿入することで、結合の内部リレーションの<quote>具体化</quote>を選択していることに注意してください。
+これは、たとえネステッドループ結合ノードが外部リレーションから各行につき一度、そのデータを10回読む必要があったとしても、<literal>t2</literal>インデックススキャンが一度だけ行なわれることを意味します。
+具体化ノードはそのデータを読んだときにメモリに保存し、その後の読み出しではそのデータをメモリから返します。
    </para>
 
    <para>
+<!--
     When dealing with outer joins, you might see join plan nodes with both
     <quote>Join Filter</quote> and plain <quote>Filter</quote> conditions attached.
     Join Filter conditions come from the outer join's <literal>ON</literal> clause,
@@ -481,11 +696,19 @@ WHERE t1.unique1 &lt; 10 AND t2.unique2 &lt; 10 AND t1.hundred &lt; t2.hundred;
     a null-extended row.  But a plain Filter condition is applied after the
     outer-join rules and so acts to remove rows unconditionally.  In an inner
     join there is no semantic difference between these types of filters.
+-->
+外部結合を扱う時、<quote>結合フィルタ</quote>および通常の<quote>フィルタ</quote>の両方が付随する結合計画ノードが現れる可能性があります。
+結合フィルタ条件は外部結合の<literal>ON</literal>句を元にしますので、結合フィルタ条件に合わない行がNULLで展開された行として発行され続けます。
+しかし通常のフィルタ条件が外部結合規則の後に適用され、条件に合わない行は削除されます。
+内部結合では、これらのフィルタ種類の間に意味的な違いはありません。
    </para>
 
    <para>
+<!--
     If we change the query's selectivity a bit, we might get a very different
     join plan:
+-->
+問い合わせの選択性を少し変更すると、非常に異なる結合計画が得られるかもしれません。
 
 <screen>
 EXPLAIN SELECT *
@@ -506,6 +729,7 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
    </para>
 
    <para>
+<!--
     Here, the planner has chosen to use a hash join, in which rows of one
     table are entered into an in-memory hash table, after which the other
     table is scanned and the hash table is probed for matches to each row.
@@ -513,10 +737,19 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     scan on <literal>tenk1</literal> is the input to the Hash node, which constructs
     the hash table.  That's then returned to the Hash Join node, which reads
     rows from its outer child plan and searches the hash table for each one.
+-->
+ここでプランナはハッシュ結合の使用を選択しました。
+片方のテーブルの行がメモリ内のハッシュテーブルに格納され、もう片方のテーブルがスキャンされた後、各行に対して一致するかどうかハッシュテーブルを探索します。
+繰り返しますが、インデント付けにより計画の構造が表されます。
+<literal>tenk1</literal>に対するビットマップスキャンはハッシュノードへの入力です。
+外部の子計画から行を読み取り、各行に対してハッシュテーブルを検索します。
    </para>
 
    <para>
+<!--
     Another possible type of join is a merge join, illustrated here:
+-->
+他にも、以下に示すようなマージ結合という結合があり得ます。
 
 <screen>
 EXPLAIN SELECT *
@@ -536,6 +769,7 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
    </para>
 
    <para>
+<!--
     Merge join requires its input data to be sorted on the join keys.  In this
     plan the <literal>tenk1</literal> data is sorted by using an index scan to visit
     the rows in the correct order, but a sequential scan and sort is preferred
@@ -543,9 +777,15 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     that table.
     (Sequential-scan-and-sort frequently beats an index scan for sorting many rows,
     because of the nonsequential disk access required by the index scan.)
+-->
+マージ結合は、結合キーでソートされる入力データを必要とします。
+この計画では、正確な順序で行をアクセスするために<literal>tenk1</literal>データがインデックススキャンを用いてソートされます。
+しかし、このテーブルの中でより多くの行がアクセスされるため、<literal>onek</literal>ではシーケンシャルスキャンとソートが好まれています。
+（多くの行をソートする場合、インデックススキャンでは非シーケンシャルなディスクアクセスが必要となるため、シーケンシャルスキャンとソートの方がインデックススキャンより優れています。）
    </para>
 
    <para>
+<!--
     One way to look at variant plans is to force the planner to disregard
     whatever strategy it thought was the cheapest, using the enable/disable
     flags described in <xref linkend="runtime-config-query-enable"/>.
@@ -553,6 +793,11 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     also <xref linkend="explicit-joins"/>.)
     For example, if we're unconvinced that sequential-scan-and-sort is the best way to
     deal with table <literal>onek</literal> in the previous example, we could try
+-->
+<xref linkend="runtime-config-query-enable"/>に記載したenable/disableフラグを使用して、プランナが最も良いと考えている戦略を強制的に無視させる方法により、異なった計画を観察することができます。
+（非常に原始的なツールですが、利用価値があります。
+<xref linkend="explicit-joins"/>も参照してください。）
+例えば、前の例にて<literal>onek</literal>テーブルを扱う最善の方法がシーケンシャルスキャンとソートであると納得できなければ、以下を試みることができます。
 
 <screen>
 SET enable_sort = off;
@@ -570,11 +815,16 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
    -&gt;  Index Scan using onek_unique2 on onek t2  (cost=0.28..224.79 rows=1000 width=244)
 </screen>
 
+<!--
     which shows that the planner thinks that sorting <literal>onek</literal> by
     index-scanning is about 12% more expensive than sequential-scan-and-sort.
     Of course, the next question is whether it's right about that.
     We can investigate that using <command>EXPLAIN ANALYZE</command>, as discussed
     below.
+-->
+これは、プランナが、シーケンシャルスキャンとソートよりインデックススキャンによる<literal>onek</literal>のソート処理がおよそ12%程高価であるとみなしたことを示します。
+当然ながら、次の疑問はこれが正しいかどうかでしょう。
+後で説明する<command>EXPLAIN ANALYZE</command>を使用することで調査することができます。
    </para>
 
   </sect2>
@@ -583,12 +833,17 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
    <title><command>EXPLAIN ANALYZE</command></title>
 
    <para>
+<!--
     It is possible to check the accuracy of the planner's estimates
     by using <command>EXPLAIN</command>'s <literal>ANALYZE</literal> option.  With this
     option, <command>EXPLAIN</command> actually executes the query, and then displays
     the true row counts and true run time accumulated within each plan node,
     along with the same estimates that a plain <command>EXPLAIN</command>
     shows.  For example, we might get a result like this:
+-->
+<command>EXPLAIN</command>の<literal>ANALYZE</literal>オプションを使用して、プランナが推定するコストの精度を点検することができます。
+このオプションを付けると<command>EXPLAIN</command>は実際にその問い合わせを実行し、計画ノードごとに実際の行数と要した実際の実行時間を、普通の<command>EXPLAIN</command>が示すものと同じ推定値と一緒に表示します。
+例えば、以下のような結果を得ることができます。
 
 <screen>
 EXPLAIN ANALYZE SELECT *
@@ -608,15 +863,22 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
  Execution time: 0.501 ms
 </screen>
 
+<!--
     Note that the <quote>actual time</quote> values are in milliseconds of
     real time, whereas the <literal>cost</literal> estimates are expressed in
     arbitrary units; so they are unlikely to match up.
     The thing that's usually most important to look for is whether the
     estimated row counts are reasonably close to reality.  In this example
     the estimates were all dead-on, but that's quite unusual in practice.
+-->
+<quote>actual time</quote>値は実時間をミリ秒単位で表されていること、<literal>cost</literal>推定値は何らかの単位で表されていることに注意してください。
+ですからそのまま比較することはできません。
+注目すべきもっとも重要な点は通常、推定行数が実際の値と合理的に近いかどうかです。
+この例では、推定はすべて正確ですが、現実的にはあまりありません。
    </para>
 
    <para>
+<!--
     In some query plans, it is possible for a subplan node to be executed more
     than once.  For example, the inner index scan will be executed once per
     outer row in the above nested-loop plan.  In such cases, the
@@ -627,12 +889,23 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
     the <literal>loops</literal> value to get the total time actually spent in
     the node.  In the above example, we spent a total of 0.220 milliseconds
     executing the index scans on <literal>tenk2</literal>.
+-->
+問い合わせ計画の中には、何回も副計画ノードを実行する可能性のあるものがあります。
+例えば、上述のネステッドループの計画では、内部インデックススキャンは外部の行ごとに一度行われます。
+このような場合、<literal>loops</literal>値はそのノードを実行する総回数を報告し、表示される実際の時間と行数は1実行当たりの平均です。
+これで値を表示された推定コストと比較できるようになります。
+<literal>loops</literal>値をかけることで、そのノードで実際に費やされた総時間を得ることができます。
+上の例では、<literal>tenk2</literal>に対するインデックススキャンの実行のために合計0.220ミリ秒要しています。
    </para>
 
    <para>
+<!--
     In some cases <command>EXPLAIN ANALYZE</command> shows additional execution
     statistics beyond the plan node execution times and row counts.
     For example, Sort and Hash nodes provide extra information:
+-->
+場合によっては、<command>EXPLAIN ANALYZE</command>は計画ノードの実行時間と行数以上の実行統計情報をさらに表示します。
+例えば、ソートとハッシュノードでは以下のような追加情報を提供します。
 
 <screen>
 EXPLAIN ANALYZE SELECT *
@@ -657,17 +930,25 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2 ORDER BY t1.fivethous;
  Execution time: 8.008 ms
 </screen>
 
+<!--
     The Sort node shows the sort method used (in particular, whether the sort
     was in-memory or on-disk) and the amount of memory or disk space needed.
     The Hash node shows the number of hash buckets and batches as well as the
     peak amount of memory used for the hash table.  (If the number of batches
     exceeds one, there will also be disk space usage involved, but that is not
     shown.)
+-->
+ソートノードは使用されるソート方式（具体的にはソートがメモリ内かディスク上か）および必要なメモリまたはディスクの容量を表示します。
+ハッシュノードでは、ハッシュバケット数とバッチ数、ハッシュテーブルで使用されるメモリのピーク容量が表示されます。
+（バッチ数が１を超える場合、同時にディスクの使用容量も含まれますが、表示はされません。）
    </para>
 
    <para>
+<!--
     Another type of extra information is the number of rows removed by a
     filter condition:
+-->
+他の種類の追加情報はフィルタ条件によって除外される行数があります。
 
 <screen>
 EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE ten &lt; 7;
@@ -681,16 +962,24 @@ EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE ten &lt; 7;
  Execution time: 5.905 ms
 </screen>
 
+<!--
     These counts can be particularly valuable for filter conditions applied at
     join nodes.  The <quote>Rows Removed</quote> line only appears when at least
     one scanned row, or potential join pair in the case of a join node,
     is rejected by the filter condition.
+-->
+特に結合ノードで適用されるフィルタ条件ではこれらの数が有用です。
+<quote>Rows Removed</quote>行は、少なくともスキャンされた１行、結合ノードにおける結合組み合わせの可能性がフィルタ条件によって拒絶された時にのみ現れます。
    </para>
 
    <para>
+<!--
     A case similar to filter conditions occurs with <quote>lossy</quote>
     index scans.  For example, consider this search for polygons containing a
     specific point:
+-->
+<quote>非可逆</quote>インデックススキャンはフィルタ条件に似た状況です。
+例えば、特定の点を含有する多角形の検索を考えてみます。
 
 <screen>
 EXPLAIN ANALYZE SELECT * FROM polygon_tbl WHERE f1 @&gt; polygon '(0.5,2.0)';
@@ -704,10 +993,15 @@ EXPLAIN ANALYZE SELECT * FROM polygon_tbl WHERE f1 @&gt; polygon '(0.5,2.0)';
  Execution time: 0.083 ms
 </screen>
 
+<!--
     The planner thinks (quite correctly) that this sample table is too small
     to bother with an index scan, so we have a plain sequential scan in which
     all the rows got rejected by the filter condition.  But if we force an
     index scan to be used, we see:
+-->
+プランナは（ほぼ正確に）、インデックススキャンを考慮するには例のテーブルが小さ過ぎるとみなします。
+このため、フィルタ条件によってすべての行が拒絶される、普通のシーケンシャルスキャンとなります。
+しかしインデックススキャンの使用を強制するのであれば、以下のようにします。
 
 <screen>
 SET enable_seqscan TO off;
@@ -723,16 +1017,24 @@ EXPLAIN ANALYZE SELECT * FROM polygon_tbl WHERE f1 @&gt; polygon '(0.5,2.0)';
  Execution time: 0.144 ms
 </screen>
 
+<!--
     Here we can see that the index returned one candidate row, which was
     then rejected by a recheck of the index condition.  This happens because a
     GiST index is <quote>lossy</quote> for polygon containment tests: it actually
     returns the rows with polygons that overlap the target, and then we have
     to do the exact containment test on those rows.
+-->
+ここで、インデックスが１つの候補行を返し、それがインデックス条件の再検査により拒絶されることが分かります。
+多角形の含有試験ではGiSTインデックスが<quote>非可逆</quote>であるため、これは発生します。
+実際には対象と重なる多角形を持つ行を返し、そしてこれらの行が正確に含有関係であることを試験しなければなりません。
    </para>
 
    <para>
+<!--
     <command>EXPLAIN</command> has a <literal>BUFFERS</literal> option that can be used with
     <literal>ANALYZE</literal> to get even more run time statistics:
+-->
+<command>EXPLAIN</command>には、より多くの実行時統計情報を取り出すために、<literal>ANALYZE</literal>に付与できる<literal>BUFFERS</literal>オプションがあります。
 
 <screen>
 EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000;
@@ -754,17 +1056,24 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique
  Execution time: 0.423 ms
 </screen>
 
+<!--
     The numbers provided by <literal>BUFFERS</literal> help to identify which parts
     of the query are the most I/O-intensive.
+-->
+<literal>BUFFERS</literal>により提供される数は、問い合わせのどの部分がもっとも大きいI/Oであるかを識別する役に立ちます。
    </para>
 
    <para>
+<!--
     Keep in mind that because <command>EXPLAIN ANALYZE</command> actually
     runs the query, any side-effects will happen as usual, even though
     whatever results the query might output are discarded in favor of
     printing the <command>EXPLAIN</command> data.  If you want to analyze a
     data-modifying query without changing your tables, you can
     roll the command back afterwards, for example:
+-->
+<command>EXPLAIN ANALYZE</command>が実際に問い合わせを実行しますので、<command>EXPLAIN</command>のデータを出力することを優先して問い合わせの出力が破棄されたとしても、何らかの副作用が通常通り発生することに注意してください。
+テーブルを変更すること無くデータ変更問い合わせの解析を行いたければ、以下の例のように、実行後コマンドをロールバックしてください。
 
 <screen>
 BEGIN;
@@ -787,6 +1096,7 @@ ROLLBACK;
    </para>
 
    <para>
+<!--
     As seen in this example, when the query is an <command>INSERT</command>,
     <command>UPDATE</command>, or <command>DELETE</command> command, the actual work of
     applying the table changes is done by a top-level Insert, Update,
@@ -800,11 +1110,20 @@ ROLLBACK;
     estimates to account for that work.  That's because the work to be done is
     the same for every correct query plan, so it doesn't affect planning
     decisions.
+-->
+この例で分かるように、問い合わせが<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>である場合、テーブル変更を行うための実作業は最上位のInsert、Update、Delete計画ノードで行われます。
+このノード以下にある計画ノードは、古い行の検索、新しいデータの計算、あるいはその両方を行います。
+このため、前に述べたものと同じ種類のビットマップテーブルスキャンがあり、その出力が更新される行を格納するUpdateノードに渡されることが分かります。
+データ変更ノードが実行時間の多くを費やす可能性があります（現在これが一番多くの時間を費やしています）が、プランナは現在その作業を考慮してコスト推定に何も加えません。
+これは、行われる作業がすべての正確な問い合わせ計画の作業と同一であるためであり、このため計画の決定に影響を与えません。
    </para>
 
    <para>
+<!--
     When an <command>UPDATE</command> or <command>DELETE</command> command affects an
     inheritance hierarchy, the output might look like this:
+-->
+<command>UPDATE</command>もしくは<command>DELETE</command>コマンドが継承階層に影響する場合には、出力は以下のようになるでしょう。
 
 <screen>
 EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
@@ -827,20 +1146,31 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
                      Index Cond: (f1 = 101)
 </screen>
 
+<!--
     In this example the Update node needs to consider three child tables as
     well as the originally-mentioned parent table.  So there are four input
     scanning subplans, one per table.  For clarity, the Update node is
     annotated to show the specific target tables that will be updated, in the
     same order as the corresponding subplans.
+-->
+この例では、Updateノードは元々言及されている親テーブルに加えて3つの子テーブルを考慮することが必要です。
+そのため、テーブル毎に1つ、4つの入力スキャン副計画があります。
+明確にするため、Updateノードには対応する副計画と同じ順に更新される特定の対象テーブルを示す注釈が付けられています。
+(この注釈は<productname>PostgreSQL</productname> 9.5からの新しいものです。以前のバージョンでは副計画を調べることで対象テーブルを勘で当てなければなりませんでした。)
    </para>
 
    <para>
+<!--
     The <literal>Planning time</literal> shown by <command>EXPLAIN
     ANALYZE</command> is the time it took to generate the query plan from the
     parsed query and optimize it. It does not include parsing or rewriting.
+-->
+<command>EXPLAIN ANALYZE</command>で表示される<literal>Planning time</literal>は、解析された問い合わせから問い合わせ計画を生成し最適化するのに掛かった時間です。
+解析と書き換えは含みません。
    </para>
 
    <para>
+<!--
     The <literal>Execution time</literal> shown by <command>EXPLAIN
     ANALYZE</command> includes executor start-up and shut-down time, as well
     as the time to run any triggers that are fired, but it does not include
@@ -854,14 +1184,24 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
     Note that deferred constraint triggers will not be executed
     until end of transaction and are thus not considered at all by
     <command>EXPLAIN ANALYZE</command>.
+-->
+<command>EXPLAIN ANALYZE</command>で表示される<literal>Execution time</literal>（実行時間）にはエクゼキュータの起動、停止時間、発行される何らかのトリガの実行時間も含まれますが、解析や書き換え、計画作成の時間は含まれません。
+<literal>BEFORE</literal>トリガがあればその実行時間は関連するInsert、Update、Deleteノード用の時間に含まれます。
+しかし、<literal>AFTER</literal>トリガは計画全体が完了した後に発行されますので、<literal>AFTER</literal>トリガの実行時間は計上されません。
+また、各トリガ（<literal>BEFORE</literal>、<literal>AFTER</literal>のいずれか）で費やされる総時間は別々に表示されます。
+しかし、遅延制約トリガはトランザクションが終わるまで実行されませんので、<command>EXPLAIN ANALYZE</command>では考慮されないことに注意してください。
    </para>
 
   </sect2>
 
   <sect2 id="using-explain-caveats">
+<!--
    <title>Caveats</title>
+-->
+   <title>警告</title>
 
    <para>
+<!--
     There are two significant ways in which run times measured by
     <command>EXPLAIN ANALYZE</command> can deviate from normal execution of
     the same query.  First, since no output rows are delivered to the client,
@@ -871,9 +1211,15 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
     <function>gettimeofday()</function> operating-system calls. You can use the
     <xref linkend="pgtesttiming"/> tool to measure the overhead of timing
     on your system.
+-->
+<command>EXPLAIN ANALYZE</command>により測定される実行時間が同じ問い合わせを普通に実行する場合と大きくそれる可能性がある、２つの重大な点があります。
+１つ目は、出力行がクライアントに配信されませんので、ネットワーク転送コストとI/O変換に関するコストが含まれないことです。
+２つ目は、<command>EXPLAIN ANALYZE</command>によって加わる測定オーバーヘッドが大きくなることが、特に<function>gettimeofday()</function>オペレーティングシステムコールが低速なマシンであり得ることです。
+<xref linkend="pgtesttiming"/>を用いて、使用中のシステムの時間測定にかかるオーバーヘッドを測ることができます。
    </para>
 
    <para>
+<!--
     <command>EXPLAIN</command> results should not be extrapolated to situations
     much different from the one you are actually testing; for example,
     results on a toy-sized table cannot be assumed to apply to large tables.
@@ -885,13 +1231,25 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
     process the table in any case, so there's no value in expending additional
     page reads to look at an index.  (We saw this happening in the
     <literal>polygon_tbl</literal> example above.)
+-->
+<command>EXPLAIN</command>の結果を試験を行ったものと大きく異なる状況の推定に使ってはいけません。
+例えば、小さなテーブルの結果は、巨大なテーブルに適用できるとは仮定できません。
+プランナの推定コストは線形ではなく、そのため、テーブルの大小によって異なる計画を選択する可能性があります。
+極端な例ですが、テーブルが1ディスクページしか占めない場合、インデックスが使用できる、できないに関係なく、ほとんど常にシーケンシャルスキャン計画を得ることになります。
+プランナは、どのような場合でもテーブルを処理するために1ディスクページ読み取りを行うので、インデックスを参照するための追加的ページ読み取りを行う価値がないことを知っています。
+（上述の<literal>polygon_tbl</literal>の例でこれが起こることを示しています。）
    </para>
 
    <para>
+<!--
     There are cases in which the actual and estimated values won't match up
     well, but nothing is really wrong.  One such case occurs when
     plan node execution is stopped short by a <literal>LIMIT</literal> or similar
     effect.  For example, in the <literal>LIMIT</literal> query we used before,
+-->
+実際の値と推定値がうまく合わないが本当は間違ったものがない場合があります。
+こうした状況の１つは、<literal>LIMIT</literal>や同様な効果により計画ノードの実行が短時間で終わる時に起こります。
+例えば、以前に使用した<literal>LIMIT</literal>問い合わせでは
 
 <screen>
 EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000 LIMIT 2;
@@ -907,15 +1265,22 @@ EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000
  Execution time: 0.336 ms
 </screen>
 
+<!--
     the estimated cost and row count for the Index Scan node are shown as
     though it were run to completion.  But in reality the Limit node stopped
     requesting rows after it got two, so the actual row count is only 2 and
     the run time is less than the cost estimate would suggest.  This is not
     an estimation error, only a discrepancy in the way the estimates and true
     values are displayed.
+-->
+インデックススキャンノードの推定コストと行数が実行完了したかのように表示されます。
+しかし現実では、Limitノードが２行を取り出した後に行の要求を停止します。
+このため実際の行数は２行のみであり、実行時間は提示された推定コストより小さくなります。
+これは推定間違いではなく、単なる推定値と本当の値を表示する方法における矛盾です。
    </para>
 
    <para>
+<!--
     Merge joins also have measurement artifacts that can confuse the unwary.
     A merge join will stop reading one input if it's exhausted the other input
     and the next key value in the one input is greater than the last key value
@@ -929,14 +1294,26 @@ EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000
     rows.  When there are many outer duplicates, the reported actual row count
     for the inner child plan node can be significantly larger than the number
     of rows that are actually in the inner relation.
+-->
+またマージ結合には、注意しないと混乱を招く測定上の乱れがあります。
+マージ結合は他の入力が使い尽くされ、ある入力の次のキー値が他の入力の最後のキー値より大きい場合、その入力の読み取りを停止します。
+このような場合、これ以上一致することはあり得ず、最初の入力の残りをスキャンする必要がありません。
+この結果、子のすべては読み取られず、<literal>LIMIT</literal>の説明のようになります。
+また、外部（最初）の子が重複するキー値を持つ行を含む場合、内部（２番目）の子はバックアップされ、そのキー値が一致する行部分を再度スキャンされます。
+<command>EXPLAIN ANALYZE</command>はこうした繰り返される同じ内部行の排出を実際の追加される行と同様に計上します。
+外部で多くの重複がある場合、内部の子計画ノードで繰り返される実際の行数は、内部リレーションにおける実際の行数より非常に多くなることがあり得ます。
    </para>
 
    <para>
+<!--
     BitmapAnd and BitmapOr nodes always report their actual row counts as zero,
     due to implementation limitations.
+-->
+実装上の制限のため、BitmapAndおよびBitmapOrノードは常に実際の行数をゼロと報告します。
    </para>
 
    <para>
+<!--
     Normally, <command>EXPLAIN</command> will display every plan node
     created by the planner.  However, there are cases where the executor
     can determine that certain nodes need not be executed because they
@@ -947,29 +1324,49 @@ EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000
     the <command>EXPLAIN</command> output and a <literal>Subplans
     Removed: <replaceable>N</replaceable></literal> annotation appears
     instead.
+-->
+通常<command>EXPLAIN</command>はプランナが生成したすべてのプランノードを表示します。
+しかし、プラン時にパラメータ値が入手できずそのノードが行を生成できないために、エクゼキューターがあるノードが実行不要であると判断できるケースがあります。
+（今の所、これはパーティションテーブルを走査しているAppendあるいはMergeAppendノードの子ノードでのみ起きることがあります。）
+これが起きると、これらのプランノードは<command>EXPLAIN</command>の出力から削除され、<literal>Subplans Removed: <replaceable>N</replaceable></literal>という注釈が代わりに表示されます。
    </para>
   </sect2>
 
  </sect1>
 
  <sect1 id="planner-stats">
+<!--
   <title>Statistics Used by the Planner</title>
+-->
+  <title>プランナで使用される統計情報</title>
 
   <indexterm zone="planner-stats">
+<!--
    <primary>statistics</primary>
    <secondary>of the planner</secondary>
+-->
+   <primary>統計情報</primary>
+   <secondary>プランナの</secondary>
   </indexterm>
 
   <sect2>
+<!--
    <title>Single-Column Statistics</title>
+-->
+   <title>単一列統計情報</title>
   <para>
+<!--
    As we saw in the previous section, the query planner needs to estimate
    the number of rows retrieved by a query in order to make good choices
    of query plans.  This section provides a quick look at the statistics
    that the system uses for these estimates.
+-->
+前節で説明した通り、問い合わせプランナは、より良い問い合わせ計画を選択するために問い合わせによって取り出される行数の推定値を必要としています。
+本節では、システムがこの推定に使用する統計情報について簡単に説明します。
   </para>
 
   <para>
+<!--
    One component of the statistics is the total number of entries in
    each table and index, as well as the number of disk blocks occupied
    by each table and index.  This information is kept in the table
@@ -977,6 +1374,10 @@ EXPLAIN ANALYZE SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000
    in the columns <structfield>reltuples</structfield> and
    <structfield>relpages</structfield>.  We can look at it with
    queries similar to this one:
+-->
+統計情報の1つの構成要素は、各テーブルとインデックスの項目の総数と、各テーブルとインデックスが占めるディスクブロック数です。
+この情報は<link linkend="catalog-pg-class"><structname>pg_class</structname></link>の<structfield>reltuples</structfield>と<structfield>relpages</structfield>列に保持されます。
+以下のような問い合わせによりこれを参照することができます。
 
 <screen>
 SELECT relname, relkind, reltuples, relpages
@@ -993,12 +1394,16 @@ WHERE relname LIKE 'tenk1%';
 (5 rows)
 </screen>
 
+<!--
    Here we can see that <structname>tenk1</structname> contains 10000
    rows, as do its indexes, but the indexes are (unsurprisingly) much
    smaller than the table.
+-->
+ここで、<structname>tenk1</structname>とそのインデックスには10000行が存在し、そして、（驚くには値しませんが）インデックスはテーブルよりもかなり小さなものであることがわかります。
   </para>
 
   <para>
+<!--
    For efficiency reasons, <structfield>reltuples</structfield>
    and <structfield>relpages</structfield> are not updated on-the-fly,
    and so they usually contain somewhat out-of-date values.
@@ -1012,6 +1417,11 @@ WHERE relname LIKE 'tenk1%';
    will scale the values it finds in <structname>pg_class</structname>
    to match the current physical table size, thus obtaining a closer
    approximation.
+-->
+効率を上げるため、<structfield>reltuples</structfield>と<structfield>relpages</structfield>は処理の度には更新されず、したがって通常は多少古い値のみ所有しています。
+これらは<command>VACUUM</command>、<command>ANALYZE</command>、<command>CREATE INDEX</command>などの一部のDDLコマンドによって更新されます。
+テーブル全体をスキャンしない<command>VACUUM</command>、<command>ANALYZE</command>操作（一般的な状況です）は、スキャンされたテーブルの部分に基づいて<structfield>reltuples</structfield>値を漸次更新し、概算値を生成します。
+いずれの場合でもプランナは、現在の物理的なテーブルサイズに合わせるために<structname>pg_class</structname>から検索した値を調整して、より高精度な近似値を得ます。
   </para>
 
   <indexterm>
@@ -1019,6 +1429,7 @@ WHERE relname LIKE 'tenk1%';
   </indexterm>
 
   <para>
+<!--
    Most queries retrieve only a fraction of the rows in a table, due
    to <literal>WHERE</literal> clauses that restrict the rows to be
    examined.  The planner thus needs to make an estimate of the
@@ -1031,6 +1442,11 @@ WHERE relname LIKE 'tenk1%';
    are updated by the <command>ANALYZE</command> and <command>VACUUM
    ANALYZE</command> commands, and are always approximate even when freshly
    updated.
+-->
+ほとんどの問い合わせは、検証される行を制限する<literal>WHERE</literal>句によって、テーブル内の行の一部のみを取り出します。
+したがって、プランナは<literal>WHERE</literal>句の<firstterm>選択性</firstterm>、つまり<literal>WHERE</literal>句の各条件にどれだけの行が一致するかを推定する必要があります。
+この処理に使用される情報は<link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>システムカタログ内に格納されます。
+<structname>pg_statistic</structname>内の項目は、<command>ANALYZE</command>と<command>VACUUM ANALYZE</command>コマンドによって更新され、また１から更新がかかったとしても常に概算値になります。
   </para>
 
   <indexterm>
@@ -1038,6 +1454,7 @@ WHERE relname LIKE 'tenk1%';
   </indexterm>
 
   <para>
+<!--
    Rather than look at <structname>pg_statistic</structname> directly,
    it's better to look at its view
    <link linkend="view-pg-stats"><structname>pg_stats</structname></link>
@@ -1050,6 +1467,13 @@ WHERE relname LIKE 'tenk1%';
    <structname>pg_stats</structname> view is restricted to show only
    rows about tables that the current user can read.)
    For example, we might do:
+-->
+統計情報を手作業で確認する場合、<structname>pg_statistic</structname>を直接参照するのではなく、<link linkend="view-pg-stats"><structname>pg_stats</structname></link>ビューを参照する方が良いでしょう。
+<structname>pg_stats</structname>はより読みやすくなるように設計されています。
+さらに、<structname>pg_stats</structname>は誰でも読み取ることができますが、<structname>pg_statistic</structname>はスーパーユーザのみ読み取ることができます。
+（これは、非特権ユーザが統計情報から他人のテーブルの内容に関わる事項を読み取ることを防止します。
+<structname>pg_stats</structname>ビューは現在のユーザが読み取ることができるテーブルに関する行のみを表示するよう制限されています。）
+例えば、以下を行うことができます。
 
 <screen>
 SELECT attname, inherited, n_distinct,
@@ -1072,14 +1496,19 @@ WHERE tablename = 'road';
 (2 rows)
 </screen>
 
+<!--
    Note that two rows are displayed for the same column, one corresponding
    to the complete inheritance hierarchy starting at the
    <literal>road</literal> table (<literal>inherited</literal>=<literal>t</literal>),
    and another one including only the <literal>road</literal> table itself
    (<literal>inherited</literal>=<literal>f</literal>).
+-->
+同じ列に対して2行が表示されていることに注意してください。
+1つは<literal>road</literal>テーブルが始まる継承階層(<literal>inherited</literal>=<literal>t</literal>)全体に相当し、もう1つは<literal>road</literal>テーブル自身(<literal>inherited</literal>=<literal>f</literal>)のみを含むものです。
   </para>
 
   <para>
+<!--
    The amount of information stored in <structname>pg_statistic</structname>
    by <command>ANALYZE</command>, in particular the maximum number of entries in the
    <structfield>most_common_vals</structfield> and <structfield>histogram_bounds</structfield>
@@ -1093,25 +1522,44 @@ WHERE tablename = 'road';
    more space in <structname>pg_statistic</structname> and slightly more
    time to compute the estimates.  Conversely, a lower limit might be
    sufficient for columns with simple data distributions.
+-->
+<command>ANALYZE</command>により<structname>pg_statistic</structname>に格納される情報量、具体的には、それぞれの列に対する<structfield>most_common_vals</structfield>内と<structfield>histogram_bounds</structfield>配列のエントリの最大数は、<command>ALTER TABLE SET STATISTICS</command>コマンドによって列ごとに、<xref linkend="guc-default-statistics-target"/>設定パラメータを設定することによってグローバルに設定することができます。
+現在のデフォルトの上限は100エントリです。
+この上限を上げることで、特に、少し変わったデータ分布を持つ列でより正確なプランナの推定が行われますが、<structname>pg_statistic</structname>により多くの容量が必要になり、多少推定計算にかかる時間が多くなります。
+反対に上限を下げることは、単純なデータ分布の列に対して順当です。
   </para>
 
   <para>
+<!--
    Further details about the planner's use of statistics can be found in
    <xref linkend="planner-stats-details"/>.
+-->
+プランナによる統計情報の使用に関する詳細については<xref linkend="planner-stats-details"/>を参照してください。
   </para>
   </sect2>
 
   <sect2 id="planner-stats-extended">
+<!--
    <title>Extended Statistics</title>
+-->
+   <title>拡張統計情報</title>
 
    <indexterm zone="planner-stats-extended">
+<!--
     <primary>statistics</primary>
     <secondary>of the planner</secondary>
+-->
+    <primary>統計情報</primary>
+    <secondary>プランナの</secondary>
    </indexterm>
 
    <indexterm>
+<!--
     <primary>correlation</primary>
     <secondary>in the query planner</secondary>
+-->
+    <primary>相関関係</primary>
+    <secondary>クエリプランナにおける</secondary>
    </indexterm>
 
    <indexterm>
@@ -1123,6 +1571,7 @@ WHERE tablename = 'road';
    </indexterm>
 
    <para>
+<!--
     It is common to see slow queries running bad execution plans because
     multiple columns used in the query clauses are correlated.
     The planner normally assumes that multiple conditions
@@ -1133,17 +1582,27 @@ WHERE tablename = 'road';
     However, <productname>PostgreSQL</productname> has the ability to compute
     <firstterm>multivariate statistics</firstterm>, which can capture
     such information.
+-->
+問い合わせ句で使われている複数列に相関性があることにより、悪い実行計画を実行する遅いクエリがしばしば観察されます。
+プランナは通常複数の条件がお互いに独立であるとみなしますが、列の値に相関性がある場合はそれは成り立ちません。
+通常の列ごとの統計情報は、それが個々の列ごとであるという性質上、列をまたがる相関性に関する知識を把握することはできません。
+しかしながら、<productname>PostgreSQL</productname>は、<firstterm>多変量統計情報</firstterm>を計算することができ、それによってそうした情報を把握することができます。
    </para>
 
    <para>
+<!--
     Because the number of possible column combinations is very large,
     it's impractical to compute multivariate statistics automatically.
     Instead, <firstterm>extended statistics objects</firstterm>, more often
     called just <firstterm>statistics objects</firstterm>, can be created to instruct
     the server to obtain statistics across interesting sets of columns.
+-->
+列の組み合わせの数は非常に大きいため、自動的に多変量統計情報を計算するのは現実的ではありません。
+代わりに、サーバが興味のある列の集合にまたがる統計情報を得るように指示する目的で、<firstterm>拡張統計情報オブジェクト</firstterm>（しばしば単に<firstterm>統計情報オブジェクト</firstterm>と呼ばれます）を作成することができます。
    </para>
 
    <para>
+<!--
     Statistics objects are created using the
     <link linkend="sql-createstatistics"><command>CREATE STATISTICS</command></link> command.
     Creation of such an object merely creates a catalog entry expressing
@@ -1152,9 +1611,15 @@ WHERE tablename = 'road';
     auto-analyze).  The collected values can be examined in the
     <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
     catalog.
+-->
+統計情報オブジェクトは<xref linkend="sql-createstatistics"/>で作成します。
+そうしたオブジェクトを作っても、単に統計情報として興味があることを示すカタログエントリが作られるだけです。
+実際のデータ収集は、<command>ANALYZE</command> （手動のコマンドを起動あるいはバックグラウンドでの自動ANALYZE）が行います。
+収集したデータは、<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>カタログで参照することができます。
    </para>
 
    <para>
+<!--
     <command>ANALYZE</command> computes extended statistics based on the same
     sample of table rows that it takes for computing regular single-column
     statistics.  Since the sample size is increased by increasing the
@@ -1162,17 +1627,27 @@ WHERE tablename = 'road';
     the previous section), a larger statistics target will normally result in
     more accurate extended statistics, as well as more time spent calculating
     them.
+-->
+通常の単一列統計情報の計算に使うのと同じテーブル行のサンプルに基づき、<command>ANALYZE</command>は、拡張統計情報を計算します。
+（前節で述べたように）テーブルあるいはそのテーブルの対象となる列統計情報の増やすと、サンプルのサイズも増えるので、より大きな統計情報の対象を使うと、通常、より精度の高い拡張統計情報を得られますが、計算に費やす時間も増えます。
    </para>
 
    <para>
+<!--
     The following subsections describe the kinds of extended statistics
     that are currently supported.
+-->
+次の節では、現在サポートしている拡張統計情報の種類を説明します。
    </para>
 
    <sect3>
+<!--
     <title>Functional Dependencies</title>
+-->
+    <title>関数従属性</title>
 
     <para>
+<!--
      The simplest kind of extended statistics tracks <firstterm>functional
      dependencies</firstterm>, a concept used in definitions of database normal forms.
      We say that column <structfield>b</structfield> is functionally dependent on
@@ -1187,9 +1662,18 @@ WHERE tablename = 'road';
      Even in a fully normalized database, there may be partial correlation
      between some columns, which can be expressed as partial functional
      dependency.
+-->
+もっとも単純な拡張統計情報は、データベースの正規形の定義で使われる考え方である、<firstterm>関数従属性</firstterm>を追跡します。
+<structfield>a</structfield>の値に関する知識が<structfield>b</structfield>の値を決定するのに十分であるとき、列<structfield>b</structfield>は列<structfield>a</structfield>に関数的に従属していると言います。
+これはすなわち、同じ<structfield>a</structfield>の値を持ちながら、異なる<structfield>b</structfield>の値を持つ二つの行は存在しないということです。
+完全に正規化されたデータベースでは、関数従属性は主キーと超キーにのみ存在します。
+実際には様々な理由でデータの集合は完全には正規化されません。
+性能上の理由により非正規化するというのが典型的な例です。
+完全に正規化されたデータベースにおいても、ある列の間に部分的な相関関係が存在することがあり、これは部分的関数従属性として表現されます。
     </para>
 
     <para>
+<!--
      The existence of functional dependencies directly affects the accuracy
      of estimates in certain queries.  If a query contains conditions on
      both the independent and the dependent column(s), the
@@ -1197,9 +1681,14 @@ WHERE tablename = 'road';
      size; but without knowledge of the functional dependency, the query
      planner will assume that the conditions are independent, resulting
      in underestimating the result size.
+-->
+ある問い合わせでは、関数従属性が存在することが見積もりの精度に直接影響を与えます。
+問い合わせに独立した列と依存する列の両方に関する条件が含まれていると、依存する列に関する条件はそれ以上結果サイズを小さくしません。
+しかし関数従属性に関する知識がなければ、クエリプランナはそれらの条件が独立であると見なし、結果サイズの過少見積もりすることになります。
     </para>
 
     <para>
+<!--
      To inform the planner about functional dependencies, <command>ANALYZE</command>
      can collect measurements of cross-column dependency. Assessing the
      degree of dependency between all sets of columns would be prohibitively
@@ -1209,10 +1698,18 @@ WHERE tablename = 'road';
      <literal>dependencies</literal> statistics only for column groups that are
      strongly correlated, to avoid unnecessary overhead in both
      <command>ANALYZE</command> and later query planning.
+-->
+プランナに関数従属性について知らせるために、<command>ANALYZE</command>は列をまたがる依存性の強さを収集することができます。
+すべての列の集合間の依存性度合いを調査するのは、受け入れられないほど高価になります。
+そこでデータ収集は、<literal>dependencies</literal>オプションで定義された統計情報オブジェクトの中に一緒に現れた列のグループに制限されます。
+<command>ANALYZE</command>および後々のクエリプランニングにおける不必要なオーバーヘッドを避けるために、強い相関関係のある列のグループのみを対象に、<literal>dependencies</literal>統計情報を作成することをお勧めします。
     </para>
 
     <para>
+<!--
      Here is an example of collecting functional-dependency statistics:
+-->
+関数従属性統計情報の収集例です。
 <programlisting>
 CREATE STATISTICS stts (dependencies) ON city, zip FROM zipcodes;
 
@@ -1226,72 +1723,111 @@ SELECT stxname, stxkeys, stxddependencies
  stts    | 1 5     | {"1 => 5": 1.000000, "5 => 1": 0.423130}
 (1 row)
 </programlisting>
+<!--
      Here it can be seen that column 1 (zip code) fully determines column
      5 (city) so the coefficient is 1.0, while city only determines zip code
      about 42% of the time, meaning that there are many cities (58%) that are
      represented by more than a single ZIP code.
+-->
+ここでは、列1（zip code）が完全に列5（city）を決定しているので、係数は1.0です。
+一方、cityはzip codeを42%しか決定していないので、一つ以上のzip codeで表現されている多くのcity(58%)が存在するということになります。
     </para>
 
     <para>
+<!--
      When computing the selectivity for a query involving functionally
      dependent columns, the planner adjusts the per-condition selectivity
      estimates using the dependency coefficients so as not to produce
      an underestimate.
+-->
+関数従属する列を伴うクエリの選択率を計算する際、過小評価を行わないように、プランナは依存性係数を使って条件ごとの選択率を調整します。
     </para>
 
     <sect4>
+<!--
      <title>Limitations of Functional Dependencies</title>
+-->
+     <title>関数従属性の制限事項</title>
 
      <para>
+<!--
       Functional dependencies are currently only applied when considering
       simple equality conditions that compare columns to constant values,
       and <literal>IN</literal> clauses with constant values.
       They are not used to improve estimates for equality conditions
       comparing two columns or comparing a column to an expression, nor for
       range clauses, <literal>LIKE</literal> or any other type of condition.
+-->
+今のところ、列と定数を比較する単純な等価条件と、定数の<literal>IN</literal>句を考慮する際にしか関数従属性は適用されません。
+二つの列を比較する、あるいは列を式と比較する等価条件、範囲句、<literal>LIKE</literal>その他の条件の見積もりを改善するのには使われません。
      </para>
 
      <para>
+<!--
       When estimating with functional dependencies, the planner assumes that
       conditions on the involved columns are compatible and hence redundant.
       If they are incompatible, the correct estimate would be zero rows, but
       that possibility is not considered.  For example, given a query like
+-->
+関数従属性を含めた見積もりでは、プランナは関係する列に対する複数の条件が同時に成り立つ、つまり冗長であるとみなします。
+それらの条件が同時に成り立たなければ、正しい見積もりは0行となりますが、その可能性は考慮されません。
+たとえば次のクエリを見てください。
 <programlisting>
 SELECT * FROM zipcodes WHERE city = 'San Francisco' AND zip = '94105';
 </programlisting>
+<!--
       the planner will disregard the <structfield>city</structfield> clause as not
       changing the selectivity, which is correct.  However, it will make
       the same assumption about
+-->
+プランナは、選択率が変わらないという正しい推定に基づき<structfield>city</structfield>句を無視します。
+しかし、これを満たす行が0行であるにもかかわらず、次の問い合わせでも同じ推測をします。
 <programlisting>
 SELECT * FROM zipcodes WHERE city = 'San Francisco' AND zip = '90210';
 </programlisting>
+<!--
       even though there will really be zero rows satisfying this query.
       Functional dependency statistics do not provide enough information
       to conclude that, however.
+-->
+関数従属性統計情報は、これを結論付けるだけの十分な情報を提供しません。
      </para>
 
      <para>
+<!--
       In many practical situations, this assumption is usually satisfied;
       for example, there might be a GUI in the application that only allows
       selecting compatible city and ZIP code values to use in a query.
       But if that's not the case, functional dependencies may not be a viable
       option.
+-->
+多くの実用的な場合には、この前提は通常満たされます。
+たとえば、あるアプリケーションには、クエリの中で両立するcityとZIP codeだけを許すGUIが備わっているかもしれません。
+もしそうでなければ、関数従属性は実行可能なオプションではないかもしれません。
      </para>
     </sect4>
    </sect3>
 
    <sect3>
+<!--
     <title>Multivariate N-Distinct Counts</title>
+-->
+    <title>多変量N個別値計数</title>
 
     <para>
+<!--
      Single-column statistics store the number of distinct values in each
      column.  Estimates of the number of distinct values when combining more
      than one column (for example, for <literal>GROUP BY a, b</literal>) are
      frequently wrong when the planner only has single-column statistical
      data, causing it to select bad plans.
+-->
+単一列統計情報は、それぞれの列で異なる値の数を保持します。
+たとえば、<literal>GROUP BY a, b</literal>のように、二つ以上の列を組み合わせての異なる値の数の見積もりは、プランナに単一列の統計情報だけしか与えられない場合は、しばしば間違ったものになり、プランナは悪いプランの選択をしてしまいます。
     </para>
 
     <para>
+<!--
      To improve such estimates, <command>ANALYZE</command> can collect n-distinct
      statistics for groups of columns.  As before, it's impractical to do
      this for every possible column grouping, so data is collected only for
@@ -1299,11 +1835,20 @@ SELECT * FROM zipcodes WHERE city = 'San Francisco' AND zip = '90210';
      defined with the <literal>ndistinct</literal> option.  Data will be collected
      for each possible combination of two or more columns from the set of
      listed columns.
+-->
+見積もり改善のために、列のグループに対して<command>ANALYZE</command>はN個別統計情報を収集することができます。
+以前述べたのと同様に、可能なすべての列のグループに対してこれを行なうのは現実的ではありません。
+<literal>ndistinct</literal>オプションで定義された統計オブジェクト中に一緒に現れる列のグループに対してのみデータを
+収集します。
+列リストの中から、可能な二つ以上の列の組み合わせそれぞれに対してデータが収集されます。
     </para>
 
     <para>
+<!--
      Continuing the previous example, the n-distinct counts in a
      table of ZIP codes might look like the following:
+-->
+先ほどの例の続きで、ZIP codeのテーブルのN個別値計数は次のようになります。
 <programlisting>
 CREATE STATISTICS stts2 (ndistinct) ON city, state, zip FROM zipcodes;
 
@@ -1317,33 +1862,50 @@ k  | 1 2 5
 nd | {"1, 2": 33178, "1, 5": 33178, "2, 5": 27435, "1, 2, 5": 33178}
 (1 row)
 </programlisting>
+<!--
      This indicates that there are three combinations of columns that
      have 33178 distinct values: ZIP code and state; ZIP code and city;
      and ZIP code, city and state (the fact that they are all equal is
      expected given that ZIP code alone is unique in this table).  On the
      other hand, the combination of city and state has only 27435 distinct
      values.
+-->
+この例では、33178の異なる値を持つ列の組み合わせが三つあることを示しています。
+ZIP codeとstate、ZIP codeとcity、cityとstateです。（これらが等しいという事実は、ZIP codeだけがテーブル中でユニークであることから期待されます。）
+一方、cityとstateの組み合わせには、27435だけの異なる値があります。
     </para>
 
     <para>
+<!--
      It's advisable to create <literal>ndistinct</literal> statistics objects only
      on combinations of columns that are actually used for grouping, and
      for which misestimation of the number of groups is resulting in bad
      plans.  Otherwise, the <command>ANALYZE</command> cycles are just wasted.
+-->
+グループ化で実際に使用する列の組み合わせで、かつグループ数の見積もり間違いによって悪いプランをもたらすものに対してだけ、<literal>ndistinct</literal>統計情報オブジェクトを作ることをお勧めします。
+さもないと、<command>ANALYZE</command>サイクルは単に無駄になります。
     </para>
    </sect3>
 
    <sect3>
+<!--
     <title>Multivariate MCV Lists</title>
+-->
+    <title>多変量MCVリスト</title>
 
     <para>
+<!--
      Another type of statistics stored for each column are most-common value
      lists.  This allows very accurate estimates for individual columns, but
      may result in significant misestimates for queries with conditions on
      multiple columns.
+-->
+列ごとに格納される別なタイプの統計情報は最頻値リスト(most-common value list)です。
+個々の列ごとには非常に正確な推測を可能にしますが、複数列に渡る条件を持つ問い合わせについては重大な誤った推定をもたらすことがあります。
     </para>
 
     <para>
+<!--
      To improve such estimates, <command>ANALYZE</command> can collect MCV
      lists on combinations of columns.  Similarly to functional dependencies
      and n-distinct coefficients, it's impractical to do this for every
@@ -1352,12 +1914,20 @@ nd | {"1, 2": 33178, "1, 5": 33178, "2, 5": 27435, "1, 2, 5": 33178}
      the common column values.  So data is collected only for those groups
      of columns appearing together in a statistics object defined with the
      <literal>mcv</literal> option.
+-->
+こうした推定を改善するために、列の組み合わせのMCVリストを<command>ANALYZE</command>で収集することができます。
+関数従属性とN個別値係数同様、考えられるすべての列のグループに対してこれを行うのは実用的ではありません。
+MCVリストでは（関数従属性とN個別値係数と違って）列の頻値を格納するのでなおさらです。
+ですから<literal>mcv</literal>オプションで定義された統計情報オブジェクト中に共通して現れる列のグループのデータだけが収集されます。
     </para>
 
     <para>
+<!--
      Continuing the previous example, the MCV list for a table of ZIP codes
      might look like the following (unlike for simpler types of statistics,
      a function is required for inspection of MCV contents):
+-->
+前述の例を続けましょう。ZIPコードのテーブルのMCVリストは次のようになるでしょう。（単純な形式の統計情報とは違って、MCVの内容を解析する関数が必要になります）
 
 <programlisting>
 CREATE STATISTICS stts3 (mcv) ON city, state FROM zipcodes;
@@ -1382,19 +1952,27 @@ SELECT m.* FROM pg_statistic_ext join pg_statistic_ext_data on (oid = stxoid),
    ...
 (99 rows)
 </programlisting>
+<!--
      This indicates that the most common combination of city and state is
      Washington in DC, with actual frequency (in the sample) about 0.35%.
      The base frequency of the combination (as computed from the simple
      per-column frequencies) is only 0.0027%, resulting in two orders of
      magnitude under-estimates.
+-->
+これによると市と州のもっとも頻度の高い組み合わせはDCのWashingtonで、（サンプルにおける）実際の頻度は約0.35%でした。
+比較の基準となる組み合わせの頻度（単純な列ごとの頻度から計算されたもの）はたった0.0027%で、2桁の過少見積になっています。
     </para>
 
     <para>
+<!--
      It's advisable to create <acronym>MCV</acronym> statistics objects only
      on combinations of columns that are actually used in conditions together,
      and for which misestimation of the number of groups is resulting in bad
      plans.  Otherwise, the <command>ANALYZE</command> and planning cycles
      are just wasted.
+-->
+そのグループの誤推定値が間違った計画をもたらしてしまうような、条件の中で実際に一緒に使われる列の組み合わせについてのみ<acronym>MCV</acronym>統計情報オブジェクトを作成することが望ましいです。
+さもないと、<command>ANALYZE</command>とプラン処理は単に無駄になってしまいます。
     </para>
    </sect3>
 
@@ -1402,24 +1980,39 @@ SELECT m.* FROM pg_statistic_ext join pg_statistic_ext_data on (oid = stxoid),
  </sect1>
 
  <sect1 id="explicit-joins">
+<!--
   <title>Controlling the Planner with Explicit <literal>JOIN</literal> Clauses</title>
+-->
+  <title>明示的な<literal>JOIN</literal>句でプランナを制御する</title>
 
   <indexterm zone="explicit-joins">
+<!--
    <primary>join</primary>
    <secondary>controlling the order</secondary>
+-->
+   <primary>結合</primary>
+   <secondary>順番を制御する</secondary>
   </indexterm>
 
   <para>
+<!--
    It is possible
    to control the query planner to some extent by using the explicit <literal>JOIN</literal>
    syntax.  To see why this matters, we first need some background.
+-->
+明示的な<literal>JOIN</literal>構文を使って問い合わせプランナをある程度制御できます。
+どうしてこういうことが問題になるのか、まずその背景を見る必要があります。
   </para>
 
   <para>
+<!--
    In a simple join query, such as:
+-->
+単純な問い合わせ、例えば
 <programlisting>
 SELECT * FROM a, b, c WHERE a.id = b.id AND b.ref = c.id;
 </programlisting>
+<!--
    the planner is free to join the given tables in any order.  For
    example, it could generate a query plan that joins A to B, using
    the <literal>WHERE</literal> condition <literal>a.id = b.id</literal>, and then
@@ -1436,9 +2029,20 @@ SELECT * FROM a, b, c WHERE a.id = b.id AND b.ref = c.id;
    results but might have hugely different execution costs.  Therefore,
    the planner will explore all of them to try to find the most
    efficient query plan.
+-->
+では、プランナは自由に与えられたテーブルを任意の順で結合することができます。
+例えば、<literal>WHERE</literal>条件の<literal>a.id = b.id</literal>を使ってまずAとBを結合し、他の<literal>WHERE</literal>条件を使ってその結合テーブルにCを結合するといった計画を立てることができます。
+あるいは、BとCを結合し、その結果にAを結合することもできます。
+あるいは、AとCを結合し、その結果にBを結合することもできるでしょう。
+しかし、それでは効率が良くありません。
+なぜなら、結合の最適化を行うために適用できる条件が<literal>WHERE</literal>句にないので、AとCの全直積が作られるからです。
+（<productname>PostgreSQL</productname>のエクゼキュータでは、結合はすべて2つのテーブルの間で行われるため、このようにして1つひとつ結果を作っていかなければなりません。）
+重要なのは、これらの違った結合の方法は意味的には同じ結果なのですが、実行コストは大きく異なる可能性があるということです。
+ですから、プランナは最も効率の良い計画を探すために可能な計画をすべて検査します。
   </para>
 
   <para>
+<!--
    When a query only involves two or three tables, there aren't many join
    orders to worry about.  But the number of possible join orders grows
    exponentially as the number of tables expands.  Beyond ten or so input
@@ -1452,14 +2056,27 @@ SELECT * FROM a, b, c WHERE a.id = b.id AND b.ref = c.id;
    parameter.)
    The genetic search takes less time, but it won't
    necessarily find the best possible plan.
+-->
+結合の対象がせいぜい2、3個のテーブルなら心配するほど結合の種類は多くありません。
+しかし、テーブル数が増えると可能な結合の数は指数関数的に増えていきます。
+10程度以上にテーブルが増えると、すべての可能性をしらみつぶしに探索することはもはや実用的ではなくなります。
+6や7個のテーブルでさえも、計画を作成する時間が無視できなくなります。
+テーブルの数が多過ぎる時は、<productname>PostgreSQL</productname>のプランナはしらみつぶしの探索から、限られた可能性だけを探索する<firstterm>遺伝的</firstterm>確率的な探索へと切り替わります。
+（切り替えの閾値は<xref linkend="guc-geqo-threshold"/>実行時パラメータで設定されます。）
+遺伝的探索は短い時間で探索を行いますが、必ずしも最適な計画を見つけるとは限りません。
   </para>
 
   <para>
+<!--
    When the query involves outer joins, the planner has less freedom
    than it does for plain (inner) joins. For example, consider:
+-->
+外部結合が含まれるような問い合わせでは、通常の（内部）結合よりプランナの選択の余地が小さくなります。
+例えば、次のような問い合わせを考えます。
 <programlisting>
 SELECT * FROM a LEFT JOIN (b JOIN c ON (b.ref = c.id)) ON (a.id = b.id);
 </programlisting>
+<!--
    Although this query's restrictions are superficially similar to the
    previous example, the semantics are different because a row must be
    emitted for each row of A that has no matching row in the join of B and C.
@@ -1468,84 +2085,137 @@ SELECT * FROM a LEFT JOIN (b JOIN c ON (b.ref = c.id)) ON (a.id = b.id);
    less time to plan than the previous query.  In other cases, the planner
    might be able to determine that more than one join order is safe.
    For example, given:
+-->
+この問い合わせの検索条件は前述の例と表面的には似ているように思えますが、BとCの結合結果の行に適合しないAの各行が出力されなければならないため、意味的には異なります。
+したがって、ここではプランナには結合順に関して選択の余地がありません。
+まずBとCを結合し、その結果にAを結合しなければならないのです。
+そういうわけで、この問い合わせでは計画を立てるのに要する時間は前の例よりも短くなります。
+その他の場合、プランナが安全な結合順を複数決定できる可能性があります。
+例えば、以下を考えてみます。
 <programlisting>
 SELECT * FROM a LEFT JOIN b ON (a.bid = b.id) LEFT JOIN c ON (a.cid = c.id);
 </programlisting>
+<!--
    it is valid to join A to either B or C first.  Currently, only
    <literal>FULL JOIN</literal> completely constrains the join order.  Most
    practical cases involving <literal>LEFT JOIN</literal> or <literal>RIGHT JOIN</literal>
    can be rearranged to some extent.
+-->
+この場合、Aを先にBと結合してもCと結合しても有効です。
+現時点では、<literal>FULL JOIN</literal>のみが完全に結合順を制限します。
+<literal>LEFT JOIN</literal>や<literal>RIGHT JOIN</literal>を含む、ほとんどの実環境では、何らかの拡張に再調整することができます。
   </para>
 
   <para>
+<!--
    Explicit inner join syntax (<literal>INNER JOIN</literal>, <literal>CROSS
    JOIN</literal>, or unadorned <literal>JOIN</literal>) is semantically the same as
    listing the input relations in <literal>FROM</literal>, so it does not
    constrain the join order.
+-->
+明示的な内部結合構文（<literal>INNER JOIN</literal>、<literal>CROSS JOIN</literal>、装飾のない<literal>JOIN</literal>）は、意味的には<literal>FROM</literal>内の入力リレーションの列挙と同じです。
+したがって、結合順を制約しません。
   </para>
 
   <para>
+<!--
    Even though most kinds of <literal>JOIN</literal> don't completely constrain
    the join order, it is possible to instruct the
    <productname>PostgreSQL</productname> query planner to treat all
    <literal>JOIN</literal> clauses as constraining the join order anyway.
    For example, these three queries are logically equivalent:
+-->
+ほとんどの種類の<literal>JOIN</literal>は完全に結合順を制約しませんが、<productname>PostgreSQL</productname>問い合わせプランナに、すべての<literal>JOIN</literal>句に対してとりあえず結合順を制限させることができます。
+例えば、以下の3つの問い合わせは論理的には同一です。
 <programlisting>
 SELECT * FROM a, b, c WHERE a.id = b.id AND b.ref = c.id;
 SELECT * FROM a CROSS JOIN b CROSS JOIN c WHERE a.id = b.id AND b.ref = c.id;
 SELECT * FROM a JOIN (b JOIN c ON (b.ref = c.id)) ON (a.id = b.id);
 </programlisting>
+<!--
    But if we tell the planner to honor the <literal>JOIN</literal> order,
    the second and third take less time to plan than the first.  This effect
    is not worth worrying about for only three tables, but it can be a
    lifesaver with many tables.
+-->
+しかし、プランナに<literal>JOIN</literal>の順番を守るように伝えた場合、2番目と3番目の問い合わせは最初のものよりも短い時間で計画を立てることができます。
+この効果はたった3つのテーブルでは気にするほどのものではありませんが、多くのテーブルを結合する際には最後の頼みの綱になるかもしれません。
   </para>
 
   <para>
+<!--
    To force the planner to follow the join order laid out by explicit
    <literal>JOIN</literal>s,
    set the <xref linkend="guc-join-collapse-limit"/> run-time parameter to 1.
    (Other possible values are discussed below.)
+-->
+プランナを強制的に明示的な<literal>JOIN</literal>に潜在する結合順に従わせるには、<xref linkend="guc-join-collapse-limit"/>実行時パラメータを1に設定してください。
+（以下で他の取り得る値について説明します。）
   </para>
 
   <para>
+<!--
    You do not need to constrain the join order completely in order to
    cut search time, because it's OK to use <literal>JOIN</literal> operators
    within items of a plain <literal>FROM</literal> list.  For example, consider:
+-->
+検索時間を節約するために、結合順を完全に束縛する必要はありません。
+なぜなら、単純な<literal>FROM</literal>リストの項目内に<literal>JOIN</literal>演算子を使っても構わないからです。
+例えば、次の例です。
 <programlisting>
 SELECT * FROM a CROSS JOIN b, c, d, e WHERE ...;
 </programlisting>
+<!--
    With <varname>join_collapse_limit</varname> = 1, this
    forces the planner to join A to B before joining them to other tables,
    but doesn't constrain its choices otherwise.  In this example, the
    number of possible join orders is reduced by a factor of 5.
+-->
+<varname>join_collapse_limit</varname> = 1とした場合、プランナは強制的に他のテーブルと結合する前にAとBを結合しますが、それ以外については特に拘束はありません。
+この例では、結合順の候補は5の階乗分の1に減ります。
   </para>
 
   <para>
+<!--
    Constraining the planner's search in this way is a useful technique
    both for reducing planning time and for directing the planner to a
    good query plan.  If the planner chooses a bad join order by default,
    you can force it to choose a better order via <literal>JOIN</literal> syntax
    &mdash; assuming that you know of a better order, that is.  Experimentation
    is recommended.
+-->
+こうした方法でプランナの検索に制約を加えることは、計画作成時間の短縮とプランナに対する優れた問い合わせ計画への方向付けの両方のために有用な技法です。
+プランナが劣った結合順をデフォルトで選択するのであれば、<literal>JOIN</literal>構文経由でより良い順番を選択するように強制することができます。
+ただし、より良い順番を理解しているという前提があります。
+これには実験することを勧めます。
   </para>
 
   <para>
+<!--
    A closely related issue that affects planning time is collapsing of
    subqueries into their parent query.  For example, consider:
+-->
+計画作成時間に影響する密接に関連した問題として、副問い合わせをその親問い合わせに折り畳むことがあります。
+例えば、以下を考えてみます。
 <programlisting>
 SELECT *
 FROM x, y,
     (SELECT * FROM a, b, c WHERE something) AS ss
 WHERE somethingelse;
 </programlisting>
+<!--
    This situation might arise from use of a view that contains a join;
    the view's <literal>SELECT</literal> rule will be inserted in place of the view
    reference, yielding a query much like the above.  Normally, the planner
    will try to collapse the subquery into the parent, yielding:
+-->
+こうした状況は、結合を含むビューを使用する際に現れます。
+そのビューの<literal>SELECT</literal>ルールはビューを参照するところに挿入され、上のような問い合わせを生成します。
+通常、プランナは副問い合わせを親問い合わせに折り畳み、以下を生成します。
 <programlisting>
 SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 </programlisting>
+<!--
    This usually results in a better plan than planning the subquery
    separately.  (For example, the outer <literal>WHERE</literal> conditions might be such that
    joining X to A first eliminates many rows of A, thus avoiding the need to
@@ -1558,9 +2228,19 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
    <literal>FROM</literal> items would result in the parent
    query.  You can trade off planning time against quality of plan by
    adjusting this run-time parameter up or down.
+-->
+これは通常、副問い合わせの計画を別途作成するより優れた計画を作成します。
+（例えば、外部の<literal>WHERE</literal>条件はXをAに結合するようになり、まずAの多くの行が取り除かれます。
+これにより、副問い合わせの完全な論理的出力が不要になります。）
+しかし、同時に計画作成時間が増加します。
+この場合、2つの3通りの結合問題から5通りの結合問題になります。
+候補数は指数関数的に増加するため、これは大きな違いになります。
+プランナは大規模な結合検索問題で行き詰まらないように、もし<varname>from_collapse_limit</varname>個の<literal>FROM</literal>項目が親問い合わせで発生してしまう場合は副問い合わせの折り畳みを抑制します。
+この実行時パラメータの値を上下に調整することで計画作成時間と計画の質をトレードオフすることができます。
   </para>
 
   <para>
+<!--
    <xref linkend="guc-from-collapse-limit"/> and <xref
    linkend="guc-join-collapse-limit"/>
    are similarly named because they do almost the same thing: one controls
@@ -1572,27 +2252,47 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
    to control join order with explicit joins).  But you might set them
    differently if you are trying to fine-tune the trade-off between planning
    time and run time.
+-->
+両者はほとんど同じことを行うため、<xref linkend="guc-from-collapse-limit"/>と<xref linkend="guc-join-collapse-limit"/>は似たような名前になっています。
+片方は副問い合わせの<quote>平坦化</quote>をプランナがいつ行うかを制御し、もう片方は明示的な結合の平坦化をいつ行うかを制御します。
+通常、<varname>join_collapse_limit</varname>を<varname>from_collapse_limit</varname>と同じ値に設定する（明示的な結合と副問い合わせの動作を同じにする）か、<varname>join_collapse_limit</varname>を1に設定する（明示的な結合で結合順を制御したい場合）かのどちらかを行います。
+しかし、計画作成時間と実行時間の間のトレードオフを細かく調整するつもりであれば、これらを別の値に設定しても構いません。
   </para>
  </sect1>
 
  <sect1 id="populate">
+<!--
   <title>Populating a Database</title>
+-->
+<title>データベースへのデータ投入</title>
 
   <para>
+<!--
    One might need to insert a large amount of data when first populating
    a database. This section contains some suggestions on how to make
    this process as efficient as possible.
+-->
+データベースにデータを初期投入するために、大量のテーブル挿入操作を行う必要がままあります。
+本節では、この作業を効率良く行うためのちょっとした提言を示します。
   </para>
 
   <sect2 id="disable-autocommit">
+<!--
    <title>Disable Autocommit</title>
+-->
+<title>自動コミットをオフにする</title>
 
    <indexterm>
+<!--
     <primary>autocommit</primary>
     <secondary>bulk-loading data</secondary>
+-->
+    <primary>自動コミット</primary>
+    <secondary>大量のデータロード</secondary>
    </indexterm>
 
    <para>
+<!--
     When using multiple <command>INSERT</command>s, turn off autocommit and just do
     one commit at the end.  (In plain
     SQL, this means issuing <command>BEGIN</command> at the start and
@@ -1606,13 +2306,26 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     were to fail then the insertion of all rows inserted up to that
     point would be rolled back, so you won't be stuck with partially
     loaded data.
+-->
+複数回の<command>INSERT</command>を実行するのであれば、自動コミットを無効にして最後に1回だけコミットしてください。
+（普通のSQLでは、これは<command>BEGIN</command>を開始時に、<command>COMMIT</command>を最後に発行することを意味します。
+クライアント用ライブラリの中にはこれを背後で実行するものもあります。
+その場合は、要望通りにライブラリが行っているかどうかを確認しなければなりません。）
+各挿入操作で個別にコミットすることを許すと、<productname>PostgreSQL</productname>は行を追加する度に多くの作業をしなければなりません。
+1つのトランザクションですべての挿入を行うことによるもう1つの利点は、1つの行の挿入に失敗した場合、その時点までに挿入されたすべての行がロールバックされることです。
+その結果、一部のみがロードされたデータの対処に困ることはありません。
    </para>
+
   </sect2>
 
   <sect2 id="populate-copy-from">
+<!--
    <title>Use <command>COPY</command></title>
+-->
+   <title><command>COPY</command>の使用</title>
 
    <para>
+<!--
     Use <link linkend="sql-copy"><command>COPY</command></link> to load
     all the rows in one command, instead of using a series of
     <command>INSERT</command> commands.  The <command>COPY</command>
@@ -1621,9 +2334,15 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     less overhead for large data loads. Since <command>COPY</command>
     is a single command, there is no need to disable autocommit if you
     use this method to populate a table.
+-->
+単一コマンドですべての行をロードするために一連の<command>INSERT</command>コマンドではなく、<xref linkend="sql-copy"/>を使用してください。
+<command>COPY</command>コマンドは行を大量にロードすることに最適化されています。
+このコマンドは<command>INSERT</command>に比べ柔軟性に欠けていますが、大量のデータロードにおけるオーバーヘッドを大きく低減します。
+<command>COPY</command>コマンドでテーブルにデータを投入する場合、コマンドは1つなので、自動コミットを無効にする必要はありません。
    </para>
 
    <para>
+<!--
     If you cannot use <command>COPY</command>, it might help to use <link
     linkend="sql-prepare"><command>PREPARE</command></link> to create a
     prepared <command>INSERT</command> statement, and then use
@@ -1632,16 +2351,26 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     <command>INSERT</command>. Different interfaces provide this facility
     in different ways; look for <quote>prepared statements</quote> in the interface
     documentation.
+-->
+<command>COPY</command>を使用できない場合、準備された<command>INSERT</command>文を<xref linkend="sql-prepare"/>を使用して作成し、必要な回数だけ<command>EXECUTE</command>を実行する方が良いでしょう。
+これにより、繰り返し行われる<command>INSERT</command>の解析と計画作成分のオーバーヘッドを省くことになります。
+この機能のための方法はインタフェースによって異なります。
+このインタフェースの文書の<quote>準備された文</quote>を参照してください。
    </para>
 
    <para>
+<!--
     Note that loading a large number of rows using
     <command>COPY</command> is almost always faster than using
     <command>INSERT</command>, even if <command>PREPARE</command> is used and
     multiple insertions are batched into a single transaction.
+-->
+<command>COPY</command>を使用した大量の行のロードは、ほとんどすべての場合において、<command>INSERT</command>を使用するロードよりも高速です。
+たとえ複数の挿入を単一トランザクションにまとめたとしても、またその際に<command>PREPARE</command>を使用したとしても、これは当てはまります。
    </para>
 
    <para>
+<!--
     <command>COPY</command> is fastest when used within the same
     transaction as an earlier <command>CREATE TABLE</command> or
     <command>TRUNCATE</command> command. In such cases no WAL
@@ -1650,22 +2379,35 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     However, this consideration only applies when
     <xref linkend="guc-wal-level"/> is <literal>minimal</literal>
     as all commands must write WAL otherwise.
+-->
+<command>COPY</command>は、前もって行われる<command>CREATE TABLE</command>または<command>TRUNCATE</command>コマンドと同一トランザクションで行った場合に、最速です。
+この場合、エラーが起きた場合に新しくロードされるデータを含むファイルがとにかく削除されますので、WALを書き出す必要がありません。
+しかし、<xref linkend="guc-wal-level"/>が<literal>minimal</literal>に設定されている場合のみにこの方法は当てはまります。
+この他の場合には、すべてのコマンドをWALに書き出さなければならないためです。
    </para>
 
   </sect2>
 
   <sect2 id="populate-rm-indexes">
+<!--
    <title>Remove Indexes</title>
+-->
+<title>インデックスを削除する</title>
 
    <para>
+<!--
     If you are loading a freshly created table, the fastest method is to
     create the table, bulk load the table's data using
     <command>COPY</command>, then create any indexes needed for the
     table.  Creating an index on pre-existing data is quicker than
     updating it incrementally as each row is loaded.
+-->
+新規に作成したテーブルをロードする時、最速の方法は、テーブルを作成し、<command>COPY</command>を使用した一括ロードを行い、そのテーブルに必要なインデックスを作成することです。
+既存のデータに対するインデックスを作成する方が、各行がロードされる度に段階的に更新するよりも高速です。
    </para>
 
    <para>
+<!--
     If you are adding large amounts of data to an existing table,
     it might be a win to drop the indexes,
     load the table, and then recreate the indexes.  Of course, the
@@ -1674,21 +2416,35 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     twice before dropping a unique index, since the error checking
     afforded by the unique constraint will be lost while the index is
     missing.
+-->
+既存のテーブルに大量のデータを追加しているのであれば、インデックスを削除し、テーブルをロード、その後にインデックスを再作成する方がよいかもしれません。
+もちろん、他のユーザから見ると、インデックスが存在しない間データベースの性能は悪化します。
+また、一意性インデックスを削除する前には熟考しなければなりません。
+一意性制約によるエラー検査がその期間行われないからです。
    </para>
   </sect2>
 
   <sect2 id="populate-rm-fkeys">
+<!--
    <title>Remove Foreign Key Constraints</title>
+-->
+   <title>外部キー制約の削除</title>
 
    <para>
+<!--
     Just as with indexes, a foreign key constraint can be checked
     <quote>in bulk</quote> more efficiently than row-by-row.  So it might be
     useful to drop foreign key constraints, load data, and re-create
     the constraints.  Again, there is a trade-off between data load
     speed and loss of error checking while the constraint is missing.
+-->
+インデックスの場合と同様、外部キー制約は一行一行検査するよりも効率的に、<quote>まとめて</quote>検査することができます。
+従って、外部キー制約を削除し、データをロード、そして、制約を再作成する方法は有用となることがあります。
+繰り返しますが、データロードの速度と、制約が存在しない間のエラー検査がないという点とのトレードオフがあります。
    </para>
 
    <para>
+<!--
     What's more, when you load data into a table with existing foreign key
     constraints, each new row requires an entry in the server's list of
     pending trigger events (since it is the firing of a trigger that checks
@@ -1699,26 +2455,43 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     foreign keys when loading large amounts of data.  If temporarily removing
     the constraint isn't acceptable, the only other recourse may be to split
     up the load operation into smaller transactions.
+-->
+外部キー制約をすでに持つテーブルにデータをロードする時、新しい行はそれぞれ(行の外部キー制約を検査するトリガを発行しますので)サーバの待機中トリガイベントのリスト内に項目を要求します。
+数百万の行をロードすると、トリガイベントのキューが利用可能なメモリをオーバーフローさせてしまい、耐えられないほどのスワッピングが発生してしまう、最悪はそのコマンドが完全に失敗してしまう可能性があります。
+したがって単に好ましいだけでなく、大量のデータをロードする時には外部キーを削除し再度適用することが<emphasis>必要</emphasis>かもしれません。
+一時的な制約削除が受け入れられない場合に他に取り得る手段は、ロード操作をより小さなトランザクションに分割することだけかもしれません。
    </para>
   </sect2>
 
   <sect2 id="populate-work-mem">
+<!--
    <title>Increase <varname>maintenance_work_mem</varname></title>
+-->
+   <title><varname>maintenance_work_mem</varname>を増やす</title>
 
    <para>
+<!--
     Temporarily increasing the <xref linkend="guc-maintenance-work-mem"/>
     configuration variable when loading large amounts of data can
     lead to improved performance.  This will help to speed up <command>CREATE
     INDEX</command> commands and <command>ALTER TABLE ADD FOREIGN KEY</command> commands.
     It won't do much for <command>COPY</command> itself, so this advice is
     only useful when you are using one or both of the above techniques.
+-->
+大規模なデータをロードする時<xref linkend="guc-maintenance-work-mem"/>設定変数を一時的に増やすことで性能を向上させることができます。
+これは、<command>CREATE INDEX</command>コマンドと<command>ALTER TABLE ADD FOREIGN KEY</command>の速度向上に役立ちます。
+<command>COPY</command>自体には大して役立ちませんので、この助言は、上述の技法の片方または両方を使用している時にのみ有用です。
    </para>
   </sect2>
 
   <sect2 id="populate-max-wal-size">
+<!--
    <title>Increase <varname>max_wal_size</varname></title>
+-->
+   <title><varname>max_wal_size</varname>を増やす</title>
 
    <para>
+<!--
     Temporarily increasing the <xref linkend="guc-max-wal-size"/>
     configuration variable can also
     make large data loads faster.  This is because loading a large
@@ -1730,13 +2503,22 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     <varname>max_wal_size</varname> temporarily during bulk
     data loads, the number of checkpoints that are required can be
     reduced.
+-->
+大規模なデータをロードする時<xref linkend="guc-max-wal-size"/>設定変数を一時的に増やすことで高速化することができます。
+大量のデータを<productname>PostgreSQL</productname>にロードすることで、通常のチェックポイントの頻度（<varname>checkpoint_timeout</varname>設定変数により指定されます）よりも頻繁にチェックポイントが発生するためです。
+チェックポイントが発生すると、すべてのダーティページ（ディスクに未書き込みの変更済みメモリページ）はディスクに吐き出されなければなりません。
+大量のデータロードの際に一時的に<varname>max_wal_size</varname>を増加させることで、必要なチェックポイント数を減らすことができます。
    </para>
   </sect2>
 
   <sect2 id="populate-pitr">
+<!--
    <title>Disable WAL Archival and Streaming Replication</title>
+-->
+   <title>WALアーカイブ処理とストリーミングレプリケーションの無効化</title>
 
    <para>
+<!--
     When loading large amounts of data into an installation that uses
     WAL archiving or streaming replication, it might be faster to take a
     new base backup after the load has completed than to process a large
@@ -1748,9 +2530,14 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     But note that changing these settings requires a server restart,
     and makes any base backups taken before unavailable for archive
     recovery and standby server, which may lead to data loss.
+-->
+大量のデータをWALアーカイブ処理またはストリーミングレプリケーションを使用するインストレーションにロードする時、増加する大量のWALデータを処理するより、ロードが完了した後に新しくベースバックアップを取る方が高速です。
+ロード中のWALログの増加を防ぐためには、<xref linkend="guc-wal-level"/>を<literal>minimal</literal>に、<xref linkend="guc-archive-mode"/>を<literal>off</literal>に、<xref linkend="guc-max-wal-senders"/>をゼロに設定することにより、アーカイブ処理とストリーミングレプリケーションを無効にしてください。
+しかし、これらの変数を変更するにはサーバの再起動が必要な点に注意してください。
    </para>
 
    <para>
+<!--
     Aside from avoiding the time for the archiver or WAL sender to process the
     WAL data, doing this will actually make certain commands faster, because
     they do not to write WAL at all if <varname>wal_level</varname>
@@ -1758,13 +2545,21 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     transaction) created or truncated the table or index they change.  (They
     can guarantee crash safety more cheaply by doing
     an <function>fsync</function> at the end than by writing WAL.)
+-->
+こうすると、WALデータを処理する保管処理またはWAL送信処理にかかる時間がかからないことの他に、実際のところ、特定のコマンドをより高速にします。
+<varname>wal_level</varname>が<literal>minimal</literal>の場合、これらのコマンドではWALへの書き出しは全く予定されないためです。
+（これらは最後に<function>fsync</function>を実行することで、WALへの書き込みより安価にクラッシュした場合の安全性を保証することができます。）
    </para>
   </sect2>
 
   <sect2 id="populate-analyze">
+<!--
    <title>Run <command>ANALYZE</command> Afterwards</title>
+-->
+   <title>最後に<command>ANALYZE</command>を実行</title>
 
    <para>
+<!--
     Whenever you have significantly altered the distribution of data
     within a table, running <link linkend="sql-analyze"><command>ANALYZE</command></link> is strongly recommended. This
     includes bulk loading large amounts of data into the table.  Running
@@ -1777,13 +2572,24 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     run <command>ANALYZE</command> automatically; see
     <xref linkend="vacuum-for-statistics"/>
     and <xref linkend="autovacuum"/> for more information.
+-->
+テーブル内のデータ分布を大きく変更した時は毎回、<xref linkend="sql-analyze"/>を実行することを強く勧めます。
+これは、テーブルに大量のデータをまとめてロードする場合も含まれます。
+<command>ANALYZE</command>（または<command>VACUUM ANALYZE</command>）を実行することで、確実にプランナがテーブルに関する最新の統計情報を持つことができます。
+統計情報が存在しない、または古い場合、プランナは、そのテーブルに対する問い合わせの性能を損なわせる、お粗末な問い合わせ計画を選択する可能性があります。
+自動バキュームデーモンが有効な場合、<command>ANALYZE</command>が自動的に実行されます。
+詳細は<xref linkend="vacuum-for-statistics"/>および<xref linkend="autovacuum"/>を参照してください。
    </para>
   </sect2>
 
   <sect2 id="populate-pg-dump">
+<!--
    <title>Some Notes about <application>pg_dump</application></title>
+-->
+   <title><application>pg_dump</application>に関するいくつかの注意</title>
 
    <para>
+<!--
     Dump scripts generated by <application>pg_dump</application> automatically apply
     several, but not all, of the above guidelines.  To reload a
     <application>pg_dump</application> dump as quickly as possible, you need to
@@ -1792,24 +2598,39 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     The same points apply whether loading a text dump with
     <application>psql</application> or using <application>pg_restore</application> to load
     from a <application>pg_dump</application> archive file.)
+-->
+<application>pg_dump</application>で生成されるダンプスクリプトは自動的に上のガイドラインのいくつかを適用します（すべてではありません）。
+<application>pg_dump</application>ダンプをできる限り高速にリロードするには、手作業で更に数作業が必要です。
+（これらは<emphasis>作成</emphasis>時に適用するものではなく、ダンプを<emphasis>復元</emphasis>する時に適用するものです。
+<application>psql</application>を使用してテキスト形式のダンプをロードする時と<application>pg_dump</application>のアーカイブファイルから<application>pg_restore</application>を使用してロードする時にも同じことが適用できます。）
    </para>
 
    <para>
+<!--
     By default, <application>pg_dump</application> uses <command>COPY</command>, and when
     it is generating a complete schema-and-data dump, it is careful to
     load data before creating indexes and foreign keys.  So in this case
     several guidelines are handled automatically.  What is left
     for you to do is to:
+-->
+デフォルトでは、<application>pg_dump</application>は<command>COPY</command>を使用します。
+スキーマとデータのダンプ全体を生成する場合、インデックスと外部キー制約を作成する前にデータをロードすることに注意してください。
+ですので、この場合、ガイドラインのいくつかは自動的に行われます。
+残された作業は以下のとおりです。
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Set appropriate (i.e., larger than normal) values for
        <varname>maintenance_work_mem</varname> and
        <varname>max_wal_size</varname>.
+-->
+<varname>maintenance_work_mem</varname>および<varname>max_wal_size</varname>を適切な（つまり通常よりも大きな）値に設定します。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        If using WAL archiving or streaming replication, consider disabling
        them during the restore. To do that, set <varname>archive_mode</varname>
        to <literal>off</literal>,
@@ -1817,59 +2638,91 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
        <varname>max_wal_senders</varname> to zero before loading the dump.
        Afterwards, set them back to the right values and take a fresh
        base backup.
+-->
+WALアーカイブ処理またはストリーミングレプリケーションを使用する場合は、リストア時にこれを無効にすることを検討してください。
+このためにはダンプをロードする前に<varname>archive_mode</varname>を<literal>off</literal>に、<varname>wal_level</varname>を<literal>minimal</literal>に、<varname>max_wal_senders</varname>をゼロに設定してください。
+その後それらを正しい値に戻し、新規にベースバックアップを取ってください。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Experiment with the parallel dump and restore modes of both
        <application>pg_dump</application> and <application>pg_restore</application> and find the
        optimal number of concurrent jobs to use. Dumping and restoring in
        parallel by means of the <option>-j</option> option should give you a
        significantly higher performance over the serial mode.
+-->
+<application>pg_dump</application>と<application>pg_restore</application>で、並列ダンプとリストア方式を実験して、利用する並列なジョブの最適な数を見つけて下さい。
+<option>-j</option>オプションでダンプとリストアを並列に行なうのは逐次方式よりも大きく性能を向上させるでしょう。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Consider whether the whole dump should be restored as a single
        transaction.  To do that, pass the <option>-1</option> or
-       <option>--single-transaction</option> command-line option to
+       <option>&#045;&#045;single-transaction</option> command-line option to
        <application>psql</application> or <application>pg_restore</application>. When using this
        mode, even the smallest of errors will rollback the entire restore,
        possibly discarding many hours of processing.  Depending on how
        interrelated the data is, that might seem preferable to manual cleanup,
        or not.  <command>COPY</command> commands will run fastest if you use a single
        transaction and have WAL archiving turned off.
+-->
+ダンプ全体を単一トランザクションとしてリストアすべきかどうか検討してください。
+このためには<application>psql</application>または<application>pg_restore</application>に<option>-1</option>または<option>--single-transaction</option>コマンドラインオプションを指定してください。
+このモードを使用する場合、たとえ小さなエラーであっても、エラーがあればリストア全体がロールバックされます。
+データ同士の関連性がどの程度あるかに依存しますが、手作業での整理の際には好まれるかと思います。さもなくばあまり勧めません。
+単一トランザクションで実行し、WALアーカイブを無効にしている場合、<command>COPY</command>コマンドは最も高速に行われます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        If multiple CPUs are available in the database server, consider using
-       <application>pg_restore</application>'s <option>--jobs</option> option.  This
+       <application>pg_restore</application>'s <option>&#045;-jobs</option> option.  This
        allows concurrent data loading and index creation.
+-->
+データベースサーバで複数のCPUが利用できるのであれば、<application>pg_restore</application>の<option>--jobs</option>オプションの利用を検討してください。
+これによりデータのロードとインデックスの作成を同時に行うことができます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Run <command>ANALYZE</command> afterwards.
+-->
+この後で<command>ANALYZE</command>を実行してください。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     A data-only dump will still use <command>COPY</command>, but it does not
     drop or recreate indexes, and it does not normally touch foreign
     keys.
+-->
+データのみのダンプも<command>COPY</command>コマンドを使用しますが、インデックスの削除と再作成を行いません。
+また、通常は外部キー制約を変更しません。
 
      <footnote>
       <para>
+<!--
        You can get the effect of disabling foreign keys by using
-       the <option>--disable-triggers</option> option &mdash; but realize that
+       the <option>&#045;&#045;disable-triggers</option> option &mdash; but realize that
        that eliminates, rather than just postpones, foreign key
        validation, and so it is possible to insert bad data if you use it.
+-->
+<option>--disable-triggers</option>オプションを使用して、外部キーを無効にさせることができます。
+しかし、これは外部キー制約を遅らせるのではなく、除去することに注意してください。
+そのため、これを使用すると不正なデータを挿入することができてしまいます。
       </para>
      </footnote>
 
+<!--
     So when loading a data-only dump, it is up to you to drop and recreate
     indexes and foreign keys if you wish to use those techniques.
     It's still useful to increase <varname>max_wal_size</varname>
@@ -1879,18 +2732,32 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     And don't forget to <command>ANALYZE</command> when you're done; see
     <xref linkend="vacuum-for-statistics"/>
     and <xref linkend="autovacuum"/> for more information.
+-->
+したがって、データのみのダンプをロードする時、上の技法を使用したければ自らインデックスと外部キーを削除、再作成しなければなりません。
+データをロードする時に<varname>max_wal_size</varname>を増やすことも有用です。
+しかし、<varname>maintenance_work_mem</varname>を増やすことは考えないでください。
+これは、後でインデックスと外部キーを手作業で再作成する時に行う方がよいでしょう。
+また、実行した後で<command>ANALYZE</command>を行うことを忘れないでください。
+詳細は<xref linkend="vacuum-for-statistics"/>および<xref linkend="autovacuum"/>を参照してください。
    </para>
   </sect2>
   </sect1>
 
   <sect1 id="non-durability">
+<!--
    <title>Non-Durable Settings</title>
+-->
+   <title>永続性がない設定</title>
 
    <indexterm zone="non-durability">
+<!--
     <primary>non-durable</primary>
+-->
+    <primary>非永続性</primary>
    </indexterm>
 
    <para>
+<!--
     Durability is a database feature that guarantees the recording of
     committed transactions even if the server crashes or loses
     power.  However, durability adds significant database overhead,
@@ -1901,54 +2768,85 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     is still guaranteed in case of a crash of the database software;
     only an abrupt operating system crash creates a risk of data loss
     or corruption when these settings are used.
+-->
+永続性とは、サーバがクラッシュしたり電源が落ちたりしたとしても、コミットされたトランザクションが記録されていることを保証するデータベースの機能です。
+しかし、永続性はデータベースに多くのオーバーヘッドを与えます。
+このためこの保証を必要としないサイトでは、<productname>PostgreSQL</productname>をかなり高速に実行するように設定することができます。
+以下に、こうした状況で性能を向上させるために行うことができる設定変更を示します。
+後述の注意を除き、データベースソフトウェアがクラッシュした場合でも、永続性は保証されています。
+突然のオペレーティングシステムの停止だけが、この設定を使用した時のデータ損失、破損の危険性を引き起こします。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Place the database cluster's data directory in a memory-backed
        file system (i.e., <acronym>RAM</acronym> disk).  This eliminates all
        database disk I/O, but limits data storage to the amount of
        available memory (and perhaps swap).
+-->
+データベースクラスタのデータディレクトリをメモリ上のファイルシステム（つまり<acronym>RAM</acronym>ディスク）に設定します。
+これはすべてのデータベースによるディスクI/Oを取り除きますが、データ量が利用可能なメモリ（およびスワップも使われるかもしれません）量までに制限されます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Turn off <xref linkend="guc-fsync"/>;  there is no need to flush
        data to disk.
+-->
+<xref linkend="guc-fsync"/>を無効にします。
+データをディスクに吐き出す必要がありません。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Turn off <xref linkend="guc-synchronous-commit"/>;  there might be no
        need to force <acronym>WAL</acronym> writes to disk on every
        commit.  This setting does risk transaction loss (though not data
        corruption) in case of a crash of the <emphasis>database</emphasis>.
+-->
+<xref linkend="guc-synchronous-commit"/>を無効にします。
+コミット毎にディスクに<acronym>WAL</acronym>書き出しを強制する必要がありません。
+この設定は、<emphasis>データベース</emphasis>がクラッシュした場合、トランザクション損失（データ破損ではありません）の危険性があります。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Turn off <xref linkend="guc-full-page-writes"/>;  there is no need
        to guard against partial page writes.
+-->
+<xref linkend="guc-full-page-writes"/>を無効にします。
+部分的なページ書き出しから保護する必要がありません。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Increase <xref linkend="guc-max-wal-size"/> and <xref
        linkend="guc-checkpoint-timeout"/>; this reduces the frequency
        of checkpoints, but increases the storage requirements of
        <filename>/pg_wal</filename>.
+-->
+<xref linkend="guc-max-wal-size"/>および<xref linkend="guc-checkpoint-timeout"/>を増加させます。
+これによりチェックポイントの頻度が減少しますが、<filename>/pg_wal</filename>で必要とする容量が増加します。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Create <link linkend="sql-createtable-unlogged">unlogged
        tables</link> to avoid <acronym>WAL</acronym> writes, though it
        makes the tables non-crash-safe.
+-->
+<acronym>WAL</acronym>書き出しを回避するためには、テーブルがクラッシュに対して安全ではなくなりますが、<link linkend="sql-createtable-unlogged">ログを取らないテーブル</link>を作成してください。
       </para>
      </listitem>
 

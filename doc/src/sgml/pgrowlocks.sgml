@@ -8,19 +8,28 @@
  </indexterm>
 
  <para>
+<!--
   The <filename>pgrowlocks</filename> module provides a function to show row
   locking information for a specified table.
+-->
+<filename>pgrowlocks</filename>モジュールは、指定したテーブルにおける行ロックの情報を示す関数を提供します。
  </para>
 
  <para>
+<!--
   By default use is restricted to superusers, members of the
   <literal>pg_stat_scan_tables</literal> role, and users with
   <literal>SELECT</literal> permissions on the table.
+-->
+デフォルトでは、使用は、スーパーユーザ、<literal>pg_stat_scan_tables</literal>ロールのメンバ、そのテーブルの<literal>SELECT</literal>権限を持つユーザに限定されています。
  </para>
 
 
  <sect2>
+<!--
   <title>Overview</title>
+-->
+  <title>概要</title>
 
   <indexterm>
    <primary>pgrowlocks</primary>
@@ -31,20 +40,33 @@ pgrowlocks(text) returns setof record
 </synopsis>
 
   <para>
+<!--
    The parameter is the name of a table.  The result is a set of records,
    with one row for each locked row within the table.  The output columns
    are shown in <xref linkend="pgrowlocks-columns"/>.
+-->
+パラメータはテーブルの名前です。
+結果はレコードの集合となり、各レコードはテーブル内のロックされた1行を示します。
+出力列は<xref linkend="pgrowlocks-columns"/>の通りです。
   </para>
 
   <table id="pgrowlocks-columns">
+<!--
    <title><function>pgrowlocks</function> Output Columns</title>
+-->
+   <title><function>pgrowlocks</function>の出力列</title>
 
    <tgroup cols="3">
     <thead>
      <row>
+<!--
       <entry>Name</entry>
       <entry>Type</entry>
       <entry>Description</entry>
+-->
+      <entry>名前</entry>
+      <entry>型</entry>
+      <entry>説明</entry>
      </row>
     </thead>
     <tbody>
@@ -52,36 +74,55 @@ pgrowlocks(text) returns setof record
      <row>
       <entry><structfield>locked_row</structfield></entry>
       <entry><type>tid</type></entry>
+<!--
       <entry>Tuple ID (TID) of locked row</entry>
+-->
+      <entry>ロックされた行のタプルID（TID）</entry>
      </row>
+
      <row>
       <entry><structfield>locker</structfield></entry>
       <entry><type>xid</type></entry>
+<!--
       <entry>Transaction ID of locker, or multixact ID if multitransaction</entry>
+-->
+      <entry>ロックを獲得したトランザクションのトランザクションID、もしマルチトランザクションの場合はmultixact ID</entry>
      </row>
      <row>
       <entry><structfield>multi</structfield></entry>
       <entry><type>boolean</type></entry>
+<!--
       <entry>True if locker is a multitransaction</entry>
+-->
+      <entry>ロックをマルチトランザクションが獲得していた場合は真</entry>
      </row>
      <row>
       <entry><structfield>xids</structfield></entry>
       <entry><type>xid[]</type></entry>
+<!--
       <entry>Transaction IDs of lockers (more than one if multitransaction)</entry>
+-->
+      <entry>ロックを獲得しているトランザクションのトランザクションID（マルチトランザクションの場合は複数）</entry>
      </row>
      <row>
       <entry><structfield>modes</structfield></entry>
       <entry><type>text[]</type></entry>
+<!--
       <entry>Lock mode of lockers (more than one if multitransaction),
        an array of <literal>Key Share</literal>, <literal>Share</literal>,
        <literal>For No Key Update</literal>, <literal>No Key Update</literal>,
        <literal>For Update</literal>, <literal>Update</literal>.</entry>
+-->
+      <entry>ロックを獲得しているトランザクションのロックモード（マルチトランザクションの場合は複数）。<literal>Key Share</literal>, <literal>Share</literal>、<literal>For No Key Update</literal>、<literal>No Key Update</literal>、<literal>For Update</literal>、<literal>Update</literal>の配列。</entry>
      </row>
 
      <row>
       <entry><structfield>pids</structfield></entry>
       <entry><type>integer[]</type></entry>
+<!--
       <entry>Process IDs of locking backends (more than one if multitransaction)</entry>
+-->
+      <entry>ロックを獲得しているバックエンドのプロセスID（マルチトランザクションの場合は複数）</entry>
      </row>
 
     </tbody>
@@ -89,43 +130,65 @@ pgrowlocks(text) returns setof record
   </table>
 
   <para>
+<!--
    <function>pgrowlocks</function> takes <literal>AccessShareLock</literal> for the
    target table and reads each row one by one to collect the row locking
    information.  This is not very speedy for a large table.  Note that:
+-->
+<function>pgrowlocks</function>は対象テーブルに対して<literal>AccessShareLock</literal>を獲得し、ロック情報の収集のために1行ずつ行を読み取ります。
+これは大規模テーブルにおいては高速とは言えません。
+以下に注意してください:
   </para>
 
   <orderedlist>
    <listitem>
     <para>
+<!--
      If an <literal>ACCESS EXCLUSIVE</literal> lock is taken on the table,
      <function>pgrowlocks</function> will be blocked.
+-->
+テーブル全体が他から排他ロックされている場合、<function>pgrowlocks</function>はブロックされます。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      <function>pgrowlocks</function> is not guaranteed to produce a
      self-consistent snapshot.  It is possible that a new row lock is taken,
      or an old lock is freed, during its execution.
+-->
+<function>pgrowlocks</function>では、自己矛盾のないスナップショットを生成することは保証されません。
+その実行中に、新しい行ロックが獲得されることも、古いロックが解放されることもあり得ます。
     </para>
    </listitem>
   </orderedlist>
 
   <para>
+<!--
    <function>pgrowlocks</function> does not show the contents of locked
    rows. If you want to take a look at the row contents at the same time, you
    could do something like this:
+-->
+<function>pgrowlocks</function>は、ロックされた行の内容は表示しません。
+同時に行の内容を参照したい場合には、以下のようにして実現することができます:
 
 <programlisting>
 SELECT * FROM accounts AS a, pgrowlocks('accounts') AS p
   WHERE p.locked_row = a.ctid;
 </programlisting>
 
+<!--
    Be aware however that such a query will be very inefficient.
+-->
+しかし、こうした問い合わせが非常に非効率であることに注意してください。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Sample Output</title>
+-->
+  <title>サンプル出力</title>
 
   <screen>
 =# SELECT * FROM pgrowlocks('t1');
@@ -140,7 +203,10 @@ SELECT * FROM accounts AS a, pgrowlocks('accounts') AS p
  </sect2>
 
  <sect2>
+<!--
   <title>Author</title>
+-->
+  <title>作者</title>
 
   <para>
    Tatsuo Ishii

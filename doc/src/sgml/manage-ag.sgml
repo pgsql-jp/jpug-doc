@@ -1,27 +1,45 @@
 <!-- doc/src/sgml/manage-ag.sgml -->
 
 <chapter id="managing-databases">
+<!--
  <title>Managing Databases</title>
+-->
+ <title>データベース管理</title>
 
+<!--
  <indexterm zone="managing-databases"><primary>database</primary></indexterm>
+-->
+ <indexterm zone="managing-databases"><primary>データベース</primary></indexterm>
 
  <para>
+<!--
   Every instance of a running <productname>PostgreSQL</productname>
   server manages one or more databases.  Databases are therefore the
   topmost hierarchical level for organizing <acronym>SQL</acronym>
   objects (<quote>database objects</quote>).  This chapter describes
   the properties of databases, and how to create, manage, and destroy
   them.
+-->
+稼動している<productname>PostgreSQL</productname>サーバのすべてのインスタンスは、1つ以上のデータベースを管理します。
+したがって、データベースは<acronym>SQL</acronym>オブジェクト（<quote>データベースオブジェクト</quote>）を組織化する場合に最上位の階層レベルとなります。
+本章では、データベースの特性、作成方法、管理方法、および削除方法について説明します。
  </para>
 
  <sect1 id="manage-ag-overview">
+<!--
   <title>Overview</title>
+-->
+  <title>概要</title>
 
   <indexterm zone="manage-ag-overview">
+<!--
    <primary>schema</primary>
+-->
+   <primary>スキーマ</primary>
   </indexterm>
 
   <para>
+<!--
    A small number of objects, like role, database, and tablespace
    names, are defined at the cluster level and stored in the
    <literal>pg_global</literal> tablespace.  Inside the cluster are
@@ -30,9 +48,15 @@
    which contain objects like tables and functions.  So the full hierarchy
    is: cluster, database, schema, table (or some other kind of object,
    such as a function).
+-->
+ロール、データベース、テーブル空間名のような少数のオブジェクトはクラスタレベルで定義されており、<literal>pg_global</literal>テーブル空間に格納されています。
+クラスタの中には複数のデータベースがあり、互いに分離されているもののクラスタレベルのオブジェクトにはアクセスできます。
+各データベースの中には複数のスキーマがあり、スキーマはテーブルや関数などのオブジェクトを含みます。
+したがって階層の全体像は、クラスタ、データベース、スキーマ、テーブル（や関数などの何らかのオブジェクト）となります。
   </para>
 
   <para>
+<!--
    When connecting to the database server, a client must specify the
    database name in its connection request.
    It is not possible to access more than one database per
@@ -47,9 +71,18 @@
    other database or clusters.
    The older dblink module (see <xref linkend="dblink"/>) provides a similar capability.
    By default, all users can connect to all databases using all connection methods.
+-->
+データベースサーバに接続する時、クライアントはその接続要求の中で接続するデータベース名を指定しなければなりません。
+1つの接続で複数のデータベースにアクセスすることはできません。
+しかし、クライアントは同じデータベースに対して複数の接続を開いたり、異なるデータベースに対して複数の接続を開いたりできます。
+データベースレベルでのセキュリティには2つの構成要素があります。接続レベルで管理されるアクセス制御(<xref linkend="auth-pg-hba-conf"/>参照)と、権限付与システムで管理される認証制御(<xref linkend="ddl-priv"/>参照)です。
+外部データラッパ(<xref linkend="postgres-fdw"/>参照)により、1つのデータベース内のオブジェクトが他のデータベースやクラスタ内にあるオブジェクトに対するプロキシとして動作できるようなります。
+古いdblinkモジュール(<xref linkend="dblink"/>参照)は同様の機能を提供します。
+デフォルトでは、すべてユーザはすべてのデータベースにすべての接続方法で接続できます。
   </para>
 
   <para>
+<!--
    If one <productname>PostgreSQL</productname> server cluster is planned to contain
    unrelated projects or users that should be, for the most part, unaware
    of each other, it is recommended to put them into separate databases and
@@ -59,70 +92,110 @@
    into separate schemas;  this provides a modular structure with namespace
    isolation and authorization control.
    More information about managing schemas is in <xref linkend="ddl-schemas"/>.
+-->
+1つの<productname>PostgreSQL</productname>サーバクラスタに、たいていの場合お互いのことを意識しない、関係のないプロジェクトやユーザを含めるつもりなら、これらを別々のデータベースに含め、それに従って認証制御とアクセス制御を調整することが推奨されます。
+複数のデータベースは物理的に分離されていて、アクセス制御は接続レベルで管理されています。
+したがって、分離して、ほとんどの場面で互いに見えないようにする必要のある複数のプロジェクトやユーザを単一の<productname>PostgreSQL</productname>サーバインスタンスに収容する場合、これらを別々のデータベースに含めることが推奨されます。
+もし、複数のプロジェクトやユーザが相互に関連していて互いのリソースを使用できる必要がある場合、これらは同じデータベースに含めるべきですが、スキーマを別にすることは可能です。これは名前空間での分離と認証制御によるモジュラー構造を提供します。
+スキーマの管理についての詳細は<xref linkend="ddl-schemas"/>に記載されています。
   </para>
 
   <para>
+<!--
    While multiple databases can be created within a single cluster, it is advised
    to consider carefully whether the benefits outweigh the risks and limitations.
    In particular, the impact that having a shared WAL (see <xref linkend="wal"/>)
    has on backup and recovery options. While individual databases in the cluster
    are isolated when considered from the user's perspective, they are closely bound
    from the database administrator's point-of-view.
+-->
+1つのクラスタ内に複数のデータベースを作成できますが、その利点がその危険性と制限に勝るかどうか慎重に検討することを勧めます。
+特に、共有のWAL(<xref linkend="wal"/>参照)を持つことの影響がバックアップとリカバリのオプションにあります。
+クラスタ内の個々のデータベースは、ユーザの視点から考えれば分離していても、データベース管理者の観点からは密接に結びついています。
   </para>
 
   <para>
+<!--
    Databases are created with the <command>CREATE DATABASE</command> command
    (see <xref linkend="manage-ag-createdb"/>) and destroyed with the
    <command>DROP DATABASE</command> command
    (see <xref linkend="manage-ag-dropdb"/>).
    To determine the set of existing databases, examine the
    <structname>pg_database</structname> system catalog, for example
+-->
+データベースは<command>CREATE DATABASE</command>コマンド（<xref linkend="manage-ag-createdb"/>を参照）で作成され、<command>DROP DATABASE</command>コマンド（<xref linkend="manage-ag-dropdb"/>を参照）で破棄されます。
+既存のデータベース群を求めるには、以下の例のように<structname>pg_database</structname>システムカタログを確認してください。
 <synopsis>
 SELECT datname FROM pg_database;
 </synopsis>
+<!--
    The <xref linkend="app-psql"/> program's <literal>\l</literal> meta-command
    and <option>-l</option> command-line option are also useful for listing the
    existing databases.
+-->
+また、<xref linkend="app-psql"/>プログラムの<literal>\l</literal>メタコマンドや<option>-l</option>コマンドラインオプションも既存のデータベースを列挙する際に役に立ちます。
   </para>
 
   <note>
    <para>
+<!--
     The <acronym>SQL</acronym> standard calls databases <quote>catalogs</quote>, but there
     is no difference in practice.
+-->
+標準<acronym>SQL</acronym>では、データベースを<quote>カタログ</quote>（catalog）と呼ぶこともありますが、実際のところ違いはありません。
    </para>
   </note>
  </sect1>
 
  <sect1 id="manage-ag-createdb">
+<!--
   <title>Creating a Database</title>
+-->
+  <title>データベースの作成</title>
 
   <indexterm><primary>CREATE DATABASE</primary></indexterm>
 
   <para>
+<!--
    In order to create a database, the <productname>PostgreSQL</productname>
    server must be up and running (see <xref
    linkend="server-start"/>).
+-->
+データベースを作成する場合、<productname>PostgreSQL</productname>サーバが起動している必要があります（<xref linkend="server-start"/>を参照してください）。
   </para>
 
   <para>
+<!--
    Databases are created with the SQL command
    <xref linkend="sql-createdatabase"/>:
+-->
+<xref linkend="sql-createdatabase"/>SQLコマンドでデータベースを作成することができます。
 <synopsis>
 CREATE DATABASE <replaceable>name</replaceable>;
 </synopsis>
+<!--
    where <replaceable>name</replaceable> follows the usual rules for
    <acronym>SQL</acronym> identifiers.  The current role automatically
    becomes the owner of the new database. It is the privilege of the
    owner of a database to remove it later (which also removes all
    the objects in it, even if they have a different owner).
+-->
+ここで、<replaceable>name</replaceable>は<acronym>SQL</acronym>識別子の通常の規則に従います。
+現在のロールが自動的に新しいデータベースの所有者になります。
+作成後、データベースを削除する権限はこの所有者にあります（この作業では、そのデータベースに属している、所有者のものではないオブジェクトでも、すべて削除されます）。
   </para>
 
   <para>
+<!--
    The creation of databases is a restricted operation. See <xref
    linkend="role-attributes"/> for how to grant permission.
+-->
+データベースの作成は制限された作業です。
+権限の付与に関する詳細は<xref linkend="role-attributes"/>を参照してください。
   </para>
 
   <para>
+<!--
    Since you need to be connected to the database server in order to
    execute the <command>CREATE DATABASE</command> command, the
    question remains how the <emphasis>first</emphasis> database at any given
@@ -133,9 +206,18 @@ CREATE DATABASE <replaceable>name</replaceable>;
    <literal>postgres</literal>.<indexterm><primary>postgres</primary></indexterm> So to
    create the first <quote>ordinary</quote> database you can connect to
    <literal>postgres</literal>.
+-->
+<command>CREATE DATABASE</command>コマンドを実行するためには、データベースサーバに接続している必要があります。
+そうすると、あるサイトの<emphasis>最初の</emphasis>データベースはどのようにして作成するのかという疑問が出てきます。
+最初のデータベースは<command>initdb</command>コマンドでデータ格納領域が初期化される時、必ず作成されます。
+（<xref linkend="creating-cluster"/>を参照してください。）
+このデータベースは<literal>postgres</literal>と呼ばれます。
+<indexterm><primary>postgres</primary></indexterm>
+したがって、最初の<quote>通常の</quote>データベースを作成するには<literal>postgres</literal>に接続してください。
   </para>
 
   <para>
+<!--
    A second database,
    <literal>template1</literal>,<indexterm><primary>template1</primary></indexterm>
    is also created during database cluster initialization.  Whenever a
@@ -146,54 +228,89 @@ CREATE DATABASE <replaceable>name</replaceable>;
    avoid creating objects in <literal>template1</literal> unless you want them
    propagated to every newly created database.  More details
    appear in <xref linkend="manage-ag-templatedbs"/>.
+-->
+また、<literal>template1</literal>という2つ目のデータベースもデータベースクラスタの初期化時に作成されます。
+<indexterm><primary>template1</primary></indexterm>
+クラスタ内に新しいデータベースが作成されたら、実際に<literal>template1</literal>が複製されます。
+つまり<literal>template1</literal>に変更を与えると、その後に作成されるデータベースすべてにその変更が反映されることを意味します。
+このため新しく作成するデータベースすべてに反映させたい場合でない限り<literal>template1</literal>内にオブジェクトを作成することは避けてください。
+詳細については<xref linkend="manage-ag-templatedbs"/>を参照してください。
   </para>
 
   <para>
+<!--
    As a convenience, there is a program you can
    execute from the shell to create new databases,
    <command>createdb</command>.<indexterm><primary>createdb</primary></indexterm>
+-->
+利便性のために、シェルから<command>createdb</command>を実行して、新しいデータベースを作成することができます。
+<indexterm><primary>createdb</primary></indexterm>
 
 <synopsis>
 createdb <replaceable class="parameter">dbname</replaceable>
 </synopsis>
 
+<!--
    <command>createdb</command> does no magic. It connects to the <literal>postgres</literal>
    database and issues the <command>CREATE DATABASE</command> command,
    exactly as described above.
    The <xref linkend="app-createdb"/> reference page contains the invocation
    details. Note that <command>createdb</command> without any arguments will create
    a database with the current user name.
+-->
+<command>createdb</command>は魔法ではありません。
+これは<literal>postgres</literal>データベースに接続し、先に解説した通りに<command>CREATE DATABASE</command>コマンドを実行します。
+<xref linkend="app-createdb"/>のマニュアルページに実行方法の詳細が説明されています。
+引数のない<command>createdb</command>は現在のユーザ名のデータベースを作成しますので、注意してください。
   </para>
 
   <note>
    <para>
+<!--
     <xref linkend="client-authentication"/> contains information about
     how to restrict who can connect to a given database.
+-->
+特定のデータベースに誰が接続できるかを制限する方法については<xref linkend="client-authentication"/>に記載されています。
    </para>
   </note>
 
   <para>
+<!--
    Sometimes you want to create a database for someone else, and have them
    become the owner of the new database, so they can
    configure and manage it themselves.  To achieve that, use one of the
    following commands:
+-->
+他のユーザのためにデータベースを作成し、そのユーザ自身が設定、管理できるように新しいデータベースの所有者にさせたい場合も考えられます。
+そのためには、次のコマンドのいずれかを使用します。
+SQL環境からは
 <programlisting>
 CREATE DATABASE <replaceable>dbname</replaceable> OWNER <replaceable>rolename</replaceable>;
 </programlisting>
+<!--
    from the SQL environment, or:
+-->
+シェルからは
 <programlisting>
 createdb -O <replaceable>rolename</replaceable> <replaceable>dbname</replaceable>
 </programlisting>
+<!--
    from the shell.
    Only the superuser is allowed to create a database for
    someone else (that is, for a role you are not a member of).
+-->
+他のユーザのために（つまり、自身がメンバではないロールのために）データベースを作成することができるのはスーパーユーザだけです。
   </para>
  </sect1>
 
  <sect1 id="manage-ag-templatedbs">
+<!--
   <title>Template Databases</title>
+-->
+  <title>テンプレートデータベース</title>
 
   <para>
+<!--
    <command>CREATE DATABASE</command> actually works by copying an existing
    database.  By default, it copies the standard system database named
    <literal>template1</literal>.<indexterm><primary>template1</primary></indexterm> Thus that
@@ -205,9 +322,17 @@ createdb -O <replaceable>rolename</replaceable> <replaceable>dbname</replaceable
    language <application>PL/Perl</application> in <literal>template1</literal>, it will
    automatically be available in user databases without any extra
    action being taken when those databases are created.
+-->
+実際の<command>CREATE DATABASE</command>の動作は、既存のデータベースをコピーすることです。
+デフォルトでは、<literal>template1</literal>という名前の標準のシステムデータベースをコピーします。<indexterm><primary>template1</primary></indexterm>
+したがって、このデータベースは新しく作成するデータベースの元になる<quote>テンプレート</quote>となります。
+<literal>template1</literal>にオブジェクトを追加した場合、追加したオブジェクトはその後に作成されるユーザデータベースにコピーされます。
+この振舞いによって、データベース標準オブジェクト群にサイト独自の変更を行うことができます。
+例えば、<application>PL/Perl</application>手続き言語を<literal>template1</literal>にインストールした場合、データベースを作成する時に追加作業を行うことなく、自動的にこの言語をユーザデータベースで使用することができます。
   </para>
 
   <para>
+<!--
    There is a second standard system database named
    <literal>template0</literal>.<indexterm><primary>template0</primary></indexterm> This
    database contains the same data as the initial contents of
@@ -225,30 +350,54 @@ createdb -O <replaceable>rolename</replaceable> <replaceable>dbname</replaceable
    pristine database to ensure that one recreates the correct contents
    of the dumped database, without conflicting with objects that
    might have been added to <literal>template1</literal> later on.
+-->
+<literal>template0</literal>という名前の二次的な標準システムデータベースがあります。
+<indexterm><primary>template0</primary></indexterm>
+このデータベースには<literal>template1</literal>の初期内容と同じデータが含まれています。
+つまり、使用しているバージョンの<productname>PostgreSQL</productname>で定義済みの標準オブジェクトのみから構成されています。
+<literal>template0</literal>をデータベースクラスタを初期化した後に変更してはいけません。
+<command>CREATE DATABASE</command>を<literal>template1</literal>ではなく<literal>template0</literal>をコピーするように実行することで、<literal>template1</literal>に追加されたサイト独自のものを含まない、(そこではユーザ定義オブジェクトは存在せず、システムオブジェクトは変更されていない)<quote>汚れがない</quote>ユーザデータベースを作成することができます。
+これは特に、<literal>pg_dump</literal>ダンプからリストアする時に便利です。
+このダンプスクリプトは、後で<literal>template1</literal>に追加される可能性のあるオブジェクトと衝突しないように、ダンプしたデータベースの内容を正しく再作成するために、汚れのないデータベースにリストアされなければなりません。
   </para>
 
   <para>
+<!--
    Another common reason for copying <literal>template0</literal> instead
    of <literal>template1</literal> is that new encoding and locale settings
    can be specified when copying <literal>template0</literal>, whereas a copy
    of <literal>template1</literal> must use the same settings it does.
    This is because <literal>template1</literal> might contain encoding-specific
    or locale-specific data, while <literal>template0</literal> is known not to.
+-->
+<literal>template1</literal>の代わりに<literal>template0</literal>をコピーするその他の一般的な理由は、<literal>template0</literal>をコピーするときに新規の符号化方式とロケールを設定できることです。
+一方、<literal>template1</literal>のコピーはそれが行ったと同一の設定を使用しなければなりません。
+これは<literal>template0</literal>が理解しない符号化方式特有の、またはロケール特有のデータを含んでいる可能性があることに依ります。
   </para>
 
   <para>
+<!--
    To create a database by copying <literal>template0</literal>, use:
+-->
+<literal>template0</literal>をコピーしてデータベースを作成するには、
 <programlisting>
 CREATE DATABASE <replaceable>dbname</replaceable> TEMPLATE template0;
 </programlisting>
+<!--
    from the SQL environment, or:
+-->
+をSQL環境から実行するか、または
 <programlisting>
 createdb -T template0 <replaceable>dbname</replaceable>
 </programlisting>
+<!--
    from the shell.
+-->
+をシェルから実行します。
   </para>
 
   <para>
+<!--
    It is possible to create additional template databases, and indeed
    one can copy any database in a cluster by specifying its name
    as the template for <command>CREATE DATABASE</command>.  It is important to
@@ -259,9 +408,17 @@ createdb -T template0 <replaceable>dbname</replaceable>
    DATABASE</command> will fail if any other connection exists when it starts;
    during the copy operation, new connections to the source database
    are prevented.
+-->
+さらにテンプレートデータベースを作成することができます。
+また、実際のところ<command>CREATE DATABASE</command>のテンプレートとして名前を指定することで、クラスタ内の任意のデータベースをコピーすることができます。
+しかし、この機能は、（まだ）汎用目的の<quote><command>COPY DATABASE</command></quote>能力を意図したものではないことは理解しておいてください。
+コピー操作の間、他のセッションから元のデータベースに接続することができないという点が大きな制限です。
+<command>CREATE DATABASE</command>は、その起動時に他の接続が存在する場合失敗します。
+コピー操作中は元のデータベースへの新しい接続を許しません。
   </para>
 
   <para>
+<!--
    Two useful flags exist in <literal>pg_database</literal><indexterm><primary>pg_database</primary></indexterm> for each
    database: the columns <literal>datistemplate</literal> and
    <literal>datallowconn</literal>.  <literal>datistemplate</literal>
@@ -275,10 +432,20 @@ createdb -T template0 <replaceable>dbname</replaceable>
    database is normally marked <literal>datallowconn = false</literal> to prevent its modification.
    Both <literal>template0</literal> and <literal>template1</literal>
    should always be marked with <literal>datistemplate = true</literal>.
+-->
+<literal>datistemplate</literal>列と<literal>datallowconn</literal>列という、データベースそれぞれに有用なフラグが<literal>pg_database</literal>に存在します。
+<indexterm><primary>pg_database</primary></indexterm>
+<literal>datistemplate</literal>は、そのデータベースが<command>CREATE DATABASE</command>のテンプレートとして使用されることを目的としているものであることを意味するために設定することができます。
+このフラグが設定された場合、<literal>CREATEDB</literal>権限を持つすべてのユーザはそのデータベースを複製することができます。
+設定されていない場合は、スーパーユーザとそのデータベース所有者のみがそれを複製することができます。
+<literal>datallowconn</literal>が偽の場合、そのデータベースへの新規接続はできません（しかし、このフラグを偽にするだけでは既存のセッションは閉ざされません）。
+<literal>template0</literal>データベースは、変更を防ぐために、通常<literal>datallowconn</literal> = <literal>false</literal>とされています。
+<literal>template0</literal>と<literal>template1</literal>の両方は、常に<literal>datistemplate</literal> = <literal>true</literal>とされていなければなりません。
   </para>
 
   <note>
    <para>
+<!--
     <literal>template1</literal> and <literal>template0</literal> do not have any special
     status beyond the fact that the name <literal>template1</literal> is the default
     source database name for <command>CREATE DATABASE</command>.
@@ -287,37 +454,59 @@ createdb -T template0 <replaceable>dbname</replaceable>
     might be advisable if one has carelessly added a bunch of junk in
     <literal>template1</literal>. (To delete <literal>template1</literal>,
     it must have <literal>pg_database.datistemplate = false</literal>.)
+-->
+<literal>template1</literal>と<literal>template0</literal>には、<literal>template1</literal>という名前が<command>CREATE DATABASE</command>のデフォルトのソースデータベースの名前であること以上の特別な地位はありません。
+例えば、<literal>template1</literal>を削除し、<literal>template0</literal>から再作成しても何も問題ありません。
+この操作は、不注意にごみを<literal>template1</literal>に追加してしまった場合にお勧めします。
+（<literal>template1</literal>を削除するには、<literal>pg_database.datistemplate = false</literal>としなければなりません。）
    </para>
 
    <para>
+<!--
     The <literal>postgres</literal> database is also created when a database
     cluster is initialized.  This database is meant as a default database for
     users and applications to connect to. It is simply a copy of
     <literal>template1</literal> and can be dropped and recreated if necessary.
+-->
+データベースクラスタが初期化される時、<literal>postgres</literal>データベースも作成されます。
+このデータベースは、ユーザとアプリケーションのデフォルトの接続先を意図したものです。
+これは<literal>template1</literal>の単純なコピーで、必要に応じて削除したり再作成したりすることができます。
    </para>
   </note>
  </sect1>
 
  <sect1 id="manage-ag-config">
+<!--
   <title>Database Configuration</title>
+-->
+  <title>データベースの設定</title>
 
   <para>
+<!--
    Recall from <xref linkend="runtime-config"/> that the
    <productname>PostgreSQL</productname> server provides a large number of
    run-time configuration variables.  You can set database-specific
    default values for many of these settings.
+-->
+<xref linkend="runtime-config"/>で説明したように、<productname>PostgreSQL</productname>サーバには多数の実行時の設定変数が存在します。
+これらの設定の多くに対して、データベース固有のデフォルト値を設定できます。
   </para>
 
   <para>
+<!--
    For example, if for some reason you want to disable the
    <acronym>GEQO</acronym> optimizer for a given database, you'd
    ordinarily have to either disable it for all databases or make sure
    that every connecting client is careful to issue <literal>SET geqo
    TO off</literal>.  To make this setting the default within a particular
    database, you can execute the command:
+-->
+例えば、何らかの理由で特定のデータベースについて<acronym>GEQO</acronym>オプティマイザを無効にしたい場合、通常はすべてのデータベースでこれを無効にするか、またはすべての接続しているクライアントで間違いなく<literal>SET geqo TO off;</literal>が実行されていることを確認する必要があります。
+特定のデータベースでこの設定をデフォルトにするには、次のコマンドを実行します。
 <programlisting>
 ALTER DATABASE mydb SET geqo TO off;
 </programlisting>
+<!--
    This will save the setting (but not set it immediately).  In
    subsequent connections to this database it will appear as though
    <literal>SET geqo TO off;</literal> had been executed just before the
@@ -326,69 +515,114 @@ ALTER DATABASE mydb SET geqo TO off;
    will only be the default.  To undo any such setting, use
    <literal>ALTER DATABASE <replaceable>dbname</replaceable> RESET
    <replaceable>varname</replaceable></literal>.
+-->
+これにより設定が保存されます（ただし、すぐに反映はされません）。
+以降のこのデータベースに対する接続においては、セッションの開始の直前に<literal>SET geqo TO off;</literal>が呼び出されたのと同様になります。
+これはデフォルトでしかありませんので、ユーザはセッションの途中であってもこの設定を変更することができます。
+このような設定を解除するには、<literal>ALTER DATABASE <replaceable>dbname</replaceable> RESET <replaceable>varname</replaceable></literal>を使用します。
   </para>
  </sect1>
 
  <sect1 id="manage-ag-dropdb">
+<!--
   <title>Destroying a Database</title>
+-->
+  <title>データベースの削除</title>
 
   <para>
+<!--
    Databases are destroyed with the command
    <xref linkend="sql-dropdatabase"/>:<indexterm><primary>DROP DATABASE</primary></indexterm>
+-->
+データベースの削除には、以下の<xref linkend="sql-dropdatabase"/>コマンドを使用します。
+<indexterm><primary>DROP DATABASE</primary></indexterm>
 <synopsis>
 DROP DATABASE <replaceable>name</replaceable>;
 </synopsis>
+<!--
    Only the owner of the database, or
    a superuser, can drop a database. Dropping a database removes all objects
    that were
    contained within the database. The destruction of a database cannot
    be undone.
+-->
+データベースの所有者とスーパーユーザのみがデータベースを削除することができます。
+データベースの削除はそのデータベースに含まれるすべてのオブジェクトを削除します。
+削除されたデータベースは復元できません。
   </para>
 
   <para>
+<!--
    You cannot execute the <command>DROP DATABASE</command> command
    while connected to the victim database. You can, however, be
    connected to any other database, including the <literal>template1</literal>
    database.
    <literal>template1</literal> would be the only option for dropping the last user database of a
    given cluster.
+-->
+削除しようとしているデータベースに接続している時には<command>DROP DATABASE</command>を実行することはできません。
+しかし、<literal>template1</literal>などのその他のデータベースに接続すれば削除することができます。
+また、そのクラスタの最後のユーザデータベースを削除する時には、<literal>template1</literal>データベースに接続するしかありません。
   </para>
 
   <para>
+<!--
    For convenience, there is also a shell program to drop
    databases, <xref linkend="app-dropdb"/>:<indexterm><primary>dropdb</primary></indexterm>
+-->
+利便性のため、データベースを削除する<xref linkend="app-dropdb"/>シェルプログラムもあります。
+<indexterm><primary>dropdb</primary></indexterm>
 <synopsis>
 dropdb <replaceable class="parameter">dbname</replaceable>
 </synopsis>
+<!--
    (Unlike <command>createdb</command>, it is not the default action to drop
    the database with the current user name.)
+-->
+（<command>createdb</command>と異なり、デフォルトで現在のユーザ名のデータベースを削除するようにはなっていません。）
   </para>
  </sect1>
 
  <sect1 id="manage-ag-tablespaces">
+<!--
   <title>Tablespaces</title>
+-->
+  <title>テーブル空間</title>
 
   <indexterm zone="manage-ag-tablespaces">
+<!--
    <primary>tablespace</primary>
+-->
+   <primary>テーブル空間</primary>
   </indexterm>
 
   <para>
+<!--
    Tablespaces in <productname>PostgreSQL</productname> allow database administrators to
    define locations in the file system where the files representing
    database objects can be stored. Once created, a tablespace can be referred
    to by name when creating database objects.
+-->
+<productname>PostgreSQL</productname>のテーブル空間により、データベース管理者はデータベースオブジェクトを表すファイルを格納できるファイルシステム上の場所を定義することができます。
+テーブル空間を一度作成すると、データベースオブジェクトを作成する時に名前により参照することができます。
   </para>
 
   <para>
+<!--
    By using tablespaces, an administrator can control the disk layout
    of a <productname>PostgreSQL</productname> installation. This is useful in at
    least two ways. First, if the partition or volume on which the
    cluster was initialized runs out of space and cannot be extended,
    a tablespace can be created on a different partition and used
    until the system can be reconfigured.
+-->
+テーブル空間を使用することで、管理者は<productname>PostgreSQL</productname>インストレーションのディスクレイアウトを制御することができます。
+これは、少なくとも2つの点で有用です。
+1つは、クラスタを初期化したパーティションもしくはボリュームの容量が不足し、拡張を行うことができない場合、システムを再構成するまで、別のパーティションにテーブル空間を作成して、このテーブル空間を使用することができます。
   </para>
 
   <para>
+<!--
    Second, tablespaces allow an administrator to use knowledge of the
    usage pattern of database objects to optimize performance. For
    example, an index which is very heavily used can be placed on a
@@ -396,10 +630,15 @@ dropdb <replaceable class="parameter">dbname</replaceable>
    device. At the same time a table storing archived data which is
    rarely used or not performance critical could be stored on a less
    expensive, slower disk system.
+-->
+もう1つは、テーブル空間により、管理者はデータベースオブジェクトの使用パターンに基づいてデータ格納場所を調整することができることです。
+例えば、非常によく使用されるインデックスを、例えば、高価なソリッドステートディスクなどの高速・高可用性ディスクに格納することができます。
+同時に、めったに使用されない保存用のデータや性能が求められていない保存用のデータを格納するテーブルを低価格・低速ディスクシステムに格納することもできます。
   </para>
 
   <warning>
    <para>
+<!--
      Even though located outside the main PostgreSQL data directory,
      tablespaces are an integral part of the database cluster and
      <emphasis>cannot</emphasis> be treated as an autonomous collection
@@ -410,65 +649,103 @@ dropdb <replaceable class="parameter">dbname</replaceable>
      might become unreadable or unable to start.  Placing a tablespace
      on a temporary file system like a RAM disk risks the reliability of
      the entire cluster.
+-->
+主PostgreSQLデータディレクトリの外に位置していたとしても、テーブル空間はデータベースクラスタの不可欠な部分であり、データファイルの自律的な集合として扱うことは<emphasis>できません</emphasis>。
+それらは主データディレクトリに含まれるメタデータに依存しますので、異なるデータベースクラスタに所属させたり、個別にバックアップしたりすることはできません。
+同様に、テーブル空間を失えば(ファイル削除、ディスクの破損など)、データベースクラスタは読み取れなくなったり、開始できなくなったりするかもしれません。
+テーブル空間をRAMディスクのような一時ファイルシステムに置くことは、クラスタ全体の信頼性を危険にさらします。
    </para>
   </warning>
 
   <para>
+<!--
    To define a tablespace, use the <xref
    linkend="sql-createtablespace"/>
    command, for example:<indexterm><primary>CREATE TABLESPACE</primary></indexterm>:
+-->
+テーブル空間を定義するには<xref linkend="sql-createtablespace"/>コマンドを使用してください。
+以下に例を示します。
+<indexterm><primary>CREATE TABLESPACE</primary></indexterm>
 <programlisting>
 CREATE TABLESPACE fastspace LOCATION '/ssd1/postgresql/data';
 </programlisting>
+<!--
    The location must be an existing, empty directory that is owned by
    the <productname>PostgreSQL</productname> operating system user.  All objects subsequently
    created within the tablespace will be stored in files underneath this
    directory.  The location must not be on removable or transient storage,
    as the cluster might fail to function if the tablespace is missing
    or lost.
+-->
+この場所は、既存かつ空のディレクトリでなければならず、また、<productname>PostgreSQL</productname>オペレーティングシステムユーザが所有していなければなりません。
+その後に、テーブル空間内に作成されるオブジェクトはすべてこのディレクトリ以下のファイルに格納されます。
+テーブル空間が見つからなかったり失われたりするとクラスタは機能しませんので、この場所は取り外し可能な記憶装置や一時的な記憶装置上にあってはいけません。
   </para>
 
   <note>
    <para>
+<!--
     There is usually not much point in making more than one
     tablespace per logical file system, since you cannot control the location
     of individual files within a logical file system.  However,
     <productname>PostgreSQL</productname> does not enforce any such limitation, and
     indeed it is not directly aware of the file system boundaries on your
     system.  It just stores files in the directories you tell it to use.
+-->
+通常、論理ファイルシステム内の個々のファイルの場所を制御することができませんので、1つの論理ファイルシステムに複数のテーブル空間を作成することは意味がありません。
+しかし、<productname>PostgreSQL</productname>にはこうした制限はありません。
+実際、システムのファイルシステムの境を直接意識しません。
+単に使用することを宣言したディレクトリにファイルを格納します。
    </para>
   </note>
 
   <para>
+<!--
    Creation of the tablespace itself must be done as a database superuser,
    but after that you can allow ordinary database users to use it.
    To do that, grant them the <literal>CREATE</literal> privilege on it.
+-->
+テーブル空間自体の生成はデータベーススーパーユーザが行う必要があります。
+しかし、その後に、データベース一般ユーザにそのテーブル空間を使用させることができます。
+これを行うには、ユーザにテーブル空間に対する<literal>CREATE</literal>権限を与えてください。
   </para>
 
   <para>
+<!--
    Tables, indexes, and entire databases can be assigned to
    particular tablespaces. To do so, a user with the <literal>CREATE</literal>
    privilege on a given tablespace must pass the tablespace name as a
    parameter to the relevant command. For example, the following creates
    a table in the tablespace <literal>space1</literal>:
+-->
+テーブル、インデックス、およびデータベース全体は特定のテーブル空間に割り当て可能です。
+これを行うには、指定テーブル空間に<literal>CREATE</literal>権限を持つユーザが関連するコマンドにテーブル空間をパラメータとして渡す必要があります。
+例えば、以下は<literal>space1</literal>テーブル空間にあるテーブルを作成しています。
 <programlisting>
 CREATE TABLE foo(i int) TABLESPACE space1;
 </programlisting>
   </para>
 
   <para>
+<!--
    Alternatively, use the <xref linkend="guc-default-tablespace"/> parameter:
+-->
+他の方法として、以下のように<xref linkend="guc-default-tablespace"/>パラメータの使用があります。
 <programlisting>
 SET default_tablespace = space1;
 CREATE TABLE foo(i int);
 </programlisting>
+<!--
    When <varname>default_tablespace</varname> is set to anything but an empty
    string, it supplies an implicit <literal>TABLESPACE</literal> clause for
    <command>CREATE TABLE</command> and <command>CREATE INDEX</command> commands that
    do not have an explicit one.
+-->
+<varname>default_tablespace</varname>が空文字以外の何かに設定された場合、この値が、明示的なテーブル空間の指定がない<command>CREATE TABLE</command>コマンドや<command>CREATE INDEX</command>コマンドの暗黙的な <literal>TABLESPACE</literal>句として適用されます。
   </para>
 
   <para>
+<!--
    There is also a <xref linkend="guc-temp-tablespaces"/> parameter, which
    determines the placement of temporary tables and indexes, as well as
    temporary files that are used for purposes such as sorting large data
@@ -476,9 +753,16 @@ CREATE TABLE foo(i int);
    so that the load associated with temporary objects can be spread over
    multiple tablespaces.  A random member of the list is picked each time
    a temporary object is to be created.
+-->
+<xref linkend="guc-temp-tablespaces"/>というパラメータも存在します。
+これは、一時テーブルとそのインデックス、大規模データ集合のソートなどを目的に使用される一時ファイルの場所を決定するものです。
+これは、テーブル空間名を1つだけ指定するものではなく、テーブル空間名のリストを取ることができます。
+このため、一時的なオブジェクトに関連する負荷を、複数のテーブル空間にわたって分散することができます。
+一時的なオブジェクトを作成する度に、このリストから無作為に要素が選択されます。
   </para>
 
   <para>
+<!--
    The tablespace associated with a database is used to store the system
    catalogs of that database.  Furthermore, it is the default tablespace
    used for tables, indexes, and temporary files created within the database,
@@ -487,9 +771,14 @@ CREATE TABLE foo(i int);
    <varname>temp_tablespaces</varname> (as appropriate).
    If a database is created without specifying a tablespace for it,
    it uses the same tablespace as the template database it is copied from.
+-->
+データベースに関連付けされたテーブル空間は、そのデータベースのシステムカタログを格納するために使用されます。
+さらに、<literal>TABLESPACE</literal>句を付けずに、または、（適切な）<varname>default_tablespace</varname>や<varname>temp_tablespaces</varname>で指定された選択肢がなければ、データベース内に作成されたテーブルやインデックスのデフォルトのテーブル空間としても使用されます。
+テーブル空間の指定なしで作成されたデータベースは、コピー元のテンプレートデータベースのテーブル空間と同じものを使用します。
   </para>
 
   <para>
+<!--
    Two tablespaces are automatically created when the database cluster
    is initialized.  The
    <literal>pg_global</literal> tablespace is used for shared system catalogs. The
@@ -498,40 +787,63 @@ CREATE TABLE foo(i int);
    will be the default tablespace for other databases as well, unless
    overridden by a <literal>TABLESPACE</literal> clause in <command>CREATE
    DATABASE</command>).
+-->
+データベースクラスタが初期化される時に2つのテーブル空間が自動的に作成されます。
+<literal>pg_global</literal>テーブル空間は共有システムカタログ用に使用されます。
+<literal>pg_default</literal>テーブル空間は<literal>template1</literal>と<literal>template0</literal>データベースのデフォルトテーブル空間です
+（したがって、<command>CREATE DATABASE</command>の<literal>TABLESPACE</literal>句で変更されない限り、このテーブル空間が同様に他のデータベースに対するデフォルトのテーブル空間になります）。
   </para>
 
   <para>
+<!--
    Once created, a tablespace can be used from any database, provided
    the requesting user has sufficient privilege. This means that a tablespace
    cannot be dropped until all objects in all databases using the tablespace
    have been removed.
+-->
+テーブル空間は、一度作成すると、要求しているユーザが十分な権限を持っていればすべてのデータベースから使用することができます。
+これは、テーブル空間を使用するすべてのデータベースのすべてのオブジェクトが削除されるまで、そのテーブル空間を削除できないことを意味します。
   </para>
 
   <para>
+<!--
    To remove an empty tablespace, use the <xref
    linkend="sql-droptablespace"/>
    command.
+-->
+空のテーブル空間を削除するには、<xref linkend="sql-droptablespace"/>コマンドを使用してください。
   </para>
 
   <para>
+<!--
    To determine the set of existing tablespaces, examine the
    <link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname>
    </link> system catalog, for example
+-->
+既存のテーブル空間群を求めるには、以下の例のように<link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>を確認してください。
 <synopsis>
 SELECT spcname FROM pg_tablespace;
 </synopsis>
+<!--
    The <xref linkend="app-psql"/> program's <literal>\db</literal> meta-command
    is also useful for listing the existing tablespaces.
+-->
+また、<xref linkend="app-psql"/>プログラムの<literal>\db</literal>メタコマンドも既存のテーブル空間を列挙する際に役に立ちます。
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> makes use of symbolic links
    to simplify the implementation of tablespaces. This
    means that tablespaces can be used <emphasis>only</emphasis> on systems
    that support symbolic links.
+-->
+テーブル空間の実装を単純化するために、<productname>PostgreSQL</productname>はシンボリックリンクを使用します。
+これは、テーブル空間はシンボリックリンクをサポートするシステムで<emphasis>のみ</emphasis>使用することができるということを意味します。
   </para>
 
   <para>
+<!--
    The directory <filename>$PGDATA/pg_tblspc</filename> contains symbolic links that
    point to each of the non-built-in tablespaces defined in the cluster.
    Although not recommended, it is possible to adjust the tablespace
@@ -540,6 +852,13 @@ SELECT spcname FROM pg_tablespace;
    and earlier you will also need to update the <structname>pg_tablespace</structname>
    catalog with the new locations. (If you do not, <literal>pg_dump</literal> will
    continue to output the old tablespace locations.)
+-->
+<filename>$PGDATA/pg_tblspc</filename>ディレクトリには、そのクラスタで定義された非組み込みテーブル空間1つひとつを指し示すシンボリックリンクがあります。
+推奨はしませんが、こうしたリンクを手作業で再定義してテーブル空間のレイアウトを調整することができます。
+2点警告します。
+これをサーバが実行している時に行わないでください。
+PostgreSQL 9.1およびそれ以前の場合、<structname>pg_tablespace</structname>カタログを新規の場所に更新してください。
+（これを行わないと、<literal>pg_dump</literal>は古いテーブル空間の場所に出力し続けます。）
   </para>
 
  </sect1>

@@ -1,13 +1,17 @@
 <!-- doc/src/sgml/spi.sgml -->
 
 <chapter id="spi">
+<!--
  <title>Server Programming Interface</title>
+-->
+ <title>サーバプログラミングインタフェース</title>
 
  <indexterm zone="spi">
   <primary>SPI</primary>
  </indexterm>
 
  <para>
+<!--
   The <firstterm>Server Programming Interface</firstterm>
   (<acronym>SPI</acronym>) gives writers of user-defined
   <acronym>C</acronym> functions the ability to run
@@ -16,18 +20,27 @@
   interface functions to simplify access to the parser, planner,
   and executor. <acronym>SPI</acronym> also does some
   memory management.
+-->
+<firstterm>サーバプログラミングインタフェース</firstterm>（<acronym>SPI</acronym>）は、ユーザ定義の<acronym>C</acronym>関数から<acronym>SQL</acronym>問い合わせを実行する機能をユーザに提供します。
+<acronym>SPI</acronym>はパーサ、プランナ、エクゼキュータへのアクセスを単純化したインタフェース関数の集合です。
+また、<acronym>SPI</acronym>は多少のメモリ管理を行います。
  </para>
 
  <note>
   <para>
+<!--
    The available procedural languages provide various means to
    execute SQL commands from functions.  Most of these facilities are
    based on SPI, so this documentation might be of use for users
    of those languages as well.
+-->
+利用可能な手続き言語は、関数からSQLコマンドを実行するための各種手段を提供します。
+これらのほとんどは、SPIを基にしていますので、この文書はこれらの言語のユーザにとっても有用な場合があります。
   </para>
  </note>
 
  <para>
+<!--
   Note that if a command invoked via SPI fails, then control will not be
   returned to your C function.  Rather, the
   transaction or subtransaction in which your C function executes will be
@@ -36,23 +49,39 @@
   for errors detected within the SPI functions themselves, however.)
   It is possible to recover control after an error by establishing your own
   subtransaction surrounding SPI calls that might fail.
+-->
+コマンドがSPIの失敗を起こした場合、その制御はC関数には戻らないことに注意してください。
+それどころか、プロシージャを実行していたトランザクションもしくは副トランザクションはロールバックされます
+（これはSPI関数のほとんどでエラーを返す規約があることから奇妙に思われるかもしれません。
+しかし、こうした規約はSPI関数自身でエラーを検知した時にのみ適用されるものです）。
+失敗する可能性があるSPI呼び出しを囲む副トランザクションを独自に用意することで、エラーの後の制御を戻すことができます。
  </para>
 
  <para>
+<!--
   <acronym>SPI</acronym> functions return a nonnegative result on
   success (either via a returned integer value or in the global
   variable <varname>SPI_result</varname>, as described below).  On
   error, a negative result or <symbol>NULL</symbol> will be returned.
+-->
+<acronym>SPI</acronym>関数は成功時に非負の結果を（戻り値、もしくは後述の<varname>SPI_result</varname>グローバル変数の中に）返します。
+エラー時、負の結果もしくは<symbol>NULL</symbol>を返します。
  </para>
 
  <para>
+<!--
   Source code files that use SPI must include the header file
   <filename>executor/spi.h</filename>.
+-->
+SPIを使用するソースコードファイルでは<filename>executor/spi.h</filename>ヘッダファイルをincludeしなければなりません。
  </para>
 
 
 <sect1 id="spi-interface">
+<!--
  <title>Interface Functions</title>
+-->
+ <title>インタフェース関数</title>
 
  <refentry id="spi-spi-connect">
   <indexterm><primary>SPI_connect</primary></indexterm>
@@ -65,8 +94,11 @@
 
   <refnamediv>
    <refname>SPI_connect</refname>
+<!--
    <refname>SPI_connect_ext</refname>
    <refpurpose>connect a C function to the SPI manager</refpurpose>
+-->
+   <refpurpose>SPIマネージャにC関数を接続する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -80,29 +112,46 @@ int SPI_connect_ext(int <parameter>options</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_connect</function> opens a connection from a
    C function invocation to the SPI manager.  You must call this
    function if you want to execute commands through SPI.  Some utility
    SPI functions can be called from unconnected C functions.
+-->
+<function>SPI_connect</function>はC関数の呼び出しからSPIマネージャへの接続を開きます。
+SPIを経由してコマンドを実行させる場合、この関数を呼び出さなければなりません。
+SPIユーティリティ関数の中には、未接続のC関数から呼び出し可能なものがあります。
   </para>
 
   <para>
+<!--
    <function>SPI_connect_ext</function> does the same but has an argument that
    allows passing option flags.  Currently, the following option values are
    available:
+-->
+<function>SPI_connect_ext</function>は同様に動作しますが、オプションフラグを渡せる引数を一つもちます。
+今のところ以下のオプション値が使えます。
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_OPT_NONATOMIC</symbol></term>
      <listitem>
       <para>
+<!--
        Sets the SPI connection to be <firstterm>nonatomic</firstterm>, which
        means that transaction control calls <function>SPI_commit</function>,
        <function>SPI_rollback</function>, and
        <function>SPI_start_transaction</function> are allowed.  Otherwise,
        calling these functions will result in an immediate error.
+-->
+SPI接続を<firstterm>非原子的</firstterm>になるように設定します。
+これはトランザクション制御呼び出しの<function>SPI_commit</function>、<function>SPI_rollback</function>、および、<function>SPI_start_transaction</function>が可能であることを意味します。
+このフラグなしで、これら関数を呼び出すと即座にエラーになります。
       </para>
      </listitem>
     </varlistentry>
@@ -110,20 +159,29 @@ int SPI_connect_ext(int <parameter>options</parameter>)
   </para>
 
   <para>
+<!--
    <literal>SPI_connect()</literal> is equivalent to
    <literal>SPI_connect_ext(0)</literal>.
+-->
+<literal>SPI_connect()</literal>は<literal>SPI_connect_ext(0)</literal>と同義です。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <variablelist>
    <varlistentry>
     <term><symbol>SPI_OK_CONNECT</symbol></term>
     <listitem>
      <para>
+<!--
       on success
+-->
+成功した場合。
      </para>
     </listitem>
    </varlistentry>
@@ -132,7 +190,10 @@ int SPI_connect_ext(int <parameter>options</parameter>)
     <term><symbol>SPI_ERROR_CONNECT</symbol></term>
     <listitem>
      <para>
+<!--
       on error
+-->
+エラーが発生した場合。
      </para>
     </listitem>
    </varlistentry>
@@ -152,7 +213,10 @@ int SPI_connect_ext(int <parameter>options</parameter>)
 
  <refnamediv>
   <refname>SPI_finish</refname>
+<!--
   <refpurpose>disconnect a C function from the SPI manager</refpurpose>
+-->
+  <refpurpose>C関数をSPIマネージャから切断する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -162,27 +226,42 @@ int SPI_finish(void)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_finish</function> closes an existing connection to
    the SPI manager.  You must call this function after completing the
    SPI operations needed during your C function's current invocation.
    You do not need to worry about making this happen, however, if you
    abort the transaction via <literal>elog(ERROR)</literal>.  In that
    case SPI will clean itself up automatically.
+-->
+<function>SPI_finish</function>は既存のSPIマネージャへの接続を切断します。
+C関数の現在の呼び出し期間内で必要なSPI操作が完了した後この関数を呼び出さなければなりません。
+しかし、<literal>elog(ERROR)</literal>経由でトランザクションを中断させる場合は、この関数が何を行うかを気にする必要はありません。
+その場合、SPIは自動的に自身を整理します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <variablelist>
    <varlistentry>
     <term><symbol>SPI_OK_FINISH</symbol></term>
     <listitem>
      <para>
+<!--
       if properly disconnected
+-->
+適切に切断された場合。
      </para>
     </listitem>
    </varlistentry>
@@ -191,7 +270,10 @@ int SPI_finish(void)
     <term><symbol>SPI_ERROR_UNCONNECTED</symbol></term>
     <listitem>
      <para>
+<!--
       if called from an unconnected C function
+-->
+未接続のC関数から呼び出された場合。
      </para>
     </listitem>
    </varlistentry>
@@ -211,7 +293,10 @@ int SPI_finish(void)
 
  <refnamediv>
   <refname>SPI_execute</refname>
+<!--
   <refpurpose>execute a command</refpurpose>
+-->
+  <refpurpose>コマンドを実行する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -221,52 +306,87 @@ int SPI_execute(const char * <parameter>command</parameter>, bool <parameter>rea
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_execute</function> executes the specified SQL command
    for <parameter>count</parameter> rows.  If <parameter>read_only</parameter>
    is <literal>true</literal>, the command must be read-only, and execution overhead
    is somewhat reduced.
+-->
+<function>SPI_execute</function>は指定したSQLコマンドを、<parameter>count</parameter>行分実行します。
+<parameter>read_only</parameter>が<literal>true</literal>の場合、そのコマンドは読み取りのみでなければなりませんが、多少のオーバーヘッドが削減されます。
   </para>
 
   <para>
+<!--
    This function can only be called from a connected C function.
+-->
+この関数は接続済みのC関数からのみ呼び出し可能です。
   </para>
 
   <para>
+<!--
    If <parameter>count</parameter> is zero then the command is executed
    for all rows that it applies to.  If <parameter>count</parameter>
    is greater than zero, then no more than <parameter>count</parameter> rows
    will be retrieved; execution stops when the count is reached, much like
    adding a <literal>LIMIT</literal> clause to the query. For example,
+-->
+<parameter>count</parameter>が0の場合、そのコマンドを、適用される全ての行に対して実行します。
+<parameter>count</parameter>が0より多ければ、<parameter>count</parameter>を超えない数の行が取り出されます。
+問い合わせに<literal>LIMIT</literal>句と追加するの同じように、countに達すれば、実行は止まります。
+例えば、
 <programlisting>
 SPI_execute("SELECT * FROM foo", true, 5);
 </programlisting>
+<!--
    will retrieve at most 5 rows from the table.  Note that such a limit
    is only effective when the command actually returns rows.  For example,
+-->
+は、テーブルから多くても5行しか取り出しません。
+この制限はコマンドが実際に行を返した場合にのみ有効なことに注意して下さい。
+例えば
 <programlisting>
 SPI_execute("INSERT INTO foo SELECT * FROM bar", false, 5);
 </programlisting>
+<!--
    inserts all rows from <structname>bar</structname>, ignoring the
    <parameter>count</parameter> parameter.  However, with
+-->
+は、<parameter>count</parameter>パラメータを無視して、<structname>bar</structname>からすべての行を挿入します。
+しかし、
 <programlisting>
 SPI_execute("INSERT INTO foo SELECT * FROM bar RETURNING *", false, 5);
 </programlisting>
+<!--
    at most 5 rows would be inserted, since execution would stop after the
    fifth <literal>RETURNING</literal> result row is retrieved.
+-->
+は、5番目の<literal>RETURNING</literal>の結果行を取り出した後に実行が止まりますので、多くても5行を挿入するだけです。
   </para>
 
   <para>
+<!--
    You can pass multiple commands in one string;
    <function>SPI_execute</function> returns the
    result for the command executed last.  The <parameter>count</parameter>
    limit applies to each command separately (even though only the last
    result will actually be returned).  The limit is not applied to any
    hidden commands generated by rules.
+-->
+複数のコマンドを1つの文字列として渡すことができます。
+<function>SPI_execute</function>は最後に実行したコマンドの結果を返します。
+<parameter>count</parameter>制限は（最後の結果が返されただけだとしても）それぞれのコマンドに独立に適用されます。
+この制限はルールによって生成される隠れたコマンドには適用されません。
   </para>
 
   <para>
+<!--
    When <parameter>read_only</parameter> is <literal>false</literal>,
    <function>SPI_execute</function> increments the command
    counter and computes a new <firstterm>snapshot</firstterm> before executing each
@@ -276,9 +396,15 @@ SPI_execute("INSERT INTO foo SELECT * FROM bar RETURNING *", false, 5);
    see the results of newly committed transactions from other sessions.
    This is essential for consistent behavior when the commands are modifying
    the database.
+-->
+<parameter>read_only</parameter>が<literal>false</literal>の場合、文字列内の各コマンドを実行する前に<function>SPI_execute</function>はコマンドカウンタを増分し、新しい<firstterm>スナップショット</firstterm>を作成します。
+このスナップショットは、現在のトランザクション隔離レベルが<literal>SERIALIZABLE</literal>または<literal>REPEATABLE READ</literal>の場合は変更されません。
+しかし、<literal>READ COMMITTED</literal>モードでは、このスナップショットは更新され、他のセッションで新しくコミットされたトランザクションの結果を各コマンドから参照できます。
+これは、そのコマンドがデータベースを変更する場合、一貫性の維持に重要です。
   </para>
 
   <para>
+<!--
    When <parameter>read_only</parameter> is <literal>true</literal>,
    <function>SPI_execute</function> does not update either the snapshot
    or the command counter, and it allows only plain <command>SELECT</command>
@@ -288,16 +414,28 @@ SPI_execute("INSERT INTO foo SELECT * FROM bar RETURNING *", false, 5);
    to eliminating per-command overhead.  It also allows genuinely
    <firstterm>stable</firstterm> functions to be built: since successive executions
    will all use the same snapshot, there will be no change in the results.
+-->
+<parameter>read_only</parameter>が<literal>true</literal>の場合は、<function>SPI_execute</function>はスナップショットもコマンドカウンタも更新しません。
+さらに、普通の<command>SELECT</command>コマンドのみをコマンド文字列内に記述することができます。
+このコマンドは、その前後の問い合わせによって事前に確立済みのスナップショットを使用して実行されます。
+この実行モードは読み書きモードよりもコマンドごとのオーバーヘッドが省略される分多少高速です。
+また、これにより本当に<firstterm>安定（stable）</firstterm>な関数を構築することができます。
+つまり、連続した実行は全て同じスナップショットを使用しますので、結果は変わることがないということです。
   </para>
 
   <para>
+<!--
    It is generally unwise to mix read-only and read-write commands within
    a single function using SPI; that could result in very confusing behavior,
    since the read-only queries would not see the results of any database
    updates done by the read-write queries.
+-->
+一般的に、SPIを使用する1つの関数内で読み取りのみコマンドと読み書きコマンドを混在させることは勧めません。
+読み取りのみの問い合わせでは、読み書き問い合わせでなされたデータベースの更新結果を参照しないため、非常に混乱した動作に陥ることがあります。
   </para>
 
   <para>
+<!--
    The actual number of rows for which the (last) command was executed
    is returned in the global variable <varname>SPI_processed</varname>.
    If the return value of the function is <symbol>SPI_OK_SELECT</symbol>,
@@ -312,26 +450,50 @@ SPI_execute("INSERT INTO foo SELECT * FROM bar RETURNING *", false, 5);
    (<command>COPY</command>, <command>CREATE TABLE AS</command>) don't return a row set, so
    <literal>SPI_tuptable</literal> is NULL, but they still return the number of
    rows processed in <varname>SPI_processed</varname>.
+-->
+（最後の）コマンドが実行した実際の行数は、<varname>SPI_processed</varname>グローバル変数に返されます。
+関数の戻り値が<symbol>SPI_OK_SELECT</symbol>、<symbol>SPI_OK_INSERT_RETURNING</symbol>、<symbol>SPI_OK_DELETE_RETURNING</symbol>、または<symbol>SPI_OK_UPDATE_RETURNING</symbol>の場合、<literal>SPITupleTable *SPI_tuptable</literal>グローバルポインタを使用して、結果の行にアクセスすることができます。
+また、一部のユーティリティコマンド（<command>EXPLAIN</command>など）は行セットを返しますが、この場合も<literal>SPI_tuptable</literal>にはその結果が含まれます。
+一部のユーティリティコマンド（<command>COPY</command>, <command>CREATE TABLE AS</command>）は行セットを返しません。
+このため<literal>SPI_tuptable</literal>はNULLですが、<varname>SPI_processed</varname>の中で処理行数を返します。
   </para>
 
   <para>
+<!--
    The structure <structname>SPITupleTable</structname> is defined
    thus:
+-->
+<structname>SPITupleTable</structname>構造体は以下のように定義されています。
 <programlisting>
 typedef struct SPITupleTable
 {
+<!--
     /* Public members */
     TupleDesc   tupdesc;        /* tuple descriptor */
     HeapTuple  *vals;           /* array of tuples */
     uint64      numvals;        /* number of valid tuples */
+-->
+    /* 公開メンバ */
+    TupleDesc   tupdesc;        /* タプル記述子 */
+    HeapTuple  *vals;           /* タプルの配列 */
+    uint64      numvals;        /* 有効なタプルの数 */
 
+<!--
     /* Private members, not intended for external callers */
     uint64      alloced;        /* allocated length of vals array */
     MemoryContext tuptabcxt;    /* memory context of result table */
     slist_node  next;           /* link for internal bookkeeping */
     SubTransactionId subid;     /* subxact in which tuptable was created */
+-->
+    /* 非公開メンバ、外部呼び出し側のためのものではない */
+    uint64      alloced;        /* vals配列に割り当てられた長さ */
+    MemoryContext tuptabcxt;    /* 結果テーブルのメモリコンテキスト */
+    slist_node  next;           /* 内部情報のためのリンク */
+    SubTransactionId subid;     /* SPITupleTableが生成されたサブトランザクション */
+
 } SPITupleTable;
 </programlisting>
+<!--
    The fields <structfield>tupdesc</structfield>,
    <structfield>vals</structfield>, and
    <structfield>numvals</structfield>
@@ -342,25 +504,40 @@ typedef struct SPITupleTable
    in <varname>SPI_processed</varname>).
    <structfield>tupdesc</structfield> is a row descriptor which you can pass to
    SPI functions dealing with rows.
+-->
+フィールド<structfield>tupdesc</structfield>、<structfield>vals</structfield>、<structfield>numvals</structfield>はSPIの呼び出し側で使えます。残りのフィールドは内部のものです。
+<structfield>vals</structfield>は行へのポインタの配列です。
+行数は<structfield>numvals</structfield>で与えられます(ちょっとした歴史的理由により、この数は<varname>SPI_processed</varname>でも返されます)。
+<structfield>tupdesc</structfield>は、行を扱うSPI関数に渡すことのできる行記述子です。
   </para>
 
   <para>
+<!--
    <function>SPI_finish</function> frees all
    <structname>SPITupleTable</structname>s allocated during the current
    C function.  You can free a particular result table earlier, if you
    are done with it, by calling <function>SPI_freetuptable</function>.
+-->
+<function>SPI_finish</function>は、現在のC関数で割り当てられた<structname>SPITupleTable</structname>をすべて解放します。
+<function>SPI_freetuptable</function>を呼び出して解放する場合、特定の結果テーブルを早めに解放することができます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>command</parameter></literal></term>
     <listitem>
      <para>
+<!--
       string containing command to execute
+-->
+実行するコマンドを含む文字列。
      </para>
     </listitem>
    </varlistentry>
@@ -368,7 +545,12 @@ typedef struct SPITupleTable
    <varlistentry>
     <term><literal>bool <parameter>read_only</parameter></literal></term>
     <listitem>
+<!--
      <para><literal>true</literal> for read-only execution</para>
+-->
+     <para>
+読み取りのみの実行の場合<literal>true</literal>。
+     </para>
     </listitem>
    </varlistentry>
 
@@ -376,8 +558,11 @@ typedef struct SPITupleTable
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to return,
       or <literal>0</literal> for no limit
+-->
+返される行の最大数。無制限なら<literal>0</literal>。
      </para>
     </listitem>
    </varlistentry>
@@ -385,19 +570,28 @@ typedef struct SPITupleTable
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    If the execution of the command was successful then one of the
    following (nonnegative) values will be returned:
+-->
+コマンドの実行に成功した場合、以下のいずれかの（非負の）値が返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_OK_SELECT</symbol></term>
      <listitem>
       <para>
+<!--
        if a <command>SELECT</command> (but not <command>SELECT
        INTO</command>) was executed
+-->
+<command>SELECT</command>（<command>SELECT INTO</command>を除く）が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -406,7 +600,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_SELINTO</symbol></term>
      <listitem>
       <para>
+<!--
        if a <command>SELECT INTO</command> was executed
+-->
+<command>SELECT INTO</command>が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -415,7 +612,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_INSERT</symbol></term>
      <listitem>
       <para>
+<!--
        if an <command>INSERT</command> was executed
+-->
+<command>INSERT</command>が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -424,7 +624,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_DELETE</symbol></term>
      <listitem>
       <para>
+<!--
        if a <command>DELETE</command> was executed
+-->
+<command>DELETE</command>が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -433,7 +636,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_UPDATE</symbol></term>
      <listitem>
       <para>
+<!--
        if an <command>UPDATE</command> was executed
+-->
+<command>UPDATE</command>が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -442,7 +648,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_INSERT_RETURNING</symbol></term>
      <listitem>
       <para>
+<!--
        if an <command>INSERT RETURNING</command> was executed
+-->
+<command>INSERT RETURNING</command>が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -451,7 +660,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_DELETE_RETURNING</symbol></term>
      <listitem>
       <para>
+<!--
        if a <command>DELETE RETURNING</command> was executed
+-->
+<command>DELETE RETURNING</command>が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -460,7 +672,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_UPDATE_RETURNING</symbol></term>
      <listitem>
       <para>
+<!--
        if an <command>UPDATE RETURNING</command> was executed
+-->
+<command>UPDATE RETURNING</command>が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -469,8 +684,11 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_UTILITY</symbol></term>
      <listitem>
       <para>
+<!--
        if a utility command (e.g., <command>CREATE TABLE</command>)
        was executed
+-->
+ユーティリティコマンド（<command>CREATE TABLE</command>など）が実行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -479,8 +697,11 @@ typedef struct SPITupleTable
      <term><symbol>SPI_OK_REWRITTEN</symbol></term>
      <listitem>
       <para>
+<!--
        if the command was rewritten into another kind of command (e.g.,
        <command>UPDATE</command> became an <command>INSERT</command>) by a <link linkend="rules">rule</link>.
+-->
+<link linkend="rules">ルール</link>によって（例えば、<command>UPDATE</command>が<command>INSERT</command>になったような）あるコマンドが他の種類のコマンドに書き換えられた場合です。
       </para>
      </listitem>
     </varlistentry>
@@ -488,15 +709,21 @@ typedef struct SPITupleTable
   </para>
 
   <para>
+<!--
    On error, one of the following negative values is returned:
+-->
+エラーの場合、以下のいずれかの負の値が返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_ERROR_ARGUMENT</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>command</parameter> is <symbol>NULL</symbol> or
        <parameter>count</parameter> is less than 0
+-->
+<parameter>command</parameter>が<symbol>NULL</symbol>、あるいは<parameter>count</parameter>が0未満の場合。
       </para>
      </listitem>
     </varlistentry>
@@ -505,8 +732,11 @@ typedef struct SPITupleTable
      <term><symbol>SPI_ERROR_COPY</symbol></term>
      <listitem>
       <para>
+<!--
        if <command>COPY TO stdout</command> or <command>COPY FROM stdin</command>
        was attempted
+-->
+<command>COPY TO stdout</command>あるいは<command>COPY FROM stdin</command>が試行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -515,6 +745,7 @@ typedef struct SPITupleTable
      <term><symbol>SPI_ERROR_TRANSACTION</symbol></term>
      <listitem>
       <para>
+<!--
        if a transaction manipulation command was attempted
        (<command>BEGIN</command>,
        <command>COMMIT</command>,
@@ -524,6 +755,8 @@ typedef struct SPITupleTable
        <command>COMMIT PREPARED</command>,
        <command>ROLLBACK PREPARED</command>,
        or any variant thereof)
+-->
+トランザクション操作を行うコマンド（<command>BEGIN</command>、<command>COMMIT</command>、<command>ROLLBACK</command>、<command>SAVEPOINT</command>、<command>PREPARE TRANSACTION</command>、<command>COMMIT PREPARED</command>、<command>ROLLBACK PREPARED</command>、およびこれらの亜種）が試行された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -532,7 +765,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_ERROR_OPUNKNOWN</symbol></term>
      <listitem>
       <para>
+<!--
        if the command type is unknown (shouldn't happen)
+-->
+コマンド種類が不明な場合（起きてはなりません）。
       </para>
      </listitem>
     </varlistentry>
@@ -541,7 +777,10 @@ typedef struct SPITupleTable
      <term><symbol>SPI_ERROR_UNCONNECTED</symbol></term>
      <listitem>
       <para>
+<!--
        if called from an unconnected C function
+-->
+未接続なC関数から呼び出された場合。
       </para>
      </listitem>
     </varlistentry>
@@ -550,9 +789,13 @@ typedef struct SPITupleTable
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注意</title>
 
   <para>
+<!--
    All SPI query-execution functions set both
    <varname>SPI_processed</varname> and
    <varname>SPI_tuptable</varname> (just the pointer, not the contents
@@ -560,6 +803,9 @@ typedef struct SPITupleTable
    C function variables if you need to access the result table of
    <function>SPI_execute</function> or another query-execution function
    across later calls.
+-->
+SPI問い合わせ実行関数はすべて<varname>SPI_processed</varname>と<varname>SPI_tuptable</varname>の両方を変更します（ポインタのみで、構造体の内容は変更しません）。
+<function>SPI_exec</function>や他の問い合わせ実行関数の結果テーブルを後の呼び出しでまたがってアクセスしたいのであれば、これら2つのグローバル変数を局所的なプロシージャ変数に保存してください。
   </para>
  </refsect1>
 </refentry>
@@ -576,7 +822,10 @@ typedef struct SPITupleTable
 
  <refnamediv>
   <refname>SPI_exec</refname>
+<!--
   <refpurpose>execute a read/write command</refpurpose>
+-->
+  <refpurpose>読み書きコマンドを実行する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -586,25 +835,37 @@ int SPI_exec(const char * <parameter>command</parameter>, long <parameter>count<
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_exec</function> is the same as
    <function>SPI_execute</function>, with the latter's
    <parameter>read_only</parameter> parameter always taken as
    <literal>false</literal>.
+-->
+<function>SPI_exec</function>は、常に<parameter>read_only</parameter>パラメータを<literal>false</literal>とした<function>SPI_execute</function>と同じです。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>command</parameter></literal></term>
     <listitem>
      <para>
+<!--
       string containing command to execute
+-->
+実行するコマンドを含む文字列。
      </para>
     </listitem>
    </varlistentry>
@@ -613,8 +874,11 @@ int SPI_exec(const char * <parameter>command</parameter>, long <parameter>count<
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to return,
       or <literal>0</literal> for no limit
+-->
+返される行の最大数。無制限なら<literal>0</literal>。
      </para>
     </listitem>
    </varlistentry>
@@ -622,10 +886,16 @@ int SPI_exec(const char * <parameter>command</parameter>, long <parameter>count<
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    See <function>SPI_execute</function>.
+-->
+<function>SPI_execute</function>を参照してください。
   </para>
  </refsect1>
 </refentry>
@@ -808,7 +1078,10 @@ int SPI_execute_extended(const char *<parameter>command</parameter>,
 
  <refnamediv>
   <refname>SPI_execute_with_args</refname>
+<!--
   <refpurpose>execute a command with out-of-line parameters</refpurpose>
+-->
+  <refpurpose>行外のパラメータを持つコマンドを実行する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -821,25 +1094,37 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_execute_with_args</function> executes a command that might
    include references to externally supplied parameters.  The command text
    refers to a parameter as <literal>$<replaceable>n</replaceable></literal>, and
    the call specifies data types and values for each such symbol.
    <parameter>read_only</parameter> and <parameter>count</parameter> have
    the same interpretation as in <function>SPI_execute</function>.
+-->
+<function>SPI_execute_with_args</function>は外部から供給されるパラメータへの参照を含むコマンドを実行します。
+コマンドテキストはパラメータを<literal>$<replaceable>n</replaceable></literal>として参照し、呼び出しはこうしたシンボル毎にデータ型と値を指定します。
+<parameter>read_only</parameter>と<parameter>count</parameter>は<function>SPI_execute</function>と同じ解釈をします。
   </para>
 
   <para>
+<!--
    The main advantage of this routine compared to
    <function>SPI_execute</function> is that data values can be inserted
    into the command without tedious quoting/escaping, and thus with much
    less risk of SQL-injection attacks.
+-->
+<function>SPI_execute</function>と比較して、このルーチンの主たる利点は、データ値を面倒な引用やエスケープを要せずコマンドに埋め込むことができることで、従ってSQLインジェクション攻撃の危険性を軽減します。
   </para>
 
   <para>
+<!--
    Similar results can be achieved with <function>SPI_prepare</function> followed by
    <function>SPI_execute_plan</function>; however, when using this function
    the query plan is always customized to the specific parameter values
@@ -848,18 +1133,28 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
    If the same command is to be executed with many different parameters,
    either method might be faster, depending on the cost of re-planning
    versus the benefit of custom plans.
+-->
+後に<function>SPI_execute_plan</function>が続いた<function>SPI_prepare</function>でも同様の結果が得られますが、この関数を使用するときには、提供された特定のパラメータ値に対して問い合わせ計画が必ずカスタマイズされます。
+１回限りの問い合わせ実行に対しては、この関数を選ぶべきです。
+多くの異なったパラメータを持つ同一のコマンドを実行する場合、再計画のコストと独自計画による利益に依存して、どちらか一方の方法がより早くなります。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>command</parameter></literal></term>
     <listitem>
      <para>
+<!--
       command string
+-->
+コマンド文字列
      </para>
     </listitem>
    </varlistentry>
@@ -868,7 +1163,10 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
     <term><literal>int <parameter>nargs</parameter></literal></term>
     <listitem>
      <para>
+<!--
       number of input parameters (<literal>$1</literal>, <literal>$2</literal>, etc.)
+-->
+入力パラメータ（<literal>$1</literal>、<literal>$2</literal>など）の数
      </para>
     </listitem>
    </varlistentry>
@@ -877,8 +1175,11 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
     <term><literal>Oid * <parameter>argtypes</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>nargs</parameter>, containing the
       <acronym>OID</acronym>s of the data types of the parameters
+-->
+パラメータのデータ型の<acronym>OID</acronym>を含む、<parameter>nargs</parameter>長の配列
      </para>
     </listitem>
    </varlistentry>
@@ -887,8 +1188,11 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
     <term><literal>Datum * <parameter>values</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>nargs</parameter>, containing the actual
       parameter values
+-->
+実パラメータ値を含む、<parameter>nargs</parameter>長の配列
      </para>
     </listitem>
    </varlistentry>
@@ -897,11 +1201,15 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
     <term><literal>const char * <parameter>nulls</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>nargs</parameter>, describing which
       parameters are null
+-->
+どのパラメータがnullかを記述する、<parameter>nargs</parameter>長の配列
      </para>
 
      <para>
+<!--
       If <parameter>nulls</parameter> is <symbol>NULL</symbol> then
       <function>SPI_execute_with_args</function> assumes that no parameters
       are null.  Otherwise, each entry of the <parameter>nulls</parameter>
@@ -911,6 +1219,12 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
       corresponding <parameter>values</parameter> entry doesn't matter.)  Note
       that <parameter>nulls</parameter> is not a text string, just an array:
       it does not need a <literal>'\0'</literal> terminator.
+-->
+<parameter>nulls</parameter>が<symbol>NULL</symbol>であれば、<function>SPI_execute_with_args</function>はどのパラメータもnullでないと看做します。
+さもなければ、<parameter>nulls</parameter>配列の各項目は、対応するパラメータが非NULLならば<literal>'&nbsp;'</literal>、対応するパラメータがNULLならば<literal>'n'</literal>です。
+（後者の場合、<parameter>values</parameter>内の対応する値は注意されません。）
+<parameter>nulls</parameter>はテキスト文字列ではなく単なる配列であることに注意してください。
+<literal>'\0'</literal>終端は必要ありません。
      </para>
     </listitem>
    </varlistentry>
@@ -918,7 +1232,12 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
    <varlistentry>
     <term><literal>bool <parameter>read_only</parameter></literal></term>
     <listitem>
+<!--
      <para><literal>true</literal> for read-only execution</para>
+-->
+     <para>
+読み取りのみの実行の場合<literal>true</literal>
+     </para>
     </listitem>
    </varlistentry>
 
@@ -926,8 +1245,11 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to return,
       or <literal>0</literal> for no limit
+-->
+返される行の最大数。無制限なら<literal>0</literal>。
      </para>
     </listitem>
    </varlistentry>
@@ -935,16 +1257,25 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The return value is the same as for <function>SPI_execute</function>.
+-->
+戻り値は<function>SPI_execute</function>と同じです。
   </para>
 
   <para>
+<!--
    <varname>SPI_processed</varname> and
    <varname>SPI_tuptable</varname> are set as in
    <function>SPI_execute</function> if successful.
+-->
+成功した場合<varname>SPI_processed</varname>と<varname>SPI_tuptable</varname>は<function>SPI_execute</function>と同様に設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -961,7 +1292,10 @@ int SPI_execute_with_args(const char *<parameter>command</parameter>,
 
  <refnamediv>
   <refname>SPI_prepare</refname>
+<!--
   <refpurpose>prepare a statement, without executing it yet</refpurpose>
+-->
+  <refpurpose>文を準備する。文の実行はまだ行わない</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -971,16 +1305,25 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_prepare</function> creates and returns a prepared
    statement for the specified command, but doesn't execute the command.
    The prepared statement can later be executed repeatedly using
    <function>SPI_execute_plan</function>.
+-->
+<function>SPI_prepare</function>は指定したコマンド用の準備済み文を作成し、それを返します。
+しかし、そのコマンドは実行しません。
+その準備済み文は<function>SPI_execute_plan</function>を使って後で繰り返し実行できます。
   </para>
 
   <para>
+<!--
    When the same or a similar command is to be executed repeatedly, it
    is generally advantageous to perform parse analysis only once, and
    might furthermore be advantageous to re-use an execution plan for the
@@ -990,35 +1333,55 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
    The prepared statement also provides a place for caching an execution plan
    if it is found that generating a custom plan for each execution is not
    helpful.
+-->
+同じ、あるいは類似のコマンドが繰り返し実行される場合、一度だけ解析を計画作成を行うことには一般に利点があります。
+また、コマンドの実行計画を再利用することにはさらに利点があるかも知れません。
+<function>SPI_prepare</function>はコマンド文字列を、解析結果をカプセル化した準備済み文に変換します。
+実行の度に独自計画を生成するのが役に立たないと分かった場合には、準備済み文は実行計画をキャッシュする場所も提供します。
   </para>
 
   <para>
+<!--
    A prepared command can be generalized by writing parameters
    (<literal>$1</literal>, <literal>$2</literal>, etc.) in place of what would be
    constants in a normal command.  The actual values of the parameters
    are then specified when <function>SPI_execute_plan</function> is called.
    This allows the prepared command to be used over a wider range of
    situations than would be possible without parameters.
+-->
+プリペアドコマンドは、通常のコマンド内の定数となる場所を（<literal>$1</literal>、<literal>$2</literal>などの）パラメータで記述することで一般化することができます。
+そしてパラメータの実際の値は、<function>SPI_execute_plan</function> が呼び出される時に指定されます。
+これにより、プリペアドコマンドは、パラメータがない場合に比べ、より広範な状況で使用できるようになります。
   </para>
 
   <para>
+<!--
    The statement returned by <function>SPI_prepare</function> can be used
    only in the current invocation of the C function, since
    <function>SPI_finish</function> frees memory allocated for such a
    statement.  But the statement can be saved for longer using the functions
    <function>SPI_keepplan</function> or <function>SPI_saveplan</function>.
+-->
+<function>SPI_finish</function>が文のために割り当てられたメモリを解放しますので、<function>SPI_prepare</function>で返される文は、そのC関数の現在の呼び出し内でのみ使用することができます。
+しかし、関数<function>SPI_keepplan</function>や<function>SPI_saveplan</function>を使用して長期間文を保存することもできます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>command</parameter></literal></term>
     <listitem>
      <para>
+<!--
       command string
+-->
+コマンド文字列
      </para>
     </listitem>
    </varlistentry>
@@ -1027,7 +1390,10 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
     <term><literal>int <parameter>nargs</parameter></literal></term>
     <listitem>
      <para>
+<!--
       number of input parameters (<literal>$1</literal>, <literal>$2</literal>, etc.)
+-->
+入力パラメータ（<literal>$1</literal>、<literal>$2</literal>など）の数
      </para>
     </listitem>
    </varlistentry>
@@ -1036,8 +1402,11 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
     <term><literal>Oid * <parameter>argtypes</parameter></literal></term>
     <listitem>
      <para>
+<!--
       pointer to an array containing the <acronym>OID</acronym>s of
       the data types of the parameters
+-->
+パラメータのデータ型の<acronym>OID</acronym>を持つ配列へのポインタ
      </para>
     </listitem>
    </varlistentry>
@@ -1045,9 +1414,13 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    <function>SPI_prepare</function> returns a non-null pointer to an
    <type>SPIPlan</type>, which is an opaque struct representing a prepared
    statement.  On error, <symbol>NULL</symbol> will be returned,
@@ -1057,13 +1430,22 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
    <parameter>command</parameter> is <symbol>NULL</symbol>, or if
    <parameter>nargs</parameter> is less than 0, or if <parameter>nargs</parameter> is
    greater than 0 and <parameter>argtypes</parameter> is <symbol>NULL</symbol>.
+-->
+<function>SPI_prepare</function>は<type>SPIPlan</type>への非NULLのポインタを返します。
+ここで<type>SPIPlan</type>は準備済み文を表すopaque構造体です
+エラーの場合、<symbol>NULL</symbol>が返され、<function>SPI_execute</function>で使用されるエラーコードと同じコードの1つが<varname>SPI_result</varname>に設定されます。
+しかし、<parameter>command</parameter>が<symbol>NULL</symbol>の場合や、<parameter>nargs</parameter>が0未満の場合、<parameter>nargs</parameter>が0より大きくかつ<parameter>argtypes</parameter>が<symbol>NULL</symbol>の場合は、<symbol>SPI_ERROR_ARGUMENT</symbol>に設定されます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注意</title>
 
   <para>
+<!--
    If no parameters are defined, a generic plan will be created at the
    first use of <function>SPI_execute_plan</function>, and used for all
    subsequent executions as well.  If there are parameters, the first few uses
@@ -1077,9 +1459,15 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
    <literal>CURSOR_OPT_CUSTOM_PLAN</literal> flag to
    <function>SPI_prepare_cursor</function>, to force use of generic or custom
    plans respectively.
+-->
+パラメータが定義されていなければ、<function>SPI_execute_plan</function>が最初に使用された時に一般的な計画が作成され、以降の実行すべてでも利用されます。
+パラメータがあれば、始めの何回かの<function>SPI_execute_plan</function>の使用で、与えられたパラメータの値に固有の独自計画が作成されます。
+同じ準備済み文が十分に使用された後、<function>SPI_execute_plan</function>は一般的な計画を作成し、独自計画よりもそれほど高価でなければ、毎回再計画する代わりに一般的な計画を使い始めるようになります。
+このデフォルトの動作が不適切であれば、<function>SPI_prepare_cursor</function>に<literal>CURSOR_OPT_GENERIC_PLAN</literal>または<literal>CURSOR_OPT_CUSTOM_PLAN</literal>フラグを設定することで、それぞれ一般的な計画か独自計画を強制的に利用するよう変更できます。
   </para>
 
   <para>
+<!--
    Although the main point of a prepared statement is to avoid repeated parse
    analysis and planning of the statement, <productname>PostgreSQL</productname> will
    force re-analysis and re-planning of the statement before using it
@@ -1091,22 +1479,37 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
    <productname>PostgreSQL</productname> 9.3.)  See <xref
    linkend="sql-prepare"/> for more information about the behavior of prepared
    statements.
+-->
+プリペアド文の主要な利点は、文の解析処理と計画作成処理の繰り返しを防止することですが、<productname>PostgreSQL</productname>では、以前にそのプリペアド文を使用してから、文の中で使用されているデータベースオブジェクトが定義（DDL）の変更を受けた時は常に再解析処理と計画再作成処理を強制します。
+また、一度使用してから<xref linkend="guc-search-path"/>の値が変わった場合も、文は新しい<varname>search_path</varname>を使用して再解析されます。
+（後者の振る舞いは<productname>PostgreSQL</productname> 9.3の時に追加されました。）
+プリペアド文の動作については<xref linkend="sql-prepare"/>を参照してください。
   </para>
 
   <para>
+<!--
    This function should only be called from a connected C function.
+-->
+この関数は接続済みのC関数からのみ呼び出してください。
   </para>
 
   <para>
+<!--
    <type>SPIPlanPtr</type> is declared as a pointer to an opaque struct type in
    <filename>spi.h</filename>.  It is unwise to try to access its contents
    directly, as that makes your code much more likely to break in
    future revisions of <productname>PostgreSQL</productname>.
+-->
+<type>SPIPlanPtr</type>は<filename>spi.h</filename>内でopaque構造体型へのポインタとして宣言されています。
+たいていの場合将来のバージョンの<productname>PostgreSQL</productname>でそのコードが壊れてしまうため、この内容に直接アクセスすることは避けてください。
   </para>
 
   <para>
+<!--
    The name <type>SPIPlanPtr</type> is somewhat historical, since the data
    structure no longer necessarily contains an execution plan.
+-->
+そのデータ構造はもはや実行計画を含むとは限りませんので、<type>SPIPlanPtr</type>という名前はいくらか歴史的なものです。
   </para>
  </refsect1>
 </refentry>
@@ -1123,7 +1526,10 @@ SPIPlanPtr SPI_prepare(const char * <parameter>command</parameter>, int <paramet
 
  <refnamediv>
   <refname>SPI_prepare_cursor</refname>
+<!--
   <refpurpose>prepare a statement, without executing it yet</refpurpose>
+-->
+  <refpurpose>文を準備する。まだ実行は行わない</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -1134,15 +1540,23 @@ SPIPlanPtr SPI_prepare_cursor(const char * <parameter>command</parameter>, int <
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_prepare_cursor</function> is identical to
    <function>SPI_prepare</function>, except that it also allows specification
    of the planner's <quote>cursor options</quote> parameter.  This is a bit mask
    having the values shown in <filename>nodes/parsenodes.h</filename>
    for the <structfield>options</structfield> field of <structname>DeclareCursorStmt</structname>.
    <function>SPI_prepare</function> always takes the cursor options as zero.
+-->
+<function>SPI_prepare_cursor</function>は、プランナの<quote>カーソルオプション</quote>パラメータを指定できる点を除き、<function>SPI_prepare</function>と同じです。
+これは<structname>DeclareCursorStmt</structname>の<structfield>options</structfield>フィールド用に<filename>nodes/parsenodes.h</filename>で示された値を持つビットマスクです。
+<function>SPI_prepare</function>では常にカーソルオプションをゼロとして扱います。
   </para>
 
   <para>
@@ -1152,14 +1566,20 @@ SPIPlanPtr SPI_prepare_cursor(const char * <parameter>command</parameter>, int <
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>command</parameter></literal></term>
     <listitem>
      <para>
+<!--
       command string
+-->
+コマンド文字列
      </para>
     </listitem>
    </varlistentry>
@@ -1168,7 +1588,10 @@ SPIPlanPtr SPI_prepare_cursor(const char * <parameter>command</parameter>, int <
     <term><literal>int <parameter>nargs</parameter></literal></term>
     <listitem>
      <para>
+<!--
       number of input parameters (<literal>$1</literal>, <literal>$2</literal>, etc.)
+-->
+入力パラメータ（<literal>$1</literal>、<literal>$2</literal>など）の数
      </para>
     </listitem>
    </varlistentry>
@@ -1177,8 +1600,11 @@ SPIPlanPtr SPI_prepare_cursor(const char * <parameter>command</parameter>, int <
     <term><literal>Oid * <parameter>argtypes</parameter></literal></term>
     <listitem>
      <para>
+<!--
       pointer to an array containing the <acronym>OID</acronym>s of
       the data types of the parameters
+-->
+パラメータのデータ型の<acronym>OID</acronym>を持つ配列へのポインタ
      </para>
     </listitem>
    </varlistentry>
@@ -1187,7 +1613,11 @@ SPIPlanPtr SPI_prepare_cursor(const char * <parameter>command</parameter>, int <
     <term><literal>int <parameter>cursorOptions</parameter></literal></term>
     <listitem>
      <para>
+<!--
       integer bit mask of cursor options; zero produces default behavior
+-->
+カーソルオプションの整数ビットマスク。
+ゼロはデフォルトの動作を引き起こします
      </para>
     </listitem>
    </varlistentry>
@@ -1195,18 +1625,28 @@ SPIPlanPtr SPI_prepare_cursor(const char * <parameter>command</parameter>, int <
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    <function>SPI_prepare_cursor</function> has the same return conventions as
    <function>SPI_prepare</function>.
+-->
+<function>SPI_prepare_cursor</function>は<function>SPI_prepare</function>と同じ戻り値の規則を持ちます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    Useful bits to set in <parameter>cursorOptions</parameter> include
    <symbol>CURSOR_OPT_SCROLL</symbol>,
    <symbol>CURSOR_OPT_NO_SCROLL</symbol>,
@@ -1214,6 +1654,9 @@ SPIPlanPtr SPI_prepare_cursor(const char * <parameter>command</parameter>, int <
    <symbol>CURSOR_OPT_GENERIC_PLAN</symbol>, and
    <symbol>CURSOR_OPT_CUSTOM_PLAN</symbol>.  Note in particular that
    <symbol>CURSOR_OPT_HOLD</symbol> is ignored.
+-->
+<parameter>cursorOptions</parameter>に指定できるビットには、<symbol>CURSOR_OPT_SCROLL</symbol>、<symbol>CURSOR_OPT_NO_SCROLL</symbol>、<symbol>CURSOR_OPT_FAST_PLAN</symbol>、<symbol>CURSOR_OPT_GENERIC_PLAN</symbol>、<symbol>CURSOR_OPT_CUSTOM_PLAN</symbol>があります。
+特に<symbol>CURSOR_OPT_HOLD</symbol>は無視される点に注意してください。
   </para>
  </refsect1>
 </refentry>
@@ -1346,7 +1789,10 @@ SPIPlanPtr SPI_prepare_extended(const char * <parameter>command</parameter>,
 
  <refnamediv>
   <refname>SPI_prepare_params</refname>
+<!--
   <refpurpose>prepare a statement, without executing it yet</refpurpose>
+-->
+  <refpurpose>文を準備する。まだ実行は行わない</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -1359,14 +1805,22 @@ SPIPlanPtr SPI_prepare_params(const char * <parameter>command</parameter>,
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_prepare_params</function> creates and returns a prepared
    statement for the specified command, but doesn't execute the command.
    This function is equivalent to <function>SPI_prepare_cursor</function>,
    with the addition that the caller can specify parser hook functions
    to control the parsing of external parameter references.
+-->
+<function>SPI_prepare_params</function>は指定したコマンドの準備済み文を作成し返します。
+しかしそのコマンドを実行しません。
+この関数は<function>SPI_prepare_cursor</function>と同じですが、呼び出し元が外部パラメータ参照の解析を制御するパーサフック関数を指定できる点が追加されています。
   </para>
 
   <para>
@@ -1376,14 +1830,20 @@ SPIPlanPtr SPI_prepare_params(const char * <parameter>command</parameter>,
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>command</parameter></literal></term>
     <listitem>
      <para>
+<!--
       command string
+-->
+コマンド文字列
      </para>
     </listitem>
    </varlistentry>
@@ -1392,7 +1852,10 @@ SPIPlanPtr SPI_prepare_params(const char * <parameter>command</parameter>,
     <term><literal>ParserSetupHook <parameter>parserSetup</parameter></literal></term>
     <listitem>
      <para>
+<!--
       Parser hook setup function
+-->
+パーサフック設定関数
      </para>
     </listitem>
    </varlistentry>
@@ -1401,7 +1864,10 @@ SPIPlanPtr SPI_prepare_params(const char * <parameter>command</parameter>,
     <term><literal>void * <parameter>parserSetupArg</parameter></literal></term>
     <listitem>
      <para>
+<!--
       pass-through argument for <parameter>parserSetup</parameter>
+-->
+<parameter>parserSetup</parameter>に渡される引数
      </para>
     </listitem>
    </varlistentry>
@@ -1410,7 +1876,11 @@ SPIPlanPtr SPI_prepare_params(const char * <parameter>command</parameter>,
     <term><literal>int <parameter>cursorOptions</parameter></literal></term>
     <listitem>
      <para>
+<!--
       integer bit mask of cursor options; zero produces default behavior
+-->
+カーソルオプションの整数ビットマスク。
+ゼロはデフォルトの動作を引き起こします
      </para>
     </listitem>
    </varlistentry>
@@ -1418,11 +1888,17 @@ SPIPlanPtr SPI_prepare_params(const char * <parameter>command</parameter>,
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    <function>SPI_prepare_params</function> has the same return conventions as
    <function>SPI_prepare</function>.
+-->
+<function>SPI_prepare_params</function>は<function>SPI_prepare</function>と同じ戻り値の規則を持ちます。
   </para>
  </refsect1>
 </refentry>
@@ -1439,8 +1915,13 @@ SPIPlanPtr SPI_prepare_params(const char * <parameter>command</parameter>,
 
  <refnamediv>
   <refname>SPI_getargcount</refname>
+<!--
   <refpurpose>return the number of arguments needed by a statement
   prepared by <function>SPI_prepare</function></refpurpose>
+-->
+  <refpurpose>
+<function>SPI_prepare</function>により準備した文に必要とされる引数の数を返す
+  </refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -1450,23 +1931,35 @@ int SPI_getargcount(SPIPlanPtr <parameter>plan</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_getargcount</function> returns the number of arguments needed
    to execute a statement prepared by <function>SPI_prepare</function>.
+-->
+<function>SPI_getargcount</function>は、<function>SPI_prepare</function>により準備された文を実行する時に必要とされる引数の数を返します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文です。
      </para>
     </listitem>
    </varlistentry>
@@ -1474,12 +1967,19 @@ int SPI_getargcount(SPIPlanPtr <parameter>plan</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
   <para>
+<!--
     The count of expected arguments for the <parameter>plan</parameter>.
     If the <parameter>plan</parameter> is <symbol>NULL</symbol> or invalid,
     <varname>SPI_result</varname> is set to <symbol>SPI_ERROR_ARGUMENT</symbol>
     and -1 is returned.
+-->
+<parameter>plan</parameter>で想定される引数の数です。
+<parameter>plan</parameter>が<symbol>NULL</symbol>または無効な場合は<varname>SPI_result</varname>に<symbol>SPI_ERROR_ARGUMENT</symbol>が設定され、-1が返されます。
   </para>
  </refsect1>
 </refentry>
@@ -1496,8 +1996,13 @@ int SPI_getargcount(SPIPlanPtr <parameter>plan</parameter>)
 
  <refnamediv>
   <refname>SPI_getargtypeid</refname>
+<!--
   <refpurpose>return the data type OID for an argument of
   a statement prepared by <function>SPI_prepare</function></refpurpose>
+-->
+  <refpurpose>
+<function>SPI_prepare</function>で準備された文で指定される引数のデータ型のOIDを返す
+  </refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -1507,24 +2012,37 @@ Oid SPI_getargtypeid(SPIPlanPtr <parameter>plan</parameter>, int <parameter>argI
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_getargtypeid</function> returns the OID representing the type
    for the <parameter>argIndex</parameter>'th argument of a statement prepared by
    <function>SPI_prepare</function>. First argument is at index zero.
+-->
+<function>SPI_getargtypeid</function>は、<function>SPI_prepare</function>で準備された文における<parameter>argIndex</parameter>番目の引数の型を表すOIDを返します。
+インデックス0は最初の引数を示します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -1533,7 +2051,10 @@ Oid SPI_getargtypeid(SPIPlanPtr <parameter>plan</parameter>, int <parameter>argI
     <term><literal>int <parameter>argIndex</parameter></literal></term>
     <listitem>
      <para>
+<!--
       zero based index of the argument
+-->
+0から始まる引数のインデックス
      </para>
     </listitem>
    </varlistentry>
@@ -1541,8 +2062,12 @@ Oid SPI_getargtypeid(SPIPlanPtr <parameter>plan</parameter>, int <parameter>argI
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
   <para>
+<!--
     The type OID of the argument at the given index.
     If the <parameter>plan</parameter> is <symbol>NULL</symbol> or invalid,
     or <parameter>argIndex</parameter> is less than 0 or
@@ -1550,6 +2075,9 @@ Oid SPI_getargtypeid(SPIPlanPtr <parameter>plan</parameter>, int <parameter>argI
     <parameter>plan</parameter>,
     <varname>SPI_result</varname> is set to <symbol>SPI_ERROR_ARGUMENT</symbol>
     and <symbol>InvalidOid</symbol> is returned.
+-->
+指定したインデックスにおける引数の型OIDです。
+<parameter>plan</parameter>が<symbol>NULL</symbol>または無効、あるいは<parameter>argIndex</parameter>が0未満、<parameter>plan</parameter>で宣言された引数の数以上の場合、<varname>SPI_result</varname>に<symbol>SPI_ERROR_ARGUMENT</symbol>が設定され、<symbol>InvalidOid</symbol>が返されます。
   </para>
  </refsect1>
 </refentry>
@@ -1566,9 +2094,14 @@ Oid SPI_getargtypeid(SPIPlanPtr <parameter>plan</parameter>, int <parameter>argI
 
  <refnamediv>
   <refname>SPI_is_cursor_plan</refname>
+<!--
   <refpurpose>return <symbol>true</symbol> if a statement
   prepared by <function>SPI_prepare</function> can be used with
   <function>SPI_cursor_open</function></refpurpose>
+-->
+  <refpurpose>
+<function>SPI_prepare</function>で準備された文が<function>SPI_cursor_open</function>で使用できる場合に<symbol>true</symbol>を返す
+  </refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -1578,9 +2111,13 @@ bool SPI_is_cursor_plan(SPIPlanPtr <parameter>plan</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_is_cursor_plan</function> returns <symbol>true</symbol>
    if a statement prepared by <function>SPI_prepare</function> can be passed
    as an argument to <function>SPI_cursor_open</function>, or
@@ -1590,18 +2127,30 @@ bool SPI_is_cursor_plan(SPIPlanPtr <parameter>plan</parameter>)
    is allowed unless it contains an <literal>INTO</literal> clause, and
    <command>UPDATE</command> is allowed only if it contains a <literal>RETURNING</literal>
    clause.
+-->
+<function>SPI_prepare</function>で準備済み文が<function>SPI_cursor_open</function>への引数として渡すことができる場合、<function>SPI_is_cursor_plan</function>は<symbol>true</symbol>を返します。
+渡すことができない場合は<symbol>false</symbol>を返します。
+この基準は、<parameter>plan</parameter>が単一のコマンドであり、かつ、そのコマンドが呼び出し元にタプルを返すことです。
+例えば、<literal>INTO</literal>句を含んでいない<command>SELECT</command>は可能です。
+そして、<literal>RETURNING</literal>句を含む場合のみ<command>UPDATE</command>も可能です。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -1609,8 +2158,12 @@ bool SPI_is_cursor_plan(SPIPlanPtr <parameter>plan</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
   <para>
+<!--
     <symbol>true</symbol> or <symbol>false</symbol> to indicate if the
     <parameter>plan</parameter> can produce a cursor or not, with
     <varname>SPI_result</varname> set to zero.
@@ -1619,6 +2172,10 @@ bool SPI_is_cursor_plan(SPIPlanPtr <parameter>plan</parameter>)
     or if called when not connected to SPI), then
     <varname>SPI_result</varname> is set to a suitable error code
     and <symbol>false</symbol> is returned.
+-->
+<parameter>plan</parameter>がカーソルを生成することができるかどうかを示す<symbol>true</symbol>もしくは<symbol>false</symbol>です。
+そして<varname>SPI_result</varname>をゼロに設定します。
+解答を決定することができない場合（例えば<parameter>plan</parameter>が<symbol>NULL</symbol>、または無効な場合、もしくはSPI未接続時に呼び出された場合）は<varname>SPI_result</varname>に適切なエラーコードが設定され、<symbol>false</symbol>が返されます。
   </para>
  </refsect1>
 </refentry>
@@ -1635,7 +2192,10 @@ bool SPI_is_cursor_plan(SPIPlanPtr <parameter>plan</parameter>)
 
  <refnamediv>
   <refname>SPI_execute_plan</refname>
+<!--
   <refpurpose>execute a statement prepared by <function>SPI_prepare</function></refpurpose>
+-->
+  <refpurpose><function>SPI_prepare</function>で準備された文を実行する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -1646,26 +2206,39 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_execute_plan</function> executes a statement prepared by
    <function>SPI_prepare</function> or one of its siblings.
    <parameter>read_only</parameter> and
    <parameter>count</parameter> have the same interpretation as in
    <function>SPI_execute</function>.
+-->
+<function>SPI_execute_plan</function>は、<function>SPI_prepare</function>もしくは類似の関数で準備された文を実行します。
+<parameter>read_only</parameter>と<parameter>count</parameter>は<function>SPI_execute</function>と同様の解釈がなされます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -1674,8 +2247,12 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
     <term><literal>Datum * <parameter>values</parameter></literal></term>
     <listitem>
      <para>
+<!--
       An array of actual parameter values.  Must have same length as the
       statement's number of arguments.
+-->
+実パラメータ値の配列。
+文の引数の数と同じ長さでなければなりません
      </para>
     </listitem>
    </varlistentry>
@@ -1684,11 +2261,16 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
     <term><literal>const char * <parameter>nulls</parameter></literal></term>
     <listitem>
      <para>
+<!--
       An array describing which parameters are null.  Must have same length as
       the statement's number of arguments.
+-->
+どのパラメータがNULLであるかを示す配列。
+文の引数の数と同じ長さでなければなりません。
      </para>
 
      <para>
+<!--
       If <parameter>nulls</parameter> is <symbol>NULL</symbol> then
       <function>SPI_execute_plan</function> assumes that no parameters
       are null.  Otherwise, each entry of the <parameter>nulls</parameter>
@@ -1698,6 +2280,12 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
       corresponding <parameter>values</parameter> entry doesn't matter.)  Note
       that <parameter>nulls</parameter> is not a text string, just an array:
       it does not need a <literal>'\0'</literal> terminator.
+-->
+<parameter>nulls</parameter>が<symbol>NULL</symbol>の場合、<function>SPI_execute_plan</function>はすべてのパラメータがNULLではないとみなします。
+さもなければ、<parameter>nulls</parameter>配列の各項目は、対応するパラメータが非NULLならば<literal>'&nbsp;'</literal>、対応するパラメータがNULLならば<literal>'n'</literal>です。
+（後者の場合、<parameter>values</parameter>内の対応する値は注意されません。）
+<parameter>nulls</parameter>はテキスト文字列ではなく単なる配列であることに注意してください。
+<literal>'\0'</literal>終端は必要ありません。
      </para>
     </listitem>
    </varlistentry>
@@ -1705,7 +2293,12 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
    <varlistentry>
     <term><literal>bool <parameter>read_only</parameter></literal></term>
     <listitem>
+<!--
      <para><literal>true</literal> for read-only execution</para>
+-->
+     <para>
+読み取りのみの実行の場合<literal>true</literal>
+     </para>
     </listitem>
    </varlistentry>
 
@@ -1713,8 +2306,11 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to return,
       or <literal>0</literal> for no limit
+-->
+返される行の最大数。無制限なら<literal>0</literal>。
      </para>
     </listitem>
    </varlistentry>
@@ -1722,19 +2318,28 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The return value is the same as for <function>SPI_execute</function>,
    with the following additional possible error (negative) results:
+-->
+戻り値は、<function>SPI_execute</function>同様のものに加え、以下のエラー（負）の結果を取ることがあります。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_ERROR_ARGUMENT</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>plan</parameter> is <symbol>NULL</symbol> or invalid,
        or <parameter>count</parameter> is less than 0
+-->
+<parameter>plan</parameter>が<symbol>NULL</symbol>または無効、あるいは、<parameter>count</parameter>が0未満の場合
       </para>
      </listitem>
     </varlistentry>
@@ -1743,8 +2348,11 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
      <term><symbol>SPI_ERROR_PARAM</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>values</parameter> is <symbol>NULL</symbol> and
        <parameter>plan</parameter> was prepared with some parameters
+-->
+<parameter>values</parameter>が<symbol>NULL</symbol>、かつ、<parameter>plan</parameter>がパラメータ付きで準備された場合
       </para>
      </listitem>
     </varlistentry>
@@ -1752,9 +2360,12 @@ int SPI_execute_plan(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>
   </para>
 
   <para>
+<!--
    <varname>SPI_processed</varname> and
    <varname>SPI_tuptable</varname> are set as in
    <function>SPI_execute</function> if successful.
+-->
+成功時、<varname>SPI_processed</varname>と<varname>SPI_tuptable</varname>が<function>SPI_execute</function>同様に設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -1937,7 +2548,10 @@ int SPI_execute_plan_extended(SPIPlanPtr <parameter>plan</parameter>,
 
  <refnamediv>
   <refname>SPI_execute_plan_with_paramlist</refname>
+<!--
   <refpurpose>execute a statement prepared by <function>SPI_prepare</function></refpurpose>
+-->
+  <refpurpose><function>SPI_prepare</function>で準備された文を実行する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -1950,9 +2564,13 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_execute_plan_with_paramlist</function> executes a statement
    prepared by <function>SPI_prepare</function>.
    This function is equivalent to <function>SPI_execute_plan</function>
@@ -1961,6 +2579,11 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
    representation can be convenient for passing down values that are
    already available in that format.  It also supports use of dynamic
    parameter sets via hook functions specified in <literal>ParamListInfo</literal>.
+-->
+<function>SPI_execute_plan_with_paramlist</function>は<function>SPI_prepare</function>で準備された文を実行します。
+この関数は<function>SPI_execute_plan</function>と同じですが、問い合わせに渡されるパラメータ値に関する情報が別途存在する点が異なります。
+<literal>ParamListInfo</literal>表現は、すでに利用可能な形式で値を渡すために便利です。
+また<literal>ParamListInfo</literal>で指定されたフック関数経由での動的なパラメータ群の使用をサポートします。
   </para>
 
   <para>
@@ -1970,14 +2593,20 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -1986,7 +2615,11 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
     <term><literal>ParamListInfo <parameter>params</parameter></literal></term>
     <listitem>
      <para>
+<!--
       data structure containing parameter types and values; NULL if none
+-->
+パラメータの型と値からなるデータ構造。
+なければヌル。
      </para>
     </listitem>
    </varlistentry>
@@ -1994,7 +2627,12 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
    <varlistentry>
     <term><literal>bool <parameter>read_only</parameter></literal></term>
     <listitem>
+<!--
      <para><literal>true</literal> for read-only execution</para>
+-->
+     <para>
+読み取りのみの実行の場合<literal>true</literal>
+     </para>
     </listitem>
    </varlistentry>
 
@@ -2002,8 +2640,11 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to return,
       or <literal>0</literal> for no limit
+-->
+返される行の最大数。無制限なら<literal>0</literal>。
      </para>
     </listitem>
    </varlistentry>
@@ -2011,16 +2652,25 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The return value is the same as for <function>SPI_execute_plan</function>.
+-->
+戻り値は<function>SPI_execute_plan</function>と同じです。
   </para>
 
   <para>
+<!--
    <varname>SPI_processed</varname> and
    <varname>SPI_tuptable</varname> are set as in
    <function>SPI_execute_plan</function> if successful.
+-->
+成功時、<varname>SPI_processed</varname>と<varname>SPI_tuptable</varname>が<function>SPI_execute_plan</function>同様に設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -2037,7 +2687,10 @@ int SPI_execute_plan_with_paramlist(SPIPlanPtr <parameter>plan</parameter>,
 
  <refnamediv>
   <refname>SPI_execp</refname>
+<!--
   <refpurpose>execute a statement in read/write mode</refpurpose>
+-->
+  <refpurpose>読み書きモードで文を実行する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2047,25 +2700,37 @@ int SPI_execp(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>values<
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_execp</function> is the same as
    <function>SPI_execute_plan</function>, with the latter's
    <parameter>read_only</parameter> parameter always taken as
    <literal>false</literal>.
+-->
+<function>SPI_execp</function>は、常に<parameter>read_only</parameter>パラメータを<literal>false</literal>とした<function>SPI_execute_plan</function>と同じです。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -2074,8 +2739,12 @@ int SPI_execp(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>values<
     <term><literal>Datum * <parameter>values</parameter></literal></term>
     <listitem>
      <para>
+<!--
       An array of actual parameter values.  Must have same length as the
       statement's number of arguments.
+-->
+実パラメータ値の配列。
+文の引数の数と同じ長さでなければなりません。
      </para>
     </listitem>
    </varlistentry>
@@ -2084,11 +2753,16 @@ int SPI_execp(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>values<
     <term><literal>const char * <parameter>nulls</parameter></literal></term>
     <listitem>
      <para>
+<!--
       An array describing which parameters are null.  Must have same length as
       the statement's number of arguments.
+-->
+どのパラメータがNULLであるかを示す配列。
+文の引数の数と同じ長さでなければなりません。
      </para>
 
      <para>
+<!--
       If <parameter>nulls</parameter> is <symbol>NULL</symbol> then
       <function>SPI_execp</function> assumes that no parameters
       are null.  Otherwise, each entry of the <parameter>nulls</parameter>
@@ -2098,6 +2772,12 @@ int SPI_execp(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>values<
       corresponding <parameter>values</parameter> entry doesn't matter.)  Note
       that <parameter>nulls</parameter> is not a text string, just an array:
       it does not need a <literal>'\0'</literal> terminator.
+-->
+<parameter>nulls</parameter>が<symbol>NULL</symbol>の場合、<function>SPI_execp</function>はすべてのパラメータがNULLではないとみなします。
+さもなければ、<parameter>nulls</parameter>配列の各項目は、対応するパラメータが非NULLならば<literal>'&nbsp;'</literal>、対応するパラメータがNULLならば<literal>'n'</literal>です。
+（後者の場合、<parameter>values</parameter>内の対応する値は注意されません。）
+<parameter>nulls</parameter>はテキスト文字列ではなく単なる配列であることに注意してください。
+<literal>'\0'</literal>終端は必要ありません。
      </para>
     </listitem>
    </varlistentry>
@@ -2106,8 +2786,11 @@ int SPI_execp(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>values<
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to return,
       or <literal>0</literal> for no limit
+-->
+返される行の最大数。無制限なら<literal>0</literal>。
      </para>
     </listitem>
    </varlistentry>
@@ -2115,16 +2798,25 @@ int SPI_execp(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>values<
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    See <function>SPI_execute_plan</function>.
+-->
+<function>SPI_execute_plan</function>を参照してください。
   </para>
 
   <para>
+<!--
    <varname>SPI_processed</varname> and
    <varname>SPI_tuptable</varname> are set as in
    <function>SPI_execute</function> if successful.
+-->
+成功時、<function>SPI_execute</function>同様に<varname>SPI_processed</varname>と<varname>SPI_tuptable</varname>が設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -2141,7 +2833,10 @@ int SPI_execp(SPIPlanPtr <parameter>plan</parameter>, Datum * <parameter>values<
 
  <refnamediv>
   <refname>SPI_cursor_open</refname>
+<!--
   <refpurpose>set up a cursor using a statement created with <function>SPI_prepare</function></refpurpose>
+-->
+  <refpurpose><function>SPI_prepare</function>で作成された文を使用したカーソルを設定する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2153,17 +2848,25 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_cursor_open</function> sets up a cursor (internally,
    a portal) that will execute a statement prepared by
    <function>SPI_prepare</function>.  The parameters have the same
    meanings as the corresponding parameters to
    <function>SPI_execute_plan</function>.
+-->
+<function>SPI_cursor_open</function>は、<function>SPI_prepare</function>によって準備された文を実行するカーソル（内部的にはポータル）を設定します。
+このパラメータは<function>SPI_execute_plan</function>の対応するパラメータと同じ意味を持ちます。
   </para>
 
   <para>
+<!--
    Using a cursor instead of executing the statement directly has two
    benefits.  First, the result rows can be retrieved a few at a time,
    avoiding memory overrun for queries that return many rows.  Second,
@@ -2171,24 +2874,39 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
    to the end of the current transaction).  Returning the portal name
    to the C function's caller provides a way of returning a row set as
    result.
+-->
+文を直接実行するのではなくカーソルを使用することには2つの利点があります。
+1つ目は、結果行を一度に少なく取り出し、多くの行を返す問い合わせでのメモリの過使用を防ぐことができる点です。
+2つ目は、ポータルは現在のC関数の外部でも有効である点です（実際、現在のトランザクションの終端まで有効とすることができます）。
+C関数の呼び出し元にポータルの名前を返すことで、結果として行セットを返す手段を提供します。
   </para>
 
   <para>
+<!--
    The passed-in parameter data will be copied into the cursor's portal, so it
    can be freed while the cursor still exists.
+-->
+渡されるパラメータデータはカーソルのポータルにコピーされます。
+そのため、カーソルが存在している間にそのデータを解放することができます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>name</parameter></literal></term>
     <listitem>
      <para>
+<!--
       name for portal, or <symbol>NULL</symbol> to let the system
       select a name
+-->
+ポータルの名前、あるいはシステムに名前を決定させる場合は<symbol>NULL</symbol>
      </para>
     </listitem>
    </varlistentry>
@@ -2197,7 +2915,10 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -2206,8 +2927,12 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
     <term><literal>Datum * <parameter>values</parameter></literal></term>
     <listitem>
      <para>
+<!--
       An array of actual parameter values.  Must have same length as the
       statement's number of arguments.
+-->
+実パラメータ値の配列。
+文の引数の数と同じ長さでなければなりません。
      </para>
     </listitem>
    </varlistentry>
@@ -2216,11 +2941,16 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
     <term><literal>const char * <parameter>nulls</parameter></literal></term>
     <listitem>
      <para>
+<!--
       An array describing which parameters are null.  Must have same length as
       the statement's number of arguments.
+-->
+どのパラメータがNULLであるかを示す配列。
+文の引数の数と同じ長さでなければなりません。
      </para>
 
      <para>
+<!--
       If <parameter>nulls</parameter> is <symbol>NULL</symbol> then
       <function>SPI_cursor_open</function> assumes that no parameters
       are null.  Otherwise, each entry of the <parameter>nulls</parameter>
@@ -2230,6 +2960,12 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
       corresponding <parameter>values</parameter> entry doesn't matter.)  Note
       that <parameter>nulls</parameter> is not a text string, just an array:
       it does not need a <literal>'\0'</literal> terminator.
+-->
+<parameter>nulls</parameter>が<symbol>NULL</symbol>の場合、<function>SPI_cursor_open</function>は全てのパラメータがNULLではないとみなします。
+さもなければ、<parameter>nulls</parameter>配列の各項目は、対応するパラメータが非NULLならば<literal>'&nbsp;'</literal>、対応するパラメータがNULLならば<literal>'n'</literal>です。
+（後者の場合、<parameter>values</parameter>内の対応する値は注意されません。）
+<parameter>nulls</parameter>はテキスト文字列ではなく単なる配列であることに注意してください。
+<literal>'\0'</literal>終端は必要ありません。
      </para>
     </listitem>
    </varlistentry>
@@ -2237,18 +2973,31 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
    <varlistentry>
     <term><literal>bool <parameter>read_only</parameter></literal></term>
     <listitem>
+<!--
      <para><literal>true</literal> for read-only execution</para>
+-->
+     <para>
+読み取りのみの実行の場合<literal>true</literal>
+     </para>
     </listitem>
    </varlistentry>
   </variablelist>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    Pointer to portal containing the cursor.  Note there is no error
    return convention; any error will be reported via <function>elog</function>.
+-->
+カーソルを含むポータルへのポインタ。
+戻り値の規約にはエラーを表すものがないことに注意してください。
+エラーはすべて<function>elog</function>経由で報告されます。
   </para>
  </refsect1>
 </refentry>
@@ -2265,7 +3014,10 @@ Portal SPI_cursor_open(const char * <parameter>name</parameter>, SPIPlanPtr <par
 
  <refnamediv>
   <refname>SPI_cursor_open_with_args</refname>
+<!--
   <refpurpose>set up a cursor using a query and parameters</refpurpose>
+-->
+  <refpurpose>問い合わせとパラメータを使ってカーソルを設定する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2279,28 +3031,42 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_cursor_open_with_args</function> sets up a cursor
    (internally, a portal) that will execute the specified query.
    Most of the parameters have the same meanings as the corresponding
    parameters to <function>SPI_prepare_cursor</function>
    and <function>SPI_cursor_open</function>.
+-->
+<function>SPI_cursor_open_with_args</function>は特定の問い合わせを実行するカーソル（内部的にはポータル）を設定します。
+ほとんどのパラメータは<function>SPI_prepare_cursor</function>と<function>SPI_cursor_open</function>に対応するパラメータと同じ意味を持っています。
   </para>
 
   <para>
+<!--
    For one-time query execution, this function should be preferred
    over <function>SPI_prepare_cursor</function> followed by
    <function>SPI_cursor_open</function>.
    If the same command is to be executed with many different parameters,
    either method might be faster, depending on the cost of re-planning
    versus the benefit of custom plans.
+-->
+１回限りの問い合わせ実行に対しては、後に<function>SPI_cursor_open</function>が続いた<function>SPI_prepare_cursor</function>よりも、この関数を選ぶべきです。
+多くの異なったパラメータを持つ同一のコマンドを実行する場合、再計画のコストと独自計画による利益に依存して、どちらか一方の方法がより早くなります。
   </para>
 
   <para>
+<!--
    The passed-in parameter data will be copied into the cursor's portal, so it
    can be freed while the cursor still exists.
+-->
+渡されたパラメータデータはカーソルのポータルにコピーされますので、カーソルが存在している間は解放することができます。
   </para>
 
   <para>
@@ -2311,15 +3077,21 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>name</parameter></literal></term>
     <listitem>
      <para>
+<!--
       name for portal, or <symbol>NULL</symbol> to let the system
       select a name
+-->
+ポータルの名前、またはシステムに名前を選択させる<symbol>NULL</symbol>
      </para>
     </listitem>
    </varlistentry>
@@ -2328,7 +3100,10 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
     <term><literal>const char * <parameter>command</parameter></literal></term>
     <listitem>
      <para>
+<!--
       command string
+-->
+コマンド文字列
      </para>
     </listitem>
    </varlistentry>
@@ -2337,7 +3112,10 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
     <term><literal>int <parameter>nargs</parameter></literal></term>
     <listitem>
      <para>
+<!--
       number of input parameters (<literal>$1</literal>, <literal>$2</literal>, etc.)
+-->
+入力パラメータ（<literal>$1</literal>、<literal>$2</literal>など）の数
      </para>
     </listitem>
    </varlistentry>
@@ -2346,8 +3124,11 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
     <term><literal>Oid * <parameter>argtypes</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>nargs</parameter>, containing the
       <acronym>OID</acronym>s of the data types of the parameters
+-->
+パラメータのデータ型の<acronym>OID</acronym>を含む、<parameter>nargs</parameter>長の配列
      </para>
     </listitem>
    </varlistentry>
@@ -2356,8 +3137,11 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
     <term><literal>Datum * <parameter>values</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>nargs</parameter>, containing the actual
       parameter values
+-->
+実パラメータ値を含む、<parameter>nargs</parameter>長の配列
      </para>
     </listitem>
    </varlistentry>
@@ -2366,11 +3150,15 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
     <term><literal>const char * <parameter>nulls</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>nargs</parameter>, describing which
       parameters are null
+-->
+どのパラメータがnullかを記述する、<parameter>nargs</parameter>長の配列
      </para>
 
      <para>
+<!--
       If <parameter>nulls</parameter> is <symbol>NULL</symbol> then
       <function>SPI_cursor_open_with_args</function> assumes that no parameters
       are null.  Otherwise, each entry of the <parameter>nulls</parameter>
@@ -2380,6 +3168,12 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
       corresponding <parameter>values</parameter> entry doesn't matter.)  Note
       that <parameter>nulls</parameter> is not a text string, just an array:
       it does not need a <literal>'\0'</literal> terminator.
+-->
+<parameter>nulls</parameter>が<symbol>NULL</symbol>であれば、<function>SPI_cursor_open_with_args</function>はどのパラメータもnullでないとみなします。
+さもなければ、<parameter>nulls</parameter>配列の各項目は、対応するパラメータが非NULLならば<literal>'&nbsp;'</literal>、対応するパラメータがNULLならば<literal>'n'</literal>です。
+（後者の場合、<parameter>values</parameter>内の対応する値は注意されません。）
+<parameter>nulls</parameter>はテキスト文字列ではなく単なる配列であることに注意してください。
+<literal>'\0'</literal>終端は必要ありません。
      </para>
     </listitem>
    </varlistentry>
@@ -2387,7 +3181,12 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
    <varlistentry>
     <term><literal>bool <parameter>read_only</parameter></literal></term>
     <listitem>
+<!--
      <para><literal>true</literal> for read-only execution</para>
+-->
+     <para>
+読み取りのみの実行の場合<literal>true</literal>
+     </para>
     </listitem>
    </varlistentry>
 
@@ -2395,7 +3194,10 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
     <term><literal>int <parameter>cursorOptions</parameter></literal></term>
     <listitem>
      <para>
+<!--
       integer bit mask of cursor options; zero produces default behavior
+-->
+カーソルオプションの整数ビットマスク。ゼロの場合はデフォルトの動作
      </para>
     </listitem>
    </varlistentry>
@@ -2403,11 +3205,19 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    Pointer to portal containing the cursor.  Note there is no error
    return convention; any error will be reported via <function>elog</function>.
+-->
+カーソルを含んだポータルへのポインタ。
+エラーを返す規約がないことに注意してください。
+すべてのエラーは<function>elog</function>で報告されます。
   </para>
  </refsect1>
 </refentry>
@@ -2424,7 +3234,10 @@ Portal SPI_cursor_open_with_args(const char *<parameter>name</parameter>,
 
  <refnamediv>
   <refname>SPI_cursor_open_with_paramlist</refname>
+<!--
   <refpurpose>set up a cursor using parameters</refpurpose>
+-->
+  <refpurpose>パラメータを使ってカーソルを設定する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2437,9 +3250,13 @@ Portal SPI_cursor_open_with_paramlist(const char *<parameter>name</parameter>,
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_cursor_open_with_paramlist</function> sets up a cursor
    (internally, a portal) that will execute a statement prepared by
    <function>SPI_prepare</function>.
@@ -2449,24 +3266,39 @@ Portal SPI_cursor_open_with_paramlist(const char *<parameter>name</parameter>,
    representation can be convenient for passing down values that are
    already available in that format.  It also supports use of dynamic
    parameter sets via hook functions specified in <literal>ParamListInfo</literal>.
+-->
+<function>SPI_cursor_open_with_paramlist</function>は<function>SPI_prepare</function>で準備された文を実行するカーソル(内部的にはポータル)を設定します。
+この関数は<function>SPI_cursor_open</function>と同じですが、問い合わせに渡されるパラメータ値に関する情報が別途存在することが異なります。
+<literal>ParamListInfo</literal>表現は、すでに利用可能な形式で値を渡すために便利です。
+また<literal>ParamListInfo</literal>で指定されたフック関数経由での動的なパラメータ群の使用をサポートします。
   </para>
 
   <para>
+<!--
    The passed-in parameter data will be copied into the cursor's portal, so it
    can be freed while the cursor still exists.
+-->
+渡されるパラメータデータはカーソルのポータルにコピーされます。
+そのため、カーソルが存在している間にそのデータを解放することができます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>name</parameter></literal></term>
     <listitem>
      <para>
+<!--
       name for portal, or <symbol>NULL</symbol> to let the system
       select a name
+-->
+ポータルの名前、あるいはシステムに名前を決定させる場合は<symbol>NULL</symbol>
      </para>
     </listitem>
    </varlistentry>
@@ -2475,7 +3307,10 @@ Portal SPI_cursor_open_with_paramlist(const char *<parameter>name</parameter>,
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       prepared statement (returned by <function>SPI_prepare</function>)
+-->
+（<function>SPI_prepare</function>で返される）準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -2484,7 +3319,11 @@ Portal SPI_cursor_open_with_paramlist(const char *<parameter>name</parameter>,
     <term><literal>ParamListInfo <parameter>params</parameter></literal></term>
     <listitem>
      <para>
+<!--
       data structure containing parameter types and values; NULL if none
+-->
+パラメータの型と値からなるデータ構造。
+なければヌル。
      </para>
     </listitem>
    </varlistentry>
@@ -2492,18 +3331,31 @@ Portal SPI_cursor_open_with_paramlist(const char *<parameter>name</parameter>,
    <varlistentry>
     <term><literal>bool <parameter>read_only</parameter></literal></term>
     <listitem>
+<!--
      <para><literal>true</literal> for read-only execution</para>
+-->
+     <para>
+読み取りのみの実行の場合<literal>true</literal>
+     </para>
     </listitem>
    </varlistentry>
   </variablelist>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    Pointer to portal containing the cursor.  Note there is no error
    return convention; any error will be reported via <function>elog</function>.
+-->
+カーソルを含むポータルへのポインタ。
+戻り値の規約にはエラーを表すものがないことに注意してください。
+エラーはすべて<function>elog</function>経由で報告されます。
   </para>
  </refsect1>
 </refentry>
@@ -2655,7 +3507,10 @@ Portal SPI_cursor_parse_open(const char *<parameter>name</parameter>,
 
  <refnamediv>
   <refname>SPI_cursor_find</refname>
+<!--
   <refpurpose>find an existing cursor by name</refpurpose>
+-->
+  <refpurpose>既存のカーソルを名前で検索する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2665,24 +3520,37 @@ Portal SPI_cursor_find(const char * <parameter>name</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_cursor_find</function> finds an existing portal by
    name.  This is primarily useful to resolve a cursor name returned
    as text by some other function.
+-->
+<function>SPI_cursor_find</function>は既存のカーソルを名前で検索します。
+これは主に、他の何らかの関数でテキストとして返されたカーソル名の名前解決の際に使用されます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>name</parameter></literal></term>
     <listitem>
      <para>
+<!--
       name of the portal
+-->
+ポータルの名前
      </para>
     </listitem>
    </varlistentry>
@@ -2690,11 +3558,17 @@ Portal SPI_cursor_find(const char * <parameter>name</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    pointer to the portal with the specified name, or
    <symbol>NULL</symbol> if none was found
+-->
+指定された名前のポータルへのポインタ。見つからない場合は<symbol>NULL</symbol>です。
   </para>
  </refsect1>
 </refentry>
@@ -2711,7 +3585,10 @@ Portal SPI_cursor_find(const char * <parameter>name</parameter>)
 
  <refnamediv>
   <refname>SPI_cursor_fetch</refname>
+<!--
   <refpurpose>fetch some rows from a cursor</refpurpose>
+-->
+  <refpurpose>カーソルから数行を取り出す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2721,25 +3598,39 @@ void SPI_cursor_fetch(Portal <parameter>portal</parameter>, bool <parameter>forw
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_cursor_fetch</function> fetches some rows from a
    cursor.  This is equivalent to a subset of the SQL command
    <command>FETCH</command> (see <function>SPI_scroll_cursor_fetch</function>
    for more functionality).
+-->
+<function>SPI_cursor_fetch</function>はカーソルから数行を取り出します。
+これは、<command>FETCH</command> SQLコマンドと部分的に等価です。
+（詳細機能については<function>SPI_scroll_cursor_fetch</function>を参照してください。）
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Portal <parameter>portal</parameter></literal></term>
     <listitem>
      <para>
+<!--
       portal containing the cursor
+-->
+カーソルを持つポータル
      </para>
     </listitem>
    </varlistentry>
@@ -2748,7 +3639,10 @@ void SPI_cursor_fetch(Portal <parameter>portal</parameter>, bool <parameter>forw
     <term><literal>bool <parameter>forward</parameter></literal></term>
     <listitem>
      <para>
+<!--
       true for fetch forward, false for fetch backward
+-->
+前方方向の取り出しの場合、真。後方方向の場合は偽。
      </para>
     </listitem>
    </varlistentry>
@@ -2757,7 +3651,10 @@ void SPI_cursor_fetch(Portal <parameter>portal</parameter>, bool <parameter>forw
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to fetch
+-->
+取り出す最大行数。
      </para>
     </listitem>
    </varlistentry>
@@ -2765,21 +3662,33 @@ void SPI_cursor_fetch(Portal <parameter>portal</parameter>, bool <parameter>forw
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    <varname>SPI_processed</varname> and
    <varname>SPI_tuptable</varname> are set as in
    <function>SPI_execute</function> if successful.
+-->
+成功時、<varname>SPI_processed</varname>と<varname>SPI_tuptable</varname>が<function>SPI_execute</function>同様に設定されます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    Fetching backward may fail if the cursor's plan was not created
    with the <symbol>CURSOR_OPT_SCROLL</symbol> option.
+-->
+カーソルの計画が <symbol>CURSOR_OPT_SCROLL</symbol>オプションを付けて作成されなかった場合、後方方向の取り出しは失敗する可能性があります。
   </para>
  </refsect1>
 </refentry>
@@ -2796,7 +3705,10 @@ void SPI_cursor_fetch(Portal <parameter>portal</parameter>, bool <parameter>forw
 
  <refnamediv>
   <refname>SPI_cursor_move</refname>
+<!--
   <refpurpose>move a cursor</refpurpose>
+-->
+  <refpurpose>カーソルを移動する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2806,25 +3718,39 @@ void SPI_cursor_move(Portal <parameter>portal</parameter>, bool <parameter>forwa
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_cursor_move</function> skips over some number of rows
    in a cursor.  This is equivalent to a subset of the SQL command
    <command>MOVE</command> (see <function>SPI_scroll_cursor_move</function>
    for more functionality).
+-->
+<function>SPI_cursor_move</function>はカーソル内で、数行を飛ばします。
+これは<command>MOVE</command> SQLコマンドと部分的に等価です。
+（詳細機能については<function>SPI_scroll_cursor_move</function>を参照してください。）
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Portal <parameter>portal</parameter></literal></term>
     <listitem>
      <para>
+<!--
       portal containing the cursor
+-->
+カーソルを持つポータル
      </para>
     </listitem>
    </varlistentry>
@@ -2833,7 +3759,10 @@ void SPI_cursor_move(Portal <parameter>portal</parameter>, bool <parameter>forwa
     <term><literal>bool <parameter>forward</parameter></literal></term>
     <listitem>
      <para>
+<!--
       true for move forward, false for move backward
+-->
+前方方向の移動の場合、真。後方方向の場合は偽。
      </para>
     </listitem>
    </varlistentry>
@@ -2842,7 +3771,10 @@ void SPI_cursor_move(Portal <parameter>portal</parameter>, bool <parameter>forwa
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       maximum number of rows to move
+-->
+移動する最大行数。
      </para>
     </listitem>
    </varlistentry>
@@ -2850,11 +3782,17 @@ void SPI_cursor_move(Portal <parameter>portal</parameter>, bool <parameter>forwa
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    Moving backward may fail if the cursor's plan was not created
    with the <symbol>CURSOR_OPT_SCROLL</symbol> option.
+-->
+カーソルの計画が<symbol>CURSOR_OPT_SCROLL</symbol>オプション付きで作成されなかった場合、後方方向への移動は失敗する可能性があります。
   </para>
  </refsect1>
 </refentry>
@@ -2871,7 +3809,10 @@ void SPI_cursor_move(Portal <parameter>portal</parameter>, bool <parameter>forwa
 
  <refnamediv>
   <refname>SPI_scroll_cursor_fetch</refname>
+<!--
   <refpurpose>fetch some rows from a cursor</refpurpose>
+-->
+  <refpurpose>カーソルから一部の行を取り出す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2882,23 +3823,36 @@ void SPI_scroll_cursor_fetch(Portal <parameter>portal</parameter>, FetchDirectio
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_scroll_cursor_fetch</function> fetches some rows from a
    cursor.  This is equivalent to the SQL command <command>FETCH</command>.
+-->
+<function>SPI_scroll_cursor_fetch</function>はカーソルから行の一部を取り出します。
+これはSQLコマンド<command>FETCH</command>と等価です。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Portal <parameter>portal</parameter></literal></term>
     <listitem>
      <para>
+<!--
       portal containing the cursor
+-->
+カーソルを含むポータル
      </para>
     </listitem>
    </varlistentry>
@@ -2907,10 +3861,13 @@ void SPI_scroll_cursor_fetch(Portal <parameter>portal</parameter>, FetchDirectio
     <term><literal>FetchDirection <parameter>direction</parameter></literal></term>
     <listitem>
      <para>
+<!--
       one of <symbol>FETCH_FORWARD</symbol>,
       <symbol>FETCH_BACKWARD</symbol>,
       <symbol>FETCH_ABSOLUTE</symbol> or
       <symbol>FETCH_RELATIVE</symbol>
+-->
+<symbol>FETCH_FORWARD</symbol>、<symbol>FETCH_BACKWARD</symbol>、<symbol>FETCH_ABSOLUTE</symbol>、<symbol>FETCH_RELATIVE</symbol>のいずれか
      </para>
     </listitem>
    </varlistentry>
@@ -2919,11 +3876,16 @@ void SPI_scroll_cursor_fetch(Portal <parameter>portal</parameter>, FetchDirectio
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       number of rows to fetch for
       <symbol>FETCH_FORWARD</symbol> or
       <symbol>FETCH_BACKWARD</symbol>; absolute row number to fetch for
       <symbol>FETCH_ABSOLUTE</symbol>; or relative row number to fetch for
       <symbol>FETCH_RELATIVE</symbol>
+-->
+<symbol>FETCH_FORWARD</symbol>または<symbol>FETCH_BACKWARD</symbol>では取り出す行数。
+<symbol>FETCH_ABSOLUTE</symbol>では取り出す行の絶対番号。
+<symbol>FETCH_RELATIVE</symbol>では取り出す行の相対的番号。
      </para>
     </listitem>
    </varlistentry>
@@ -2931,29 +3893,44 @@ void SPI_scroll_cursor_fetch(Portal <parameter>portal</parameter>, FetchDirectio
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    <varname>SPI_processed</varname> and
    <varname>SPI_tuptable</varname> are set as in
    <function>SPI_execute</function> if successful.
+-->
+成功時、<function>SPI_execute</function>同様に<varname>SPI_processed</varname>と<varname>SPI_tuptable</varname>が設定されます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    See the SQL <xref linkend="sql-fetch"/> command
    for details of the interpretation of the
    <parameter>direction</parameter> and
    <parameter>count</parameter> parameters.
+-->
+<parameter>direction</parameter>パラメータおよび<parameter>count</parameter>パラメータの解釈の詳細についてはSQL <xref linkend="sql-fetch"/>コマンドを参照してください。
   </para>
 
   <para>
+<!--
    Direction values other than <symbol>FETCH_FORWARD</symbol>
    may fail if the cursor's plan was not created
    with the <symbol>CURSOR_OPT_SCROLL</symbol> option.
+-->
+カーソルの計画が<symbol>CURSOR_OPT_SCROLL</symbol>オプション付きで作成されていない場合、<symbol>FETCH_FORWARD</symbol>以外の方向値は失敗する可能性があります。
   </para>
  </refsect1>
 </refentry>
@@ -2970,7 +3947,10 @@ void SPI_scroll_cursor_fetch(Portal <parameter>portal</parameter>, FetchDirectio
 
  <refnamediv>
   <refname>SPI_scroll_cursor_move</refname>
+<!--
   <refpurpose>move a cursor</refpurpose>
+-->
+  <refpurpose>カーソルを移動する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -2981,24 +3961,37 @@ void SPI_scroll_cursor_move(Portal <parameter>portal</parameter>, FetchDirection
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_scroll_cursor_move</function> skips over some number of rows
    in a cursor.  This is equivalent to the SQL command
    <command>MOVE</command>.
+-->
+<function>SPI_scroll_cursor_move</function>はカーソル内の行の一部を飛ばします。
+これはSQLコマンド<command>MOVE</command>と等価です。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Portal <parameter>portal</parameter></literal></term>
     <listitem>
      <para>
+<!--
       portal containing the cursor
+-->
+カーソルを含むポータル
      </para>
     </listitem>
    </varlistentry>
@@ -3007,10 +4000,13 @@ void SPI_scroll_cursor_move(Portal <parameter>portal</parameter>, FetchDirection
     <term><literal>FetchDirection <parameter>direction</parameter></literal></term>
     <listitem>
      <para>
+<!--
       one of <symbol>FETCH_FORWARD</symbol>,
       <symbol>FETCH_BACKWARD</symbol>,
       <symbol>FETCH_ABSOLUTE</symbol> or
       <symbol>FETCH_RELATIVE</symbol>
+-->
+<symbol>FETCH_FORWARD</symbol>、<symbol>FETCH_BACKWARD</symbol>、<symbol>FETCH_ABSOLUTE</symbol>、<symbol>FETCH_RELATIVE</symbol>のいずれか
      </para>
     </listitem>
    </varlistentry>
@@ -3019,11 +4015,16 @@ void SPI_scroll_cursor_move(Portal <parameter>portal</parameter>, FetchDirection
     <term><literal>long <parameter>count</parameter></literal></term>
     <listitem>
      <para>
+<!--
       number of rows to move for
       <symbol>FETCH_FORWARD</symbol> or
       <symbol>FETCH_BACKWARD</symbol>; absolute row number to move to for
       <symbol>FETCH_ABSOLUTE</symbol>; or relative row number to move to for
       <symbol>FETCH_RELATIVE</symbol>
+-->
+<symbol>FETCH_FORWARD</symbol>または<symbol>FETCH_BACKWARD</symbol>では移動する行数。
+<symbol>FETCH_ABSOLUTE</symbol>では移動する行の絶対番号。
+<symbol>FETCH_RELATIVE</symbol>では移動する行の相対的番号。
      </para>
     </listitem>
    </varlistentry>
@@ -3031,30 +4032,46 @@ void SPI_scroll_cursor_move(Portal <parameter>portal</parameter>, FetchDirection
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    <varname>SPI_processed</varname> is set as in
    <function>SPI_execute</function> if successful.
    <varname>SPI_tuptable</varname> is set to <symbol>NULL</symbol>, since
    no rows are returned by this function.
+-->
+成功時、<function>SPI_execute</function>同様に<varname>SPI_processed</varname>が設定されます。
+この関数は行を返しませんので、<varname>SPI_tuptable</varname>は<symbol>NULL</symbol>に設定されます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    See the SQL <xref linkend="sql-fetch"/> command
    for details of the interpretation of the
    <parameter>direction</parameter> and
    <parameter>count</parameter> parameters.
+-->
+<parameter>direction</parameter>パラメータおよび<parameter>count</parameter>パラメータの解釈の詳細についてはSQL <xref linkend="sql-fetch"/>コマンドを参照してください。
   </para>
 
   <para>
+<!--
    Direction values other than <symbol>FETCH_FORWARD</symbol>
    may fail if the cursor's plan was not created
    with the <symbol>CURSOR_OPT_SCROLL</symbol> option.
+-->
+カーソルの計画が<symbol>CURSOR_OPT_SCROLL</symbol>オプション付きで作成されていない場合、<symbol>FETCH_FORWARD</symbol>以外の方向値は失敗する可能性があります。
   </para>
  </refsect1>
 </refentry>
@@ -3071,7 +4088,10 @@ void SPI_scroll_cursor_move(Portal <parameter>portal</parameter>, FetchDirection
 
  <refnamediv>
   <refname>SPI_cursor_close</refname>
+<!--
   <refpurpose>close a cursor</refpurpose>
+-->
+  <refpurpose>カーソルを閉じる</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3081,29 +4101,45 @@ void SPI_cursor_close(Portal <parameter>portal</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_cursor_close</function> closes a previously created
    cursor and releases its portal storage.
+-->
+<function>SPI_cursor_close</function>は事前に作成されたカーソルを閉じ、そのポータル用の領域を解放します。
   </para>
 
   <para>
+<!--
    All open cursors are closed automatically at the end of a
    transaction.  <function>SPI_cursor_close</function> need only be
    invoked if it is desirable to release resources sooner.
+-->
+トランザクションの終了時に全ての開いているカーソルが自動的に閉ざされます。
+<function>SPI_cursor_close</function>は、リソースの解放をより早めに行いたい場合にのみ呼び出す必要があります。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Portal <parameter>portal</parameter></literal></term>
     <listitem>
      <para>
+<!--
       portal containing the cursor
+-->
+カーソルを持つポータル
      </para>
     </listitem>
    </varlistentry>
@@ -3123,7 +4159,10 @@ void SPI_cursor_close(Portal <parameter>portal</parameter>)
 
  <refnamediv>
   <refname>SPI_keepplan</refname>
+<!--
   <refpurpose>save a prepared statement</refpurpose>
+-->
+  <refpurpose>準備済み文を保持する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3133,26 +4172,39 @@ int SPI_keepplan(SPIPlanPtr <parameter>plan</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_keepplan</function> saves a passed statement (prepared by
    <function>SPI_prepare</function>) so that it will not be freed
    by <function>SPI_finish</function> nor by the transaction manager.
    This gives you the ability to reuse prepared statements in the subsequent
    invocations of your C function in the current session.
+-->
+<function>SPI_keepplan</function>は渡された（<function>SPI_prepare</function>で準備された）文を<function>SPI_finish</function>とトランザクションマネージャで解放されないメモリ内に保存します。
+これは、現在のセッションにおける、その後のC関数の呼び出しで準備済み文を再利用できる機能を提供します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       the prepared statement to be saved
+-->
+保存する準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -3160,22 +4212,36 @@ int SPI_keepplan(SPIPlanPtr <parameter>plan</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    0 on success;
    <symbol>SPI_ERROR_ARGUMENT</symbol> if <parameter>plan</parameter>
    is <symbol>NULL</symbol> or invalid
+-->
+成功時は0。
+<parameter>plan</parameter>が<symbol>NULL</symbol>または無効な場合は<symbol>SPI_ERROR_ARGUMENT</symbol>
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注意</title>
 
   <para>
+<!--
    The passed-in statement is relocated to permanent storage by means
    of pointer adjustment (no data copying is required).  If you later
    wish to delete it, use <function>SPI_freeplan</function> on it.
+-->
+渡された文はポインタの調整により永続的記憶領域に再配置されます(データコピーは不要です)。
+後ほど削除したければ、<function>SPI_freeplan</function>を実行してください。
   </para>
  </refsect1>
 </refentry>
@@ -3192,7 +4258,10 @@ int SPI_keepplan(SPIPlanPtr <parameter>plan</parameter>)
 
  <refnamediv>
   <refname>SPI_saveplan</refname>
+<!--
   <refpurpose>save a prepared statement</refpurpose>
+-->
+  <refpurpose>準備済み文を保存する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3202,27 +4271,41 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_saveplan</function> copies a passed statement (prepared by
    <function>SPI_prepare</function>) into memory that will not be freed
    by <function>SPI_finish</function> nor by the transaction manager,
    and returns a pointer to the copied statement.  This gives you the
    ability to reuse prepared statements in the subsequent invocations of
    your C function in the current session.
+-->
+<function>SPI_saveplan</function>は渡された（<function>SPI_prepare</function>で準備された）文を<function>SPI_finish</function>とトランザクションマネージャで解放されないメモリ内にコピーします。
+そして、コピーした文のポインタを返します。
+これは、現在のセッションにおける、その後のC関数の呼び出しで準備済み文を再利用できる機能を提供します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       the prepared statement to be saved
+-->
+保存する準備済み文
      </para>
     </listitem>
    </varlistentry>
@@ -3230,18 +4313,29 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    Pointer to the copied statement; or <symbol>NULL</symbol> if unsuccessful.
    On error, <varname>SPI_result</varname> is set thus:
+-->
+コピーした文へのポインタ。
+失敗した場合は<symbol>NULL</symbol>です。
+エラー時、<varname>SPI_result</varname>は以下のように設定されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_ERROR_ARGUMENT</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>plan</parameter> is <symbol>NULL</symbol> or invalid
+-->
+<parameter>plan</parameter>が<symbol>NULL</symbol>、または無効な場合
       </para>
      </listitem>
     </varlistentry>
@@ -3250,7 +4344,10 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
      <term><symbol>SPI_ERROR_UNCONNECTED</symbol></term>
      <listitem>
       <para>
+<!--
        if called from an unconnected C function
+-->
+未接続のC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -3259,18 +4356,28 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注意</title>
 
   <para>
+<!--
    The originally passed-in statement is not freed, so you might wish to do
    <function>SPI_freeplan</function> on it to avoid leaking memory
    until <function>SPI_finish</function>.
+-->
+渡された元の文は解放されません。
+ですので、<function>SPI_finish</function>を行うまでのメモリリークを防ぎたければ<function>SPI_freeplan</function>を実行してください。
   </para>
 
   <para>
+<!--
    In most cases, <function>SPI_keepplan</function> is preferred to this
    function, since it accomplishes largely the same result without needing
    to physically copy the prepared statement's data structures.
+-->
+準備済み文のデータ構造を物理的にコピーする必要なく、ほとんど同じ結果をもたらしますので、たいていの場合、この関数よりも<function>SPI_keepplan</function>の方が好ましいです。
   </para>
  </refsect1>
 </refentry>
@@ -3281,8 +4388,12 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
  <indexterm><primary>SPI_register_relation</primary></indexterm>
 
  <indexterm>
+<!--
   <primary>ephemeral named relation</primary>
   <secondary>registering with SPI</secondary>
+-->
+  <primary>短命の名前付きリレーション</primary>
+  <secondary>SPIで登録する</secondary>
  </indexterm>
 
  <refmeta>
@@ -3292,7 +4403,10 @@ SPIPlanPtr SPI_saveplan(SPIPlanPtr <parameter>plan</parameter>)
 
  <refnamediv>
   <refname>SPI_register_relation</refname>
+<!--
   <refpurpose>make an ephemeral named relation available by name in SPI queries</refpurpose>
+-->
+  <refpurpose>短命の名前付きリレーションをSPIの問い合わせから名前で参照可能にする</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3302,24 +4416,36 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_register_relation</function> makes an ephemeral named
    relation, with associated information, available to queries planned and
    executed through the current SPI connection.
+-->
+<function>SPI_register_relation</function>は短命の名前付きリレーションを、現在のSPI接続を通して計画され、実行される問い合わせに対して、関連情報と一緒に参照できるようにします。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>EphemeralNamedRelation <parameter>enr</parameter></literal></term>
     <listitem>
      <para>
+<!--
       the ephemeral named relation registry entry
+-->
+短命の名前付きリレーションの登録エントリ
      </para>
     </listitem>
    </varlistentry>
@@ -3327,18 +4453,27 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    If the execution of the command was successful then the following
    (nonnegative) value will be returned:
+-->
+コマンドの実行に成功したときは、次の（負でない）値が返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_OK_REL_REGISTER</symbol></term>
      <listitem>
       <para>
+<!--
        if the relation has been successfully registered by name
+-->
+リレーションが名前で登録できた場合
       </para>
      </listitem>
     </varlistentry>
@@ -3346,15 +4481,21 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
   </para>
 
   <para>
+<!--
    On error, one of the following negative values is returned:
+-->
+エラーが発生したときは、以下の負の値の一つが返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_ERROR_ARGUMENT</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>enr</parameter> is <symbol>NULL</symbol> or its
        <varname>name</varname> field is <symbol>NULL</symbol>
+-->
+<parameter>enr</parameter>が<symbol>NULL</symbol>か、その<varname>name</varname>フィールドが<symbol>NULL</symbol>の場合
       </para>
      </listitem>
     </varlistentry>
@@ -3363,7 +4504,10 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
      <term><symbol>SPI_ERROR_UNCONNECTED</symbol></term>
      <listitem>
       <para>
+<!--
        if called from an unconnected C function
+-->
+接続されていないC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -3372,8 +4516,11 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
      <term><symbol>SPI_ERROR_REL_DUPLICATE</symbol></term>
      <listitem>
       <para>
+<!--
        if the name specified in the <varname>name</varname> field of
        <parameter>enr</parameter> is already registered for this connection
+-->
+<parameter>enr</parameter>の<varname>name</varname>フィールドで指定された名前が、現在の接続で既に登録済みの場合
       </para>
      </listitem>
     </varlistentry>
@@ -3388,8 +4535,12 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
  <indexterm><primary>SPI_unregister_relation</primary></indexterm>
 
  <indexterm>
+<!--
   <primary>ephemeral named relation</primary>
   <secondary>unregistering from SPI</secondary>
+-->
+  <primary>短命の名前付きリレーション</primary>
+  <secondary>SPIから登録解除する</secondary>
  </indexterm>
 
  <refmeta>
@@ -3399,7 +4550,10 @@ int SPI_register_relation(EphemeralNamedRelation <parameter>enr</parameter>)
 
  <refnamediv>
   <refname>SPI_unregister_relation</refname>
+<!--
   <refpurpose>remove an ephemeral named relation from the registry</refpurpose>
+-->
+  <refpurpose>短命の名前付きリレーションをSPIのレジストリから削除する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3409,23 +4563,35 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_unregister_relation</function> removes an ephemeral named
    relation from the registry for the current connection.
+-->
+<function>SPI_unregister_relation</function>は短命の名前付きリレーションを現在の接続のレジストリから削除します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>const char * <parameter>name</parameter></literal></term>
     <listitem>
      <para>
+<!--
       the relation registry entry name
+-->
+リレーションのレジストリエントリの名前
      </para>
     </listitem>
    </varlistentry>
@@ -3433,18 +4599,27 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    If the execution of the command was successful then the following
    (nonnegative) value will be returned:
+-->
+コマンドの実行に成功したときは、次の（負でない）値が返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_OK_REL_UNREGISTER</symbol></term>
      <listitem>
       <para>
+<!--
        if the tuplestore has been successfully removed from the registry
+-->
+タプルストアがレジストリから削除された場合
       </para>
      </listitem>
     </varlistentry>
@@ -3452,14 +4627,20 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
   </para>
 
   <para>
+<!--
    On error, one of the following negative values is returned:
+-->
+エラーが発生したときは、以下の負の値の一つが返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_ERROR_ARGUMENT</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>name</parameter> is <symbol>NULL</symbol>
+-->
+<parameter>name</parameter>が<symbol>NULL</symbol>の場合
       </para>
      </listitem>
     </varlistentry>
@@ -3468,7 +4649,10 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
      <term><symbol>SPI_ERROR_UNCONNECTED</symbol></term>
      <listitem>
       <para>
+<!--
        if called from an unconnected C function
+-->
+接続されていないC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -3477,8 +4661,11 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
      <term><symbol>SPI_ERROR_REL_NOT_FOUND</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>name</parameter> is not found in the registry for the
        current connection
+-->
+<parameter>name</parameter>が現在の接続のレジストリに見つからない場合
       </para>
      </listitem>
     </varlistentry>
@@ -3493,13 +4680,21 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
  <indexterm><primary>SPI_register_trigger_data</primary></indexterm>
 
  <indexterm>
+<!--
   <primary>ephemeral named relation</primary>
   <secondary>registering with SPI</secondary>
+-->
+  <primary>短命の名前付きリレーション</primary>
+  <secondary>SPIで登録する</secondary>
  </indexterm>
 
  <indexterm>
+<!--
   <primary>transition tables</primary>
   <secondary>implementation in PLs</secondary>
+-->
+  <primary>遷移テーブル</primary>
+  <secondary>PLでの実装</secondary>
  </indexterm>
 
  <refmeta>
@@ -3509,7 +4704,10 @@ int SPI_unregister_relation(const char * <parameter>name</parameter>)
 
  <refnamediv>
   <refname>SPI_register_trigger_data</refname>
+<!--
   <refpurpose>make ephemeral trigger data available in SPI queries</refpurpose>
+-->
+  <refpurpose>短命のトリガーデータをSPIの問い合わせから利用可能にする</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3519,28 +4717,42 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_register_trigger_data</function> makes any ephemeral
    relations captured by a trigger available to queries planned and executed
    through the current SPI connection.  Currently, this means the transition
    tables captured by an <literal>AFTER</literal> trigger defined with a
    <literal>REFERENCING OLD/NEW TABLE AS</literal> ... clause.  This function
    should be called by a PL trigger handler function after connecting.
+-->
+<function>SPI_register_trigger_data</function>はトリガによって捕捉される任意の短命のリレーションを、現在のSPI接続を通して計画され、実行される問い合わせで利用可能にします。
+現在のところ、これは<literal>REFERENCING OLD/NEW TABLE AS</literal>の句で定義される<literal>AFTER</literal>トリガによって捕捉される遷移テーブルを意味します。
+この関数は接続後にPLのトリガハンドラ関数から呼び出されるようにします。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>TriggerData *<parameter>tdata</parameter></literal></term>
     <listitem>
      <para>
+<!--
        the <structname>TriggerData</structname> object passed to a trigger
        handler function as <literal>fcinfo->context</literal>
+-->
+トリガハンドラ関数に<literal>fcinfo->context</literal>として渡される<structname>TriggerData</structname>オブジェクト
      </para>
     </listitem>
    </varlistentry>
@@ -3548,18 +4760,27 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    If the execution of the command was successful then the following
    (nonnegative) value will be returned:
+-->
+コマンドの実行に成功したときは、次の（負でない）値が返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_OK_TD_REGISTER</symbol></term>
      <listitem>
       <para>
+<!--
        if the captured trigger data (if any) has been successfully registered
+-->
+捕捉されたトリガデータ（あれば）が登録された場合
       </para>
      </listitem>
     </varlistentry>
@@ -3567,14 +4788,20 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
   </para>
 
   <para>
+<!--
    On error, one of the following negative values is returned:
+-->
+エラーが発生したときは、以下の負の値の一つが返されます。
 
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_ERROR_ARGUMENT</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>tdata</parameter> is <symbol>NULL</symbol>
+-->
+<parameter>tdata</parameter>が<symbol>NULL</symbol>の場合
       </para>
      </listitem>
     </varlistentry>
@@ -3583,7 +4810,10 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
      <term><symbol>SPI_ERROR_UNCONNECTED</symbol></term>
      <listitem>
       <para>
+<!--
        if called from an unconnected C function
+-->
+接続されていないC関数から呼び出された場合
       </para>
      </listitem>
     </varlistentry>
@@ -3592,8 +4822,11 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
      <term><symbol>SPI_ERROR_REL_DUPLICATE</symbol></term>
      <listitem>
       <para>
+<!--
        if the name of any trigger data transient relation is already
        registered for this connection
+-->
+トリガデータの遷移リレーションのどれかの名前が、この接続で既に登録されている場合
       </para>
      </listitem>
     </varlistentry>
@@ -3607,17 +4840,26 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
 </sect1>
 
 <sect1 id="spi-interface-support">
+<!--
  <title>Interface Support Functions</title>
+-->
+ <title>インタフェースサポート関数</title>
 
  <para>
+<!--
   The functions described here provide an interface for extracting
   information from result sets returned by <function>SPI_execute</function> and
   other SPI functions.
+-->
+以下で説明する関数は、<function>SPI_execute</function>や他のSPI関数で返される結果セットから情報を取り出すためのインタフェースを提供します。
  </para>
 
  <para>
+<!--
   All functions described in this section can be used by both
   connected and unconnected C functions.
+-->
+本節で説明する関数は全て、接続、未接続のC関数のどちらからでも使用することができます。
  </para>
 
 <!-- *********************************************** -->
@@ -3632,7 +4874,10 @@ int SPI_register_trigger_data(TriggerData *<parameter>tdata</parameter>)
 
  <refnamediv>
   <refname>SPI_fname</refname>
+<!--
   <refpurpose>determine the column name for the specified column number</refpurpose>
+-->
+  <refpurpose>指定した列番号に対する列名を決定する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3642,24 +4887,37 @@ char * SPI_fname(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnum
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_fname</function> returns a copy of the column name of the
    specified column.  (You can use <function>pfree</function> to
    release the copy of the name when you don't need it anymore.)
+-->
+<function>SPI_fname</function> は指定した列の列名のコピーを返します
+（名前のコピーが不要になった場合<function>pfree</function>を使用してその領域を解放することができます）。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>TupleDesc <parameter>rowdesc</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row description
+-->
+入力行の記述
      </para>
     </listitem>
    </varlistentry>
@@ -3668,7 +4926,10 @@ char * SPI_fname(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnum
     <term><literal>int <parameter>colnumber</parameter></literal></term>
     <listitem>
      <para>
+<!--
       column number (count starts at 1)
+-->
+（1から始まる）列番号
      </para>
     </listitem>
    </varlistentry>
@@ -3676,13 +4937,21 @@ char * SPI_fname(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnum
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The column name; <symbol>NULL</symbol> if
    <parameter>colnumber</parameter> is out of range.
    <varname>SPI_result</varname> set to
    <symbol>SPI_ERROR_NOATTRIBUTE</symbol> on error.
+-->
+列の名前です。
+<parameter>colnumber</parameter>が範囲外の場合は<symbol>NULL</symbol>です。
+エラー時、<varname>SPI_result</varname>は<symbol>SPI_ERROR_NOATTRIBUTE</symbol>に設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -3699,7 +4968,10 @@ char * SPI_fname(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnum
 
  <refnamediv>
   <refname>SPI_fnumber</refname>
+<!--
   <refpurpose>determine the column number for the specified column name</refpurpose>
+-->
+  <refpurpose>指定した列名から列番号を決定する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3709,32 +4981,49 @@ int SPI_fnumber(TupleDesc <parameter>rowdesc</parameter>, const char * <paramete
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_fnumber</function> returns the column number for the
    column with the specified name.
+-->
+<function>SPI_fnumber</function>は指定した名前の列の列番号を返します。
   </para>
 
   <para>
+<!--
    If <parameter>colname</parameter> refers to a system column (e.g.,
    <literal>ctid</literal>) then the appropriate negative column number will
    be returned.  The caller should be careful to test the return value
    for exact equality to <symbol>SPI_ERROR_NOATTRIBUTE</symbol> to
    detect an error; testing the result for less than or equal to 0 is
    not correct unless system columns should be rejected.
+-->
+<parameter>colname</parameter>が（<literal>ctid</literal>などの）システム列を参照する場合、適切な負の列番号が返されます。
+呼び出し元は、エラーを検知するために戻り値が<symbol>SPI_ERROR_NOATTRIBUTE</symbol>と正確に同一であるかどうかを注意して検査しなければなりません。
+システム列を拒絶させたくなければ、結果が0あるいは0未満かを検査するという方法は、正しくありません。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>TupleDesc <parameter>rowdesc</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row description
+-->
+入力行の記述
      </para>
     </listitem>
    </varlistentry>
@@ -3743,7 +5032,10 @@ int SPI_fnumber(TupleDesc <parameter>rowdesc</parameter>, const char * <paramete
     <term><literal>const char * <parameter>colname</parameter></literal></term>
     <listitem>
      <para>
+<!--
       column name
+-->
+列名
      </para>
     </listitem>
    </varlistentry>
@@ -3751,12 +5043,19 @@ int SPI_fnumber(TupleDesc <parameter>rowdesc</parameter>, const char * <paramete
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    Column number (count starts at 1 for user-defined columns), or
    <symbol>SPI_ERROR_NOATTRIBUTE</symbol> if the named column was not
    found.
+-->
+（ユーザ定義の列について1から始まる）列番号。
+指定された名前の列が見つからなければ、<symbol>SPI_ERROR_NOATTRIBUTE</symbol>です。
   </para>
  </refsect1>
 </refentry>
@@ -3773,7 +5072,10 @@ int SPI_fnumber(TupleDesc <parameter>rowdesc</parameter>, const char * <paramete
 
  <refnamediv>
   <refname>SPI_getvalue</refname>
+<!--
   <refpurpose>return the string value of the specified column</refpurpose>
+-->
+  <refpurpose>指定された列の文字列値を返す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3783,30 +5085,46 @@ char * SPI_getvalue(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_getvalue</function> returns the string representation
    of the value of the specified column.
+-->
+<function>SPI_getvalue</function>は指定された列の値の文字列表現を返します。
   </para>
 
   <para>
+<!--
    The result is returned in memory allocated using
    <function>palloc</function>.  (You can use
    <function>pfree</function> to release the memory when you don't
    need it anymore.)
+-->
+結果は、<function>palloc</function>を使用して割り当てられたメモリ内に返されます
+（不要になった段階で、<function>pfree</function>を使用してメモリを解放することができます）。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>HeapTuple <parameter>row</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row to be examined
+-->
+検査対象の入力行
      </para>
     </listitem>
    </varlistentry>
@@ -3815,7 +5133,10 @@ char * SPI_getvalue(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
     <term><literal>TupleDesc <parameter>rowdesc</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row description
+-->
+入力行の記述
      </para>
     </listitem>
    </varlistentry>
@@ -3824,7 +5145,10 @@ char * SPI_getvalue(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
     <term><literal>int <parameter>colnumber</parameter></literal></term>
     <listitem>
      <para>
+<!--
       column number (count starts at 1)
+-->
+（1から始まる）列番号
      </para>
     </listitem>
    </varlistentry>
@@ -3832,15 +5156,24 @@ char * SPI_getvalue(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    Column value, or <symbol>NULL</symbol> if the column is null,
    <parameter>colnumber</parameter> is out of range
    (<varname>SPI_result</varname> is set to
    <symbol>SPI_ERROR_NOATTRIBUTE</symbol>), or no output function is
    available (<varname>SPI_result</varname> is set to
    <symbol>SPI_ERROR_NOOUTFUNC</symbol>).
+-->
+列の値。
+列がNULLの場合、あるいは<parameter>colnumber</parameter>が範囲外の場合は<symbol>NULL</symbol>です（<varname>SPI_result</varname>が<symbol>SPI_ERROR_NOATTRIBUTE</symbol>に設定されます）。
+利用できる出力関数が存在しない場合は、<symbol>NULL</symbol>です
+（<varname>SPI_result</varname>が<symbol>SPI_ERROR_NOOUTFUNC</symbol>に設定されます）。
   </para>
  </refsect1>
 </refentry>
@@ -3857,7 +5190,10 @@ char * SPI_getvalue(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
 
  <refnamediv>
   <refname>SPI_getbinval</refname>
+<!--
   <refpurpose>return the binary value of the specified column</refpurpose>
+-->
+  <refpurpose>指定した列のバイナリ値を返す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3868,29 +5204,45 @@ Datum SPI_getbinval(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_getbinval</function> returns the value of the
    specified column in the internal form (as type <type>Datum</type>).
+-->
+<function>SPI_getbinval</function> は指定された列の値を内部形式で（<type>Datum</type>として）返します。
   </para>
 
   <para>
+<!--
    This function does not allocate new space for the datum.  In the
    case of a pass-by-reference data type, the return value will be a
    pointer into the passed row.
+-->
+この関数はデータ用に新しい領域を確保しません。
+参照渡しのデータ型の場合、戻り値は渡された行の内部を示すポインタとなります。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>HeapTuple <parameter>row</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row to be examined
+-->
+対象とする入力行
      </para>
     </listitem>
    </varlistentry>
@@ -3899,7 +5251,10 @@ Datum SPI_getbinval(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
     <term><literal>TupleDesc <parameter>rowdesc</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row description
+-->
+入力行の記述
      </para>
     </listitem>
    </varlistentry>
@@ -3908,7 +5263,10 @@ Datum SPI_getbinval(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
     <term><literal>int <parameter>colnumber</parameter></literal></term>
     <listitem>
      <para>
+<!--
       column number (count starts at 1)
+-->
+（1から始まる）列番号
      </para>
     </listitem>
    </varlistentry>
@@ -3917,7 +5275,10 @@ Datum SPI_getbinval(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
     <term><literal>bool * <parameter>isnull</parameter></literal></term>
     <listitem>
      <para>
+<!--
       flag for a null value in the column
+-->
+列のNULL値についてのフラグ
      </para>
     </listitem>
    </varlistentry>
@@ -3925,17 +5286,27 @@ Datum SPI_getbinval(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The binary value of the column is returned.  The variable pointed
    to by <parameter>isnull</parameter> is set to true if the column is
    null, else to false.
+-->
+列のバイナリ値が返されます。
+<parameter>isnull</parameter>で指し示される変数は、列がNULLならば真に、さもなくば、偽に設定されます。
   </para>
 
   <para>
+<!--
    <varname>SPI_result</varname> is set to
    <symbol>SPI_ERROR_NOATTRIBUTE</symbol> on error.
+-->
+エラー時、<varname>SPI_result</varname>は<symbol>SPI_ERROR_NOATTRIBUTE</symbol>に設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -3952,7 +5323,10 @@ Datum SPI_getbinval(HeapTuple <parameter>row</parameter>, TupleDesc <parameter>r
 
  <refnamediv>
   <refname>SPI_gettype</refname>
+<!--
   <refpurpose>return the data type name of the specified column</refpurpose>
+-->
+  <refpurpose>指定された列のデータ型名を返す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -3962,24 +5336,37 @@ char * SPI_gettype(TupleDesc <parameter>rowdesc</parameter>, int <parameter>coln
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_gettype</function> returns a copy of the data type name of the
    specified column.  (You can use <function>pfree</function> to
    release the copy of the name when you don't need it anymore.)
+-->
+<function>SPI_gettype</function>は指定された列のデータ型名のコピーを返します
+（不要になった段階で、<function>pfree</function>を使用して名前のコピーを解放することができます）。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>TupleDesc <parameter>rowdesc</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row description
+-->
+入力行の記述
      </para>
     </listitem>
    </varlistentry>
@@ -3988,7 +5375,10 @@ char * SPI_gettype(TupleDesc <parameter>rowdesc</parameter>, int <parameter>coln
     <term><literal>int <parameter>colnumber</parameter></literal></term>
     <listitem>
      <para>
+<!--
       column number (count starts at 1)
+-->
+（1から始まる）列番号
      </para>
     </listitem>
    </varlistentry>
@@ -3996,12 +5386,20 @@ char * SPI_gettype(TupleDesc <parameter>rowdesc</parameter>, int <parameter>coln
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The data type name of the specified column, or
    <symbol>NULL</symbol> on error.  <varname>SPI_result</varname> is
    set to <symbol>SPI_ERROR_NOATTRIBUTE</symbol> on error.
+-->
+指定された列のデータ型名。
+エラー時は<symbol>NULL</symbol>です。
+エラー時、<varname>SPI_result</varname>は<symbol>SPI_ERROR_NOATTRIBUTE</symbol>に設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -4018,7 +5416,10 @@ char * SPI_gettype(TupleDesc <parameter>rowdesc</parameter>, int <parameter>coln
 
  <refnamediv>
   <refname>SPI_gettypeid</refname>
+<!--
   <refpurpose>return the data type <acronym>OID</acronym> of the specified column</refpurpose>
+-->
+  <refpurpose>指定された列のデータ型の<acronym>OID</acronym>を返す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4028,23 +5429,35 @@ Oid SPI_gettypeid(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnu
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_gettypeid</function> returns the
    <acronym>OID</acronym> of the data type of the specified column.
+-->
+   <function>SPI_gettypeid</function>は指定された列のデータ型の<acronym>OID</acronym>を返します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>TupleDesc <parameter>rowdesc</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input row description
+-->
+入力行の記述
      </para>
     </listitem>
    </varlistentry>
@@ -4053,7 +5466,10 @@ Oid SPI_gettypeid(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnu
     <term><literal>int <parameter>colnumber</parameter></literal></term>
     <listitem>
      <para>
+<!--
       column number (count starts at 1)
+-->
+（1から始まる）列番号
      </para>
     </listitem>
    </varlistentry>
@@ -4061,13 +5477,21 @@ Oid SPI_gettypeid(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnu
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The <acronym>OID</acronym> of the data type of the specified column
    or <symbol>InvalidOid</symbol> on error.  On error,
    <varname>SPI_result</varname> is set to
    <symbol>SPI_ERROR_NOATTRIBUTE</symbol>.
+-->
+指定された列のデータ型の<acronym>OID</acronym>です。
+エラー時は<symbol>InvalidOid</symbol>です。
+エラー時、<varname>SPI_result</varname>は<symbol>SPI_ERROR_NOATTRIBUTE</symbol>に設定されます。
   </para>
  </refsect1>
 </refentry>
@@ -4084,7 +5508,10 @@ Oid SPI_gettypeid(TupleDesc <parameter>rowdesc</parameter>, int <parameter>colnu
 
  <refnamediv>
   <refname>SPI_getrelname</refname>
+<!--
   <refpurpose>return the name of the specified relation</refpurpose>
+-->
+  <refpurpose>指定されたリレーションの名前を返す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4094,24 +5521,37 @@ char * SPI_getrelname(Relation <parameter>rel</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_getrelname</function> returns a copy of the name of the
    specified relation.  (You can use <function>pfree</function> to
    release the copy of the name when you don't need it anymore.)
+-->
+<function>SPI_getrelname</function>は指定リレーションの名前のコピーを返します
+（不要になった段階で、<function>pfree</function>を使用して名前のコピーを解放することができます）。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Relation <parameter>rel</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input relation
+-->
+入力リレーション
      </para>
     </listitem>
    </varlistentry>
@@ -4119,10 +5559,16 @@ char * SPI_getrelname(Relation <parameter>rel</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The name of the specified relation.
+-->
+指定されたリレーションの名前です。
   </para>
  </refsect1>
 </refentry>
@@ -4137,7 +5583,10 @@ char * SPI_getrelname(Relation <parameter>rel</parameter>)
 
  <refnamediv>
   <refname>SPI_getnspname</refname>
+<!--
   <refpurpose>return the namespace of the specified relation</refpurpose>
+-->
+  <refpurpose>指定されたリレーションの名前空間を返す</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4147,26 +5596,40 @@ char * SPI_getnspname(Relation <parameter>rel</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_getnspname</function> returns a copy of the name of
    the namespace that the specified <structname>Relation</structname>
    belongs to. This is equivalent to the relation's schema. You should
    <function>pfree</function> the return value of this function when
    you are finished with it.
+-->
+<function>SPI_getnspname</function>は、指定した<structname>Relation</structname>が属する名前空間名のコピーを返します。
+これはリレーションのスキーマと同じです。
+作業終了時に、この関数の戻り値に対して<function>pfree</function>を行わなければなりません。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Relation <parameter>rel</parameter></literal></term>
     <listitem>
      <para>
+<!--
       input relation
+-->
+入力リレーション
      </para>
     </listitem>
    </varlistentry>
@@ -4174,10 +5637,16 @@ char * SPI_getnspname(Relation <parameter>rel</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    The name of the specified relation's namespace.
+-->
+指定したリレーションの名前空間の名称です。
   </para>
  </refsect1>
 </refentry>
@@ -4192,7 +5661,10 @@ char * SPI_getnspname(Relation <parameter>rel</parameter>)
 
  <refnamediv>
   <refname>SPI_result_code_string</refname>
+<!--
   <refpurpose>return error code as string</refpurpose>
+-->
+  <refpurpose>文字列でエラーコードを返します</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4205,9 +5677,12 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
   <title>Description</title>
 
   <para>
+<!--
    <function>SPI_result_code_string</function> returns a string representation
    of the result code returned by various SPI functions or stored
    in <varname>SPI_result</varname>.
+-->
+<function>SPI_result_code_string</function>は、様々なSPI関数から返されたか、<varname>SPI_result</varname>に格納された結果コードの文字列表現を返します。
   </para>
  </refsect1>
 
@@ -4219,7 +5694,10 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
     <term><literal>int <parameter>code</parameter></literal></term>
     <listitem>
      <para>
+<!--
       result code
+-->
+結果コード
      </para>
     </listitem>
    </varlistentry>
@@ -4227,10 +5705,16 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>結果値</title>
 
   <para>
+<!--
    A string representation of the result code.
+-->
+結果コードの文字列表現
   </para>
  </refsect1>
 </refentry>
@@ -4238,13 +5722,21 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
  </sect1>
 
  <sect1 id="spi-memory">
+<!--
   <title>Memory Management</title>
+-->
+  <title>メモリ管理</title>
 
   <para>
     <indexterm>
+<!--
      <primary>memory context</primary>
      <secondary>in SPI</secondary>
+-->
+     <primary>メモリコンテキスト</primary>
+     <secondary>SPI内部の</secondary>
     </indexterm>
+<!--
    <productname>PostgreSQL</productname> allocates memory within
    <firstterm>memory contexts</firstterm>, which provide a convenient method of
    managing allocations made in many different places that need to
@@ -4254,18 +5746,31 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
    only a relatively small number of contexts have to be managed.
    <function>palloc</function> and related functions allocate memory
    from the <quote>current</quote> context.
+-->
+<productname>PostgreSQL</productname>は、<firstterm>メモリコンテキスト</firstterm>内にメモリを確保します。
+これは、様々な場所で、必要な有効期間がそれぞれ異なるような割り当てを管理する便利な方法を提供します。
+コンテキストを破壊することで、そこで割り当てられた全てのメモリを解放します。
+したがって、メモリリークを防ぐための個々のオブジェクトの追跡を維持することは不要です。
+その代わり、相対的に少量のコンテキストを管理する必要があります。
+<function>palloc</function>と関連する関数は<quote>現在の</quote>コンテキストからメモリを確保します。
   </para>
 
   <para>
+<!--
    <function>SPI_connect</function> creates a new memory context and
    makes it current.  <function>SPI_finish</function> restores the
    previous current memory context and destroys the context created by
    <function>SPI_connect</function>.  These actions ensure that
    transient memory allocations made inside your C function are
    reclaimed at C function exit, avoiding memory leakage.
+-->
+<function>SPI_connect</function>は新しくメモリコンテキストを作成し、それを現在のコンテキストとします。
+<function>SPI_finish</function>は直前の現在のメモリコンテキストを戻し、<function>SPI_connect</function>で作成されたコンテキストを破壊します。
+これらの動作により、C関数内で割り当てが行われる一時的なメモリがC関数の終了時に回収され、メモリリークが防止されることが保証されます。
   </para>
 
   <para>
+<!--
    However, if your C function needs to return an object in allocated
    memory (such as a value of a pass-by-reference data type), you
    cannot allocate that memory using <function>palloc</function>, at
@@ -4279,9 +5784,17 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
    which is precisely the right context for a value returned from your
    C function.  Several of the other utility functions described in
    this section also return objects created in the upper executor context.
+-->
+しかし、（参照渡しのデータ型の値といった）C関数が割り当てられたメモリ内のオブジェクトを返す必要がある場合、少なくともSPIに接続していない期間は、<function>palloc</function>を使用してメモリを確保することができません。
+これを試行すると、そのオブジェクトは<function>SPI_finish</function>で解放されてしまい、C関数は正しく動作しないでしょう。
+この問題を解決するには、<function>SPI_palloc</function>を使用して、戻り値となるオブジェクト用のメモリを確保してください。
+<function>SPI_palloc</function>は<quote>上位エクゼキュータコンテキスト</quote>内にメモリを割り当てます。
+このメモリコンテキストは、<function>SPI_connect</function>が呼び出された時点において現在のコンテキストだったものであり、C関数の戻り値用のコンテキストとしてまさに正しいものです。
+この章で説明されているほかのユーティリティ関数のいくつかも、上位エクゼキュータコンテキスト内で作成されたオブジェクトを返します。
   </para>
 
   <para>
+<!--
    When <function>SPI_connect</function> is called, the private
    context of the C function, which is created by
    <function>SPI_connect</function>, is made the current context.  All
@@ -4292,6 +5805,10 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
    <function>SPI_finish</function>) the current context is restored to
    the upper executor context, and all allocations made in the
    C function memory context are freed and cannot be used any more.
+-->
+<function>SPI_connect</function>が呼び出されると、<function>SPI_connect</function>によって作成されるC関数固有のコンテキストが現在のコンテキストに作成されます。
+<function>palloc</function>、<function>repalloc</function>、SPIユーティリティ関数（この章で説明されているものは除きます）によって作成される割り当ては全て、このコンテキスト内に作成されます。
+C関数がSPIマネージャから（<function>SPI_finish</function>経由で）切断した時、現在のコンテキストは上位エクゼキュータコンテキストに戻され、C関数のメモリコンテキスト内で割り当てられたメモリは全て解放され、二度と使用することができません。
   </para>
 
 <!-- *********************************************** -->
@@ -4306,7 +5823,10 @@ const char * SPI_result_code_string(int <parameter>code</parameter>);
 
  <refnamediv>
   <refname>SPI_palloc</refname>
+<!--
   <refpurpose>allocate memory in the upper executor context</refpurpose>
+-->
+  <refpurpose>上位エクゼキュータコンテキスト内にメモリを割り当てる</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4316,28 +5836,44 @@ void * SPI_palloc(Size <parameter>size</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_palloc</function> allocates memory in the upper
    executor context.
+-->
+<function>SPI_palloc</function>は上位エクゼキュータコンテキスト内にメモリを割り当てます。
   </para>
 
   <para>
+<!--
    This function can only be used while connected to SPI.
    Otherwise, it throws an error.
+-->
+この関数はSPIに接続されている間にのみ使うことができます。
+それ以外の場合はエラーを発生させます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Size <parameter>size</parameter></literal></term>
     <listitem>
      <para>
+<!--
       size in bytes of storage to allocate
+-->
+割り当てる領域のバイト数
      </para>
     </listitem>
    </varlistentry>
@@ -4345,10 +5881,16 @@ void * SPI_palloc(Size <parameter>size</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    pointer to new storage space of the specified size
+-->
+指定サイズの新しい格納領域へのポインタ
   </para>
  </refsect1>
 </refentry>
@@ -4365,7 +5907,10 @@ void * SPI_palloc(Size <parameter>size</parameter>)
 
  <refnamediv>
   <refname>SPI_repalloc</refname>
+<!--
   <refpurpose>reallocate memory in the upper executor context</refpurpose>
+-->
+  <refpurpose>上位エクゼキュータコンテキスト内にメモリを再割り当てる</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4375,29 +5920,45 @@ void * SPI_repalloc(void * <parameter>pointer</parameter>, Size <parameter>size<
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_repalloc</function> changes the size of a memory
    segment previously allocated using <function>SPI_palloc</function>.
+-->
+<function>SPI_repalloc</function>は、以前に<function>SPI_palloc</function>を使用して割り当てられたメモリセグメントのサイズを変更します。
   </para>
 
   <para>
+<!--
    This function is no longer different from plain
    <function>repalloc</function>.  It's kept just for backward
    compatibility of existing code.
+-->
+この関数はもはや通常の<function>repalloc</function>とは異なるものではありません。
+単に既存コードの後方互換性のために保持されています。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>void * <parameter>pointer</parameter></literal></term>
     <listitem>
      <para>
+<!--
       pointer to existing storage to change
+-->
+変更する既存の領域へのポインタ
      </para>
     </listitem>
    </varlistentry>
@@ -4406,7 +5967,10 @@ void * SPI_repalloc(void * <parameter>pointer</parameter>, Size <parameter>size<
     <term><literal>Size <parameter>size</parameter></literal></term>
     <listitem>
      <para>
+<!--
       size in bytes of storage to allocate
+-->
+割り当てる領域のバイト数
      </para>
     </listitem>
    </varlistentry>
@@ -4414,11 +5978,17 @@ void * SPI_repalloc(void * <parameter>pointer</parameter>, Size <parameter>size<
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    pointer to new storage space of specified size with the contents
    copied from the existing area
+-->
+指定サイズに新規に割り当てられ、既存領域の内容をコピーした領域へのポインタ
   </para>
  </refsect1>
 </refentry>
@@ -4435,7 +6005,10 @@ void * SPI_repalloc(void * <parameter>pointer</parameter>, Size <parameter>size<
 
  <refnamediv>
   <refname>SPI_pfree</refname>
+<!--
   <refpurpose>free memory in the upper executor context</refpurpose>
+-->
+  <refpurpose>上位エクゼキュータコンテキスト内のメモリを解放する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4445,30 +6018,46 @@ void SPI_pfree(void * <parameter>pointer</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_pfree</function> frees memory previously allocated
    using <function>SPI_palloc</function> or
    <function>SPI_repalloc</function>.
+-->
+<function>SPI_pfree</function>は、以前に<function>SPI_palloc</function>や<function>SPI_repalloc</function>を使用して割り当てられたメモリを解放します。
   </para>
 
   <para>
+<!--
    This function is no longer different from plain
    <function>pfree</function>.  It's kept just for backward
    compatibility of existing code.
+-->
+この関数はもはや通常の<function>pfree</function>とは異なるものではありません。
+単に既存コードの後方互換性のために保持されています。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>void * <parameter>pointer</parameter></literal></term>
     <listitem>
      <para>
+<!--
       pointer to existing storage to free
+-->
+解放する既存の領域へのポインタ
      </para>
     </listitem>
    </varlistentry>
@@ -4488,7 +6077,10 @@ void SPI_pfree(void * <parameter>pointer</parameter>)
 
  <refnamediv>
   <refname>SPI_copytuple</refname>
+<!--
   <refpurpose>make a copy of a row in the upper executor context</refpurpose>
+-->
+  <refpurpose>上位エクゼキュータ内に行のコピーを作成する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4498,31 +6090,49 @@ HeapTuple SPI_copytuple(HeapTuple <parameter>row</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_copytuple</function> makes a copy of a row in the
    upper executor context.  This is normally used to return a modified
    row from a trigger.  In a function declared to return a composite
    type, use <function>SPI_returntuple</function> instead.
+-->
+<function>SPI_copytuple</function>は上位エクゼキュータコンテキスト内に行のコピーを作成します。
+これは通常、トリガから変更した行を返す時に使用されます。
+複合型を返すものと宣言された関数では、代わりに<function>SPI_returntuple</function>を使用してください。
   </para>
 
   <para>
+<!--
    This function can only be used while connected to SPI.
    Otherwise, it returns NULL and sets <varname>SPI_result</varname> to
    <symbol>SPI_ERROR_UNCONNECTED</symbol>.
+-->
+この関数はSPIに接続されている間にのみ使うことができます。
+それ以外の場合はNULLを返し、<varname>SPI_result</varname>を<symbol>SPI_ERROR_UNCONNECTED</symbol>にセットします。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>HeapTuple <parameter>row</parameter></literal></term>
     <listitem>
      <para>
+<!--
       row to be copied
+-->
+コピーされる行
      </para>
     </listitem>
    </varlistentry>
@@ -4530,11 +6140,19 @@ HeapTuple SPI_copytuple(HeapTuple <parameter>row</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    the copied row, or <symbol>NULL</symbol> on error
    (see <varname>SPI_result</varname> for an error indication)
+-->
+コピーされた行、あるいはエラー時は<symbol>NULL</symbol>
+（エラーの表示については<varname>SPI_result</varname>を参照してください）
+
   </para>
  </refsect1>
 </refentry>
@@ -4551,7 +6169,10 @@ HeapTuple SPI_copytuple(HeapTuple <parameter>row</parameter>)
 
  <refnamediv>
   <refname>SPI_returntuple</refname>
+<!--
   <refpurpose>prepare to return a tuple as a Datum</refpurpose>
+-->
+  <refpurpose>Datumとしてタプルを返す準備をする</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4561,37 +6182,59 @@ HeapTupleHeader SPI_returntuple(HeapTuple <parameter>row</parameter>, TupleDesc 
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_returntuple</function> makes a copy of a row in
    the upper executor context, returning it in the form of a row type <type>Datum</type>.
    The returned pointer need only be converted to <type>Datum</type> via <function>PointerGetDatum</function>
    before returning.
+-->
+<function>SPI_returntuple</function>は上位エクゼキュータコンテキスト内に行の複製を作成し、それを行型の<type>Datum</type>形式で返します。
+返されるポインタは、返す前に<function>PointerGetDatum</function>を使用して<type>Datum</type>に変換することのみが必要です。
   </para>
 
   <para>
+<!--
    This function can only be used while connected to SPI.
    Otherwise, it returns NULL and sets <varname>SPI_result</varname> to
    <symbol>SPI_ERROR_UNCONNECTED</symbol>.
+-->
+この関数はSPIに接続されている間にのみ使うことができます。
+それ以外の場合はNULLを返し、<varname>SPI_result</varname>を<symbol>SPI_ERROR_UNCONNECTED</symbol>にセットします。
   </para>
 
   <para>
+<!--
    Note that this should be used for functions that are declared to return
    composite types.  It is not used for triggers; use
    <function>SPI_copytuple</function> for returning a modified row in a trigger.
+-->
+この関数は複合型を返すものと宣言された関数に対して使用しなければなりません。
+トリガでは使用されません。
+トリガで変更された行を返すには<function>SPI_copytuple</function>を使用してください。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>HeapTuple <parameter>row</parameter></literal></term>
     <listitem>
      <para>
+<!--
       row to be copied
+-->
+コピーされる行
      </para>
     </listitem>
    </varlistentry>
@@ -4600,8 +6243,11 @@ HeapTupleHeader SPI_returntuple(HeapTuple <parameter>row</parameter>, TupleDesc 
     <term><literal>TupleDesc <parameter>rowdesc</parameter></literal></term>
     <listitem>
      <para>
+<!--
       descriptor for row (pass the same descriptor each time for most
       effective caching)
+-->
+行の記述子（最も効率的にキャッシュを行えるように毎回同一の記述子を渡してください）
      </para>
     </listitem>
    </varlistentry>
@@ -4609,12 +6255,19 @@ HeapTupleHeader SPI_returntuple(HeapTuple <parameter>row</parameter>, TupleDesc 
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    <type>HeapTupleHeader</type> pointing to copied row,
    or <symbol>NULL</symbol> on error
    (see <varname>SPI_result</varname> for an error indication)
+-->
+コピーされた行を指し示す<type>HeapTupleHeader</type>、あるいはエラー時は<symbol>NULL</symbol>です。
+（エラーの表示については<varname>SPI_result</varname>を参照してください）
   </para>
  </refsect1>
 </refentry>
@@ -4631,7 +6284,10 @@ HeapTupleHeader SPI_returntuple(HeapTuple <parameter>row</parameter>, TupleDesc 
 
  <refnamediv>
   <refname>SPI_modifytuple</refname>
+<!--
   <refpurpose>create a row by replacing selected fields of a given row</refpurpose>
+-->
+  <refpurpose>与えられた行の選択フィールドを置き換えた行を作成する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4642,33 +6298,52 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_modifytuple</function> creates a new row by
    substituting new values for selected columns, copying the original
    row's columns at other positions.  The input row is not modified.
    The new row is returned in the upper executor context.
+-->
+<function>SPI_modifytuple</function>は、選択された列は新しい値で置き換え、その他の位置は元の行の列をコピーした、新しい行を作成します。
+入力行は変更されません。
+新しい行は上位エクゼキュータコンテキスト内に返されます。
   </para>
 
   <para>
+<!--
    This function can only be used while connected to SPI.
    Otherwise, it returns NULL and sets <varname>SPI_result</varname> to
    <symbol>SPI_ERROR_UNCONNECTED</symbol>.
+-->
+この関数はSPIに接続されている間にのみ使うことができます。
+それ以外の場合はNULLを返し、<varname>SPI_result</varname>を<symbol>SPI_ERROR_UNCONNECTED</symbol>にセットします。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>Relation <parameter>rel</parameter></literal></term>
     <listitem>
      <para>
+<!--
       Used only as the source of the row descriptor for the row.
       (Passing a relation rather than a row descriptor is a
       misfeature.)
+-->
+行の行記述子のソースとしてのみ使用されます。
+（行記述子ではなくリレーションを渡すことは設計ミスです。）
      </para>
     </listitem>
    </varlistentry>
@@ -4677,7 +6352,10 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
     <term><literal>HeapTuple <parameter>row</parameter></literal></term>
     <listitem>
      <para>
+<!--
       row to be modified
+-->
+変更される行
      </para>
     </listitem>
    </varlistentry>
@@ -4686,7 +6364,10 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
     <term><literal>int <parameter>ncols</parameter></literal></term>
     <listitem>
      <para>
+<!--
       number of columns to be changed
+-->
+変更された列数
      </para>
     </listitem>
    </varlistentry>
@@ -4695,8 +6376,11 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
     <term><literal>int * <parameter>colnum</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>ncols</parameter>, containing the numbers
       of the columns that are to be changed (column numbers start at 1)
+ -->
+変更される列番号を含む、<parameter>ncols</parameter>長の配列（列番号は1から始まります）
      </para>
     </listitem>
    </varlistentry>
@@ -4705,8 +6389,11 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
     <term><literal>Datum * <parameter>values</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>ncols</parameter>, containing the
       new values for the specified columns
+-->
+指定された列の新しい値を含む、<parameter>ncols</parameter>長の配列
      </para>
     </listitem>
    </varlistentry>
@@ -4715,11 +6402,15 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
     <term><literal>const char * <parameter>nulls</parameter></literal></term>
     <listitem>
      <para>
+<!--
       an array of length <parameter>ncols</parameter>, describing which
       new values are null
+-->
+新しい値のどれがNULLかを記述する、<parameter>ncols</parameter>長の配列
      </para>
 
      <para>
+<!--
       If <parameter>nulls</parameter> is <symbol>NULL</symbol> then
       <function>SPI_modifytuple</function> assumes that no new values
       are null.  Otherwise, each entry of the <parameter>nulls</parameter>
@@ -4729,6 +6420,12 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
       <parameter>values</parameter> entry doesn't matter.)  Note that
       <parameter>nulls</parameter> is not a text string, just an array: it
       does not need a <literal>'\0'</literal> terminator.
+-->
+<parameter>nulls</parameter>が<symbol>NULL</symbol>であれば、<function>SPI_modifytuple</function>はどの新しい値もnullでないとみなします。
+さもなければ、<parameter>nulls</parameter>配列の各項目は、対応するパラメータが非NULLならば<literal>'&nbsp;'</literal>、対応するパラメータがNULLならば<literal>'n'</literal>です。
+（後者の場合、<parameter>values</parameter>内の対応する値は注意されません。）
+<parameter>nulls</parameter>はテキスト文字列ではなく単なる配列であることに注意してください。
+<literal>'\0'</literal>終端は必要ありません。
      </para>
     </listitem>
    </varlistentry>
@@ -4736,25 +6433,39 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    new row with modifications, allocated in the upper executor
    context, or <symbol>NULL</symbol> on error
    (see <varname>SPI_result</varname> for an error indication)
+-->
+変更された新しい行。上位エクゼキュータコンテキストに割り当てられます。
+エラー時は<symbol>NULL</symbol>です。
+（エラーの表示については<varname>SPI_result</varname>を参照してください）
   </para>
 
   <para>
+<!--
    On error, <varname>SPI_result</varname> is set as follows:
+-->
+エラー時、<varname>SPI_result</varname>が以下のように設定されます。
    <variablelist>
     <varlistentry>
      <term><symbol>SPI_ERROR_ARGUMENT</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>rel</parameter> is <symbol>NULL</symbol>, or if
        <parameter>row</parameter> is <symbol>NULL</symbol>, or if <parameter>ncols</parameter>
        is less than or equal to 0, or if <parameter>colnum</parameter> is
        <symbol>NULL</symbol>, or if <parameter>values</parameter> is <symbol>NULL</symbol>.
+-->
+<parameter>rel</parameter>が<symbol>NULL</symbol>の場合、<parameter>row</parameter>が<symbol>NULL</symbol>の場合、<parameter>ncols</parameter>が0以下の場合、<parameter>colnum</parameter>が<symbol>NULL</symbol>の場合、<parameter>values</parameter>が<symbol>NULL</symbol>の場合。
       </para>
      </listitem>
     </varlistentry>
@@ -4763,9 +6474,13 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
      <term><symbol>SPI_ERROR_NOATTRIBUTE</symbol></term>
      <listitem>
       <para>
+<!--
        if <parameter>colnum</parameter> contains an invalid column number (less
        than or equal to 0 or greater than the number of columns in
        <parameter>row</parameter>)
+-->
+<parameter>colnum</parameter>が無効な列番号を持つ場合
+（0以下、<parameter>row</parameter>の列数以上）。
       </para>
      </listitem>
     </varlistentry>
@@ -4774,7 +6489,10 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
      <term><symbol>SPI_ERROR_UNCONNECTED</symbol></term>
      <listitem>
       <para>
+<!--
        if SPI is not active
+-->
+SPIが動作していない場合
       </para>
      </listitem>
     </varlistentry>
@@ -4795,7 +6513,10 @@ HeapTuple SPI_modifytuple(Relation <parameter>rel</parameter>, HeapTuple <parame
 
  <refnamediv>
   <refname>SPI_freetuple</refname>
+<!--
   <refpurpose>free a row allocated in the upper executor context</refpurpose>
+-->
+  <refpurpose>上位エクゼキュータコンテキスト内に割り当てられた行を解放する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4805,29 +6526,45 @@ void SPI_freetuple(HeapTuple <parameter>row</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_freetuple</function> frees a row previously allocated
    in the upper executor context.
+-->
+<function>SPI_freetuple</function>は以前に上位エクゼキュータコンテキスト内に割り当てられた行を解放します。
   </para>
 
   <para>
+<!--
    This function is no longer different from plain
    <function>heap_freetuple</function>.  It's kept just for backward
    compatibility of existing code.
+-->
+この関数はもはや通常の<function>heap_freetuple</function>とは異なるものではありません。
+単に既存コードの後方互換性のために保持されています。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>HeapTuple <parameter>row</parameter></literal></term>
     <listitem>
      <para>
+<!--
       row to free
+-->
+解放する行
      </para>
     </listitem>
    </varlistentry>
@@ -4847,8 +6584,11 @@ void SPI_freetuple(HeapTuple <parameter>row</parameter>)
 
  <refnamediv>
   <refname>SPI_freetuptable</refname>
+<!--
   <refpurpose>free a row set created by <function>SPI_execute</function> or a similar
   function</refpurpose>
+-->
+  <refpurpose><function>SPI_execute</function>や類似の関数によって生成された行セットを解放する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4858,17 +6598,25 @@ void SPI_freetuptable(SPITupleTable * <parameter>tuptable</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_freetuptable</function> frees a row set created by a
    prior SPI command execution function, such as
    <function>SPI_execute</function>.  Therefore, this function is often called
    with the global variable <varname>SPI_tuptable</varname> as
    argument.
+-->
+<function>SPI_freetuptable</function>は、以前に<function>SPI_execute</function>などのSPIコマンド実行関数によって作成された行セットを解放します。
+そのため、この関数はよく<varname>SPI_tuptable</varname>グローバル変数を引数として呼び出されます。
   </para>
 
   <para>
+<!--
    This function is useful if an SPI-using C function needs to execute
    multiple commands and does not want to keep the results of earlier
    commands around until it ends.  Note that any unfreed row sets will
@@ -4876,25 +6624,39 @@ void SPI_freetuptable(SPITupleTable * <parameter>tuptable</parameter>)
    Also, if a subtransaction is started and then aborted within execution
    of an SPI-using C function, SPI automatically frees any row sets created while
    the subtransaction was running.
+-->
+この関数はSPIプロシージャが複数のコマンドを実行する必要があり、かつ、初期のコマンドの結果を終わりまで保持したくない場合に有用です。
+解放されない行セットは、<function>SPI_finish</function>時に全て解放されることに注意してください。
+また副トランザクションが始まった後SPIプロシージャの実行中にアボートした場合、SPIは自動的に副トランザクションが実行中に作成された行セットすべてを解放します。
   </para>
 
   <para>
+<!--
    Beginning in <productname>PostgreSQL</productname> 9.3,
    <function>SPI_freetuptable</function> contains guard logic to protect
    against duplicate deletion requests for the same row set.  In previous
    releases, duplicate deletions would lead to crashes.
+-->
+<productname>PostgreSQL</productname> 9.3から<function>SPI_freetuptable</function>には同一行セットに対して重複する削除要求から保護する保護ロジックが含まれます。
+過去のリリースでは重複する削除がクラッシュをもたらすかもしれませんでした。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPITupleTable * <parameter>tuptable</parameter></literal></term>
     <listitem>
      <para>
+<!--
       pointer to row set to free, or NULL to do nothing
+-->
+解放する行セットへのポインタ。または何も行わないことを示すNULL。
      </para>
     </listitem>
    </varlistentry>
@@ -4914,7 +6676,10 @@ void SPI_freetuptable(SPITupleTable * <parameter>tuptable</parameter>)
 
  <refnamediv>
   <refname>SPI_freeplan</refname>
+<!--
   <refpurpose>free a previously saved prepared statement</refpurpose>
+-->
+  <refpurpose>以前に保存した準備済み文を解放する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -4924,24 +6689,36 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_freeplan</function> releases a prepared statement
    previously returned by <function>SPI_prepare</function> or saved by
    <function>SPI_keepplan</function> or <function>SPI_saveplan</function>.
+-->
+<function>SPI_freeplan</function>は、以前に<function>SPI_prepare</function>から返された、あるいは<function>SPI_keepplan</function>や<function>SPI_saveplan</function>で保存された準備済み文を解放します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Arguments</title>
+-->
+  <title>引数</title>
 
   <variablelist>
    <varlistentry>
     <term><literal>SPIPlanPtr <parameter>plan</parameter></literal></term>
     <listitem>
      <para>
+<!--
       pointer to statement to free
+-->
+解放する文へのポインタ
      </para>
     </listitem>
    </varlistentry>
@@ -4949,12 +6726,19 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
  </refsect1>
 
  <refsect1>
+<!--
   <title>Return Value</title>
+-->
+  <title>戻り値</title>
 
   <para>
+<!--
    0 on success;
    <symbol>SPI_ERROR_ARGUMENT</symbol> if <parameter>plan</parameter>
    is <symbol>NULL</symbol> or invalid
+-->
+成功時は0。
+<parameter>plan</parameter>が<symbol>NULL</symbol>または無効な場合、<symbol>SPI_ERROR_ARGUMENT</symbol>です。
   </para>
  </refsect1>
 </refentry>
@@ -4962,16 +6746,24 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
  </sect1>
 
  <sect1 id="spi-transaction">
+<!--
   <title>Transaction Management</title>
+-->
+  <title>トランザクション管理</title>
 
   <para>
+<!--
    It is not possible to run transaction control commands such
    as <command>COMMIT</command> and <command>ROLLBACK</command> through SPI
    functions such as <function>SPI_execute</function>.  There are, however,
    separate interface functions that allow transaction control through SPI.
+-->
+<command>COMMIT</command>や<command>ROLLBACK</command>といったトランザクション制御コマンドを<function>SPI_execute</function>などのSPI関数を通して実行することはできません。
+しかしながら、SPIを通してトランザクション制御ができる別のインタフェース関数があります。
   </para>
 
   <para>
+<!--
    It is not generally safe and sensible to start and end transactions in
    arbitrary user-defined SQL-callable functions without taking into account
    the context in which they are called.  For example, a transaction boundary
@@ -4983,6 +6775,11 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
    command, taking the context of the <command>CALL</command> invocation into
    account.  SPI-using procedures implemented in C can implement the same logic, but
    the details of that are beyond the scope of this documentation.
+-->
+どこで呼び出されるかという文脈を考慮することなく、ユーザ定義された任意のSQL呼び出し可能な関数でトランザクションを開始・終了することは、一般的に安全でも思慮のあることではありません。
+例えば、SQLコマンドの一部の複雑なSQL式の一部である関数中のトランザクションブロックは、おそらく不明瞭な内部エラーやクラッシュになります。
+ここに示されるインタフェース関数は、<command>CALL</command>起動の文脈を考慮しており、主として<command>CALL</command>コマンドから起動される手続き言語から使われることを意図しています。
+SPIを使ったCで実装されたプロシージャは同じロジックを実装できますが、その詳細は本文書の範囲を超えます。
   </para>
 
 <!-- *********************************************** -->
@@ -4999,7 +6796,10 @@ int SPI_freeplan(SPIPlanPtr <parameter>plan</parameter>)
  <refnamediv>
   <refname>SPI_commit</refname>
   <refname>SPI_commit_and_chain</refname>
+<!--
   <refpurpose>commit the current transaction</refpurpose>
+-->
+  <refpurpose>現在のトランザクションをコミットします。</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -5013,27 +6813,41 @@ void SPI_commit_and_chain(void)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_commit</function> commits the current transaction.  It is
    approximately equivalent to running the SQL
    command <command>COMMIT</command>.  After a transaction is committed, a new
    transaction has to be started
    using <function>SPI_start_transaction</function> before further database
    actions can be executed.
+-->
+<function>SPI_commit</function>は現在のトランザクションをコミットします。
+これはSQLコマンドの<command>COMMIT</command>を実行することと概ね同等です。
+トランザクションがコミットされた後には、続くデータベース操作を実行する前に<function>SPI_start_transaction</function>を使って新たなトランザクションを開始しなければなりません。
   </para>
 
   <para>
+<!--
    <function>SPI_commit_and_chain</function> is the same, but a new
    transaction is immediately started with the same transaction
    characteristics as the just finished one, like with the SQL command
    <command>COMMIT AND CHAIN</command>.
+-->
+<function>SPI_commit_and_chain</function>は同じですが、新しいトランザクションは、SQLコマンド<command>COMMIT AND CHAIN</command>と同じように、直前に完了したものと同じトランザクションの特性で即時に開始されます。
   </para>
 
   <para>
+<!--
    These functions can only be executed if the SPI connection has been set as
    nonatomic in the call to <function>SPI_connect_ext</function>.
+-->
+これらの関数はSPI接続が<function>SPI_connect_ext</function>の呼び出しで非原子的と設定されている場合のみ、実行できます。
   </para>
  </refsect1>
 </refentry>
@@ -5052,7 +6866,10 @@ void SPI_commit_and_chain(void)
  <refnamediv>
   <refname>SPI_rollback</refname>
   <refname>SPI_rollback_and_chain</refname>
+<!--
   <refpurpose>abort the current transaction</refpurpose>
+-->
+  <refpurpose>現在のトランザクションを中断します。</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -5066,26 +6883,40 @@ void SPI_rollback_and_chain(void)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_rollback</function> rolls back the current transaction.  It
    is approximately equivalent to running the SQL
    command <command>ROLLBACK</command>.  After a transaction is rolled back, a
    new transaction has to be started
    using <function>SPI_start_transaction</function> before further database
    actions can be executed.
+-->
+<function>SPI_rollback</function>は現在のトランザクションをロールバックします。
+これはSQLコマンドの<command>ROLLBACK</command>を実行することと概ね同等です。
+トランザクションをロールバックした後、続くデータベース操作を実行する前に<function>SPI_start_transaction</function>を使用して新たなトランザクションを開始しなければなりません。
   </para>
   <para>
+<!--
    <function>SPI_rollback_and_chain</function> is the same, but a new
    transaction is immediately started with the same transaction
    characteristics as the just finished one, like with the SQL command
    <command>ROLLBACK AND CHAIN</command>.
+-->
+<function>SPI_rollback_and_chain</function>は同じですが、新しいトランザクションは、SQLコマンド<command>ROLLBACK AND CHAIN</command>と同じように、直前に完了したものと同じトランザクションの特性で即時に開始されます。
   </para>
 
   <para>
+<!--
    These functions can only be executed if the SPI connection has been set as
    nonatomic in the call to <function>SPI_connect_ext</function>.
+-->
+これらの関数はSPI接続が<function>SPI_connect_ext</function>の呼び出しで非原子的と設定されている場合のみ、実行できます。
   </para>
  </refsect1>
 </refentry>
@@ -5102,7 +6933,10 @@ void SPI_rollback_and_chain(void)
 
  <refnamediv>
   <refname>SPI_start_transaction</refname>
+<!--
   <refpurpose>start a new transaction</refpurpose>
+-->
+  <refpurpose>新たなトランザクションを開始します</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -5112,20 +6946,31 @@ void SPI_start_transaction(void)
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <function>SPI_start_transaction</function> starts a new transaction.  It
    can only be called after <function>SPI_commit</function>
    or <function>SPI_rollback</function>, as there is no transaction active at
    that point.  Normally, when an SPI-using procedure is called, there is already a
    transaction active, so attempting to start another one before closing out
    the current one will result in an error.
+-->
+<function>SPI_start_transaction</function>は新たなトランザクションを開始します。
+そこがトランザクション内では無いように、<function>SPI_commit</function>または<function>SPI_rollback</function>の後でのみ呼び出しできます。
+通常は、何らかSPIを使ったプロシージャが呼ばれたとき、トランザクションは既に開始済みです。そのため、現在のトランザクションを閉じる前に別のトランザクションを開始しようとするとエラーになります。
   </para>
 
   <para>
+<!--
    This function can only be executed if the SPI connection has been set as
    nonatomic in the call to <function>SPI_connect_ext</function>.
+-->
+この関数はSPI接続が<function>SPI_connect_ext</function>の呼び出しで非原子的と設定されている場合のみ、実行できます。
   </para>
  </refsect1>
 </refentry>
@@ -5133,36 +6978,54 @@ void SPI_start_transaction(void)
  </sect1>
 
  <sect1 id="spi-visibility">
+<!--
   <title>Visibility of Data Changes</title>
+-->
+  <title>データ変更の可視性</title>
 
   <para>
+<!--
    The following rules govern the visibility of data changes in
    functions that use SPI (or any other C function):
+-->
+SPI（や他の任意のC関数）を使用する関数内のデータの可視性は、以下の規則に従います。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       During the execution of an SQL command, any data changes made by
       the command are invisible to the command itself.  For
       example, in:
+-->
+SQLコマンドの実行中、そのコマンドで行われたデータ変更はそのコマンドからは不可視です。
+例えば、
 <programlisting>
 INSERT INTO a SELECT * FROM a;
 </programlisting>
+<!--
       the inserted rows are invisible to the <command>SELECT</command>
       part.
+-->
+では、挿入された行は<command>SELECT</command>部からは不可視です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Changes made by a command C are visible to all commands that are
       started after C, no matter whether they are started inside C
       (during the execution of C) or after C is done.
+-->
+コマンドCで行われた変更は、Cの後に開始された全てのコマンドからは可視です。
+Cの内側（処理中）に開始したかCの処理後に開始したかは関係ありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Commands executed via SPI inside a function called by an SQL command
       (either an ordinary function or a trigger) follow one or the
       other of the above rules depending on the read/write flag passed
@@ -5170,32 +7033,48 @@ INSERT INTO a SELECT * FROM a;
       rule: they cannot see changes of the calling command.  Commands executed
       in read-write mode follow the second rule: they can see all changes made
       so far.
+-->
+SQLコマンドによって呼び出される関数（普通の関数やトリガ関数）の内側で、SPIを使用して実行されるコマンドは、SPIに渡される読み書きフラグに応じて上の規則のいくつかに従います。
+読み取りのみモードで実行されるコマンドは、呼び出し中のコマンドの変更は不可視であるという最初の規則に従います。
+読み書きモードで実行されるコマンドは、今までに行われた変更はすべて可視であるという2番目の規則に従います。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       All standard procedural languages set the SPI read-write mode
       depending on the volatility attribute of the function.  Commands of
       <literal>STABLE</literal> and <literal>IMMUTABLE</literal> functions are done in
       read-only mode, while commands of <literal>VOLATILE</literal> functions are
       done in read-write mode.  While authors of C functions are able to
       violate this convention, it's unlikely to be a good idea to do so.
+-->
+標準の手続き言語は全て、関数の変動属性に応じてSPI読み書きモードを設定します。
+<literal>STABLE</literal>および<literal>IMMUTABLE</literal>関数のコマンドは、読み取りのみモードで行われ、<literal>VOLATILE</literal>関数のコマンドは読み書きモードで行われます。
+C言語関数の作者はこの規約を無視することができますが、それはほとんどの場合勧められません。
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    The next section contains an example that illustrates the
    application of these rules.
+-->
+次節には、これら規則の適用についてを示す例があります。
   </para>
  </sect1>
 
  <sect1 id="spi-examples">
+<!--
   <title>Examples</title>
+-->
+  <title>例</title>
 
   <para>
+<!--
    This section contains a very simple example of SPI usage. The
    C function <function>execq</function> takes an SQL command as its
    first argument and a row count as its second, executes the command
@@ -5204,6 +7083,10 @@ INSERT INTO a SELECT * FROM a;
    examples for SPI in the source tree in
    <filename>src/test/regress/regress.c</filename> and in the
    <xref linkend="contrib-spi"/> module.
+-->
+本節には、SPIを使用する非常に簡単な例があります。
+C関数<function>execq</function>は1つ目の引数としてSQLコマンドを、2つ目の引数として行数を取り、<function>SPI_exec</function>コマンドを実行し、そのコマンドで処理された行数を返します。
+SPIのより複雑な例はソースツリー内の<filename>src/test/regress/regress.c</filename>と<xref linkend="contrib-spi"/>モジュールにあります。
   </para>
 
 <programlisting>
@@ -5224,7 +7107,10 @@ execq(PG_FUNCTION_ARGS)
     int ret;
     uint64 proc;
 
+<!--
     /* Convert given text object to a C string */
+-->
+    /* 与えられたテキストオブジェクトをC文字列に変換 */
     command = text_to_cstring(PG_GETARG_TEXT_PP(0));
     cnt = PG_GETARG_INT32(1);
 
@@ -5235,7 +7121,10 @@ execq(PG_FUNCTION_ARGS)
     proc = SPI_processed;
 
     /*
+<!--
      * If some rows were fetched, print them via elog(INFO).
+-->
+     * 何らかの行が取り出された場合は、行をelog(INFO)を使用して表示
      */
     if (ret &gt; 0 &amp;&amp; SPI_tuptable != NULL)
     {
@@ -5265,8 +7154,11 @@ execq(PG_FUNCTION_ARGS)
 </programlisting>
 
   <para>
+<!--
    This is how you declare the function after having compiled it into
    a shared library (details are in <xref linkend="dfunc"/>.):
+-->
+以下は、コンパイルし共有ライブラリ（<xref linkend="dfunc"/>を参照）を作成した後で、関数を宣言する方法です。
 
 <programlisting>
 CREATE FUNCTION execq(text, integer) RETURNS int8
@@ -5276,7 +7168,10 @@ CREATE FUNCTION execq(text, integer) RETURNS int8
   </para>
 
   <para>
+<!--
    Here is a sample session:
+-->
+以下はセッションの例です。
 
 <programlisting>
 =&gt; SELECT execq('CREATE TABLE a (x integer)', 0);
@@ -5288,8 +7183,12 @@ CREATE FUNCTION execq(text, integer) RETURNS int8
 =&gt; INSERT INTO a VALUES (execq('INSERT INTO a VALUES (0)', 0));
 INSERT 0 1
 =&gt; SELECT execq('SELECT * FROM a', 0);
-INFO:  EXECQ:  0    -- inserted by execq
-INFO:  EXECQ:  1    -- returned by execq and inserted by upper INSERT
+<!--
+INFO:  EXECQ:  0    &#045;&#045; inserted by execq
+INFO:  EXECQ:  1    &#045;&#045; returned by execq and inserted by upper INSERT
+-->
+INFO:  EXECQ:  0    -- execqによって挿入された
+INFO:  EXECQ:  1    -- execqによって返され、上位のINSERTによって挿入された
 
  execq
 -------
@@ -5305,11 +7204,17 @@ INFO:  EXECQ:  1    -- returned by execq and inserted by upper INSERT
 =&gt; SELECT execq('SELECT * FROM a', 10);
 INFO:  EXECQ:  0
 INFO:  EXECQ:  1
-INFO:  EXECQ:  2    -- 0 + 2, only one row inserted - as specified
+<!--
+INFO:  EXECQ:  2    &#045;&#045; 0 + 2, only one row inserted - as specified
+-->
+INFO:  EXECQ:  2    -- 指定された、0 + 2という1つの行のみが挿入された
 
  execq
 -------
-     3              -- 10 is the max value only, 3 is the real number of rows
+<!--
+     3              &#045;&#045; 10 is the max value only, 3 is the real number of rows
+-->
+     3              -- 10は最大値を示すのみで、3が実際の行数です。
 (1 row)
 
 =&gt; DELETE FROM a;
@@ -5319,7 +7224,10 @@ INSERT 0 1
 =&gt; SELECT * FROM a;
  x
 ---
- 1                  -- no rows in a (0) + 1
+<!--
+ 1                  &#045;&#045; no rows in a (0) + 1
+-->
+ 1                  -- aテーブルに行がない(0) + 1
 (1 row)
 
 =&gt; INSERT INTO a VALUES (execq('SELECT * FROM a', 0) + 1);
@@ -5329,10 +7237,16 @@ INSERT 0 1
  x
 ---
  1
- 2                  -- there was one row in a + 1
+<!--
+ 2                  &#045;&#045; there was one row in a + 1
+-->
+ 2                  -- aテーブルに1行あり + 1
 (2 rows)
 
--- This demonstrates the data changes visibility rule:
+<!--
+&#045;&#045; This demonstrates the data changes visibility rule:
+-->
+--   これはデータ変更に関する可視性規則を説明します。
 
 =&gt; INSERT INTO a SELECT execq('SELECT * FROM a', 0) * x FROM a;
 INFO:  EXECQ:  1
@@ -5346,10 +7260,16 @@ INSERT 0 2
 ---
  1
  2
- 2                  -- 2 rows * 1 (x in first row)
- 6                  -- 3 rows (2 + 1 just inserted) * 2 (x in second row)
+<!--
+ 2                  &#045;&#045; 2 rows * 1 (x in first row)
+ 6                  &#045;&#045; 3 rows (2 + 1 just inserted) * 2 (x in second row)
 (4 rows)               ^^^^^^
                        rows visible to execq() in different invocations
+-->
+ 2                  -- 2 行 * 1 （xは最初の行）
+ 6                  -- 3 行 （2 + 挿入された 1） * 2 （2行目のx）
+(4 rows)               ^^^^^^
+                       別の呼び出しで execq()で可視な行
 </programlisting>
   </para>
  </sect1>

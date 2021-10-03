@@ -8,52 +8,80 @@
  </indexterm>
 
  <para>
+<!--
   The <filename>lo</filename> module provides support for managing Large Objects
   (also called LOs or BLOBs).  This includes a data type <type>lo</type>
   and a trigger <function>lo_manage</function>.
+-->
+<filename>lo</filename>モジュールはラージオブジェクト（LOやBLOBとも呼ばれます）保守作業のサポートを提供します。
+<type>lo</type>データ型と<function>lo_manage</function>トリガが含まれます。
  </para>
 
  <para>
+<!--
   This module is considered <quote>trusted</quote>, that is, it can be
   installed by non-superusers who have <literal>CREATE</literal> privilege
   on the current database.
+-->
+このモジュールは<quote>trusted</quote>と見なされます。つまり、現在のデータベースに対して<literal>CREATE</literal>権限を持つ非スーパーユーザがインストールできます。
  </para>
 
  <sect2>
+<!--
   <title>Rationale</title>
+-->
+  <title>原理</title>
 
   <para>
+<!--
    One of the problems with the JDBC driver (and this affects the ODBC driver
    also), is that the specification assumes that references to BLOBs (Binary
    Large OBjects) are stored within a table, and if that entry is changed, the
    associated BLOB is deleted from the database.
+-->
+JDBCドライバにおける問題の1つ（ODBCドライバでもこれは影響します）は、規定ではBLOB（バイナリラージオブジェクト）への参照はテーブル内に格納され、その項目が変更されると、関連するBLOBがデータベースから削除されると想定している点です。
   </para>
 
   <para>
+<!--
    As <productname>PostgreSQL</productname> stands, this doesn't occur.  Large objects
    are treated as objects in their own right; a table entry can reference a
    large object by OID, but there can be multiple table entries referencing
    the same large object OID, so the system doesn't delete the large object
    just because you change or remove one such entry.
+-->
+<productname>PostgreSQL</productname>の立場では、これは起こりません。
+ラージオブジェクトは独自の権限をもったオブジェクトとして扱われます。
+テーブル項目はOIDによりラージオブジェクトを参照することはできますが、同じラージオブジェクトOIDを参照するテーブル項目を複数持つことも可能です。
+このため、システムは、こうした項目を変更または削除したという理由だけでは、ラージオブジェクトを削除しません。
   </para>
 
   <para>
+<!--
    Now this is fine for <productname>PostgreSQL</productname>-specific applications, but
    standard code using JDBC or ODBC won't delete the objects, resulting in
    orphan objects &mdash; objects that are not referenced by anything, and
    simply occupy disk space.
+-->
+さて、これは<productname>PostgreSQL</productname>固有のアプリケーションでは問題ありませんが、JDBCやODBCを使用する標準的なコードでは、オブジェクトが削除されず、孤児、つまりどこからも参照されずディスクを消費するだけのオブジェクトになります。
   </para>
 
   <para>
+<!--
    The <filename>lo</filename> module allows fixing this by attaching a trigger
    to tables that contain LO reference columns.  The trigger essentially just
    does a <function>lo_unlink</function> whenever you delete or modify a value
    referencing a large object.  When you use this trigger, you are assuming
    that there is only one database reference to any large object that is
    referenced in a trigger-controlled column!
+-->
+<filename>lo</filename>モジュールによりLO参照列を持つテーブルにトリガを付与して、これを解消することができます。
+このトリガは基本的には、ラージオブジェクトを参照する値を削除または変更した時常に<function>lo_unlink</function>を単に行います。
+このトリガを使用する時は、単一のデータベースのみがトリガの対象列で参照されるラージオブジェクトを参照することを前提とします。
   </para>
 
   <para>
+<!--
    The module also provides a data type <type>lo</type>, which is really just
    a domain of the <type>oid</type> type.  This is useful for differentiating
    database columns that hold large object references from those that are
@@ -62,14 +90,26 @@
    columns in your database represent large objects that you are managing with
    the trigger.  It is also rumored that the ODBC driver gets confused if you
    don't use <type>lo</type> for BLOB columns.
+-->
+また、本モジュールは、単に<type>oid</type>型のドメインに過ぎない<type>lo</type>データ型を提供します。
+ラージオブジェクトへの参照を持つデータベース列とこの他のOIDを持つデータベース列との間に違いを持たせるために有用です。
+実際このトリガを使用するために<type>lo</type>型を使用する必要はありません。
+しかし、データベース内のどの列がトリガで管理されているラージオブジェクトを示しているかを保持するために、これを使用することは簡便かもしれません。
+また、BLOB列で<type>lo</type>を使用しない場合、ODBCドライバが混乱してしまうと取りざたされています。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>How to Use It</title>
+-->
+  <title>使用方法</title>
 
   <para>
+<!--
    Here's a simple example of usage:
+-->
+簡単な使用例を示します。
   </para>
 
 <programlisting>
@@ -80,6 +120,7 @@ CREATE TRIGGER t_raster BEFORE UPDATE OR DELETE ON image
 </programlisting>
 
   <para>
+<!--
    For each column that will contain unique references to large objects,
    create a <literal>BEFORE UPDATE OR DELETE</literal> trigger, and give the column
    name as the sole trigger argument.  You can also restrict the trigger
@@ -88,44 +129,71 @@ CREATE TRIGGER t_raster BEFORE UPDATE OR DELETE ON image
    If you need multiple <type>lo</type>
    columns in the same table, create a separate trigger for each one,
    remembering to give a different name to each trigger on the same table.
+-->
+一意なラージオブジェクト参照を含む列それぞれに対し、<literal>BEFORE UPDATE OR DELETE</literal>トリガを作成してください。
+そして、単一のトリガ引数として列名を指定してください。
+<literal>BEFORE UPDATE OF</literal> <replaceable class="parameter">column_name</replaceable>を使って列が更新される時にのみ実行するようトリガを制限することもできます。
+同一テーブル上に複数の<type>lo</type>型の列を持たせる必要がある場合、それぞれに対して別のトリガを作成してください。
+同一テーブル上の各トリガに別の名前を与えることは忘れないでください。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Limitations</title>
+-->
+  <title>制限</title>
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      Dropping a table will still orphan any objects it contains, as the trigger
      is not executed.  You can avoid this by preceding the <command>DROP
      TABLE</command> with <command>DELETE FROM <replaceable>table</replaceable></command>.
+-->
+トリガが実行されませんので、テーブル削除により含まれるオブジェクトは孤児化します。
+<command>DROP TABLE</command>の前に<command>DELETE FROM <replaceable>table</replaceable></command>を行うことで防止することができます。
     </para>
 
     <para>
+<!--
      <command>TRUNCATE</command> has the same hazard.
+-->
+<command>TRUNCATE</command>も同様の危険があります。
     </para>
 
     <para>
+<!--
      If you already have, or suspect you have, orphaned large objects, see the
      <xref linkend="vacuumlo"/> module to help
      you clean them up.  It's a good idea to run <application>vacuumlo</application>
      occasionally as a back-stop to the <function>lo_manage</function> trigger.
+-->
+ラージオブジェクトを孤児化させた、または孤児化させた疑いがある場合は、消去するための手助けとなる<xref linkend="vacuumlo"/>モジュールを参照してください。
+<function>lo_manage</function>トリガのバックネットとして<application>vacuumlo</application>を時々実行することを勧めます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Some frontends may create their own tables, and will not create the
      associated trigger(s).  Also, users may not remember (or know) to create
      the triggers.
+-->
+フロントエンドの中には独自のテーブルを作成するものがあり、その場合、関連するトリガは作成されません。
+また、ユーザはトリガを作成することを忘れる（または知らない）かもしれません。
     </para>
    </listitem>
   </itemizedlist>
  </sect2>
 
  <sect2>
+<!--
   <title>Author</title>
+-->
+  <title>作者</title>
 
   <para>
    Peter Mount <email>peter@retep.org.uk</email>

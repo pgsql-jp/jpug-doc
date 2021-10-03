@@ -1,14 +1,22 @@
 <!-- doc/src/sgml/fdwhandler.sgml -->
 
  <chapter id="fdwhandler">
+<!--
    <title>Writing a Foreign Data Wrapper</title>
+-->
+   <title>外部データラッパの作成</title>
 
    <indexterm zone="fdwhandler">
+<!--
     <primary>foreign data wrapper</primary>
     <secondary>handler for</secondary>
+-->
+    <primary>外部データラッパ</primary>
+    <secondary>のハンドラ</secondary>
    </indexterm>
 
    <para>
+<!--
     All operations on a foreign table are handled through its foreign data
     wrapper, which consists of a set of functions that the core server
     calls.  The foreign data wrapper is responsible for fetching
@@ -16,37 +24,60 @@
     <productname>PostgreSQL</productname> executor.  If updating foreign
     tables is to be supported, the wrapper must handle that, too.
     This chapter outlines how to write a new foreign data wrapper.
+-->
+外部テーブルへの全ての操作は、コアサーバから呼び出される関数のセットで構成される、外部データラッパで処理されます。
+外部データラッパは、リモートデータソースからデータを取り出し、そのデータを<productname>PostgreSQL</productname>エクゼキュータに返却することを担当します。
+外部テーブルの更新をサポートする場合、ラッパはそれも扱わなければなりません。
+本章では、新しい外部データラッパを作成する方法の概要を示します。
    </para>
 
    <para>
+<!--
     The foreign data wrappers included in the standard distribution are good
     references when trying to write your own.  Look into the
     <filename>contrib</filename> subdirectory of the source tree.
     The <xref linkend="sql-createforeigndatawrapper"/> reference page also has
     some useful details.
+-->
+独自の外部データラッパを作成する際、標準配布物に含まれているものは優れたリファレンスです。
+ソースツリーの<filename>contrib</filename>サブディレクトリを調べてください。
+<xref linkend="sql-createforeigndatawrapper"/>マニュアルページにも有用な情報があります。
    </para>
 
    <note>
     <para>
+<!--
      The SQL standard specifies an interface for writing foreign data wrappers.
      However, PostgreSQL does not implement that API, because the effort to
      accommodate it into PostgreSQL would be large, and the standard API hasn't
      gained wide adoption anyway.
+-->
+標準SQLでは外部データラッパを作成するインタフェースを定義しています。
+しかしながら、PostgreSQLに適応させる労力が大きく、また標準のAPIが広く採用されているわけでもないので、PostgreSQLはそのAPIを実装していません。
     </para>
    </note>
 
    <sect1 id="fdw-functions">
+<!--
     <title>Foreign Data Wrapper Functions</title>
+-->
+    <title>外部データラッパ関数</title>
 
     <para>
+<!--
      The FDW author needs to implement a handler function, and optionally
      a validator function. Both functions must be written in a compiled
      language such as C, using the version-1 interface.
      For details on C language calling conventions and dynamic loading,
      see <xref linkend="xfunc-c"/>.
+-->
+FDWの作者は、ハンドラ関数と、オプションで検証関数を実装する必要があります。
+両関数とも、version-1インタフェースを使用して、Cなどのコンパイル言語で作成しなければなりません。
+C言語の呼び出し規約と動的ロードについては<xref linkend="xfunc-c"/>を参照してください。
     </para>
 
     <para>
+<!--
      The handler function simply returns a struct of function pointers to
      callback functions that will be called by the planner, executor, and
      various maintenance commands.
@@ -58,9 +89,15 @@
      callback functions are plain C functions and are not visible or
      callable at the SQL level.  The callback functions are described in
      <xref linkend="fdw-callbacks"/>.
+-->
+ハンドラ関数は単に、プランナやエクゼキュータ、様々なメンテナンスコマンドから呼び出されるコールバックの関数ポインタを含む構造体を返します。
+FDWを作成するための労力のほとんどは、これらのコールバック関数を実装することに費やされます。
+ハンドラ関数は、引数を取らず特殊な仮想型である<type>fdw_handler</type>を返す関数として<productname>PostgreSQL</productname>に登録しなければなりません。
+コールバック関数は通常のC言語関数で、SQLレベルでは参照も呼び出しもできません。コールバック関数の説明は<xref linkend="fdw-callbacks"/>にあります。
     </para>
 
     <para>
+<!--
      The validator function is responsible for validating options given in
      <command>CREATE</command> and <command>ALTER</command> commands for its
      foreign data wrapper, as well as foreign servers, user mappings, and
@@ -76,27 +113,44 @@
      or <literal>ForeignTableRelationId</literal>).
      If no validator function is supplied, options are not checked at object
      creation time or object alteration time.
+-->
+検証関数は、そのラッパを使用する外部サーバ、ユーザマッピング、外部テーブルだけでなく、外部データラッパ自身の<command>CREATE</command>や<command>ALTER</command>といったコマンドで指定されたオプションの妥当性の検証を担当します。
+検証関数は、検証するオプションを含むtext配列と、オプションを関連付けるオブジェクトの種類を表すOID（そのオブジェクトが格納されるシステムカタログのOIDで次のいずれか、<literal>ForeignDataWrapperRelationId</literal>、<literal>ForeignServerRelationId</literal>、<literal>UserMappingRelationId</literal>、<literal>ForeignTableRelationId</literal>）という二つの引数を取るものとして登録しなければなりません。
+検証関数が指定されなかった場合、オブジェクト作成時やオブジェクト変更時にオプションはチェックされません。
     </para>
 
    </sect1>
 
    <sect1 id="fdw-callbacks">
+<!--
     <title>Foreign Data Wrapper Callback Routines</title>
+-->
+    <title>外部データラッパのコールバックルーチン</title>
 
     <para>
+<!--
      The FDW handler function returns a palloc'd <structname>FdwRoutine</structname>
      struct containing pointers to the callback functions described below.
      The scan-related functions are required, the rest are optional.
+-->
+FDWハンドラ関数は、以下で説明するコールバックの関数ポインタを含む、pallocされた<structname>FdwRoutine</structname>構造体を返します。
+スキャンに関連した関数は必須で、それ以外は省略可能です。
     </para>
 
     <para>
+<!--
      The <structname>FdwRoutine</structname> struct type is declared in
      <filename>src/include/foreign/fdwapi.h</filename>, which see for additional
      details.
+-->
+<structname>FdwRoutine</structname>構造体は<filename>src/include/foreign/fdwapi.h</filename>で宣言されていますので、追加情報はそちらを参照してください。
     </para>
 
    <sect2 id="fdw-callbacks-scan">
+<!--
     <title>FDW Routines for Scanning Foreign Tables</title>
+-->
+    <title>外部テーブルスキャンのためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -106,6 +160,7 @@ GetForeignRelSize(PlannerInfo *root,
                   Oid foreigntableid);
 </programlisting>
 
+<!--
      Obtain relation size estimates for a foreign table.  This is called
      at the beginning of planning for a query that scans a foreign table.
      <literal>root</literal> is the planner's global information about the query;
@@ -113,9 +168,17 @@ GetForeignRelSize(PlannerInfo *root,
      <literal>foreigntableid</literal> is the <structname>pg_class</structname> OID of the
      foreign table.  (<literal>foreigntableid</literal> could be obtained from the
      planner data structures, but it's passed explicitly to save effort.)
+-->
+外部テーブルのリレーションサイズ見積もりを取得します。
+この関数は、ある外部テーブルをスキャンするクエリのプラン作成の開始時に呼び出されます。
+<literal>root</literal>はそのクエリに関するプランナのグローバル情報です。
+<literal>baserel</literal>はそのテーブルに関するプランナの情報です。
+そして、<literal>foreigntableid</literal>はその外部テーブルの<structname>pg_class</structname> OIDです。
+(<literal>foreigntableid</literal>はプランナデータ構造体からも取得できますが、手間を省くために明示的に渡されます。)
     </para>
 
     <para>
+<!--
      This function should update <literal>baserel-&gt;rows</literal> to be the
      expected number of rows returned by the table scan, after accounting for
      the filtering done by the restriction quals.  The initial value of
@@ -132,10 +195,19 @@ GetForeignRelSize(PlannerInfo *root,
      which represents the total row count seen by the
      last <command>ANALYZE</command>; it will be <literal>-1</literal> if
      no <command>ANALYZE</command> has been done on this foreign table.)
+-->
+この関数は、検索条件によるフィルタリングも考慮に入れた、そのテーブルスキャンが返すと見込まれる件数に<literal>baserel-&gt;rows</literal>を更新するべきです。
+<literal>baserel-&gt;rows</literal>の初期値は固定のデフォルト見積もりなので、可能な限り置き換えられるべきです。この関数は、行の幅のよりよい見積もりを計算できるのであれば、<literal>baserel-&gt;width</literal>を更新することも選択出来ます。
+(初期値は列の型と最後に実行された<command>ANALYZE</command>から計測された平均列幅に基づいています。)
+また、外部テーブルの総行数の見積もりをより正しく計算できる場合、この関数は、<literal>baserel-&gt;tuples</literal>を更新しても構いません。
+(初期値は<structname>pg_class</structname>.<structfield>reltuples</structfield>で、最後に実行された<command>ANALYZE</command>によって確認された総行数です。)
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-planning"/> for additional information.
+-->
+追加情報については<xref linkend="fdw-planning"/>を参照してください。
     </para>
 
     <para>
@@ -146,13 +218,19 @@ GetForeignPaths(PlannerInfo *root,
                 Oid foreigntableid);
 </programlisting>
 
+<!--
      Create possible access paths for a scan on a foreign table.
      This is called during query planning.
      The parameters are the same as for <function>GetForeignRelSize</function>,
      which has already been called.
+-->
+外部テーブル対するスキャンとして可能なアクセスパスを作成します。
+この関数はクエリのプラン作成中に呼び出されます。
+引数は、先に呼ばれている<function>GetForeignRelSize</function>と同じです。
     </para>
 
     <para>
+<!--
      This function must generate at least one access path
      (<structname>ForeignPath</structname> node) for a scan on the foreign table and
      must call <function>add_path</function> to add each such path to
@@ -163,10 +241,18 @@ GetForeignPaths(PlannerInfo *root,
      represent a pre-sorted result.  Each access path must contain cost
      estimates, and can contain any FDW-private information that is needed to
      identify the specific scan method intended.
+-->
+この関数は、少なくとも一つのアクセスパス(<structname>ForeignPath</structname>ノード)を作成して、それぞれのパスを<literal>baserel-&gt;pathlist</literal>に追加するために<function>add_path</function>を呼ばなければなりません。
+<structname>ForeignPath</structname>ノードを構築するには<function>create_foreignscan_path</function>を使うことが推奨されています。
+この関数は、たとえばソート済みの結果を表現する有効な<literal>pathkeys</literal>を持つパスのような複数のアクセスパスを作成することが出来ます。
+それぞれのアクセスパスはコスト見積もりを含まねばならず、また意図した特定のスキャン方式を識別するのに必要なFDW固有の情報を持つことが出来ます。
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-planning"/> for additional information.
+-->
+追加情報については<xref linkend="fdw-planning"/>を参照してください。
     </para>
 
     <para>
@@ -181,6 +267,7 @@ GetForeignPlan(PlannerInfo *root,
                Plan *outer_plan);
 </programlisting>
 
+<!--
      Create a <structname>ForeignScan</structname> plan node from the selected foreign
      access path.  This is called at the end of query planning.
      The parameters are as for <function>GetForeignRelSize</function>, plus
@@ -193,16 +280,27 @@ GetForeignPlan(PlannerInfo *root,
      which is used for rechecks performed by <function>RecheckForeignScan</function>.
      (If the path is for a join rather than a base
      relation, <literal>foreigntableid</literal> is <literal>InvalidOid</literal>.)
+-->
+選択された外部アクセスパスから<structname>ForeignScan</structname>プランノードを作成します。
+この関数はクエリプラン作成の最後に呼び出されます。
+引数は、<function>GetForeignRelSize</function>と同じものに、選択された<structname>ForeignPath</structname>(事前に<function>GetForeignPaths</function>、<function>GetForeignJoinPaths</function>または<function>GetForeignUpperPaths</function>によって作成されたもの)、そのプランノードによって出力されるターゲットリスト、そのプランノードで強制される条件句、および<function>RecheckForeignScan</function>が実行する再検査で使用される<structname>ForeignScan</structname>の外側のサブプランが追加されます。
+（パスがベースリレーションではなく結合のためのものの場合、<literal>foreigntableid</literal>は<literal>InvalidOid</literal>になります。）
     </para>
 
     <para>
+<!--
      This function must create and return a <structname>ForeignScan</structname> plan
      node; it's recommended to use <function>make_foreignscan</function> to build the
      <structname>ForeignScan</structname> node.
+-->
+この関数は<structname>ForeignScan</structname>プランノードを作成して返さなければなりません。<structname>ForeignScan</structname>ノードを構築するには<function>make_foreignscan</function>を使うことが推奨されています。
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-planning"/> for additional information.
+-->
+追加情報については<xref linkend="fdw-planning"/>を参照してください。
     </para>
 
     <para>
@@ -212,6 +310,7 @@ BeginForeignScan(ForeignScanState *node,
                  int eflags);
 </programlisting>
 
+<!--
      Begin executing a foreign scan. This is called during executor startup.
      It should perform any initialization needed before the scan can start,
      but not start executing the actual scan (that should be done upon the
@@ -224,13 +323,24 @@ BeginForeignScan(ForeignScanState *node,
      information provided by <function>GetForeignPlan</function>).
      <literal>eflags</literal> contains flag bits describing the executor's
      operating mode for this plan node.
+-->
+外部テーブルスキャンの実行を開始します。
+この関数はエクゼキュータの起動中に呼び出されます。
+スキャンを開始できるようになる前に、あらゆる必要な初期化を実行するべきですが、実際のスキャンの実行を始めるべきではありません(それは最初の<function>IterateForeignScan</function>呼び出しにおいて行われるべきです)。
+<structname>ForeignScanState</structname>ノードは作成されていますが、その<structfield>fdw_state</structfield>フィールドはNULLのままです。
+スキャンするテーブルの情報は、<structname>ForeignScanState</structname>ノード(特に、その先にある<function>GetForeignPlan</function>から提供されたFDWプライベート情報を含む、<structname>ForeignScan</structname>プランノード)を通じてアクセス可能です。
+<literal>eflags</literal>は、このプランノードに関するエクゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
+<!--
      Note that when <literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</literal> is
      true, this function should not perform any externally-visible actions;
      it should only do the minimum required to make the node state valid
      for <function>ExplainForeignScan</function> and <function>EndForeignScan</function>.
+-->
+<literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</literal>が真の場合、この関数は外部に見える処理を実行すべきではないことに注意してください。
+<function>ExplainForeignScan</function>や<function>EndForeignScan</function>用にノード状態を有効にするのに必要とされる最小限のことだけをすべきです。
     </para>
 
     <para>
@@ -239,6 +349,7 @@ TupleTableSlot *
 IterateForeignScan(ForeignScanState *node);
 </programlisting>
 
+<!--
      Fetch one row from the foreign source, returning it in a tuple table slot
      (the node's <structfield>ScanTupleSlot</structfield> should be used for this
      purpose).  Return NULL if no more rows are available.  The tuple table
@@ -248,18 +359,30 @@ IterateForeignScan(ForeignScanState *node);
      context that will be reset between invocations.  Create a memory context
      in <function>BeginForeignScan</function> if you need longer-lived storage, or use
      the <structfield>es_query_cxt</structfield> of the node's <structname>EState</structname>.
+-->
+外部ソースから一行を取り出して、それをタプルテーブルスロットに入れて返します(この用途にはノードの<structfield>ScanTupleSlot</structfield>を使うべきです)。
+利用可能な行がない場合は、NULLを返します。
+タプルテーブルスロット機構を使うと、物理タプルと仮想タプルのどちらでも返せます。
+ほとんどの場合、パフォーマンスの観点から後者を選ぶのが良いでしょう。
+この関数は、呼出しごとにリセットされる短命なメモリコンテキスト内で呼び出されることに注意してください。
+より長命なストレージが必要な場合は、<function>BeginForeignScan</function>でメモリコンテキストを作成するか、ノードの<structname>EState</structname>に含まれる<structfield>es_query_cxt</structfield>を使用してください。
     </para>
 
     <para>
+<!--
      The rows returned must match the <structfield>fdw_scan_tlist</structfield> target
      list if one was supplied, otherwise they must match the row type of the
      foreign table being scanned.  If you choose to optimize away fetching
      columns that are not needed, you should insert nulls in those column
      positions, or else generate a <structfield>fdw_scan_tlist</structfield> list with
      those columns omitted.
+-->
+返される行は、ターゲットリスト<structfield>fdw_scan_tlist</structfield>が提供されたなら、それとマッチしなければならず、提供されていない場合はスキャンされている外部テーブルの行型とマッチしなければなりません。
+不要な列を取り出さないように最適化することを選ぶなら、それらの列の位置にNULLを入れるか、あるいはそれらの列を除いた<structfield>fdw_scan_tlist</structfield>リストを生成するべきです。
     </para>
 
     <para>
+<!--
      Note that <productname>PostgreSQL</productname>'s executor doesn't care
      whether the rows returned violate any constraints that were defined on
      the foreign table &mdash; but the planner does care, and may optimize
@@ -268,6 +391,10 @@ IterateForeignScan(ForeignScanState *node);
      the user has declared that the constraint should hold true, it may be
      appropriate to raise an error (just as you would need to do in the case
      of a data type mismatch).
+-->
+<productname>PostgreSQL</productname>のエクゼキュータは返された行が外部テーブルに定義された制約に違反しているかどうかは気にしません。
+しかし、プランナはそれに着目するので、宣言された制約に反する行が外部テーブル上にあった場合に、不正な最適化をするかもしれません。
+ユーザが制約が成り立つと宣言したのに制約に違反した場合は(データ型が一致しなかった場合にする必要があるのと同様に)エラーを発生させるのが適切でしょう。
     </para>
 
     <para>
@@ -276,9 +403,13 @@ void
 ReScanForeignScan(ForeignScanState *node);
 </programlisting>
 
+<!--
      Restart the scan from the beginning.  Note that any parameters the
      scan depends on may have changed value, so the new scan does not
      necessarily return exactly the same rows.
+-->
+先頭からスキャンを再開します。
+スキャンが依存するいずれかのパラメータが値を変更しているかもしれないので、新しいスキャンが必ずしも厳密に同じ行を返すとは限らないことに注意してください。
     </para>
 
     <para>
@@ -287,20 +418,30 @@ void
 EndForeignScan(ForeignScanState *node);
 </programlisting>
 
+<!--
      End the scan and release resources.  It is normally not important
      to release palloc'd memory, but for example open files and connections
      to remote servers should be cleaned up.
+-->
+スキャンを終了しリソースを解放します。
+通常、pallocされたメモリを解放することは重要ではありませんが、たとえば開いたファイルやリモートサーバへの接続などはクリーンアップするべきです。
     </para>
 
    </sect2>
 
    <sect2 id="fdw-callbacks-join-scan">
+<!--
     <title>FDW Routines for Scanning Foreign Joins</title>
+-->
+    <title>外部テーブルの結合をスキャンするためのFDWルーチン</title>
 
     <para>
+<!--
      If an FDW supports performing foreign joins remotely (rather than
      by fetching both tables' data and doing the join locally), it should
      provide this callback function:
+-->
+FDWが外部テーブルの結合を（両方のテーブルのデータをフェッチして、ローカルで結合するのでなく）リモートで実行することをサポートする場合、次のコールバック関数を提供します。
     </para>
 
     <para>
@@ -313,6 +454,7 @@ GetForeignJoinPaths(PlannerInfo *root,
                     JoinType jointype,
                     JoinPathExtraData *extra);
 </programlisting>
+<!--
      Create possible access paths for a join of two (or more) foreign tables
      that all belong to the same foreign server.  This optional
      function is called during query planning.  As
@@ -325,15 +467,26 @@ GetForeignJoinPaths(PlannerInfo *root,
      <function>GetForeignPaths</function>, it is not necessary that this function
      succeed in creating at least one path, since paths involving local
      joining are always possible.
+-->
+同じ外部サーバにある2つ（またはそれ以上）の外部テーブルの結合のための可能なアクセスパスを作成します。
+このオプション関数は、問い合わせの計画時に呼び出されます。
+<function>GetForeignPaths</function>と同じく、この関数は提供された<literal>joinrel</literal>のための<structname>ForeignPath</structname>パスを生成し（そのために<function>create_foreign_join_path</function>を使用します）、<function>add_path</function>を呼んで、それらのパスを結合のために考慮されるパスの集合に追加します。
+しかし、<function>GetForeignPaths</function>とは異なり、この関数が少なくとも1つのパスの作成に成功することは必要ではありません。
+なぜなら、ローカルの結合を含んだパスはいつでも可能だからです。
     </para>
 
     <para>
+<!--
      Note that this function will be invoked repeatedly for the same join
      relation, with different combinations of inner and outer relations; it is
      the responsibility of the FDW to minimize duplicated work.
+-->
+この関数は、同じ結合のリレーションに対して、内側と外側のリレーションの異なる組み合わせで繰り返し呼び出されることに注意して下さい。
+同じ作業の繰り返しを最小化することはFDWの責任です。
     </para>
 
     <para>
+<!--
      If a <structname>ForeignPath</structname> path is chosen for the join, it will
      represent the entire join process; paths generated for the component
      tables and subsidiary joins will not be used.  Subsequent processing of
@@ -349,19 +502,35 @@ GetForeignJoinPaths(PlannerInfo *root,
      fill <structfield>fdw_scan_tlist</structfield> with an appropriate list
      of <structfield>TargetEntry</structfield> nodes, representing the set of columns
      it will supply at run time in the tuples it returns.
+-->
+<structname>ForeignPath</structname>パスが結合のために選択されると、それは結合プロセス全体を代表することになり、構成テーブルとその関連の結合のために生成されたパスは使われなくなります。
+結合パスの以降の処理は、単一の外部テーブルをスキャンするパスとほぼ同様に進みます。
+1つの相違点は、結果として作られる<structname>ForeignScan</structname>計画ノードの<structfield>scanrelid</structfield>が0にセットされるべき、ということで、これはそれが表現する単一のリレーションがないためです。
+その代わりに、<structname>ForeignScan</structname>ノードの<structfield>fs_relids</structfield>フィールドが結合されるリレーションの集合を表します。
+（後者のフィールドはコアのプランナのコードによって自動的にセットされるので、FDWによって設定される必要はありません。）
+他の相違点は、リモートの結合についての列リストがシステムカタログにはないため、FDWは<structfield>fdw_scan_tlist</structfield>に適切な<structfield>TargetEntry</structfield>ノードのリストを入れて、実行時に返されるタプル内の列の集合を表すようにしなければならないということです。
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-planning"/> for additional information.
+-->
+追加情報については<xref linkend="fdw-planning"/>を参照してください。
     </para>
    </sect2>
 
    <sect2 id="fdw-callbacks-upper-planning">
+<!--
     <title>FDW Routines for Planning Post-Scan/Join Processing</title>
+-->
+    <title>スキャン/結合後の処理をプラン生成するためのFDWルーチン</title>
 
     <para>
+<!--
      If an FDW supports performing remote post-scan/join processing, such as
      remote aggregation, it should provide this callback function:
+-->
+FDWがリモート集約など、リモートでのスキャン/結合後の処理をサポートする場合、次のコールバック関数を提供します。
     </para>
 
     <para>
@@ -373,6 +542,7 @@ GetForeignUpperPaths(PlannerInfo *root,
                      RelOptInfo *output_rel,
                      void *extra);
 </programlisting>
+<!--
      Create possible access paths for <firstterm>upper relation</firstterm> processing,
      which is the planner's term for all post-scan/join query processing, such
      as aggregation, window functions, sorting, and table updates.  This
@@ -386,9 +556,16 @@ GetForeignUpperPaths(PlannerInfo *root,
      the indicated upper relation.  As with <function>GetForeignJoinPaths</function>,
      it is not necessary that this function succeed in creating any paths,
      since paths involving local processing are always possible.
+-->
+<firstterm>上位リレーション</firstterm>処理のための、ありうるアクセスパスを作成します。上位リレーションはプランナ用語で、ウィンドウ関数、ソート、テーブル更新など、全てのスキャン/結合後の問い合わせのことです。
+この省略可能な関数は問い合わせのプラン作成時に呼ばれます。
+今のところ、これは問い合わせに含まれる全てのベースリレーションが同じFDWに属する場合だけ呼ばれます。
+この関数では、FDWがどのようにリモートで実行するか分かっている全てのスキャン/結合後の処理に<structname>ForeignPath</structname>パスを生成し（そのために<function>create_foreign_upper_path</function>を使用します）、それらパスを指定された上位リレーションに加えるために<function>add_path</function>を呼び出してください。
+<function>GetForeignJoinPaths</function>の時と同様に、この関数が何らかのパス作成に成功する必要はありません。なぜなら、ローカル処理を含んでいるパスはいつでも可能だからです。
     </para>
 
     <para>
+<!--
      The <literal>stage</literal> parameter identifies which post-scan/join step is
      currently being considered.  <literal>output_rel</literal> is the upper relation
      that should receive paths representing computation of this step,
@@ -405,20 +582,36 @@ GetForeignUpperPaths(PlannerInfo *root,
      to be done externally.  However, examining paths previously generated for
      the previous processing step can be useful to avoid redundant planning
      work.)
+-->
+<literal>stage</literal>パラメータはどのスキャン/結合後の処理が現在考慮されているかを定めます。
+<literal>output_rel</literal>は本処理の計算方法をあらわすパスを受け取るであろう上位リレーションで、<literal>input_rel</literal>は本処理への入力をあらわすリレーションです。
+<literal>extra</literal>パラメータは追加の詳細を指定し、今のところ<literal>UPPERREL_PARTIAL_GROUP_AGG</literal>と<literal>UPPERREL_GROUP_AGG</literal>に対して指定できて、この場合は<literal>GroupPathExtraData</literal>構造体へのポインタです。
+さらに<literal>UPPERREL_FINAL</literal>に対しても指定できて、この場合は<literal>FinalPathExtraData</literal>構造体へのポインタです。
+（注意：これらの処理は外部で実行されると考えられるため、<literal>output_rel</literal>に加えられる<structname>ForeignPath</structname>パスは、一般的に<literal>input_rel</literal>のパスへの直接の依存を全く持たないでしょう。
+しかしながら、手前の処理段階のために以前に生成されたパスを検査することは、冗長なプラン作成活動を回避するのに役立ちます。）
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-planning"/> for additional information.
+-->
+追加情報については<xref linkend="fdw-planning"/>を参照してください。
     </para>
    </sect2>
 
    <sect2 id="fdw-callbacks-update">
+<!--
     <title>FDW Routines for Updating Foreign Tables</title>
+-->
+    <title>外部テーブル更新のためのFDWルーチン</title>
 
     <para>
+<!--
      If an FDW supports writable foreign tables, it should provide
      some or all of the following callback functions depending on
      the needs and capabilities of the FDW:
+-->
+もしFDWが更新可能な外部テーブルをサポートする場合、FDWのニーズと能力に応じて、以下のコールバック関数の一部または全てを提供する必要があります。
     </para>
 
     <para>
@@ -430,6 +623,7 @@ AddForeignUpdateTargets(PlannerInfo *root,
                         Relation target_relation);
 </programlisting>
 
+<!--
      <command>UPDATE</command> and <command>DELETE</command> operations are performed
      against rows previously fetched by the table-scanning functions.  The
      FDW may need extra information, such as a row ID or the values of
@@ -438,6 +632,10 @@ AddForeignUpdateTargets(PlannerInfo *root,
      or <quote>junk</quote>, target columns to the list of columns that are to be
      retrieved from the foreign table during an <command>UPDATE</command> or
      <command>DELETE</command>.
+-->
+<command>UPDATE</command>と<command>DELETE</command>の操作は、テーブルスキャン関数によって事前にフェッチされた行に対して実行されます。
+FDWは、更新や削除の対象行を厳密に識別できるように行IDや主キー列の値といった追加情報を必要とするかもしれません。
+それをサポートするために、この関数は<command>UPDATE</command>や<command>DELETE</command>の間に外部テーブルから取得される列のリストに追加の隠された(または<quote>ジャンクの</quote>)ターゲット列を追加することができます。
     </para>
 
     <para>
@@ -469,11 +667,15 @@ AddForeignUpdateTargets(PlannerInfo *root,
     </para>
 
     <para>
+<!--
      If the <function>AddForeignUpdateTargets</function> pointer is set to
      <literal>NULL</literal>, no extra target expressions are added.
      (This will make it impossible to implement <command>DELETE</command>
      operations, though <command>UPDATE</command> may still be feasible if the FDW
      relies on an unchanging primary key to identify rows.)
+-->
+もし<function>AddForeignUpdateTargets</function>ポインタが<literal>NULL</literal>に設定されている場合は、追加のターゲット式は追加されません。
+(FDWが行を識別するのに不変の主キーに依存するのであれば<command>UPDATE</command>は依然として実現可能かもしれませんが、<command>DELETE</command>操作を実装することは不可能になるでしょう。)
     </para>
 
     <para>
@@ -485,15 +687,20 @@ PlanForeignModify(PlannerInfo *root,
                   int subplan_index);
 </programlisting>
 
+<!--
      Perform any additional planning actions needed for an insert, update, or
      delete on a foreign table.  This function generates the FDW-private
      information that will be attached to the <structname>ModifyTable</structname> plan
      node that performs the update action.  This private information must
      have the form of a <literal>List</literal>, and will be delivered to
      <function>BeginForeignModify</function> during the execution stage.
+-->
+外部テーブルに対する挿入、更新、削除に必要となる、追加のプラン生成アクションを実行します。
+この関数は、更新処理を実行する<structname>ModifyTable</structname>プランノードに追加されるFDW固有の情報を生成します。この固有情報は<literal>List</literal>形式でなければならず、また実行段階の間に<function>BeginForeignModify</function>に渡されます。
     </para>
 
     <para>
+<!--
      <literal>root</literal> is the planner's global information about the query.
      <literal>plan</literal> is the <structname>ModifyTable</structname> plan node, which is
      complete except for the <structfield>fdwPrivLists</structfield> field.
@@ -502,17 +709,28 @@ PlanForeignModify(PlannerInfo *root,
      the <structname>ModifyTable</structname> plan node this is, counting from zero;
      use this if you want to index into per-target-relation substructures of the
      <literal>plan</literal> node.
+-->
+<literal>root</literal>はそのクエリに関するプランナのグローバル情報です。
+<literal>plan</literal>は<structfield>fdwPrivLists</structfield>フィールドを除いて完成している<structname>ModifyTable</structname>プランノードです。
+<literal>resultRelation</literal>は対象の外部テーブルをレンジテーブルの添字で識別します。
+<literal>subplan_index</literal>は<structname>ModifyTable</structname>プランノードの対象がどれであるかを0始まりで識別します。この情報は<literal>plan-&gt;plans</literal>などの<literal>plan</literal>の下位構造を指定したい場合に使用してください。
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-planning"/> for additional information.
+-->
+追加情報は<xref linkend="fdw-planning"/>を参照してください。
     </para>
 
     <para>
+<!--
      If the <function>PlanForeignModify</function> pointer is set to
      <literal>NULL</literal>, no additional plan-time actions are taken, and the
      <literal>fdw_private</literal> list delivered to
      <function>BeginForeignModify</function> will be NIL.
+-->
+もし<function>PlanForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、追加のプラン作成時処理は実行されず、<function>BeginForeignModify</function>に渡される<literal>fdw_private</literal>リストはNILになります。
     </para>
 
     <para>
@@ -525,6 +743,7 @@ BeginForeignModify(ModifyTableState *mtstate,
                    int eflags);
 </programlisting>
 
+<!--
      Begin executing a foreign table modification operation.  This routine is
      called during executor startup.  It should perform any initialization
      needed prior to the actual table modifications.  Subsequently,
@@ -532,9 +751,15 @@ BeginForeignModify(ModifyTableState *mtstate,
      <function>ExecForeignUpdate</function> or
      <function>ExecForeignDelete</function> will be called for tuple(s) to be
      inserted, updated, or deleted.
+-->
+外部テーブルへの変更操作の実行を開始します。
+このルーチンはエクゼキュータの起動中に呼び出されます。
+実際のテーブル変更に先立って必要なあらゆる初期化処理を実行する必要があります。
+その後、各タプルが挿入、更新、削除されるように<function>ExecForeignInsert</function>、<function>ExecForeignUpdate</function>、<function>ExecForeignDelete</function>のいずれかが呼ばれます。
     </para>
 
     <para>
+<!--
      <literal>mtstate</literal> is the overall state of the
      <structname>ModifyTable</structname> plan node being executed; global data about
      the plan and execution state is available via this structure.
@@ -548,18 +773,32 @@ BeginForeignModify(ModifyTableState *mtstate,
      the <structname>ModifyTable</structname> plan node this is.
      <literal>eflags</literal> contains flag bits describing the executor's
      operating mode for this plan node.
+-->
+<literal>mtstate</literal>は実行されている<structname>ModifyTable</structname>プランノード全体の状態です。プランに関する全般的なデータと実行状態はこの構造体経由で利用可能です。
+<literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
+(<structname>ResultRelInfo</structname>の<structfield>ri_FdwState</structfield>フィールドはこの操作で必要となる固有の状態をFDWが格納するのに利用できます。)
+<literal>fdw_private</literal>は、もしあれば<function>PlanForeignModify</function>で生成された固有データを含みます。
+<literal>subplan_index</literal>は、これが<structname>ModifyTable</structname>プランノードのどのターゲットであるかを識別します。
+<literal>eflags</literal>は、このプランノードに関するエクゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
+<!--
      Note that when <literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</literal> is
      true, this function should not perform any externally-visible actions;
      it should only do the minimum required to make the node state valid
      for <function>ExplainForeignModify</function> and <function>EndForeignModify</function>.
+-->
+<literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</literal>が真の場合、この関数は外部に見える処理を実行すべきではないことに注意してください。
+<function>ExplainForeignModify</function>や<function>EndForeignModify</function>用にノード状態を有効にするのに必要な最小限のことだけを実行するべきです。
     </para>
 
     <para>
+<!--
      If the <function>BeginForeignModify</function> pointer is set to
      <literal>NULL</literal>, no action is taken during executor startup.
+-->
+もし<function>BeginForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、エクゼキュータ起動時には追加処理は何も実行されません。
     </para>
 
     <para>
@@ -571,6 +810,7 @@ ExecForeignInsert(EState *estate,
                   TupleTableSlot *planSlot);
 </programlisting>
 
+<!--
      Insert one tuple into the foreign table.
      <literal>estate</literal> is global execution state for the query.
      <literal>rinfo</literal> is the <structname>ResultRelInfo</structname> struct describing
@@ -582,17 +822,28 @@ ExecForeignInsert(EState *estate,
      <literal>slot</literal> in possibly containing additional <quote>junk</quote>
      columns.  (The <literal>planSlot</literal> is typically of little interest
      for <command>INSERT</command> cases, but is provided for completeness.)
+-->
+外部テーブルにタプルを一つ挿入します。
+<literal>estate</literal>はそのクエリのグローバルな実行状態です。
+<literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
+<literal>slot</literal>には挿入されるタプルが含まれます。その行型定義は外部テーブルと一致します。
+<literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</quote>列を含みうる点において、<literal>slot</literal>とは異なります。(<literal>planSlot</literal>は一般的に<command>INSERT</command>のケースにおいてはそれほど意味を持ちませんが、完全性のために提供されます。)
     </para>
 
     <para>
+<!--
      The return value is either a slot containing the data that was actually
      inserted (this might differ from the data supplied, for example as a
      result of trigger actions), or NULL if no row was actually inserted
      (again, typically as a result of triggers).  The passed-in
      <literal>slot</literal> can be re-used for this purpose.
+-->
+戻り値は実際に挿入されたデータ(例えばトリガー処理の結果などにより、提供されたデータとは異なるかもしれません)を含むスロットか、または(こちらも一般的にトリガーの結果)実際には挿入されなかった場合はNULLです。
+渡された<literal>slot</literal>はこの用途に再利用可能です。
     </para>
 
     <para>
+<!--
      The data in the returned slot is used only if the <command>INSERT</command>
      statement has a <literal>RETURNING</literal> clause or involves a view
      <literal>WITH CHECK OPTION</literal>; or if the foreign table has
@@ -602,20 +853,32 @@ ExecForeignInsert(EState *estate,
      <literal>WITH CHECK OPTION</literal> constraints.  Regardless, some slot
      must be returned to indicate success, or the query's reported row count
      will be wrong.
+-->
+返却されたスロット内のデータは<command>INSERT</command>文が<literal>RETURNING</literal>句を持っているか、<literal>WITH CHECK OPTION</literal>を伴うビューに影響を及ぼす場合、もしくは、外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句や<literal>WITH CHECK OPTION</literal>の制約の内容に応じて、返却する列を一部にするかすべてにするかを最適化する余地があります。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
+<!--
      If the <function>ExecForeignInsert</function> pointer is set to
      <literal>NULL</literal>, attempts to insert into the foreign table will fail
      with an error message.
+-->
+もし<function>ExecForeignInsert</function>ポインタが<literal>NULL</literal>に設定されている場合は、外部テーブルへの挿入の試みはエラーメッセージとともに失敗します。
     </para>
 
     <para>
+<!--
      Note that this function is also called when inserting routed tuples into
      a foreign-table partition or executing <command>COPY FROM</command> on
      a foreign table, in which case it is called in a different way than it
      is in the <command>INSERT</command> case.  See the callback functions
      described below that allow the FDW to support that.
+  -->
+この関数は外部テーブルパーティションに転送対象のタプルを挿入する際、あるいは<command>COPY FROM</command>を外部テーブルに対して実行する際にも呼び出されることに注意してください。
+<command>COPY FROM</command>の場合、<command>INSERT</command>とはこの関数の呼び出され方は異なります。
+FDWがそれをサポートすることを可能にする以下で説明するコールバック関数をご覧ください。
     </para>
 
     <para>
@@ -701,6 +964,7 @@ ExecForeignUpdate(EState *estate,
                   TupleTableSlot *planSlot);
 </programlisting>
 
+<!--
      Update one tuple in the foreign table.
      <literal>estate</literal> is global execution state for the query.
      <literal>rinfo</literal> is the <structname>ResultRelInfo</structname> struct describing
@@ -716,17 +980,28 @@ ExecForeignUpdate(EState *estate,
      additional <quote>junk</quote> columns.  In particular, any junk columns
      that were requested by <function>AddForeignUpdateTargets</function> will
      be available from this slot.
+-->
+外部テーブル内のタプルを一つ更新します。
+<literal>estate</literal>はそのクエリのグローバルな実行状態です。
+<literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
+<literal>slot</literal>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
+<literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</quote>列を含みうる点において、<literal>slot</literal>とは異なります。実際、<function>AddForeignUpdateTargets</function>が要求するジャンク列はこのスロットから利用可能です。
     </para>
 
     <para>
+<!--
      The return value is either a slot containing the row as it was actually
      updated (this might differ from the data supplied, for example as a
      result of trigger actions), or NULL if no row was actually updated
      (again, typically as a result of triggers).  The passed-in
      <literal>slot</literal> can be re-used for this purpose.
+-->
+戻り値は実際に更新されたデータ(例えばトリガー処理の結果などにより、提供されたデータとは異なるかもしれません)を含むスロットか、または(こちらも一般的にトリガーの結果)実際には更新されなかった場合はNULLです。
+渡された<literal>slot</literal>はこの用途に再利用可能です。
     </para>
 
     <para>
+<!--
      The data in the returned slot is used only if the <command>UPDATE</command>
      statement has a <literal>RETURNING</literal> clause or involves a view
      <literal>WITH CHECK OPTION</literal>; or if the foreign table has
@@ -736,12 +1011,19 @@ ExecForeignUpdate(EState *estate,
      <literal>WITH CHECK OPTION</literal> constraints.  Regardless, some slot
      must be returned to indicate success, or the query's reported row count
      will be wrong.
+-->
+返却されたスロット内のデータは<command>UPDATE</command>文が<literal>RETURNING</literal>句を持っているか、<literal>WITH CHECK OPTION</literal>を伴うビューに影響を及ぼす場合、もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句や<literal>WITH CHECK OPTION</literal>の制約の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
+<!--
      If the <function>ExecForeignUpdate</function> pointer is set to
      <literal>NULL</literal>, attempts to update the foreign table will fail
      with an error message.
+-->
+もし<function>ExecForeignUpdate</function>ポインタが<literal>NULL</literal>に設定されている場合は、外部テーブルへの更新の試みはエラーメッセージとともに失敗します。
     </para>
 
     <para>
@@ -753,6 +1035,7 @@ ExecForeignDelete(EState *estate,
                   TupleTableSlot *planSlot);
 </programlisting>
 
+<!--
      Delete one tuple from the foreign table.
      <literal>estate</literal> is global execution state for the query.
      <literal>rinfo</literal> is the <structname>ResultRelInfo</structname> struct describing
@@ -764,15 +1047,26 @@ ExecForeignDelete(EState *estate,
      carry any junk columns that were requested by
      <function>AddForeignUpdateTargets</function>.  The junk column(s) must be used
      to identify the tuple to be deleted.
+-->
+外部テーブルからタプルを一つ削除します。
+<literal>estate</literal>はそのクエリのグローバルな実行状態です。
+<literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
+<literal>slot</literal>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
+<literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。実際、<function>AddForeignUpdateTargets</function>が要求するジャンク列はこのスロットが運びます。ジャンク列は削除されるタプルを識別するために使用しなければなりません。
     </para>
 
     <para>
+<!--
      The return value is either a slot containing the row that was deleted,
      or NULL if no row was deleted (typically as a result of triggers).  The
      passed-in <literal>slot</literal> can be used to hold the tuple to be returned.
+-->
+戻り値は実際に削除されたデータを含むスロットか、または(一般的にトリガーの結果)実際には削除されなかった場合はNULLです。
+渡された<literal>slot</literal>は返却するタプルを保持する用途に利用可能です。
     </para>
 
     <para>
+<!--
      The data in the returned slot is used only if the <command>DELETE</command>
      query has a <literal>RETURNING</literal> clause or the foreign table has
      an <literal>AFTER ROW</literal> trigger.  Triggers require all columns, but the
@@ -780,12 +1074,19 @@ ExecForeignDelete(EState *estate,
      on the contents of the <literal>RETURNING</literal> clause.  Regardless, some
      slot must be returned to indicate success, or the query's reported row
      count will be wrong.
+-->
+返却されたスロット内のデータは<command>DELETE</command>クエリが<literal>RETURNING</literal>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
+トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
+<!--
      If the <function>ExecForeignDelete</function> pointer is set to
      <literal>NULL</literal>, attempts to delete from the foreign table will fail
      with an error message.
+-->
+もし<function>ExecForeignDelete</function>ポインタが<literal>NULL</literal>に設定されている場合は、外部テーブルからの削除の試みはエラーメッセージとともに失敗します。
     </para>
 
     <para>
@@ -795,22 +1096,34 @@ EndForeignModify(EState *estate,
                  ResultRelInfo *rinfo);
 </programlisting>
 
+<!--
      End the table update and release resources.  It is normally not important
      to release palloc'd memory, but for example open files and connections
      to remote servers should be cleaned up.
+-->
+テーブル更新を終えてリソースを解放します。
+通常、pallocされたメモリを解放することは重要ではありませんが、たとえば開いたファイルやリモートサーバへの接続などはクリーンアップするべきです。
     </para>
 
     <para>
+<!--
      If the <function>EndForeignModify</function> pointer is set to
      <literal>NULL</literal>, no action is taken during executor shutdown.
+-->
+もし<function>EndForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、エクゼキュータ終了時には追加処理は何も実行されません。
     </para>
 
     <para>
+<!--
      Tuples inserted into a partitioned table by <command>INSERT</command> or
      <command>COPY FROM</command> are routed to partitions.  If an FDW
      supports routable foreign-table partitions, it should also provide the
      following callback functions.  These functions are also called when
      <command>COPY FROM</command> is executed on a foreign table.
+-->
+<command>INSERT</command>あるいは<command>COPY FROM</command>でパーティション化テーブルに挿入されたタプルはパーティションに転送されます。
+FDWが外部テーブルのパーティションへの転送をサポートしているなら、以下のコールバック関数も提供すべきです。
+これらの関数は、外部テーブルで<command>COPY FROM</command>が実行された時に呼び出されます。
     </para>
 
     <para>
@@ -820,6 +1133,7 @@ BeginForeignInsert(ModifyTableState *mtstate,
                    ResultRelInfo *rinfo);
 </programlisting>
 
+<!--
      Begin executing an insert operation on a foreign table.  This routine is
      called right before the first tuple is inserted into the foreign table
      in both cases when it is the partition chosen for tuple routing and the
@@ -828,9 +1142,15 @@ BeginForeignInsert(ModifyTableState *mtstate,
      Subsequently, <function>ExecForeignInsert</function> or
      <function>ExecForeignBatchInsert</function> will be called for
      tuple(s) to be inserted into the foreign table.
+-->
+外部テーブルへの挿入操作の実行を開始します。
+このルーチンは、タプル転送のためにパーティションが選択された場合か、<command>COPY FROM</command>コマンドでターゲットが指定された場合に、最初の行が外部テーブルに挿入される直前に呼び出されます。
+この関数は、実際の挿入に先立つすべての必要な初期化を実行すべきです。
+続いて、<function>ExecForeignInsert</function>が外部テーブルに挿入される個々のタブル毎に呼び出されます。
     </para>
 
     <para>
+<!--
      <literal>mtstate</literal> is the overall state of the
      <structname>ModifyTable</structname> plan node being executed; global data about
      the plan and execution state is available via this structure.
@@ -838,9 +1158,15 @@ BeginForeignInsert(ModifyTableState *mtstate,
      the target foreign table.  (The <structfield>ri_FdwState</structfield> field of
      <structname>ResultRelInfo</structname> is available for the FDW to store any
      private state it needs for this operation.)
+-->
+<literal>mtstate</literal>は、実行中の<structname>ModifyTable</structname>プランノードの全体的な状態です。
+プランのグローバルデータと実行状態がこの構造体を通じて得られます。
+<literal>rinfo</literal>は<structname>ResultRelInfo</structname>構造体で、ターゲットの外部テーブルを記述します。
+（この操作中に必要なFDWのプライベート状態を保存するために<structname>ResultRelInfo</structname>の<structfield>ri_FdwState</structfield>フィールドが利用可能です。）
     </para>
 
     <para>
+<!--
      When this is called by a <command>COPY FROM</command> command, the
      plan-related global data in <literal>mtstate</literal> is not provided
      and the <literal>planSlot</literal> parameter of
@@ -848,18 +1174,26 @@ BeginForeignInsert(ModifyTableState *mtstate,
      inserted tuple is <literal>NULL</literal>, whether the foreign table is
      the partition chosen for tuple routing or the target specified in the
      command.
+-->
+この関数が<command>COPY FROM</command>コマンドで呼ばれると、外部テーブルがタプル転送で選択された対象なのか、あるいはコマンドがターゲットを指定したのかに関わらず、<literal>mtstate</literal>中のプランに関係するグローバルデータは提供されず、次に個々の挿入されるタプルに対して呼び出される<function>ExecForeignInsert</function>の<literal>planSlot</literal>パラメータは<literal>NULL</literal>となります。
     </para>
 
     <para>
+<!--
      If the <function>BeginForeignInsert</function> pointer is set to
      <literal>NULL</literal>, no action is taken for the initialization.
+-->
+<function>BeginForeignInsert</function>ポインターが<literal>NULL</literal>なら、初期化処理は実施されません。
     </para>
 
     <para>
+<!--
      Note that if the FDW does not support routable foreign-table partitions
      and/or executing <command>COPY FROM</command> on foreign tables, this
      function or <function>ExecForeignInsert/ExecForeignBatchInsert</function>
      subsequently called must throw error as needed.
+-->
+FDWが外部テーブルパーティションのタプル転送をサポートしていないか、または外部テーブルに対して<command>COPY FROM</command>の実行をサポートしていないか、あるいはその両方なら、この関数あるいは以後呼ばれた<function>ExecForeignInsert</function>は、必ず必要なだけエラーを引き起こします。
     </para>
 
     <para>
@@ -869,14 +1203,21 @@ EndForeignInsert(EState *estate,
                  ResultRelInfo *rinfo);
 </programlisting>
 
+<!--
      End the insert operation and release resources.  It is normally not important
      to release palloc'd memory, but for example open files and connections
      to remote servers should be cleaned up.
+-->
+挿入操作を終了してリソースを解放します。
+通常、pallocされたメモリを解放することは重要ではありませんが、たとえば開いたファイルやリモートサーバへの接続などはクリーンアップするべきです。
     </para>
 
     <para>
+<!--
      If the <function>EndForeignInsert</function> pointer is set to
      <literal>NULL</literal>, no action is taken for the termination.
+-->
+<function>EndForeignInsert</function>ポインターが<literal>NULL</literal>なら、終了処理は実施されません。
     </para>
 
     <para>
@@ -885,6 +1226,7 @@ int
 IsForeignRelUpdatable(Relation rel);
 </programlisting>
 
+<!--
      Report which update operations the specified foreign table supports.
      The return value should be a bit mask of rule event numbers indicating
      which operations are supported by the foreign table, using the
@@ -892,9 +1234,14 @@ IsForeignRelUpdatable(Relation rel);
      <literal>(1 &lt;&lt; CMD_UPDATE) = 4</literal> for <command>UPDATE</command>,
      <literal>(1 &lt;&lt; CMD_INSERT) = 8</literal> for <command>INSERT</command>, and
      <literal>(1 &lt;&lt; CMD_DELETE) = 16</literal> for <command>DELETE</command>.
+-->
+指定された外部テーブルがどの更新処理をサポートしているかを報告します。
+戻り値は、その外部テーブルがサポートする操作を表すルールイベント番号のビットマスクである必要があります。
+<command>UPDATE</command>用の<literal>(1 &lt;&lt; CMD_UPDATE) = 4</literal>、<command>INSERT</command>用の<literal>(1 &lt;&lt; CMD_INSERT) = 8</literal>、<command>DELETE</command>用の<literal>(1 &lt;&lt; CMD_DELETE) = 16</literal>といった<literal>CmdType</literal>列挙値を使います。
     </para>
 
     <para>
+<!--
      If the <function>IsForeignRelUpdatable</function> pointer is set to
      <literal>NULL</literal>, foreign tables are assumed to be insertable, updatable,
      or deletable if the FDW provides <function>ExecForeignInsert</function>,
@@ -904,9 +1251,14 @@ IsForeignRelUpdatable(Relation rel);
      permissible to throw an error in the execution routine instead of
      checking in this function.  However, this function is used to determine
      updatability for display in the <literal>information_schema</literal> views.)
+-->
+もし<function>IsForeignRelUpdatable</function>ポインタが<literal>NULL</literal>に設定されていると、外部テーブルは<function>ExecForeignInsert</function>、<function>ExecForeignUpdate</function>、<function>ExecForeignDelete</function>を提供していると、それぞれ挿入、更新、削除をサポートしていると判断します。
+この関数は、FDWが一部のテーブルについてのみ更新をサポートする場合にのみ必要です。
+(そのような場合でも、この関数でチェックする代わりにクエリ実行関数でエラーにしても構いません。しかしながら、この関数は<literal>information_schema</literal>のビューの表示で更新可否を判定するのに使用されます。)
     </para>
 
     <para>
+<!--
      Some inserts, updates, and deletes to foreign tables can be optimized
      by implementing an alternative set of interfaces.  The ordinary
      interfaces for inserts, updates, and deletes fetch rows from the remote
@@ -919,6 +1271,12 @@ IsForeignRelUpdatable(Relation rel);
      constraints from parent views), then it is possible to arrange things
      so that the entire operation is performed on the remote server.  The
      interfaces described below make this possible.
+-->
+外部テーブルへの挿入、更新、削除は、代替インタフェース一式を実装することで最適化できます。
+通常の挿入、更新、削除のインタフェースは行をリモートサーバから取得し、その後、それらの行を一つずつ変更します。
+一部の場合にはこの一行ごとのやり方は必要ですが、非効率とも言えます。
+外部サーバについて行が本当はそれらを引き出すことなしに変更されるべきと判断できて、操作に影響を与える仕組み（行レベルのローカルトリガ、格納生成列、あるいは、親ビューからの<literal>WITH CHECK OPTION</literal>の制約）が無いならば、操作全体がリモートサーバで実行されるように計画することができます。
+以下に示すインタフェースはこれを可能にします。
     </para>
 
     <para>
@@ -930,6 +1288,7 @@ PlanDirectModify(PlannerInfo *root,
                  int subplan_index);
 </programlisting>
 
+<!--
      Decide whether it is safe to execute a direct modification
      on the remote server.  If so, return <literal>true</literal> after performing
      planning actions needed for that.  Otherwise, return <literal>false</literal>.
@@ -940,9 +1299,18 @@ PlanDirectModify(PlannerInfo *root,
      modification will be executed using the table-updating functions
      described above.
      The parameters are the same as for <function>PlanForeignModify</function>.
+-->
+リモートサーバ上で直接変更を実行することが安全かを判断します。
+そうであれば、そのために必要なプラン作成の動作を実行した後に<literal>true</literal>を返します。
+さもなくば、<literal>false</literal>を返します。
+この省略可能な関数は問い合わせのプラン作成時に呼ばれます。
+この関数が成功すると、<function>BeginDirectModify</function>、<function>IterateDirectModify</function>、<function>EndDirectModify</function>が実行段階で代わりに呼び出されます。
+成功しなければ、テーブルの変更は前述のテーブル更新関数を使って実行されます。
+パラメータは<function>PlanForeignModify</function>に対するものと同じです。
     </para>
 
     <para>
+<!--
      To execute the direct modification on the remote server, this function
      must rewrite the target subplan with a <structname>ForeignScan</structname> plan
      node that executes the direct modification on the remote server.  The
@@ -955,16 +1323,26 @@ PlanDirectModify(PlannerInfo *root,
      <literal>CMD_DELETE</literal> for <command>DELETE</command>), and the
      <literal>resultRelation</literal> argument must be copied to the
      <structfield>resultRelation</structfield> field.
+-->
+リモートサーバで直接変更を実行するには、本関数は対象サブプランをリモートサーバ上で直接変更する<structname>ForeignScan</structname>プランノードで書き換えしなければなりません。
+<structname>ForeignScan</structname>の<structfield>operation</structfield>フィールドには<literal>CmdType</literal>列挙値を適切に、すなわち、<command>UPDATE</command>には<literal>CMD_UPDATE</literal>、<command>INSERT</command>には<literal>CMD_INSERT</literal>、<command>DELETE</command>には<literal>CMD_DELETE</literal>を設定しなければいけません。
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-planning"/> for additional information.
+-->
+追加情報は<xref linkend="fdw-planning"/>を参照してください。
     </para>
 
     <para>
+<!--
      If the <function>PlanDirectModify</function> pointer is set to
      <literal>NULL</literal>, no attempts to execute a direct modification on the
      remote server are taken.
+-->
+<function>PlanDirectModify</function>ポインタに<literal>NULL</literal>が設定されている場合、
+リモートサーバでの直接変更の実行は試みられません。
     </para>
 
     <para>
@@ -974,6 +1352,7 @@ BeginDirectModify(ForeignScanState *node,
                   int eflags);
 </programlisting>
 
+<!--
      Prepare to execute a direct modification on the remote server.
      This is called during executor startup.  It should perform any
      initialization needed prior to the direct modification (that should be
@@ -986,19 +1365,33 @@ BeginDirectModify(ForeignScanState *node,
      information provided by <function>PlanDirectModify</function>).
      <literal>eflags</literal> contains flag bits describing the executor's
      operating mode for this plan node.
+-->
+リモートサーバでの直接変更を実行する準備をします。
+この関数はエクゼキュータが開始するときに呼び出されます。
+この関数は（最初の<function>IterateDirectModify</function>呼び出しで実行されるであろう）直接変更より前に必要とされる全ての初期化を実行するべきです。
+<structname>ForeignScanState</structname>ノードはすでに作られていますが、<structfield>fdw_state</structfield>がフィールドはまだNULLです。
+変更するテーブルに関する情報は<structname>ForeignScanState</structname>ノードを通して（具体的には<function>PlanDirectModify</function>で提供されるFDWプライベート情報を含む、元となる<structname>ForeignScan</structname>プランノードから）入手可能です。
+<literal>eflags</literal>は、このプランノードに関するエクゼキュータの操作モードを表すフラグビットを含みます。
     </para>
 
     <para>
+<!--
      Note that when <literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</literal> is
      true, this function should not perform any externally-visible actions;
      it should only do the minimum required to make the node state valid
      for <function>ExplainDirectModify</function> and <function>EndDirectModify</function>.
+-->
+<literal>(eflags &amp; EXEC_FLAG_EXPLAIN_ONLY)</literal>が真の場合、この関数は外部に見える処理を実行すべきではないことに注意してください。
+<function>ExplainDirectModify</function>や<function>EndDirectModify</function>用にノード状態を有効にするのに必要な最小限のことだけを実行するべきです。
     </para>
 
     <para>
+<!--
      If the <function>BeginDirectModify</function> pointer is set to
      <literal>NULL</literal>, no attempts to execute a direct modification on the
      remote server are taken.
+-->
+<function>BeginDirectModify</function>ポインタが<literal>NULL</literal>に設定されている場合、リモートサーバでの直接変更の実行は試みられません。
     </para>
 
     <para>
@@ -1007,6 +1400,7 @@ TupleTableSlot *
 IterateDirectModify(ForeignScanState *node);
 </programlisting>
 
+<!--
      When the <command>INSERT</command>, <command>UPDATE</command> or <command>DELETE</command>
      query doesn't have a <literal>RETURNING</literal> clause, just return NULL
      after a direct modification on the remote server.
@@ -1021,29 +1415,47 @@ IterateDirectModify(ForeignScanState *node);
      reset between invocations.  Create a memory context in
      <function>BeginDirectModify</function> if you need longer-lived storage, or use
      the <structfield>es_query_cxt</structfield> of the node's <structname>EState</structname>.
+-->
+<command>INSERT</command>、<command>UPDATE</command>、または、<command>DELETE</command>の問い合わせが<literal>RETURNING</literal>句を持たないときには、リモートサーバでの直接変更の後、単にNULLが返ります。
+問い合わせが<literal>RETURNING</literal>句を持つときには、<literal>RETURNING</literal>計算に必要なデータを含む結果を一つ取り出し、タプルテーブルスロットでそれを返します（この用途にはノードの<structfield>ScanTupleSlot</structfield>を使うべきです）。
+実際に挿入、更新、削除されたデータはノードの<structname>EState</structname>の<literal>es_result_relation_info-&gt;ri_projectReturning-&gt;pi_exprContext-&gt;ecxt_scantuple</literal>に格納されなければなりません。
+有効な行がそれ以上なければNULLを返します。
+これは呼び出しの間でリセットされる寿命の短いメモリコンテキストで呼び出されることに注意してください。
+より長命な格納場所を必要とするなら、<function>BeginDirectModify</function>でメモリコンテキストを作るか、ノードの<structname>EState</structname>の<structfield>es_query_cxt</structfield>を使ってください。
     </para>
 
     <para>
+<!--
      The rows returned must match the <structfield>fdw_scan_tlist</structfield> target
      list if one was supplied, otherwise they must match the row type of the
      foreign table being updated.  If you choose to optimize away fetching
      columns that are not needed for the <literal>RETURNING</literal> calculation,
      you should insert nulls in those column positions, or else generate a
      <structfield>fdw_scan_tlist</structfield> list with those columns omitted.
+-->
+返される行は、ターゲットリスト<structfield>fdw_scan_tlist</structfield>が提供されたなら、それとマッチしなければならず、提供されていない場合は変更されている外部テーブルの行型とマッチしなければなりません。
+<literal>RETURNING</literal>計算に不要な列を取り出さないように最適化することを選ぶなら、それらの列の位置にNULLを入れるか、あるいはそれらの列を除いた<structfield>fdw_scan_tlist</structfield>リストを生成するべきです。
     </para>
 
     <para>
+<!--
      Whether the query has the clause or not, the query's reported row count
      must be incremented by the FDW itself.  When the query doesn't have the
      clause, the FDW must also increment the row count for the
      <structname>ForeignScanState</structname> node in the <command>EXPLAIN ANALYZE</command>
      case.
+-->
+問い合わせが句をもつかどうかによらず、問い合わせが報告する行数はFDW自身によって増加されなければなりません。
+問い合わせが句を持たないときも、FDWは<command>EXPLAIN ANALYZE</command>の場合の<structname>ForeignScanState</structname> nodeむけに行数を増加させなければなりません。
     </para>
 
     <para>
+<!--
      If the <function>IterateDirectModify</function> pointer is set to
      <literal>NULL</literal>, no attempts to execute a direct modification on the
      remote server are taken.
+-->
+<function>IterateDirectModify</function>ポインタが<literal>NULL</literal>に設定されている場合、リモートサーバでの直接変更の実行は試みられません。
     </para>
 
     <para>
@@ -1052,15 +1464,22 @@ void
 EndDirectModify(ForeignScanState *node);
 </programlisting>
 
+<!--
      Clean up following a direct modification on the remote server.  It is
      normally not important to release palloc'd memory, but for example open
      files and connections to the remote server should be cleaned up.
+-->
+リモートサーバでの直接変更の後、クリーンアップします。
+通常、pallocされたメモリを解放することは重要ではありませんが、たとえば開いたファイルやリモートサーバへの接続などはクリーンアップするべきです。
     </para>
 
     <para>
+<!--
      If the <function>EndDirectModify</function> pointer is set to
      <literal>NULL</literal>, no attempts to execute a direct modification on the
      remote server are taken.
+-->
+<function>EndDirectModify</function>ポインタが<literal>NULL</literal>に設定されている場合、リモートサーバでの直接変更の実行は試みられません。
     </para>
 
    </sect2>
@@ -1121,12 +1540,18 @@ ExecForeignTruncate(List *rels,
    </sect2>
 
    <sect2 id="fdw-callbacks-row-locking">
+<!--
     <title>FDW Routines for Row Locking</title>
+-->
+    <title>行ロックのためのFDWルーチン</title>
 
     <para>
+<!--
      If an FDW wishes to support <firstterm>late row locking</firstterm> (as described
      in <xref linkend="fdw-row-locking"/>), it must provide the following
      callback functions:
+-->
+FDWが（<xref linkend="fdw-row-locking"/>で説明される）<firstterm>遅延行ロック</firstterm>をサポートする場合は、以下のコールバック関数を提供する必要があります。
     </para>
 
     <para>
@@ -1136,29 +1561,44 @@ GetForeignRowMarkType(RangeTblEntry *rte,
                       LockClauseStrength strength);
 </programlisting>
 
+<!--
      Report which row-marking option to use for a foreign table.
      <literal>rte</literal> is the <structname>RangeTblEntry</structname> node for the table
      and <literal>strength</literal> describes the lock strength requested by the
      relevant <literal>FOR UPDATE/SHARE</literal> clause, if any.  The result must be
      a member of the <literal>RowMarkType</literal> enum type.
+-->
+行の印付けでどのオプションを外部テーブルに使うかを報告します。
+<literal>rte</literal>はテーブルの<structname>RangeTblEntry</structname>ノードで、<literal>strength</literal>は関連する<literal>FOR UPDATE/SHARE</literal>句があれば、それが要求するロックの強さを表します。
+その結果は、<literal>RowMarkType</literal>列挙型のメンバーでなければなりません。
     </para>
 
     <para>
+<!--
      This function is called during query planning for each foreign table that
      appears in an <command>UPDATE</command>, <command>DELETE</command>, or <command>SELECT
      FOR UPDATE/SHARE</command> query and is not the target of <command>UPDATE</command>
      or <command>DELETE</command>.
+-->
+この関数は<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE/SHARE</command>の問い合わせに現れ、かつ<command>UPDATE</command>あるいは<command>DELETE</command>の対象ではない各外部テーブルについて、問い合わせの計画時に呼び出されます。
     </para>
 
     <para>
+<!--
      If the <function>GetForeignRowMarkType</function> pointer is set to
      <literal>NULL</literal>, the <literal>ROW_MARK_COPY</literal> option is always used.
      (This implies that <function>RefetchForeignRow</function> will never be called,
      so it need not be provided either.)
+-->
+<function>GetForeignRowMarkType</function>のポインタが<literal>NULL</literal>に設定されていると、必ず<literal>ROW_MARK_COPY</literal>オプションが使われます。
+（これは<function>RefetchForeignRow</function>が決して呼び出されないので、それを提供する必要もない、ということを意味します。）
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-row-locking"/> for more information.
+-->
+さらなる情報については<xref linkend="fdw-row-locking"/>を参照してください。
     </para>
 
     <para>
@@ -1171,6 +1611,7 @@ RefetchForeignRow(EState *estate,
                   bool *updated);
 </programlisting>
 
+<!--
      Re-fetch one tuple slot from the foreign table, after locking it if required.
      <literal>estate</literal> is global execution state for the query.
      <literal>erm</literal> is the <structname>ExecRowMark</structname> struct describing
@@ -1178,9 +1619,17 @@ RefetchForeignRow(EState *estate,
      <literal>rowid</literal> identifies the tuple to be fetched.
      <literal>slot</literal> contains nothing useful upon call, but can be used to
      hold the returned tuple. <literal>updated</literal> is an output parameter.
+-->
+必要ならロックした後で、外部テーブルから1つのタプルスロットを再フェッチします。
+<literal>estate</literal>は問い合わせのグローバルな実行状態です。
+<literal>erm</literal>は対象の外部テーブルおよび獲得する行ロックの種別（あれば）を記述する<structname>ExecRowMark</structname>構造体です。
+<literal>rowid</literal>はフェッチするタプルを特定するものです。
+<literal>slot</literal>は呼び出しで役立つ内容は含みませんが、返されたタプルを保持するために使用できます。
+<literal>updated</literal>は出力パラメータです。
     </para>
 
     <para>
+<!--
      This function should store the tuple into the provided slot, or clear it if
      the row lock couldn't be obtained.  The row lock type to acquire is
      defined by <literal>erm-&gt;markType</literal>, which is the value
@@ -1188,38 +1637,61 @@ RefetchForeignRow(EState *estate,
      (<literal>ROW_MARK_REFERENCE</literal> means to just re-fetch the tuple
      without acquiring any lock, and <literal>ROW_MARK_COPY</literal> will
      never be seen by this routine.)
+-->
+この関数はタプルを与えられたスロットに格納するか、あるいは行ロックが取得できなければタプルをクリアします。
+獲得する行ロックの種別は<literal>erm-&gt;markType</literal>で指定されます。この値は事前に<function>GetForeignRowMarkType</function>から返されたものです。
+（<literal>ROW_MARK_REFERENCE</literal>は行のロックを獲得せずに、単にタプルを再フェッチすることを意味し、また、<literal>ROW_MARK_COPY</literal>はこのルーチンで使われることはありません。）
     </para>
 
     <para>
+<!--
      In addition, <literal>*updated</literal> should be set to <literal>true</literal>
      if what was fetched was an updated version of the tuple rather than
      the same version previously obtained.  (If the FDW cannot be sure about
      this, always returning <literal>true</literal> is recommended.)
+-->
+そして、<literal>*updated</literal>はフェッチしたタプルが、以前に取得したものと同じではなく、更新されたバージョンであったときに<literal>true</literal>にセットされます。
+（どちらなのかFDWが判断できない場合は、<literal>true</literal>を返すことが推奨されます）。
     </para>
 
     <para>
+<!--
      Note that by default, failure to acquire a row lock should result in
      raising an error; returning with an empty slot is only appropriate if
      the <literal>SKIP LOCKED</literal> option is specified
      by <literal>erm-&gt;waitPolicy</literal>.
+-->
+デフォルトでは、行ロックの獲得に失敗したときはエラーを発生させるべきであることに注意してください。
+空スロットを返すのが適切なのは、<literal>erm-&gt;waitPolicy</literal>で<literal>SKIP LOCKED</literal>オプションが指定されている場合だけです。
     </para>
 
     <para>
+<!--
      The <literal>rowid</literal> is the <structfield>ctid</structfield> value previously read
      for the row to be re-fetched.  Although the <literal>rowid</literal> value is
      passed as a <type>Datum</type>, it can currently only be a <type>tid</type>.  The
      function API is chosen in hopes that it may be possible to allow other
      data types for row IDs in future.
+-->
+<literal>rowid</literal>は、再フェッチする行を以前読んだ時の<structfield>ctid</structfield>値です。
+<literal>rowid</literal>値は<type>Datum</type>として渡されますが、現在は<type>tid</type>にしかなりません。
+将来は行ID以外のデータ型が可能になることを期待して、関数APIとすることが選択されました。
     </para>
 
     <para>
+<!--
      If the <function>RefetchForeignRow</function> pointer is set to
      <literal>NULL</literal>, attempts to re-fetch rows will fail
      with an error message.
+-->
+<function>RefetchForeignRow</function>ポインタが<literal>NULL</literal>の場合、行を再フェッチする試みは失敗し、エラーメッセージを発行します。
     </para>
 
     <para>
+<!--
      See <xref linkend="fdw-row-locking"/> for more information.
+-->
+さらなる情報については<xref linkend="fdw-row-locking"/>を参照してください。
     </para>
 
     <para>
@@ -1228,6 +1700,7 @@ bool
 RecheckForeignScan(ForeignScanState *node,
                    TupleTableSlot *slot);
 </programlisting>
+<!--
      Recheck that a previously-returned tuple still matches the relevant
      scan and join qualifiers, and possibly provide a modified version of
      the tuple.  For foreign data wrappers which do not perform join pushdown,
@@ -1241,9 +1714,17 @@ RecheckForeignScan(ForeignScanState *node,
      qualifiers and return true if they are still satisfied and false
      otherwise, but it can also store a replacement tuple into the supplied
      slot.
+-->
+以前に戻されたタプルが、関連するスキャンおよび結合の制約とまだ一致しているか再検査し、更新されたバージョンのタプルを提供する場合もあります。
+結合のプッシュダウンを行わない外部データラッパでは、通常は、これを<literal>NULL</literal>にセットし、代わりに<structfield>fdw_recheck_quals</structfield>を適切にセットする方が便利でしょう。
+しかし、外部結合をプッシュダウンする場合、すべてのベーステーブルに関する検査を結果のタプルに適用するだけでは、たとえすべての必要な属性がそこにあったとしても十分ではありません。
+なぜなら一部の制約が一致しないことで、タプルが戻されない代わりに、一部の属性がNULLになってしまうかもしれないからです。
+<literal>RecheckForeignScan</literal>制約を再検査し、それが依然として満たされていれば真を、そうでなければ偽を返すことができます。
+それだけでなく、置換されたタプルを提供されたスロットに格納することもできます。
     </para>
 
     <para>
+<!--
      To implement join pushdown, a foreign data wrapper will typically
      construct an alternative local join plan which is used only for
      rechecks; this will become the outer subplan of the
@@ -1258,11 +1739,23 @@ RecheckForeignScan(ForeignScanState *node,
      join relation.  (If it does not find such a path, it returns NULL, in
      which case a foreign data wrapper may build the local path by itself or
      may choose not to create access paths for that join.)
+-->
+結合のプッシュダウンを実装する場合、外部データラッパは通常、再検査のためだけに使用される代替のローカル結合プランを構築します。
+これが<literal>ForeignScan</literal>の外部サブプランとなります。
+再検査が必要な時は、このサブプランを実行して、結果のタプルをスロットに格納することができます。
+どのベーステーブルも最大で1行しか返さないので、このプランは効率的である必要はありません。
+例えば、すべての結合をネステッドループで実装することもできます。
+関数<literal>GetExistingLocalJoinPath</literal>は、存在するパスから代替ローカルの結合プランとして使用可能な適当なローカル結合パスを検索するのに使われるかもしれません。
+<literal>GetExistingLocalJoinPath</literal>は指定された結合リレーションのパスリストのパラメータ化されていないパスを検索します。
+（そのようなパスが見つからなかった場合はNULLを返します。この場合、外部データラッパはそれ自身によりローカルパスを構築するかもしれず、あるいは、その結合むけのアクセスパスを作らないことを選択するかもしれません。）
     </para>
    </sect2>
 
    <sect2 id="fdw-callbacks-explain">
+<!--
     <title>FDW Routines for <command>EXPLAIN</command></title>
+-->
+    <title><command>EXPLAIN</command>のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -1271,6 +1764,7 @@ ExplainForeignScan(ForeignScanState *node,
                    ExplainState *es);
 </programlisting>
 
+<!--
      Print additional <command>EXPLAIN</command> output for a foreign table scan.
      This function can call <function>ExplainPropertyText</function> and
      related functions to add fields to the <command>EXPLAIN</command> output.
@@ -1278,12 +1772,19 @@ ExplainForeignScan(ForeignScanState *node,
      print, and the state of the <structname>ForeignScanState</structname> node
      can be inspected to provide run-time statistics in the <command>EXPLAIN
      ANALYZE</command> case.
+-->
+外部テーブルスキャンの追加の<command>EXPLAIN</command>出力を表示します。
+<command>EXPLAIN</command>出力にフィールドを追加するために<function>ExplainPropertyText</function>や関連する関数を呼び出すことができます。
+<literal>es</literal>の中のフラグフィールドは何を表示するかを決めるのに使用できます。また、<command>EXPLAIN ANALYZE</command>の場合には、実行時統計情報を提供するために<structname>ForeignScanState</structname>ノードの状態を調べることができます。
     </para>
 
     <para>
+<!--
      If the <function>ExplainForeignScan</function> pointer is set to
      <literal>NULL</literal>, no additional information is printed during
      <command>EXPLAIN</command>.
+-->
+もし<function>ExplainForeignScan</function>ポインタが<literal>NULL</literal>に設定されている場合は、<command>EXPLAIN</command>中に追加情報は表示されません。
     </para>
 
     <para>
@@ -1296,6 +1797,7 @@ ExplainForeignModify(ModifyTableState *mtstate,
                      struct ExplainState *es);
 </programlisting>
 
+<!--
      Print additional <command>EXPLAIN</command> output for a foreign table update.
      This function can call <function>ExplainPropertyText</function> and
      related functions to add fields to the <command>EXPLAIN</command> output.
@@ -1304,12 +1806,20 @@ ExplainForeignModify(ModifyTableState *mtstate,
      can be inspected to provide run-time statistics in the <command>EXPLAIN
      ANALYZE</command> case.  The first four arguments are the same as for
      <function>BeginForeignModify</function>.
+-->
+外部テーブル更新の追加の<command>EXPLAIN</command>出力を表示します。
+<command>EXPLAIN</command>出力にフィールドを追加するために<function>ExplainPropertyText</function>や関連する関数を呼び出すことができます。
+<literal>es</literal>の中のフラグフィールドは何を表示するかを決めるのに使用できます。また、<command>EXPLAIN ANALYZE</command>の場合には、実行時統計情報を提供するために<structname>ModifyTableState</structname>ノードの状態を調べることができます。
+最初の4つの引数は<function>BeginForeignModify</function>と同じです。
     </para>
 
     <para>
+<!--
      If the <function>ExplainForeignModify</function> pointer is set to
      <literal>NULL</literal>, no additional information is printed during
      <command>EXPLAIN</command>.
+-->
+もし<function>ExplainForeignModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、<command>EXPLAIN</command>中に追加情報は表示されません。
     </para>
 
     <para>
@@ -1319,6 +1829,7 @@ ExplainDirectModify(ForeignScanState *node,
                     ExplainState *es);
 </programlisting>
 
+<!--
      Print additional <command>EXPLAIN</command> output for a direct modification
      on the remote server.
      This function can call <function>ExplainPropertyText</function> and
@@ -1327,18 +1838,28 @@ ExplainDirectModify(ForeignScanState *node,
      print, and the state of the <structname>ForeignScanState</structname> node
      can be inspected to provide run-time statistics in the <command>EXPLAIN
      ANALYZE</command> case.
+-->
+リモートサーバでの直接変更について追加<command>EXPLAIN</command>出力を表示します。
+この関数は<command>EXPLAIN</command>出力にフィールドを加えるために<function>ExplainPropertyText</function>と関連の関数を呼ぶことができます。
+<literal>es</literal>の中のフラグフィールドは何を表示するかを決めるのに使用できます。また、<command>EXPLAIN ANALYZE</command>の場合には、実行時統計情報を提供するために<structname>ForeignScanState</structname>ノードの状態を調べることができます。
     </para>
 
     <para>
+<!--
      If the <function>ExplainDirectModify</function> pointer is set to
      <literal>NULL</literal>, no additional information is printed during
      <command>EXPLAIN</command>.
+-->
+<function>ExplainDirectModify</function>ポインタが<literal>NULL</literal>に設定されている場合は、<command>EXPLAIN</command>中に追加情報は表示されません。
     </para>
 
    </sect2>
 
    <sect2 id="fdw-callbacks-analyze">
+<!--
     <title>FDW Routines for <command>ANALYZE</command></title>
+-->
+    <title><command>ANALYZE</command>のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -1348,21 +1869,32 @@ AnalyzeForeignTable(Relation relation,
                     BlockNumber *totalpages);
 </programlisting>
 
+<!--
      This function is called when <xref linkend="sql-analyze"/> is executed on
      a foreign table.  If the FDW can collect statistics for this
      foreign table, it should return <literal>true</literal>, and provide a pointer
      to a function that will collect sample rows from the table in
      <parameter>func</parameter>, plus the estimated size of the table in pages in
      <parameter>totalpages</parameter>.  Otherwise, return <literal>false</literal>.
+-->
+この関数は<xref linkend="sql-analyze"/>が外部テーブルに対して実行されたときに呼び出されます。
+もしFDWがこの外部テーブルの統計情報を収集できる場合は、そのテーブルからサンプル行を集める関数のポインタとページ単位でのテーブルサイズの見積もりをそれぞれ<parameter>func</parameter>と<parameter>totalpages</parameter>に渡し<literal>true</literal>を返す必要があります。
+そうでない場合は、<literal>false</literal>を返します。
     </para>
 
     <para>
+<!--
      If the FDW does not support collecting statistics for any tables, the
      <function>AnalyzeForeignTable</function> pointer can be set to <literal>NULL</literal>.
+-->
+もしFDWが統計情報の収集をどのテーブルについてもサポートしない場合は、<function>AnalyzeForeignTable</function>ポインタを<literal>NULL</literal>にすることもできます。
     </para>
 
     <para>
+<!--
      If provided, the sample collection function must have the signature
+-->
+もし提供される場合は、サンプル収集関数はこのようなシグネチャを持つ必要があります。
 <programlisting>
 int
 AcquireSampleRowsFunc(Relation relation,
@@ -1373,6 +1905,7 @@ AcquireSampleRowsFunc(Relation relation,
                       double *totaldeadrows);
 </programlisting>
 
+<!--
      A random sample of up to <parameter>targrows</parameter> rows should be collected
      from the table and stored into the caller-provided <parameter>rows</parameter>
      array.  The actual number of rows collected must be returned.  In
@@ -1380,12 +1913,19 @@ AcquireSampleRowsFunc(Relation relation,
      the table into the output parameters <parameter>totalrows</parameter> and
      <parameter>totaldeadrows</parameter>.  (Set <parameter>totaldeadrows</parameter> to zero
      if the FDW does not have any concept of dead rows.)
+-->
+最大<parameter>targrows</parameter>行のランダムサンプルをテーブルから収集し、呼び出し元が提供する<parameter>rows</parameter>配列に格納する必要があります。
+実際に収集された行の数を返す必要があります。
+さらに、テーブルに含まれる有効行と不要行の合計数の見積もりを出力パラメータの<parameter>totalrows</parameter>と<parameter>totaldeadrows</parameter>に返す必要があります。(もしFDWが不要行という概念を持たない場合は<parameter>totaldeadrows</parameter>を0に設定してください。)
     </para>
 
    </sect2>
 
    <sect2 id="fdw-callbacks-import">
+<!--
     <title>FDW Routines for <command>IMPORT FOREIGN SCHEMA</command></title>
+-->
+    <title><command>IMPORT FOREIGN SCHEMA</command>のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -1393,15 +1933,22 @@ List *
 ImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid);
 </programlisting>
 
+<!--
      Obtain a list of foreign table creation commands.  This function is
      called when executing <xref linkend="sql-importforeignschema"/>, and is
      passed the parse tree for that statement, as well as the OID of the
      foreign server to use.  It should return a list of C strings, each of
      which must contain a <xref linkend="sql-createforeigntable"/> command.
      These strings will be parsed and executed by the core server.
+-->
+外部テーブル作成コマンドのリストを取得します。
+この関数は<xref linkend="sql-importforeignschema"/>を実行する時に呼び出され、その文の解析木と外部サーバが使用するOIDとを渡されます。
+C文字列のリストを返し、その各文字列は<xref linkend="sql-createforeigntable"/>コマンドを含んでいる必要があります。
+これらの文字列はコアサーバが解析して実行します。
     </para>
 
     <para>
+<!--
      Within the <structname>ImportForeignSchemaStmt</structname> struct,
      <structfield>remote_schema</structfield> is the name of the remote schema from
      which tables are to be imported.
@@ -1418,16 +1965,31 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid);
      <literal>NOT NULL</literal> attributes of columns should be imported.
      These options need not have anything to do with those supported by the
      FDW as database object options.
+-->
+<structname>ImportForeignSchemaStmt</structname>構造体において、<structfield>remote_schema</structfield>はリモートスキーマの名前で、そこからテーブルがインポートされます。
+<structfield>list_type</structfield>はテーブル名のフィルタ方法を指定します。
+ここで、<literal>FDW_IMPORT_SCHEMA_ALL</literal>はリモートスキーマのすべてのテーブルをインポートすること（この場合、<structfield>table_list</structfield>は空にします）、
+<literal>FDW_IMPORT_SCHEMA_LIMIT_TO</literal>は<structfield>table_list</structfield>に列挙されたテーブルだけを含めること、
+そして<literal>FDW_IMPORT_SCHEMA_EXCEPT</literal>は<structfield>table_list</structfield>に列挙されたテーブルを除外することを意味します。
+<structfield>options</structfield>はインポートのプロセスで使用されるオプションのリストです。
+オプションの意味はFDWに依存します。
+例えば、FDWは列の<literal>NOT NULL</literal>属性をインポートするかどうかを定めるオプションを使うことができます。
+これらのオプションはFDWがデータベースオブジェクトのオプションとしてサポートするものと何ら関係ある必要はありません。
     </para>
 
     <para>
+<!--
      The FDW may ignore the <structfield>local_schema</structfield> field of
      the <structname>ImportForeignSchemaStmt</structname>, because the core server
      will automatically insert that name into the parsed <command>CREATE
      FOREIGN TABLE</command> commands.
+-->
+FDWは<structname>ImportForeignSchemaStmt</structname>の<structfield>local_schema</structfield>フィールドを無視しても良いです。
+なぜなら、コアサーバは解析された<command>CREATE FOREIGN TABLE</command>コマンドにその名前を自動的に挿入するからです。
     </para>
 
     <para>
+<!--
      The FDW does not have to concern itself with implementing the filtering
      specified by <structfield>list_type</structfield> and <structfield>table_list</structfield>,
      either, as the core server will automatically skip any returned commands
@@ -1435,18 +1997,30 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid);
      useful to avoid the work of creating commands for excluded tables in the
      first place.  The function <function>IsImportableForeignTable()</function> may be
      useful to test whether a given foreign-table name will pass the filter.
+-->
+FDWは<structfield>list_type</structfield>および<structfield>table_list</structfield>で指定されるフィルタの実装にも注意する必要はありません。
+なぜなら、コアサーバはそれらのオプションによって除外されるテーブルに対して戻されたコマンドをすべて自動的にスキップするからです。
+しかし、除外されるテーブルについてコマンドを作成する作業を回避するのは、そもそも役立つことが多いです。
+関数<function>IsImportableForeignTable()</function>は指定の外部テーブル名がフィルタを通るかどうかの検査に役立つかもしれません。
     </para>
 
     <para>
+<!--
      If the FDW does not support importing table definitions, the
      <function>ImportForeignSchema</function> pointer can be set to <literal>NULL</literal>.
+-->
+FDWがテーブル定義のインポートをサポートしない場合は、<function>ImportForeignSchema</function>ポインタを<literal>NULL</literal>にセットすることができます。
     </para>
 
    </sect2>
 
    <sect2 id="fdw-callbacks-parallel">
+<!--
     <title>FDW Routines for Parallel Execution</title>
+-->
+    <title>パラレル実行のためのFDWルーチン</title>
     <para>
+<!--
      A <structname>ForeignScan</structname> node can, optionally, support parallel
      execution.  A parallel <structname>ForeignScan</structname> will be executed
      in multiple processes and must return each row exactly once across
@@ -1455,6 +2029,12 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid);
      guaranteed to be mapped at the same address in every process, so it
      must not contain pointers.  The following functions are all optional,
      but most are required if parallel execution is to be supported.
+-->
+<structname>ForeignScan</structname>ノードは、オプションとして、パラレル実行をサポートします。
+並列<structname>ForeignScan</structname>は複数プロセスで実行され、全ての協調プロセスにわたって各行が一度だけ返るようにしなければなりません。
+これを行うため、プロセスは動的共有メモリの固定サイズチャンクを通して調整をはかることができます。
+この共有メモリは全プロセスで同じアドレスに割り当てされることが保証されませんので、ポインタを含まないようにしなければなりません。
+以下のコールバックは一般に全て省略可能ですが、パラレル実行をサポートするためには必要です。
     </para>
 
     <para>
@@ -1463,6 +2043,7 @@ bool
 IsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel,
                           RangeTblEntry *rte);
 </programlisting>
+<!--
     Test whether a scan can be performed within a parallel worker.  This
     function will only be called when the planner believes that a parallel
     plan might be possible, and should return true if it is safe for that scan
@@ -1470,14 +2051,23 @@ IsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel,
     the remote data source has transaction semantics, unless the worker's
     connection to the data can somehow be made to share the same transaction
     context as the leader.
+-->
+スキャンがパラレルワーカーで実行できるかテストします。
+この関数はプランナが並列プランが可能であろうと考えるときだけ呼ばれます。また、そのスキャンにとってパラレルワーカーで実行するのが安全であるとき真を返すべきです。
+リモートデータソースがトランザクションのセマンティクスを持つ場合は、一般にあてはまりません。ただし、ワーカーのデータへの接続を何らかの形でリーダーとして同じトランザクション文脈を共有させることができる場合を除きます。
     </para>
 
     <para>
+<!--
     If this function is not defined, it is assumed that the scan must take
     place within the parallel leader.  Note that returning true does not mean
     that the scan itself can be done in parallel, only that the scan can be
     performed within a parallel worker.  Therefore, it can be useful to define
     this method even when parallel execution is not supported.
+-->
+この関数が定義されていない場合、スキャンはパラレルリーダー内で実行しなければならないと想定されます。
+真を返すことは、スキャンがパラレルワーカーで実行可能であるだけで、パラレルに実行可能であることを意味するのでは無いことに注意してください。
+そのため、この関数を定義することはパラレル実行がサポートされていないときでも役立つ可能性があります。
     </para>
 
     <para>
@@ -1485,12 +2075,19 @@ IsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel,
 Size
 EstimateDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt);
 </programlisting>
+<!--
     Estimate the amount of dynamic shared memory that will be required
     for parallel operation.  This may be higher than the amount that will
     actually be used, but it must not be lower.  The return value is in bytes.
     This function is optional, and can be omitted if not needed; but if it
     is omitted, the next three functions must be omitted as well, because
     no shared memory will be allocated for the FDW's use.
+-->
+並列操作に必要とされるであろう動的共有メモリ量を推定します。
+これは実際に使われる量よりも大きくてよいですが、小さくてはいけません。
+戻り値はバイト単位です。
+この関数はオプションであり、必要でない場合は省略することができます。
+しかし省略された場合、FDWの使用のために共有メモリが割り当てられないため、次の3つの関数も省略しなければなりません。
     </para>
 
     <para>
@@ -1499,10 +2096,15 @@ void
 InitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
                          void *coordinate);
 </programlisting>
+<!--
     Initialize the dynamic shared memory that will be required for parallel
     operation.  <literal>coordinate</literal> points to a shared memory area of
     size equal to the return value of <function>EstimateDSMForeignScan</function>.
     This function is optional, and can be omitted if not needed.
+-->
+並列処理で必要とされる動的共有メモリを初期化します。
+<literal>coordinate</literal>は<function>EstimateDSMForeignScan</function>の戻り値に等しいサイズの共有メモリ領域へのポインタです。
+この関数はオプションであり、必要でない場合は省略することができます。
    </para>
 
     <para>
@@ -1511,6 +2113,7 @@ void
 ReInitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
                            void *coordinate);
 </programlisting>
+<!--
     Re-initialize the dynamic shared memory required for parallel operation
     when the foreign-scan plan node is about to be re-scanned.
     This function is optional, and can be omitted if not needed.
@@ -1519,6 +2122,11 @@ ReInitializeDSMForeignScan(ForeignScanState *node, ParallelContext *pcxt,
     state.  Currently, this function will be called
     before <function>ReScanForeignScan</function>, but it's best not to rely on
     that ordering.
+-->
+外部スキャンプランノードが再スキャンされようとしているときに、並列操作に必要な動的共有メモリーを再初期化します。
+この関数はオプションであり、必要でない場合は省略することができます。
+<function>ReScanForeignScan</function>関数はローカル状態のみをリセットし、この関数は共有状態のみをリセットすることをお勧めします。
+現在、この関数は<function>ReScanForeignScan</function>より前に呼び出されますが、その順序に依存しないようにする方が良いでしょう。
    </para>
 
    <para>
@@ -1527,9 +2135,13 @@ void
 InitializeWorkerForeignScan(ForeignScanState *node, shm_toc *toc,
                             void *coordinate);
 </programlisting>
+<!--
     Initialize a parallel worker's local state based on the shared state
     set up by the leader during <function>InitializeDSMForeignScan</function>.
     This function is optional, and can be omitted if not needed.
+-->
+<function>InitializeDSMForeignScan</function>でリーダーがセットアップした共有状態に基づくパラレルワーカーのローカル状態を初期化します。
+この関数はオプションであり、必要でない場合は省略することができます。
    </para>
 
    <para>
@@ -1537,6 +2149,7 @@ InitializeWorkerForeignScan(ForeignScanState *node, shm_toc *toc,
 void
 ShutdownForeignScan(ForeignScanState *node);
 </programlisting>
+<!--
     Release resources when it is anticipated the node will not be executed
     to completion.  This is not called in all cases; sometimes,
     <literal>EndForeignScan</literal> may be called without this function having
@@ -1544,6 +2157,11 @@ ShutdownForeignScan(ForeignScanState *node);
     destroyed just after this callback is invoked, foreign data wrappers that
     wish to take some action before the DSM segment goes away should implement
     this method.
+-->
+ノードが完了するまで実行されないことが予想されるときにリソースを解放します。
+これはすべてのケースで呼ばれるわけではありません。
+<literal>EndForeignScan</literal>は、この関数が最初に呼び出されなくても呼び出されることがあります。
+このコールバックが呼び出された直後に、並列クエリで使用されるDSM(動的共有メモリ)セグメントが破棄されるため、DSMセグメントがなくなる前に何らかのアクションを実行する外部データラッパーがこのメソッドを実装する必要があります。
    </para>
    </sect2>
 
@@ -1638,7 +2256,10 @@ ForeignAsyncNotify(AsyncRequest *areq);
    </sect2>
 
    <sect2 id="fdw-callbacks-reparameterize-paths">
+<!--
     <title>FDW Routines for Reparameterization of Paths</title>
+-->
+    <title>パスの再パラメータ化のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -1646,6 +2267,7 @@ List *
 ReparameterizeForeignPathByChild(PlannerInfo *root, List *fdw_private,
                                  RelOptInfo *child_rel);
 </programlisting>
+<!--
     This function is called while converting a path parameterized by the
     top-most parent of the given child relation <literal>child_rel</literal> to be
     parameterized by the child relation. The function is used to reparameterize
@@ -1654,15 +2276,23 @@ ReparameterizeForeignPathByChild(PlannerInfo *root, List *fdw_private,
     callback may use <literal>reparameterize_path_by_child</literal>,
     <literal>adjust_appendrel_attrs</literal> or
     <literal>adjust_appendrel_attrs_multilevel</literal> as required.
+-->
+この関数は、<literal>child_rel</literal>で指定された子リレーションの最上位の親によってパラメータ化されたパスを、子リレーションによってパラメータ化されたパスに変換する際に呼び出されます。
+この関数はパスをパラメータ化する、あるいは<structname>ForeignPath</structname>の<literal>fdw_private</literal>メンバーに保存されている式ノードを変換するために使用されます。
+このコールバックは必要に応じて、<literal>reparameterize_path_by_child</literal>、<literal>adjust_appendrel_attrs</literal>あるいは<literal>adjust_appendrel_attrs_multilevel</literal>を呼び出すことができます。
     </para>
    </sect2>
 
    </sect1>
 
    <sect1 id="fdw-helpers">
+<!--
     <title>Foreign Data Wrapper Helper Functions</title>
+-->
+    <title>外部データラッパヘルパ関数</title>
 
     <para>
+<!--
      Several helper functions are exported from the core server so that
      authors of foreign data wrappers can get easy access to attributes of
      FDW-related objects, such as FDW options.
@@ -1670,6 +2300,10 @@ ReparameterizeForeignPathByChild(PlannerInfo *root, List *fdw_private,
      <filename>foreign/foreign.h</filename> in your source file.
      That header also defines the struct types that are returned by
      these functions.
+-->
+FDWオプションのようなFDW関連オブジェクトの属性に外部データラッパの作者が簡単にアクセスできるように、いくつかのヘルパ関数がコアサーバからエクスポートされています。
+これらの関数を使用するには、ヘッダファイル<filename>foreign/foreign.h</filename>をあなたのソースファイルにインクルードする必要があります。
+このヘッダはまたこれらの関数が返す構造体も定義しています。
     </para>
 
     <para>
@@ -1678,6 +2312,7 @@ ForeignDataWrapper *
 GetForeignDataWrapperExtended(Oid fdwid, bits16 flags);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignDataWrapper</structname>
      object for the foreign-data wrapper with the given OID.  A
      <structname>ForeignDataWrapper</structname> object contains properties
@@ -1687,6 +2322,11 @@ GetForeignDataWrapperExtended(Oid fdwid, bits16 flags);
      <literal>FDW_MISSING_OK</literal>, in which case a <literal>NULL</literal>
      result is returned to the caller instead of an error for an undefined
      object.
+-->
+この関数は、与えられたOIDの外部データラッパーに対して<structname>ForeignDataWrapper</structname>オブジェクトを返します。
+<structname>ForeignDataWrapper</structname>オブジェクトにはFDWの属性（詳しくは<filename>foreign/foreign.h</filename>を参照）が含まれます。
+<structfield>flags</structfield> は追加的なオプション一式を示すビット毎にorを取ったビットマスクです。
+ここには<literal>FDW_MISSING_OK</literal>値を指定できて、この場合、未定義オブジェクトに対するエラーの代わりに呼び出し元に<literal>NULL</literal>結果が返されます。
     </para>
 
     <para>
@@ -1695,10 +2335,13 @@ ForeignDataWrapper *
 GetForeignDataWrapper(Oid fdwid);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignDataWrapper</structname>
      object for the foreign-data wrapper with the given OID.  A
      <structname>ForeignDataWrapper</structname> object contains properties
      of the FDW (see <filename>foreign/foreign.h</filename> for details).
+-->
+この関数は指定されたOIDを持つ外部データラッパの<structname>ForeignDataWrapper</structname>オブジェクトを返します。<structname>ForeignDataWrapper</structname>オブジェクトはFDWのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1707,6 +2350,7 @@ ForeignServer *
 GetForeignServerExtended(Oid serverid, bits16 flags);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignServer</structname> object
      for the foreign server with the given OID.  A
      <structname>ForeignServer</structname> object contains properties
@@ -1716,6 +2360,11 @@ GetForeignServerExtended(Oid serverid, bits16 flags);
      <literal>FSV_MISSING_OK</literal>, in which case a <literal>NULL</literal>
      result is returned to the caller instead of an error for an undefined
      object.
+-->
+この関数は、与えられたOIDの外部サーバに対して<structname>ForeignServer</structname>オブジェクトを返します。
+<structname>ForeignServer</structname>オブジェクトにはサーバの属性（詳しくは<filename>foreign/foreign.h</filename>を参照）が含まれます。
+<structfield>flags</structfield>は追加的なオプション一式を示すビット毎にorを取ったビットマスクです。
+ここには<literal>FSV_MISSING_OK</literal>値を指定できて、この場合、未定義オブジェクトに対するエラーの代わりに呼び出し元に<literal>NULL</literal>結果が返されます。
     </para>
 
     <para>
@@ -1724,10 +2373,13 @@ ForeignServer *
 GetForeignServer(Oid serverid);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignServer</structname> object
      for the foreign server with the given OID.  A
      <structname>ForeignServer</structname> object contains properties
      of the server (see <filename>foreign/foreign.h</filename> for details).
+-->
+この関数は指定されたOIDを持つ外部サーバの<structname>ForeignServer</structname>オブジェクトを返します。<structname>ForeignServer</structname>オブジェクトは外部サーバのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1736,12 +2388,16 @@ UserMapping *
 GetUserMapping(Oid userid, Oid serverid);
 </programlisting>
 
+<!--
      This function returns a <structname>UserMapping</structname> object for
      the user mapping of the given role on the given server.  (If there is no
      mapping for the specific user, it will return the mapping for
      <literal>PUBLIC</literal>, or throw error if there is none.)  A
      <structname>UserMapping</structname> object contains properties of the
      user mapping (see <filename>foreign/foreign.h</filename> for details).
+-->
+この関数は指定されたロールと指定された外部サーバのユーザマッピングの<structname>UserMapping</structname>オブジェクトを返します。(もし特定のユーザのマッピングがない場合は、<literal>PUBLIC</literal>のためのマッピングを返すか、それもなければエラーを発生させます。)
+<structname>UserMapping</structname>オブジェクトはユーザマッピングのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1750,10 +2406,13 @@ ForeignTable *
 GetForeignTable(Oid relid);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignTable</structname> object for
      the foreign table with the given OID.  A
      <structname>ForeignTable</structname> object contains properties of the
      foreign table (see <filename>foreign/foreign.h</filename> for details).
+-->
+この関数は指定されたOIDを持つ外部テーブルの<structname>ForeignTable</structname>オブジェクトを返します。<structname>ForeignTable</structname>オブジェクトは外部テーブルのプロパティを含みます(詳細は<filename>foreign/foreign.h</filename>を参照して下さい)。
     </para>
 
     <para>
@@ -1762,15 +2421,21 @@ List *
 GetForeignColumnOptions(Oid relid, AttrNumber attnum);
 </programlisting>
 
+<!--
      This function returns the per-column FDW options for the column with the
      given foreign table OID and attribute number, in the form of a list of
      <structname>DefElem</structname>.  NIL is returned if the column has no
      options.
+-->
+この関数は指定された外部テーブルOIDと属性番号に該当する列の列単位のFDWオプションを<structname>DefElem</structname>のリスト形式で返します。その列がオプションを持たない場合はNILが返ります。
     </para>
 
     <para>
+<!--
      Some object types have name-based lookup functions in addition to the
      OID-based ones:
+-->
+いくつかのオブジェクト種別については、OIDベースのものに加えて名前ベースの検索関数もあります。
     </para>
 
     <para>
@@ -1779,10 +2444,13 @@ ForeignDataWrapper *
 GetForeignDataWrapperByName(const char *name, bool missing_ok);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignDataWrapper</structname>
      object for the foreign-data wrapper with the given name.  If the wrapper
      is not found, return NULL if missing_ok is true, otherwise raise an
      error.
+-->
+この関数は指定された名前の外部データラッパの<structname>ForeignDataWrapper</structname>オブジェクトを返します。外部データラッパが見つからない場合は、missing_okがtrueの場合はNULLを返し、それ以外の場合はエラーを発生させます。
     </para>
 
     <para>
@@ -1791,26 +2459,36 @@ ForeignServer *
 GetForeignServerByName(const char *name, bool missing_ok);
 </programlisting>
 
+<!--
      This function returns a <structname>ForeignServer</structname> object
      for the foreign server with the given name.  If the server is not found,
      return NULL if missing_ok is true, otherwise raise an error.
+-->
+この関数は指定された名前の外部サーバの<structname>ForeignServer</structname>オブジェクトを返します。外部サーバが見つからない場合は、missing_okがtrueの場合はNULLを返し、それ以外の場合はエラーを発生させます。
     </para>
 
    </sect1>
 
    <sect1 id="fdw-planning">
+<!--
     <title>Foreign Data Wrapper Query Planning</title>
+-->
+    <title>外部データラッパのクエリプラン作成</title>
 
     <para>
+<!--
      The FDW callback functions <function>GetForeignRelSize</function>,
      <function>GetForeignPaths</function>, <function>GetForeignPlan</function>,
      <function>PlanForeignModify</function>, <function>GetForeignJoinPaths</function>,
      <function>GetForeignUpperPaths</function>, and <function>PlanDirectModify</function>
      must fit into the workings of the <productname>PostgreSQL</productname> planner.
      Here are some notes about what they must do.
+-->
+FDWコールバック関数の<function>GetForeignRelSize</function>、<function>GetForeignPaths</function>、<function>GetForeignPlan</function>、<function>PlanForeignModify</function>、<function>GetForeignJoinPaths</function>、<function>GetForeignUpperPaths</function>、<function>PlanDirectModify</function>は<productname>PostgreSQL</productname>プランナの動作と協調しなければなりません。ここでは、これらの関数がすべき事に関するいくつかの注意事項を述べます。
     </para>
 
     <para>
+<!--
      The information in <literal>root</literal> and <literal>baserel</literal> can be used
      to reduce the amount of information that has to be fetched from the
      foreign table (and therefore reduce the cost).
@@ -1822,15 +2500,24 @@ GetForeignServerByName(const char *name, bool missing_ok);
      columns need to be fetched; but note that it only lists columns that
      have to be emitted by the <structname>ForeignScan</structname> plan node, not
      columns that are used in qual evaluation but not output by the query.
+-->
+<literal>root</literal>と<literal>baserel</literal>に含まれる情報は、外部テーブルから取得する必要のある情報の量(とそれによるコスト)を削減するために使用できます。
+<literal>baserel-&gt;baserestrictinfo</literal>は、取得される行をフィルタリングする検索条件(<literal>WHERE</literal>句)を含んでいるため、特に興味深いものです。(コアのエクゼキュータが代わりにそれらをチェックできるので、FDW自身がこれらの制約を適用しなければならないわけではありません。)
+<literal>baserel-&gt;reltarget-&gt;exprs</literal>はどの列が取得される必要があるかを決定するのに使用できます。ただし、このリストは<structname>ForeignScan</structname>プランノードから出力すべき列しか含んでおらず、条件検査には必要だがクエリからは出力されない列は含まないことに注意してください。
     </para>
 
     <para>
+<!--
      Various private fields are available for the FDW planning functions to
      keep information in.  Generally, whatever you store in FDW private fields
      should be palloc'd, so that it will be reclaimed at the end of planning.
+-->
+様々なプライベートフィールドがFDWのプラン作成関数で情報を格納する目的で利用できます。
+一般的に、プラン作成の最後に回収できるように、FDW固有フィールドに格納するものは全てpallocで確保すべきです。
     </para>
 
     <para>
+<!--
      <literal>baserel-&gt;fdw_private</literal> is a <type>void</type> pointer that is
      available for FDW planning functions to store information relevant to
      the particular foreign table.  The core planner does not touch it except
@@ -1839,9 +2526,14 @@ GetForeignServerByName(const char *name, bool missing_ok);
      <function>GetForeignRelSize</function> to <function>GetForeignPaths</function> and/or
      <function>GetForeignPaths</function> to <function>GetForeignPlan</function>, thereby
      avoiding recalculation.
+-->
+<literal>baserel-&gt;fdw_private</literal>は、<type>void</type>ポインタで、FDWのプラン作成関数で特定の外部テーブルに関する情報を格納する目的で利用できます。
+コアプランナは、<literal>RelOptInfo</literal>ノードが作成されるときにNULLで初期化するときを除いて、このフィールドに一切に触れません。
+このフィールドは、<function>GetForeignRelSize</function>から<function>GetForeignPaths</function>や<function>GetForeignPaths</function>から<function>GetForeignPlan</function>といったように情報を順次伝えるの便利で、結果として再計算を省くことができます。
     </para>
 
     <para>
+<!--
      <function>GetForeignPaths</function> can identify the meaning of different
      access paths by storing private information in the
      <structfield>fdw_private</structfield> field of <structname>ForeignPath</structname> nodes.
@@ -1850,9 +2542,13 @@ GetForeignServerByName(const char *name, bool missing_ok);
      it.  However, best practice is to use a representation that's dumpable
      by <function>nodeToString</function>, for use with debugging support available
      in the backend.
+-->
+<function>GetForeignPaths</function>では、<structname>ForeignPath</structname>ノードの<structfield>fdw_private</structfield>フィールドに固有情報を格納することで、異なるアクセスパスを区別できます。<structfield>fdw_private</structfield>は<type>List</type>ポインタとして宣言されていますが、コアプランナがこのフィールドを操作することはないため、実際にはなんでも格納できます。
+しかし、バックエンドのデバッグサポート機能を利用できるように<function>nodeToString</function>でダンプ出来る形式を使うのが最良の手法です。
     </para>
 
     <para>
+<!--
      <function>GetForeignPlan</function> can examine the <structfield>fdw_private</structfield>
      field of the selected <structname>ForeignPath</structname> node, and can generate
      <structfield>fdw_exprs</structfield> and <structfield>fdw_private</structfield> lists to be
@@ -1865,9 +2561,16 @@ GetForeignServerByName(const char *name, bool missing_ok);
      expression trees that are intended to be executed at run time.  These
      trees will undergo post-processing by the planner to make them fully
      executable.
+-->
+<function>GetForeignPlan</function>では、選択された<structname>ForeignPath</structname>ノードの<structfield>fdw_private</structfield>フィールドを調べて、<structname>ForeignScan</structname>プランノード内に格納されプラン実行時に利用可能な<structfield>fdw_exprs</structfield>と<structfield>fdw_private</structfield>の二つのリストを生成することができます。
+これらは両方とも<function>copyObject</function>がコピーできる形式でなければなりません。
+<structfield>fdw_private</structfield>リストにはこれ以外に制約はなく、コアバックエンドによって解釈されることはありません。
+<structfield>fdw_exprs</structfield>リストがNILでない場合は、クエリ実行時に実行されることを意図した式ツリーが含まれていることが期待されます。
+これらのツリーは、完全に実行可能な状態にするためにプランナによる後処理を受けます。
     </para>
 
     <para>
+<!--
      In <function>GetForeignPlan</function>, generally the passed-in target list can
      be copied into the plan node as-is.  The passed <literal>scan_clauses</literal> list
      contains the same clauses as <literal>baserel-&gt;baserestrictinfo</literal>,
@@ -1879,9 +2582,15 @@ GetForeignServerByName(const char *name, bool missing_ok);
      may be able to check some of the clauses internally, in which case those
      clauses can be removed from the plan node's qual list so that the
      executor doesn't waste time rechecking them.
+-->
+<function>GetForeignPlan</function>では、一般的に渡されたターゲットリストはそのままプランノードにコピーできます。
+渡された<literal>scan_clauses</literal>リストは<literal>baserel-&gt;baserestrictinfo</literal>と同じ句を含みますが、実行効率のよい別の順番に並べ替えることもできます。
+FDWにできるのが<structname>RestrictInfo</structname>ノードを<literal>scan_clauses</literal>リストから(<function>extract_actual_clauses</function>を使って)抜き出して、全ての句をプランノードの条件リストに入れるだけ、といった単純なケースでは、全ての句は実行時にエクゼキュータによってチェックされます。
+より複雑なFDWは内部で一部の句をチェックできるかもしれませんが、そのような場合には、エクゼキュータが再チェックのために時間を無駄にしないように、それらの句はプランノードの条件リストから削除できます。
     </para>
 
     <para>
+<!--
      As an example, the FDW might identify some restriction clauses of the
      form <replaceable>foreign_variable</replaceable> <literal>=</literal>
      <replaceable>sub_expression</replaceable>, which it determines can be executed on
@@ -1900,9 +2609,17 @@ GetForeignServerByName(const char *name, bool missing_ok);
      involve something like <literal>WHERE <replaceable>foreign_variable</replaceable> =
      $1</literal>, with the parameter value obtained at run time from
      evaluation of the <structfield>fdw_exprs</structfield> expression tree.
+-->
+たとえば、ローカル側で評価された<replaceable>sub_expression</replaceable>の値があればリモートサーバ側で実行出来るとFDWが判断するような、<replaceable>foreign_variable</replaceable> <literal>=</literal> <replaceable>sub_expression</replaceable>といった形式の条件句をFDWが識別するかもしれません。
+パスのコスト見積もりに影響するので、そのような句の実際の識別は<function>GetForeignPaths</function>でなされるべきです。
+おそらく、そのパスの<structfield>fdw_private</structfield>フィールドは識別された句の<structname>RestrictInfo</structname>ノードをさすポインタを含むでしょう。
+そして、<function>GetForeignPlan</function>はその句を<literal>scan_clauses</literal>から取り除き、実行可能な形式にほぐされることを保障するために<replaceable>sub_expression</replaceable>を<structfield>fdw_exprs</structfield>に追加するでしょう。
+また、おそらく、実行時に何をすべきかをプラン実行関数に伝えるためにプランノードの<structfield>fdw_private</structfield>フィールドに制御情報を入れるでしょう。
+リモートサーバに送られたクエリは、実行時に<structfield>fdw_exprs</structfield>式ツリーを評価して得られた値をパラメータ値とする<literal>WHERE <replaceable>foreign_variable</replaceable> = $1</literal>のようなものを伴うでしょう。
     </para>
 
     <para>
+<!--
      Any clauses removed from the plan node's qual list must instead be added
      to <literal>fdw_recheck_quals</literal> or rechecked by
      <literal>RecheckForeignScan</literal> in order to ensure correct behavior
@@ -1915,9 +2632,16 @@ GetForeignServerByName(const char *name, bool missing_ok);
      insufficient when outer joins have been pushed down, since the join tuples
      in that case might have some fields go to NULL without rejecting the
      tuple entirely.
+-->
+<literal>READ COMMITTED</literal>分離レベルでの正しい動作を保証するため、プランノードの条件リストから除かれた句はすべて、代わりに<literal>fdw_recheck_quals</literal>に追加されるか、<literal>RecheckForeignScan</literal>で再検査される必要があります。
+問い合わせに含まれる他のテーブルで同時更新があった場合、エクゼキュータはタプルが元の条件を、それも場合によっては異なるパラメータ値の組み合わせに対して満たすことを確認する必要があるかもしれません。
+<literal>fdw_recheck_quals</literal>を使うのは、<literal>RecheckForeignScan</literal>の内部で検査を実装するより、通常は簡単でしょう。
+しかしこの方法は、外部結合がプッシュダウンされる場合は不十分です。
+なぜなら、この場合の結合タプルはタプル全体を拒絶せずに、一部のフィールドをNULLにしてしまうからです。
     </para>
 
     <para>
+<!--
      Another <structname>ForeignScan</structname> field that can be filled by FDWs
      is <structfield>fdw_scan_tlist</structfield>, which describes the tuples returned by
      the FDW for this plan node.  For simple foreign table scans this can be
@@ -1932,9 +2656,18 @@ GetForeignServerByName(const char *name, bool missing_ok);
      plans (created from paths made by <function>GetForeignJoinPaths</function>) must
      always supply <structfield>fdw_scan_tlist</structfield> to describe the set of
      columns they will return.
+-->
+FDWがセットできる別の<structname>ForeignScan</structname>フィールドに<structfield>fdw_scan_tlist</structfield>があります。
+これはこのプランノードについてFDWが返すタプルを記述するものです。
+単純な外部テーブルスキャンに対しては、これを<literal>NIL</literal>にセットすることができ、それは戻されるタプルが外部テーブルで宣言された行型を持つことを意味します。
+<symbol>NIL</symbol>でない値はVar型の変数、あるいは返される列を表す式、あるいはその両方を含む対象のリスト（<structname>TargetEntry</structname>のリスト）でなければなりません。
+これは例えば、FDWが問い合わせのために必要ないと気づいた列を無視したことを示すのに使えるかもしれません。
+また、FDWが問い合わせで使われる式をローカルで計算するより安価に計算できるなら、それらの式を<structfield>fdw_scan_tlist</structfield>に追加することができます。
+結合プラン（<function>GetForeignJoinPaths</function>が作るパスから作成される）は、それが返す列の集合を記述する<structfield>fdw_scan_tlist</structfield>を必ず提供しなければならないことに注意して下さい。
     </para>
 
     <para>
+<!--
      The FDW should always construct at least one path that depends only on
      the table's restriction clauses.  In join queries, it might also choose
      to construct path(s) that depend on join clauses, for example
@@ -1949,9 +2682,16 @@ GetForeignServerByName(const char *name, bool missing_ok);
      <replaceable>local_variable</replaceable> portion of the join clause would be added
      to <structfield>fdw_exprs</structfield>, and then at run time the case works the
      same as for an ordinary restriction clause.
+-->
+FDWはそのテーブルの条件句のみに依存するパスを常に少なくとも一つは生成すべきです。結合クエリでは、例えば<replaceable>foreign_variable</replaceable> <literal>=</literal> <replaceable>local_variable</replaceable>といった結合句に依存するパス(群)を生成することもできます。
+そのような句は<literal>baserel-&gt;baserestrictinfo</literal>には見つからず、リレーションの結合リストにあるはずです。
+そのような句を使用するパスは<quote>パラメータ化されたパス</quote>と呼ばれます。
+このようなパスでは、選択された結合句（群）で使用されているリレーション（群）を<literal>param_info</literal>の適合する値から特定しなければなりません;その値を計算するには<function>get_baserel_parampathinfo</function>を使用します。
+<function>GetForeignPlan</function>では、結合句の<replaceable>local_variable</replaceable>部分が<structfield>fdw_exprs</structfield>に追加され、実行時には通常の条件句と同じように動作します。
     </para>
 
     <para>
+<!--
      If an FDW supports remote joins, <function>GetForeignJoinPaths</function> should
      produce <structname>ForeignPath</structname>s for potential remote joins in much
      the same way as <function>GetForeignPaths</function> works for base tables.
@@ -1961,9 +2701,14 @@ GetForeignServerByName(const char *name, bool missing_ok);
      relations; instead, the relevant join clauses for a particular join are
      passed to <function>GetForeignJoinPaths</function> as a separate parameter
      (<literal>extra-&gt;restrictlist</literal>).
+-->
+FDWがリモートでの結合をサポートする場合、<function>GetForeignPaths</function>がベーステーブルに対して処理するのとほぼ同じように、<function>GetForeignJoinPaths</function>は潜在的なリモートの結合に対して<structname>ForeignPath</structname>を生成することになります。
+意図した結合に関する情報は、上記と同じ方法で<function>GetForeignPlan</function>に送ることができます。
+しかし、<structfield>baserestrictinfo</structfield>は結合のリレーションには関連がなく、代わりに、特定の結合に関連するJOIN句は<function>GetForeignJoinPaths</function>に別のパラメータ(<literal>extra-&gt;restrictlist</literal>)として渡されます。
     </para>
 
     <para>
+<!--
      An FDW might additionally support direct execution of some plan actions
      that are above the level of scans and joins, such as grouping or
      aggregation.  To offer such options, the FDW should generate paths and
@@ -1980,9 +2725,17 @@ GetForeignServerByName(const char *name, bool missing_ok);
      callback function, which is called for each upper relation (i.e., each
      post-scan/join processing step), if all the base relations of the query
      come from the same FDW.
+-->
+FDWはグルーピングや集約のような、スキャンや結合のレベルより上位のプラン動作の直接実行を追加的にサポートできるかもしれません。
+このような方法を行うには、FDWはパスを生成して、それを適切な<firstterm>上位リレーション</firstterm>に挿入する必要があります。
+例えば、リモート集約をあらわすパスは<function>add_path</function>を使って<literal>UPPERREL_GROUP_AGG</literal>リレーションに挿入されるべきです。
+このパスは外部リレーションに対する単純なスキャンパスを読むことによるローカル集約実行とコストに基づいて比較されます（このようなパスが提供されなければならないことに注意してください、さもないとプラン時にエラーになります）。
+リモート集約パスが、通常そうなりますが、勝った場合には、パスは<function>GetForeignPlan</function>を呼ぶ通常の手段でプランに変換されます。
+もし問い合わせの全てのベースリレーションが同じFDWから来るなら、このようなパスを生成するのに推奨される場所は、各上位リレーション（すなわち各スキャン/結合後の処理の段階）に対して呼び出される<function>GetForeignUpperPaths</function>コールバック関数の中です。
     </para>
 
     <para>
+<!--
      <function>PlanForeignModify</function> and the other callbacks described in
      <xref linkend="fdw-callbacks-update"/> are designed around the assumption
      that the foreign relation will be scanned in the usual way and then
@@ -1998,9 +2751,16 @@ GetForeignServerByName(const char *name, bool missing_ok);
      <xref linkend="fdw-callbacks-row-locking"/>.  Keep in mind that a path
      inserted into <literal>UPPERREL_FINAL</literal> is responsible for
      implementing <emphasis>all</emphasis> behavior of the query.
+-->
+<function>PlanForeignModify</function>と<xref linkend="fdw-callbacks-update"/>で記述された他のコールバックは、外部リレーションは通常の方法でスキャンされ、それから個別の行変更がローカルの<literal>ModifyTable</literal>プランノードで駆動されるという想定をもとに設計されています。
+この方法は変更が外部テーブルと同様にローカルテーブルを読む必要がある一般的な場合に必要です。
+しかしながら、操作が全体的に外部サーバで実行できるなら、FDWはそのようにするパスを生成して<literal>UPPERREL_FINAL</literal>上位リレーションに挿入することができます。ここでは<literal>ModifyTable</literal>方式に対して競合します。
+この方式は、<xref linkend="fdw-callbacks-row-locking"/>で記述された行ロックコールバックを使うのでなしに、リモート<literal>SELECT FOR UPDATE</literal>を実装するのにも使われます。
+<literal>UPPERREL_FINAL</literal>に挿入されたパスは問い合わせの<emphasis>全ての</emphasis>振る舞いの実装に責任があることに留意してください。
     </para>
 
     <para>
+<!--
      When planning an <command>UPDATE</command> or <command>DELETE</command>,
      <function>PlanForeignModify</function> and <function>PlanDirectModify</function>
      can look up the <structname>RelOptInfo</structname>
@@ -2012,31 +2772,50 @@ GetForeignServerByName(const char *name, bool missing_ok);
      the same restrictions as the <structfield>fdw_private</structfield> list of a
      <structname>ForeignScan</structname> plan node, that is it must contain only
      structures that <function>copyObject</function> knows how to copy.
+-->
+<command>UPDATE</command>や<command>DELETE</command>のプランを生成しているとき、
+<function>PlanForeignModify</function>と<function>PlanDirectModify</function>は、事前にスキャンプラン生成関数で作られた<literal>baserel-&gt;fdw_private</literal>データを使うために、その外部テーブルのための<structname>RelOptInfo</structname>構造体を検索することができます。
+しかしながら、<command>INSERT</command>では対象テーブルはスキャンされないので対応する<structname>RelOptInfo</structname>は存在しません。
+<function>PlanForeignModify</function>から返される<structname>List</structname>には、<structname>ForeignScan</structname>プランノードの<structfield>fdw_private</structfield>リストと同様に、<function>copyObject</function>がコピーの仕方を知っている構造体しか保持してはいけないという制約があります。
     </para>
 
     <para>
+<!--
      <command>INSERT</command> with an <literal>ON CONFLICT</literal> clause does not
      support specifying the conflict target, as unique constraints or
      exclusion constraints on remote tables are not locally known. This
      in turn implies that <literal>ON CONFLICT DO UPDATE</literal> is not supported,
      since the specification is mandatory there.
+-->
+<literal>ON CONFLICT</literal>句のある<command>INSERT</command>は競合の対象の指定をサポートしません。
+なぜなら、リモートのテーブルの一意制約や排他制約についての情報がローカルにはないからです。
+これは結果的に<literal>ON CONFLICT DO UPDATE</literal>がサポートされないことを意味します。
+なぜなら、競合の対象の指定が必須だからです。
     </para>
 
    </sect1>
 
    <sect1 id="fdw-row-locking">
+<!--
     <title>Row Locking in Foreign Data Wrappers</title>
+-->
+    <title>外部データラッパでの行ロック</title>
 
     <para>
+<!--
      If an FDW's underlying storage mechanism has a concept of locking
      individual rows to prevent concurrent updates of those rows, it is
      usually worthwhile for the FDW to perform row-level locking with as
      close an approximation as practical to the semantics used in
      ordinary <productname>PostgreSQL</productname> tables.  There are multiple
      considerations involved in this.
+-->
+FDWの元になる記憶機構が、行の同時更新を防ぐために個々の行をロックするという概念を持っているなら、<productname>PostgreSQL</productname>の通常のテーブルで使われている意味にできる限り現実的で近い行単位のロックをFDWが実施することは価値があるでしょう。
+これに関していくつかの考慮点があります。
     </para>
 
     <para>
+<!--
      One key decision to be made is whether to perform <firstterm>early
      locking</firstterm> or <firstterm>late locking</firstterm>.  In early locking, a row is
      locked when it is first retrieved from the underlying store, while in
@@ -2049,18 +2828,31 @@ GetForeignServerByName(const char *name, bool missing_ok);
      possible if the row to be locked can be uniquely re-identified later.
      Preferably the row identifier should identify a specific version of the
      row, as <productname>PostgreSQL</productname> TIDs do.
+-->
+なされるべき重要な決定の一つは、<firstterm>早いロック</firstterm>を実行するか<firstterm>遅いロック</firstterm>を実行するか、です。
+早いロックでは、行は、元となる記憶機構から最初に取り出されたときにロックされます。
+一方、遅いロックでは、行は、それがロックされる必要があることがわかってからロックされます。
+（この違いは、一部の行がローカルで検査される制約や結合条件によって除外されるために発生します。）
+早いロックの方がずっと単純ですし、リモートの記憶機構との間の余分なやりとりもなくて済みますが、ロックしなくても良い行をロックするかもしれませんし、結果的に同時実行性が低下したり、予期しないデッドロックさえ発生します。
+一方で、遅いロックは、ロックすべき行が後で一意に再識別できる場合にのみ可能です。
+できれば、<productname>PostgreSQL</productname>のTIDがそうしているように、行識別子は行の特定のバージョンを識別できるのが望ましいです。
     </para>
 
     <para>
+<!--
      By default, <productname>PostgreSQL</productname> ignores locking considerations
      when interfacing to FDWs, but an FDW can perform early locking without
      any explicit support from the core code.  The API functions described
      in <xref linkend="fdw-callbacks-row-locking"/>, which were added
      in <productname>PostgreSQL</productname> 9.5, allow an FDW to use late locking if
      it wishes.
+-->
+デフォルトでは<productname>PostgreSQL</productname>はFDWとのやりとりにおいてロックの考慮をしませんが、FDWはコアのコードからの明示的なサポートなしに、早いロックを実行することができます。
+<productname>PostgreSQL</productname>バージョン9.5で追加された<xref linkend="fdw-callbacks-row-locking"/>に記載されたAPI関数を使うことで、望むならFDWで遅いロックを使うことも可能です。
     </para>
 
     <para>
+<!--
      An additional consideration is that in <literal>READ COMMITTED</literal>
      isolation mode, <productname>PostgreSQL</productname> may need to re-check
      restriction and join conditions against an updated version of some
@@ -2078,9 +2870,18 @@ GetForeignServerByName(const char *name, bool missing_ok);
      result in reduced performance of merge and hash joins.  An FDW that is
      capable of meeting the re-fetch requirements can choose to do it the
      first way.
+-->
+さらなる考慮点は、<literal>READ COMMITTED</literal>分離モードにおいて、<productname>PostgreSQL</productname>は対象のタプルの更新されたバージョンに対して制約と結合条件の再検査を行う必要があるかもしれないということです。
+結合条件を再検査するには、前回取得対象のタプルと結合された、取得対象外の行の複製を再取得する必要があります。
+<productname>PostgreSQL</productname>の標準テーブルを使うときは、結合を通じて生成される列リストに対象でないテーブルのTIDを含めて、必要な時には対象でない行を再フェッチすることで解決しています。
+この方法は結合のデータセットを小さくできますが、安価な再フェッチ機能と再フェッチすべきバージョンの行を一意に特定できるTIDが必要になります。
+そのためデフォルトで外部テーブルに対して使われる方法は、外部テーブルからフェッチされた行全体を結合を通じて生成した列リストに含めるというものです。
+これによりFDWに対する特別な要請はなくなりますが、マージ結合およびハッシュ結合に置いてパフォーマンスが低下する結果となるかもしれません。
+再フェッチの要求を満たすことができるFDWでは最初の方法を選択するのも良いでしょう。
     </para>
 
     <para>
+<!--
      For an <command>UPDATE</command> or <command>DELETE</command> on a foreign table, it
      is recommended that the <literal>ForeignScan</literal> operation on the target
      table perform early locking on the rows that it fetches, perhaps via the
@@ -2091,9 +2892,14 @@ GetForeignServerByName(const char *name, bool missing_ok);
      An alternative possibility is to perform late locking within the
      <function>ExecForeignUpdate</function> or <function>ExecForeignDelete</function>
      callback, but no special support is provided for this.
+-->
+外部テーブルに対する<command>UPDATE</command>や<command>DELETE</command>では、対象テーブルに対する<literal>ForeignScan</literal>操作はフェッチする行を、恐らくは<command>SELECT FOR UPDATE</command>と同等なものを用いてロックすることが推奨されます。
+FDWはテーブルが<command>UPDATE</command>または<command>DELETE</command>の対象かどうかを、計画時にそのrelidを<literal>root-&gt;parse-&gt;resultRelation</literal>と比較することで、あるいは実行時に<function>ExecRelationIsTargetRelation()</function>を使うことで検知できます。
+これに代わる可能性として、<function>ExecForeignUpdate</function>または<function>ExecForeignDelete</function>のコールバック内で遅いロックを実行することがありますが、これについて特別なサポートは提供されません。
     </para>
 
     <para>
+<!--
      For foreign tables that are specified to be locked by a <command>SELECT
      FOR UPDATE/SHARE</command> command, the <literal>ForeignScan</literal> operation can
      again perform early locking by fetching tuples with the equivalent
@@ -2110,9 +2916,17 @@ GetForeignServerByName(const char *name, bool missing_ok);
      plan time, or <function>ExecFindRowMark</function> at execution time; you must
      check not only whether a non-null rowmark struct is returned, but that
      its <structfield>strength</structfield> field is not <literal>LCS_NONE</literal>.
+-->
+<command>SELECT FOR UPDATE/SHARE</command>コマンドによりロックすることが指定された外部テーブルについて、<literal>ForeignScan</literal>の操作では<command>SELECT FOR UPDATE/SHARE</command>と同等なものを使ってタプルをフェッチすることで、ここでも早いロックを実行できます。
+逆に遅いロックを実行するには、<xref linkend="fdw-callbacks-row-locking"/>で定義されるコールバック関数を提供して下さい。
+<function>GetForeignRowMarkType</function>では、要求されたロックの強度に応じて、rowmarkのオプション<literal>ROW_MARK_EXCLUSIVE</literal>、<literal>ROW_MARK_NOKEYEXCLUSIVE</literal>、<literal>ROW_MARK_SHARE</literal>または<literal>ROW_MARK_KEYSHARE</literal>を選択して下さい。
+（コアのコードは、この4つのオプションのどれが選ばれたかに関係なく、同じ動作をします。）
+その他には、この種のコマンドによって外部テーブルのロックが指定されたかどうかを、計画時に<function>get_plan_rowmark</function>を使うことで、あるいは実行時に<function>ExecFindRowMark</function>を使うことで検知できます。
+このとき、NULLでないrowmark構造体が戻されるかどうかだけでなく、その<structfield>strength</structfield>フィールドが<literal>LCS_NONE</literal>でないことも確認しなければなりません。
     </para>
 
     <para>
+<!--
      Lastly, for foreign tables that are used in an <command>UPDATE</command>,
      <command>DELETE</command> or <command>SELECT FOR UPDATE/SHARE</command> command but
      are not specified to be row-locked, you can override the default choice
@@ -2124,14 +2938,22 @@ GetForeignServerByName(const char *name, bool missing_ok);
      a <function>GetForeignRowMarkType</function> function but don't wish to re-fetch
      unlocked rows, select option <literal>ROW_MARK_COPY</literal>
      for <literal>LCS_NONE</literal>.)
+-->
+最後に、<command>UPDATE</command>、<command>DELETE</command>または<command>SELECT FOR UPDATE/SHARE</command>コマンドで使用されたが、行ロックの指定はされなかった外部テーブルについて、ロック強度が<literal>LCS_NONE</literal>になっているときに<function>GetForeignRowMarkType</function>でオプション<literal>ROW_MARK_REFERENCE</literal>を選択すれば、すべての行を複製するというデフォルトの動作を変更することができます。
+これにより、<structfield>markType</structfield>にその値を入れて<function>RefetchForeignRow</function>が呼び出されるようになります。
+このとき、新しいロックを取得することなく行を再取得します。
+（<function>GetForeignRowMarkType</function>関数を使うが、ロックしていない行を再フェッチしたくない場合は、<literal>LCS_NONE</literal>についてオプション<literal>ROW_MARK_COPY</literal>を選択して下さい。）
     </para>
 
     <para>
+<!--
      See <filename>src/include/nodes/lockoptions.h</filename>, the comments
      for <type>RowMarkType</type> and <type>PlanRowMark</type>
      in <filename>src/include/nodes/plannodes.h</filename>, and the comments for
      <type>ExecRowMark</type> in <filename>src/include/nodes/execnodes.h</filename> for
      additional information.
+-->
+さらなる情報は、<filename>src/include/nodes/lockoptions.h</filename>、<filename>src/include/nodes/plannodes.h</filename>での<type>RowMarkType</type>と<type>PlanRowMark</type>についてのコメント、<filename>src/include/nodes/execnodes.h</filename>での<type>ExecRowMark</type>についてのコメントを参照して下さい。
     </para>
 
   </sect1>

@@ -1,30 +1,48 @@
 <!-- doc/src/sgml/gist.sgml -->
 
 <chapter id="gist">
+<!--
 <title>GiST Indexes</title>
+-->
+<title>GiSTインデックス</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>GiST</secondary>
    </indexterm>
 
 <sect1 id="gist-intro">
+<!--
  <title>Introduction</title>
+-->
+ <title>はじめに</title>
 
  <para>
+<!--
    <acronym>GiST</acronym> stands for Generalized Search Tree.  It is a
    balanced, tree-structured access method, that acts as a base template in
    which to implement arbitrary indexing schemes. B-trees, R-trees and many
    other indexing schemes can be implemented in <acronym>GiST</acronym>.
+-->
+<acronym>GiST</acronym>は汎用検索ツリー（Generalized Search Tree）を表します。
+これは、均衡な、ツリー構造のアクセスメソッドで、任意のインデックスの枠組みを実装する基本的なテンプレートとして動作します。
+B-tree、R-treeやその他多くのインデックスの枠組みを<acronym>GiST</acronym>で実装することができます。
  </para>
 
  <para>
+<!--
   One advantage of <acronym>GiST</acronym> is that it allows the development
   of custom data types with the appropriate access methods, by
   an expert in the domain of the data type, rather than a database expert.
+-->
+<acronym>GiST</acronym>の利点の1つは、データベースの専門家ではなく、データ型分野の専門家によって、適切なアクセスメソッドで独自のデータ型を開発することができることです。
  </para>
 
   <para>
+<!--
     Some of the information here is derived from the University of California
     at Berkeley's GiST Indexing Project
     <ulink url="http://gist.cs.berkeley.edu/">web site</ulink> and
@@ -36,32 +54,51 @@
     maintained by Teodor Sigaev and Oleg Bartunov, and there is more
     information on their
     <ulink url="http://www.sai.msu.su/~megera/postgres/gist/">web site</ulink>.
+-->
+ここで示す情報の一部は、カリフォルニア大学バークレイ校のGiSTインデックスプロジェクト、<ulink url="http://gist.cs.berkeley.edu/">ウェブサイト</ulink>およびMarcel Kornackerの論文、<ulink url="http://www.sai.msu.su/~megera/postgres/gist/papers/concurrency/access-methods-for-next-generation.pdf.gz">Access Methods for Next-Generation Database Systems</ulink>から派生したものです。
+<productname>PostgreSQL</productname>における<acronym>GiST</acronym>の実装は、主に、Teodor SigaevとOleg Bartunovによって保守されています。
+そして、彼らの<ulink url="http://www.sai.msu.su/~megera/postgres/gist/">ウェブサイト</ulink>にも多くの情報があります。
   </para>
 
 </sect1>
 
 <sect1 id="gist-builtin-opclasses">
+<!--
  <title>Built-in Operator Classes</title>
+-->
+ <title>組み込み演算子クラス</title>
 
  <para>
+<!--
   The core <productname>PostgreSQL</productname> distribution
   includes the <acronym>GiST</acronym> operator classes shown in
   <xref linkend="gist-builtin-opclasses-table"/>.
   (Some of the optional modules described in <xref linkend="contrib"/>
   provide additional <acronym>GiST</acronym> operator classes.)
+-->
+<productname>PostgreSQL</productname>のコア配布物は<xref linkend="gist-builtin-opclasses-table"/>に示す<acronym>GiST</acronym>演算子クラスを含みます。
+(<xref linkend="contrib"/>に記載された追加モジュールの中には追加の<acronym>GiST</acronym>演算子クラスを提供するものもあります。)
  </para>
 
   <table id="gist-builtin-opclasses-table">
+<!--
    <title>Built-in <acronym>GiST</acronym> Operator Classes</title>
+-->
+   <title>組み込み<acronym>GiST</acronym>演算子クラス</title>
    <tgroup cols="3">
      <colspec colname="col1" colwidth="2*"/>
      <colspec colname="col2" colwidth="3*"/>
      <colspec colname="col3" colwidth="2*"/>
     <thead>
      <row>
+<!--
       <entry>Name</entry>
       <entry>Indexable Operators</entry>
       <entry>Ordering Operators</entry>
+-->
+      <entry>名前</entry>
+      <entry>インデックス可能な演算子</entry>
+      <entry>順序付け演算子</entry>
      </row>
     </thead>
     <tbody>
@@ -213,21 +250,30 @@
   </table>
 
  <para>
+<!--
   For historical reasons, the <literal>inet_ops</literal> operator class is
   not the default class for types <type>inet</type> and <type>cidr</type>.
   To use it, mention the class name in <command>CREATE INDEX</command>,
   for example
+-->
+歴史的な理由から、<literal>inet_ops</literal>演算子クラスは型<type>inet</type>と<type>cidr</type>のデフォルトクラスではありません。
+使うためには、例えば
 <programlisting>
 CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
 </programlisting>
+のように、<command>CREATE INDEX</command>でクラス名を書いてください。
  </para>
 
 </sect1>
 
 <sect1 id="gist-extensibility">
+<!--
  <title>Extensibility</title>
+-->
+ <title>拡張性</title>
 
  <para>
+<!--
    Traditionally, implementing a new index access method meant a lot of
    difficult work.  It was necessary to understand the inner workings of the
    database, such as the lock manager and Write-Ahead Log.  The
@@ -235,9 +281,15 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    requiring the access method implementer only to implement the semantics of
    the data type being accessed.  The <acronym>GiST</acronym> layer itself
    takes care of concurrency, logging and searching the tree structure.
+-->
+伝統的に、新しいインデックスメソッドの実装は、非常に難しい作業を意味していました。
+ロックマネージャやログ先行書き込みなどデータベースの内部動作を理解する必要がありました。
+<acronym>GiST</acronym>インタフェースは高度に抽象化されており、アクセスメソッドの実装者には、アクセスするデータ型のセマンティクスのみの実装を要求します。
+<acronym>GiST</acronym>層自身が同時実行性、ログ処理、ツリー構造の検索処理に関する注意を行います。
  </para>
 
  <para>
+<!--
    This extensibility should not be confused with the extensibility of the
    other standard search trees in terms of the data they can handle.  For
    example, <productname>PostgreSQL</productname> supports extensible B-trees
@@ -246,9 +298,15 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    data type you want. But B-trees only support range predicates
    (<literal>&lt;</literal>, <literal>=</literal>, <literal>&gt;</literal>),
    and hash indexes only support equality queries.
+-->
+この拡張性と、他の、扱うことができるデータを対象とした標準検索ツリーの拡張性とを混同すべきではありません。
+例えば、<productname>PostgreSQL</productname>は拡張可能なB-treeとハッシュインデックスをサポートしています。
+これは、<productname>PostgreSQL</productname>を使用して、任意のデータ型に対するB-treeやハッシュを構築することができることを意味します。
+しかし、B-treeは範囲述語（<literal>&lt;</literal>、<literal>=</literal>、<literal>&gt;</literal>）のみをサポートし、ハッシュインデックスは等価性問い合わせのみをサポートします。
  </para>
 
  <para>
+<!--
    So if you index, say, an image collection with a
    <productname>PostgreSQL</productname> B-tree, you can only issue queries
    such as <quote>is imagex equal to imagey</quote>, <quote>is imagex less
@@ -258,9 +316,14 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    However, by using a <acronym>GiST</acronym> based index, you could create
    ways to ask domain-specific questions, perhaps <quote>find all images of
    horses</quote> or <quote>find all over-exposed images</quote>.
+-->
+ですから、<productname>PostgreSQL</productname>のB-treeで例えば画像群をインデックス付けする場合、<quote>画像xは画像yと同じか</quote>、<quote>画像xは画像yより小さいか</quote>、<quote>画像xは画像yより大きいか</quote>といった問い合わせのみ発行することができます。
+この文脈でどのように<quote>同じか</quote>や<quote>より小さいか</quote>、<quote>より大きいか</quote>を定義するかに依存して、これが有意なこともあるでしょう。
+しかし、<acronym>GiST</acronym>を基にしたインデックスを使用すれば、問題分野に特化した、おそらくは、<quote>馬の画像を全て見つけたい</quote>、<quote>露出オーバーの写真をすべて見つけたい</quote>といった質問に答えられる手段を作成することができます。
  </para>
 
  <para>
+<!--
    All it takes to get a <acronym>GiST</acronym> access method up and running
    is to implement several user-defined methods, which define the behavior of
    keys in the tree. Of course these methods have to be pretty fancy to
@@ -268,9 +331,15 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    R-trees, etc.) they're relatively straightforward. In short,
    <acronym>GiST</acronym> combines extensibility along with generality, code
    reuse, and a clean interface.
+-->
+<acronym>GiST</acronym>アクセスメソッドを有効にし、実行するために行なわなければならないことは、ツリーのキーの動作を定義する、複数のユーザ定義のメソッドを実装することです。
+当然ながら、これらのメソッドは手の込んだ問い合わせをサポートするためかなり意匠を凝らす必要があります。
+しかし、すべての標準的な問い合わせ（B-treeやR-treeなど）ではこれらは、相対的に見てごく簡単です。
+まとめると、<acronym>GiST</acronym>は汎用性、コード再利用、整理されたインタフェースと拡張性を兼ね備えたものです。
   </para>
 
  <para>
+<!--
    There are five methods that an index operator class for
    <acronym>GiST</acronym> must provide, and five that are optional.
    Correctness of the index is ensured
@@ -295,6 +364,19 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    the user-specified parameters.
    The <function>sortsupport</function> method is also optional and is used to
    speed up building a <acronym>GiST</acronym> index.
+-->
+<acronym>GiST</acronym>用の演算子クラスが提供しなければならないメソッドが5つ、オプションで提供可能なメソッドが5つあります。
+インデックスの正確性は、<function>same</function>、<function>consistent</function>、<function>union</function>メソッドを適切に実装することで保証されます。
+一方、インデックスの効率（容量と速度）は<function>penalty</function>と<function>picksplit</function>メソッドに依存します。
+オプションのメソッドの２つは、<function>compress</function>と<function>decompress</function>です。これによりインデックスはインデックス付けするデータと異なるデータ型のツリーデータを内部で持つことができるようになります。
+リーフはインデックス付けするデータ型となりますが、他のツリーノードは何らかのC構造体を取ることができます。
+（しかしここでも<productname>PostgreSQL</productname>のデータ型規約に従わなければなりません。
+容量が可変のデータに関しては<literal>varlena</literal>を参照してください。）
+ツリーの内部データ型がSQLレベルで存在する場合、<command>CREATE OPERATOR CLASS</command>コマンドの<literal>STORAGE</literal>オプションを使用することができます。
+オプションの８番目のメソッドは<function>distance</function>です。
+これは演算子クラスに順序付けスキャン（最近傍検索）をサポートさせたい場合に必要です。
+オプションの9番目のメソッド<function>fetch</function>は、<function>compress</function>メソッドが省略されている場合を除き、演算子クラスがインデックスオンリースキャンをサポートしたい場合に必要になります。
+オプションの10番目のメソッド<function>options</function>は、演算子クラスがユーザに固有のパラメータを提供する場合に必要です。
  </para>
 
  <variablelist>
@@ -302,6 +384,7 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
      <term><function>consistent</function></term>
      <listitem>
       <para>
+<!--
        Given an index entry <literal>p</literal> and a query value <literal>q</literal>,
        this function determines whether the index entry is
        <quote>consistent</quote> with the query; that is, could the predicate
@@ -321,10 +404,22 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
        if it is really a match.  This convention allows
        <acronym>GiST</acronym> to support both lossless and lossy index
        structures.
+-->
+インデックス項目<literal>p</literal>と問い合わせ値<literal>q</literal>が与えられると、この関数はインデックス項目が問い合わせと<quote>一貫性</quote>があるかどうか、つまり、述語<quote><replaceable>indexed_column</replaceable><replaceable>indexable_operator</replaceable> <literal>q</literal></quote>が、インデックス項目で表現される行に対して真かどうかを決定します。
+リーフインデックス項目では、これはインデックス付条件の試験と等価です。
+一方で内部ツリーノードでは、これはツリーノードで表現されるインデックスの副ツリーを走査する必要があるかどうかを決定します。
+結果が<literal>true</literal>ならば、<literal>recheck</literal>フラグも返されなければなりません。
+これは、述語が確実に真なのか一部のみ真なのかを示します。
+<literal>recheck</literal> = <literal>false</literal>ならば、インデックスは述語条件を正確に試験されたことを示し、<literal>recheck</literal>= <literal>true</literal>ならば行が単に一致候補であることを示します。
+この場合、システムは自動的に<replaceable>indexable_operator</replaceable>を実際の行値に対して評価し、本当に一致するかどうか確認します。
+この規則により、<acronym>GiST</acronym>はインデックス構造が非可逆な場合でも可逆な場合でもサポートすることができます。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_consistent(internal, data_type, smallint, oid, internal)
@@ -333,7 +428,10 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_consistent);
@@ -350,28 +448,44 @@ my_consistent(PG_FUNCTION_ARGS)
     bool        retval;
 
     /*
+<!--
      * determine return value as a function of strategy, key and query.
      *
      * Use GIST_LEAF(entry) to know where you're called in the index tree,
      * which comes handy when supporting the = operator for example (you could
      * check for non empty union() in non-leaf nodes and equality in leaf
      * nodes).
+-->
+     * strategy、keyおよびqueryの関数として戻り値を決定してください。
+     *
+     * インデックスツリー内のどこで呼びだされているかを知るためGIST_LEAF(entry)を使用してください。
+     * それは、例えば = 演算子をサポートする場合重宝です
+     *（非リーフノードにおける空でないunion()とリーフノードにおける等価性を検査することができます）。
      */
 
+<!--
     *recheck = true;        /* or false if check is exact */
+-->
+    *recheck = true;        /* もしくは検査が正確であれば偽 */
 
     PG_RETURN_BOOL(retval);
 }
 </programlisting>
 
+<!--
        Here, <varname>key</varname> is an element in the index and <varname>query</varname>
        the value being looked up in the index. The <literal>StrategyNumber</literal>
        parameter indicates which operator of your operator class is being
        applied &mdash; it matches one of the operator numbers in the
        <command>CREATE OPERATOR CLASS</command> command.
+-->
+ここで、<varname>key</varname>はインデックス要素であり、<varname>query</varname>はインデックスに対して検索される値です。
+<literal>StrategyNumber</literal>パラメータは、演算子クラスのどの演算子が適用されるかを示します。
+これは<command>CREATE OPERATOR CLASS</command>コマンドの演算子番号の1つに一致します。
       </para>
 
       <para>
+<!--
        Depending on which operators you have included in the class, the data
        type of <varname>query</varname> could vary with the operator, since it will
        be whatever type is on the right-hand side of the operator, which might
@@ -382,6 +496,11 @@ my_consistent(PG_FUNCTION_ARGS)
        the <function>consistent</function> function use the opclass's indexed data
        type for the <varname>query</varname> argument, even though the actual type
        might be something else depending on the operator.
+-->
+演算子の右辺にはいかなる型も来ることがあり、それは左辺に現れるインデックス付けされたデータ型とは違うものかもしれませんので、このクラスにどの演算子を含めたかに依存して、<varname>query</varname>のデータ型は演算子に応じて変動することがあります。
+(上のコードの骨格は型が1つだけ可能であることを仮定しています。
+そうでなければ、<varname>query</varname>引数の値を取得するのは演算子に依存しないといけないでしょう。)
+<function>consistent</function>関数のSQL宣言では、実際の型は演算子に依存して何か他のものであるとしても、<varname>query</varname>引数の演算子クラスのインデックス付けされたデータ型を使うことをお勧めします。
       </para>
 
      </listitem>
@@ -391,13 +510,20 @@ my_consistent(PG_FUNCTION_ARGS)
      <term><function>union</function></term>
      <listitem>
       <para>
+<!--
        This method consolidates information in the tree.  Given a set of
        entries, this function generates a new index entry that represents
        all the given entries.
+-->
+このメソッドはツリー内の情報を統合します。
+項目の集合が与えられると、この関数は与えられた項目すべてを表現するインデックス項目を新しく生成します。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_union(internal, internal)
@@ -406,7 +532,10 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_union);
@@ -446,29 +575,43 @@ my_union(PG_FUNCTION_ARGS)
       </para>
 
       <para>
+<!--
         As you can see, in this skeleton we're dealing with a data type
         where <literal>union(X, Y, Z) = union(union(X, Y), Z)</literal>. It's easy
         enough to support data types where this is not the case, by
         implementing the proper union algorithm in this
         <acronym>GiST</acronym> support method.
+-->
+ご覧になったように、この骨格で<literal>union(X, Y, Z) = union(union(X, Y), Z)</literal>であるようなデータ型を処理しています。
+この<acronym>GiST</acronym>サポートメソッドに適切なunionアルゴリズムを実装することで、このような場合以外のデータ型をサポートすることは非常に容易です。
       </para>
 
       <para>
+<!--
         The result of the <function>union</function> function must be a value of the
         index's storage type, whatever that is (it might or might not be
         different from the indexed column's type).  The <function>union</function>
         function should return a pointer to newly <function>palloc()</function>ed
         memory. You can't just return the input value as-is, even if there is
         no type change.
+-->
+<function>union</function>関数の結果は、(インデックス付けされた列の型とは異なるかもしれないし、異ならないかもしれませんが)それが何であれインデックスの格納型の値でなければなりません。
+<function>union</function>関数は新たに<function>palloc()</function>されたメモリへのポインタを返さなければなりません。
+型の変更がなかったとしても、入力値をそのまま返すことはできません。
       </para>
 
       <para>
+<!--
        As shown above, the <function>union</function> function's
        first <type>internal</type> argument is actually
        a <structname>GistEntryVector</structname> pointer.  The second argument is a
        pointer to an integer variable, which can be ignored.  (It used to be
        required that the <function>union</function> function store the size of its
        result value into that variable, but this is no longer necessary.)
+-->
+上に示したように、<function>union</function>関数の1番目の<type>internal</type>引数は実際は<structname>GistEntryVector</structname>のポインタです。
+2番目の引数は整数の変数へのポインタであり、無視できます。
+(<function>union</function>関数がその結果値の大きさをその変数に保存するのに必要だったのですが、これはもはや必要ではありません。)
       </para>
      </listitem>
     </varlistentry>
@@ -477,14 +620,21 @@ my_union(PG_FUNCTION_ARGS)
      <term><function>compress</function></term>
      <listitem>
       <para>
+<!--
        Converts a data item into a format suitable for physical storage in
        an index page.
        If the <function>compress</function> method is omitted, data items are stored
        in the index without modification.
+-->
+データ項目をインデックスページ内の物理的な格納に適した形式に変換します。
+<function>compress</function>メソッドが省略されている場合、データ項目は変更されずにインデックスに格納されます。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_compress(internal)
@@ -493,7 +643,10 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_compress);
@@ -506,10 +659,16 @@ my_compress(PG_FUNCTION_ARGS)
 
     if (entry-&gt;leafkey)
     {
+<!--
         /* replace entry-&gt;key with a compressed version */
+-->
+        /* 圧縮バージョンで entry-&gt;key を差し替え */
         compressed_data_type *compressed_data = palloc(sizeof(compressed_data_type));
 
+<!--
         /* fill *compressed_data from entry-&gt;key ... */
+-->
+        /* entry-&gt;key ... から *compressed_data を補填 */
 
         retval = palloc(sizeof(GISTENTRY));
         gistentryinit(*retval, PointerGetDatum(compressed_data),
@@ -517,7 +676,10 @@ my_compress(PG_FUNCTION_ARGS)
     }
     else
     {
+<!--
         /* typically we needn't do anything with non-leaf entries */
+-->
+        /* 通常非リーフ項目に対して行うことはない */
         retval = entry;
     }
 
@@ -527,9 +689,12 @@ my_compress(PG_FUNCTION_ARGS)
       </para>
 
       <para>
+<!--
        You have to adapt <replaceable>compressed_data_type</replaceable> to the specific
        type you're converting to in order to compress your leaf nodes, of
        course.
+-->
+当然ながら<replaceable>compressed_data_type</replaceable>を、リーフノードを圧縮するために変換する特定の型に適合させなければなりません。
       </para>
      </listitem>
     </varlistentry>
@@ -538,6 +703,7 @@ my_compress(PG_FUNCTION_ARGS)
      <term><function>decompress</function></term>
      <listitem>
       <para>
+<!--
        Converts the stored representation of a data item into a format that
        can be manipulated by the other GiST methods in the operator class.
        If the <function>decompress</function> method is omitted, it is assumed that
@@ -549,10 +715,19 @@ my_compress(PG_FUNCTION_ARGS)
        data.  <function>decompress</function> is not necessarily equivalent
        to <function>fetch</function>, either, since the other GiST methods might not
        require full reconstruction of the data.)
+-->
+データ項目の格納された表現を、演算子クラスの他のGiSTメソッドで操作できる形式に変換します。
+<function>decompress</function>メソッドが省略された場合、他のGiSTメソッドが直接操作出来るデータ形式で格納されると想定されます。
+（<function>decompress</function>は、必ずしも<function>compress</function>メソッドの逆になるわけではありません。
+特に、<function>compress</function>が不可逆な場合、<function>decompress</function>で元のデータを正確に再構築するのが不可能になります。
+他のGiSTメソッドはすべてのデータを再構築することは必要としないかもしれないので、<function>decompress</function>は<function>fetch</function>と等価であるとは限りません。）
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_decompress(internal)
@@ -561,7 +736,10 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_decompress);
@@ -573,9 +751,12 @@ my_decompress(PG_FUNCTION_ARGS)
 }
 </programlisting>
 
+<!--
         The above skeleton is suitable for the case where no decompression
         is needed.  (But, of course, omitting the method altogether is even
         easier, and is recommended in such cases.)
+-->
+上記骨格は、伸長を必要としない場合に適したものです。
       </para>
      </listitem>
     </varlistentry>
@@ -584,24 +765,39 @@ my_decompress(PG_FUNCTION_ARGS)
      <term><function>penalty</function></term>
      <listitem>
       <para>
+<!--
        Returns a value indicating the <quote>cost</quote> of inserting the new
        entry into a particular branch of the tree.  Items will be inserted
        down the path of least <function>penalty</function> in the tree.
        Values returned by <function>penalty</function> should be non-negative.
        If a negative value is returned, it will be treated as zero.
+-->
+新しい項目をツリーの特定の分岐点に挿入するための<quote>コスト</quote>を示す値を返します。
+項目は、ツリー内で<function>penalty</function>が最小の経路に挿入されます。
+<function>penalty</function>から返される値は非負でなければなりません。
+負の値が返された場合、ゼロとして扱われます。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_penalty(internal, internal, internal)
 RETURNS internal
 AS 'MODULE_PATHNAME'
-LANGUAGE C STRICT;  -- in some cases penalty functions need not be strict
+<!--
+LANGUAGE C STRICT;  &#045;- in some cases penalty functions need not be strict
+-->
+LANGUAGE C STRICT;  -- penalty関数は厳密である必要がない場合もあります
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_penalty);
@@ -620,18 +816,28 @@ my_penalty(PG_FUNCTION_ARGS)
 }
 </programlisting>
 
+<!--
         For historical reasons, the <function>penalty</function> function doesn't
         just return a <type>float</type> result; instead it has to store the value
         at the location indicated by the third argument.  The return
         value per se is ignored, though it's conventional to pass back the
         address of that argument.
+-->
+歴史的な理由により、<function>penalty</function>関数は単純に<type>float</type>の結果を返しません。
+その代わり、3番目の引数で指定された場所に値を格納しなければなりません。
+その引数のアドレスを戻すのが慣例ですが、戻り値それ自体は無視されます。
       </para>
 
       <para>
+<!--
         The <function>penalty</function> function is crucial to good performance of
         the index. It'll get used at insertion time to determine which branch
         to follow when choosing where to add the new entry in the tree. At
         query time, the more balanced the index, the quicker the lookup.
+-->
+<function>penalty</function>関数は優れた性能のインデックスではきわめて重要です。
+これは、挿入の段階で新しい項目をツリーに追加する場所を決定する際にどの分岐に従うかを決定するために使用されます。
+問い合わせの際、インデックスのバランスが良ければ、検索が速くなります。
       </para>
      </listitem>
     </varlistentry>
@@ -640,13 +846,19 @@ my_penalty(PG_FUNCTION_ARGS)
      <term><function>picksplit</function></term>
      <listitem>
       <para>
+<!--
        When an index page split is necessary, this function decides which
        entries on the page are to stay on the old page, and which are to move
        to the new page.
+-->
+インデックスページ分割が必要になった時、この関数は、ページ内のどの項目を古いページに残すか、および、どれを新しいページに移動するかを決定します。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_picksplit(internal, internal)
@@ -655,7 +867,10 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_picksplit);
@@ -690,7 +905,10 @@ my_picksplit(PG_FUNCTION_ARGS)
     unionL = NULL;
     unionR = NULL;
 
+<!--
     /* Initialize the raw entry vector. */
+-->
+    /* 項目自体のベクタの初期化 */
     raw_entryvec = (GISTENTRY **) malloc(entryvec-&gt;n * sizeof(void *));
     for (i = FirstOffsetNumber; i &lt;= maxoff; i = OffsetNumberNext(i))
         raw_entryvec[i] = &amp;(entryvec-&gt;vector[i]);
@@ -703,9 +921,14 @@ my_picksplit(PG_FUNCTION_ARGS)
         Assert(tmp_union != NULL);
 
         /*
+<!--
          * Choose where to put the index entries and update unionL and unionR
          * accordingly. Append the entries to either v-&gt;spl_left or
          * v-&gt;spl_right, and care about the counters.
+-->
+         * インデックス項目の格納場所を決定し、それに合わせてunionLとunionRを更新
+         * します。v-&gt;spl_left もしくは v-&gt;spl_right のどちらかに項目を追加します。
+         * カウンタに留意してください。
          */
 
         if (my_choice_is_left(unionL, curl, unionR, curr))
@@ -722,7 +945,10 @@ my_picksplit(PG_FUNCTION_ARGS)
         else
         {
             /*
+<!--
              * Same on the right
+-->
+             * 右と同じ
              */
         }
     }
@@ -733,18 +959,26 @@ my_picksplit(PG_FUNCTION_ARGS)
 }
 </programlisting>
 
+<!--
        Notice that the <function>picksplit</function> function's result is delivered
        by modifying the passed-in <structname>v</structname> structure.  The return
        value per se is ignored, though it's conventional to pass back the
        address of <structname>v</structname>.
+-->
+<function>picksplit</function>関数の結果は渡された<structname>v</structname>構造体を修正することで返されることに注意してください。
+<structname>v</structname>のアドレスを戻すのが慣例ですが、戻り値それ自体は無視されます。
       </para>
 
       <para>
+<!--
         Like <function>penalty</function>, the <function>picksplit</function> function
         is crucial to good performance of the index.  Designing suitable
         <function>penalty</function> and <function>picksplit</function> implementations
         is where the challenge of implementing well-performing
         <acronym>GiST</acronym> indexes lies.
+-->
+<function>penalty</function>同様、<function>picksplit</function>関数も優れた性能のインデックスのためにきわめて重要です。
+<function>penalty</function>と<function>picksplit</function>の実装を適切に設計することが、性能が良い<acronym>GiST</acronym>インデックスの実装を行うことにつながります。
       </para>
      </listitem>
     </varlistentry>
@@ -753,13 +987,20 @@ my_picksplit(PG_FUNCTION_ARGS)
      <term><function>same</function></term>
      <listitem>
       <para>
+<!--
        Returns true if two index entries are identical, false otherwise.
        (An <quote>index entry</quote> is a value of the index's storage type,
        not necessarily the original indexed column's type.)
+-->
+２つのインデックス項目が同一の場合に真、さもなくば偽を返します。
+(<quote>インデックス項目</quote>はインデックスの格納型の値であり、必ずしも元のインデックス付けされた列の型という訳ではありません。)
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_same(storage_type, storage_type, internal)
@@ -768,7 +1009,10 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_same);
@@ -785,11 +1029,16 @@ my_same(PG_FUNCTION_ARGS)
 }
 </programlisting>
 
+<!--
         For historical reasons, the <function>same</function> function doesn't
         just return a Boolean result; instead it has to store the flag
         at the location indicated by the third argument.  The return
         value per se is ignored, though it's conventional to pass back the
         address of that argument.
+-->
+歴史的な理由により、<function>same</function>関数は単純に論理値の結果を返しません。
+その代わり、3番目の引数で指定された場所にフラグを格納しなければなりません。
+その引数のアドレスを戻すのが慣例ですが、戻り値それ自体は無視されます。
       </para>
      </listitem>
     </varlistentry>
@@ -798,6 +1047,7 @@ my_same(PG_FUNCTION_ARGS)
      <term><function>distance</function></term>
      <listitem>
       <para>
+<!--
        Given an index entry <literal>p</literal> and a query value <literal>q</literal>,
        this function determines the index entry's
        <quote>distance</quote> from the query value.  This function must be
@@ -808,10 +1058,20 @@ my_same(PG_FUNCTION_ARGS)
        For a leaf index entry the result just represents the distance to
        the index entry; for an internal tree node, the result must be the
        smallest distance that any child entry could have.
+-->
+インデックス項目<literal>p</literal>と問い合わせ値<literal>q</literal>を与えると、この関数は問い合わせ値からのインデックス項目の<quote>距離</quote>を決定します。
+この関数は、演算子クラスが何らかの順序付け演算子を含む場合には提供しなければなりません。
+順序付け演算子を使用する問い合わせは、まず最小の<quote>距離</quote>を持つインデックス項目を返すことで実装されます。
+このためこの結果は演算子の意味と一貫性を持たなければなりません。
+リーフインデックスノード項目では、結果は単にインデックス項目との距離を表します。
+内部ツリーノードでは、結果はすべての子項目が持つ中から最も最小の距離でなければなりません。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようにならなければなりません。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_distance(internal, data_type, smallint, oid, internal)
@@ -820,7 +1080,10 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         And the matching code in the C module could then follow this skeleton:
+-->
+Cモジュールにおける対応するコードは次の骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_distance);
@@ -837,18 +1100,25 @@ my_distance(PG_FUNCTION_ARGS)
     double      retval;
 
     /*
+<!--
      * determine return value as a function of strategy, key and query.
+-->
+     * strategy、keyおよびqueryの関数として戻り値を決定してください。
      */
 
     PG_RETURN_FLOAT8(retval);
 }
 </programlisting>
 
+<!--
        The arguments to the <function>distance</function> function are identical to
        the arguments of the <function>consistent</function> function.
+-->
+<function>distance</function>関数の引数は<function>consistent</function>関数の引数と同一です。
       </para>
 
       <para>
+<!--
        Some approximation is allowed when determining the distance, so long
        as the result is never greater than the entry's actual distance. Thus,
        for example, distance to a bounding box is usually sufficient in
@@ -859,9 +1129,17 @@ my_distance(PG_FUNCTION_ARGS)
        nodes; for them, the calculation is always assumed to be inexact.) In
        this case the executor will calculate the accurate distance after
        fetching the tuple from the heap, and reorder the tuples if necessary.
+-->
+距離の決定において、その結果がエントリの実際の距離よりも大きくならない限り、多少の概算は許されます。
+したがって、例えば、幾何学に関するアプリケーションでは、通常は外接矩形への距離で十分です。
+内部ツリーノードについては、返される距離はどの子ノードへの距離よりも大きくなることは許されません。
+返される距離が正確でない場合、関数は<literal>*recheck</literal>を真にセットする必要があります。
+（内部ツリーノードについては、計算はいつでも不正確であると見なされるため、これは必要ありません。）
+この場合、エクゼキュータはヒープからタプルを取得した後で正確な距離を計算し、必要ならタプルを並べ替えます。
       </para>
 
       <para>
+<!--
        If the distance function returns <literal>*recheck = true</literal> for any
        leaf node, the original ordering operator's return type must
        be <type>float8</type> or <type>float4</type>, and the distance function's
@@ -873,6 +1151,11 @@ my_distance(PG_FUNCTION_ARGS)
        order returned by the ordering operator.  (Infinity and minus infinity
        are used internally to handle cases such as nulls, so it is not
        recommended that <function>distance</function> functions return these values.)
+-->
+距離関数がリーフノードについて<literal>*recheck = true</literal>を返す場合、元の順序づけ演算子の戻り型は<type>float8</type>または<type>float4</type>でなければならず、また距離関数の結果の値は元の順序づけ演算子の戻り型と比較可能でなければなりません。
+なぜならエクゼキュータは距離関数の結果および再計算された順序づけ演算子の結果の両方を利用してソート処理を行うからです。
+その他の場合は、結果値の相対的な順序が順序づけ演算子が返す順序と一致する限り、距離関数の戻り値は任意の有限の<type>float8</type>の値とすることができます。
+（無限大とマイナス無限大は内部的にNULLなどの場合を処理するために利用するので、<function>distance</function>関数がこれらの値を戻すことは薦められません。）
       </para>
 
      </listitem>
@@ -882,13 +1165,20 @@ my_distance(PG_FUNCTION_ARGS)
      <term><function>fetch</function></term>
      <listitem>
       <para>
+<!--
        Converts the compressed index representation of a data item into the
        original data type, for index-only scans. The returned data must be an
        exact, non-lossy copy of the originally indexed value.
+-->
+インデックスオンリースキャンで使用するため、データ項目の圧縮されたインデックス表現を元のデータ型に変換します。
+返されたデータは元のインデックス値の正確で、何も失われていない複製でなければなりません。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようにならなければなりません。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_fetch(internal)
@@ -897,6 +1187,7 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
         The argument is a pointer to a <structname>GISTENTRY</structname> struct. On
         entry, its <structfield>key</structfield> field contains a non-NULL leaf datum in
         compressed form. The return value is another <structname>GISTENTRY</structname>
@@ -906,10 +1197,18 @@ LANGUAGE C STRICT;
         argument as-is.  Or, if the opclass does not have a compress function,
         the <function>fetch</function> method can be omitted as well, since it would
         necessarily be a no-op.
+-->
+引数は<structname>GISTENTRY</structname>構造体へのポインタです。
+関数が呼び出された時点では、その<structfield>key</structfield>フィールドには、NULLでないリーフデータが圧縮形式で入っています。
+戻り値は別の<structname>GISTENTRY</structname>構造体で、その<structfield>key</structfield>フィールドには、同じデータが元の非圧縮形式で入っています。
+opclassの圧縮関数がリーフのエントリに対して何もしないなら、<function>fetch</function>メソッドは引数をそのまま返すことができます。
        </para>
 
        <para>
+<!--
         The matching code in the C module could then follow this skeleton:
+-->
+Cモジュールにおける対応するコードは次の骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_fetch);
@@ -926,10 +1225,16 @@ my_fetch(PG_FUNCTION_ARGS)
     fetched_data = palloc(sizeof(fetched_data_type));
 
     /*
+<!--
      * Convert 'fetched_data' into the a Datum of the original datatype.
+-->
+     * fetched_dataを元のデータ型のデータに変換する。
      */
 
+<!--
     /* fill *retval from fetched_data. */
+-->
+    /* fetched_dataを使って*retvalに値を入れる。 */
     gistentryinit(*retval, PointerGetDatum(converted_datum),
                   entry->rel, entry->page, entry->offset, FALSE);
 
@@ -939,9 +1244,12 @@ my_fetch(PG_FUNCTION_ARGS)
       </para>
 
       <para>
+<!--
        If the compress method is lossy for leaf entries, the operator class
        cannot support index-only scans, and must not define
        a <function>fetch</function> function.
+-->
+compressメソッドがリーフエントリに対してデータ損失がある場合、演算子クラスはインデックスオンリースキャンをサポートすることができず、<function>fetch</function>関数を定義してはいけません。
       </para>
 
      </listitem>
@@ -951,12 +1259,18 @@ my_fetch(PG_FUNCTION_ARGS)
      <term><function>options</function></term>
      <listitem>
       <para>
+<!--
        Allows definition of user-visible parameters that control operator
        class behavior.
+-->
+演算子クラスの振舞いを制御するユーザに可視のパラメータの集合を定義します。
       </para>
 
       <para>
+<!--
         The <acronym>SQL</acronym> declaration of the function must look like this:
+-->
+関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_options(internal)
@@ -967,16 +1281,23 @@ LANGUAGE C STRICT;
       </para>
 
       <para>
+<!--
        The function is passed a pointer to a <structname>local_relopts</structname>
        struct, which needs to be filled with a set of operator class
        specific options.  The options can be accessed from other support
        functions using the <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
        <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
+-->
+関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
       </para>
 
        <para>
+<!--
         An example implementation of my_options() and parameters use
         from other support functions are given below:
+-->
+my_options()の実装と他のサポート関数からのパラメータの使用の例は以下の通りです。
 
 <programlisting>
 typedef enum MyEnumType
@@ -988,26 +1309,42 @@ typedef enum MyEnumType
 
 typedef struct
 {
+<!--
     int32   vl_len_;    /* varlena header (do not touch directly!) */
     int     int_param;  /* integer parameter */
     double  real_param; /* real parameter */
     MyEnumType enum_param; /* enum parameter */
     int     str_param;  /* string parameter */
+-->
+    int32   vl_len_;    /* varlenaヘッダ(直接触らないこと!) */
+    int     int_param;  /* 整数パラメータ */
+    double  real_param; /* 実数パラメータ */
+    MyEnumType enum_param; /* enumパラメータ */
+    int     str_param;  /* 文字列パラメータ */
 } MyOptionsStruct;
 
+<!--
 /* String representation of enum values */
+-->
+/* enum値の文字列表現 */
 static relopt_enum_elt_def myEnumValues[] =
 {
     {"on", MY_ENUM_ON},
     {"off", MY_ENUM_OFF},
     {"auto", MY_ENUM_AUTO},
+<!--
     {(const char *) NULL}   /* list terminator */
+-->
+    {(const char *) NULL}   /* リストの終端 */
 };
 
 static char *str_param_default = "default";
 
 /*
+<!--
  * Sample validator: checks that string is not longer than 8 bytes.
+-->
+ * 有効性検査の例: 文字列が8バイトより長くないことを検査します。
  */
 static void
 validate_my_string_relopt(const char *value)
@@ -1019,7 +1356,10 @@ validate_my_string_relopt(const char *value)
 }
 
 /*
+<!--
  * Sample filler: switches characters to lower case.
+-->
+ * 充填の例: 文字を小文字に交換します。
  */
 static Size
 fill_my_string_relopt(const char *value, void *ptr)
@@ -1072,10 +1412,15 @@ my_compress(PG_FUNCTION_ARGS)
     char   *str_param = str_param_default;
 
     /*
+<!--
      * Normally, when opclass contains 'options' method, then options are always
      * passed to support functions.  However, if you add 'options' method to
      * existing opclass, previously defined indexes have no options, so the
      * check is required.
+-->
+     * 通常は、演算子クラスが'options'メソッドを含む場合、optionsは常にサポート関数に
+     * 渡されます。しかしながら、'options'メソッドを既存の演算子クラスに追加した場合、
+     * 前に定義されたインデックスにoptionsがない場合、検査が必要です。
      */
     if (PG_HAS_OPCLASS_OPTIONS())
     {
@@ -1087,17 +1432,25 @@ my_compress(PG_FUNCTION_ARGS)
         str_param = GET_STRING_RELOPTION(options, str_param);
     }
 
+<!--
     /* the rest implementation of support function */
+-->
+    /* サポート関数の残りの実装 */
 }
 
 </programlisting>
       </para>
 
       <para>
+<!--
        Since the representation of the key in <acronym>GiST</acronym> is
        flexible, it may depend on user-specified parameters.  For instance,
        the length of key signature may be specified.  See
        <literal>gtsvector_options()</literal> for example.
+-->
+<acronym>GiST</acronym>でのキーの表現には柔軟性がありますので、ユーザに固有のパラメータに依存するかもしれません。
+例えば、キーの署名の長さが指定されるかもしれません。
+例については<literal>gtsvector_options()</literal>を参照してください。
       </para>
      </listitem>
     </varlistentry>
@@ -1172,6 +1525,7 @@ my_sortsupport(PG_FUNCTION_ARGS)
   </variablelist>
 
   <para>
+<!--
    All the GiST support methods are normally called in short-lived memory
    contexts; that is, <varname>CurrentMemoryContext</varname> will get reset after
    each tuple is processed.  It is therefore not very important to worry about
@@ -1183,12 +1537,24 @@ my_sortsupport(PG_FUNCTION_ARGS)
    index scan, index build, or index tuple insertion).  Be careful to pfree
    the previous value when replacing a <literal>fn_extra</literal> value, or the leak
    will accumulate for the duration of the operation.
+-->
+すべてのGiSTサポートメソッドは通常短期間有効なメモリコンテキストで呼び出されます。
+つまり<varname>CurrentMemoryContext</varname>は各タプルが処理された後にリセットされます。
+そのためpallocしたすべてをpfreeすることに注意するのはあまり重要ではありません。
+しかし、サポートメソッドで、繰り返される呼び出しを跨がってデータをキャッシュすることが有用な場合があります。
+このためには、<literal>fcinfo-&gt;flinfo-&gt;fn_mcxt</literal>の中で長期間有効なデータを割り当て、そこへのポインタを<literal>fcinfo-&gt;flinfo-&gt;fn_extra</literal>の中に保持してください。
+こうしたデータはインデックス操作（例えば１つのGiSTインデックススキャン、インデックス構築、インデックスタプルの挿入）の間有効です。
+<literal>fn_extra</literal>値を置き換える時に以前の値をpfreeすることに注意してください。
+さもないと操作の間リークが蓄積されます。
   </para>
 
 </sect1>
 
 <sect1 id="gist-implementation">
+<!--
  <title>Implementation</title>
+-->
+ <title>実装</title>
 
  <sect2 id="gist-buffering-build">
   <title>GiST Index Build Methods</title>
@@ -1220,6 +1586,7 @@ my_sortsupport(PG_FUNCTION_ARGS)
   </para>
 
   <para>
+<!--
    The buffered method needs to call the <function>penalty</function>
    function more often than the simple method does, which consumes some
    extra CPU resources. Also, the buffers need temporary disk space, up to
@@ -1227,9 +1594,15 @@ my_sortsupport(PG_FUNCTION_ARGS)
    of the resulting index, in both positive and negative directions. That
    influence depends on various factors, like the distribution of the input
    data and the operator class implementation.
+-->
+しかしバッファ付きインデックス構築は、CPUリソースを多少多く消費する<function>penalty</function>関数をより多く呼び出さなければなりません。
+またバッファ付き構築で使用されるバッファは、最大作成されるインデックスと同じサイズまで、一時的にディスク容量を必要とします。
+バッファ処理は作成されるインデックスの品質にも、良くも悪くも、影響を与えます。
+この影響は、入力データの分布や演算子クラスの実装等、様々な要因に依存します。
   </para>
 
   <para>
+<!--
    If sorting is not possible, then by default a GiST index build switches
    to the buffering method when the index size reaches
    <xref linkend="guc-effective-cache-size"/>.  Buffering can be manually
@@ -1237,15 +1610,24 @@ my_sortsupport(PG_FUNCTION_ARGS)
    CREATE INDEX command.  The default behavior is good for most cases, but
    turning buffering off might speed up the build somewhat if the input data
    is ordered.
+-->
+デフォルトでは、インデックスのサイズが<xref linkend="guc-effective-cache-size"/>に達した時にGiSTインデックス構築はバッファ処理方式に切り替わります。
+CREATE INDEXコマンドの<literal>buffering</literal>パラメータによって、手作業で有効または無効にすることができます。
+デフォルトの動作は大抵の場合良好です。
+しかし、入力データが順序付けされている場合、バッファ処理を無効にすることで構築が多少高速になります。
   </para>
 
  </sect2>
 </sect1>
 
 <sect1 id="gist-examples">
+<!--
  <title>Examples</title>
+-->
+ <title>例</title>
 
  <para>
+<!--
   The <productname>PostgreSQL</productname> source distribution includes
   several examples of index methods implemented using
   <acronym>GiST</acronym>.  The core system currently provides text search
@@ -1254,54 +1636,81 @@ my_sortsupport(PG_FUNCTION_ARGS)
   (see <filename>src/backend/access/gist/gistproc.c</filename>).  The following
   <filename>contrib</filename> modules also contain <acronym>GiST</acronym>
   operator classes:
+-->
+<productname>PostgreSQL</productname>のソース配布物には<acronym>GiST</acronym>を使用したインデックスメソッドの実装のいくつかの事例が含まれています。
+コアシステムは現在全文検索サポート（<type>tsvector</type>と<type>tsquery</type>のインデックス付け）や組み込みの幾何データ型の一部に対するR-Treeと等価な機能を提供します
+（<filename>src/backend/access/gist/gistproc.c</filename>を参照してください）。
+以下の<filename>contrib</filename>モジュールも同時に<acronym>GiST</acronym>演算子クラスを含みます。
 
  <variablelist>
   <varlistentry>
    <term><filename>btree_gist</filename></term>
    <listitem>
+<!--
     <para>B-tree equivalent functionality for several data types</para>
+-->
+    <para>いくつかのデータ型に対するB-tree等価機能</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>cube</filename></term>
    <listitem>
+<!--
     <para>Indexing for multidimensional cubes</para>
+-->
+    <para>多次元の立方体用のインデックス</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>hstore</filename></term>
    <listitem>
+<!--
     <para>Module for storing (key, value) pairs</para>
+-->
+    <para>（キー、値）の組み合わせを格納するモジュール</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>intarray</filename></term>
    <listitem>
+<!--
     <para>RD-Tree for one-dimensional array of int4 values</para>
+-->
+    <para>int4値の1次元配列用のRD-Tree</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>ltree</filename></term>
    <listitem>
+<!--
     <para>Indexing for tree-like structures</para>
+-->
+    <para>疑似ツリー構造用のインデックス</para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
    <term><filename>pg_trgm</filename></term>
    <listitem>
+<!--
     <para>Text similarity using trigram matching</para>
+-->
+    <para>トライグラム一致を使用したテキストの類似性</para>
    </listitem>
+
   </varlistentry>
 
   <varlistentry>
    <term><filename>seg</filename></term>
    <listitem>
+<!--
     <para>Indexing for <quote>float ranges</quote></para>
+-->
+    <para><quote>浮動小数点範囲</quote>のインデックス</para>
    </listitem>
   </varlistentry>
  </variablelist>

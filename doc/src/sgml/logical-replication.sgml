@@ -1,9 +1,13 @@
 <!-- doc/src/sgml/logical-replication.sgml -->
 
 <chapter id="logical-replication">
+<!--
  <title>Logical Replication</title>
+-->
+<title>論理レプリケーション</title>
 
  <para>
+<!--
   Logical replication is a method of replicating data objects and their
   changes, based upon their replication identity (usually a primary key).  We
   use the term logical in contrast to physical replication, which uses exact
@@ -11,9 +15,16 @@
   mechanisms concurrently, see <xref linkend="high-availability"/>.  Logical
   replication allows fine-grained control over both data replication and
   security.
+-->
+論理レプリケーションとは、レプリケーションアイデンティティ(replication identity)（通常は主キーです）に基づき、データオブジェクトと、それに対する変更を複製する手法です。
+この論理という用語は、正確なブロックアドレスを使い、バイト同士の複製を行う物理レプリケーションと対比的に使用しています。
+PostgreSQLは両方の仕組みを同時にサポートします。
+<xref linkend="high-availability"/>をご覧ください。
+論理レプリケーションにより、データの複製とセキュリティに対するきめの細かい制御が可能になります。
  </para>
 
  <para>
+<!--
   Logical replication uses a <firstterm>publish</firstterm>
   and <firstterm>subscribe</firstterm> model with one or
   more <firstterm>subscribers</firstterm> subscribing to one or more
@@ -21,9 +32,13 @@
   node.  Subscribers pull data from the publications they subscribe to and may
   subsequently re-publish data to allow cascading replication or more complex
   configurations.
+-->
+論理レプリケーションは、ひとつの<firstterm>パブリッシャー(publisher)</firstterm>ノード上の一つ以上の<firstterm>パブリケーション(publications)</firstterm>を購読する一つ以上の<firstterm>サブスクライバー(subscribers)</firstterm>を伴う、<firstterm>パブリッシュ(publish)</firstterm>と<firstterm>サブスクライブ(subscribe)</firstterm>モデルを使用します。
+サブスクライバーは、サブスクライブするパブリケーションからデータを取得し、再パブリッシュしてカスケードレプリケーションや、更に複雑な構成を構築することができます。
  </para>
 
  <para>
+<!--
   Logical replication of a table typically starts with taking a snapshot
   of the data on the publisher database and copying that to the subscriber.
   Once that is done, the changes on the publisher are sent to the subscriber
@@ -31,96 +46,152 @@
   order as the publisher so that transactional consistency is guaranteed for
   publications within a single subscription.  This method of data replication
   is sometimes referred to as transactional replication.
+-->
+テーブルの論理レプリケーションは、通常、パブリッシャーのデータベース上のデータのスナップショットを取り、サブスクライバーにコピーすることから始まります。
+それが完了したあとは、パブリッシャーにおける変更は、発生した時にリアルタイムでサブスクライバーに送られます。
+サブスクライバーはパブリッシャーと同じ順にデータを適用します。
+そのため、一つのサブスクリプション内のパブリケーションに対するトランザクションの一貫性が保証されます。
+この方式によるデータレプリケーションは、トランザクショナルレプリケーション(transactional replication)と呼ばれることがあります。
  </para>
 
  <para>
+<!--
   The typical use-cases for logical replication are:
+-->
+典型的な論理レプリケーションの利用例には、以下のようなものがあります。
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      Sending incremental changes in a single database or a subset of a
      database to subscribers as they occur.
+-->
+一つのデータベース、あるいはデータベースの一部に起こった更新の差分を、発生都度サブスクライバーに送る。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Firing triggers for individual changes as they arrive on the
      subscriber.
+-->
+サブスクライバーに更新が到着した時に、それぞれの更新に対してトリガーを起動する。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Consolidating multiple databases into a single one (for example for
      analytical purposes).
+-->
+複数のデータベースを一つのデータベースに統合する。（たとえば分析目的で。）
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Replicating between different major versions of PostgreSQL.
+-->
+異なるメジャーバージョンのPostgreSQL間でレプリケーションする。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Replicating between PostgreSQL instances on different platforms (for
      example Linux to Windows)
+  -->
+異なるプラットフォーム上のPostgreSQLインスタンス間（たとえばLinuxからWindows）でレプリケーションする。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Giving access to replicated data to different groups of users.
+-->
+異なるユーザのグループに対して、複製されたデータにアクセスさせる。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Sharing a subset of the database between multiple databases.
+-->
+複数のデータベース間でデータベースの一部を共有する。
     </para>
    </listitem>
   </itemizedlist>
  </para>
 
  <para>
+<!--
   The subscriber database behaves in the same way as any other PostgreSQL
   instance and can be used as a publisher for other databases by defining its
   own publications.  When the subscriber is treated as read-only by
   application, there will be no conflicts from a single subscription.  On the
   other hand, if there are other writes done either by an application or by other
   subscribers to the same set of tables, conflicts can arise.
+-->
+サブスクライバーのデータベースは、他のPostgreSQLインスタンスと同様に振る舞い、自分用のパブリケーションを定義することにより、他のデータベースに対するパブリッシャーとして利用できます。
+アプリケーションがそのサブスクライバーを読み取り専用として取り扱うときには、単独のサブスクリプションからはコンフリクトは発生しません。
+一方、アプリケーションあるいは他のサブスクライバーから同じテーブルに書き込みが起こるとすると、コンフリクトが発生する可能性があります。
  </para>
 
  <sect1 id="logical-replication-publication">
+<!--
   <title>Publication</title>
+-->
+  <title>パブリケーション</title>
 
   <para>
+<!--
    A <firstterm>publication</firstterm> can be defined on any physical
    replication primary.  The node where a publication is defined is referred to
    as <firstterm>publisher</firstterm>.  A publication is a set of changes
    generated from a table or a group of tables, and might also be described as
    a change set or replication set.  Each publication exists in only one database.
+-->
+<firstterm>パブリケーション</firstterm>は、どのような物理レプリケーションのマスターにも定義できます。
+パブリケーションが定義されたノードは、<firstterm>パブリッシャー</firstterm>と呼ばれます。
+パブリケーションは、テーブルか、テーブルのグループから生成された更新の集合であると同時に、更新セットあるいはレプリケーションセットであるとも言えます。
+一つのパブリケーションは一つのデータベースにのみ存在します。
   </para>
 
   <para>
+<!--
    Publications are different from schemas and do not affect how the table is
    accessed.  Each table can be added to multiple publications if needed.
    Publications may currently only contain tables.  Objects must be added
    explicitly, except when a publication is created for <literal>ALL
    TABLES</literal>.
+-->
+パブリケーションはスキーマとは異なり、テーブルがどのようにアクセスされるかには影響しません。
+必要ならば、テーブルを複数のパブリケーションに追加できます。
+今のところパブリケーションはテーブルのみを含むことができます。
+パブリケーションが<literal>ALL TABLES</literal>で作られた場合を除き、オブジェクトは明示的に追加されなければなりません。
   </para>
 
   <para>
+<!--
    Publications can choose to limit the changes they produce to
    any combination of <command>INSERT</command>, <command>UPDATE</command>,
    <command>DELETE</command>, and <command>TRUNCATE</command>, similar to how triggers are fired by
    particular event types.  By default, all operation types are replicated.
+-->
+パブリケーションは、生成される更新を、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>TRUNCATE</command>のうちのどのような組み合わせにも制限することができます。
+これはトリガーが特定のイベント型によって起動されることに似ています。
+デフォルトでは、すべての操作タイプがレプリケーションされます。
   </para>
 
   <para>
+<!--
    A published table must have a <quote>replica identity</quote> configured in
    order to be able to replicate <command>UPDATE</command>
    and <command>DELETE</command> operations, so that appropriate rows to
@@ -140,99 +211,168 @@
    subsequent <command>UPDATE</command> or <command>DELETE</command>
    operations will cause an error on the publisher.  <command>INSERT</command>
    operations can proceed regardless of any replica identity.
+-->
+パブリッシュされたテーブルは、<command>UPDATE</command>と<command>DELETE</command>をレプリケーションできるようにするために、<quote>レプリカアイデンティティ</quote>の設定を含んでいなければなりません。
+そうすることにより、サブスクライバー側で更新または削除する対象の正しい行が特定できるようになります。
+デフォルトでは主キーがあれば、それがレプリカアイデンティティになります。
+他に、ユニークキー（追加の要件を伴います）もレプリカアイデンティティにできます。
+テーブルに適当なキーがなければ、レプリカアイデンティティを<quote>full</quote>にできます。
+これは、行全体がキーになることを意味します。
+しかし、これは非常に非効率なので、他の解決方法がない場合のみの代替手段にすべきです。
+<quote>full</quote>以外のレプリカアイデンティティがパブリッシャー側に設定されている場合、同じか、より少ない列を含むレプリカアイデンティティがサブスクライバー側に設定されていなければなりません。
+レプリカアイデンティティを設定する詳細な方法については、<xref linkend="sql-createtable-replica-identity"/>をご覧ください。
+<command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションするパブリケーションに、レプリカアイデンティティがないテーブルが追加されると、以後<command>UPDATE</command>あるいは<command>DELETE</command>操作が行われるとパブリッシャー側でエラーが発生します。
+<command>INSERT</command>操作は、レプリカアイデンティティの設定に関わらず実行されます。
   </para>
 
   <para>
+<!--
    Every publication can have multiple subscribers.
+-->
+すべてのパブリケーションは、複数のサブスクライバーを持つことができます。
   </para>
 
   <para>
+<!--
    A publication is created using the <link linkend="sql-createpublication"><command>CREATE PUBLICATION</command></link>
    command and may later be altered or dropped using corresponding commands.
+-->
+パブリケーションは、<xref linkend="sql-createpublication"/>コマンドで作成し、対応するコマンドで変更や削除ができます。
   </para>
 
   <para>
+<!--
    The individual tables can be added and removed dynamically using
    <link linkend="sql-alterpublication"><command>ALTER PUBLICATION</command></link>.  Both the <literal>ADD
    TABLE</literal> and <literal>DROP TABLE</literal> operations are
    transactional; so the table will start or stop replicating at the correct
    snapshot once the transaction has committed.
+-->
+個々のテーブルは<xref linkend="sql-alterpublication"/>で動的に追加削除できます。
+<literal>ADD TABLE</literal>および<literal>DROP TABLE</literal>操作はトランザクションの対象です。
+ひとたびトランザクションがコミットされれば、正しいスナップショットでテーブルのレプリケーションが開始あるいは終了されます。
   </para>
  </sect1>
 
  <sect1 id="logical-replication-subscription">
+<!--
   <title>Subscription</title>
+-->
+  <title>サブスクリプション</title>
 
   <para>
+<!--
    A <firstterm>subscription</firstterm> is the downstream side of logical
    replication.  The node where a subscription is defined is referred to as
    the <firstterm>subscriber</firstterm>.  A subscription defines the connection
    to another database and set of publications (one or more) to which it wants
    to subscribe.
+-->
+<firstterm>サブスクリプション</firstterm>は論理レプリケーションの下流側です。
+サブスクリプションが定義されたノードは<firstterm>サブスクライバー</firstterm>として参照されます。
+サブスクリプションは他のデータベースへの接続と、サブスクリプション対象の一つ以上のパブリケーションの集合を定義します。
   </para>
 
   <para>
+<!--
    The subscriber database behaves in the same way as any other PostgreSQL
    instance and can be used as a publisher for other databases by defining its
    own publications.
+-->
+サブスクライバーのデータベースは、他のPostgreSQLインスタンスと同様に振る舞い、自分用のパブリケーションを定義することにより、他のデータベースに対するパブリッシャーとして利用できます。
   </para>
 
   <para>
+<!--
    A subscriber node may have multiple subscriptions if desired.  It is
    possible to define multiple subscriptions between a single
    publisher-subscriber pair, in which case care must be taken to ensure
    that the subscribed publication objects don't overlap.
+-->
+サブスクライバーノードは、必要ならば複数のサブスクリプションを持つことができます。
+一組のパブリッシャーとサブスクライバーの間で複数のサブスクリプションを定義することもできますが、サブスクライブしたパブリケーションオブジェクトが重複しないように注意が必要です。
   </para>
 
   <para>
+<!--
    Each subscription will receive changes via one replication slot (see
    <xref linkend="streaming-replication-slots"/>).  Additional replication
    slots may be required for the initial data synchronization of
    pre-existing table data and those will be dropped at the end of data
    synchronization.
+-->
+各々のサブスクリプションは、一つのレプリケーションスロット（<xref linkend="streaming-replication-slots"/>を参照）を通じて更新が通知されます。
+既存のテーブルデータを初期同期するために、追加で一時的なレプリケーションスロットが必要になることもあります。
   </para>
 
   <para>
+<!--
    A logical replication subscription can be a standby for synchronous
    replication (see <xref linkend="synchronous-replication"/>).  The standby
    name is by default the subscription name.  An alternative name can be
    specified as <literal>application_name</literal> in the connection
    information of the subscription.
+-->
+論理レプリケーションのサブスクリプションは、同期レプリケーション（<xref linkend="synchronous-replication"/>参照）のスタンバイであっても構いません。
+スタンバイ名称はデフォルトではサブスクリプション名となります。
+サブスクリプションのコネクション情報の中の<literal>application_name</literal>を別の名前として指定することもできます。
   </para>
 
   <para>
+<!--
    Subscriptions are dumped by <command>pg_dump</command> if the current user
    is a superuser.  Otherwise a warning is written and subscriptions are
    skipped, because non-superusers cannot read all subscription information
    from the <structname>pg_subscription</structname> catalog.
+-->
+現在のユーザがスーパーユーザならば、サブスクリプションは<command>pg_dump</command>でダンプできます。
+そうでない場合には、警告が出力され、サブスクリプションはスキップされます。
+非スーパーユーザはすべてのサブスクリプション情報を、<structname>pg_subscription</structname>カタログから読み出せないからです。
   </para>
 
   <para>
+<!--
    The subscription is added using <link linkend="sql-createsubscription"><command>CREATE SUBSCRIPTION</command></link> and
    can be stopped/resumed at any time using the
    <link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION</command></link> command and removed using
    <link linkend="sql-dropsubscription"><command>DROP SUBSCRIPTION</command></link>.
+-->
+サブスクリプションは<xref linkend="sql-createsubscription"/>で追加し、<xref linkend="sql-altersubscription"/>を使って、いつでも停止、再開でき、そして<xref linkend="sql-dropsubscription"/>で削除できます。
   </para>
 
   <para>
+<!--
    When a subscription is dropped and recreated, the synchronization
    information is lost.  This means that the data has to be resynchronized
    afterwards.
+-->
+サブスクリプションが削除され、そして再作成されると、同期情報は失われます。
+このことは、後でデータを再同期しなければならないことを意味します。
   </para>
 
   <para>
+<!--
    The schema definitions are not replicated, and the published tables must
    exist on the subscriber.  Only regular tables may be
    the target of replication.  For example, you can't replicate to a view.
+-->
+スキーマ定義情報はレプリケーションされないので、パブリッシュするテーブルはサブスクライバーに存在しなければなりません。
+通常のテーブルだけがレプリケーションの対象です。
+たとえば、ビューはレプリケーションできません。
   </para>
 
   <para>
+<!--
    The tables are matched between the publisher and the subscriber using the
    fully qualified table name.  Replication to differently-named tables on the
    subscriber is not supported.
+-->
+パブリッシャーとサブスクライバーの間でのテーブルの照合は、完全修飾されたテーブル名に基づいて行われます。
+サブスクライバーで異なる名前になっているテーブルに対するレプリケーションは、サポートされていません。
   </para>
 
   <para>
+<!--
    Columns of a table are also matched by name.  The order of columns in the
    subscriber table does not need to match that of the publisher.  The data
    types of the columns do not need to match, as long as the text
@@ -242,10 +382,20 @@
    additional columns not provided by the published table.  Any such columns
    will be filled with the default value as specified in the definition of the
    target table.
+-->
+テーブルの列も名前で照合されます。
+サブスクライバーのテーブルでの列の順序はパブリッシャーと一致している必要はありません。
+データのテキスト表現列が対象の型に変換可能である限り、列のデータ型も一致している必要がありません。
+例えば、<type>integer</type>型の列から<type>bigint</type>型の列にレプリケーションすることができます。
+対象テーブルはパブリッシュされたテーブルにない追加の列を持つこともできます。
+そうした列には対象テーブルの定義の指定に従ってデフォルト値が挿入されます。
   </para>
 
   <sect2 id="logical-replication-subscription-slot">
+<!--
    <title>Replication Slot Management</title>
+-->
+   <title>レプリケーションスロットの管理</title>
 
    <para>
     As mentioned earlier, each (active) subscription receives changes from a
@@ -266,40 +416,56 @@
     <command>DROP SUBSCRIPTION</command>.  In some situations, however, it can
     be useful or necessary to manipulate the subscription and the underlying
     replication slot separately.  Here are some scenarios:
-
     <itemizedlist>
      <listitem>
       <para>
+<!--
        When creating a subscription, the replication slot already exists.  In
        that case, the subscription can be created using
        the <literal>create_slot = false</literal> option to associate with the
        existing slot.
+-->
+サブスクリプションを作る際、レプリケーションスロットがすでに存在しています。
+この場合、<literal>create_slot = false</literal>オプションを使ってサブスクリプションを作成し、既存のスロットと関連付けることができます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        When creating a subscription, the remote host is not reachable or in an
        unclear state.  In that case, the subscription can be created using
        the <literal>connect = false</literal> option.  The remote host will then not
        be contacted at all.  This is what <application>pg_dump</application>
        uses.  The remote replication slot will then have to be created
        manually before the subscription can be activated.
+-->
+サブスクリプションを作成する際に、リモートホストが接続できない状態にあるか、不明な状況にあります。
+こうした時は、<literal>connect = false</literal>を使ってサブスクリプションを作成することができます。
+リモートホストにはまったく接続しません。
+これは、<application>pg_dump</application>が使っている方法です。
+サブスクリプションを有効にする前に、リモートホストのレプリケーションスロットを手動で作成しなければなりません。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        When dropping a subscription, the replication slot should be kept.
        This could be useful when the subscriber database is being moved to a
        different host and will be activated from there.  In that case,
        disassociate the slot from the subscription using <command>ALTER
        SUBSCRIPTION</command> before attempting to drop the subscription.
+-->
+サブスクリプションを削除する際に、レプリケーションスロットを維持する必要があります。
+サブスクライバーのデータベースが別のホストに移動中で、移動後にそこからデータベースを起動するときに有効です。
+この場合、サブスクリプションを削除する前に、<command>ALTER SUBSCRIPTION</command>でそのスロットを切り離します。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        When dropping a subscription, the remote host is not reachable.  In
        that case, disassociate the slot from the subscription
        using <command>ALTER SUBSCRIPTION</command> before attempting to drop
@@ -310,6 +476,13 @@
        dropped manually; otherwise it/they would continue to reserve WAL and might
        eventually cause the disk to fill up.  Such cases should be carefully
        investigated.
+-->
+サブスクリプションを削除する際に、リモートホストに接続できません。
+この場合、サブスクリプションを削除する前に、<command>ALTER SUBSCRIPTION</command>でそのスロットを切り離しを試みます。
+リモートデータベースインスタンスが存在しない場合は、これ以上の操作は必要ありません。
+しかし、単にリモートデータベースに接続できない状態ならば、レプリケーションスロットを手動で削除する必要があります。
+そうでなければ、WALが保存され続け、いずれディスクを埋め尽くすかもしれません。
+そのような状態は注意深く調査する必要があります。
       </para>
      </listitem>
     </itemizedlist>
@@ -318,9 +491,13 @@
  </sect1>
 
  <sect1 id="logical-replication-conflicts">
+<!--
   <title>Conflicts</title>
+-->
+  <title>コンフリクト</title>
 
   <para>
+<!--
    Logical replication behaves similarly to normal DML operations in that
    the data will be updated even if it was changed locally on the subscriber
    node.  If incoming data violates any constraints the replication will
@@ -328,15 +505,26 @@
    replicating <command>UPDATE</command> or <command>DELETE</command>
    operations, missing data will not produce a conflict and such operations
    will simply be skipped.
+-->
+サブスクライバーノードでローカルにデータが変更された場合でも、データが更新されるという点では、論理レプリケーションは通常のDML操作と同じように振る舞います。
+到着したデータが制約に違反すると、レプリケーションは停止します。
+これは、<firstterm>コンフリクト</firstterm>と呼ばれます。
+<command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションする場合は、存在しないデータによってコンフリクトは起こらず、そのような操作は単にスキップされます。
   </para>
 
   <para>
+<!--
    A conflict will produce an error and will stop the replication; it must be
    resolved manually by the user.  Details about the conflict can be found in
    the subscriber's server log.
+-->
+コンフリクトはエラーを生じさせ、レプリケーションを停止させます。
+コンフリクトはユーザが手動で解消しなければなりません。
+コンフリクトの詳細は、サブスクライバーのサーバーログに出力されます。
   </para>
 
   <para>
+<!--
    The resolution can be done either by changing data on the subscriber so
    that it does not conflict with the incoming change or by skipping the
    transaction that conflicts with the existing data.  The transaction can be
@@ -346,23 +534,35 @@
    and a position.  The current position of origins can be seen in the
    <link linkend="view-pg-replication-origin-status">
    <structname>pg_replication_origin_status</structname></link> system view.
+-->
+コンフリクトの解消は、到着した更新とコンフリクトしないようにサブスクライバーのデータを変更するか、既存のデータとコンフリクトしているトランザクションをスキップさせることで達成できます。
+トランザクションは、<link linkend="pg-replication-origin-advance"><function>pg_replication_origin_advance()</function></link>関数にサブスクリプション名に関連する<parameter>node_name</parameter>と位置を引数で渡すことによりスキップできます。
+オリジンの現在位置は<link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link>システムビューで参照できます。
   </para>
  </sect1>
 
  <sect1 id="logical-replication-restrictions">
+<!--
   <title>Restrictions</title>
+-->
+  <title>制限事項</title>
 
   <para>
+<!--
    Logical replication currently has the following restrictions or missing
    functionality.  These might be addressed in future releases.
+-->
+論理レプリケーションには、以下の制限事項とサポートされていない機能があります。
+将来のリリースでは、これらは対処されるかもしれません。
   </para>
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      The database schema and DDL commands are not replicated.  The initial
      schema can be copied by hand using <literal>pg_dump
-     --schema-only</literal>.  Subsequent schema changes would need to be kept
+     &#045;&#045;schema-only</literal>.  Subsequent schema changes would need to be kept
      in sync manually.  (Note, however, that there is no need for the schemas
      to be absolutely the same on both sides.)  Logical replication is robust
      when schema definitions change in a live database: When the schema is
@@ -370,11 +570,20 @@
      subscriber but does not fit into the table schema, replication will error
      until the schema is updated.  In many cases, intermittent errors can be
      avoided by applying additive schema changes to the subscriber first.
+-->
+データベーススキーマおよびDDLコマンドはレプリケーションされません。
+初期スキーマは、<literal>pg_dump --schema-only</literal>を使ってコピーすることができます。
+以後のスキーマ変更の同期は手動で行ないます。
+（なお、両者でスキーマ名は完全に同じである必要はないことに留意してください。）
+稼働中のスキーマ定義変更に対して、論理レプリケーションは頑健です。
+スキーマがパブリッシャー側で変更され、複製データがサブスクライバー側に到着し始めたものの、データがテーブルスキーマに合致しない場合は、スキーマが変更されるまではレプリケーションはエラーとなります。
+多くの場合、間欠的なエラーは、サブスクライバーに先に追加的なスキーマ変更を行うことで避けることができます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Sequence data is not replicated.  The data in serial or identity columns
      backed by sequences will of course be replicated as part of the table,
      but the sequence itself would still show the start value on the
@@ -385,11 +594,18 @@
      current data from the publisher (perhaps
      using <command>pg_dump</command>) or by determining a sufficiently high
      value from the tables themselves.
+-->
+シーケンスデータはレプリケーションされません。
+シーケンスによって裏付けされたSERIAL型や識別列のデータは、もちろんテーブルの一部としてレプリケーションされます。
+しかし、シーケンス自体は、サブスクライバーがスタートした時の値のままです。
+サブスクライバーが読み取り専用のデータベースとして使われているなら、通常は問題になりません。
+しかし、サブスクライバーのデータベースをスイッチオーバーやフェイルオーバーするつもりなら、パブリッシャーから現在のデータをコピーするか（おそらく<command>pg_dump</command>を使います）、テーブル自身から十分に大きな値を決定し、シーケンスを最新の値に更新しなければなりません。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Replication of <command>TRUNCATE</command> commands is supported, but
      some care must be taken when truncating groups of tables connected by
      foreign keys.  When replicating a truncate action, the subscriber will
@@ -401,27 +617,41 @@
      subscriber have foreign-key links to tables that are not part of the same
      (or any) subscription, then the application of the truncate action on the
      subscriber will fail.
+-->
+<command>TRUNCATE</command>コマンドのレプリケーションはサポートされますが、外部キーで結びついたテーブル群を削除する場合には注意が必要です。
+削除処理をレプリケーションするとき、サブスクライバーはパブリッシャーで明示的に指定され削除された、もしくは<literal>CASCADE</literal>により暗黙的に削除されたテーブル群から、サブスクリプションの一部ではないテーブルを除いたテーブル群を削除します。
+この処理は、外部キーで関連付けられた全てのテーブルが同一のサブスクリプションの一部であれば、正常に動作します。
+しかし、サブスクライバーで削除されるテーブルが同一のサブスクリプションの一部でないテーブルと外部キーで接続されていた場合、サブスクライバー上の削除処理は失敗します。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Large objects (see <xref linkend="largeobjects"/>) are not replicated.
      There is no workaround for that, other than storing data in normal
      tables.
+-->
+ラージオブジェクト（<xref linkend="largeobjects"/>参照）はレプリケーションされません。
+通常のテーブルにデータを格納する以外に回避方法はありません。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Replication is only supported by tables, including partitioned tables.
      Attempts to replicate other types of relations, such as views, materialized
      views, or foreign tables, will result in an error.
+-->
+レプリケーションは、パーティションテーブルを含むテーブルでのみサポートされています。
+ビュー、マテリアライズドビュー、外部テーブルのような、その他の種類のリレーションをレプリケーションしようとすると、エラーになります。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      When replicating between partitioned tables, the actual replication
      originates, by default, from the leaf partitions on the publisher, so
      partitions on the publisher must also exist on the subscriber as valid
@@ -431,24 +661,38 @@
      using the identity and schema of the partitioned root table instead of
      that of the individual leaf partitions in which the changes actually
      originate (see <link linkend="sql-createpublication"><command>CREATE PUBLICATION</command></link>).
+-->
+パーティションテーブル間でレプリケーションする場合には、実際のレプリケーションは、デフォルトでは、パブリッシャー側の末端のパーティションから開始します。ですので、パブリッシャー側のパーティションがサブスクライバー側にも有効な対象テーブルとして存在していなければなりません。
+(対象テーブルは、それ自身が末端のパーティションかもしれませんし、さらにサブパーティション化されているかもしれません。独立したテーブルであっても構いません。)
+パブリケーションは、変更が実際に開始された個々の末端のパーティションのIDとスキーマの代わりに、パーティションのルートのテーブルのIDとスキーマを使って指定することもできます(<xref linkend="sql-createpublication"/>を参照してください)。
     </para>
    </listitem>
   </itemizedlist>
  </sect1>
 
  <sect1 id="logical-replication-architecture">
+<!--
   <title>Architecture</title>
+-->
+  <title>アーキテクチャ</title>
 
   <para>
+<!--
    Logical replication starts by copying a snapshot of the data on the
    publisher database.  Once that is done, changes on the publisher are sent
    to the subscriber as they occur in real time.  The subscriber applies data
    in the order in which commits were made on the publisher so that
    transactional consistency is guaranteed for the publications within any
    single subscription.
+-->
+論理レプリケーションは、パブリッシャー側のデータベース上のデータのスナップショットをコピーすることから始まります。
+それが完了したあとは、パブリッシャーにおける変更は、発生した時にリアルタイムでサブスクライバーに送られます。
+サブスクライバーはパブリッシャーでコミットが発生した順にデータを適用します。
+そのため、どの単一のサブスクリプションにおいても、パブリケーションに対するトランザクションの一貫性が保証されます。
   </para>
 
   <para>
+<!--
    Logical replication is built with an architecture similar to physical
    streaming replication (see <xref linkend="streaming-replication"/>).  It is
    implemented by <quote>walsender</quote> and <quote>apply</quote>
@@ -461,25 +705,45 @@
    transferred using the streaming replication protocol to the apply worker,
    which maps the data to local tables and applies the individual changes as
    they are received, in correct transactional order.
+-->
+論理レプリケーションは物理ストリーミングレプリケーション(<xref linkend="streaming-replication"/>参照)と似たアーキテクチャで構成されています。
+<quote>WAL送信</quote>プロセスと<quote>適用</quote>プロセスで実装されています。
+walsenderプロセスはWALのロジカルデコーディング（<xref linkend="logicaldecoding"/>に記載）を開始し、標準のロジカルデコーディングプラグイン（pgoutput）をロードします。
+このプラグインは、WALから読み込んだ更新を論理レプリケーションプロトコル（<xref linkend="protocol-logical-replication"/>参照）に変換します。
+そして、パブリケーションの指定にしたがってフィルターします。
+データは次に、ストリーミングレプリケーションプロトコルを使って継続的に適用ワーカーに転送されます。
+適用ワーカーは、データをローカルテーブルにマップし、更新を受信すると正しいトランザクション順に個々の更新を適用します。
   </para>
 
   <para>
+<!--
    The apply process on the subscriber database always runs with
    <varname>session_replication_role</varname> set
    to <literal>replica</literal>, which produces the usual effects on triggers
    and constraints.
+-->
+サブスクライバーデータベースの適用プロセスは、常に<varname>session_replication_role</varname>を<literal>replica</literal>にセットして実行されます。
+これによりトリガーと制約で通常の効果を生成します。
   </para>
 
   <para>
+<!--
    The logical replication apply process currently only fires row triggers,
    not statement triggers.  The initial table synchronization, however, is
    implemented like a <command>COPY</command> command and thus fires both row
    and statement triggers for <command>INSERT</command>.
+-->
+今のところ、論理レプリケーション適用プロセスは行トリガーだけを起動し、文トリガーは起動しません。
+ただし、初期テーブル同期は<command>COPY</command>コマンドのように実装されているので、<command>INSERT</command>の行と文トリガーの両方を起動します。
   </para>
 
   <sect2 id="logical-replication-snapshot">
+<!--
     <title>Initial Snapshot</title>
+-->
+    <title>初期スナップショット</title>
     <para>
+<!--
      The initial data in existing subscribed tables are snapshotted and
      copied in a parallel instance of a special kind of apply process.
      This process will create its own replication slot and copy the existing
@@ -493,42 +757,68 @@
      publisher.  Once synchronization is done, control of the
      replication of the table is given back to the main apply process where
      replication continues as normal.
+-->
+既存のサブスクライブされたテーブル中の初期データのスナップショットが取得され、特殊な適用プロセスの並列インスタンスにコピーされます。
+このプロセスは自身の一時レプリケーションスロットを作成し、既存のデータをコピーします。
+既存のデータのコピーが終わると、ワーカーは同期モードに入ります。
+このモードでは、初期データのコピー中に起こった更新を標準の論理レプリケーションを使ってストリーミングすることにより、テーブルが主適用プロセスと同期状態になることを保証します。
+ひとたび同期が完了すれば、テーブルのレプリケーションの制御は主適用プロセスに戻され、レプリケーションは通常通り継続されます。
     </para>
   </sect2>
  </sect1>
 
  <sect1 id="logical-replication-monitoring">
+<!--
   <title>Monitoring</title>
+-->
+  <title>監視</title>
 
   <para>
+<!--
    Because logical replication is based on a similar architecture as
    <link linkend="streaming-replication">physical streaming replication</link>,
    the monitoring on a publication node is similar to monitoring of a
    physical replication primary
    (see <xref linkend="streaming-replication-monitoring"/>).
+-->
+論理レプリケーションは<link linkend="streaming-replication">物理ストリーミングレプリケーション</link>と類似のアーキテクチャに基づいているので、パブリケーションノードの監視は、物理レプリケーションのマスター（<xref linkend="streaming-replication-monitoring"/>参照）の監視と似ています。
   </para>
 
   <para>
+<!--
    The monitoring information about subscription is visible in
    <link linkend="monitoring-pg-stat-subscription">
    <structname>pg_stat_subscription</structname></link>.
    This view contains one row for every subscription worker.  A subscription
    can have zero or more active subscription workers depending on its state.
+-->
+サブスクリプションに関する監視情報は<link linkend="monitoring-pg-stat-subscription"><structname>pg_stat_subscription</structname></link>で見ることができます。
+このビューは、個々のサブスクリプションワーカー毎に1つの行を含んでいます。
+サブスクリプションは状態により、0以上のアクティブなサブスクリプションワーカーを持つことができます。
   </para>
 
   <para>
+<!--
    Normally, there is a single apply process running for an enabled
    subscription.  A disabled subscription or a crashed subscription will have
    zero rows in this view.  If the initial data synchronization of any
    table is in progress, there will be additional workers for the tables
    being synchronized.
+-->
+有効なサブスクリプションのために通常は一つの適用プロセスが実行中です。
+無効なサブスクリプション、あるいはクラッシュしたサブスクリプションはこのビュー中に0個の行を持ちます。
+テーブルの初期データの同期が進行中なら、同期中のテーブルのための追加ワーカーが存在するでしょう。
   </para>
  </sect1>
 
  <sect1 id="logical-replication-security">
+<!--
   <title>Security</title>
+-->
+  <title>セキュリティ</title>
 
   <para>
+<!--
    A user able to modify the schema of subscriber-side tables can execute
    arbitrary code as a superuser.  Limit ownership
    and <literal>TRIGGER</literal> privilege on such tables to roles that
@@ -549,49 +839,101 @@
    that setting will cause replication to halt rather than execute the policy.
    Access for the role must be configured in <filename>pg_hba.conf</filename>
    and it must have the <literal>LOGIN</literal> attribute.
+-->
+サブスクライバ側のテーブルのスキーマを変更できるユーザは任意のコードをスーパーユーザとして実行することができます。
+そのようなテーブルの所有権と<literal>TRIGGER</literal>権限はスーパーユーザが信頼するロールにのみ付与するように制限してください。
+さらに信用できないユーザがテーブルを作成できる場合は、テーブルを明示的にリストしているパブリケーションのみを使用してください。
+つまり、スーパーユーザが全てのユーザにパブリッシャやサブスクライバに非一時テーブルを作成することを信用している場合にのみ、<literal>FOR ALL TABLES</literal>サブスクリプションを作成してください。
   </para>
 
   <para>
+<!--
+   The role used for the replication connection must have
+   the <literal>REPLICATION</literal> attribute (or be a superuser).  If the
+   role lacks <literal>SUPERUSER</literal> and <literal>BYPASSRLS</literal>,
+   publisher row security policies can execute.  If the role does not trust
+   all table owners, include <literal>options=-crow_security=off</literal> in
+   the connection string; if a table owner then adds a row security policy,
+   that setting will cause replication to halt rather than execute the policy.
+   Access for the role must be configured in <filename>pg_hba.conf</filename>
+   and it must have the <literal>LOGIN</literal> attribute.
+-->
+レプリケーション接続のために使われるロールには、<literal>REPLICATION</literal>属性が付与されている（もしくはスーパーユーザである）必要があります。
+ロールに <literal>SUPERUSER</literal>と<literal>BYPASSRLS</literal>がない場合は、パブリッシャは行セキュリティポリシーを実行できます。
+ロールが全てのテーブルの所有者を信頼していない場合、接続文字列に<literal>options=-crow_security=off</literal>を含めてください。
+テーブルの所有者が行セキュリティポリシーを追加した場合、ポリシーが実行されるのではなく、レプリケーションが停止します。
+接続のためのロールは<filename>pg_hba.conf</filename>で設定され、 <literal>LOGIN</literal>属性を持つ必要があります。
+  </para>
+
+  <para>
+<!--
    In order to be able to copy the initial table data, the role used for the
    replication connection must have the <literal>SELECT</literal> privilege on
    a published table (or be a superuser).
+-->
+テーブルの初期データをコピーできるためには、レプリケーション接続に使用されるロールは、パブリッシュされるテーブルに対して<literal>SELECT</literal>権限を持っていなければなりません。
+（あるいはスーパーユーザでなければなりません。）
   </para>
 
   <para>
+<!--
    To create a publication, the user must have the <literal>CREATE</literal>
    privilege in the database.
+-->
+パブリケーションを作成するためには、ユーザはデータベース中の<literal>CREATE</literal>権限を持っていなければなりません。
   </para>
 
   <para>
+<!--
    To add tables to a publication, the user must have ownership rights on the
    table.  To create a publication that publishes all tables automatically,
    the user must be a superuser.
+-->
+テーブルをパブリケーションに追加するためには、ユーザはテーブルの所有権限を持っていなければなりません。
+自動的にすべてのテーブルにパブリッシュするパブリケーションを作成するには、ユーザはスーパーユーザでなければなりません。
   </para>
 
   <para>
+<!--
    To create a subscription, the user must be a superuser.
+-->
+サブスクリプションを作成するためには、ユーザはスーパーユーザでなければなりません。
   </para>
 
   <para>
+<!--
    The subscription apply process will run in the local database with the
    privileges of a superuser.
+-->
+ローカルデータベースで実行されるサブスクリプション適用プロセスは、スーパーユーザ権限で実行されます。
   </para>
 
   <para>
+<!--
    Privileges are only checked once at the start of a replication connection.
    They are not re-checked as each change record is read from the publisher,
    nor are they re-checked for each change when applied.
+-->
+権限は、レプリケーション接続の開始時に一度だけチェックされます。
+パブリッシャーから更新レコードを読む際、あるいは個々の更新を適用する際には再チェックされません。
   </para>
  </sect1>
 
  <sect1 id="logical-replication-config">
+<!--
   <title>Configuration Settings</title>
+-->
+  <title>構成設定</title>
 
   <para>
+<!--
    Logical replication requires several configuration options to be set.
+-->
+論理レプリケーションにはいくつかの設定オプションの設定が必要です。
   </para>
 
   <para>
+<!--
    On the publisher side, <varname>wal_level</varname> must be set to
    <literal>logical</literal>, and <varname>max_replication_slots</varname>
    must be set to at least the number of subscriptions expected to connect,
@@ -599,9 +941,14 @@
    <varname>max_wal_senders</varname> should be set to at least the same as
    <varname>max_replication_slots</varname> plus the number of physical
    replicas that are connected at the same time.
+-->
+パブリッシャー側では、<varname>wal_level</varname>が<literal>logical</literal>に、<varname>max_replication_slots</varname>には少なくとも接続予定のサブスクリプション数に加えてテーブル同期のための予備が設定されなければなりません。
+また、<varname>max_wal_senders</varname>は少なくとも<varname>max_replication_slots</varname>に加えて
+同時に接続する物理レプリカ数が設定されなければなりません。
   </para>
 
   <para>
+<!--
    <varname>max_replication_slots</varname> must also be set on the subscriber.
    It should be set to at least the number of subscriptions that will be added
    to the subscriber, plus some reserve for table synchronization.
@@ -612,49 +959,78 @@
    (<varname>max_logical_replication_workers</varname>
    + <literal>1</literal>).  Note that some extensions and parallel queries
    also take worker slots from <varname>max_worker_processes</varname>.
+-->
+また、サブスクライバーでは<varname>max_replication_slots</varname>の設定が必要です。
+この場合、少なくともサブスクライバーに追加する予定のサブスクリプション数が設定されている必要があります。
+パブリッシャーと同様に、<varname>max_logical_replication_workers</varname>は、少なくともサブスクリプション数に加えてテーブル同期のための予備が設定されていなければなりません。
+加えて、レプリケーションワーカーを収容するために、<varname>max_worker_processes</varname>を少なくとも（<varname>max_logical_replication_workers</varname> + <literal>1</literal>）に調整する必要があるかもしれません。
+ある種の拡張とパラレルクエリは、 <varname>max_worker_processes</varname>からワーカースロットを使うことに留意してください。
   </para>
  </sect1>
 
  <sect1 id="logical-replication-quick-setup">
+<!--
   <title>Quick Setup</title>
+-->
+  <title>簡単な設定</title>
 
   <para>
+<!--
    First set the configuration options in <filename>postgresql.conf</filename>:
+-->
+まず<filename>postgresql.conf</filename>の設定オプションを設定してください。
 <programlisting>
 wal_level = logical
 </programlisting>
+<!--
    The other required settings have default values that are sufficient for a
    basic setup.
+-->
+基本的な設定のためには、それ以外の設定はデフォルトのままで十分です。
   </para>
 
   <para>
+<!--
    <filename>pg_hba.conf</filename> needs to be adjusted to allow replication
    (the values here depend on your actual network configuration and user you
    want to use for connecting):
+-->
+<filename>pg_hba.conf</filename>はレプリケーションを許可するために調整が必要です。
+（ここで示した値は、実際のネットワーク設定と、接続に使用するユーザにより異なります。）
 <programlisting>
 host     all     repuser     0.0.0.0/0     md5
 </programlisting>
   </para>
 
   <para>
+<!--
    Then on the publisher database:
+-->
+次にパブリッシャーデータベースで以下を実行します。
 <programlisting>
 CREATE PUBLICATION mypub FOR TABLE users, departments;
 </programlisting>
   </para>
 
   <para>
+<!--
    And on the subscriber database:
+-->
+サブスクライバーデータベースでは次を実行します。
 <programlisting>
 CREATE SUBSCRIPTION mysub CONNECTION 'dbname=foo host=bar user=repuser' PUBLICATION mypub;
 </programlisting>
   </para>
 
   <para>
+<!--
    The above will start the replication process, which synchronizes the
    initial table contents of the tables <literal>users</literal> and
    <literal>departments</literal> and then starts replicating
    incremental changes to those tables.
+-->
+上記により、テーブル<literal>users</literal>と<literal>departments</literal>の初期内容の同期プロセスが起動されます。
+その後、これらのテーブルへの増分変更のレプリケーションが開始します。
   </para>
  </sect1>
 </chapter>

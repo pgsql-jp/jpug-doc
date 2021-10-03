@@ -1,20 +1,33 @@
 <!-- doc/src/sgml/lobj.sgml -->
 
  <chapter id="largeobjects">
+<!--
   <title>Large Objects</title>
+-->
+  <title>ラージオブジェクト</title>
 
+<!--
   <indexterm zone="largeobjects"><primary>large object</primary></indexterm>
   <indexterm><primary>BLOB</primary><see>large object</see></indexterm>
+-->
+  <indexterm zone="largeobjects"><primary>ラージオブジェクト</primary></indexterm>
+  <indexterm><primary>BLOB</primary><see>ラージオブジェクト</see></indexterm>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> has a <firstterm>large object</firstterm>
     facility, which provides stream-style access to user data that is stored
     in a special large-object structure.  Streaming access is useful
     when working with data values that are too large to manipulate
     conveniently as a whole.
+-->
+<productname>PostgreSQL</productname>には<firstterm>ラージオブジェクト</firstterm>機能があります。
+これは、特殊なラージオブジェクト構造に格納されたユーザデータに対してストリーム様式のアクセスを提供します。
+全体をまるごと簡単に操作するには巨大過ぎるデータ値を操作する場合、ストリーミングアクセスが有用です。
    </para>
 
    <para>
+<!--
     This chapter describes the implementation and the programming and
     query language interfaces to <productname>PostgreSQL</productname>
     large object data.  We use the <application>libpq</application> C
@@ -23,26 +36,44 @@
     equivalent functionality.  Other interfaces might use the large
     object interface internally to provide generic support for large
     values.  This is not described here.
+-->
+本章では、<productname>PostgreSQL</productname>ラージオブジェクトデータに関する、実装、プログラミング、問い合わせ言語インタフェースについて説明します。
+<application>libpq</application> Cライブラリを例として本章で使用していますが、ほとんどの<productname>PostgreSQL</productname>固有のプログラミングインタフェースは同等の機能を持っています。
+他のインタフェースでは、巨大な値を汎用的にサポートできるように、ラージオブジェクトインタフェースを内部で使用しているかもしれません。
+ここでは説明しません。
    </para>
 
   <sect1 id="lo-intro">
+<!--
    <title>Introduction</title>
+-->
+   <title>はじめに</title>
 
    <indexterm>
+<!--
     <primary>TOAST</primary>
     <secondary>versus large objects</secondary>
+-->
+    <primary>TOAST</primary>
+    <secondary>対ラージオブジェクト</secondary>
    </indexterm>
 
    <para>
+<!--
     All large objects are stored in a single system table named <link
     linkend="catalog-pg-largeobject"><structname>pg_largeobject</structname></link>.
     Each large object also has an entry in the system table <link
     linkend="catalog-pg-largeobject-metadata"><structname>pg_largeobject_metadata</structname></link>.
     Large objects can be created, modified, and deleted using a read/write API
     that is similar to standard operations on files.
+-->
+すべてのラージオブジェクトは<link linkend="catalog-pg-largeobject"><structname>pg_largeobject</structname></link>というひとつのシステムテーブル内に格納されます。
+各ラージオブジェクトはまた<link linkend="catalog-pg-largeobject-metadata"><structname>pg_largeobject_metadata</structname></link>システムテーブルの中に項目を持ちます。
+ラージオブジェクトを、ファイル標準操作に似た読み取り/書き出しAPIを使用して、作成、変更、削除することができます。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> also supports a storage system called
     <link
     linkend="storage-toast"><quote><acronym>TOAST</acronym></quote></link>,
@@ -54,22 +85,37 @@
     most 1 GB.  Also, reading and updating portions of a large object can be
     done efficiently, while most operations on a <acronym>TOAST</acronym>ed
     field will read or write the whole value as a unit.
+-->
+<productname>PostgreSQL</productname>ではまた、単一のデータベースページよりも大きな値を自動的にテーブルごとに存在する二次格納領域に格納する<link linkend="storage-toast"><quote><acronym>TOAST</acronym></quote></link>という格納システムをサポートします。
+これによりラージオブジェクトの一部は不要になりました。
+ラージオブジェクト機能に残る利点の1つは、そのサイズが4テラバイトまで可能であるという点です。
+<acronym>TOAST</acronym>ではフィールドは1ギガバイトまでしか扱えません。
+また、ラージオブジェクトの部分読み取り、部分更新は効率的に行うことができます。
+一方<acronym>TOAST</acronym>化されたフィールドに対する操作のほとんどは、そのフィールド全体を単位として読み取り、または書き出しがなされます。
    </para>
 
   </sect1>
 
   <sect1 id="lo-implementation">
+<!--
    <title>Implementation Features</title>
+-->
+   <title>実装機能</title>
 
    <para>
+<!--
     The large object implementation breaks large
     objects up into <quote>chunks</quote> and stores the chunks in
     rows in the database.  A B-tree index guarantees fast
     searches for the correct chunk number when doing random
     access reads and writes.
+-->
+ラージオブジェクトの実装では、ラージオブジェクトを<quote>チャンク</quote>に分割し、チャンクをデータベース内の行に格納しています。
+B-treeインデックスは読み書き用のランダムアクセスに際して、正確なチャンク番号の高速検索を保証しています。
    </para>
 
    <para>
+<!--
     The chunks stored for a large object do not have to be contiguous.
     For example, if an application opens a new large object, seeks to offset
     1000000, and writes a few bytes there, this does not result in allocation
@@ -78,9 +124,16 @@
     zeroes for any unallocated locations preceding the last existing chunk.
     This corresponds to the common behavior of <quote>sparsely allocated</quote>
     files in <acronym>Unix</acronym> file systems.
+-->
+ラージオブジェクト用のチャンクは継続性を持ちません。
+例えば、アプリケーションが新しくラージオブジェクトを開き、1000000オフセットにシークし、数バイトそこに書き出した場合、これは1000000バイトほどの格納領域が割り当てられることにはなりません。
+データバイトの範囲に対応するチャンクのみが実際に書き出されます。
+しかし読み取り操作は最後に存在するチャンクの前にある未割り当ての領域すべてとしてゼロを読み取ります。
+これは<acronym>Unix</acronym>ファイルシステムの<quote>スパース割り当て</quote>ファイルの一般動作に一致します。
    </para>
 
    <para>
+<!--
     As of <productname>PostgreSQL</productname> 9.0, large objects have an owner
     and a set of access permissions, which can be managed using
     <xref linkend="sql-grant"/> and
@@ -93,13 +146,24 @@
     comment on, or change the owner of a large object.
     To adjust this behavior for compatibility with prior releases, see the
     <xref linkend="guc-lo-compat-privileges"/> run-time parameter.
+-->
+<productname>PostgreSQL</productname> 9.0からラージオブジェクトは所有者およびアクセス権限を持ちます。
+これは<xref linkend="sql-grant"/>および<xref linkend="sql-revoke"/>を使用して管理可能です。
+ラージオブジェクトの読み取りには<literal>SELECT</literal>権限が必要です。
+また書き出し、切り詰めのためには<literal>UPDATE</literal>権限が必要です。
+ラージオブジェクトの所有者(またはデータベーススーパーユーザ)のみがラージオブジェクトの削除、コメント付け、所有者の変更が可能です。
+過去のリリースとの互換性に関するこの動作を調整するためには<xref linkend="guc-lo-compat-privileges"/>実行時パラメータを参照してください。
    </para>
   </sect1>
 
   <sect1 id="lo-interfaces">
+<!--
    <title>Client Interfaces</title>
+-->
+   <title>クライアントインタフェース</title>
 
    <para>
+<!--
     This section describes the facilities that
     <productname>PostgreSQL</productname>'s <application>libpq</application>
     client interface library provides for accessing large objects.
@@ -108,26 +172,39 @@
     analogues of <function>open</function>,  <function>read</function>,
     <function>write</function>,
     <function>lseek</function>, etc.
+-->
+本節では、<productname>PostgreSQL</productname>の<application>libpq</application>クライアントインタフェースライブラリで提供されるラージオブジェクトへのアクセス手段について説明します。
+<productname>PostgreSQL</productname>ラージオブジェクトインタフェースは、<acronym>Unix</acronym>ファイルシステムインタフェースに因んで設計されており、<function>open</function>、<function>read</function>、<function>write</function>、<function>lseek</function>など同様のインタフェースを有しています。
    </para>
 
    <para>
+<!--
     All large object manipulation using these functions
     <emphasis>must</emphasis> take place within an SQL transaction block,
     since large object file descriptors are only valid for the duration of
     a transaction.
+-->
+ラージオブジェクトファイル記述子はトランザクションの間でしか有効でありませんので、これらの関数を使用したラージオブジェクトの操作はすべてSQLトランザクションブロック内で行われ<emphasis>なければなりません</emphasis>。
    </para>
 
    <para>
+<!--
     If an error occurs while executing any one of these functions, the
     function will return an otherwise-impossible value, typically 0 or -1.
     A message describing the error is stored in the connection object and
     can be retrieved with <xref linkend="libpq-PQerrorMessage"/>.
+-->
+これらの関数のいずれか１つの実行時にエラーが発生した場合、関数は他ではあり得ない値、通常は0または-1を返します。
+エラーを説明するメッセージは接続オブジェクト内に格納され、<xref linkend="libpq-PQerrorMessage"/>を用いて取り出すことができます。
    </para>
 
    <para>
+<!--
     Client applications that use these functions should include the header file
     <filename>libpq/libpq-fs.h</filename> and link with the
     <application>libpq</application> library.
+-->
+これらの関数を使用するクライアントアプリケーションは、<filename>libpq/libpq-fs.h</filename>ヘッダファイルをインクルードし、<application>libpq</application>ライブラリとリンクしなければなりません。
    </para>
 
    <para>
@@ -135,14 +212,20 @@
    </para>
 
    <sect2 id="lo-create">
+<!--
     <title>Creating a Large Object</title>
+-->
+    <title>ラージオブジェクトの作成</title>
 
     <para>
      <indexterm><primary>lo_creat</primary></indexterm>
+<!--
      The function
+-->
 <synopsis>
 Oid lo_creat(PGconn *conn, int mode);
 </synopsis>
+<!--
      creates a new large object.
      The return value is the OID that was assigned to the new large object,
      or <symbol>InvalidOid</symbol> (zero) on failure.
@@ -154,10 +237,19 @@ Oid lo_creat(PGconn *conn, int mode);
      or <symbol>INV_READ</symbol> <literal>|</literal> <symbol>INV_WRITE</symbol>.
      (These symbolic constants are defined
      in the header file <filename>libpq/libpq-fs.h</filename>.)
+-->
+この関数はラージオブジェクトを新規に作成します。
+戻り値は新規ラージオブジェクトに割り当てられたOIDで、失敗時には<symbol>InvalidOid</symbol>（0）が返されます。
+<productname>PostgreSQL</productname> 8.1では、<replaceable class="parameter">mode</replaceable>は使用されず、無視されます。
+しかし、以前のリリースとの後方互換性を保持するために、これを<symbol>INV_READ</symbol>、<symbol>INV_WRITE</symbol>、<symbol>INV_READ</symbol> <literal>|</literal> <symbol>INV_WRITE</symbol>に設定することが最善です。
+（これらの定数シンボルは<filename>libpq/libpq-fs.h</filename>ヘッダファイルで定義されています。）
     </para>
 
     <para>
+<!--
      An example:
+-->
+以下に例を示します。
 <programlisting>
 inv_oid = lo_creat(conn, INV_READ|INV_WRITE);
 </programlisting>
@@ -165,10 +257,13 @@ inv_oid = lo_creat(conn, INV_READ|INV_WRITE);
 
     <para>
      <indexterm><primary>lo_create</primary></indexterm>
+<!--
      The function
+-->
 <synopsis>
 Oid lo_create(PGconn *conn, Oid lobjId);
 </synopsis>
+<!--
      also creates a new large object.  The OID to be assigned can be
      specified by <replaceable class="parameter">lobjId</replaceable>;
      if so, failure occurs if that OID is already in use for some large
@@ -177,16 +272,30 @@ Oid lo_create(PGconn *conn, Oid lobjId);
      OID (this is the same behavior as <function>lo_creat</function>).
      The return value is the OID that was assigned to the new large object,
      or <symbol>InvalidOid</symbol> (zero) on failure.
+-->
+この関数もラージオブジェクトを新規に作成します。
+割り当てられるOIDを<replaceable class="parameter">lobjId</replaceable>で指定することができます。
+こうした場合、そのOIDが他のラージオブジェクトですでに使用されていた場合、失敗します。
+<replaceable class="parameter">lobjId</replaceable>が<symbol>InvalidOid</symbol>（0）の場合、<function>lo_create</function>は未使用のOIDを割り当てます。
+（これは<function>lo_creat</function>と同じ動作です。）
+戻り値は新規ラージオブジェクトに割り当てられたOIDで、失敗時には<symbol>InvalidOid</symbol>（0）が返されます。
     </para>
 
     <para>
+<!--
      <function>lo_create</function> is new as of <productname>PostgreSQL</productname>
      8.1; if this function is run against an older server version, it will
      fail and return <symbol>InvalidOid</symbol>.
+-->
+<function>lo_create</function>は<productname>PostgreSQL</productname> 8.1から導入されました。
+この関数を古いバージョンで実行させると失敗し、<symbol>InvalidOid</symbol>が返されます。
     </para>
 
     <para>
+<!--
      An example:
+-->
+例を示します。
 <programlisting>
 inv_oid = lo_create(conn, desired_oid);
 </programlisting>
@@ -194,14 +303,21 @@ inv_oid = lo_create(conn, desired_oid);
    </sect2>
 
    <sect2 id="lo-import">
+<!--
     <title>Importing a Large Object</title>
+-->
+    <title>ラージオブジェクトのインポート</title>
 
     <para>
      <indexterm><primary>lo_import</primary></indexterm>
+<!--
      To import an operating system file as a large object, call
+-->
+オペレーティングシステム上のファイルをラージオブジェクトとしてインポートするには、以下の関数を呼び出します。
 <synopsis>
 Oid lo_import(PGconn *conn, const char *filename);
 </synopsis>
+<!--
      <replaceable class="parameter">filename</replaceable>
      specifies the operating system name of
      the file to be imported as a large object.
@@ -210,14 +326,23 @@ Oid lo_import(PGconn *conn, const char *filename);
      Note that the file is read by the client interface library, not by
      the server; so it must exist in the client file system and be readable
      by the client application.
+-->
+<replaceable class="parameter">filename</replaceable>には、ラージオブジェクトとしてインポートするオペレーティングシステム上のファイルのパス名を指定します。
+戻り値は、新規ラージオブジェクトに割り当てられたOIDです。
+失敗時は<symbol>InvalidOid</symbol>（0）が返されます。
+このファイルがサーバではなく、クライアントインタフェースライブラリから読み取られることに注意してください。
+ですから、このファイルはクライアントのファイルシステム上に存在し、クライアントアプリケーションから読み取り可能でなければなりません。
     </para>
 
     <para>
      <indexterm><primary>lo_import_with_oid</primary></indexterm>
+<!--
      The function
+-->
 <synopsis>
 Oid lo_import_with_oid(PGconn *conn, const char *filename, Oid lobjId);
 </synopsis>
+<!--
      also imports a new large object.  The OID to be assigned can be
      specified by <replaceable class="parameter">lobjId</replaceable>;
      if so, failure occurs if that OID is already in use for some large
@@ -226,42 +351,70 @@ Oid lo_import_with_oid(PGconn *conn, const char *filename, Oid lobjId);
      OID (this is the same behavior as <function>lo_import</function>).
      The return value is the OID that was assigned to the new large object,
      or <symbol>InvalidOid</symbol> (zero) on failure.
+-->
+この関数も新規のラージオブジェクトをインポートします。
+割り当てられるOIDを<replaceable class="parameter">lobjId</replaceable>で指定することができます。
+こうした場合、そのOIDが他のラージオブジェクトですでに使用されていた場合、失敗します。
+<replaceable class="parameter">lobjId</replaceable>が<symbol>InvalidOid</symbol>（0）の場合、<function>lo_import_with_oid</function>は未使用のOIDを割り当てます（これは<function>lo_import</function>と同じ動作です）。
+戻り値は新規ラージオブジェクトに割り当てられたOIDで、失敗時には<symbol>InvalidOid</symbol>（0）が返されます。
     </para>
 
     <para>
+<!--
      <function>lo_import_with_oid</function> is new as of <productname>PostgreSQL</productname>
      8.4 and uses <function>lo_create</function> internally which is new in 8.1; if this function is run against 8.0 or before, it will
      fail and return <symbol>InvalidOid</symbol>.
+-->
+<function>lo_import_with_oid</function>は<productname>PostgreSQL</productname> 8.4から導入され、8.1から導入された<function>lo_create</function>を内部で使用しています。
+この関数を8.0以前のバージョンで実行させると失敗し、<symbol>InvalidOid</symbol>が返されます。
     </para>
    </sect2>
 
    <sect2 id="lo-export">
+<!--
     <title>Exporting a Large Object</title>
+-->
+    <title>ラージオブジェクトのエクスポート</title>
 
     <para>
      <indexterm><primary>lo_export</primary></indexterm>
+<!--
      To export a large object
      into an operating system file, call
+-->
+ラージオブジェクトをオペレーティングシステム上のファイルにエクスポートするには、以下の関数を呼び出します。
 <synopsis>
 int lo_export(PGconn *conn, Oid lobjId, const char *filename);
 </synopsis>
+<!--
      The <parameter>lobjId</parameter> argument specifies the OID of the large
      object to export and the <parameter>filename</parameter> argument
      specifies the operating system name of the file.  Note that the file is
      written by the client interface library, not by the server.  Returns 1
      on success, -1 on failure.
+-->
+<parameter>lobjId</parameter>引数には、エクスポートさせるラージオブジェクトのOIDを指定し、<parameter>filename</parameter>引数には、オペレーティングシステム上のファイルのパス名を指定します。
+このファイルはサーバではなく、クライアントインタフェースライブラリによって書き込まれることに注意してください。
+成功時には1、失敗時には-1が返されます。
     </para>
    </sect2>
 
    <sect2 id="lo-open">
+<!--
     <title>Opening an Existing Large Object</title>
+-->
+    <title>既存のラージオブジェクトのオープン</title>
 
     <para>
      <indexterm><primary>lo_open</primary></indexterm>
+<!--
      To open an existing large object for reading or writing, call
+-->
+読み取りまたは書き込みのために既存のラージオブジェクトを開く場合は、以下の関数を呼び出します。
 <synopsis>
 int lo_open(PGconn *conn, Oid lobjId, int mode);
 </synopsis>
+<!--
      The <parameter>lobjId</parameter> argument specifies the OID of the large
      object to open.   The <parameter>mode</parameter> bits control whether the
      object is opened for reading (<symbol>INV_READ</symbol>), writing
@@ -277,9 +430,17 @@ int lo_open(PGconn *conn, Oid lobjId, int mode);
      The descriptor is only valid for
      the duration of the current transaction.
      On failure, -1 is returned.
+-->
+<parameter>lobjId</parameter>引数には開きたいラージオブジェクトのOIDを指定します。
+<parameter>mode</parameter>の各ビットは、そのオブジェクトを読み取りのみ（<symbol>INV_READ</symbol>）、書き込みのみ（<symbol>INV_WRITE</symbol>）、またはその両方できるように開くのかを制御するものです。
+（これらの定数シンボルは<filename>libpq/libpq-fs.h</filename>ヘッダファイルで定義されています。）
+<function>lo_open</function>は、<function>lo_read</function>、<function>lo_write</function>、<function>lo_lseek</function>、<function>lo_lseek64</function>、<function>lo_tell</function>、<function>lo_tell64</function>、<function>lo_truncate</function>、<function>lo_truncate64</function>、<function>lo_close</function>で使用する（非負の）ラージオブジェクト記述子を返します。
+この記述子は現在のトランザクション期間のみで有効です。
+失敗時には-1が返されます。
     </para>
 
     <para>
+<!--
      The server currently does not distinguish between modes
      <symbol>INV_WRITE</symbol> and <symbol>INV_READ</symbol> <literal>|</literal>
      <symbol>INV_WRITE</symbol>: you are allowed to read from the descriptor
@@ -294,9 +455,18 @@ int lo_open(PGconn *conn, Oid lobjId, int mode);
      as writes of the current transaction.  This is similar to the behavior
      of <literal>REPEATABLE READ</literal> versus <literal>READ COMMITTED</literal> transaction
      modes for ordinary SQL <command>SELECT</command> commands.
+-->
+現時点では、サーバは<symbol>INV_WRITE</symbol>モードと<symbol>INV_READ</symbol> <literal>|</literal> <symbol>INV_WRITE</symbol>モードとを区別しません。
+どちらの場合でも記述子から読み取り可能です。
+しかし、これらのモードと<symbol>INV_READ</symbol>だけのモードとの間には大きな違いがあります。
+<symbol>INV_READ</symbol>モードでは記述子に書き込むことができません。
+そして、読み込んだデータは、このトランザクションや他のトランザクションで後で書き込んだかどうかは関係なく、<function>lo_open</function>を実行した時に有効だったトランザクションスナップショットの時点のラージオブジェクトの内容を反映したものになります。
+<symbol>INV_WRITE</symbol>を付けて開いた記述子から読み取ると、現在のトランザクションによる書き込みや他のトランザクションがコミットした書き込みすべてを反映したデータが返されます。
+これは、通常の<command>SELECT</command> SQLコマンドにおける<literal>REPEATABLE READ</literal>トランザクションの動作と<literal>READ COMMITTED</literal>トランザクションの動作の違いに似ています。
     </para>
 
     <para>
+<!--
      <function>lo_open</function> will fail if <literal>SELECT</literal>
      privilege is not available for the large object, or
      if <symbol>INV_WRITE</symbol> is specified and <literal>UPDATE</literal>
@@ -306,10 +476,17 @@ int lo_open(PGconn *conn, Oid lobjId, int mode);
      using the descriptor.)
      These privilege checks can be disabled with the
      <xref linkend="guc-lo-compat-privileges"/> run-time parameter.
+-->
+ラージオブジェクトに<literal>SELECT</literal>権限が与えられていなかったり、<symbol>INV_WRITE</symbol>が指定されていて、かつ<literal>UPDATE</literal>権限が与えられていないと、<function>lo_open</function>は失敗します。
+（<productname>PostgreSQL</productname> 11よりも前では、こうした権限チェックはディスクリプタを使って最初に読み出し、あるいは書き込みの呼び出しを実際に行う際に実施されていました。）
+この権限チェックは、<xref linkend="guc-lo-compat-privileges"/>実行時パラメータで無効にすることができます。
     </para>
 
     <para>
+<!--
      An example:
+-->
+以下に例を示します。
 <programlisting>
 inv_fd = lo_open(conn, inv_oid, INV_READ|INV_WRITE);
 </programlisting>
@@ -317,14 +494,20 @@ inv_fd = lo_open(conn, inv_oid, INV_READ|INV_WRITE);
 </sect2>
 
 <sect2 id="lo-write">
+<!--
 <title>Writing Data to a Large Object</title>
+-->
+<title>ラージオブジェクトへのデータの書き込み</title>
 
 <para>
      <indexterm><primary>lo_write</primary></indexterm>
+<!--
      The function
+-->
 <synopsis>
 int lo_write(PGconn *conn, int fd, const char *buf, size_t len);
 </synopsis>
+<!--
      writes <parameter>len</parameter> bytes from <parameter>buf</parameter>
      (which must be of size <parameter>len</parameter>) to large object
      descriptor <parameter>fd</parameter>.  The <parameter>fd</parameter> argument must
@@ -332,25 +515,40 @@ int lo_write(PGconn *conn, int fd, const char *buf, size_t len);
      number of bytes actually written is returned (in the current
      implementation, this will always equal <parameter>len</parameter> unless
      there is an error).  In the event of an error, the return value is -1.
+-->
+<parameter>len</parameter>バイトを、<parameter>buf</parameter>（<parameter>len</parameter>サイズでなければなりません）から<parameter>fd</parameter>ラージオブジェクト記述子に書き込みます。
+<parameter>fd</parameter>引数は事前に実行した<function>lo_open</function>の戻り値でなければいけません。
+実際に書き込まれたバイト数が返されます（現在の実装ではエラーが発生しない限り<parameter>len</parameter>と常に等しくなります）。
+エラーイベントが発生した場合は、-1を返します。
 </para>
 
 <para>
+<!--
      Although the <parameter>len</parameter> parameter is declared as
      <type>size_t</type>, this function will reject length values larger than
      <literal>INT_MAX</literal>.  In practice, it's best to transfer data in chunks
      of at most a few megabytes anyway.
+-->
+<parameter>len</parameter>パラメータは<type>size_t</type>として宣言されていますが、この関数は<literal>INT_MAX</literal>より大きな値を拒絶します。
+実際には、多くても数メガバイトのチャンクでデータを転送することが最善です。
 </para>
 </sect2>
 
 <sect2 id="lo-read">
+<!--
 <title>Reading Data from a Large Object</title>
+-->
+<title>ラージオブジェクトからのデータの読み込み</title>
 
 <para>
      <indexterm><primary>lo_read</primary></indexterm>
+<!--
      The function
+-->
 <synopsis>
 int lo_read(PGconn *conn, int fd, char *buf, size_t len);
 </synopsis>
+<!--
      reads up to <parameter>len</parameter> bytes from large object descriptor
      <parameter>fd</parameter> into <parameter>buf</parameter> (which must be
      of size <parameter>len</parameter>).  The <parameter>fd</parameter>
@@ -359,26 +557,43 @@ int lo_read(PGconn *conn, int fd, char *buf, size_t len);
      returned; this will be less than <parameter>len</parameter> if the end of
      the large object is reached first.  In the event of an error, the return
      value is -1.
+-->
+<parameter>len</parameter>長のバイトを、<parameter>fd</parameter>ラージオブジェクト記述子から<parameter>buf</parameter>（<parameter>len</parameter>サイズでなければなりません）に読み込みます。
+<parameter>fd</parameter>引数は事前に実行した<function>lo_open</function>の戻り値でなければいけません。
+実際に読み込まれたバイト数が返されます。
+ラージオブジェクトの最後に先に達した場合は<parameter>len</parameter>より小さな値になります。
+エラーイベントが発生した場合は、-1値を返します。
 </para>
 
 <para>
+<!--
      Although the <parameter>len</parameter> parameter is declared as
      <type>size_t</type>, this function will reject length values larger than
      <literal>INT_MAX</literal>.  In practice, it's best to transfer data in chunks
      of at most a few megabytes anyway.
+-->
+<parameter>len</parameter>パラメータは<type>size_t</type>として宣言されていますが、この関数は<literal>INT_MAX</literal>より大きな値を拒絶します。
+実際には、多くても数メガバイトをチャンク内にデータを転送することが最善です。
 </para>
 </sect2>
 
 <sect2 id="lo-seek">
+<!--
 <title>Seeking in a Large Object</title>
+-->
+<title>ラージオブジェクトのシーク</title>
 
 <para>
      <indexterm><primary>lo_lseek</primary></indexterm>
+<!--
      To change the current read or write location associated with a
      large object descriptor, call
+-->
+ラージオブジェクト記述子に関連付けされている、現在の読み取りまたは書き込みを行う位置を変更するには、以下の関数を呼び出します。
 <synopsis>
 int lo_lseek(PGconn *conn, int fd, int offset, int whence);
 </synopsis>
+<!--
      This function moves the
      current location pointer for the large object descriptor identified by
      <parameter>fd</parameter> to the new location specified by
@@ -387,74 +602,116 @@ int lo_lseek(PGconn *conn, int fd, int offset, int whence);
      <symbol>SEEK_CUR</symbol> (seek from current position), and
      <symbol>SEEK_END</symbol> (seek from object end).  The return value is
      the new location pointer, or -1 on error.
+-->
+この関数は<parameter>fd</parameter>で識別されるラージオブジェクト識別子の現在の位置を指すポインタを、<parameter>offset</parameter>で指定した新しい位置に変更します。
+<parameter>whence</parameter>に指定可能な値は、<symbol>SEEK_SET</symbol>（オブジェクトの先頭位置からシーク）、<symbol>SEEK_CUR</symbol>（現在位置からシーク）、<symbol>SEEK_END</symbol>（オブジェクトの末尾位置からシーク）のいずれかです。
+戻り値は新しい位置ポインタで、エラー時に-1が返されます。
 </para>
 
 <para>
      <indexterm><primary>lo_lseek64</primary></indexterm>
+<!--
      When dealing with large objects that might exceed 2GB in size,
      instead use
+-->
+2GBを超えるサイズのラージオブジェクトを取り扱う場合は代わりに以下を使用してください。
 <synopsis>
 pg_int64 lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence);
 </synopsis>
+<!--
      This function has the same behavior
      as <function>lo_lseek</function>, but it can accept an
      <parameter>offset</parameter> larger than 2GB and/or deliver a result larger
      than 2GB.
      Note that <function>lo_lseek</function> will fail if the new location
      pointer would be greater than 2GB.
+-->
+この関数は<function>lo_lseek</function>と同じ動作をしますが、<parameter>offset</parameter>として2GBを超える値を受付け、2GBより大きな結果を出力します。
+<function>lo_lseek</function>は2GBを超える新しい位置ポインタが指定された場合に失敗することに注意してください。
 </para>
 
 <para>
+<!--
      <function>lo_lseek64</function> is new as of <productname>PostgreSQL</productname>
      9.3.  If this function is run against an older server version, it will
      fail and return -1.
+-->
+<function>lo_lseek64</function>は<productname>PostgreSQL</productname> 9.3にて追加されました。
+この関数をより古いバージョンのサーバに対して実行した場合には失敗し、-1が返ります。
 </para>
 
 </sect2>
 
 <sect2 id="lo-tell">
+<!--
 <title>Obtaining the Seek Position of a Large Object</title>
+-->
+<title>ラージオブジェクトのシーク位置の入手</title>
 
 <para>
      <indexterm><primary>lo_tell</primary></indexterm>
+<!--
      To obtain the current read or write location of a large object descriptor,
      call
+-->
+ラージオブジェクト記述子の現在の読み取り、書き込み位置を入手するには、以下の関数を呼び出します。
 <synopsis>
 int lo_tell(PGconn *conn, int fd);
 </synopsis>
+<!--
      If there is an error, the return value is -1.
+-->
+エラーが発生した場合は-1が返されます。
 </para>
 
 <para>
      <indexterm><primary>lo_tell64</primary></indexterm>
+<!--
      When dealing with large objects that might exceed 2GB in size,
      instead use
+-->
+サイズが2GBを超える可能性があるラージオブジェクトを取り扱う場合は代わりに以下を使用します。
 <synopsis>
 pg_int64 lo_tell64(PGconn *conn, int fd);
 </synopsis>
+<!--
      This function has the same behavior
      as <function>lo_tell</function>, but it can deliver a result larger
      than 2GB.
      Note that <function>lo_tell</function> will fail if the current
      read/write location is greater than 2GB.
+-->
+この関数は<function>lo_tell</function>と同じ動作をしますが、2GBより大きな結果を出力します。
+<function>lo_tell</function>は2GBを超える新しい位置での読み書きに失敗します。
 </para>
 
 <para>
+<!--
      <function>lo_tell64</function> is new as of <productname>PostgreSQL</productname>
      9.3.  If this function is run against an older server version, it will
      fail and return -1.
+-->
+<function>lo_tell64</function>は<productname>PostgreSQL</productname> 9.3にて追加されました。
+この関数をより古いバージョンのサーバに対して実行した場合には失敗し、-1が返ります。
 </para>
 </sect2>
 
 <sect2 id="lo-truncate">
+<!--
 <title>Truncating a Large Object</title>
+-->
+<title>ラージオブジェクトを切り詰める</title>
 
 <para>
      <indexterm><primary>lo_truncate</primary></indexterm>
+<!--
      To truncate a large object to a given length, call
+-->
+ラージオブジェクトを指定した長さに切り詰めるには、以下を呼び出します。
 <synopsis>
 int lo_truncate(PGconn *conn, int fd, size_t len);
 </synopsis>
+<!--
      This function truncates the large object
      descriptor <parameter>fd</parameter> to length <parameter>len</parameter>.  The
      <parameter>fd</parameter> argument must have been returned by a
@@ -463,102 +720,171 @@ int lo_truncate(PGconn *conn, int fd, size_t len);
      is extended to the specified length with null bytes ('\0').
      On success, <function>lo_truncate</function> returns
      zero.  On error, the return value is -1.
+-->
+この関数はラージオブジェクト記述子<parameter>fd</parameter>を<parameter>len</parameter>長に切り詰めます。
+<parameter>fd</parameter>引数は前もって<function>lo_open</function>が返したものでなければなりません。
+<parameter>len</parameter>が現在のラージオブジェクト長より大きければ、ラージオブジェクトは指定された長さまでヌルバイト('\0')で拡張されます。
+成功時<function>lo_truncate</function>はゼロを返します。
+失敗時の戻り値は-1です。
 </para>
 
 <para>
+<!--
      The read/write location associated with the descriptor
      <parameter>fd</parameter> is not changed.
+-->
+<parameter>fd</parameter>ディスクリプタの読み取り/書き出し位置は変わりません。
 </para>
 
 <para>
+<!--
      Although the <parameter>len</parameter> parameter is declared as
      <type>size_t</type>, <function>lo_truncate</function> will reject length
      values larger than <literal>INT_MAX</literal>.
+-->
+<parameter>len</parameter>パラメータは<type>size_t</type>として宣言されていますが、<function>lo_truncate</function>は<literal>INT_MAX</literal>より大きな値を拒絶します。
 </para>
 
 <para>
      <indexterm><primary>lo_truncate64</primary></indexterm>
+<!--
      When dealing with large objects that might exceed 2GB in size,
      instead use
+-->
+2GBを超える可能性があるラージオブジェクトを取り扱う場合は代わりに以下を使用します。
 <synopsis>
 int lo_truncate64(PGconn *conn, int fd, pg_int64 len);
 </synopsis>
+<!--
      This function has the same
      behavior as <function>lo_truncate</function>, but it can accept a
      <parameter>len</parameter> value exceeding 2GB.
+-->
+この関数は<function>lo_truncate</function>と同じ動作をしますが、2GBを超える<parameter>len</parameter>を受け付けることができます。
 </para>
 
 <para>
+<!--
      <function>lo_truncate</function> is new as of <productname>PostgreSQL</productname>
      8.3; if this function is run against an older server version, it will
      fail and return -1.
+-->
+<function>lo_truncate</function>は<productname>PostgreSQL</productname> 8.3で新規に導入されました。
+この関数を古いバージョンのサーバに対して実行した場合は失敗し、-1が返されます。
 </para>
 
 <para>
+<!--
      <function>lo_truncate64</function> is new as of <productname>PostgreSQL</productname>
      9.3; if this function is run against an older server version, it will
      fail and return -1.
+-->
+<function>lo_truncate64</function>は<productname>PostgreSQL</productname> 9.3にて追加されました。
+この関数をより古いバージョンのサーバに対して実行した場合には失敗し、-1が返ります。
 </para>
 </sect2>
 
 <sect2 id="lo-close">
+<!--
 <title>Closing a Large Object Descriptor</title>
+-->
+<title>ラージオブジェクト記述子を閉じる</title>
 
 <para>
      <indexterm><primary>lo_close</primary></indexterm>
+<!--
      A large object descriptor can be closed by calling
+-->
+以下を呼び出すことでラージオブジェクト記述子を閉ざすことができます。
 <synopsis>
 int lo_close(PGconn *conn, int fd);
 </synopsis>
+<!--
      where <parameter>fd</parameter> is a
      large object descriptor returned by <function>lo_open</function>.
      On success, <function>lo_close</function> returns zero.  On
      error, the return value is -1.
+-->
+ここで、<parameter>fd</parameter>は<function>lo_open</function>の戻り値であるラージオブジェクト記述子です。
+成功すると、<function>lo_close</function>は0を返します。
+失敗すると、-1を返します。
 </para>
 
 <para>
+<!--
      Any large  object  descriptors that remain open at the end of a
      transaction will be closed automatically.
+-->
+開いたままのラージオブジェクト記述子は全てトランザクションの終了時に自動的に閉ざされます。
 </para>
 </sect2>
 
    <sect2 id="lo-unlink">
+<!--
     <title>Removing a Large Object</title>
+-->
+<title>ラージオブジェクトの削除</title>
 
     <para>
      <indexterm><primary>lo_unlink</primary></indexterm>
+<!--
      To remove a large object from the database, call
+-->
+データベースからラージオブジェクトを削除するには、以下の関数を呼び出します。
 <synopsis>
 int lo_unlink(PGconn *conn, Oid lobjId);
 </synopsis>
+<!--
      The <parameter>lobjId</parameter> argument specifies the OID of the
      large object to remove.  Returns 1 if successful, -1 on failure.
+-->
+<parameter>lobjId</parameter>引数は削除するラージオブジェクトのOIDを指定します。
+成功時に1を、失敗時に-1を返します。
     </para>
    </sect2>
+
 
 </sect1>
 
 <sect1 id="lo-funcs">
+<!--
 <title>Server-Side Functions</title>
+-->
+<title>サーバ側の関数</title>
 
   <para>
+<!--
    Server-side functions tailored for manipulating large objects from SQL are
    listed in <xref linkend="lo-funcs-table"/>.
+-->
+SQLからラージオブジェクトを操作するのに適応したサーバ側の関数を<xref linkend="lo-funcs-table"/>に列挙します。
   </para>
 
    <table id="lo-funcs-table">
+<!--
     <title>SQL-Oriented Large Object Functions</title>
+-->
+    <title>SQL向けラージオブジェクト関数</title>
     <tgroup cols="1">
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+<!--
         Function
+-->
+        関数
        </para>
        <para>
+<!--
         Description
+-->
+        説明
        </para>
        <para>
+<!--
         Example(s)
+-->
+        例
        </para></entry>
       </row>
      </thead>
@@ -573,11 +899,16 @@ int lo_unlink(PGconn *conn, Oid lobjId);
         <returnvalue>oid</returnvalue>
        </para>
        <para>
+<!--
         Creates a large object and stores <parameter>data</parameter> in it.
         If <parameter>loid</parameter> is zero then the system will choose a
         free OID, otherwise that OID is used (with an error if some large
         object already has that OID).  On success, the large object's OID is
         returned.
+-->
+ラージオブジェクトを作成してそこに<parameter>data</parameter>を格納する。
+<parameter>loid</parameter>が0であれば、システムが空いているOIDを選び、そうでなければそのOIDが使われる(すでにそのOIDを持つラージオブジェクトがあればエラーになる)。
+成功すれば、そのラージオブジェクトのOIDが返される。
        </para>
        <para>
         <literal>lo_from_bytea(0, '\xffffff00')</literal>
@@ -594,8 +925,11 @@ int lo_unlink(PGconn *conn, Oid lobjId);
         <returnvalue>void</returnvalue>
        </para>
        <para>
+<!--
         Writes <parameter>data</parameter> starting at the given offset within
         the large object; the large object is enlarged if necessary.
+-->
+ラージオブジェクト内の与えられたオフセットから<parameter>data</parameter>を書き込む。必要であれば、ラージオブジェクトは拡張される。
        </para>
        <para>
         <literal>lo_put(24528, 1, '\xaa')</literal>
@@ -612,7 +946,10 @@ int lo_unlink(PGconn *conn, Oid lobjId);
         <returnvalue>bytea</returnvalue>
        </para>
        <para>
+<!--
         Extracts the large object's contents, or a substring thereof.
+-->
+そこからラージオブジェクトの内容または部分文字列を取り出す。
        </para>
        <para>
         <literal>lo_get(24528, 0, 3)</literal>
@@ -624,6 +961,7 @@ int lo_unlink(PGconn *conn, Oid lobjId);
    </table>
 
   <para>
+<!--
    There are additional server-side functions corresponding to each of the
    client-side functions described earlier; indeed, for the most part the
    client-side functions are simply interfaces to the equivalent server-side
@@ -635,22 +973,40 @@ int lo_unlink(PGconn *conn, Oid lobjId);
    <function>lo_export</function><indexterm><primary>lo_export</primary></indexterm>.
    Here are examples of their use:
 
+-->
+これまで説明したクライアント側の関数それぞれに対応する、追加のサーバ側の関数があります。
+実際、ほとんどのクライアント側の関数は対応するサーバ側の関数に対する単なるインタフェースです。
+SQLコマンドからの呼び出しが便利な関数は、<function>lo_creat</function><indexterm><primary>lo_creat</primary></indexterm>、<function>lo_create</function>、<function>lo_unlink</function><indexterm><primary>lo_unlink</primary></indexterm>、<function>lo_import</function><indexterm><primary>lo_import</primary></indexterm>、<function>lo_export</function><indexterm><primary>lo_export</primary></indexterm>です。
+これらの使用例を示します。
 <programlisting>
 CREATE TABLE image (
     name            text,
     raster          oid
 );
 
-SELECT lo_creat(-1);       -- returns OID of new, empty large object
+<!--
+SELECT lo_creat(-1);       &#045;- returns OID of new, empty large object
+-->
+SELECT lo_creat(-1);       -- 新しい空のラージオブジェクトのOIDを返します
 
-SELECT lo_create(43213);   -- attempts to create large object with OID 43213
+<!--
+SELECT lo_create(43213);   &#045;- attempts to create large object with OID 43213
+-->
+SELECT lo_create(43213);   -- OID 43213でラージオブジェクトの生成を試行します
 
-SELECT lo_unlink(173454);  -- deletes large object with OID 173454
+<!--
+SELECT lo_unlink(173454);  &#045;- deletes large object with OID 173454
+-->
+SELECT lo_unlink(173454);  -- OID 173454のラージオブジェクトを削除します
 
 INSERT INTO image (name, raster)
     VALUES ('beautiful image', lo_import('/etc/motd'));
 
-INSERT INTO image (name, raster)  -- same as above, but specify OID to use
+<!--
+INSERT INTO image (name, raster)  &#045;&#045; same as above, but specify OID to use
+    VALUES ('beautiful image', lo_import('/etc/motd', 68583));
+-->
+INSERT INTO image (name, raster)  -- 上と同じですが使用するOIDを指定します
     VALUES ('beautiful image', lo_import('/etc/motd', 68583));
 
 SELECT lo_export(image.raster, '/tmp/motd') FROM image
@@ -659,6 +1015,7 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
   </para>
 
   <para>
+<!--
     The server-side <function>lo_import</function> and
     <function>lo_export</function> functions behave considerably differently
     from their client-side analogs.  These two functions read and write files
@@ -669,10 +1026,17 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
     program.  The client-side functions do not require any database
     privileges, except the privilege to read or write the large object in
     question.
+-->
+サーバ側の<function>lo_import</function>および<function>lo_export</function>関数の動作はクライアント側の関数とかなり異なります。
+この2つの関数はサーバのファイルシステム上のファイルの読み書きを、データベースを所有するユーザの権限で行います。
+したがって、デフォルトではこれらの使用はスーパーユーザに限定されています。
+対照的に、クライアント側のインポート関数とエクスポート関数はクライアントのファイルシステム上のファイルをクライアントプログラムの権限で読み書きします。
+このクライアント側の関数は、対象となるラージオブジェクトの読み出し、書き込み権限を除き、データベース権限を必要としません。
   </para>
 
   <caution>
    <para>
+<!--
     It is possible to <xref linkend="sql-grant"/> use of the
     server-side <function>lo_import</function>
     and <function>lo_export</function> functions to non-superusers, but
@@ -688,38 +1052,66 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
     safer to use a role with such privileges than one with full superuser
     privileges, as that helps to reduce the risk of damage from accidental
     errors.
+-->
+サーバサイド<function>lo_import</function>と<function>lo_export</function>関数に対して<xref linkend="sql-grant"/>を非スーパーユーザに適用することは可能ですが、その結果が意味することについて慎重な考慮が必要です。
+そうした権限を持つ悪意のあるユーザは、（たとえば、サーバ設定ファイルを書き換えることによって）容易にその権限を拡張してスーパーユーザになることができるでしょう。
+あるいは、そのようにしてデータベーススーパーユーザ権限を取得することなく、サーバのファイルシステムを攻撃することができるでしょう。
+<emphasis>したがって、そうした権限を持つロールへのアクセスは、スーパーユーザロールへのアクセスとまったく同様に、注意深く防御されなければなりません。</emphasis>
+にもかかわらず、サーバサイドの<function>lo_import</function>あるいは<function>lo_export</function>を定形業務に使う必要があるなら、完全なスーパーユーザ権限よりは、そうした権限を持つロールを使う方が安全です。
+偶発的な間違いから来る被害のリスクを減らすのに役立つからです。
    </para>
   </caution>
 
   <para>
+<!--
     The functionality of <function>lo_read</function> and
     <function>lo_write</function> is also available via server-side calls,
     but the names of the server-side functions differ from the client side
     interfaces in that they do not contain underscores.  You must call
     these functions as <function>loread</function> and <function>lowrite</function>.
+-->
+また<function>lo_read</function>および<function>lo_write</function>の機能はサーバサイドの呼び出しを介しても利用することができます。
+しかしサーバサイドの関数名はクライアント側のインタフェースとは異なり、アンダースコアが含まれません。
+<function>loread</function>および<function>lowrite</function>としてこれらの関数を呼び出さなければなりません。
   </para>
 
 </sect1>
 
 <sect1 id="lo-examplesect">
+<!--
 <title>Example Program</title>
+-->
+<title>サンプルプログラム</title>
 
 <para>
+<!--
      <xref linkend="lo-example"/> is a sample program which shows how the large object
      interface
      in <application>libpq</application> can be used.  Parts of the program are
      commented out but are left in the source for  the  reader's
      benefit.  This program can also be found in
      <filename>src/test/examples/testlo.c</filename> in the source distribution.
+-->
+<xref linkend="lo-example"/>は、<application>libpq</application>を使ったラージオブジェクトインタフェースの使い方を示すサンプルプログラムです。
+プログラムの一部はコメントアウトされていますが、読者にわかりやすいようにそのまま残してあります。
+このプログラムは、ソース配布物内の<filename>src/test/examples</filename>にあります。
 </para>
 
   <example id="lo-example">
+<!--
    <title>Large Objects with <application>libpq</application> Example Program</title>
+-->
+   <title><application>Libpq</application>を使用したラージオブジェクトのサンプルプログラム</title>
 <programlisting><![CDATA[
 /*-----------------------------------------------------------------
  *
  * testlo.c
+]]>
+<!--
  *    test using large objects with libpq
+-->
+<![CDATA[
+ *    libpqによるラージオブジェクトを使用する試験
  *
  * Portions Copyright (c) 1996-2021, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -745,7 +1137,12 @@ SELECT lo_export(image.raster, '/tmp/motd') FROM image
 
 /*
  * importFile -
+]]>
+<!--
  *    import file "in_filename" into database as large object "lobjOid"
+-->
+<![CDATA[
+ *    "in_filename"ファイルをラージオブジェクト"lobjOid"としてデータベースにインポートする。
  *
  */
 static Oid
@@ -759,16 +1156,31 @@ importFile(PGconn *conn, char *filename)
     int         fd;
 
     /*
+]]>
+<!--
      * open the file to be read in
+-->
+<![CDATA[
+     * 読み込むファイルを開く
      */
     fd = open(filename, O_RDONLY, 0666);
     if (fd < 0)
+]]>
+<!--
     {                           /* error */
+-->
+<![CDATA[
+    {                           /* エラー時 */
         fprintf(stderr, "cannot open unix file\"%s\"\n", filename);
     }
 
     /*
+]]>
+<!--
      * create the large object
+-->
+<![CDATA[
+     * ラージオブジェクトを作成する
      */
     lobjId = lo_creat(conn, INV_READ | INV_WRITE);
     if (lobjId == 0)
@@ -777,7 +1189,12 @@ importFile(PGconn *conn, char *filename)
     lobj_fd = lo_open(conn, lobjId, INV_WRITE);
 
     /*
+]]>
+<!--
      * read in from the Unix file and write to the inversion file
+-->
+<![CDATA[
+     * Unixファイルから読み込み、転置ファイルへ書き出す
      */
     while ((nbytes = read(fd, buf, BUFSIZE)) > 0)
     {
@@ -861,7 +1278,12 @@ overwrite(PGconn *conn, Oid lobjId, int start, int len)
 
 /*
  * exportFile -
+]]>
+<!--
  *    export large object "lobjOid" to file "out_filename"
+-->
+<![CDATA[
+ *    ラージオブジェクト"lobjOid"を"out_filename"ファイルにエクスポートする。
  *
  */
 static void
@@ -874,24 +1296,44 @@ exportFile(PGconn *conn, Oid lobjId, char *filename)
     int         fd;
 
     /*
+]]>
+<!--
      * open the large object
+-->
+<![CDATA[
+     * ラージオブジェクトを作成する
      */
     lobj_fd = lo_open(conn, lobjId, INV_READ);
     if (lobj_fd < 0)
         fprintf(stderr, "cannot open large object %u", lobjId);
 
     /*
+]]>
+<!--
      * open the file to be written to
+-->
+<![CDATA[
+     * 書き込むファイルを開く
      */
     fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0666);
     if (fd < 0)
+]]>
+<!--
     {                           /* error */
+-->
+<![CDATA[
+    {                           /* エラー時 */
         fprintf(stderr, "cannot open unix file\"%s\"",
                 filename);
     }
 
     /*
+]]>
+<!--
      * read in from the inversion file and write to the Unix file
+-->
+<![CDATA[
+     * 転置ファイルから読み込み、Unixファイルへ書き出す。
      */
     while ((nbytes = lo_read(conn, lobj_fd, buf, BUFSIZE)) > 0)
     {
@@ -936,18 +1378,33 @@ main(int argc, char **argv)
     out_filename = argv[3];
 
     /*
+]]>
+<!--
      * set up the connection
+-->
+<![CDATA[
+     * 接続を設定する
      */
     conn = PQsetdb(NULL, NULL, NULL, NULL, database);
 
+]]>
+<!--
     /* check to see that the backend connection was successfully made */
+-->
+<![CDATA[
+    /* バックエンドとの接続が成功したかどうか確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
         fprintf(stderr, "%s", PQerrorMessage(conn));
         exit_nicely(conn);
     }
+]]>
 
+<!--
     /* Set always-secure search path, so malicious users can't take control. */
+-->
+<![CDATA[
+    /* 常に安全なサーチパスを設定する。そのため、悪意のあるユーザは操作できない。 */
     res = PQexec(conn,
                  "SELECT pg_catalog.set_config('search_path', '', false)");
     if (PQresultStatus(res) != PGRES_TUPLES_OK)

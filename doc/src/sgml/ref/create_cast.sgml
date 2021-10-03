@@ -11,12 +11,18 @@ PostgreSQL documentation
  <refmeta>
   <refentrytitle>CREATE CAST</refentrytitle>
   <manvolnum>7</manvolnum>
+<!--
   <refmiscinfo>SQL - Language Statements</refmiscinfo>
+-->
+<refmiscinfo>SQL - 言語</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>CREATE CAST</refname>
+<!--
   <refpurpose>define a new cast</refpurpose>
+-->
+  <refpurpose>新しいキャストを定義する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -36,22 +42,35 @@ CREATE CAST (<replaceable>source_type</replaceable> AS <replaceable>target_type<
  </refsynopsisdiv>
 
  <refsect1 id="sql-createcast-description">
+<!--
   <title>Description</title>
+-->
+<title>説明</title>
 
   <para>
+<!--
    <command>CREATE CAST</command> defines a new cast.  A cast
    specifies how to perform a conversion between
    two data types.  For example,
+-->
+<command>CREATE CAST</command>を使用すると、新しいキャストを定義できます。
+キャストは、2つのデータ型間の変換処理方法を指定するものです。
+以下に例を示します。
 <programlisting>
 SELECT CAST(42 AS float8);
 </programlisting>
+<!--
    converts the integer constant 42 to type <type>float8</type> by
    invoking a previously specified function, in this case
    <literal>float8(int4)</literal>. (If no suitable cast has been defined, the
    conversion fails.)
+-->
+この文を実行すると、事前に指定された関数（この場合<literal>float8(int4)</literal>）が呼び出され、整数定数42が<type>float8</type>型に変換されます
+（適切なキャストが定義されていない場合、変換処理は失敗します）。
   </para>
 
   <para>
+<!--
    Two types can be <firstterm>binary coercible</firstterm>, which
    means that the conversion can be performed <quote>for free</quote>
    without invoking any function.  This requires that corresponding
@@ -64,9 +83,18 @@ SELECT CAST(42 AS float8);
    requires a function that performs at least a syntax check.  (Two
    types that are binary coercible both ways are also referred to as
    binary compatible.)
+-->
+2つのデータ型を<firstterm>バイナリ強制互換</firstterm>とすることができます。
+これは、関数をまったく呼び出さなくても、<quote>自由に</quote>変換を行うことができることを意味します。
+これには、対応する値は、同じ内部表現を使用している必要があります。
+例えば、データ型<type>text</type>と<type>varchar</type>には、両方向でバイナリ互換性があります。
+バイナリ強制互換性は必ずしも対称関係ではありません。
+例えば、現在の実装では<type>xml</type>から<type>text</type>へのキャストは自由に行うことができますが、逆方向では少なくとも構文検査を行う関数が必要です。
+（2つの型が両方向でバイナリ強制互換であることは、バイナリ互換性と呼ばれます。）
   </para>
 
   <para>
+<!--
    You can define a cast as an <firstterm>I/O conversion cast</firstterm> by using
    the <literal>WITH INOUT</literal> syntax. An I/O conversion cast is
    performed by invoking the output function of the source data type, and
@@ -74,39 +102,63 @@ SELECT CAST(42 AS float8);
    In many common cases, this feature avoids the need to write a separate
    cast function for conversion. An I/O conversion cast acts the same as
    a regular function-based cast; only the implementation is different.
+-->
+<literal>WITH INOUT</literal>構文を使用して<firstterm>I/O変換キャスト</firstterm>としてキャスト定義を行うことができます。
+I/O変換キャストは、元データ型の出力関数を呼び出し、その結果文字列を対象データ型の入力関数に渡すことで行われます。
+多くの一般的な場合では、この機能により変換用に別個のキャスト関数を作成する必要性がなくなります。
+I/O変換キャストは通常の関数を基にしたキャストと同様に動作します。ただ実装が異なるだけです。
   </para>
 
   <para>
+<!--
    By default, a cast can be invoked only by an explicit cast request,
    that is an explicit <literal>CAST(<replaceable>x</replaceable> AS
    <replaceable>typename</replaceable>)</literal> or
    <replaceable>x</replaceable><literal>::</literal><replaceable>typename</replaceable>
    construct.
+-->
+デフォルトでは、キャストは明示的なキャスト要求があった場合のみ発生します。
+明示的なキャスト要求の構文は、<literal>CAST(<replaceable>x</replaceable> AS <replaceable>typename</replaceable>)</literal>、もしくは、<replaceable>x</replaceable><literal>::</literal><replaceable>typename</replaceable>式です。
   </para>
 
   <para>
+<!--
    If the cast is marked <literal>AS ASSIGNMENT</literal> then it can be invoked
    implicitly when assigning a value to a column of the target data type.
    For example, supposing that <literal>foo.f1</literal> is a column of
    type <type>text</type>, then:
+-->
+キャストに<literal>AS ASSIGNMENT</literal>オプションを付けると、対象データ型の列に代入する際、暗黙的にそのキャストを発生させることができます。
+例えば、<literal>foo.f1</literal>が<type>text</type>型の列であるとします。
 <programlisting>
 INSERT INTO foo (f1) VALUES (42);
 </programlisting>
+<!--
    will be allowed if the cast from type <type>integer</type> to type
    <type>text</type> is marked <literal>AS ASSIGNMENT</literal>, otherwise not.
    (We generally use the term <firstterm>assignment
    cast</firstterm> to describe this kind of cast.)
+-->
+<type>integer</type>型を<type>text</type>型に変換するキャストに<literal>AS ASSIGNMENT</literal>オプションが付けられていれば、上記のSQL文が実行できます。
+しかし、<literal>AS ASSIGNMENT</literal>オプションが付いていなければ、実行できません
+（一般的に、この種のキャストを<firstterm>代入キャスト</firstterm>と呼びます）。
   </para>
 
   <para>
+<!--
    If the cast is marked <literal>AS IMPLICIT</literal> then it can be invoked
    implicitly in any context, whether assignment or internally in an
    expression.  (We generally use the term <firstterm>implicit
    cast</firstterm> to describe this kind of cast.)
    For example, consider this query:
+-->
+キャストに<literal>AS IMPLICIT</literal>オプションを付けると、代入の場合だけでなく、式の中にある場合でも、全てのコンテキストで暗黙的にそのキャストを呼び出すことができます。
+（一般的に、この種のキャストを<firstterm>暗黙キャスト</firstterm>と呼びます。）
+例えば次のような問い合わせを考えてみます。
 <programlisting>
 SELECT 2 + 4.0;
 </programlisting>
+<!--
    The parser initially marks the constants as being of type <type>integer</type>
    and <type>numeric</type> respectively.  There is no <type>integer</type>
    <literal>+</literal> <type>numeric</type> operator in the system catalogs,
@@ -115,12 +167,18 @@ SELECT 2 + 4.0;
    <type>numeric</type> is available and is marked <literal>AS IMPLICIT</literal> &mdash;
    which in fact it is.  The parser will apply the implicit cast and resolve
    the query as if it had been written
+-->
+パーサはまず定数にそれぞれ<type>integer</type>と<type>numeric</type>であると印を付けます。
+システムカタログには、<type>integer</type> <literal>+</literal> <type>numeric</type>という演算子はありませんが、<type>numeric</type> <literal>+</literal> <type>numeric</type>という演算子は存在します。
+したがって、<type>integer</type>から<type>numeric</type>へのキャストが利用可能であり、そのキャストに<literal>AS IMPLICIT</literal>が付いていればこの問い合わせは成功します（実際このようになっています）。
+パーサは暗黙的なキャストを行い、問い合わせをあたかも次のように記載されたものとして解決します。
 <programlisting>
 SELECT CAST ( 2 AS numeric ) + 4.0;
 </programlisting>
   </para>
 
   <para>
+<!--
    Now, the catalogs also provide a cast from <type>numeric</type> to
    <type>integer</type>.  If that cast were marked <literal>AS IMPLICIT</literal> &mdash;
    which it is not &mdash; then the parser would be faced with choosing
@@ -132,9 +190,16 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
    implicit is the way in which we teach the parser to prefer resolution
    of a mixed <type>numeric</type>-and-<type>integer</type> expression as
    <type>numeric</type>; there is no built-in knowledge about that.
+-->
+ここで、カタログはまた<type>numeric</type>から<type>integer</type>へのキャストも提供しています。
+もしこのキャストに<literal>AS IMPLICIT</literal>が付いていたら（実際は付いていません）、パーサは上のように解釈するか、それとも、<type>numeric</type>定数を<type>integer</type>にキャストし、<type>integer</type> <literal>+</literal> <type>integer</type>という演算子を適用するかを選択しなければなりません。
+どちらがより良いかという知見がなければ、選択をあきらめ、問い合わせがあいまいであると宣告します。
+2つのキャストの内1つのみが暗黙的であるという事実が、パーサに、<type>numeric</type>と<type>integer</type>が混在する式を<type>numeric</type>として扱うという適切な解決方法を知らせる方法です。
+これに関する組み込まれた知見は存在しません。
   </para>
 
   <para>
+<!--
    It is wise to be conservative about marking casts as implicit.  An
    overabundance of implicit casting paths can cause
    <productname>PostgreSQL</productname> to choose surprising
@@ -147,10 +212,18 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
    <type>float8</type> to <type>int4</type> should probably be
    assignment-only.  Cross-type-category casts, such as <type>text</type>
    to <type>int4</type>, are best made explicit-only.
+-->
+暗黙キャストは、多用しない方が賢明です。
+暗黙的キャストを使用し過ぎると、<productname>PostgreSQL</productname>がコマンドを思わぬ意味に解釈してしまう原因になります。
+また、複数の解釈が可能なため、コマンドをまったく解読できなくなってしまう可能性もあります。
+経験的には、2つのデータ型が同一の一般的なデータ型のカテゴリに属しており、変換によって情報が保持される場合のみ、暗黙キャストを呼び出し可能にするのが良い方法と思われます。
+例えば、<type>int2</type>型から<type>int4</type>型へのキャストは、暗黙キャストにするのが妥当ですが、<type>float8</type>型から<type>int4</type>型へのキャストは、おそらく代入キャストのみにすべきでしょう。
+<type>text</type>型から<type>int4</type>型への変換のような、カテゴリを越えるデータ型のキャストは、明示的にのみ使用するのが適切です。
   </para>
 
   <note>
    <para>
+<!--
     Sometimes it is necessary for usability or standards-compliance reasons
     to provide multiple implicit casts among a set of types, resulting in
     ambiguity that cannot be avoided as above.  The parser has a fallback
@@ -158,20 +231,32 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
     types</firstterm> that can help to provide desired behavior in such cases.  See
     <xref linkend="sql-createtype"/> for
     more information.
+-->
+型の集合の中で複数の暗黙的なキャストを提供することが、有用性や標準との互換性上の理由により必要となることがあり、これにより、上で説明した通り防ぐことができないあいまいさが引き起こされます。
+パーサは、こうした状況でも望ましい動作の提供を補助できる<firstterm>型カテゴリ</firstterm>と<firstterm>優先される型</firstterm>に基づいた発見的手法を用意しています。
+詳細は<xref linkend="sql-createtype"/>を参照してください。
    </para>
   </note>
 
   <para>
+<!--
    To be able to create a cast, you must own the source or the target data type
    and have <literal>USAGE</literal> privilege on the other type.  To create a
    binary-coercible cast, you must be superuser.  (This restriction is made
    because an erroneous binary-coercible cast conversion can easily crash the
    server.)
+-->
+キャストを作成するためには、変換元または変換先（の内の一方）のデータ型を所有し、もう一方の型に対する<literal>USAGE</literal>権限を持つ必要があります。
+また、バイナリ強制互換性を持つキャストを作成できるのは、スーパーユーザでなければなりません。
+（バイナリ強制互換性があるキャスト変換を誤って使用するとサーバがクラッシュしてしまう可能性が高いことから、この制限が付けられました）。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Parameters</title>
+-->
+<title>パラメータ</title>
 
    <variablelist>
     <varlistentry>
@@ -179,7 +264,10 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
 
      <listitem>
       <para>
+<!--
        The name of the source data type of the cast.
+-->
+キャストする変換元のデータ型の名前です。
       </para>
      </listitem>
     </varlistentry>
@@ -189,7 +277,10 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
 
      <listitem>
       <para>
+<!--
        The name of the target data type of the cast.
+-->
+キャストする変換先のデータ型の名前です。
       </para>
      </listitem>
     </varlistentry>
@@ -199,12 +290,20 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
 
      <listitem>
       <para>
+<!--
        The function used to perform the cast.  The function name can
        be schema-qualified.  If it is not, the function will be looked
        up in the schema search path.  The function's result data type must
        match the target type of the cast.   Its arguments are discussed below.
        If no argument list is specified, the function name must be unique in
        its schema.
+-->
+キャストを実行するために使用される関数です。
+関数名はスキーマ修飾することができます。
+スキーマ修飾されていない場合、関数はスキーマ検索パスから検索されます。
+関数の結果のデータ型は、キャストの変換先のデータ型と一致する必要があります。
+引数については後で説明します。
+引数リストが指定されない場合、関数名はスキーマ内で一意でなければなりません。
       </para>
      </listitem>
     </varlistentry>
@@ -214,8 +313,12 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
 
      <listitem>
       <para>
+<!--
        Indicates that the source type is binary-coercible to the target type,
        so no function is required to perform the cast.
+-->
+変換元データ型から変換先データ型への間に、バイナリ強制互換性があることを示します。
+この場合、キャストを実行するのに関数は必要ありません。
       </para>
      </listitem>
     </varlistentry>
@@ -225,9 +328,12 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
 
      <listitem>
       <para>
+<!--
        Indicates that the cast is an I/O conversion cast, performed by
        invoking the output function of the source data type, and passing the
        resulting string to the input function of the target data type.
+-->
+キャストが、変換元データ型の出力関数を呼び出し、その結果の文字列を変換先データ型の入力関数に渡すことで行われる、I/O変換キャストであることを示します。
       </para>
      </listitem>
     </varlistentry>
@@ -237,8 +343,11 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
 
      <listitem>
       <para>
+<!--
        Indicates that the cast can be invoked implicitly in assignment
        contexts.
+-->
+代入コンテキストで、暗黙的にキャストを呼び出せることを示します。
       </para>
      </listitem>
     </varlistentry>
@@ -248,13 +357,17 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
 
      <listitem>
       <para>
+<!--
        Indicates that the cast can be invoked implicitly in any context.
+-->
+任意のコンテキストで、暗黙的にキャストを呼び出せることを示します。
       </para>
      </listitem>
     </varlistentry>
    </variablelist>
 
   <para>
+<!--
    Cast implementation functions can have one to three arguments.
    The first argument type must be identical to or binary-coercible from
    the cast's source type.  The second argument,
@@ -267,14 +380,27 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
    implicit casts in some cases.  This argument is supplied for functions
    that must implement such casts.  It is not recommended that you design
    your own data types so that this matters.)
+-->
+キャストを実装する関数は1〜3個の引数を取ることができます。
+1番目の引数型はキャストの変換元データ型と同一、または、変換元データ型からのバイナリ強制互換を持つ型でなければなりません。
+2番目の引数（もしあれば）は、<type>integer</type>型でなければなりません。変換先の型に関連付けられた型修飾子を指定します。
+型修飾子がない場合は<literal>-1</literal>を指定します。
+3番目の引数（もしあれば）は、<type>boolean</type>型でなければなりません。キャストが明示的なキャストであれば<literal>true</literal>を、それ以外であれば<literal>false</literal>を指定します
+（奇妙な話ですが、標準SQLでは、明示的キャストと暗黙的キャストとの間で異なる振舞いを要求する場合があります。
+この引数はそのようなキャストを実装しなければならない関数用に提供されています。
+独自のデータ型をこの流儀に従うように設計することは勧められません）。
   </para>
 
   <para>
+<!--
    The return type of a cast function must be identical to or
    binary-coercible to the cast's target type.
+-->
+キャスト関数の戻り値は、キャストの対象型と同一またはバイナリ強制互換性を持たなければなりません。
   </para>
 
   <para>
+<!--
    Ordinarily a cast must have different source and target data types.
    However, it is allowed to declare a cast with identical source and
    target types if it has a cast implementation function with more than one
@@ -282,42 +408,73 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
    functions in the system catalogs.  The named function is used to
    coerce a value of the type to the type modifier value given by its
    second argument.
+-->
+通常、キャストにおける変換元データ型と変換先データ型は異なる必要があります。
+しかし、2つ以上の引数を持つ関数でキャストを実装した場合は、変換元と変換先とで同一のデータ型を持つキャストを宣言することができます。
+これは、システムカタログにおいて型固有の長さ強制関数を表現するために使用されています。
+指定された関数は、型の値を強制的に2番目の引数で与えられた型修飾子の値にするために使用されます
   </para>
 
   <para>
+<!--
    When a cast has different source and
    target types and a function that takes more than one argument, it
    supports converting from one type to another and applying a length
    coercion in a single step.  When no such entry is available, coercion
    to a type that uses a type modifier involves two cast steps, one to
    convert between data types and a second to apply the modifier.
+-->
+キャストが変換元と変換先のデータ型が異なり、複数の引数を取る関数を持つ場合、あるデータ型から他のデータ型への変換と長さの強制を1つの操作にまとめたものをサポートします。
+引数を1つしか取らない場合は、型修飾子を使用して型を強制するために、データ型間の変換と修飾子の適用という2つのキャスト操作が必要となります。
   </para>
 
   <para>
+<!--
    A cast to or from a domain type currently has no effect.  Casting
    to or from a domain uses the casts associated with its underlying type.
+-->
+ドメイン型へのキャスト、ドメイン型からのキャストは現在は効果がありません。
+ドメインへのキャスト、ドメインからのキャストは、基となる型と関連したキャストを使用します。
   </para>
 
  </refsect1>
 
  <refsect1 id="sql-createcast-notes">
+<!--
   <title>Notes</title>
+-->
+<title>注釈</title>
 
   <para>
+<<<<<<< HEAD
    Use <link linkend="sql-dropcast"><command>DROP CAST</command></link> to remove user-defined casts.
+=======
+<!--
+   Use <xref linkend="sql-dropcast"/> to remove user-defined casts.
+-->
+ユーザ定義のキャストを削除するには<xref linkend="sql-dropcast"/>を使用してください。
+>>>>>>> doc_ja_13
   </para>
 
   <para>
+<!--
    Remember that if you want to be able to convert types both ways you
    need to declare casts both ways explicitly.
+-->
+データ型を双方向に変更可能にするには、双方向のキャストを明示的に宣言する必要があることに注意してください。
   </para>
 
  <indexterm zone="sql-createcast">
+<!--
   <primary>cast</primary>
   <secondary>I/O conversion</secondary>
+-->
+  <primary>キャスト</primary>
+  <secondary>入出力変換</secondary>
  </indexterm>
 
   <para>
+<!--
    It is normally not necessary to create casts between user-defined types
    and the standard string types (<type>text</type>, <type>varchar</type>, and
    <type>char(<replaceable>n</replaceable>)</type>, as well as user-defined types that
@@ -334,9 +491,19 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
    should think twice about whether it's a good idea.  (A small number of
    the built-in types do indeed have different behaviors for conversions,
    mostly because of requirements of the SQL standard.)
+-->
+ユーザ定義型と標準文字列型（<type>text</type>、<type>varchar</type>、<type>char(<replaceable>n</replaceable>)</type>）、および文字列カテゴリとして定義されたユーザ定義型との間のキャストを作成することは、通常必要ありません。
+<productname>PostgreSQL</productname>はこのために自動的なI/O変換キャストを提供します。
+この文字列への自動キャストは代入キャストとして扱われますが、文字列型からの入出力変換キャストは明示的なキャストのみです。
+この振舞いは独自のキャストを宣言して自動キャストを置き換えることで変更することができます。
+しかし、通常このようにするのは、この変換を標準の代入のみまたは明示的のみの設定よりもより呼び出しやすくしたい場合に限られます。
+他にも、型の入出力関数と異なる動作で変換したいという理由もあるかもしれません。
+しかし、これは非常に驚かされるものであり、そうすべきかどうか熟考すべきです。
+（組み込み型のごく一部は実際変換用に異なった振舞いをしますが、ほとんどは標準SQLの仕様のためのものです。）
   </para>
 
   <para>
+<!--
    While not required, it is recommended that you continue to follow this old
    convention of naming cast implementation functions after the target data
    type.  Many users are used to being able to cast data types using a
@@ -349,10 +516,18 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
    name with different argument types, there is no difficulty in having
    multiple conversion functions from different types that all use the
    target type's name.
+-->
+必須ではありませんが、キャストを実装する関数には変換先のデータ型の名前を付けるという以前からの慣習に従っておくことを推奨します。
+多くのユーザは<replaceable>typename</replaceable>(<replaceable>x</replaceable>)という関数スタイルの記法でデータ型のキャストを行っています。
+この記法は、キャストを実装している関数の呼び出しに他なりません。
+キャストとして特別に扱われるわけではないのです。
+ユーザが作成した変換関数の名前がこの慣習に従っていないと、他のユーザがとまどうことになります。
+<productname>PostgreSQL</productname>は引数として異なる型を取る同じ名前の関数をオーバーロードすることができるので、様々な型から特定の変換先型への変換関数の名前を全て変換先の型名にしても特に問題は発生しません。
   </para>
 
   <note>
    <para>
+<!--
     Actually the preceding paragraph is an oversimplification: there are
     two cases in which a function-call construct will be treated as a cast
     request without having matched it to an actual function.
@@ -367,11 +542,19 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
     type, the call will be construed as an I/O conversion cast.  This
     exception allows I/O conversion casts to be invoked using functional
     syntax.
+-->
+実際のところ、前の段落は単純化しすぎたものです。
+関数呼び出し式が実際の関数と一致しない状態でキャスト要求として扱われる状況が2つ存在します。
+関数呼び出し<replaceable>name</replaceable>(<replaceable>x</replaceable>)が実際の関数に正確に一致せず、<replaceable>name</replaceable>がデータ型の名前であり、<structname>pg_cast</structname>が<replaceable>x</replaceable>の型からその型へのバイナリ強制互換のキャストを提供する場合、この呼び出しはバイナリ強制互換キャストとして処理されます。
+この例外は、実際の関数が存在しなくても、関数のような構文でバイナリ強制互換キャストを呼び出すことができるように作成されました。
+同様に、<structname>pg_cast</structname>に項目がないが、文字列型との間のキャストが存在する場合、この呼び出しは入出力変換キャストとして処理されます。
+この例外により関数のような構文で入出力変換キャストができるようになります。
    </para>
   </note>
 
   <note>
    <para>
+<!--
     There is also an exception to the exception: I/O conversion casts from
     composite types to string types cannot be invoked using functional
     syntax, but must be written in explicit cast syntax (either
@@ -379,40 +562,64 @@ SELECT CAST ( 2 AS numeric ) + 4.0;
     because after the introduction of automatically-provided I/O conversion
     casts, it was found too easy to accidentally invoke such a cast when
     a function or column reference was intended.
+-->
+この例外にも例外があります。
+複合型から文字列型へのI/O変換キャストでは関数構文を使用して呼び出すことができず、明示的なキャスト構文（<literal>CAST</literal>記法または<literal>::</literal>記法のいずれか）で記述しなければなりません
+この例外は、自動提供I/O変換キャストを導入した後、関数または列参照を意図した時に非常に簡単に間違って呼び出されることが判明したため追加されました。
    </para>
   </note>
  </refsect1>
 
 
  <refsect1 id="sql-createcast-examples">
+<!--
   <title>Examples</title>
+-->
+<title>例</title>
 
   <para>
+<!--
    To create an assignment cast from type <type>bigint</type> to type
    <type>int4</type> using the function <literal>int4(bigint)</literal>:
+-->
+関数<literal>int4(bigint)</literal>を使用した<type>bigint</type>型から<type>int4</type>型への代入キャストを作成します。
 <programlisting>
 CREATE CAST (bigint AS int4) WITH FUNCTION int4(bigint) AS ASSIGNMENT;
 </programlisting>
+<!--
    (This cast is already predefined in the system.)
+-->
+（このキャストは、システムに既に定義されています。）
   </para>
  </refsect1>
 
  <refsect1 id="sql-createcast-compat">
+<!--
   <title>Compatibility</title>
+-->
+<title>互換性</title>
 
   <para>
+<!--
    The <command>CREATE CAST</command> command conforms to the
    <acronym>SQL</acronym> standard,
    except that SQL does not make provisions for binary-coercible
    types or extra arguments to implementation functions.
    <literal>AS IMPLICIT</literal> is a <productname>PostgreSQL</productname>
    extension, too.
+-->
+SQLではバイナリ強制互換性があるデータ型や実装関数の追加の引数について規定されていません。さらに、<literal>AS IMPLICIT</literal>は、<productname>PostgreSQL</productname>の拡張です。
+これらの点以外では、<command>CREATE CAST</command>は標準<acronym>SQL</acronym>に準拠しています。
+
   </para>
  </refsect1>
 
 
  <refsect1 id="sql-createcast-seealso">
+<!--
   <title>See Also</title>
+-->
+<title>関連項目</title>
 
   <para>
    <xref linkend="sql-createfunction"/>,

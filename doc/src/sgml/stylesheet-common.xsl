@@ -100,5 +100,27 @@
 <xsl:template match="function" mode="xref-to">
   <xsl:apply-templates select="." mode="xref"/>
 </xsl:template>
+<xsl:param name="local.l10n.xml" select="document('')"/>
+<l:i18n xmlns:l="http://docbook.sourceforge.net/xmlns/l10n/1.0">
+  <l:l10n language="ja">
+    <l:gentext key="nav-prev" text="前へ"/>
+    <l:gentext key="nav-up" text="上へ"/>
+    <l:context name="xref-number-and-title">
+      <l:template name="sect1" text="%n. %t"/>
+      <l:template name="sect2" text="%n. %t"/>
+      <l:template name="sect3" text="%n. %t"/>
+      <l:template name="sect4" text="%n. %t"/>
+      <l:template name="sect5" text="%n. %t"/>
+    </l:context>
+    <l:context name="styles">
+      <l:template name="person-name" text="first-last"/>
+    </l:context>
+    <l:context name="authorgroup">
+      <l:template name="sep" text=", "/>
+      <l:template name="sep2" text=", "/>
+      <l:template name="seplast" text=", "/>
+    </l:context>
+  </l:l10n>
+</l:i18n>
 
 </xsl:stylesheet>

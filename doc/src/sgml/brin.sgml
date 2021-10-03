@@ -1,7 +1,10 @@
 <!-- doc/src/sgml/brin.sgml -->
 
 <chapter id="brin">
+<!--
 <title>BRIN Indexes</title>
+-->
+<title>BRINインデックス</title>
 
    <indexterm>
     <primary>index</primary>
@@ -9,9 +12,13 @@
    </indexterm>
 
 <sect1 id="brin-intro">
+<!--
  <title>Introduction</title>
+-->
+ <title>はじめに</title>
 
  <para>
+<!--
   <acronym>BRIN</acronym> stands for Block Range Index.
   <acronym>BRIN</acronym> is designed for handling very large tables
   in which certain columns have some natural correlation with their
@@ -24,9 +31,16 @@
   the entries for earlier orders will appear earlier in the table as well;
   a table storing a ZIP code column might have all codes for a city
   grouped together naturally.
+-->
+<acronym>BRIN</acronym>は「ブロックレンジインデックス」(Block Range Index)の略です。
+<acronym>BRIN</acronym>は、ある列がテーブル内の物理的な位置と自然な関係があるような、非常に大規模なテーブルのために設計されています。
+<firstterm>ブロックレンジ(block range)</firstterm>は、テーブル内で物理的に隣接するページのグループです。それぞれのブロックレンジに対して、ある種の要約情報がインデックス内に格納されます。
+たとえば、店舗の受注情報を格納するテーブルは、各々の受注時期を格納する日付列を持つでしょう。大抵の場合、より前の受注エントリは、テーブルのより前の方にあるでしょう。
+郵便番号を管理するテーブルでは、ある市に属する郵便番号が自然にグループ化されることになるでしょう。
  </para>
 
  <para>
+<!--
   <acronym>BRIN</acronym> indexes can satisfy queries via regular bitmap
   index scans, and will return all tuples in all pages within each range if
   the summary info stored by the index is <firstterm>consistent</firstterm> with the
@@ -37,9 +51,16 @@
   Because a <acronym>BRIN</acronym> index is very small, scanning the index
   adds little overhead compared to a sequential scan, but may avoid scanning
   large parts of the table that are known not to contain matching tuples.
+-->
+<acronym>BRIN</acronym>インデックスは、通常のビットマップインデックススキャンを通じて要求されるクエリに使用することができます。
+すなわち、インデックス内のレンジ要約情報が検索条件と<firstterm>一致</firstterm>すれば、<acronym>BRIN</acronym>インデックスは、レンジ内の全タプルを返します。
+クエリエクゼキュータの役割は、検索条件を再チェックし、条件に合致しないタプルを捨てることです。
+つまり言い換えると、<acronym>BRIN</acronym>インデックスには損失性があります。
+<acronym>BRIN</acronym>インデックスは非常に小さいため、それに対するスキャンは順スキャンに比べると小さなオーバヘッドしか与えません。しかし、あらかじめ条件に合致しないと分かっているテーブルの多くの部分をスキャンすることを避けることができます。
  </para>
 
  <para>
+<!--
   The specific data that a <acronym>BRIN</acronym> index will store,
   as well as the specific queries that the index will be able to satisfy,
   depend on the operator class selected for each column of the index.
@@ -47,9 +68,14 @@
   store the minimum and maximum value within each block range, for instance;
   geometrical types might store the bounding box for all the objects
   in the block range.
+-->
+<acronym>BRIN</acronym>インデックスに格納される特定のデータと、そのインデックスが対応できる特定のクエリは、インデックスに対応する各々の列に与えられた演算子クラスに依存します。
+線形のソート順を持つデータ型は、ブロックレンジ内の最小値と最大値と格納する演算子クラスを持つことができます。
+たとえば、幾何データ型は、ブロックレンジ内のすべてのオブジェクトを含む外接矩形を持つことでしょう。
  </para>
 
  <para>
+<!--
   The size of the block range is determined at index creation time by
   the <literal>pages_per_range</literal> storage parameter.  The number of index
   entries will be equal to the size of the relation in pages divided by
@@ -57,12 +83,20 @@
   the number, the larger the index becomes (because of the need to
   store more index entries), but at the same time the summary data stored can
   be more precise and more data blocks can be skipped during an index scan.
+-->
+ブロックレンジの大きさは、ストレージパラメータ<literal>pages_per_range</literal>でインデックス作成時に決定されます。
+インデックスエントリの数は、リレーションのページ数を<literal>pages_per_range</literal>に設定した数で割ったものと等しくなります。
+ですから、<literal>pages_per_range</literal>の設定値が小さいほど、インデックスは大きくなります(より多くのインデックスエントリを格納する必要があるので)が、反面、格納されたサマリデータはより精密になり、インデックススキャンの際により多くのデータブロックをスキップすることができるようになります。
  </para>
 
  <sect2 id="brin-operation">
+<!--
   <title>Index Maintenance</title>
+-->
+  <title>インデックスの保守</title>
 
   <para>
+<!--
    At the time of creation, all existing heap pages are scanned and a
    summary index tuple is created for each range, including the
    possibly-incomplete range at the end.
@@ -84,33 +118,58 @@
    <function>brin_desummarize_range(regclass, bigint)</function> function,
    which is useful when the index tuple is no longer a very good
    representation because the existing values have changed.
+-->
+インデックスを作成した当初は、すべてのヒープページがスキャンされ、終端が不完全なものも含め、各々のレンジに対してサマリーインデックスタプルが作成されます。
+新しいページにデータが登録されると、新しいタプルのデータを元に、すでにサマリ済みのページレンジのサマリー情報が更新されます。
+最終サマリーレンジに適合しない新しいページが作成されると、そのレンジに対して自動的にはサマリタプルが作成されません。
+これらのタプルは、後でサマリー処理が走って初期サマリー情報が作成されるまではサマリーされません。
+この処理は<function>brin_summarize_range(regclass, bigint)</function>または<function>brin_summarize_new_values(regclass)</function>関数を起動することで、手動で実行できます。
+あるいは、<command>VACUUM</command>がそのテーブルを処理する際に自動的に起動でき、また、行挿入があった際にautovacuumによって自動サマリ処理が実行されるときにも起動できます。
+（最後の自動処理起動はデフォルトでは無効になっていますが、<literal>autosummarize</literal>パラメータで有効にできます。）
+反対に、レンジは<function>brin_desummarize_range(regclass, bigint)</function>関数で非サマリー化できます。
+これは、既存の値が変更されたためにインデックスタプルがもはや値の表現としては適当でなくなった場合に有効です。
   </para>
 
   <para>
+<!--
    When autosummarization is enabled, each time a page range is filled a
    request is sent to autovacuum for it to execute a targeted summarization
    for that range, to be fulfilled at the end of the next worker run on the
    same database.  If the request queue is full, the request is not recorded
    and a message is sent to the server log:
+-->
+自動サマリー機能が有効な場合、ページレンジが満たされる度に、そのレンジをターゲットとするサマリー機能を実行する要求が自動バキュームに送信されます。
+そしてそのリクエストは、同じデータベースに対してワーカーが次に走る際に、最後のところで実行されます。
+もしリクエストキューが満杯ならばそのリクエストは記録されず、次のメッセージがサーバのログに送信されます。
 <screen>
 LOG:  request for BRIN range summarization for index "brin_wi_idx" page 128 was not recorded
 </screen>
+<!--
    When this happens, the range will be summarized normally during the next
    regular vacuum of the table.
+-->
+この状態が発生すると、そのレンジはテーブルの次の通常バキュームで正常にサマライズされます。
   </para>
  </sect2>
 </sect1>
 
 <sect1 id="brin-builtin-opclasses">
+<!--
  <title>Built-in Operator Classes</title>
+-->
+ <title>組み込み演算子クラス</title>
 
  <para>
+<!--
   The core <productname>PostgreSQL</productname> distribution
   includes the <acronym>BRIN</acronym> operator classes shown in
   <xref linkend="brin-builtin-opclasses-table"/>.
+-->
+<productname>PostgreSQL</productname>のコア配布物には、<xref linkend="brin-builtin-opclasses-table"/>で示される<acronym>BRIN</acronym>演算子クラスが含まれます。
  </para>
 
  <para>
+<!--
   The <firstterm>minmax</firstterm>
   operator classes store the minimum and the maximum values appearing
   in the indexed column within the range.  The <firstterm>inclusion</firstterm>
@@ -120,15 +179,25 @@ LOG:  request for BRIN range summarization for index "brin_wi_idx" page 128 was 
   <firstterm>minmax-multi</firstterm> operator classes store multiple
   minimum and maximum values, representing values appearing in the indexed
   column within the range.
+-->
+<firstterm>minmax</firstterm>演算子クラスは、インデックスが貼られた列の範囲内に現れる最小値と最大値を格納します。
+<firstterm>inclusion</firstterm>演算子クラスは、インデックスが貼られた列の範囲内に含まれる値を格納します。
  </para>
 
  <table id="brin-builtin-opclasses-table">
+<!--
   <title>Built-in <acronym>BRIN</acronym> Operator Classes</title>
+-->
+  <title>組み込み<acronym>BRIN</acronym>演算子クラス</title>
   <tgroup cols="2">
    <thead>
     <row>
+<!--
      <entry>Name</entry>
      <entry>Indexable Operators</entry>
+-->
+     <entry>名前</entry>
+     <entry>インデックス可能な演算子</entry>
     </row>
    </thead>
    <tbody>
@@ -775,36 +844,54 @@ LOG:  request for BRIN range summarization for index "brin_wi_idx" page 128 was 
 </sect1>
 
 <sect1 id="brin-extensibility">
+<!--
  <title>Extensibility</title>
+-->
+ <title>拡張性</title>
 
  <para>
+<!--
   The <acronym>BRIN</acronym> interface has a high level of abstraction,
   requiring the access method implementer only to implement the semantics
   of the data type being accessed.  The <acronym>BRIN</acronym> layer
   itself takes care of concurrency, logging and searching the index structure.
+-->
+<acronym>BRIN</acronym>のインタフェースは高度に抽象化されており、アクセスメソッドを実装する人は、アクセスされるデータ型のセマンティクスを実装するだけで良いようになっています。
+<acronym>BRIN</acronym>層は、同時実行性、ログ、インデックス構造の検索を担当します。
  </para>
 
  <para>
+<!--
   All it takes to get a <acronym>BRIN</acronym> access method working is to
   implement a few user-defined methods, which define the behavior of
   summary values stored in the index and the way they interact with
   scan keys.
   In short, <acronym>BRIN</acronym> combines
   extensibility with generality, code reuse, and a clean interface.
+-->
+<acronym>BRIN</acronym>アクセスメソッドを動作させるために必要なのは、インデックスに格納された要約値の振る舞いと、それらがインデックススキャンする際にどう関係するのかを定義する少数のメソッドを実装することだけです。
+つまり、<acronym>BRIN</acronym>は一般性、コードの再利用性、整理されたインタフェースと拡張性を同時に実現しています。
  </para>
 
  <para>
+<!--
   There are four methods that an operator class for <acronym>BRIN</acronym>
   must provide:
+-->
+<acronym>BRIN</acronym>用の演算子クラスは、4つのメソッドを提供する必要があります。
 
   <variablelist>
    <varlistentry>
     <term><function>BrinOpcInfo *opcInfo(Oid type_oid)</function></term>
     <listitem>
      <para>
+<!--
       Returns internal information about the indexed columns' summary data.
       The return value must point to a palloc'd <structname>BrinOpcInfo</structname>,
       which has this definition:
+-->
+インデックスが貼られた列の要約データに関する内部情報を返します。
+返却値はpallocされたBrinOpcInfoへのポインタでなければなりません。BrinOpcInfoは以下の定義を持ちます。
 <programlisting>
 typedef struct BrinOpcInfo
 {
@@ -818,9 +905,12 @@ typedef struct BrinOpcInfo
     TypeCacheEntry *oi_typcache[FLEXIBLE_ARRAY_MEMBER];
 } BrinOpcInfo;
 </programlisting>
+<!--
       <structname>BrinOpcInfo</structname>.<structfield>oi_opaque</structfield> can be used by the
       operator class routines to pass information between support functions
       during an index scan.
+-->
+<structname>BrinOpcInfo</structname>.<structfield>oi_opaque</structfield>は、演算子クラスのルーチンが、インデックススキャン中にサポート関数同士で情報のやり取りをするために使うことができます。
      </para>
     </listitem>
    </varlistentry>
@@ -844,10 +934,14 @@ typedef struct BrinOpcInfo
        ScanKey key)</function></term>
     <listitem>
      <para>
+<!--
       Returns whether the ScanKey is consistent with the given indexed
       values for a range.
       The attribute number to use is passed as part of the scan key.
       This is an older backward-compatible variant of the consistent function.
+-->
+ScanKeyがある範囲のインデックス値と一致しているかどうかを返します。
+属性の数はスキャンキーの一部として渡されます。
      </para>
     </listitem>
    </varlistentry>
@@ -857,10 +951,14 @@ typedef struct BrinOpcInfo
        Datum newval, bool isnull)</function></term>
     <listitem>
      <para>
+<!--
       Given an index tuple and an indexed value, modifies the indicated
       attribute of the tuple so that it additionally represents the new value.
       If any modification was done to the tuple, <literal>true</literal> is
       returned.
+-->
+追加された新しい値をインデックスが表現できるように、与えられたインデックスタプルとインデックス値にしたがい、タプルの指定アトリビュートを変更します。
+タプルの更新が行われれば、<literal>true</literal>が返却されます。
      </para>
     </listitem>
    </varlistentry>
@@ -870,44 +968,63 @@ typedef struct BrinOpcInfo
        BrinValues *b)</function></term>
     <listitem>
      <para>
+<!--
       Consolidates two index tuples. Given two index tuples, modifies the
       indicated attribute of the first of them so that it represents both tuples.
       The second tuple is not modified.
+-->
+2つのインデックスタプルを統合します。
+与えられた2つのインデックスタプルのうち、最初のインデックスタプルを変更して、両方のタプルを表現できるようにします。
+2番目のタプルは変更されません。
      </para>
     </listitem>
    </varlistentry>
   </variablelist>
 
+<!--
   An operator class for <acronym>BRIN</acronym> can optionally specify the
   following method:
+-->
+省略可能ですが、<acronym>BRIN</acronym>に対する演算子クラスは以下のメソッドを指定できます。
 
   <variablelist>
     <varlistentry>
      <term><function>void options(local_relopts *relopts)</function></term>
      <listitem>
       <para>
+<!--
        Defines a set of user-visible parameters that control operator class
        behavior.
+-->
+演算子クラスの振舞いを制御するユーザに可視のパラメータの集合を定義します。
       </para>
 
       <para>
+<!--
        The <function>options</function> function is passed a pointer to a
        <structname>local_relopts</structname> struct, which needs to be
        filled with a set of operator class specific options.  The options
        can be accessed from other support functions using the
        <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
        <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
+-->
+<function>options</function>関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
       </para>
 
       <para>
+<!--
        Since both key extraction of indexed values and representation of the
        key in <acronym>BRIN</acronym> are flexible, they may depend on
        user-specified parameters.
+-->
+インデックス付けされた値からのキーの抽出にも<acronym>BRIN</acronym>でのキーの表現にも柔軟性がありますので、ユーザに固有のパラメータに依存するかもしれません。
       </para>
      </listitem>
     </varlistentry>
   </variablelist>
 
+<!--
   The core distribution includes support for four types of operator classes:
   minmax, minmax-multi, inclusion and bloom.  Operator class definitions
   using them are shipped for in-core data types as appropriate.  Additional
@@ -916,33 +1033,55 @@ typedef struct BrinOpcInfo
   appropriate catalog entries being declared is enough.  Note that
   assumptions about the semantics of operator strategies are embedded in the
   support functions' source code.
+-->
+コア配布物には、2種類の演算子クラスが含まれます。すなわち、minmaxとinclusionです。
+それらを使った演算子クラスの定義がコア配布物に必要に応じて含まれます。
+同じ定義を使って、ユーザは他のデータ型のために演算子クラスを定義することができます。
+そのためにソースコードを書く必要はありません。適切なシステムカタログの定義があれば十分です。
+演算子ストラテジのセマンティクスは、サポート関数のソースコード中に埋め込まれていることに注意してください。
  </para>
 
  <para>
+<!--
   Operator classes that implement completely different semantics are also
   possible, provided implementations of the four main support functions
   described above are written.  Note that backwards compatibility across major
   releases is not guaranteed: for example, additional support functions might
   be required in later releases.
+-->
+前述の4つの主要なサポート関数を実装することにより、まったく異なるセマンティクスを実装する演算子クラスも可能です。
+なお、メジャーリリース間では下位互換性は保証されていません。
+たとえば、新しいリリースでは、サポート関数が追加で必要になるかもしれません。
  </para>
 
  <para>
+<!--
   To write an operator class for a data type that implements a totally
   ordered set, it is possible to use the minmax support functions
   alongside the corresponding operators, as shown in
   <xref linkend="brin-extensibility-minmax-table"/>.
   All operator class members (functions and operators) are mandatory.
+-->
+<xref linkend="brin-extensibility-minmax-table"/>で示すように、全順序集合を実装するデータ型のための演算子クラスを書くために、関連する演算子とともにminmaxサポート関数を使うことができます。
+演算子クラスのメンバー(関数と演算子)はすべて必須です。
  </para>
 
  <table id="brin-extensibility-minmax-table">
+<!--
   <title>Function and Support Numbers for Minmax Operator Classes</title>
+-->
+  <title>Minmax演算子クラスの関数とサポート番号</title>
   <tgroup cols="2">
    <colspec colname="col1" colwidth="1*"/>
    <colspec colname="col2" colwidth="2*"/>
    <thead>
     <row>
+<!--
      <entry>Operator class member</entry>
      <entry>Object</entry>
+-->
+     <entry>演算子クラスメンバー</entry>
+     <entry>オブジェクト</entry>
     </row>
    </thead>
    <tbody>
@@ -987,6 +1126,7 @@ typedef struct BrinOpcInfo
  </table>
 
  <para>
+<!--
   To write an operator class for a complex data type which has values
   included within another type, it's possible to use the inclusion support
   functions alongside the corresponding operators, as shown
@@ -995,19 +1135,33 @@ typedef struct BrinOpcInfo
   More functions can be defined for additional functionality.  All operators
   are optional.  Some operators require other operators, as shown as
   dependencies on the table.
+-->
+<xref linkend="brin-extensibility-inclusion-table"/>で示すように、他のデータ型の値を含む複合データ型の演算子クラスを書くには、関連する演算子とともに、inclusionサポート関数を使うことができます。
+任意の言語で書かれたたったひとつの関数を追加するだけです。
+機能を追加するために関数を追加できます。
+すべての演算子はオプションです。
+表の中依存性の項目で示されているように、ある種の演算子は他の演算子を必要とすることもあります。
  </para>
 
  <table id="brin-extensibility-inclusion-table">
+<!--
   <title>Function and Support Numbers for Inclusion Operator Classes</title>
+-->
+  <title>Inclusion演算子クラスの関数とサポート番号</title>
   <tgroup cols="3">
    <colspec colname="col1" colwidth="1*"/>
    <colspec colname="col2" colwidth="2*"/>
    <colspec colname="col3" colwidth="1*"/>
    <thead>
     <row>
+<!--
      <entry>Operator class member</entry>
      <entry>Object</entry>
      <entry>Dependency</entry>
+-->
+     <entry>演算子クラスメンバー</entry>
+     <entry>オブジェクト</entry>
+     <entry>依存性</entry>
     </row>
    </thead>
    <tbody>
@@ -1136,6 +1290,7 @@ typedef struct BrinOpcInfo
  </table>
 
  <para>
+<!--
     Support function numbers 1 through 10 are reserved for the BRIN internal
     functions, so the SQL level functions start with number 11.  Support
     function number 11 is the main function required to build the index.
@@ -1144,9 +1299,16 @@ typedef struct BrinOpcInfo
     values with different data types if it is defined with the
     <literal>STORAGE</literal> parameter.  The return value of the union
     function should match the <literal>STORAGE</literal> data type.
+-->
+サポート関数番号1から10は、BRINの内部関数用に予約されており、SQLレベルの関数は番号11から始まります。
+サポート関数11は、インデックスを構築するのに必要なメイン関数です。
+その関数は演算子クラスと同じデータ型を持つ2つの引数を受け取り、それらの和を返します。
+もし<literal>STORAGE</literal>パラメータで定義されていれば、inclusion 演算子クラスは異なるデータ型の和を格納できます。
+和関数の返り値は、<literal>STORAGE</literal>データ型と一致していなければなりません。
  </para>
 
  <para>
+<!--
     Support function numbers 12 and 14 are provided to support
     irregularities of built-in data types.  Function number 12
     is used to support network addresses from different families which
@@ -1156,6 +1318,12 @@ typedef struct BrinOpcInfo
     it is passed to the union function.  As the BRIN framework can shortcut
     some operations when the union is not changed, using this
     function can improve index performance.
+-->
+サポート関数番号12と14は、組み込みデータ型の例外事象をサポートするために提供されます。
+サポート関数番号12は、マージできない異なるファミリーのネットワークアドレスをサポートするために使用されます。
+サポート関数番号14は、空のレンジをサポートするために使用されます。
+サポート関数番号13はオプションですが、和関数に渡される前に新しい値のチェックを行うためのものとして推奨されます。
+BRINフレームワークは和が変化しない時に操作を省略することができるため、この関数を使うことによってインデックスの性能が向上する可能性があります。
  </para>
 
  <para>
@@ -1279,6 +1447,7 @@ typedef struct BrinOpcInfo
  </table>
 
  <para>
+<!--
     Both minmax and inclusion operator classes support cross-data-type
     operators, though with these the dependencies become more complicated.
     The minmax operator class requires a full set of operators to be
@@ -1293,6 +1462,14 @@ typedef struct BrinOpcInfo
     right-hand-side argument of the supported operator.  See
     <literal>float4_minmax_ops</literal> as an example of minmax, and
     <literal>box_inclusion_ops</literal> as an example of inclusion.
+-->
+minmaxとinclusion演算子クラスは、データ型をまたがる演算子をサポートします。
+しかし、これらを使用すると依存関係はより複雑になります。
+minmax演算子クラスは、両方の引数がデータ型が同じ型である完全な演算子のセットが必要になります。
+追加の演算子の組を定義することにより、追加のデータ型をサポートすることができます。
+<xref linkend="brin-extensibility-inclusion-table"/>で示すように、inclusion演算子クラスのストラテジは、他の演算子クラスのストラテジに依存するか、自分自身の演算子クラスのストラテジに依存します。
+演算子クラスは、依存演算子が<literal>STORAGE</literal>データ型とともにサポートするデータ型の左辺引数、他のサポートするデータ型をサポートする演算子の右辺引数として定義される必要があります。
+minmaxの例として<literal>float4_minmax_ops</literal>、inclusionの例として<literal>box_inclusion_ops</literal>を参照してください。
  </para>
 </sect1>
 </chapter>

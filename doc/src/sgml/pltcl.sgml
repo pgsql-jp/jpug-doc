@@ -1,7 +1,10 @@
 <!-- doc/src/sgml/pltcl.sgml -->
 
  <chapter id="pltcl">
+<!--
   <title>PL/Tcl &mdash; Tcl Procedural Language</title>
+-->
+<title>PL/Tcl &mdash; Tcl手続き言語</title>
 
   <indexterm zone="pltcl">
    <primary>PL/Tcl</primary>
@@ -12,25 +15,36 @@
   </indexterm>
 
   <para>
+<!--
    PL/Tcl is a loadable procedural language for the
    <productname>PostgreSQL</productname> database system
    that enables the <ulink url="https://www.tcl.tk/">
    Tcl language</ulink> to be used to write
    <productname>PostgreSQL</productname> functions and procedures.
+-->
+PL/Tclとは、<productname>PostgreSQL</productname>データベースシステムにロード可能な手続き言語で、<ulink url="https://www.tcl.tk/">Tcl言語</ulink>を使った<productname>PostgreSQL</productname>関数を作成できます。
   </para>
 
-  <!-- **** PL/Tcl overview **** -->
+  <!-- 原文コメント**** PL/Tcl overview **** -->
 
   <sect1 id="pltcl-overview">
+<!--
    <title>Overview</title>
+-->
+<title>概要</title>
 
    <para>
+<!--
     PL/Tcl offers most of the capabilities a function writer has in
     the C language, with a few restrictions, and with the addition of
     the powerful string processing libraries that are available for
     Tcl.
+-->
+PL/Tclは、いくつか制限がありますが、C言語で書かれた関数と同じような能力を提供します。
+さらに、Tclで利用できる、強力な文字列処理ライブラリを持っています。
    </para>
    <para>
+<!--
     One compelling <emphasis>good</emphasis> restriction is that
     everything is executed from within the safety of the context of a
     Tcl interpreter.  In addition to the limited command set of safe
@@ -41,13 +55,23 @@
     <productname>PostgreSQL</productname> server process, as a C
     function can do.  Thus, unprivileged database users can be trusted
     to use this language; it does not give them unlimited authority.
+-->
+すべてがTclインタプリタの安全なコンテキスト内で実行されるという制約はやむを得ないものですが、逆に<emphasis>良い</emphasis>制約でもあります。
+安全なTclの制約付きのコマンドセットに、SPIを使ってデータベースにアクセスするコマンドと、<function>elog()</function>を使ってメッセージを処理するためのコマンドなどの、わずかなコマンドが追加されています。
+C関数では可能ですが、PL/Tclにはデータベースサーバ内部にアクセスする方法や、<productname>PostgreSQL</productname>サーバプロセスの権限によるOSレベルのアクセスを行う方法はありません。
+この結果、非特権データベースユーザがこの言語を信頼して使用することができます。
+つまり、無制限の権限は与えられません。
    </para>
    <para>
+<!--
     The other notable implementation restriction is that Tcl functions
     cannot be used to create input/output functions for new data
     types.
+-->
+その他の注意すべき実装上の制約として、Tcl関数を使用して新しいデータ型用の入出力関数を作成することはできません。
    </para>
    <para>
+<!--
     Sometimes it is desirable to write Tcl functions that are not restricted
     to safe Tcl.  For example, one might want a Tcl function that sends
     email.  To handle these cases, there is a variant of <application>PL/Tcl</application> called <literal>PL/TclU</literal>
@@ -58,8 +82,16 @@
     function must take care that the function cannot be used to do anything
     unwanted, since it will be able to do anything that could be done by
     a user logged in as the database administrator.
+-->
+例えば、メールを送るTcl関数が必要な場合など、安全なTclに制約されないTcl関数を書くことが望ましい場合があります。
+このような場合、<literal>PL/TclU</literal>（信頼されないTcl）という<application>PL/Tcl</application>の亜種を使用します。
+これは、完全なTclインタプリタが使用されているという点以外の違いはありません。
+<emphasis><application>PL/TclU</application>を使用する場合は、信頼されていない手続き言語としてインストールする必要があります</emphasis>。
+そうすることによって、データベースのスーパーユーザのみが関数を作成することができるようになります。
+<application>PL/TclU</application>関数ではデータベース管理者としてログインしたユーザができるあらゆることの実行が可能となるので、作成する際に、この関数が意図された以外のことを行わないように細心の注意を払う必要があります。
    </para>
    <para>
+<!--
     The shared object code for the <application>PL/Tcl</application> and
     <application>PL/TclU</application> call handlers is automatically built and
     installed in the <productname>PostgreSQL</productname> library
@@ -69,29 +101,46 @@
     <command>CREATE EXTENSION</command> command, for example
     <literal>CREATE EXTENSION pltcl</literal> or
     <literal>CREATE EXTENSION pltclu</literal>.
+-->
+インストール時にTclサポートの設定が指定されていれば、<application>PL/Tcl</application>と<application>PL/TclU</application>呼び出しハンドラの共有オブジェクトコードは自動的に作成され、<productname>PostgreSQL</productname>のライブラリディレクトリにインストールされます。
+<application>PL/Tcl</application>または<application>PL/TclU</application>の一方あるいは両方を特定のデータベースにインストールしたい場合は、<command>CREATE EXTENSION</command>コマンドを使用してください。
+例えば、<literal>CREATE EXTENSION pltcl</literal>あるいは<literal>CREATE EXTENSION pltclu</literal>です。
    </para>
   </sect1>
 
-  <!-- **** PL/Tcl description **** -->
+  <!-- 原文コメント**** PL/Tcl description **** -->
 
    <sect1 id="pltcl-functions">
+<!--
     <title>PL/Tcl Functions and Arguments</title>
+-->
+<title>PL/Tcl関数と引数</title>
 
     <para>
+<!--
      To create a function in the <application>PL/Tcl</application> language, use
      the standard <xref linkend="sql-createfunction"/> syntax:
+-->
+<application>PL/Tcl</application>言語で関数を作成するには、以下の標準的な<xref linkend="sql-createfunction"/>構文を使用してください。
 
 <programlisting>
 CREATE FUNCTION <replaceable>funcname</replaceable> (<replaceable>argument-types</replaceable>) RETURNS <replaceable>return-type</replaceable> AS $$
+<!--
     # PL/Tcl function body
+-->
+    # PL/Tcl関数本体
 $$ LANGUAGE pltcl;
 </programlisting>
 
+<!--
      <application>PL/TclU</application> is the same, except that the language has to be specified as
      <literal>pltclu</literal>.
+-->
+<application>PL/TclU</application>でも、言語に<literal>pltclu</literal>を指定しなければならない点以外は同様です。
     </para>
 
     <para>
+<!--
      The body of the function is simply a piece of Tcl script.
      When the function is called, the argument values are passed to the
      Tcl script as variables named <literal>1</literal>
@@ -99,11 +148,19 @@ $$ LANGUAGE pltcl;
      returned from the Tcl code in the usual way, with
      a <literal>return</literal> statement.  In a procedure, the return value
      from the Tcl code is ignored.
+-->
+関数本体は、単なる小さなTclスクリプトです。
+関数が呼び出された時、引数の値はTclスクリプトに<literal>1</literal> ... <literal><replaceable>n</replaceable></literal>という名前の変数として渡されます。
+結果は通常通り<literal>return</literal>文を使用してTclのコードから返されます。
+プロシージャでは、Tclコードからの戻り値は無視されます。
     </para>
 
     <para>
+<!--
      For example, a function
      returning the greater of two integer values could be defined as:
+-->
+例えば、2つの整数のうち大きな方を返す関数は以下のように定義できます。
 
 <programlisting>
 CREATE FUNCTION tcl_max(integer, integer) RETURNS integer AS $$
@@ -112,13 +169,19 @@ CREATE FUNCTION tcl_max(integer, integer) RETURNS integer AS $$
 $$ LANGUAGE pltcl STRICT;
 </programlisting>
 
+<!--
      Note the clause <literal>STRICT</literal>, which saves us from
      having to think about null input values: if a null value is passed, the
      function will not be called at all, but will just return a null
      result automatically.
+-->
+<literal>STRICT</literal>句に注意してください。
+これによりプログラマは、入力にNULL値が与えられた場合を検討する手間を省くことができます。
+NULLが渡された場合、関数はまったく呼び出されず、単にNULLという結果が自動的に返されます。
     </para>
 
     <para>
+<!--
      In a nonstrict function,
      if the actual value of an argument is null, the corresponding
      <literal>$<replaceable>n</replaceable></literal> variable will be set to an empty string.
@@ -126,6 +189,10 @@ $$ LANGUAGE pltcl STRICT;
      <literal>argisnull</literal>.  For example, suppose that we wanted <function>tcl_max</function>
      with one null and one nonnull argument to return the nonnull
      argument, rather than null:
+-->
+厳密（strict）でない関数では、引数の実際の値がNULLである場合、対応する<literal>$<replaceable>n</replaceable></literal>変数は空文字列に設定されます。
+ある引数がNULLかどうかを検出するためには、<literal>argisnull</literal>関数を使用してください。
+例えば、引数の片方がNULL、もう片方が非NULLであって、NULLではなく、非NULLの引数の方を返す<function>tcl_max</function>を考えると、以下のようになります。
 
 <programlisting>
 CREATE FUNCTION tcl_max(integer, integer) RETURNS integer AS $$
@@ -141,17 +208,27 @@ $$ LANGUAGE pltcl;
     </para>
 
     <para>
+<!--
      As shown above,
      to return a null value from a PL/Tcl function, execute
      <literal>return_null</literal>.  This can be done whether the
      function is strict or not.
+-->
+上で示した通り、NULL値をPL/Tcl関数から返すためには、<literal>return_null</literal>を実行してください。
+これは、関数が厳密かどうかに関係なく、実行することができます。
     </para>
 
     <para>
+<!--
      Composite-type arguments are passed to the function as Tcl
      arrays.  The element names of the array are the attribute names
      of the composite type. If an attribute in the passed row has the
      null value, it will not appear in the array. Here is an example:
+-->
+複合型の引数は、Tcl配列として関数に渡されます。
+配列の要素名は複合型の属性名です。
+渡された行の属性がNULL値の場合、その属性は配列内には現れません。
+以下に例を示します。
 
 <programlisting>
 CREATE TABLE employee (
@@ -173,11 +250,17 @@ $$ LANGUAGE pltcl;
     </para>
 
     <para>
+<!--
      PL/Tcl functions can return composite-type results, too.  To do this,
      the Tcl code must return a list of column name/value pairs matching
      the expected result type.  Any column names omitted from the list
      are returned as nulls, and an error is raised if there are unexpected
      column names.  Here is an example:
+-->
+PL/Tcl関数は複合型の結果を返すこともできます。
+このためには、Tclコードは期待する結果型と一致する列の名前/値のペアのリストを返さなければなりません。
+そのリストで省略された列名は結果がNULLになり、期待されない列名があるとエラーが生じます。
+例を示します。
 
 <programlisting>
 CREATE FUNCTION square_cube(in int, out squared int, out cubed int) AS $$
@@ -187,7 +270,10 @@ $$ LANGUAGE pltcl;
     </para>
 
     <para>
+<!--
      Output arguments of procedures are returned in the same way, for example:
+-->
+プロシージャの出力引数は同様に返されます。以下に例を示します。
 
 <programlisting>
 CREATE PROCEDURE tcl_triple(INOUT a integer, INOUT b integer) AS $$
@@ -200,8 +286,11 @@ CALL tcl_triple(5, 10);
 
     <tip>
      <para>
+<!--
       The result list can be made from an array representation of the
       desired tuple with the <literal>array get</literal> Tcl command.  For example:
+-->
+<literal>array get</literal> Tclコマンドを使って、希望するタプルの配列表現から結果リストを作成することができます。
 
 <programlisting>
 CREATE FUNCTION raise_pay(employee, delta int) RETURNS employee AS $$
@@ -213,11 +302,17 @@ $$ LANGUAGE pltcl;
     </tip>
 
     <para>
+<!--
      PL/Tcl functions can return sets.  To do this, the Tcl code should
      call <function>return_next</function> once per row to be returned,
      passing either the appropriate value when returning a scalar type,
      or a list of column name/value pairs when returning a composite type.
      Here is an example returning a scalar type:
+-->
+PL/Tcl関数は集合を返すことができます。
+このためにはTclコードで、<function>return_next</function>を返却する行ごとに呼び出します。
+スカラー値を返却する場合は適切な値を、複合型を返す場合は列の名前/値ペアのリストを渡します。
+スカラー型を返す例を示します。
 
 <programlisting>
 CREATE FUNCTION sequence(int, int) RETURNS SETOF int AS $$
@@ -227,7 +322,10 @@ CREATE FUNCTION sequence(int, int) RETURNS SETOF int AS $$
 $$ LANGUAGE pltcl;
 </programlisting>
 
+<!--
      and here is one returning a composite type:
+-->
+複合型を返す例を示します。
 
 <programlisting>
 CREATE FUNCTION table_of_squares(int, int) RETURNS TABLE (x int, x2 int) AS $$
@@ -241,36 +339,55 @@ $$ LANGUAGE pltcl;
    </sect1>
 
    <sect1 id="pltcl-data">
+<!--
     <title>Data Values in PL/Tcl</title>
+-->
+<title>PL/Tclにおけるデータの値</title>
 
     <para>
+<!--
      The argument values supplied to a PL/Tcl function's code are simply
      the input arguments converted to text form (just as if they had been
      displayed by a <command>SELECT</command> statement).  Conversely, the
      <literal>return</literal> and <literal>return_next</literal> commands will accept
      any string that is acceptable input format for the function's declared
      result type, or for the specified column of a composite result type.
+-->
+PL/Tcl関数コードに与えられる引数の値は、単に、テキスト形式（<command>SELECT</command>文によりそれを表示した場合と同じ形式）に変換された入力引数です。
+逆に、<literal>return</literal>コマンドと<literal>return_next</literal>コマンドは、その関数宣言における戻り値の型、あるいは複合型の戻り値型の入力書式として受け付けることができる、任意の文字列を受け付けます。
     </para>
 
    </sect1>
 
    <sect1 id="pltcl-global">
+<!--
     <title>Global Data in PL/Tcl</title>
+-->
+<title>PL/Tclにおけるグローバルデータ</title>
 
     <indexterm zone="pltcl-global">
+<!--
      <primary>global data</primary>
      <secondary>in PL/Tcl</secondary>
+-->
+     <primary>グローバルデータ</primary>
+     <secondary>PL/Tclにおける</secondary>
     </indexterm>
 
     <para>
+<!--
      Sometimes it
      is useful to have some global data that is held between two
      calls to a function or is shared between different functions.
      This is easily done in PL/Tcl, but there are some restrictions that
      must be understood.
+-->
+ある関数の複数の呼び出し間で保持される、もしくは、異なる関数間で共有されるような、いくつかのグローバルデータを持つことが有意な場合があります。
+これはPL/Tclで簡単に実現できますが、理解する必要がある制限がいくつかあります。
     </para>
 
     <para>
+<!--
      For security reasons, PL/Tcl executes functions called by any one SQL
      role in a separate Tcl interpreter for that role.  This prevents
      accidental or malicious interference by one user with the behavior of
@@ -285,18 +402,32 @@ $$ LANGUAGE pltcl;
      the same user, and mark them <literal>SECURITY DEFINER</literal>.  You must of
      course take care that such functions can't be used to do anything
      unintended.
+-->
+セキュリティ上の理由のため、PL/Tclは、任意のSQLロールによって呼び出された関数をそのロール用の別のTclインタプリタで実行します。
+これにより、他のユーザのPL/Tcl関数の処理によってあるユーザへの事故または悪意の干渉を防止します。
+こうしたインタプリタはそれぞれ任意の<quote>グローバル</quote>なTcl変数を持ちます。
+したがって、同じSQLロールにより実行されていれば、２つのPL/Tcl関数は同じグローバル変数を共有します。
+単一セッション内で（<literal>SECURITY DEFINER</literal>関数または<command>SET ROLE</command>などを通して）複数のSQLロールでコードを実行するアプリケーションでは、PL/Tcl関数が確実にデータを共有できるように明示的な処理を行う必要があるかもしれません。
+このためには、通信しなければならない関数が同一ユーザで所有されていること、および、それが<literal>SECURITY DEFINER</literal>として印がついていることを確実にしてください。
+当然ながら、こうした関数が意図しない動作を行うために使われることのないよう注意しなければなりません。
     </para>
 
     <para>
+<!--
      All PL/TclU functions used in a session execute in the same Tcl
      interpreter, which of course is distinct from the interpreter(s)
      used for PL/Tcl functions.  So global data is automatically shared
      between PL/TclU functions.  This is not considered a security risk
      because all PL/TclU functions execute at the same trust level,
      namely that of a database superuser.
+-->
+セッション内で使用されるすべてのPL/TclU関数は、当然ながらPL/Tcl関数とは別のインタプリタですが、同一のTclインタプリタ内で実行されます。
+このためPL/TclU関数間ではグローバルデータは自動的に共有されます。
+すべてのPL/TclU関数は同じ信頼レベル、すなわちデータベーススーパーユーザで実行されますので、これはセキュリティ上危険とはみなされません。
     </para>
 
     <para>
+<!--
      To help protect PL/Tcl functions from unintentionally interfering
      with each other, a global
      array is made available to each function via the <function>upvar</function>
@@ -308,20 +439,36 @@ $$ LANGUAGE pltcl;
      multiple functions.  (Note that the <literal>GD</literal> arrays are only
      global within a particular interpreter, so they do not bypass the
      security restrictions mentioned above.)
+-->
+PL/Tcl関数が予期しない相互作用に巻き込まれないようにするために、<function>upvar</function>コマンドを使用することによって、各関数でアクセスできるグローバルな配列を作成することができます。
+この変数のグローバル名は関数の内部名で、ローカル名は<literal>GD</literal>となります。
+関数の永続局所データでは<literal>GD</literal>を使用することを推奨します。
+複数の関数で共用させる予定の値に対してのみ、通常のTclのグローバル変数を使用してください。
+（<literal>GD</literal>配列が特定のインタプリタ内のみでグローバルであることに注意してください。
+このため、これらは上記のセキュリティ制限を迂回することはありません。）
     </para>
 
     <para>
+<!--
      An example of using <literal>GD</literal> appears in the
      <function>spi_execp</function> example below.
+-->
+後述の<function>spi_execp</function>の例の中に<literal>GD</literal>の使用例があります。
     </para>
    </sect1>
 
    <sect1 id="pltcl-dbaccess">
+<!--
     <title>Database Access from PL/Tcl</title>
+-->
+<title>PL/Tclからのデータベースアクセス</title>
 
     <para>
+<!--
      The following commands are available to access the database from
      the body of a PL/Tcl function:
+-->
+下記のコマンドは、PL/Tcl関数内からデータベースアクセスを行う時に使用できるコマンドです。
 
     <variablelist>
 
@@ -329,6 +476,7 @@ $$ LANGUAGE pltcl;
       <term><literal><function>spi_exec</function> <optional role="tcl">-count <replaceable>n</replaceable></optional> <optional role="tcl">-array <replaceable>name</replaceable></optional> <replaceable>command</replaceable> <optional role="tcl"><replaceable>loop-body</replaceable></optional></literal></term>
       <listitem>
        <para>
+<!--
         Executes an SQL command given as a string.  An error in the command
         causes an error to be raised.  Otherwise, the return value of <function>spi_exec</function>
         is the number of rows processed (selected, inserted, updated, or
@@ -336,14 +484,24 @@ $$ LANGUAGE pltcl;
         statement.  In addition, if the command is a <command>SELECT</command> statement, the
         values of the selected columns are placed in Tcl variables as
         described below.
+-->
+文字列として与えられたSQL問い合わせを実行します。
+コマンド内のエラーは、エラーの発生となります。
+さもなければ、この<function>spi_exec</function>の戻り値はコマンドによって処理（選択、挿入、更新、削除）された行数、または、コマンドがユーティリティ文の場合はゼロとなります。
+さらに、コマンドが<command>SELECT</command>文の場合、選択された列の値は以下のようにTclの変数に格納されます。
        </para>
        <para>
+<!--
         The optional <literal>-count</literal> value tells
         <function>spi_exec</function> the maximum number of rows
         to process in the command.  The effect of this is comparable to
         setting up a query as a cursor and then saying <literal>FETCH <replaceable>n</replaceable></literal>.
+-->
+<literal>-count</literal>オプションの値は、<function>spi_exec</function>に対し、そのコマンドで処理する最大行数を指示します。
+これにより、問い合わせをカーソルとして設定し、<literal>FETCH <replaceable>n</replaceable></literal>を実行することと同じことができます。
        </para>
        <para>
+<!--
         If the command is a <command>SELECT</command> statement, the values of the
         result columns are placed into Tcl variables named after the columns.
         If the <literal>-array</literal> option is given, the column values are
@@ -352,8 +510,13 @@ $$ LANGUAGE pltcl;
         number within the result (counting from zero) is stored into the array
         element named <quote><literal>.tupno</literal></quote>, unless that name is
         in use as a column name in the result.
+-->
+コマンドが<command>SELECT</command>文の場合、その結果得られた列の値は、列名にちなんだ名前のTcl変数に格納されます。
+<literal>-array</literal>オプションが付与された場合は、列の値は指定された名前の連想配列の要素に格納され、その配列のインデックスとして列名が使用されます。
+加えて、結果内での現在の行番号（ゼロから数えます）が<quote><literal>.tupno</literal></quote>という名前の配列要素に格納されます。ただし、その名前が結果内の列名として使われていない場合に限られます。
        </para>
        <para>
+<!--
         If the command is a <command>SELECT</command> statement and no <replaceable>loop-body</replaceable>
         script is given, then only the first row of results are stored into
         Tcl variables or array elements; remaining rows, if any, are ignored.
@@ -363,10 +526,25 @@ $$ LANGUAGE pltcl;
 <programlisting>
 spi_exec "SELECT count(*) AS cnt FROM pg_proc"
 </programlisting>
+-->
+問い合わせ文が<command>SELECT</command>文、かつ、<replaceable>loop-body</replaceable>スクリプトが付与されなかった場合、結果のうち最初の行だけがTclの変数または配列要素に格納されます。
+他にも行があったとしても、それらは無視されます。
+問い合わせが行を返さなかった場合は、変数への格納は発生しません
+（<function>spi_exec</function>の戻り値を検査することで、これを検出することができます）。
+以下に例を示します。
+
+<programlisting>
+spi_exec "SELECT count(*) AS cnt FROM pg_proc"
+</programlisting>
+
+<!--
         will set the Tcl variable <literal>$cnt</literal> to the number of rows in
         the <structname>pg_proc</structname> system catalog.
+-->
+これは、<literal>$cnt</literal> Tcl変数を、<structname>pg_proc</structname>システムカタログの行数に設定します。
        </para>
        <para>
+<!--
         If the optional <replaceable>loop-body</replaceable> argument is given, it is
         a piece of Tcl script that is executed once for each row in the
         query result.  (<replaceable>loop-body</replaceable> is ignored if the given
@@ -374,19 +552,34 @@ spi_exec "SELECT count(*) AS cnt FROM pg_proc"
         The values of the current row's columns
         are stored into Tcl variables or array elements before each iteration.
         For example:
+-->
+<replaceable>loop-body</replaceable>オプション引数が付与された場合、それは、問い合わせの結果内の行それぞれに対して一度だけ実行される小さなTclスクリプトです
+（<replaceable>loop-body</replaceable>は<command>SELECT</command>以外の問い合わせで付与された場合は無視されます）。
+処理中の行の列値は、各繰り返しの前にTclの変数または配列要素に格納されます。
+以下に例を示します。
+
 <programlisting>
 spi_exec -array C "SELECT * FROM pg_class" {
     elog DEBUG "have table $C(relname)"
 }
 </programlisting>
+
+<!--
         will print a log message for every row of <literal>pg_class</literal>.  This
         feature works similarly to other Tcl looping constructs; in
         particular <literal>continue</literal> and <literal>break</literal> work in the
         usual way inside the loop body.
+-->
+これは、<literal>pg_class</literal>の各行に対してログメッセージを出力します。
+この機能は他のTclの繰り返し構文でも同様に動作します。
+特にループ本体内の<literal>continue</literal>と<literal>break</literal>は通常通り動作します。
        </para>
        <para>
+<!--
         If a column of a query result is null, the target
         variable for it is <quote>unset</quote> rather than being set.
+-->
+問い合わせの結果、列がNULLであった場合、対象となる変数は代入されずに、<quote>未設定状態</quote>になります。
        </para>
       </listitem>
      </varlistentry>
@@ -395,12 +588,18 @@ spi_exec -array C "SELECT * FROM pg_class" {
       <term><function>spi_prepare</function> <replaceable>query</replaceable> <replaceable>typelist</replaceable></term>
       <listitem>
        <para>
+<!--
         Prepares and saves a query plan for later execution.  The
         saved plan will be retained for the life of the current
         session.<indexterm><primary>preparing a query</primary>
         <secondary>in PL/Tcl</secondary></indexterm>
+-->
+後の実行のために問い合わせ計画の準備、保存を行います。
+保存された計画は現在のセッションが終了するまで保持されます。
+<indexterm><primary>問い合わせの準備</primary><secondary>PL/Tclにおける</secondary></indexterm>
        </para>
        <para>
+<!--
         The query can use parameters, that is, placeholders for
         values to be supplied whenever the plan is actually executed.
         In the query string, refer to parameters
@@ -408,11 +607,21 @@ spi_exec -array C "SELECT * FROM pg_class" {
         If the query uses parameters, the names of the parameter types
         must be given as a Tcl list.  (Write an empty list for
         <replaceable>typelist</replaceable> if no parameters are used.)
+-->
+問い合わせはパラメータ、つまり、計画が実際に実行される時に常に与えられる値用のプレースホルダを持つことができます。
+問い合わせ文字列の中では、<literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal>というシンボルを使用して引数を参照してください。
+問い合わせがパラメータを使用する場合、Tclのリストとしてパラメータの型名を指定する必要があります。
+（パラメータを使用しない場合は<replaceable>typelist</replaceable>には空のリストを指定してください。）
        </para>
        <para>
+<!--
         The return value from <function>spi_prepare</function> is a query ID
         to be used in subsequent calls to <function>spi_execp</function>. See
         <function>spi_execp</function> for an example.
+-->
+<function>spi_prepare</function>の戻り値は問い合わせIDです。
+このIDは後に<function>spi_execp</function>を呼び出す時に使用されます。
+使用例については<function>spi_execp</function>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -421,6 +630,7 @@ spi_exec -array C "SELECT * FROM pg_class" {
       <term><literal><function>spi_execp</function> <optional role="tcl">-count <replaceable>n</replaceable></optional> <optional role="tcl">-array <replaceable>name</replaceable></optional> <optional role="tcl">-nulls <replaceable>string</replaceable></optional> <replaceable>queryid</replaceable> <optional role="tcl"><replaceable>value-list</replaceable></optional> <optional role="tcl"><replaceable>loop-body</replaceable></optional></literal></term>
       <listitem>
        <para>
+<!--
         Executes a query previously prepared with <function>spi_prepare</function>.
         <replaceable>queryid</replaceable> is the ID returned by
         <function>spi_prepare</function>.  If the query references parameters,
@@ -429,28 +639,50 @@ spi_exec -array C "SELECT * FROM pg_class" {
         the same length as the parameter type list previously given to
         <function>spi_prepare</function>.  Omit <replaceable>value-list</replaceable>
         if the query has no parameters.
+-->
+<function>spi_prepare</function>により事前に準備された問い合わせを実行します。
+<replaceable>queryid</replaceable>は<function>spi_prepare</function>により返されたIDです。
+その問い合わせがパラメータを参照する場合、<replaceable>value-list</replaceable>を与える必要があります。
+これは、そのパラメータの実際の値を持つTclのリストです。
+このリストの長さは、事前に<function>spi_prepare</function>で指定した引数型のリストの長さと同じでなければなりません。
+問い合わせにパラメータがない場合は、<replaceable>value-list</replaceable>を省略してください。
        </para>
        <para>
+<!--
         The optional value for <literal>-nulls</literal> is a string of spaces and
         <literal>'n'</literal> characters telling <function>spi_execp</function>
         which of the parameters are null values. If given, it must have exactly the
         same length as the <replaceable>value-list</replaceable>.  If it
         is not given, all the parameter values are nonnull.
+-->
+<literal>-nulls</literal>オプションの値は、空白文字と<literal>'n'</literal>という文字からなる文字列で、<function>spi_execp</function>に対し、どの引数がNULL値かを示します。
+指定された場合、その文字列の長さは<replaceable>value-list</replaceable>の長さと正確に一致していなければなりません。
+指定されない場合は、すべてのパラメータの値は非NULLです。
        </para>
        <para>
+<!--
         Except for the way in which the query and its parameters are specified,
         <function>spi_execp</function> works just like <function>spi_exec</function>.
         The <literal>-count</literal>, <literal>-array</literal>, and
         <replaceable>loop-body</replaceable> options are the same,
         and so is the result value.
+-->
+問い合わせとそのパラメータをどこで指定するのかという点を除き、<function>spi_execp</function>は<function>spi_exec</function>と同様に動作します。
+<literal>-count</literal>、<literal>-array</literal>、<replaceable>loop-body</replaceable>オプションも、そして、結果の値も同じです。
        </para>
        <para>
+<!--
         Here's an example of a PL/Tcl function using a prepared plan:
+-->
+ここで、プリペアド計画を使用した、PL/Tcl関数の例を示します。
 
 <programlisting>
 CREATE FUNCTION t1_count(integer, integer) RETURNS integer AS $$
     if {![ info exists GD(plan) ]} {
+<!--
         # prepare the saved plan on the first call
+-->
+        # 最初の呼び出しでは保存する計画を準備します。
         set GD(plan) [ spi_prepare \
                 "SELECT count(*) AS cnt FROM t1 WHERE num &gt;= \$1 AND num &lt;= \$2" \
                 [ list int4 int4 ] ]
@@ -460,11 +692,14 @@ CREATE FUNCTION t1_count(integer, integer) RETURNS integer AS $$
 $$ LANGUAGE pltcl;
 </programlisting>
 
+<!--
         We need backslashes inside the query string given to
         <function>spi_prepare</function> to ensure that the
         <literal>$<replaceable>n</replaceable></literal> markers will be passed
         through to <function>spi_prepare</function> as-is, and not replaced by Tcl
         variable substitution.
+-->
+<function>spi_prepare</function>に与える問い合わせ文字列の内側では、<literal>$<replaceable>n</replaceable></literal>記号が確実にそのまま<function>spi_prepare</function>に渡され、Tcl変数の代入による置き換えが起こらないようにバックスラッシュが必要です。
 
        </para>
       </listitem>
@@ -474,12 +709,17 @@ $$ LANGUAGE pltcl;
       <term><function>subtransaction</function> <replaceable>command</replaceable></term>
       <listitem>
        <para>
+<!--
         The Tcl script contained in <replaceable>command</replaceable> is
         executed within an SQL subtransaction.  If the script returns an
         error, that entire subtransaction is rolled back before returning the
         error out to the surrounding Tcl code.
         See <xref linkend="pltcl-subtransactions"/> for more details and an
         example.
+-->
+<replaceable>command</replaceable>に含まれるTclスクリプトが、SQLサブトランザクション中で実行されます。
+スクリプトがエラーを返すと、上位のTclコードにエラーを返す前に、そのサブトランザクションをロールバックします。
+更なる詳細と使用例については<xref linkend="pltcl-subtransactions"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -488,43 +728,62 @@ $$ LANGUAGE pltcl;
       <term><function>quote</function> <replaceable>string</replaceable></term>
       <listitem>
        <para>
+<!--
         Doubles all occurrences of single quote and backslash characters
         in the given string.  This can be used to safely quote strings
         that are to be inserted into SQL commands given
         to <function>spi_exec</function> or
         <function>spi_prepare</function>.
         For example, think about an SQL command string like:
+-->
+指定された文字列内のすべての単一引用符とバックスラッシュ文字を二重化します。
+<function>spi_exec</function>や<function>spi_prepare</function>で与えられたSQL問い合わせに挿入される予定の文字列を安全に引用符付けするために、これを使用することができます。
+例えば、以下のような問い合わせ文字列を考えます。
 
 <programlisting>
 "SELECT '$val' AS ret"
 </programlisting>
 
+<!--
         where the Tcl variable <literal>val</literal> actually contains
         <literal>doesn't</literal>. This would result
         in the final command string:
+-->
+ここで、<literal>val</literal> Tcl変数に<literal>doesn't</literal>が実際に含まれているものとします。
+これは最終的に以下の問い合わせ文字列になってしまいます。
 
 <programlisting>
 SELECT 'doesn't' AS ret
 </programlisting>
 
+<!--
         which would cause a parse error during
         <function>spi_exec</function> or
         <function>spi_prepare</function>.
         To work properly, the submitted command should contain:
+-->
+これでは、<function>spi_exec</function>または<function>spi_prepare</function>の実行中に解析エラーが発生してしまいます。
+正しく稼動させるには、実行したい問い合わせは以下のようにしなければなりません。
 
 <programlisting>
 SELECT 'doesn''t' AS ret
 </programlisting>
 
+<!--
         which can be formed in PL/Tcl using:
+-->
+これは、PL/Tclでは以下により形成することができます。
 
 <programlisting>
 "SELECT '[ quote $val ]' AS ret"
 </programlisting>
 
+<!--
         One advantage of <function>spi_execp</function> is that you don't
         have to quote parameter values like this, since the parameters are never
         parsed as part of an SQL command string.
+-->
+<function>spi_execp</function>の持つ1つの利点は、パラメータはSQL問い合わせ文字列の一部として解析されることがありませんので、このようにパラメータの値を引用符付けする必要がないことです。
        </para>
       </listitem>
      </varlistentry>
@@ -534,11 +793,15 @@ SELECT 'doesn''t' AS ret
        <function>elog</function> <replaceable>level</replaceable> <replaceable>msg</replaceable>
        <indexterm>
         <primary>elog</primary>
+<!--
         <secondary>in PL/Tcl</secondary>
+-->
+        <secondary>PL/Tclにおける</secondary>
        </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Emits a log or error message. Possible levels are
         <literal>DEBUG</literal>, <literal>LOG</literal>, <literal>INFO</literal>,
         <literal>NOTICE</literal>, <literal>WARNING</literal>, <literal>ERROR</literal>, and
@@ -559,6 +822,17 @@ SELECT 'doesn''t' AS ret
         variables. See <xref linkend="runtime-config"/>
         and <xref linkend="pltcl-error-handling"/>
         for more information.
+-->
+ログまたはエラーメッセージを発行します。
+使用できるレベルは、<literal>DEBUG</literal>、<literal>LOG</literal>、<literal>INFO</literal>、<literal>NOTICE</literal>、<literal>WARNING</literal>、<literal>ERROR</literal>、および<literal>FATAL</literal>です。
+<literal>ERROR</literal>はエラー状態を発生します。
+その上位レベルのTclコードで例外が捕捉されなければ、このエラーは問い合わせ呼び出し処理の外部へ伝播され、その結果、現在のトランザクションもしくはサブトランザクションはアボートされます。
+これは実質的にTclの<literal>error</literal>コマンドと同一です。
+<literal>FATAL</literal>はトランザクションをアボートし、現在のセッションを停止させます。
+（PL/Tcl関数においてこのエラーレベルを使用すべき理由はおそらく存在しませんが、完全性のために用意されています。）
+他のレベルは、異なる重要度のメッセージを生成するだけです。
+<xref linkend="guc-log-min-messages"/>と<xref linkend="guc-client-min-messages"/>設定パラメータは、特定の重要度のメッセージをクライアントに報告するか、サーバのログに書き出すか、あるいはその両方かを制御します。
+詳細については<xref linkend="runtime-config"/>および<xref linkend="pltcl-error-handling"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -569,22 +843,36 @@ SELECT 'doesn''t' AS ret
    </sect1>
 
    <sect1 id="pltcl-trigger">
+<!--
     <title>Trigger Functions in PL/Tcl</title>
+-->
+<title>PL/Tclのトリガ関数</title>
 
     <indexterm>
+<!--
      <primary>trigger</primary>
      <secondary>in PL/Tcl</secondary>
+-->
+     <primary>トリガ</primary>
+     <secondary>PL/Tclにおける</secondary>
     </indexterm>
 
     <para>
+<!--
      Trigger functions can be written in PL/Tcl.
      <productname>PostgreSQL</productname> requires that a function that is to be called
      as a trigger must be declared as a function with no arguments
      and a return type of <literal>trigger</literal>.
+-->
+トリガ関数をPL/Tclで作成することができます。
+<productname>PostgreSQL</productname>では、トリガとして呼び出される関数は、<literal>trigger</literal>型の戻り値を返す引数のない関数として宣言する必要があります。
     </para>
     <para>
+<!--
      The information from the trigger manager is passed to the function body
      in the following variables:
+-->
+トリガマネージャからの情報は、以下の変数内に格納されて関数本体に渡されます。
 
      <variablelist>
 
@@ -592,7 +880,10 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_name</varname></term>
        <listitem>
         <para>
+<!--
          The name of the trigger from the <command>CREATE TRIGGER</command> statement.
+-->
+<command>CREATE TRIGGER</command>文によるトリガ名。
         </para>
        </listitem>
       </varlistentry>
@@ -601,8 +892,11 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_relid</varname></term>
        <listitem>
         <para>
+<!--
          The object ID of the table that caused the trigger function
          to be invoked.
+-->
+そのトリガ関数の呼び出しを発生させたテーブルのオブジェクトID。
         </para>
        </listitem>
       </varlistentry>
@@ -611,8 +905,11 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_table_name</varname></term>
        <listitem>
         <para>
+<!--
          The name of the table that caused the trigger function
          to be invoked.
+-->
+そのトリガ関数の呼び出しを発生させたテーブルの名前。
         </para>
        </listitem>
       </varlistentry>
@@ -621,8 +918,11 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_table_schema</varname></term>
        <listitem>
         <para>
+<!--
          The schema of the table that caused the trigger function
          to be invoked.
+-->
+そのトリガプロシージャ呼び出しが発生したテーブルのスキーマ。
         </para>
        </listitem>
       </varlistentry>
@@ -631,6 +931,7 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_relatts</varname></term>
        <listitem>
         <para>
+<!--
          A Tcl list of the table column names, prefixed with an empty list
          element. So looking up a column name in the list with <application>Tcl</application>'s
          <function>lsearch</function> command returns the element's number starting
@@ -639,6 +940,11 @@ SELECT 'doesn''t' AS ret
          elements also appear in the positions of columns that have been
          dropped, so that the attribute numbering is correct for columns
          to their right.)
+-->
+先頭に空のリスト要素を持つ、テーブルの列名のTclリスト。
+<application>Tcl</application>の<function>lsearch</function>コマンドを使用して、そのリストから列名を検索することで、最初の列を1とした要素番号が返されます。
+これは、<productname>PostgreSQL</productname>での通常の列の番号付けと同じです。
+（また空のリスト要素は、右側の列の属性番号を正しくするために、削除された列の位置に現れます。）
         </para>
        </listitem>
       </varlistentry>
@@ -647,8 +953,11 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_when</varname></term>
        <listitem>
         <para>
+<!--
          The string <literal>BEFORE</literal>, <literal>AFTER</literal>, or
          <literal>INSTEAD OF</literal>, depending on the type of trigger event.
+-->
+トリガイベントの種類に応じた、<literal>BEFORE</literal>、<literal>AFTER</literal>または<literal>INSTEAD OF</literal>という文字列。
         </para>
        </listitem>
       </varlistentry>
@@ -657,8 +966,11 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_level</varname></term>
        <listitem>
         <para>
+<!--
          The string <literal>ROW</literal> or <literal>STATEMENT</literal> depending on the
          type of trigger event.
+-->
+トリガイベントの種類に応じた、<literal>ROW</literal>または<literal>STATEMENT</literal>という文字列。
         </para>
        </listitem>
       </varlistentry>
@@ -667,9 +979,12 @@ SELECT 'doesn''t' AS ret
        <term><varname>$TG_op</varname></term>
        <listitem>
         <para>
+<!--
          The string <literal>INSERT</literal>, <literal>UPDATE</literal>,
          <literal>DELETE</literal>, or <literal>TRUNCATE</literal> depending on the type of
          trigger event.
+-->
+トリガイベントの種類に応じた、<literal>INSERT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>、または<literal>TRUNCATE</literal>の文字列。
         </para>
        </listitem>
       </varlistentry>
@@ -678,11 +993,17 @@ SELECT 'doesn''t' AS ret
        <term><varname>$NEW</varname></term>
        <listitem>
         <para>
+<!--
          An associative array containing the values of the new table
          row for <command>INSERT</command> or <command>UPDATE</command> actions, or
          empty for <command>DELETE</command>.  The array is indexed by column
          name.  Columns that are null will not appear in the array.
          This is not set for statement-level triggers.
+-->
+<command>INSERT</command>/<command>UPDATE</command>動作の場合は新しいテーブル行の値を、<command>DELETE</command>動作の場合は空を持つ連想配列。
+配列のインデックスは列名です。
+NULLの列はこの配列内には現れません。
+文レベルのトリガに対しては設定されません。
         </para>
        </listitem>
       </varlistentry>
@@ -691,11 +1012,17 @@ SELECT 'doesn''t' AS ret
        <term><varname>$OLD</varname></term>
        <listitem>
         <para>
+<!--
          An associative array containing the values of the old table
          row for <command>UPDATE</command> or <command>DELETE</command> actions, or
          empty for <command>INSERT</command>.  The array is indexed by column
          name.  Columns that are null will not appear in the array.
          This is not set for statement-level triggers.
+-->
+<command>UPDATE</command>/<command>DELETE</command>動作の場合は古いテーブル行の値を、<command>INSERT</command>動作の場合は空を持つ連想配列。
+配列のインデックスは列名です。
+NULLの列はこの配列内には現れません。
+文レベルのトリガに対しては設定されません。
         </para>
        </listitem>
       </varlistentry>
@@ -704,9 +1031,13 @@ SELECT 'doesn''t' AS ret
        <term><varname>$args</varname></term>
        <listitem>
         <para>
+<!--
          A Tcl list of the arguments to the function as given in the
          <command>CREATE TRIGGER</command> statement. These arguments are also accessible as
          <literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal> in the function body.
+-->
+<command>CREATE TRIGGER</command>文で指定された、関数への引数のTclリスト。
+この引数は、関数本体から<literal>$1</literal> ... <literal>$<replaceable>n</replaceable></literal>としてもアクセスすることができます。
         </para>
        </listitem>
       </varlistentry>
@@ -715,6 +1046,7 @@ SELECT 'doesn''t' AS ret
     </para>
 
     <para>
+<!--
      The return value from a trigger function can be one of the strings
      <literal>OK</literal> or <literal>SKIP</literal>, or a list of column name/value pairs.
      If the return value is <literal>OK</literal>,
@@ -736,20 +1068,36 @@ SELECT 'doesn''t' AS ret
      OF</literal> <command>DELETE</command> triggers, returning a modified row has the same
      effect as returning <literal>OK</literal>, that is the operation proceeds.
      The trigger return value is ignored for all other types of triggers.
+-->
+トリガ関数からの戻り値は、<literal>OK</literal>という文字列、<literal>SKIP</literal>という文字列、列名/値の組のリスト、の内の1つを取ることができます。
+戻り値が<literal>OK</literal>の場合、トリガを発行した操作（<command>INSERT</command>/<command>UPDATE</command>/<command>DELETE</command>）は正常に処理されます。
+<literal>SKIP</literal>はトリガマネージャにこの行に対する操作を何も出力せずに中止するように通知します。
+リストが返された場合は、PL/Tclに対し、変更した行をトリガマネージャに返すことを通知します。変更行の内容はリスト内の列名と値により指定されます。
+リストで言及されなかった列は全てNULLが置かれます。
+変更された行を返すことは、<varname>$NEW</varname>内で与えられる行ではなく変更された行が挿入される、行レベルの<literal>BEFORE</literal> <command>INSERT</command>または<command>UPDATE</command>トリガ、または、返される行が<command>INSERT RETURNING</command>および<command>UPDATE RETURNING</command>句の元データとして使われる、行レベルの<literal>INSTEAD OF</literal> <command>INSERT</command>または<command>UPDATE</command>トリガでのみ有意です。
+行レベルの<literal>BEFORE</literal> <command>DELETE</command>または<literal>INSTEAD OF</literal> <command>DELETE</command>トリガでは、変更された行が返されることが<literal>OK</literal>が返されるのと同じ効果を持ち、その操作は処理されます。
+この他の種類のトリガでは戻り値は無視されます。
     </para>
 
     <tip>
      <para>
+<!--
       The result list can be made from an array representation of the
       modified tuple with the <literal>array get</literal> Tcl command.
+-->
+結果リストは<literal>array get</literal> Tclコマンドによる変更されたタプルの配列表現から作ることができます。
      </para>
     </tip>
 
     <para>
+<!--
      Here's a little example trigger function that forces an integer value
      in a table to keep track of the number of updates that are performed on the
      row. For new rows inserted, the value is initialized to 0 and then
      incremented on every update operation.
+-->
+ここで、テーブル内の整数値としてその行に対する更新数を記録させる、小さめのトリガプロシージャの例を示します。
+新規の行が挿入された場合は、その値はゼロに初期化され、その後の各更新操作時に1が加算されます。
 
 <programlisting>
 CREATE FUNCTION trigfunc_modcount() RETURNS trigger AS $$
@@ -774,29 +1122,48 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
     FOR EACH ROW EXECUTE FUNCTION trigfunc_modcount('modcnt');
 </programlisting>
 
+<!--
      Notice that the trigger function itself does not know the column
      name; that's supplied from the trigger arguments.  This lets the
      trigger function be reused with different tables.
+-->
+トリガ関数自身は列名を認識していない点に注目してください。
+これはトリガの引数として与えられます。
+これにより、このトリガ関数を別のテーブルで再利用することができます。
     </para>
    </sect1>
 
    <sect1 id="pltcl-event-trigger">
+<!--
     <title>Event Trigger Functions in PL/Tcl</title>
+-->
+    <title>PL/Tclにおけるイベントトリガ関数</title>
 
     <indexterm>
+<!--
      <primary>event trigger</primary>
      <secondary>in PL/Tcl</secondary>
+-->
+     <primary>イベントトリガ</primary>
+     <secondary>PL/Tclにおける</secondary>
     </indexterm>
 
     <para>
+<!--
      Event trigger functions can be written in PL/Tcl.
      <productname>PostgreSQL</productname> requires that a function that is
      to be called as an event trigger must be declared as a function with no
      arguments and a return type of <literal>event_trigger</literal>.
+-->
+イベントトリガ関数をPL/Tclで作成することができます。
+<productname>PostgreSQL</productname>では、イベントトリガとして呼び出される関数は、<literal>event_trigger</literal>型の戻り値を返す引数のない関数として宣言する必要があります。
     </para>
     <para>
+<!--
      The information from the trigger manager is passed to the function body
      in the following variables:
+-->
+トリガマネージャからの情報は、以下の変数内に格納されて関数本体に渡されます。
 
      <variablelist>
 
@@ -804,7 +1171,10 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
        <term><varname>$TG_event</varname></term>
        <listitem>
         <para>
+<!--
          The name of the event the trigger is fired for.
+-->
+トリガが発行されたイベント名
         </para>
        </listitem>
       </varlistentry>
@@ -813,7 +1183,10 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
        <term><varname>$TG_tag</varname></term>
        <listitem>
         <para>
+<!--
          The command tag for which the trigger is fired.
+-->
+トリガが発行されたコマンドタグ
         </para>
        </listitem>
       </varlistentry>
@@ -821,13 +1194,19 @@ CREATE TRIGGER trig_mytab_modcount BEFORE INSERT OR UPDATE ON mytab
     </para>
 
     <para>
+<!--
      The return value of the trigger function is ignored.
+-->
+トリガ関数の戻り値は無視されます。
     </para>
 
     <para>
+<!--
      Here's a little example event trigger function that simply raises
      a <literal>NOTICE</literal> message each time a supported command is
      executed:
+-->
+サポートするコマンドが実行される度に、単に<literal>NOTICE</literal>メッセージを発行するイベントトリガ関数の例を、以下に示します。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION tclsnitch() RETURNS event_trigger AS $$
@@ -840,7 +1219,10 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE FUNCTION tclsnitc
    </sect1>
 
    <sect1 id="pltcl-error-handling">
+<!--
     <title>Error Handling in PL/Tcl</title>
+-->
+    <title>PL/Tclのエラー処理</title>
 
     <indexterm>
      <primary>exceptions</primary>
@@ -848,6 +1230,7 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE FUNCTION tclsnitc
     </indexterm>
 
     <para>
+<!--
      Tcl code within or called from a PL/Tcl function can raise an error,
      either by executing some invalid operation or by generating an error
      using the Tcl <function>error</function> command or
@@ -856,9 +1239,14 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE FUNCTION tclsnitc
      error is not caught but is allowed to propagate out to the top level of
      execution of the PL/Tcl function, it is reported as an SQL error in the
      function's calling query.
+-->
+PL/Tcl関数中の、あるいはPL/Tcl関数から呼ばれるTclコードは、無効な演算の実行により、あるいはTclの<function>error</function>コマンドやPL/Tclの<function>elog</function>コマンドを使ってエラーを生成することにより、エラーとなることがありえます。
+これらエラーはTclの<function>catch</function>コマンドを使ってTcl内で捕捉することができます。
+あるエラーが捕捉されず、PL/Tcl関数実行のトップレベルに伝播することが許容されているなら、関数が呼び出している問合せにおけるSQエラーとして報告されます。
     </para>
 
     <para>
+<!--
      Conversely, SQL errors that occur within PL/Tcl's
      <function>spi_exec</function>, <function>spi_prepare</function>,
      and <function>spi_execp</function> commands are reported as Tcl errors,
@@ -868,9 +1256,14 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE FUNCTION tclsnitc
      partially-completed operation is automatically cleaned up.)
      Again, if an error propagates out to the top level without being caught,
      it turns back into an SQL error.
+-->
+逆に、PL/Tclの<function>spi_exec</function>、<function>spi_prepare</function>、<function>spi_execp</function>コマンドの中で起きるSQLエラーは、Tclのエラーとして報告され、したがって、これらはTclの<function>catch</function>コマンドにより捕捉可能です。
+（各々のPL/Tclコマンドは、エラー時にロールバックするSQL操作をサブトランザクション中で実行するので、部分的に完了した操作は自動的に後始末されます。）
+ここでも同様に、捕捉されることなくトップレベルに伝播するならSQLエラーに戻ります。
     </para>
 
     <para>
+<!--
      Tcl provides an <varname>errorCode</varname> variable that can represent
      additional information about an error in a form that is easy for Tcl
      programs to interpret.  The contents are in Tcl list format, and the
@@ -891,12 +1284,23 @@ CREATE EVENT TRIGGER tcl_a_snitch ON ddl_command_start EXECUTE FUNCTION tclsnitc
      <varname>statement</varname>, <varname>cursor_position</varname>,
      <varname>filename</varname>, <varname>lineno</varname>, and
      <varname>funcname</varname>.
+-->
+Tclは、Tclプログラムで解釈しやすい形式でエラーに関する追加情報を表現できる<varname>errorCode</varname>変数を提供します。
+変数の中身はTclリスト形式で、1番目の語でエラーを報告したサブシステムまたはライブラリを識別します。それ以降の内容は個々のサブシステムやライブラリに任されています。
+PL/Tclコマンドで報告されるデータベースエラーむけには、1番目の語が<literal>POSTGRES</literal>、2番目の語がPostgreSQLのバージョン番号で、それ続く語はエラーの詳細情報を提供するフィールド名と値の組です。
+フィールド<varname>SQLSTATE</varname>、<varname>condition</varname>、および<varname>message</varname>は常に与えられます（最初の2つは<xref linkend="errcodes-appendix"/>にあるエラーコードと状態名です）。
+出現しうるフィールドとしては、<varname>detail</varname>、<varname>hint</varname>、<varname>context</varname>、<varname>schema</varname>、<varname>table</varname>、<varname>column</varname>、<varname>datatype</varname>、<varname>constraint</varname>、<varname>statement</varname>、<varname>cursor_position</varname>、<varname>filename</varname>、<varname>lineno</varname>および<varname>funcname</varname>があります。
     </para>
 
     <para>
+<!--
      A convenient way to work with PL/Tcl's <varname>errorCode</varname>
      information is to load it into an array, so that the field names become
      array subscripts.  Code for doing that might look like
+-->
+PL/Tclの<varname>errorCode</varname>情報を処理する便利な方法は、それを配列に読み込むことです。これによりフィールド名は配列の添え字になります。
+これを行うコードは以下のようになります。
+
 <programlisting>
 if {[catch { spi_exec $sql_command }]} {
     if {[lindex $::errorCode 0] == "POSTGRES"} {
@@ -909,30 +1313,47 @@ if {[catch { spi_exec $sql_command }]} {
     }
 }
 </programlisting>
+<!--
      (The double colons explicitly specify that <varname>errorCode</varname>
      is a global variable.)
+-->
+（二重コロンは<varname>errorCode</varname>がグローバル変数であることを明示的に指定します。）
     </para>
    </sect1>
 
    <sect1 id="pltcl-subtransactions">
+<!--
     <title>Explicit Subtransactions in PL/Tcl</title>
+-->
+    <title>PL/Tclにおける明示的サブトランザクション</title>
 
     <indexterm>
+<!--
      <primary>subtransactions</primary>
      <secondary>in PL/Tcl</secondary>
+-->
+     <primary>サブトランザクション</primary>
+     <secondary>PL/Tclにおける</secondary>
     </indexterm>
 
     <para>
+<!--
      Recovering from errors caused by database access as described in
      <xref linkend="pltcl-error-handling"/> can lead to an undesirable
      situation where some operations succeed before one of them fails,
      and after recovering from that error the data is left in an
      inconsistent state.  PL/Tcl offers a solution to this problem in
      the form of explicit subtransactions.
+-->
+<xref linkend="pltcl-error-handling"/>で説明されているように、データベースアクセスによって生じたエラーからの回復により、操作のうちいくつかが失敗する前に他の操作が成功し、エラーからの回復後、データの一貫性が失われた望ましくない状態になってしまう可能性があります。
+PL/Tclは明示的なトランザクションの手法でこの問題を解決する手段を提供しています。
     </para>
 
     <para>
+<!--
      Consider a function that implements a transfer between two accounts:
+-->
+2つのアカウントの間の送金を実装する関数を考えます。
 <programlisting>
 CREATE FUNCTION transfer_funds() RETURNS void AS $$
     if [catch {
@@ -946,6 +1367,7 @@ CREATE FUNCTION transfer_funds() RETURNS void AS $$
     spi_exec "INSERT INTO operations (result) VALUES ('[quote $result]')"
 $$ LANGUAGE pltcl;
 </programlisting>
+<!--
      If the second <command>UPDATE</command> statement results in an
      exception being raised, this function will log the failure, but
      the result of the first <command>UPDATE</command> will
@@ -954,13 +1376,21 @@ $$ LANGUAGE pltcl;
      Mary's account.  This happens because each <function>spi_exec</function>
      is a separate subtransaction, and only one of those subtransactions
      got rolled back.
+-->
+ふたつ目の<command>UPDATE</command>文で例外が発生する結果になると、この関数は失敗を記録しますが、それにもかかわらず、最初の<command>UPDATE</command>はコミットされます。
+言い換えると、Joeのアカウントから資金が引き出されたのに、Maryのアカウントには転送されません。
+これは、それぞれの<function>spi_exec</function>が別々のサブトランザクションになっていて、そのうち一つのサブトランザクションだけがロールバックされるからです。
     </para>
 
     <para>
+<!--
      To handle such cases, you can wrap multiple database operations in an
      explicit subtransaction, which will succeed or roll back as a whole.
      PL/Tcl provides a <function>subtransaction</function> command to manage
      this.  We can rewrite our function as:
+-->
+このような状況に対応するには、複数のデータベース操作を、全体が成功するか、あるいは失敗する明示的なサブトランザクションで包みます。
+PL/Tclは、これを管理するための<function>subtransaction</function>コマンドを提供しています。
 <programlisting>
 CREATE FUNCTION transfer_funds2() RETURNS void AS $$
     if [catch {
@@ -976,6 +1406,7 @@ CREATE FUNCTION transfer_funds2() RETURNS void AS $$
     spi_exec "INSERT INTO operations (result) VALUES ('[quote $result]')"
 $$ LANGUAGE pltcl;
 </programlisting>
+<!--
      Note that use of <function>catch</function> is still required for this
      purpose.  Otherwise the error would propagate to the top level of the
      function, preventing the desired insertion into
@@ -983,9 +1414,15 @@ $$ LANGUAGE pltcl;
      The <function>subtransaction</function> command does not trap errors, it
      only assures that all database operations executed inside its scope will
      be rolled back together when an error is reported.
+-->
+この目的のために、<function>catch</function>が必要であることに注意してください。
+そうでないと、エラーが関数のトップレベルまで伝搬し、期待したような<structname>operations</structname>テーブルへの挿入が阻害されてしまいます。
+<function>subtransaction</function>コマンドはエラーを補足しません。
+エラーが報告された際に、スコープの内側で実行されたすべてのデータベース操作がロールバックされることを保証するだけです。
     </para>
 
     <para>
+<!--
      A rollback of an explicit subtransaction occurs on any error reported
      by the contained Tcl code, not only errors originating from database
      access.  Thus a regular Tcl exception raised inside
@@ -993,13 +1430,21 @@ $$ LANGUAGE pltcl;
      subtransaction to be rolled back.  However, non-error exits out of the
      contained Tcl code (for instance, due to <function>return</function>) do
      not cause a rollback.
+-->
+明示的なサブトランザクションのロールバックは、Tclのコードの中でエラーが報告された際だけでなく、データベースアクセスに起因するエラーの際にも起こります。
+ですから、<function>subtransaction</function>コマンド内の内側で起こった通常のTcl例外は、サブトランザクションのロールバックも引き起こします。
+しかし、Tclコードからのエラーによらない脱出（たとえば<function>return</function>によるもの）は、ロールバックをもたらしません。
     </para>
    </sect1>
 
    <sect1 id="pltcl-transactions">
+<!--
     <title>Transaction Management</title>
+-->
+    <title>トランザクション制御</title>
 
     <para>
+<!--
      In a procedure called from the top level or an anonymous code block
      (<command>DO</command> command) called from the top level it is possible
      to control transactions.  To commit the current transaction, call the
@@ -1010,10 +1455,19 @@ $$ LANGUAGE pltcl;
      It has to be done using these functions.)  After a transaction is ended,
      a new transaction is automatically started, so there is no separate
      command for that.
+-->
+トップレベル、あるいは、トップレベルから呼ばれた無名コードブロック（<command>DO</command>コマンド）から呼ばれたプロシージャでは、トランザクション制御が可能です。
+現在のトランザクションをコミットするには、<literal>commit</literal>コマンドを呼びます。
+現在のトランザクションをロールバックするには、<literal>rollback</literal>コマンドを呼びます。
+（SQLコマンドの<command>COMMIT</command>や<command>ROLLBACK</command>を<function>spi_exec</function>などを通して実行することはできない点に注意してください。前述の関数を使って行う必要があります。）
+トランザクションが終了した後、新たなトランザクションが自動的に開始されますので、開始するための別途のコマンドはありません。
     </para>
 
     <para>
+<!--
      Here is an example:
+-->
+以下に例を示します。
 <programlisting>
 CREATE PROCEDURE transaction_test1()
 LANGUAGE pltcl
@@ -1033,16 +1487,25 @@ CALL transaction_test1();
     </para>
 
     <para>
+<!--
      Transactions cannot be ended when an explicit subtransaction is active.
+-->
+明示的なサブトランザクションの中ではトランザクションを終了することはできません。
     </para>
    </sect1>
 
    <sect1 id="pltcl-config">
+<!--
     <title>PL/Tcl Configuration</title>
+-->
+    <title>PL/Tclの設定</title>
 
     <para>
+<!--
      This section lists configuration parameters that
      affect <application>PL/Tcl</application>.
+-->
+この節では、<application>PL/Tcl</application>に影響がある設定パラメータを列挙します。
     </para>
 
     <variablelist>
@@ -1051,11 +1514,15 @@ CALL transaction_test1();
       <term>
        <varname>pltcl.start_proc</varname> (<type>string</type>)
        <indexterm>
+<!--
         <primary><varname>pltcl.start_proc</varname> configuration parameter</primary>
+-->
+        <primary><varname>pltcl.start_proc</varname>設定パラメータ</primary>
        </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter, if set to a nonempty string, specifies the name
         (possibly schema-qualified) of a parameterless PL/Tcl function that
         is to be executed whenever a new Tcl interpreter is created for
@@ -1064,17 +1531,27 @@ CALL transaction_test1();
         when a PL/Tcl function is first executed in a database session, or
         when an additional interpreter has to be created because a PL/Tcl
         function is called by a new SQL role.
+-->
+このパラメータが空文字以外に設定された場合、PL/Tclのための新しいTclインタプリタが作成された際に実行すべきパラメータなしのPL/Tcl関数の名前（スキーマ修飾される場合もあります）を指定します。
+そうした関数は、追加のTclコードをロードするような、Tclセッションごとの初期化を実施できます。
+データベースセッションの中で新しいPL/Tcl関数が最初に実行された際、あるいはPL/Tcl関数が新しいロールから呼び出されたためにインタプリタを追加で作成しなければならない際に、新しいTclインタプリタが作られます。
        </para>
 
        <para>
+<!--
         The referenced function must be written in the <literal>pltcl</literal>
         language, and must not be marked <literal>SECURITY DEFINER</literal>.
         (These restrictions ensure that it runs in the interpreter it's
         supposed to initialize.)  The current user must have permission to
         call it, too.
+-->
+参照されている関数は<literal>pltcl</literal>言語で記述しなければならず、また<literal>SECURITY DEFINER</literal>としてマークされていてはいけません。
+（この制約により、その関数が初期化すると想定しているインタプリタ内で実行されることが保証されます。）
+また、現在のユーザはその関数を呼び出すことが許可されていなければなりません。
        </para>
 
        <para>
+<!--
         If the function fails with an error it will abort the function call
         that caused the new interpreter to be created and propagate out to
         the calling query, causing the current transaction or subtransaction
@@ -1082,12 +1559,21 @@ CALL transaction_test1();
         however, that interpreter won't be used again.  If the language is
         used again the initialization will be attempted again within a fresh
         Tcl interpreter.
+-->
+関数がエラーで失敗すると、関数呼び出しをアボートし、その結果新しいインタプリタが作成され、エラーは呼び出し元のクエリに伝搬し、現在のトランザクションあるいはサブトランザクションがアボートします。
+Tcl内でそれまでに行われた操作は取り消されません。
+しかし、インタプリタは再使用できません。
+言語が再び使用されると、新しいTclインタプリタ内で初期化が再び試みられます。
        </para>
 
        <para>
+<!--
         Only superusers can change this setting.  Although this setting
         can be changed within a session, such changes will not affect Tcl
         interpreters that have already been created.
+-->
+スーパーユーザだけがこの設定を変更できます。
+この設定はセッション内で変更できますが、すでに作成されたTclインタプリタには影響しません。
        </para>
       </listitem>
      </varlistentry>
@@ -1096,14 +1582,21 @@ CALL transaction_test1();
       <term>
        <varname>pltclu.start_proc</varname> (<type>string</type>)
        <indexterm>
+<!--
         <primary><varname>pltclu.start_proc</varname> configuration parameter</primary>
+-->
+        <primary><varname>pltclu.start_proc</varname>設定パラメータ</primary>
        </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This parameter is exactly like <varname>pltcl.start_proc</varname>,
         except that it applies to PL/TclU.  The referenced function must
         be written in the <literal>pltclu</literal> language.
+-->
+このパラメータはPL/TclUに適用される点を除けば、<varname>pltcl.start_proc</varname>と完全に類似しています。
+参照される関数は<literal>pltclu</literal>言語で書かれていなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -1112,9 +1605,13 @@ CALL transaction_test1();
    </sect1>
 
    <sect1 id="pltcl-procnames">
+<!--
     <title>Tcl Procedure Names</title>
+-->
+<title>Tclプロシージャ名</title>
 
     <para>
+<!--
      In <productname>PostgreSQL</productname>, the same function name can be used for
      different function definitions as long as the number of arguments or their types
      differ. Tcl, however, requires all procedure names to be distinct.
@@ -1125,6 +1622,12 @@ CALL transaction_test1();
      and different argument types will be different Tcl procedures, too.  This
      is not normally a concern for a PL/Tcl programmer, but it might be visible
      when debugging.
+-->
+<productname>PostgreSQL</productname>では、その関数の引数の数または引数の型が異なっていれば、同じ関数名を異なる関数定義に使用することが可能です。
+しかし、Tclではプロシージャ名の重複は許されません。
+PL/Tclでは、プロシージャ名の一部に<structname>pg_proc</structname>システムテーブルにあるその関数のオブジェクトIDを持たせた内部的なTclプロシージャ名を作成することでこれに対応しています。
+したがって、こういった異なる引数の型を持つ同じ名前の<productname>PostgreSQL</productname>関数は、異なるTclプロシージャになります。
+PL/Tclプログラマから見ますと、通常は問題にはなりませんが、デバッグの際に表面に現れます。
     </para>
 
    </sect1>

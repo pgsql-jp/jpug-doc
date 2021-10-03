@@ -1,40 +1,64 @@
 <!-- doc/src/sgml/typeconv.sgml -->
 
 <chapter id="typeconv">
+<!--
 <title>Type Conversion</title>
+-->
+<title>型変換</title>
 
 <indexterm zone="typeconv">
+<!--
  <primary>data type</primary>
  <secondary>conversion</secondary>
+-->
+ <primary>データ型</primary>
+ <secondary>変換</secondary>
 </indexterm>
 
 <para>
+<!--
 <acronym>SQL</acronym> statements can, intentionally or not, require
 the mixing of different data types in the same expression.
 <productname>PostgreSQL</productname> has extensive facilities for
 evaluating mixed-type expressions.
+-->
+意図的かどうかにかかわらず、<acronym>SQL</acronym>の問い合わせでは1つの式の中に異なる型を混ぜ合わせた式を持つことができます。
+<productname>PostgreSQL</productname>は、異なる型が混在する式の評価に関して幅広い能力を持っています。
 </para>
 
 <para>
+<!--
 In many cases a user does not need
 to understand the details of the type conversion mechanism.
 However, implicit conversions done by <productname>PostgreSQL</productname>
 can affect the results of a query.  When necessary, these results
 can be tailored by using <emphasis>explicit</emphasis> type conversion.
+-->
+多くの場合、ユーザは型変換機構の詳細を理解する必要はありません。
+しかし、<productname>PostgreSQL</productname>によって暗黙的に行われる変換は問い合わせの結果に影響を及ぼします。
+必要に応じて、<emphasis>明示的</emphasis>な型変換を用いて結果を目的とするものに合わせることができます。
 </para>
 
 <para>
+<!--
 This chapter introduces the <productname>PostgreSQL</productname>
 type conversion mechanisms and conventions.
 Refer to the relevant sections in <xref linkend="datatype"/> and <xref linkend="functions"/>
 for more information on specific data types and allowed functions and
 operators.
+-->
+本章では、<productname>PostgreSQL</productname>の型変換機構とその規定について紹介します。
+特定のデータ型、使用できる関数と演算子についての情報については、<xref linkend="datatype"/>と<xref linkend="functions"/>の関連する節を参照してください。
 </para>
 
 <sect1 id="typeconv-overview">
+<!--
 <title>Overview</title>
+-->
+<title>概要</title>
 
 <para>
+<!--
 <acronym>SQL</acronym> is a strongly typed language. That is, every data item
 has an associated data type which determines its behavior and allowed usage.
 <productname>PostgreSQL</productname> has an extensible type system that is
@@ -43,9 +67,16 @@ Hence, most type conversion behavior in <productname>PostgreSQL</productname>
 is governed by general rules rather than by ad hoc
 heuristics.  This allows the use of mixed-type expressions even with
 user-defined types.
+-->
+<acronym>SQL</acronym>は強く型付けされた言語です。
+つまり、各データ項目は、その動作と許される使用方法を決定するデータ型を所有しています。
+<productname>PostgreSQL</productname>には、他の<acronym>SQL</acronym>の実装よりもより一般的で柔軟性のある、拡張可能な型システムがあります。
+このために、<productname>PostgreSQL</productname>でのほとんどの型変換の動作は、特定の目的について<foreignphrase>勝手に作り上げられる</foreignphrase>ことなく一般的な規則で管理されています。
+これにより、ユーザ定義型についても型の混在する式を使用できます。
 </para>
 
 <para>
+<!--
 The <productname>PostgreSQL</productname> scanner/parser divides lexical
 elements into five fundamental categories: integers, non-integer numbers,
 strings, identifiers, and key words.  Constants of most non-numeric types are
@@ -53,6 +84,11 @@ first classified as strings. The <acronym>SQL</acronym> language definition
 allows specifying type names with strings, and this mechanism can be used in
 <productname>PostgreSQL</productname> to start the parser down the correct
 path. For example, the query:
+-->
+<productname>PostgreSQL</productname>のスキャナ/パーサは字句要素を、整数、非整数値、文字列、識別子、キーワードという5個の基礎カテゴリに分解します。
+ほとんどの非数値型定数は、まず文字列にクラス分けされます。
+<acronym>SQL</acronym>言語定義では、文字列で型の名前を指定することを許していて、パーサが正しい手順に沿って処理を始められるように<productname>PostgreSQL</productname>も採用しています。
+例えば、以下のような問い合わせを考えてみましょう。
 
 <screen>
 SELECT text 'Origin' AS "label", point '(0,0)' AS "value";
@@ -63,65 +99,99 @@ SELECT text 'Origin' AS "label", point '(0,0)' AS "value";
 (1 row)
 </screen>
 
+<!--
 has two literal constants, of type <type>text</type> and <type>point</type>.
 If a type is not specified for a string literal, then the placeholder type
 <type>unknown</type> is assigned initially, to be resolved in later
 stages as described below.
+-->
+この問い合わせは、<type>text</type>と<type>point</type>という2つの型を指定したリテラル定数を持ちます。
+文字列リテラルに型が指定されていない場合、後述するように、後の段階で解決されるようにとりあえず場所を確保するための型である<type>unknown</type>が割り当てられます。
 </para>
 
 <para>
+<!--
 There are four fundamental <acronym>SQL</acronym> constructs requiring
 distinct type conversion rules in the <productname>PostgreSQL</productname>
 parser:
+-->
+<productname>PostgreSQL</productname>のパーサには、個別の型変換規則が必要な4つの基礎的な<acronym>SQL</acronym>構成要素があります。
 
 <variablelist>
 <varlistentry>
 <term>
+<!--
 Function calls
+-->
+関数呼び出し
 </term>
 <listitem>
 <para>
+<!--
 Much of the <productname>PostgreSQL</productname> type system is built around a
 rich set of functions. Functions can have one or more arguments.
 Since <productname>PostgreSQL</productname> permits function
 overloading, the function name alone does not uniquely identify the function
 to be called; the parser must select the right function based on the data
 types of the supplied arguments.
+-->
+<productname>PostgreSQL</productname>型システムの大部分は、高度な関数群によって構築されています。
+関数は複数の引数を取ることができます。
+<productname>PostgreSQL</productname>では関数のオーバーロードが可能ですので、関数名だけでは呼び出すべき関数を一意に識別できません。
+パーサは、提供される引数のデータ型に基づいて、正しい関数を選択しなければなりません。
 </para>
 </listitem>
 </varlistentry>
 <varlistentry>
 <term>
+<!--
 Operators
+-->
+演算子
 </term>
 <listitem>
 <para>
+<!--
 <productname>PostgreSQL</productname> allows expressions with
 prefix (one-argument) operators,
 as well as infix (two-argument) operators.  Like functions, operators can
 be overloaded, so the same problem of selecting the right operator
 exists.
+-->
+<productname>PostgreSQL</productname>では、（引数が2つの）二項演算子と同様に、（引数が1つの）前置、後置単項演算子を持つ式が使用できます。
+関数と同様、演算子もオーバーロード可能ですので、正しい演算子を選択する時に同じ問題が存在します。
 </para>
 </listitem>
 </varlistentry>
 <varlistentry>
 <term>
+<!--
 Value Storage
+-->
+値の格納
 </term>
 <listitem>
 <para>
+<!--
 <acronym>SQL</acronym> <command>INSERT</command> and <command>UPDATE</command> statements place the results of
 expressions into a table. The expressions in the statement must be matched up
 with, and perhaps converted to, the types of the target columns.
+-->
+<acronym>SQL</acronym>の<command>INSERT</command>と<command>UPDATE</command>文は式の結果をテーブルの中に格納します。
+文内の式は対象となる列の型に一致する、または、変換できるものである必要があります。
 </para>
 </listitem>
 </varlistentry>
 <varlistentry>
 <term>
+<!--
 <literal>UNION</literal>, <literal>CASE</literal>, and related constructs
+-->
+<literal>UNION</literal>、<literal>CASE</literal>、および関連する構文
 </term>
 <listitem>
 <para>
+<!--
 Since all query results from a unionized <command>SELECT</command> statement
 must appear in a single set of columns, the types of the results of each
 <command>SELECT</command> clause must be matched up and converted to a uniform set.
@@ -131,6 +201,10 @@ has a known output type.  Some other constructs, such
 as <literal>ARRAY[]</literal> and the <function>GREATEST</function>
 and <function>LEAST</function> functions, likewise require determination of a
 common type for several subexpressions.
+-->
+UNIONを構成する<command>SELECT</command>文からの選択結果は全て、ある1つの列集合として現れなければいけませんので、各<literal>SELECT</literal>句の結果型は統一された集合に一致し変換できる必要があります。
+同様に、<command>CASE</command>構文が全体として既知の出力型を持つようになるために、<literal>CASE</literal>構文の結果式は共通の型に変換される必要があります。
+<literal>ARRAY[]</literal>のような他のいくつかの構文や<function>GREATEST</function>関数、<function>LEAST</function>関数は、同様に副式に対して共通の型の決定を要求します。
 </para>
 </listitem>
 </varlistentry>
@@ -138,6 +212,7 @@ common type for several subexpressions.
 </para>
 
 <para>
+<!--
 The system catalogs store information about which conversions, or
 <firstterm>casts</firstterm>, exist between which data types, and how to
 perform those conversions.  Additional casts can be added by the user
@@ -146,14 +221,24 @@ command.  (This is usually
 done in conjunction with defining new data types.  The set of casts
 between built-in types has been carefully crafted and is best not
 altered.)
+-->
+システムカタログには、どのデータ型の間にどのような変換、すなわち<firstterm>キャスト</firstterm>があるのか、また、その変換をどのように実行するのかに関する情報を格納します。
+ユーザは<xref linkend="sql-createcast"/>コマンドを使用してキャストを追加できます。
+（これは通常新しいデータ型を定義する時にまとめて行われます。
+組み込み型間のキャスト集合は注意深く作成されており、変更しないことが最善です。）
 </para>
 
 <indexterm>
+<!--
  <primary>data type</primary>
  <secondary>category</secondary>
+-->
+ <primary>データ型</primary>
+ <secondary>カテゴリ</secondary>
 </indexterm>
 
 <para>
+<!--
 An additional heuristic provided by the parser allows improved determination
 of the proper casting behavior among groups of types that have implicit casts.
 Data types are divided into several basic <firstterm>type
@@ -167,33 +252,52 @@ are preferred when there is a choice of possible types.  With careful selection
 of preferred types and available implicit casts, it is possible to ensure that
 ambiguous expressions (those with multiple candidate parsing solutions) can be
 resolved in a useful way.
+-->
+暗黙のキャストを持つデータ型間の処理において、適切なキャスト処理のより良い決定を行えるようパーサは追加の自律機構を備えています。
+データ型は、<type>boolean</type>、<type>numeric</type>、<type>string</type>、<type>bitstring</type>、<type>datetime</type>、<type>timespan</type>、<type>geometric</type>、<type>network</type>、及びユーザ定義を含むいくつかの基本的な<firstterm>型カテゴリ</firstterm>に分けられます。
+(一覧は<xref linkend="catalog-typcategory-table"/>を参照してください。ですが、独自の型カテゴリを作成するのも可能なことに注意して下さい。)
+各カテゴリには、候補となる型の選択があった場合に、優先される1つ以上の<firstterm>優先される型</firstterm>がある場合があります。
+優先される型と利用可能な暗黙のキャストを注意して選択すれば、曖昧な式(複数の解析結果候補を持つもの)が有効な方法で解決されることを保証することが可能です。
 </para>
 
 <para>
+<!--
 All type conversion rules are designed with several principles in mind:
+-->
+全ての型変換規則は次のようないくつかの基本的な考え方に基づいて設計されています。
 
 <itemizedlist>
 <listitem>
 <para>
+<!--
 Implicit conversions should never have surprising or unpredictable outcomes.
+-->
+暗黙的な変換は、意外な、あるいは予想できない結果を決して生成させてはなりません。
 </para>
 </listitem>
 
 <listitem>
 <para>
+<!--
 There should be no extra overhead in the parser or executor
 if a query does not need implicit type conversion.
 That is, if a query is well-formed and the types already match, then the query should execute
 without spending extra time in the parser and without introducing unnecessary implicit conversion
 calls in the query.
+-->
+暗黙的な型変換を必要としない問い合わせの場合、パーサやエクゼキュータに余計なオーバーヘッドがあるべきではありません。
+つまり、問い合わせ文がきちんとまとめられ、型が既に一致するものになっていれば、パーサ内で余計な時間を費やさず、また、問い合わせに不要な暗黙的な型変換関数が使用されないように、問い合わせは処理されるべきです。
 </para>
 </listitem>
 
 <listitem>
 <para>
+<!--
 Additionally, if a query usually requires an implicit conversion for a function, and
 if then the user defines a new function with the correct argument types, the parser
 should use this new function and no longer do implicit conversion to use the old function.
+-->
+さらに、もし問い合わせが関数のために暗黙的な変換を通常要求しており、そして、ユーザが正しい引数型を持つ関数を新しく定義した場合、パーサはこの新しい関数を使うべきであり、もはや古い関数を使うために暗黙的な変換を行わないようすべきです。
 </para>
 </listitem>
 </itemizedlist>
@@ -202,27 +306,43 @@ should use this new function and no longer do implicit conversion to use the old
 </sect1>
 
 <sect1 id="typeconv-oper">
+<!--
 <title>Operators</title>
+-->
+<title>演算子</title>
 
 <indexterm zone="typeconv-oper">
+<!--
  <primary>operator</primary>
  <secondary>type resolution in an invocation</secondary>
+-->
+ <primary>演算子</primary>
+ <secondary>の呼び出しにおける型の解決</secondary>
 </indexterm>
 
   <para>
+<!--
    The specific operator that is referenced by an operator expression
    is determined using the following procedure.
    Note that this procedure is indirectly affected
    by the precedence of the operators involved, since that will determine
    which sub-expressions are taken to be the inputs of which operators.
    See <xref linkend="sql-precedence"/> for more information.
+-->
+演算式に参照される特定の演算子は、以下の手順を用いて決定されます。
+関連する演算子の優先順位によりどの下位式をどの演算子の入力と見なすかが決定されますので、この手順はこの優先順位により間接的な影響を受けることに注意して下さい。
+詳細は<xref linkend="sql-precedence"/>を参照してください。
   </para>
 
 <procedure>
+<!--
 <title>Operator Type Resolution</title>
+-->
+<title>演算子における型の解決</title>
 
 <step id="op-resol-select" performance="required">
 <para>
+<!--
 Select the operators to be considered from the
 <classname>pg_operator</classname> system catalog.  If a non-schema-qualified
 operator name was used (the usual case), the operators
@@ -230,15 +350,24 @@ considered are those with the matching name and argument count that are
 visible in the current search path (see <xref linkend="ddl-schemas-path"/>).
 If a qualified operator name was given, only operators in the specified
 schema are considered.
+-->
+<classname>pg_operator</classname>システムカタログから、調査の対象とする演算子を選択します。
+スキーマ修飾がされていない演算子名が使用される場合（通常の場合）、現行の検索パスで可視になっていて、同一の名前と引数の数を持つ演算子が調査対象であるとみなされます
+（<xref linkend="ddl-schemas-path"/>を参照してください）。
+修飾された演算子名が与えられている場合、指定されたスキーマの演算子のみが調査対象とみなされます。
 </para>
 
 <substeps>
 <step performance="optional">
 <para>
+<!--
 If the search path finds multiple operators with identical argument types,
 only the one appearing earliest in the path is considered.  Operators with
 different argument types are considered on an equal footing regardless of
 search path position.
+-->
+検索パスで引数のデータ型が同じである複数の演算子を検出した場合、そのパスで最初に検出された演算子のみを調査対象とみなします。
+引数のデータ型が異なる演算子は、検索パス内の位置に関係なく、同じように調べられます。
 </para>
 </step>
 </substeps>
@@ -246,37 +375,56 @@ search path position.
 
 <step id="op-resol-exact-match" performance="required">
 <para>
+<!--
 Check for an operator accepting exactly the input argument types.
 If one exists (there can be only one exact match in the set of
 operators considered), use it.  Lack of an exact match creates a security
 hazard when calling, via qualified name
+-->
+正確に入力引数型を受け付ける演算子があるかどうか検査します。
+該当する演算子があれば（調査される演算子の集合内で正確に一致するものは1つしかあり得ません）、それを使用します。
+正確に一致するものがない場合、信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる演算子を、(典型的なものではないですが)修飾された名前で
   <footnote id="op-qualified-security">
-   <!-- If you edit this, consider editing func-qualified-security. -->
+   <!-- 原文コメント If you edit this, consider editing func-qualified-security. -->
    <para>
+<!--
     The hazard does not arise with a non-schema-qualified name, because a
     search path containing schemas that permit untrusted users to create
     objects is not a <link linkend="ddl-schemas-patterns">secure schema usage
     pattern</link>.
+-->
+信用できないユーザにオブジェクトの作成を許可するスキーマを含む検索パスは、<link linkend="ddl-schemas-patterns">安全なスキーマ使用パターン</link>ではありませんので、スキーマで修飾されていない名前では危険は起こりません。
    </para>
   </footnote>
+<!--
 (not typical), any operator found in a schema that permits untrusted users to
 create objects.  In such situations, cast arguments to force an exact match.
+-->
+呼び出す時にセキュリティの危険が発生します。
+そのような状況では、強制的に正確に一致するように引数をキャストしてください。
 </para>
 
 <substeps>
 <step id="op-resol-exact-unknown" performance="optional">
 <para>
+<!--
 If one argument of a binary operator invocation is of the <type>unknown</type> type,
 then assume it is the same type as the other argument for this check.
 Invocations involving two <type>unknown</type> inputs, or a prefix operator
 with an <type>unknown</type> input, will never find a match at this step.
+-->
+二項演算子の1つの引数が<type>unknown</type>型であった場合、この検査のもう片方の引数と同一の型であると仮定します。
+2つの<type>unknown</type>入力、もしくは<type>unknown</type>入力を伴う単項演算子が呼び出された場合、この段階では対を見つけることはありません。
 </para>
 </step>
 <step id="op-resol-exact-domain" performance="optional">
 <para>
+<!--
 If one argument of a binary operator invocation is of the <type>unknown</type>
 type and the other is of a domain type, next check to see if there is an
 operator accepting exactly the domain's base type on both sides; if so, use it.
+-->
+二項演算子の1つの引数が<type>unknown</type>型であり、もう1つがドメイン型の場合、次に両側でドメインの基本型を厳密に受け付ける演算子があるかを確認します。
 </para>
 </step>
 </substeps>
@@ -284,43 +432,69 @@ operator accepting exactly the domain's base type on both sides; if so, use it.
 
 <step id="op-resol-best-match" performance="required">
 <para>
+<!--
 Look for the best match.
+-->
+最もよく合うものを検索します。
 </para>
 <substeps>
 <step performance="required">
 <para>
+<!--
 Discard candidate operators for which the input types do not match
 and cannot be converted (using an implicit conversion) to match.
 <type>unknown</type> literals are
 assumed to be convertible to anything for this purpose.  If only one
 candidate remains, use it; else continue to the next step.
+-->
+演算子の候補のうち、入力値のデータ型が一致せず、また、（暗黙的な変換を使用して）一致するように変換できないものを破棄します。
+<type>unknown</type>リテラルは、上記の目的で何にでも変換可能とみなされます。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 If any input argument is of a domain type, treat it as being of the
 domain's base type for all subsequent steps.  This ensures that domains
 act like their base types for purposes of ambiguous-operator resolution.
+-->
+入力引数のいずれかがドメイン型であれば、以降の段階すべてでドメインの基本型であるかのように扱います。
+これにより、曖昧な演算子を解決するのを目的としてその基本型であるかのようにドメインが振る舞うことが確実になります。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 Run through all candidates and keep those with the most exact matches
 on input types.  Keep all candidates if none have exact matches.
 If only one candidate remains, use it; else continue to the next step.
+-->
+全ての候補を検索し、入力型に最も正確に合うものを残します。
+正確に合うものが何もなければ全ての候補を残します。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 Run through all candidates and keep those that accept preferred types (of the
 input data type's type category) at the most positions where type conversion
 will be required.
 Keep all candidates if none accept preferred types.
 If only one candidate remains, use it; else continue to the next step.
+-->
+全ての候補を検索し、型変換が必要とされる所で（入力データ型カテゴリの）優先される型を受け付けるものを残します。
+優先される型を受け付けるものが何もなければ全ての候補を残します。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 If any input arguments are <type>unknown</type>, check the type
 categories accepted at those argument positions by the remaining
 candidates.  At each position, select the <type>string</type> category
@@ -335,16 +509,32 @@ if any candidate accepts a preferred type in that category,
 discard candidates that accept non-preferred types for that argument.
 Keep all candidates if none survive these tests.
 If only one candidate remains, use it; else continue to the next step.
+-->
+入力引数で<type>unknown</type>のものがあった場合、それらの残った候補に引数位置で受け入れられる型カテゴリを検査します。
+各位置において、候補が<type>string</type>カテゴリを受け付ける場合は、そのカテゴリを選択します
+（unknown 型のリテラルは文字列のようなものですので、この文字列への重み付けは適切です）。
+そうでなければ、もし残った全ての候補が同じ型カテゴリを受け入れる場合はそのカテゴリを選択します。
+そうでもなければ、さらに手掛かりがなければ正しい選択が演繹されることができませんので、失敗となります。
+ここで、選択された型カテゴリを受け付けない演算子候補は破棄されます。
+さらに、それらカテゴリ内の優先される型を受け付ける候補が1つでもある場合、その引数の優先されない型を受け付ける候補は破棄されます。
+これらの検査をどれも通らなかったら全ての候補を残します。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step id="op-resol-last-unknown" performance="required">
 <para>
+<!--
 If there are both <type>unknown</type> and known-type arguments, and all
 the known-type arguments have the same type, assume that the
 <type>unknown</type> arguments are also of that type, and check which
 candidates can accept that type at the <type>unknown</type>-argument
 positions.  If exactly one candidate passes this test, use it.
 Otherwise, fail.
+-->
+もし<type>unknown</type>と既知の型の引数の両方があり、そして全ての既知の型の引数が同じ型を持っていた場合、<type>unknown</type>引数も同じ型であると仮定し、
+どの候補が<type>unknown</type>引数の位置にある型を受け付けることができるかを検査します。
+正確に1つの候補がこの検査を通過した場合、それを使います。それ以外は失敗します。
 </para>
 </step>
 </substeps>
@@ -352,18 +542,28 @@ Otherwise, fail.
 </procedure>
 
 <para>
+<!--
 Some examples follow.
+-->
+以下に例を示します。
 </para>
 
 <example>
+<!--
 <title>Square Root Operator Type Resolution</title>
+-->
+<title>平方根演算子の型解決</title>
 
 <para>
+<!--
 There is only one square root operator (prefix <literal>|/</literal>)
 defined in the standard catalog, and it takes an argument of type
 <type>double precision</type>.
 The scanner assigns an initial type of <type>integer</type> to the argument
 in this query expression:
+-->
+平方根演算子として、<type>double precision</type>を引数とするものが標準カタログ内に1つのみ定義されています（<literal>|/</literal>を前に付けます）。
+スキャナは、以下の問い合わせ式の引数にまず<type>integer</type>型を割り当てます。
 <screen>
 SELECT |/ 40 AS "square root of 40";
  square root of 40
@@ -372,8 +572,11 @@ SELECT |/ 40 AS "square root of 40";
 (1 row)
 </screen>
 
+<!--
 So the parser does a type conversion on the operand and the query
 is equivalent to:
+-->
+パーサはオペランドを型変換し、問い合わせは以下と等価になります。
 
 <screen>
 SELECT |/ CAST(40 AS double precision) AS "square root of 40";
@@ -382,16 +585,26 @@ SELECT |/ CAST(40 AS double precision) AS "square root of 40";
 </example>
 
 <example>
+<!--
 <title>String Concatenation Operator Type Resolution</title>
+-->
+<title>文字列連結演算子の型解決</title>
 
 <para>
+<!--
 A string-like syntax is used for working with string types and for
 working with complex extension types.
 Strings with unspecified type are matched with likely operator candidates.
+-->
+文字列類似構文は、文字列の作業の他、複雑な拡張型の作業にも使用されます。
+型の指定がない文字列は、類似演算子候補に一致します。
 </para>
 
 <para>
+<!--
 An example with one unspecified argument:
+-->
+例えば、以下は指定がない引数が1つあります。
 <screen>
 SELECT text 'abc' || 'def' AS "text and unknown";
 
@@ -403,13 +616,20 @@ SELECT text 'abc' || 'def' AS "text and unknown";
 </para>
 
 <para>
+<!--
 In this case the parser looks to see if there is an operator taking <type>text</type>
 for both arguments. Since there is, it assumes that the second argument should
 be interpreted as type <type>text</type>.
+-->
+この場合、パーサは両引数で<type>text</type>を取る演算子があるかどうかを検索します。
+この演算子は存在しますので、第二引数は<type>text</type>型として解釈されるものと仮定されます。
 </para>
 
 <para>
+<!--
 Here is a concatenation of two values of unspecified types:
+-->
+以下は型の指定がない2つの値の連結です。
 <screen>
 SELECT 'abc' || 'def' AS "unspecified";
 
@@ -421,6 +641,7 @@ SELECT 'abc' || 'def' AS "unspecified";
 </para>
 
 <para>
+<!--
 In this case there is no initial hint for which type to use, since no types
 are specified in the query. So, the parser looks for all candidate operators
 and finds that there are candidates accepting both string-category and
@@ -428,19 +649,32 @@ bit-string-category inputs.  Since string category is preferred when available,
 that category is selected, and then the
 preferred type for strings, <type>text</type>, is used as the specific
 type to resolve the unknown-type literals as.
+-->
+この場合、問い合わせ内に型が指定されていませんので、どの型を使用すべきかについての初期の指針がありません。
+ですから、パーサは全ての演算子候補を検索し、文字列カテゴリとビット列カテゴリ入力を受け付ける候補を見つけます。
+使用できる場合は文字列カテゴリが優先されますので、文字列カテゴリが選択され、それから文字列に対して優先される型である<type>text</type>が、不明のリテラルを解決する型として使用されます。
 </para>
 </example>
 
 <example>
+<!--
 <title>Absolute-Value and Negation Operator Type Resolution</title>
+-->
+<title>絶対値と否定演算子の型解決</title>
 
 <para>
+<!--
 The <productname>PostgreSQL</productname> operator catalog has several
 entries for the prefix operator <literal>@</literal>, all of which implement
 absolute-value operations for various numeric data types.  One of these
 entries is for type <type>float8</type>, which is the preferred type in
 the numeric category.  Therefore, <productname>PostgreSQL</productname>
 will use that entry when faced with an <type>unknown</type> input:
+-->
+<productname>PostgreSQL</productname>の演算子カタログには、前置演算子<literal>@</literal>用に複数の項目があります。
+これは全て各種数値データ型に対する絶対値計算を実装するものです。
+その1つは、数値カテゴリの優先される型である<type>float8</type>型用の項目です。
+したがって、<productname>PostgreSQL</productname>は、<type>unknown</type>の入力があった場合にこれを使用します。
 <screen>
 SELECT @ '-4.5' AS "abs";
  abs
@@ -448,9 +682,13 @@ SELECT @ '-4.5' AS "abs";
  4.5
 (1 row)
 </screen>
+<!--
 Here the system has implicitly resolved the unknown-type literal as type
 <type>float8</type> before applying the chosen operator.  We can verify that
 <type>float8</type> and not some other type was used:
+-->
+ここでシステムは、選択した演算子を適用する前に、unknown型のリテラルを<type>float8</type>へ暗黙的に型変換します。
+以下のように<type>float8</type>が使用され、他の型が使用されていないことを検証することができます。
 <screen>
 SELECT @ '-4.5e500' AS "abs";
 
@@ -459,9 +697,13 @@ ERROR:  "-4.5e500" is out of range for type double precision
 </para>
 
 <para>
+<!--
 On the other hand, the prefix operator <literal>~</literal> (bitwise negation)
 is defined only for integer data types, not for <type>float8</type>.  So, if we
 try a similar case with <literal>~</literal>, we get:
+-->
+一方、前置演算子<literal>~</literal>（ビット否定）は、整数データ型のみで定義され、<type>float8</type>用は定義されていません。
+ですから、<literal>~</literal>における上と同様の場合では、以下のような結果になります。
 <screen>
 SELECT ~ '20' AS "negation";
 
@@ -469,9 +711,13 @@ ERROR:  operator is not unique: ~ "unknown"
 HINT:  Could not choose a best candidate operator. You might need to add
 explicit type casts.
 </screen>
+<!--
 This happens because the system cannot decide which of the several
 possible <literal>~</literal> operators should be preferred.  We can help
 it out with an explicit cast:
+-->
+これは、システムが、複数の<literal>~</literal>演算子候補のうちどれが優先されるかを決定することができなかったため発生します。
+明示的なキャストを使用することで補助することができます。
 <screen>
 SELECT ~ CAST('20' AS int8) AS "negation";
 
@@ -484,11 +730,17 @@ SELECT ~ CAST('20' AS int8) AS "negation";
 </example>
 
 <example>
+<!--
 <title>Array Inclusion Operator Type Resolution</title>
+-->
+<title>配列包含演算子の型解決</title>
 
 <para>
+<!--
 Here is another example of resolving an operator with one known and one
 unknown input:
+-->
+一方は既知でありもう一方は未知である入力を伴った演算子の解決のもう一つの例です。
 <screen>
 SELECT array[1,2] &lt;@ '{1,2,3}' as "is subset";
 
@@ -497,6 +749,7 @@ SELECT array[1,2] &lt;@ '{1,2,3}' as "is subset";
  t
 (1 row)
 </screen>
+<!--
 The <productname>PostgreSQL</productname> operator catalog has several
 entries for the infix operator <literal>&lt;@</literal>, but the only two that
 could possibly accept an integer array on the left-hand side are
@@ -511,17 +764,31 @@ input, that is, integer array.  Now only one of the two operators can match,
 so array inclusion is selected.  (Had range inclusion been selected, we would
 have gotten an error, because the string does not have the right format to be
 a range literal.)
+-->
+<productname>PostgreSQL</productname>の演算子カタログは、<literal>&lt;@</literal>中置演算子のためのいくつかのエントリを持っていますが、
+数値型配列を左側に受け付けることができるのは配列包含(<type>anyarray</type> <literal>&lt;@</literal> <type>anyarray</type>)と範囲包含(<type>anyelement</type> <literal>&lt;@</literal> <type>anyrange</type>)の2つのみです。
+これらの多様な擬似データ型(<xref linkend="datatype-pseudo"/>を参照)は優先されると見なされないため、このような方法ではパーサは曖昧さを解決することができません。
+しかし、<xref linkend="op-resol-last-unknown"/>では、未知の型のリテラルを別の入力と同じ型であると仮定するために数値配列とみなします。
+今のところ2つのうち一つの演算子だけがマッチできるため、配列包含が選択されます。(範囲包含が選択された場合、演算子の右側にある文字列は正しい範囲型のリテラルではないため、エラーとなるでしょう。)
 </para>
 </example>
 
 <example>
+<!--
 <title>Custom Operator on a Domain Type</title>
+-->
+<title>ドメイン型の独自の演算子</title>
 
 <para>
+<!--
 Users sometimes try to declare operators applying just to a domain type.
 This is possible but is not nearly as useful as it might seem, because the
 operator resolution rules are designed to select operators applying to the
 domain's base type.  As an example consider
+-->
+利用者は時々ドメイン型にのみ適用される演算子を宣言しようとします。
+これは可能ですが、思ったほど便利ではありません。演算子の解決規則がドメイン基本型に適用される演算子を選ぶように設計されているからです。
+例として、以下を考えてください。
 <screen>
 CREATE DOMAIN mytext AS text CHECK(...);
 CREATE FUNCTION mytext_eq_text (mytext, text) RETURNS boolean AS ...;
@@ -530,6 +797,7 @@ CREATE TABLE mytable (val mytext);
 
 SELECT * FROM mytable WHERE val = 'foo';
 </screen>
+<!--
 This query will not use the custom operator.  The parser will first see if
 there is a <type>mytext</type> <literal>=</literal> <type>mytext</type> operator
 (<xref linkend="op-resol-exact-unknown"/>), which there is not;
@@ -540,9 +808,14 @@ so it resolves the <type>unknown</type>-type literal as <type>text</type> and
 uses the <type>text</type> <literal>=</literal> <type>text</type> operator.
 The only way to get the custom operator to be used is to explicitly cast
 the literal:
+-->
+この問い合わせは独自の演算子を使いません．
+パーサはまず<type>mytext</type> <literal>=</literal> <type>mytext</type>演算子(<xref linkend="op-resol-exact-unknown"/>)があるか確認しますが、ありません。次にドメイン基本型<type>text</type>を考慮して<type>text</type> <literal>=</literal> <type>text</type>演算子(<xref linkend="op-resol-exact-domain"/>)があるか確認すると、あります。そのため<type>unknown</type>型は<type>text</type>として解決され、<type>text</type> <literal>=</literal> <type>text</type>演算子が使われます。
+独自の演算子を使う唯一の方法は、「正確な一致」規則に従って<type>mytext</type> <literal>=</literal> <type>text</type>演算子がすぐに見つかるように、リテラルを明示的にキャストすることだけです。
 <screen>
 SELECT * FROM mytable WHERE val = text 'foo';
 </screen>
+<!--
 so that the <type>mytext</type> <literal>=</literal> <type>text</type> operator is found
 immediately according to the exact-match rule.  If the best-match rules
 are reached, they actively discriminate against operators on domain types.
@@ -550,29 +823,46 @@ If they did not, such an operator would create too many ambiguous-operator
 failures, because the casting rules always consider a domain as castable
 to or from its base type, and so the domain operator would be considered
 usable in all the same cases as a similarly-named operator on the base type.
+-->
+もし、「最善の一致」規則に達した場合、ドメイン型の演算子を積極的に差別します。
+そうでなければ、そのような演算子は非常に多くの「曖昧な演算子」の失敗を引き起こします。キャストの規則はドメインをその基本型からもしくは基本型へキャスト可能と考え、ドメイン演算子は基本型の似たような名前の演算子とすべて同じ状況で利用できると考えられるからです。
 </para>
 </example>
 
 </sect1>
 
 <sect1 id="typeconv-func">
+<!--
 <title>Functions</title>
+-->
+<title>関数</title>
 
 <indexterm zone="typeconv-func">
+<!--
  <primary>function</primary>
  <secondary>type resolution in an invocation</secondary>
+-->
+ <primary>関数</primary>
+ <secondary>の呼び出しにおける型解決</secondary>
 </indexterm>
 
   <para>
+<!--
    The specific function that is referenced by a function call
    is determined using the following procedure.
+-->
+関数呼び出しによって参照される特定の関数は、以下の手順に従って解決されます。
   </para>
 
 <procedure>
+<!--
 <title>Function Type Resolution</title>
+-->
+<title>関数における型の解決</title>
 
 <step performance="required">
 <para>
+<!--
 Select the functions to be considered from the
 <classname>pg_proc</classname> system catalog.  If a non-schema-qualified
 function name was used, the functions
@@ -580,19 +870,29 @@ considered are those with the matching name and argument count that are
 visible in the current search path (see <xref linkend="ddl-schemas-path"/>).
 If a qualified function name was given, only functions in the specified
 schema are considered.
+-->
+<classname>pg_proc</classname>システムカタログから、調査の対象とする関数を選択します。
+スキーマ修飾がされていない関数名が使用される場合、現行の検索パスで可視になっていて、同一の名前と引数の数を持つ関数が調査対象であるとみなされます
+（<xref linkend="ddl-schemas-path"/>を参照してください）。
+修飾された関数名が与えられている場合、指定されたスキーマの関数のみが調査対象とみなされます。
 </para>
 
 <substeps>
 <step performance="optional">
 <para>
+<!--
 If the search path finds multiple functions of identical argument types,
 only the one appearing earliest in the path is considered.  Functions of
 different argument types are considered on an equal footing regardless of
 search path position.
+-->
+検索パスで、引数のデータ型が同じである複数の関数を検出した場合、そのパスで最初に検出された関数のみを調査対象とみなします。
+引数のデータ型が異なる関数は、検索パス内の位置に関係なく、同じように調べられます。
 </para>
 </step>
 <step performance="optional">
 <para>
+<!--
 If a function is declared with a <literal>VARIADIC</literal> array parameter, and
 the call does not use the <literal>VARIADIC</literal> keyword, then the function
 is treated as if the array parameter were replaced by one or more occurrences
@@ -601,18 +901,27 @@ function might have effective argument types identical to some non-variadic
 function.  In that case the function appearing earlier in the search path is
 used, or if the two functions are in the same schema, the non-variadic one is
 preferred.
+-->
+もし関数が<literal>VARIADIC</literal>型の配列パラメータを伴って定義されており、そして<literal>VARIADIC</literal>キーワードを用いずに呼ばれた場合は、呼び出しに適合するよう、一つかそれ以上の要素の型に配列のパラメータを置き換えた形で扱われます。
+このような拡張後は、その関数は実際の引数の型を持つので、他の非可変長の引数を持つ関数と同一になるかもしれません。この場合、検索パスで先に見つかった関数が使われます。また、同じスキーマに2つの関数が見つかった場合は非可変長の関数が優先されます。
 </para>
 <para>
+<!--
 This creates a security hazard when calling, via qualified name
+-->
+信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる可変長引数の関数を、修飾された名前で
   <footnote id="func-qualified-security">
-   <!-- If you edit this, consider editing op-qualified-security. -->
+   <!-- 原文コメント If you edit this, consider editing op-qualified-security. -->
    <para>
+<!--
     The hazard does not arise with a non-schema-qualified name, because a
     search path containing schemas that permit untrusted users to create
     objects is not a <link linkend="ddl-schemas-patterns">secure schema usage
     pattern</link>.
+-->
+信用できないユーザにオブジェクトの作成を許可するスキーマを含む検索パスは、<link linkend="ddl-schemas-patterns">安全なスキーマ使用パターン</link>ではありませんので、スキーマで修飾されていない名前では危険は起こりません。
    </para>
-  </footnote>,
+  </footnote><!--,
 a variadic function found in a schema that permits untrusted users to create
 objects.  A malicious user can take control and execute arbitrary SQL
 functions as though you executed them.  Substitute a call bearing
@@ -621,10 +930,17 @@ populating <literal>VARIADIC "any"</literal> parameters often have no
 equivalent formulation containing the <literal>VARIADIC</literal> keyword.  To
 issue those calls safely, the function's schema must permit only trusted users
 to create objects.
+-->
+呼び出す時にセキュリティの危険が発生します。
+悪意のあるユーザは、支配権を奪い、あたかもあなたが実行したかのように任意のSQL関数を実行できます。
+<literal>VARIADIC</literal>キーワードを持つ呼び出しを代わりに使ってください。そうすればこの危険は避けられます。
+<literal>VARIADIC "any"</literal>パラメータにデータを入れての呼び出しには、しばしば同等の<literal>VARIADIC</literal>キーワード含む定式化がありません。
+この呼び出しを安全に行なうには、関数のスキーマは信用できるユーザだけがオブジェクトを作成できるようにしなければなりません。
 </para>
 </step>
 <step performance="optional">
 <para>
+<!--
 Functions that have default values for parameters are considered to match any
 call that omits zero or more of the defaultable parameter positions.  If more
 than one such function matches a call, the one appearing earliest in the
@@ -634,8 +950,13 @@ possible if they have different sets of defaultable parameters), the system
 will not be able to determine which to prefer, and so an <quote>ambiguous
 function call</quote> error will result if no better match to the call can be
 found.
+-->
+パラメータにデフォルト値を持つ関数は、デフォルト指定可能なパラメータ位置のうち、0以上が省略されたどのような呼び出しに対しても適合すると見なされます。
+もし呼び出し時にこのような関数が2つ以上適合した場合、検索パスで先に見つかったものが使用されます。
+もし、デフォルト指定のない位置に同じパラメータ型を持つ関数(もしそれらが異なるデフォルト指定のあるパラメータのセットを持っていればあり得ます)が同じスキーマに2つ以上あった時は、システムはどの関数を使うべきか決定できず、呼び出しにより適合するものが見つからなければ<quote>ambiguous function call</quote>エラーが結果として返るでしょう。
 </para>
 <para>
+<!--
 This creates an availability hazard when calling, via qualified
 name<footnoteref linkend="func-qualified-security"/>, any function found in a
 schema that permits untrusted users to create objects.  A malicious user can
@@ -643,6 +964,11 @@ create a function with the name of an existing function, replicating that
 function's parameters and appending novel parameters having default values.
 This precludes new calls to the original function.  To forestall this hazard,
 place functions in schemas that permit only trusted users to create objects.
+-->
+信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる関数を修飾された名前で<footnoteref linkend="func-qualified-security"/>呼び出す時に、これは濫用の危険を起こします。
+悪意のあるユーザは、既存の関数の名前で、その関数のパラメータを複製し、デフォルト値を持つ新しいパラメータを追加した関数を作成できます。
+これは元の関数への新しい呼び出しを妨げます。
+この危険を未然に防ぐには、関数を信用できるユーザだけがオブジェクトを作成できるスキーマに置いてください。
 </para>
 </step>
 </substeps>
@@ -650,6 +976,7 @@ place functions in schemas that permit only trusted users to create objects.
 
 <step performance="required">
 <para>
+<!--
 Check for a function accepting exactly the input argument types.
 If one exists (there can be only one exact match in the set of
 functions considered), use it.  Lack of an exact match creates a security
@@ -658,11 +985,18 @@ name<footnoteref linkend="func-qualified-security"/>, a function found in a
 schema that permits untrusted users to create objects.  In such situations,
 cast arguments to force an exact match.  (Cases involving <type>unknown</type>
 will never find a match at this step.)
+-->
+正確に入力引数型を受け付ける関数があるかどうか検査します。
+該当する関数があれば（調査される関数の集合内で正確に一致するものは1つしかあり得ません）、それを使用します。
+正確に一致するものがない場合、信用できないユーザにオブジェクトの作成を許可しているスキーマで見つかる関数を、修飾された名前で<footnoteref linkend="func-qualified-security"/>呼び出す時にセキュリティの危険が発生します。
+そのような状況では、強制的に正確に一致するように引数をキャストしてください。
+（<type>unknown</type>を含む場合は、この段階で一致するものは決して見つかりません。）
 </para>
 </step>
 
 <step performance="required">
 <para>
+<!--
 If no exact match is found, see if the function call appears
 to be a special type conversion request.  This happens if the function call
 has just one argument and the function name is the same as the (internal)
@@ -672,57 +1006,94 @@ data type, or a type that could be converted to the named data type by
 applying that type's I/O functions (that is, the conversion is either to or
 from one of the standard string types).  When these conditions are met,
 the function call is treated as a form of <literal>CAST</literal> specification.
+-->
+正確に一致するものが存在しなかった場合、その関数呼び出しが特別な型変換要求であるかどうかを確認します。
+これは、関数呼び出しがただ1つの引数を取り、関数名が何らかのデータ型の（内部的な）名前と同一である場合に発生します。
+さらに、その関数の引数は、unknown型のリテラルか指定されたデータ型へのバイナリ変換可能な型か、型の入出力関数を適用することで指定された型に変換可能な型（つまり、変換が標準文字列型との間の変換である）であるかのいずれかでなければなりません。
+これらの条件に合う場合、関数呼び出しは<literal>CAST</literal>仕様の形式と同様に扱われます。
   <footnote>
    <para>
+<!--
     The reason for this step is to support function-style cast specifications
     in cases where there is not an actual cast function.  If there is a cast
     function, it is conventionally named after its output type, and so there
     is no need to have a special case.  See
     <xref linkend="sql-createcast"/>
     for additional commentary.
+-->
+この処理の理由は、実際にはキャスト関数が存在しない状況において、関数形態のキャスト仕様をサポートすることです。
+キャスト関数が存在する場合、慣習的に出力型に因んで名付けられます。
+ですので、特殊な状況を持つ必要はありません。
+詳細な解説については<xref linkend="sql-createcast"/>を参照してください。
    </para>
   </footnote>
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 Look for the best match.
+-->
+最適なものを検索します。
 </para>
 <substeps>
 <step performance="required">
 <para>
+<!--
 Discard candidate functions for which the input types do not match
 and cannot be converted (using an implicit conversion) to match.
 <type>unknown</type> literals are
 assumed to be convertible to anything for this purpose.  If only one
 candidate remains, use it; else continue to the next step.
+-->
+関数の候補のうち、入力値のデータ型が一致せず、また、（暗黙的な変換を使用して）一致するように変換できないものを破棄します。
+<type>unknown</type>リテラルは、上記の目的で何にでも変換可能とみなされます。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 If any input argument is of a domain type, treat it as being of the
 domain's base type for all subsequent steps.  This ensures that domains
 act like their base types for purposes of ambiguous-function resolution.
+-->
+入力引数のいずれかがドメイン型であれば、以降の段階すべてでドメインの基本型であるかのように扱います。
+これにより、曖昧な関数を解決するのを目的としてその基本型であるかのようにドメインが振る舞うことが確実になります。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 Run through all candidates and keep those with the most exact matches
 on input types.  Keep all candidates if none have exact matches.
 If only one candidate remains, use it; else continue to the next step.
+-->
+全ての候補を検索し、入力型に最も正確に合うものを残します。
+正確に合うものが何もなければ全ての候補を残します。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 Run through all candidates and keep those that accept preferred types (of the
 input data type's type category) at the most positions where type conversion
 will be required.
 Keep all candidates if none accept preferred types.
 If only one candidate remains, use it; else continue to the next step.
+-->
+全ての候補を検索し、型変換が必要とされるところで（入力データ型カテゴリの）優先される型を受け付けるものを残します。
+優先される型を受け付けるものが何もなければ全ての候補を残します。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 If any input arguments are <type>unknown</type>, check the type categories
 accepted
 at those argument positions by the remaining candidates.  At each position,
@@ -737,16 +1108,32 @@ Furthermore, if any candidate accepts a preferred type in that category,
 discard candidates that accept non-preferred types for that argument.
 Keep all candidates if none survive these tests.
 If only one candidate remains, use it; else continue to the next step.
+-->
+入力引数で<type>unknown</type>のものがあった場合、それらの残った候補に引数位置で受け入れられる型カテゴリを検査します。
+各位置で候補が<type>string</type>カテゴリを受け付ける場合は、そのカテゴリを選択します
+（unknown 型のリテラルは文字列のようなものですので、この文字列への重み付けは適切です）。
+そうでなければ、もし残った全ての候補が同じ型カテゴリを受け入れる場合はそのカテゴリを選択します。
+そうでもなければ、さらに手掛かりがなければ正しい選択が演繹されることができませんので、失敗となります。
+ここで、選択された型カテゴリを受け付けない演算子候補は破棄されます。
+さらに、このカテゴリ内の優先される型を受け付ける候補が1つでもある場合、その引数の優先されない型を受け付ける候補は破棄されます。
+これらの検査をどれも通らなかったら全ての候補を残します。
+1つの候補しか残らない場合、それを使います。
+それ以外の場合は次の段階に進みます。
 </para>
 </step>
 <step performance="required">
 <para>
+<!--
 If there are both <type>unknown</type> and known-type arguments, and all
 the known-type arguments have the same type, assume that the
 <type>unknown</type> arguments are also of that type, and check which
 candidates can accept that type at the <type>unknown</type>-argument
 positions.  If exactly one candidate passes this test, use it.
 Otherwise, fail.
+-->
+もし<type>unknown</type>と既知の型の引数の両方があり、そして全ての既知の型の引数が同じ型を持っていた場合、<type>unknown</type>引数も同じ型であると仮定し、
+どの候補が<type>unknown</type>引数の位置にある型を受け付けることができるかを検査します。
+正確に1つの候補がこの検査を通過した場合、それを使います。それ以外は失敗します。
 </para>
 </step>
 </substeps>
@@ -754,15 +1141,23 @@ Otherwise, fail.
 </procedure>
 
 <para>
+<!--
 Note that the <quote>best match</quote> rules are identical for operator and
 function type resolution.
 Some examples follow.
+-->
+この<quote>最善一致</quote>規則は演算子と関数の型解決で同一であることに注意してください。
+以下に例を示します。
 </para>
 
 <example>
+<!--
 <title>Rounding Function Argument Type Resolution</title>
+-->
+<title>丸め関数引数の型解決</title>
 
 <para>
+<!--
 There is only one <function>round</function> function that takes two
 arguments; it takes a first argument of type <type>numeric</type> and
 a second argument of type <type>integer</type>.
@@ -770,6 +1165,10 @@ So the following query automatically converts
 the first argument of type <type>integer</type> to
 <type>numeric</type>:
 
+-->
+2つの引数を取る<function>round</function>関数は1つしかありません
+第1引数として<type>numeric</type>型、第2引数として<type>integer</type>型を取ります。
+ですから、以下の問い合わせは自動的に、<type>integer</type>型の第1引数を<type>numeric</type>に変換します。
 <screen>
 SELECT round(4, 4);
 
@@ -779,16 +1178,22 @@ SELECT round(4, 4);
 (1 row)
 </screen>
 
+<!--
 That query is actually transformed by the parser to:
+-->
+問い合わせはパーサによって実質以下のように変形されます。
 <screen>
 SELECT round(CAST (4 AS numeric), 4);
 </screen>
 </para>
 
 <para>
+<!--
 Since numeric constants with decimal points are initially assigned the
 type <type>numeric</type>, the following query will require no type
 conversion and therefore might be slightly more efficient:
+-->
+小数点を持つ数値定数はまず<type>numeric</type>に割り当てられますので、以下の問い合わせでは型変換が不要です。そのためかなり効率的になる可能性があります。
 <screen>
 SELECT round(4.0, 4);
 </screen>
@@ -796,7 +1201,10 @@ SELECT round(4.0, 4);
 </example>
 
 <example>
+<!--
 <title>Variadic Function Resolution</title>
+-->
+<title>可変長引数の関数の解決</title>
 
 <para>
 <screen>
@@ -805,8 +1213,12 @@ CREATE FUNCTION public.variadic_example(VARIADIC numeric[]) RETURNS int
 CREATE FUNCTION
 </screen>
 
+<!--
 This function accepts, but does not require, the VARIADIC keyword.  It
 tolerates both integer and numeric arguments:
+-->
+この関数は、必須ではないですがVARIADICキーワードを受け付けます。
+整数の引数と数値の引数の両方を許容します。
 
 <screen>
 SELECT public.variadic_example(0),
@@ -818,8 +1230,11 @@ SELECT public.variadic_example(0),
 (1 row)
 </screen>
 
+<!--
 However, the first and second calls will prefer more-specific functions, if
 available:
+-->
+しかしながら、1番目と2番目の呼び出しは、もし利用可能なら、より特定の関数を優先します。
 
 <screen>
 CREATE FUNCTION public.variadic_example(numeric) RETURNS int
@@ -839,22 +1254,35 @@ SELECT public.variadic_example(0),
 (1 row)
 </screen>
 
+<!--
 Given the default configuration and only the first function existing, the
 first and second calls are insecure.  Any user could intercept them by
 creating the second or third function.  By matching the argument type exactly
 and using the <literal>VARIADIC</literal> keyword, the third call is secure.
+-->
+もしデフォルトの設定で最初の関数だけが存在しているなら、1番目と2番目の呼び出しは安全ではありません。
+ユーザは、2番目や3番目の関数を作成することで、それらを妨害できます。
+引数の型を厳密に一致させ<literal>VARIADIC</literal>キーワードを使うのなら、3番目の呼び出しは安全です。
 </para>
 </example>
 
 <example>
+<!--
 <title>Substring Function Type Resolution</title>
+-->
+<title>部分文字列関数の型解決</title>
 
 <para>
+<!--
 There are several <function>substr</function> functions, one of which
 takes types <type>text</type> and <type>integer</type>.  If called
 with a string constant of unspecified type, the system chooses the
 candidate function that accepts an argument of the preferred category
 <literal>string</literal> (namely of type <type>text</type>).
+-->
+<function>substr</function>関数は複数存在します。
+その1つは<type>text</type>と<type>integer</type>型を取ります。
+型の指定がない文字列定数で呼び出した場合、システムは優先されるカテゴリ<literal>string</literal>（すなわち<type>text</type>型）の引数を受け付ける候補関数を選択します。
 
 <screen>
 SELECT substr('1234', 3);
@@ -867,8 +1295,11 @@ SELECT substr('1234', 3);
 </para>
 
 <para>
+<!--
 If the string is declared to be of type <type>varchar</type>, as might be the case
 if it comes from a table, then the parser will try to convert it to become <type>text</type>:
+-->
+文字列が<type>varchar</type>型と宣言された場合、これはテーブルから取り出した場合が考えられますが、パーサはそれを<type>text</type>になるように変換しようと試みます。
 <screen>
 SELECT substr(varchar '1234', 3);
 
@@ -878,7 +1309,10 @@ SELECT substr(varchar '1234', 3);
 (1 row)
 </screen>
 
+<!--
 This is transformed by the parser to effectively become:
+-->
+これは以下になるようにパーサによって変換されます。
 <screen>
 SELECT substr(CAST (varchar '1234' AS text), 3);
 </screen>
@@ -886,18 +1320,25 @@ SELECT substr(CAST (varchar '1234' AS text), 3);
 <para>
 <note>
 <para>
+<!--
 The parser learns from the <structname>pg_cast</structname> catalog that
 <type>text</type> and <type>varchar</type>
 are binary-compatible, meaning that one can be passed to a function that
 accepts the other without doing any physical conversion.  Therefore, no
 type conversion call is really inserted in this case.
+-->
+パーサは<structname>pg_cast</structname>カタログから<type>text</type>と<type>varchar</type>がバイナリ互換、つまり、何らかの物理的な変換を行うことなく片方を受け付ける関数にもう片方を渡すことができることを知ります。
+したがって、この場合実際に挿入される型変換呼び出しはありません。
 </para>
 </note>
 </para>
 
 <para>
+<!--
 And, if the function is called with an argument of type <type>integer</type>,
 the parser will try to convert that to <type>text</type>:
+-->
+また、<type>integer</type>型の引数でこの関数が呼び出された場合、パーサはそれを<type>text</type>に変換しようと試みます。
 <screen>
 SELECT substr(1234, 3);
 ERROR:  function substr(integer, integer) does not exist
@@ -905,8 +1346,12 @@ HINT:  No function matches the given name and argument types. You might need
 to add explicit type casts.
 </screen>
 
+<!--
 This does not work because <type>integer</type> does not have an implicit cast
 to <type>text</type>.  An explicit cast will work, however:
+-->
+<type>integer</type>は<type>text</type>への暗黙的なキャストを持たないため、これは失敗します。
+成功させるには、以下のように明示的なキャストを行います。
 <screen>
 SELECT substr(CAST (1234 AS text), 3);
 
@@ -921,36 +1366,54 @@ SELECT substr(CAST (1234 AS text), 3);
 </sect1>
 
 <sect1 id="typeconv-query">
+<!--
 <title>Value Storage</title>
+-->
+<title>値の格納</title>
 
   <para>
+<!--
    Values to be inserted into a table are converted to the destination
    column's data type according to the
    following steps.
+-->
+以下の手順に従って、テーブルに挿入される値は対象とする列のデータ型に変換されます。
   </para>
 
 <procedure>
+<!--
 <title>Value Storage Type Conversion</title>
+-->
+<title>値の格納における型変換</title>
 
 <step performance="required">
 <para>
+<!--
 Check for an exact match with the target.
+-->
+対象に正確に一致するかどうかを検査します。
 </para>
 </step>
 
 <step performance="required">
 <para>
+<!--
 Otherwise, try to convert the expression to the target type.  This is possible
 if an <firstterm>assignment cast</firstterm> between the two types is registered in the
 <structname>pg_cast</structname> catalog (see <xref linkend="sql-createcast"/>).
 Alternatively, if the expression is an unknown-type literal, the contents of
 the literal string will be fed to the input conversion routine for the target
 type.
+-->
+なければ、式を対象の型に変換してみます。
+もし2つの型の間の<firstterm>代入キャスト</firstterm>が<structname>pg_cast</structname>カタログ(<xref linkend="sql-createcast"/>を参照してください)に登録されている場合、これは可能です。
+あるいは、もし式がunknown型リテラルの場合、リテラル文字列の内容は対象の型の入力変換ルーチンに与えられます。
 </para>
 </step>
 
 <step performance="required">
 <para>
+<!--
 Check to see if there is a sizing cast for the target type.  A sizing
 cast is a cast from that type to itself.  If one is found in the
 <structname>pg_cast</structname> catalog, apply it to the expression before storing
@@ -963,17 +1426,32 @@ parameter that says whether the cast is explicit or implicit.  The cast
 function
 is responsible for applying any length-dependent semantics such as size
 checking or truncation.
+-->
+対象の型に対してサイズ調整キャストがあるかどうかを検査します。
+サイズ調整キャストは、ある型からその同じ型へのキャストです。
+<structname>pg_cast</structname>カタログに1つ見つかった場合は、格納先の列に収納する前に式に適用します。
+こうしたキャストを実装する関数は、常に<type>integer</type>型のパラメータを1つ余計に取ります。
+このパラメータは、格納先の列の<structfield>atttypmod</structfield>値を受け付けます
+（<structfield>atttypmod</structfield>の解釈方法はデータ型によって異なりますが、典型的にはそれの宣言された長さです）。
+また、キャストが明示的か暗黙的かを示す、第三の<type>boolean</type>パラメータを取ることもできます。
+サイズ検査や切り詰めなど、長さに依存したセマンティクスの適用について、キャスト関数が責任を持ちます。
 </para>
 </step>
 
 </procedure>
 
 <example>
+<!--
 <title><type>character</type> Storage Type Conversion</title>
+-->
+<title><type>character</type>格納における型変換</title>
 
 <para>
+<!--
 For a target column declared as <type>character(20)</type> the following
 statement shows that the stored value is sized correctly:
+-->
+<type>character(20)</type>として宣言された対象の列への以下の文では、対象の大きさが正確に調整されることを示します。
 
 <screen>
 CREATE TABLE vv (v character(20));
@@ -988,6 +1466,7 @@ SELECT v, octet_length(v) FROM vv;
 </para>
 
 <para>
+<!--
 What has really happened here is that the two unknown literals are resolved
 to <type>text</type> by default, allowing the <literal>||</literal> operator
 to be resolved as <type>text</type> concatenation.  Then the <type>text</type>
@@ -1000,44 +1479,72 @@ not insert any real function call.)  Finally, the sizing function
 and applied to the operator's result and the stored column length.  This
 type-specific function performs the required length check and addition of
 padding spaces.
+-->
+ここで実際に起こったのは、デフォルトで<literal>||</literal>演算子が<type>text</type>の連結として解決できるように、2つのunknownリテラルが<type>text</type>に解決されたということです。
+そして演算子の<type>text</type>型の結果は対象の列の型に合うように<type>bpchar</type>(<quote>空白が埋められる文字</quote>, <type>character</type>データ型の内部名)に変換されます
+（しかし、<type>text</type>から<type>bpchar</type>へバイナリ変換可能ですので、この型変換のために実際の関数呼び出しは挿入されません）。
+最後に、<literal>bpchar(bpchar, integer, boolean)</literal>サイズ調整関数がシステムカタログの中から見つかり、演算子の結果と格納する列の長さを適用します。
+この型特有の関数は必要とされる長さを検査し、空白の埋め込みを行います。
 </para>
 </example>
 </sect1>
 
 <sect1 id="typeconv-union-case">
+<!--
 <title><literal>UNION</literal>, <literal>CASE</literal>, and Related Constructs</title>
+-->
+<title><literal>UNION</literal>、<literal>CASE</literal>および関連する構文</title>
 
 <indexterm zone="typeconv-union-case">
  <primary>UNION</primary>
+<!--
  <secondary>determination of result type</secondary>
+-->
+ <secondary>結果型の決定</secondary>
 </indexterm>
 
 <indexterm zone="typeconv-union-case">
  <primary>CASE</primary>
+<!--
  <secondary>determination of result type</secondary>
+-->
+ <secondary>結果型の決定</secondary>
 </indexterm>
 
 <indexterm zone="typeconv-union-case">
  <primary>ARRAY</primary>
+<!--
  <secondary>determination of result type</secondary>
+-->
+ <secondary>結果型の決定</secondary>
 </indexterm>
 
 <indexterm zone="typeconv-union-case">
  <primary>VALUES</primary>
+<!--
  <secondary>determination of result type</secondary>
+-->
+ <secondary>結果型の決定</secondary>
 </indexterm>
 
 <indexterm zone="typeconv-union-case">
  <primary>GREATEST</primary>
+<!--
  <secondary>determination of result type</secondary>
+-->
+ <secondary>結果型の決定</secondary>
 </indexterm>
 
 <indexterm zone="typeconv-union-case">
  <primary>LEAST</primary>
+<!--
  <secondary>determination of result type</secondary>
+-->
+ <secondary>結果型の決定</secondary>
 </indexterm>
 
 <para>
+<!--
 SQL <literal>UNION</literal> constructs must match up possibly dissimilar
 types to become a single result set.  The resolution algorithm is
 applied separately to each output column of a union query.  The
@@ -1049,30 +1556,48 @@ and the <function>GREATEST</function> and <function>LEAST</function>
 functions, use the identical
 algorithm to match up their component expressions and select a result
 data type.
+-->
+<literal>UNION</literal> SQL構文は、似ていない可能性がある型を1つの検索結果になるように適合させなければなりません。
+解決アルゴリズムは1つのunion問い合わせの出力列ごとに適用されます。
+<literal>INTERSECT</literal>構文と<literal>EXCEPT</literal>構文は、<literal>UNION</literal>と同じ方法で、似ていない可能性がある型の解決を行います。
+<literal>CASE</literal>、<literal>ARRAY</literal>、<literal>VALUES</literal>を含むいくつかの構文と<function>GREATEST</function>、<function>LEAST</function>関数は同一のアルゴリズムを使用して、その要素式を適合させ、結果のデータ型を選択します。
 </para>
 
 <procedure>
+<!--
 <title>Type Resolution for <literal>UNION</literal>, <literal>CASE</literal>,
 and Related Constructs</title>
+-->
+<title><literal>UNION</literal>、<literal>CASE</literal>および関連する構文の型解決</title>
 
 <step performance="required">
 <para>
+<!--
 If all inputs are of the same type, and it is not <type>unknown</type>,
 resolve as that type.
+-->
+もし全ての入力値が同一型であり、<type>unknown</type>ではない場合、その型として解決されます。
 </para>
 </step>
 
 <step performance="required">
 <para>
+<!--
 If any input is of a domain type, treat it as being of the
 domain's base type for all subsequent steps.
+-->
+入力のいずれかがドメイン型であれば、以降の段階すべてでドメインの基本型であるかのように扱います。
   <footnote>
    <para>
+<!--
     Somewhat like the treatment of domain inputs for operators and
     functions, this behavior allows a domain type to be preserved through
     a <literal>UNION</literal> or similar construct, so long as the user is
     careful to ensure that all inputs are implicitly or explicitly of that
     exact type.  Otherwise the domain's base type will be used.
+-->
+演算子や関数に対するドメイン入力の取り扱いとある程度似ていて、この振舞いにより、利用者が注意して入力をすべて厳密な型であると明示的にもしくは暗黙的に保証する限り、ドメイン型を<literal>UNION</literal>や類似の構成体に保存できます。
+そうでなければ、ドメインの基本型が使われます。
    </para>
   </footnote>
 </para>
@@ -1080,23 +1605,34 @@ domain's base type for all subsequent steps.
 
 <step performance="required">
 <para>
+<!--
 If all inputs are of type <type>unknown</type>, resolve as type
 <type>text</type> (the preferred type of the string category).
 Otherwise, <type>unknown</type> inputs are ignored for the purposes
 of the remaining rules.
+-->
+もし全ての入力値が<type>unknown</type>型だった場合、<type>text</type>型（文字列カテゴリの優先される型）として解決されます。
+そうでない場合は<type>unknown</type>入力は残りの規則のために無視されます。
 </para>
 </step>
 
 <step performance="required">
 <para>
+<!--
 If the non-unknown inputs are not all of the same type category, fail.
+-->
+もしunknownではない入力値が全て同じ型カテゴリでなければ失敗します。
 </para>
 </step>
 
 <step performance="required">
 <para>
+<!--
 Select the first non-unknown input type as the candidate type,
 then consider each other non-unknown input type, left to right.
+-->
+最初のunknownではない入力データ型を候補の型として選択します。
+それから、他のunknownではない入力データ型をそれぞれ左から右へ考慮します。
   <footnote>
    <para>
     For historical reasons, <literal>CASE</literal> treats
@@ -1104,30 +1640,48 @@ then consider each other non-unknown input type, left to right.
     input, with the <literal>THEN</literal> clauses(s) considered after
     that.  In all other cases, <quote>left to right</quote> means the order
     in which the expressions appear in the query text.
+-->
+歴史的な理由により、<literal>CASE</literal>は(もしあれば)その<literal>ELSE</literal>句を<quote>最初の</quote>入力として扱い、<literal>THEN</literal>句はその後で考慮します。
+それ以外の場合では<quote>左から右</quote>は問い合わせテキスト内で式が現れる順を意味します。
    </para>
   </footnote>
+<!--
 If the candidate type can be implicitly converted to the other type,
 but not vice-versa, select the other type as the new candidate type.
 Then continue considering the remaining inputs.  If, at any stage of this
 process, a preferred type is selected, stop considering additional
 inputs.
+-->
+候補の型が暗黙的にある別の型に変換できるが、その逆はできない場合、その別の型を新しい候補の型として選択します。
+それから残りの入力の考慮を続けます。
+この処理のある段階で、優先される型が選択されれば、追加の入力の考慮を止めます。
 </para>
 </step>
 
 <step performance="required">
 <para>
+<!--
 Convert all inputs to the final candidate type.  Fail if there is not an
 implicit conversion from a given input type to the candidate type.
+-->
+入力値をすべて最終的な候補の型に変換します。
+指定された入力型から候補の型への暗黙の変換が存在しない場合は失敗します。
 </para>
 </step>
 </procedure>
 
 <para>
+<!--
 Some examples follow.
+-->
+以下に例を示します。
 </para>
 
 <example>
+<!--
 <title>Type Resolution with Underspecified Types in a Union</title>
+-->
+<title>Unionにおける指定された型の型解決</title>
 
 <para>
 <screen>
@@ -1139,12 +1693,18 @@ SELECT text 'a' AS "text" UNION SELECT 'b';
  b
 (2 rows)
 </screen>
+<!--
 Here, the unknown-type literal <literal>'b'</literal> will be resolved to type <type>text</type>.
+-->
+ここで、unknown型のリテラル<literal>'b'</literal>は<type>text</type>へと解決されます。
 </para>
 </example>
 
 <example>
+<!--
 <title>Type Resolution in a Simple Union</title>
+-->
+<title>簡単なUnionにおける型解決</title>
 
 <para>
 <screen>
@@ -1156,14 +1716,21 @@ SELECT 1.2 AS "numeric" UNION SELECT 1;
      1.2
 (2 rows)
 </screen>
+<!--
 The literal <literal>1.2</literal> is of type <type>numeric</type>,
 and the <type>integer</type> value <literal>1</literal> can be cast implicitly to
 <type>numeric</type>, so that type is used.
+-->
+<type>numeric</type>型のリテラル<literal>1.2</literal>と<type>integer</type>型の値<literal>1</literal>は、暗黙的に<type>numeric</type>にキャスト可能です。
+したがって、この型が使用されます。
 </para>
 </example>
 
 <example>
+<!--
 <title>Type Resolution in a Transposed Union</title>
+-->
+<title>転置されたUNIONにおける型解決</title>
 
 <para>
 <screen>
@@ -1175,14 +1742,20 @@ SELECT 1 AS "real" UNION SELECT CAST('2.2' AS REAL);
   2.2
 (2 rows)
 </screen>
+<!--
 Here, since type <type>real</type> cannot be implicitly cast to <type>integer</type>,
 but <type>integer</type> can be implicitly cast to <type>real</type>, the union
 result type is resolved as <type>real</type>.
+-->
+ここで、<type>real</type>型を暗黙的に<type>integer</type>型にキャストすることはできませんが、<type>integer</type>型を暗黙的に<type>real</type>型にキャストすることはできるため、UNIONの結果データ型は<type>real</type>型として解決されます。
 </para>
 </example>
 
 <example>
+<!--
 <title>Type Resolution in a Nested Union</title>
+-->
+<title>入れ子のUNIONにおける型解決</title>
 
 <para>
 <screen>
@@ -1190,71 +1763,108 @@ SELECT NULL UNION SELECT NULL UNION SELECT 1;
 
 ERROR:  UNION types text and integer cannot be matched
 </screen>
+<!--
 This failure occurs because <productname>PostgreSQL</productname> treats
 multiple <literal>UNION</literal>s as a nest of pairwise operations;
 that is, this input is the same as
+-->
+この失敗は、<productname>PostgreSQL</productname>が複数の<literal>UNION</literal>を二項演算の入れ子として扱うために起こります。すなわち、この入力は以下と同じです。
 <screen>
 (SELECT NULL UNION SELECT NULL) UNION SELECT 1;
 </screen>
+<!--
 The inner <literal>UNION</literal> is resolved as emitting
 type <type>text</type>, according to the rules given above.  Then the
 outer <literal>UNION</literal> has inputs of types <type>text</type>
 and <type>integer</type>, leading to the observed error.  The problem
 can be fixed by ensuring that the leftmost <literal>UNION</literal>
 has at least one input of the desired result type.
+-->
+内側の<literal>UNION</literal>は、上に挙げた規則に従って、型<type>text</type>になるものとして解決されます。
+すると、外側の<literal>UNION</literal>は型<type>text</type>と<type>integer</type>の入力を受け取ることになりますので、上のようなエラーになります。
+一番左の<literal>UNION</literal>が望む結果型の入力を少なくとも1つ確実に受け取るようにすることで、この問題を修正できます。
 </para>
 
 <para>
+<!--
 <literal>INTERSECT</literal> and <literal>EXCEPT</literal> operations are
 likewise resolved pairwise.  However, the other constructs described in this
 section consider all of their inputs in one resolution step.
+-->
+<literal>INTERSECT</literal>と<literal>EXCEPT</literal>操作は同様に二項演算として解決されます。
+しかしながら、この節のその他の構文は入力をすべて解決の段階1つで考慮します。
 </para>
 </example>
 </sect1>
 
 <sect1 id="typeconv-select">
+<!--
 <title><literal>SELECT</literal> Output Columns</title>
+-->
+<title><literal>SELECT</literal>出力列</title>
 
 <indexterm zone="typeconv-select">
  <primary>SELECT</primary>
+<!--
  <secondary>determination of result type</secondary>
+-->
+ <secondary>結果型の決定</secondary>
 </indexterm>
 
 <para>
+<!--
 The rules given in the preceding sections will result in assignment
 of non-<type>unknown</type> data types to all expressions in an SQL query,
 except for unspecified-type literals that appear as simple output
 columns of a <command>SELECT</command> command.  For example, in
+-->
+これまでの節で挙げた規則は、<command>SELECT</command>コマンドの単純な出力列として現れる型の指定されていないリテラルを除いて、SQL問い合わせで<type>unknown</type>でないデータ型をすべての式に割り当てることになります。
+例えば、以下で
 
 <screen>
 SELECT 'Hello World';
 </screen>
 
+<!--
 there is nothing to identify what type the string literal should be
 taken as.  In this situation <productname>PostgreSQL</productname> will fall back
 to resolving the literal's type as <type>text</type>.
+-->
+文字列リテラルをどの型とみなすべきかを示すものは何もありません。
+この状況では<productname>PostgreSQL</productname>はリテラルの型を<type>text</type>として解決することになります。
 </para>
 
 <para>
+<!--
 When the <command>SELECT</command> is one arm of a <literal>UNION</literal>
 (or <literal>INTERSECT</literal> or <literal>EXCEPT</literal>) construct, or when it
 appears within <command>INSERT ... SELECT</command>, this rule is not applied
 since rules given in preceding sections take precedence.  The type of an
 unspecified-type literal can be taken from the other <literal>UNION</literal> arm
 in the first case, or from the destination column in the second case.
+-->
+<command>SELECT</command>が<literal>UNION</literal>(または<literal>INTERSECT</literal>、または<literal>EXCEPT</literal>)構文の片方である場合や<command>INSERT ... SELECT</command>の中に現れる場合は、これまでの節で挙げた規則が優先しますので、この規則は適用されません。
+型の指定されていないリテラルの型は、1番目の場合には<literal>UNION</literal>の他の側から、2番目の場合には対象とする列から取られるでしょう。
 </para>
 
 <para>
+<!--
 <literal>RETURNING</literal> lists are treated the same as <command>SELECT</command>
 output lists for this purpose.
+-->
+<literal>RETURNING</literal>リストは、この目的のために<command>SELECT</command>出力リストと同様に扱われます。
 </para>
 
 <note>
  <para>
+<!--
   Prior to <productname>PostgreSQL</productname> 10, this rule did not exist, and
   unspecified-type literals in a <command>SELECT</command> output list were
   left as type <type>unknown</type>.  That had assorted bad consequences,
   so it's been changed.
+-->
+<productname>PostgreSQL</productname> 10より前では、この規則は存在せず、<command>SELECT</command>出力リストの中の型の指定されていないリテラルは型<type>unknown</type>のままでした。
+これは様々な悪い結果をもたらしましたので、変更されました。
  </para>
 </note>
 

@@ -1,16 +1,28 @@
 <!-- doc/src/sgml/high-availability.sgml -->
 
 <chapter id="high-availability">
+<!--
  <title>High Availability, Load Balancing, and Replication</title>
+-->
+ <title>高可用性、負荷分散およびレプリケーション</title>
 
+<!--
  <indexterm><primary>high availability</primary></indexterm>
  <indexterm><primary>failover</primary></indexterm>
  <indexterm><primary>replication</primary></indexterm>
  <indexterm><primary>load balancing</primary></indexterm>
  <indexterm><primary>clustering</primary></indexterm>
  <indexterm><primary>data partitioning</primary></indexterm>
+-->
+ <indexterm><primary>高可用性</primary></indexterm>
+ <indexterm><primary>フェイルオーバー</primary></indexterm>
+ <indexterm><primary>レプリケーション</primary></indexterm>
+ <indexterm><primary>負荷分散</primary></indexterm>
+ <indexterm><primary>クラスタ化</primary></indexterm>
+ <indexterm><primary>データの分割</primary></indexterm>
 
  <para>
+<!--
   Database servers can work together to allow a second server to
   take over quickly if the primary server fails (high
   availability), or to allow several computers to serve the same
@@ -24,18 +36,33 @@
   data needs to be placed on each server only once, a write to any
   server has to be propagated to all servers so that future read
   requests to those servers return consistent results.
+-->
+データベースサーバは共同して稼動できます。
+その目的は、最初のサーバが故障したとき次のサーバへ速やかに引き継ぎができること（高可用性）および複数のコンピュータが同一のデータを処理できること（負荷分散）です。
+データベースサーバがシームレスに共同稼動できれば理想的です。
+静的なウェブページを提供するウェブサーバは、ウェブからの要求で生ずる負荷を複数のマシンに分散するだけで、簡単に結合できます。
+実際、読み取り専用のデータベースサーバの結合は、同じようにかなり容易です。
+しかし、大部分のデータベースサーバは、読み書きの混在した要求を受け取り、読み書き両用のサーバの結合はとても困難です。
+なぜなら、読み取り要求だけの場合、全サーバへのデータの配布は1回で終わります。
+しかし、書き込み後の読み取り要求に対して一貫性のある結果を返すためには、書き込み要求を受けたサーバだけでなく、他の全サーバにおいてもデータに書き込まなければなりません。
  </para>
 
  <para>
+<!--
   This synchronization problem is the fundamental difficulty for
   servers working together.  Because there is no single solution
   that eliminates the impact of the sync problem for all use cases,
   there are multiple solutions.  Each solution addresses this
   problem in a different way, and minimizes its impact for a specific
   workload.
+-->
+この同時性を持たせるという問題は、共同して稼動するサーバにおいて根本的に困難なものです。
+すべての使用状況において、単一の解法を用いて同時性の問題の影響を軽減できないため、複数の解法が存在します。
+各々の解法はこの問題に異なったやり方を適用し、固有の作業負荷に対する影響を最小化します。
  </para>
 
  <para>
+<!--
   Some solutions deal with synchronization by allowing only one
   server to modify the data.  Servers that can modify data are
   called read/write, <firstterm>master</firstterm> or <firstterm>primary</firstterm> servers.
@@ -44,9 +71,16 @@
   to until it is promoted to a primary server is called a <firstterm>warm
   standby</firstterm> server, and one that can accept connections and serves read-only
   queries is called a <firstterm>hot standby</firstterm> server.
+-->
+幾つかの解法では、1つのサーバだけにデータの更新を許可することにより、同時性を持たせています。
+データの更新ができるサーバを、読み書きサーバ、<firstterm>マスタ</firstterm>サーバまたは<firstterm>プライマリ</firstterm>サーバといいます。
+マスタの変更を追跡するサーバを、<firstterm>スタンバイ</firstterm>サーバまたは<firstterm>セカンダリ</firstterm>サーバといいます。
+マスタサーバに昇格するまで接続できないスタンバイサーバを<firstterm>ウォームスタンバイ</firstterm>サーバといいます。
+接続を受理できて読み取り専用の問い合わせを処理できるスタンバイサーバを<firstterm>ホットスタンバイ</firstterm>サーバといいます。
  </para>
 
  <para>
+<!--
   Some solutions are synchronous,
   meaning that a data-modifying transaction is not considered
   committed until all servers have committed the transaction.  This
@@ -58,45 +92,78 @@
   the switch to a backup server, and that load balanced servers
   might return slightly stale results.  Asynchronous communication
   is used when synchronous would be too slow.
+-->
+いくつかの同期の解法が提供されています。
+すなわち、データに書き込むトランザクションでは、全サーバがコミットするまでトランザクションはコミットされません。
+これによって、フェイルオーバーにおいてデータの消失がないことが保証されます。
+また、どのサーバが問い合わせを受理したかに関係なく、全ての負荷分散サーバが一貫した結果を返すことが保証されます。
+それに対して非同期の解法では、コミット時刻と他サーバへの伝達時刻に時間差がありうるため、バックアップサーバへ交代する時にトランザクションが消失する可能性があります。
+また、負荷分散サーバにおいては、最新でない結果を応答する可能性があります。
+サーバ間の非同期の通信は、同期が非常に低速な場合に使用されます。
  </para>
 
  <para>
+<!--
   Solutions can also be categorized by their granularity.  Some solutions
   can deal only with an entire database server, while others allow control
   at the per-table or per-database level.
+-->
+解法は粒度によって分類することもできます。
+ある解法ではデータベースサーバ全体だけを範囲として処理しますが、他の解法では各テーブルまたは各データベースを範囲として管理できます。
  </para>
 
  <para>
+<!--
   Performance must be considered in any choice.  There is usually a
   trade-off between functionality and
   performance.  For example, a fully synchronous solution over a slow
   network might cut performance by more than half, while an asynchronous
   one might have a minimal performance impact.
+-->
+すべての選択において、作業効率を考えなければなりません。
+通常、作業効率と機能性は相反する関係にあります。
+例えば、遅いネットワークの場合、完全同期の解法を使えば作業効率は半分以下となりますが、非同期の解法を使えば作業効率への影響が最小となります。
  </para>
 
  <para>
+<!--
   The remainder of this section outlines various failover, replication,
   and load balancing solutions.
+-->
+本節では、フェイルオーバーとレプリケーションと負荷分散における種々の解法を説明します。
  </para>
 
  <sect1 id="different-replication-solutions">
+<!--
  <title>Comparison of Different Solutions</title>
+-->
+ <title>様々な解法の比較</title>
 
  <variablelist>
 
   <varlistentry>
+<!--
    <term>Shared Disk Failover</term>
+-->
+   <term>共有ディスクを用いたフェイルオーバー</term>
    <listitem>
 
     <para>
+<!--
      Shared disk failover avoids synchronization overhead by having only one
      copy of the database.  It uses a single disk array that is shared by
      multiple servers.  If the main database server fails, the standby server
      is able to mount and start the database as though it were recovering from
      a database crash.  This allows rapid failover with no data loss.
+-->
+データベースのコピーを 1つだけ保有すればよいため、共有ディスクを用いたフェイルオーバーは同期によるオーバーヘッドを回避できます。
+本解法では、複数のサーバが単一のディスクアレイを共有します。
+主データベースサーバが故障したとき、まるでデータベースの破損から復旧したように、スタンバイサーバが元のデータベースを実装して稼動できます。
+これはデータの消失がない高速なフェイルオーバーを行うことができます。
     </para>
 
     <para>
+<!--
      Shared hardware functionality is common in network storage devices.
      Using a network file system is also possible, though care must be
      taken that the file system has full <acronym>POSIX</acronym> behavior (see <xref
@@ -105,16 +172,26 @@
      primary and standby servers are both nonfunctional.  Another issue is
      that the standby server should never access the shared storage while
      the primary server is running.
+-->
+ハードウェアを共有するという機能は、ネットワーク上の記憶装置では一般的です。
+ネットワークファイルシステムの利用も可能ですが、そのファイルシステムが<acronym>POSIX</acronym>仕様を満たしているか注意してください。
+（ <xref linkend="creating-cluster-nfs"/>を見てください）。
+本解法には重大な制約があり、共有ディスクアレイが故障または破損したとき、プライマリサーバもスタンバイサーバも機能しなくなります。
+また、プライマリサーバが稼動している間は、スタンバイサーバが共有記憶装置にアクセスしてはなりません。
     </para>
 
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<!--
    <term>File System (Block Device) Replication</term>
+-->
+   <term>ファイルシステム（ブロックデバイス）レプリケーション</term>
    <listitem>
 
     <para>
+<!--
      A modified version of shared hardware functionality is file system
      replication, where all changes to a file system are mirrored to a file
      system residing on another computer.  The only restriction is that
@@ -123,45 +200,68 @@
      to the standby must be done in the same order as those on the primary.
      <productname>DRBD</productname> is a popular file system replication solution
      for Linux.
+-->
+ハードウェア共有機能の改善の一つとしてファイルシステムのレプリケーションをあげることができます。
+それは、あるファイルシステムに対して行われたすべての変更を他のコンピュータに存在するファイルシステムにミラーリングします。
+制約はただ一つであり、スタンバイサーバがファイルシステムの一貫したコピーを自身の領域に持つようにミラーリングしなければなりません。具体的には、スタンバイサーバへの書き込みがマスタサーバへの書き込みと同じ順序でおこなわれなければなりません。
+Linuxにおける<productname>DRBD</productname>は、ファイルシステムレプリケーションで広く受けいれられている手法です。
     </para>
 
 <!--
+原文におけるコメントアウト
 https://forge.continuent.org/pipermail/sequoia/2006-November/004070.html
 
 Oracle RAC is a shared disk approach and just send cache invalidations
 to other nodes but not actual data. As the disk is shared, data is
 only committed once to disk and there is a distributed locking
 protocol to make nodes agree on a serializable transactional order.
+コメントアウト終了
 -->
 
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<!--
    <term>Write-Ahead Log Shipping</term>
+-->
+   <term>先行書き込みログシッピング</term>
    <listitem>
 
     <para>
+<!--
      Warm and hot standby servers can be kept current by reading a
      stream of write-ahead log (<acronym>WAL</acronym>)
      records.  If the main server fails, the standby contains
      almost all of the data of the main server, and can be quickly
      made the new primary database server.  This can be synchronous or
      asynchronous and can only be done for the entire database server.
+-->
+ウォームスタンバイおよびホットスタンバイサーバは、ログ先行書き込み（<acronym>WAL</acronym>）のレコードを解読して最新の状態を保持できます。
+プライマリサーバが故障したとき、スタンバイサーバがプライマリサーバのほぼすべてのデータを保存して、速やかに新しい主データベースを稼動できます。
+本解法は同期、非同期で行うことができ、データベース全体だけを範囲として処理できます。
     </para>
     <para>
+<!--
      A standby server can be implemented using file-based log shipping
      (<xref linkend="warm-standby"/>) or streaming replication (see
      <xref linkend="streaming-replication"/>), or a combination of both. For
      information on hot standby, see <xref linkend="hot-standby"/>.
+-->
+スタンバイサーバは、ファイル単位のログシッピング（<xref linkend="warm-standby"/>参照）またはストリーミングレプリケーション（<xref linkend="streaming-replication"/>参照）または両者の併用を使用して実装できます。
+ホットスタンバイの情報は <xref linkend="hot-standby"/> を参照してください。
     </para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<!--
    <term>Logical Replication</term>
+-->
+   <term>論理レプリケーション</term>
    <listitem>
     <para>
+<!--
      Logical replication allows a database server to send a stream of data
      modifications to another server.  <productname>PostgreSQL</productname>
      logical replication constructs a stream of logical data modifications
@@ -172,11 +272,19 @@ protocol to make nodes agree on a serializable transactional order.
      replication, see <xref linkend="logical-replication"/>.  Through the
      logical decoding interface (<xref linkend="logicaldecoding"/>),
      third-party extensions can also provide similar functionality.
+-->
+論理レプリケーションにより、データベースサーバが他のサーバに、データ更新のストリームを送ることができます。
+<productname>PostgreSQL</productname>の論理レプリケーションは、WALから論理的なデータ更新のストリームを構築します。
+論理レプリケーションでは、個々のテーブルの変更を複製することができます。
+論理レプリケーションにおいては、特定のサーバをマスターあるいはレプリカに割り当てる必要なしに、複数の方向にデータを流すことができます。
+論理レプリケーションの更なる情報については、<xref linkend="logical-replication"/>をご覧ください。
+ロジカルデコーディングインタフェース(<xref linkend="logicaldecoding"/>)を使って、サードパーティー拡張は同様の機能を提供できます。
     </para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<<<<<<< HEAD
    <term>Trigger-Based Primary-Standby Replication</term>
    <listitem>
 
@@ -195,46 +303,109 @@ protocol to make nodes agree on a serializable transactional order.
      replication, with per-table granularity, and support for multiple standby
      servers.  Because it updates the standby server asynchronously (in
      batches), there is possible data loss during fail over.
+=======
+<!--
+   <term>Trigger-Based Master-Standby Replication</term>
+-->
+   <term>トリガベースのマスタ・スタンバイレプリケーション</term>
+   <listitem>
+
+    <para>
+<!--
+     A master-standby replication setup sends all data modification
+     queries to the master server.  The master server asynchronously
+     sends data changes to the standby server.  The standby can answer
+     read-only queries while the master server is running.  The
+     standby server is ideal for data warehouse queries.
+-->
+マスタとスタンバイによるレプリケーションでは、データ更新のすべての問い合わせをマスタサーバに送付します。
+マスタサーバは更新したデータを非同期でスタンバイサーバに送付します。
+マスタサーバが稼動している間、スタンバイサーバは読み取り問い合わせだけに応答します。
+スタンバイサーバはデータウェアハウスへの問い合わせに理想的です。
+    </para>
+
+    <para>
+<!--
+     <productname>Slony-I</productname> is an example of this type of replication, with per-table
+     granularity, and support for multiple standby servers.  Because it
+     updates the standby server asynchronously (in batches), there is
+     possible data loss during fail over.
+-->
+この種類のレプリケーションの一例は<productname>Slony-I</productname>であり、テーブル単位の粒度を持ち、複数のスタンバイサーバが稼動できます。
+（バッチ処理によって）スタンバイサーバのデータを非同期で更新するため、フェイルオーバーにおけるデータ消失の可能性があります。
+>>>>>>> doc_ja_13
     </para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<!--
    <term>SQL-Based Replication Middleware</term>
+-->
+   <term>SQLに基づいたレプリケーションのミドルウェア</term>
    <listitem>
 
     <para>
+<!--
      With SQL-based replication middleware, a program intercepts
      every SQL query and sends it to one or all servers.  Each server
      operates independently.  Read-write queries must be sent to all servers,
      so that every server receives any changes.  But read-only queries can be
      sent to just one server, allowing the read workload to be distributed
      among them.
+-->
+SQLに基づいたレプリケーションのミドルウェアでは、プログラムがすべてのSQL問い合わせを採取して、1つまたはすべてのサーバに送付します。
+なお、各々のサーバは独立して稼動します。
+読み書き問い合わせは、すべてのサーバがすべての変更を受け取るように全サーバに送付されなければなりません。
+しかし、読み取り専用の問い合わせはサーバ全体の読み取り負荷を分散させるために、1つのサーバだけに送付することができます。
     </para>
 
     <para>
+<!--
      If queries are simply broadcast unmodified, functions like
      <function>random()</function>, <function>CURRENT_TIMESTAMP</function>, and
      sequences can have different values on different servers.
      This is because each server operates independently, and because
      SQL queries are broadcast rather than actual data changes.  If
      this is unacceptable, either the middleware or the application
+<<<<<<< HEAD
      must determine such values from a single source and then use those
      values in write queries.  Care must also be taken that all
+=======
+     must query such values from a single server and then use those
+     values in write queries.  Another option is to use this replication
+     option with a traditional master-standby setup, i.e., data modification
+     queries are sent only to the master and are propagated to the
+     standby servers via master-standby replication, not by the replication
+     middleware.  Care must also be taken that all
+>>>>>>> doc_ja_13
      transactions either commit or abort on all servers, perhaps
      using two-phase commit (<xref linkend="sql-prepare-transaction"/>
      and <xref linkend="sql-commit-prepared"/>).
      <productname>Pgpool-II</productname> and <productname>Continuent Tungsten</productname>
      are examples of this type of replication.
+-->
+問い合わせを修正しないで送付した場合、<function>random()</function>関数による乱数値と<function>CURRENT_TIMESTAMP</function>関数による現在時刻およびシーケンス値が、サーバごとに異なることがあります。
+その理由は、各サーバが独立して稼動しているため、および、SQL問い合わせの送付では実際に更新した行の識別値を取得できないためです。
+これが許容できない場合は、ミドルウェアかアプリケーションにおいて1つのサーバにこのような問い合わせを送付し、その結果を書き込み問い合わせで使用しなければなりません。
+その他の選択肢は従来のマスタとスタンバイによるレプリケーションのオプションを使用するものです。
+すなわち、データ更新の問い合わせをマスタサーバだけに送付し、ミドルウェアによるレプリケーションを使わずにマスタとスタンバイによるレプリケーションを介してスタンバイサーバに伝達します。
+トランザクションをコミットするか中断するかについても、全サーバが同一となるよう注意しなければなりません。
+これには2相コミット（<xref linkend="sql-prepare-transaction"/> および <xref linkend="sql-commit-prepared"/>）を使用することになるでしょう。
+<productname>Pgpool-II</productname>と<productname>Continuent Tungsten</productname>がこのレプリケーションの一例です。
     </para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<!--
    <term>Asynchronous Multimaster Replication</term>
+-->
+   <term>非同期マルチマスタレプリケーション</term>
    <listitem>
 
     <para>
+<!--
      For servers that are not regularly connected or have slow
      communication links, like laptops or
      remote servers, keeping data consistent among servers is a
@@ -243,15 +414,24 @@ protocol to make nodes agree on a serializable transactional order.
      the other servers to identify conflicting transactions.  The
      conflicts can be resolved by users or conflict resolution rules.
      Bucardo is an example of this type of replication.
+-->
+ラップトップやリモートマシンのように、通常は接続されていない、あるいは遅い通信リンクで接続されているサーバ間において、データの一貫性を保持することは挑戦的な課題です。
+非同期マルチマスタレプリケーションの使用により、全サーバの独立した稼動、およびトランザクションの衝突を識別するための定期的な通信を実現します。
+トランザクションの衝突は、利用者および衝突回避法によって解決できるでしょう。
+Bucardoはこの種のレプリケーションの一例です。
     </para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<!--
    <term>Synchronous Multimaster Replication</term>
+-->
+   <term>同期マルチマスタレプリケーション</term>
    <listitem>
 
     <para>
+<!--
      In synchronous multimaster replication, each server can accept
      write requests, and modified data is transmitted from the
      original server to every other server before each transaction
@@ -265,14 +445,26 @@ protocol to make nodes agree on a serializable transactional order.
      standby servers, and because the data changes are sent from one
      server to another, there is no problem with non-deterministic
      functions like <function>random()</function>.
+-->
+同期マルチマスタレプリケーションでは全てのサーバが書き込み要求を受理できます。
+受理したサーバは更新したデータを、トランザクションをコミットする前に、他の全サーバへ配布します。
+書き込み負荷が重いとき、ロックの掛かり過ぎやコミットの遅延による作業効率の低下の原因となりえます。
+読み取り要求はどのサーバにも送付できます。
+通信による負荷を減らすには、共有ディスクが実装されます。
+同期マルチマスタレプリケーションは、主に読み取り作業負荷の低減に最適ですが、全てのサーバが書き込み要求を受理できることも大きな利点です。
+その利点とは、マスタとスタンバイ間で作業負荷を分けなくてよいこと、および更新データが1つのサーバから他のサーバに送付されるため、出力が確定しない<function>random()</function>関数などによる問題が起こらないことです。
     </para>
 
     <para>
+<!--
      <productname>PostgreSQL</productname> does not offer this type of replication,
      though <productname>PostgreSQL</productname> two-phase commit (<xref
      linkend="sql-prepare-transaction"/> and <xref
      linkend="sql-commit-prepared"/>)
      can be used to implement this in application code or middleware.
+-->
+<productname>PostgreSQL</productname> では、この種類のレプリケーションを提供しません。
+しかし、<productname>PostgreSQL</productname> の 2相コミット（<xref linkend="sql-prepare-transaction"/>および<xref linkend="sql-commit-prepared"/>）を使用すれば、アプリケーションのコードまたはミドルウェアにおいて本解法を実装できます。
     </para>
    </listitem>
   </varlistentry>
@@ -280,12 +472,18 @@ protocol to make nodes agree on a serializable transactional order.
  </variablelist>
 
  <para>
+<!--
   <xref linkend="high-availability-matrix"/> summarizes
   the capabilities of the various solutions listed above.
+-->
+<xref linkend="high-availability-matrix"/>は上述した種々の解法の機能を要約したものです。
  </para>
 
  <table id="high-availability-matrix">
+<!--
   <title>High Availability, Load Balancing, and Replication Feature Matrix</title>
+-->
+  <title>高可用性、負荷分散およびレプリケーションの特徴</title>
   <tgroup cols="9">
    <colspec colname="col1" colwidth="1.1*"/>
    <colspec colname="col2" colwidth="1*"/>
@@ -298,6 +496,7 @@ protocol to make nodes agree on a serializable transactional order.
    <colspec colname="col9" colwidth="1*"/>
    <thead>
     <row>
+<!--
      <entry>Feature</entry>
      <entry>Shared Disk</entry>
      <entry>File System Repl.</entry>
@@ -307,12 +506,23 @@ protocol to make nodes agree on a serializable transactional order.
      <entry>SQL Repl. Middle-ware</entry>
      <entry>Async. MM Repl.</entry>
      <entry>Sync. MM Repl.</entry>
+-->
+     <entry>特徴</entry>
+     <entry>共有ディスク</entry>
+     <entry>ファイルシステムのレプリケーション</entry>
+     <entry>先行書き込みログシッピング</entry>
+     <entry>論理レプリケーション</entry>
+     <entry>トリガに基づいたレプリケーション</entry>
+     <entry>SQLに基づいたレプリケーションのミドルウェア</entry>
+     <entry>非同期マルチマスタレプリケーション</entry>
+     <entry>同期マルチマスタレプリケーション</entry>
     </row>
    </thead>
 
    <tbody>
 
     <row>
+<!--
      <entry>Popular examples</entry>
      <entry align="center">NAS</entry>
      <entry align="center">DRBD</entry>
@@ -322,9 +532,20 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center">pgpool-II</entry>
      <entry align="center">Bucardo</entry>
      <entry align="center"></entry>
+-->
+     <entry>一般的な例</entry>
+     <entry align="center">NAS</entry>
+     <entry align="center">DRBD</entry>
+     <entry align="center">組み込みストリーミングレプリケーション</entry>
+     <entry align="center">組み込み論理レプリケーション、pglogical</entry>
+     <entry align="center">Londiste、Slony</entry>
+     <entry align="center">pgpool-II</entry>
+     <entry align="center">Bucardo</entry>
+     <entry align="center"></entry>
     </row>
 
     <row>
+<!--
      <entry>Comm. method</entry>
      <entry align="center">shared disk</entry>
      <entry align="center">disk blocks</entry>
@@ -334,9 +555,20 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center">SQL</entry>
      <entry align="center">table rows</entry>
      <entry align="center">table rows and row locks</entry>
+-->
+     <entry>通信方法</entry>
+     <entry align="center">共有ディスク</entry>
+     <entry align="center">ディスクブロック</entry>
+     <entry align="center">WAL</entry>
+     <entry align="center">ロジカルデコーディング</entry>
+     <entry align="center">テーブル行</entry>
+     <entry align="center">SQL</entry>
+     <entry align="center">テーブル行</entry>
+     <entry align="center">テーブル行および行ロック</entry>
     </row>
 
     <row>
+<!--
      <entry>No special hardware required</entry>
      <entry align="center"></entry>
      <entry align="center">&bull;</entry>
@@ -346,10 +578,25 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
+-->
+     <entry>特別なハードウェアが不要</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
     </row>
 
     <row>
+<<<<<<< HEAD
      <entry>Allows multiple primary servers</entry>
+=======
+<!--
+     <entry>Allows multiple master servers</entry>
+>>>>>>> doc_ja_13
      <entry align="center"></entry>
      <entry align="center"></entry>
      <entry align="center"></entry>
@@ -358,21 +605,47 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
+-->
+     <entry>複数のマスタサーバが可能</entry>
+     <entry align="center"></entry>
+     <entry align="center"></entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
     </row>
 
     <row>
+<<<<<<< HEAD
      <entry>No overhead on primary</entry>
+=======
+<!--
+     <entry>No master server overhead</entry>
+>>>>>>> doc_ja_13
      <entry align="center">&bull;</entry>
      <entry align="center"></entry>
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
      <entry align="center"></entry>
      <entry align="center">&bull;</entry>
+     <entry align="center"></entry>
+     <entry align="center"></entry>
+-->
+     <entry>マスタサーバにオーバヘッドがない</entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
      <entry align="center"></entry>
      <entry align="center"></entry>
     </row>
 
     <row>
+<!--
      <entry>No waiting for multiple servers</entry>
      <entry align="center">&bull;</entry>
      <entry align="center"></entry>
@@ -382,10 +655,25 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center"></entry>
      <entry align="center">&bull;</entry>
      <entry align="center"></entry>
+-->
+     <entry>複数のスレーブサーバを待たない</entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">同期が無効の場合</entry>
+     <entry align="center">同期が無効の場合</entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
     </row>
 
     <row>
+<<<<<<< HEAD
      <entry>Primary failure will never lose data</entry>
+=======
+<!--
+     <entry>Master failure will never lose data</entry>
+>>>>>>> doc_ja_13
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
      <entry align="center">with sync on</entry>
@@ -394,9 +682,20 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center">&bull;</entry>
      <entry align="center"></entry>
      <entry align="center">&bull;</entry>
+-->
+     <entry>マスタの故障によるデータ損失がない</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">同期が有効の場合</entry>
+     <entry align="center">同期が有効の場合</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
     </row>
 
     <row>
+<!--
      <entry>Replicas accept read-only queries</entry>
      <entry align="center"></entry>
      <entry align="center"></entry>
@@ -406,9 +705,20 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
+-->
+     <entry>レプリカは読み取り専用問い合わせを受理可能</entry>
+     <entry align="center"></entry>
+     <entry align="center"></entry>
+     <entry align="center">ホットスタンバイ使用時</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
     </row>
 
     <row>
+<!--
      <entry>Per-table granularity</entry>
      <entry align="center"></entry>
      <entry align="center"></entry>
@@ -418,9 +728,20 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center"></entry>
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
+-->
+     <entry>テーブルごとの粒度</entry>
+     <entry align="center"></entry>
+     <entry align="center"></entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
     </row>
 
     <row>
+<!--
      <entry>No conflict resolution necessary</entry>
      <entry align="center">&bull;</entry>
      <entry align="center">&bull;</entry>
@@ -430,6 +751,16 @@ protocol to make nodes agree on a serializable transactional order.
      <entry align="center">&bull;</entry>
      <entry align="center"></entry>
      <entry align="center">&bull;</entry>
+-->
+     <entry>コンフリクトの回避が不要</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
+     <entry align="center"></entry>
+     <entry align="center"></entry>
+     <entry align="center">○</entry>
     </row>
 
    </tbody>
@@ -437,16 +768,23 @@ protocol to make nodes agree on a serializable transactional order.
  </table>
 
  <para>
+<!--
   There are a few solutions that do not fit into the above categories:
+-->
+上の分類に該当しない解法もあります。
  </para>
 
  <variablelist>
 
   <varlistentry>
+<!--
    <term>Data Partitioning</term>
+-->
+   <term>データの分割</term>
    <listitem>
 
     <para>
+<!--
      Data partitioning splits tables into data sets.  Each set can
      be modified by only one server.  For example, data can be
      partitioned by offices, e.g., London and Paris, with a server
@@ -454,15 +792,25 @@ protocol to make nodes agree on a serializable transactional order.
      are necessary, an application can query both servers, or
      primary/standby replication can be used to keep a read-only copy
      of the other office's data on each server.
+-->
+データの分割とは、同じテーブルのデータを複数部分に分けることです。
+各部分に書き込むことができるのは、1つのサーバだけです。
+例えば、データをロンドンとパリの営業所用に分割でき、サーバをロンドンとパリのどちらにも設置できた状態を考えます。
+問い合わせにロンドンとパリのデータが混在した場合、アプリケーションは両方のサーバに問い合わせることができます。
+または、マスタスタンバイレプリケーションを使用して、他の営業所のデータを読み取り専用コピーとして保持できます。
     </para>
    </listitem>
   </varlistentry>
 
   <varlistentry>
+<!--
    <term>Multiple-Server Parallel Query Execution</term>
+-->
+   <term>複数サーバによる問い合わせの並列実行</term>
    <listitem>
 
     <para>
+<!--
      Many of the above solutions allow multiple servers to handle multiple
      queries, but none allow a single query to use multiple servers to
      complete faster.  This solution allows multiple servers to work
@@ -471,6 +819,12 @@ protocol to make nodes agree on a serializable transactional order.
      part of the query and return results to a central server where they
      are combined and returned to the user. This can be implemented using the
      <productname>PL/Proxy</productname> tool set.
+-->
+上述した多くの解法は、複数のサーバが複数の問い合わせを処理するものです。
+処理速度の向上のために、単一の問い合わせに複数のサーバを使用するものはありません。
+本解法は複数のサーバが単一の問い合わせを共同して実行するものです。
+その方法は、データをサーバ間で分割し、各サーバが部分的に問い合わせを実行し、各々の結果をプライマリサーバに送付し、プライマリサーバが合体して利用者に返送するものです。
+これは<productname>PL/Proxy</productname>ツールセットを使用して実装できます。
     </para>
 
    </listitem>
@@ -479,29 +833,41 @@ protocol to make nodes agree on a serializable transactional order.
  </variablelist>
 
   <para>
+<!--
    It should also be noted that because <productname>PostgreSQL</productname>
    is open source and easily extended, a number of companies have
    taken <productname>PostgreSQL</productname> and created commercial
    closed-source solutions with unique failover, replication, and load
    balancing capabilities.  These are not discussed here.
+-->
+また、<productname>PostgreSQL</productname>はオープンソースで、容易に拡張できるので、多くの企業が<productname>PostgreSQL</productname>をもとにして、独自のフェイルオーバー、レプリケーション、負荷分散機能を備えたクローズドソースの製品を開発していることに注意してください。
+これらについては、ここでは議論しません。
   </para>
 
  </sect1>
 
 
  <sect1 id="warm-standby">
+<!--
  <title>Log-Shipping Standby Servers</title>
+-->
+ <title>ログシッピングスタンバイサーバ</title>
 
 
   <para>
+<!--
    Continuous archiving can be used to create a <firstterm>high
    availability</firstterm> (HA) cluster configuration with one or more
    <firstterm>standby servers</firstterm> ready to take over operations if the
    primary server fails. This capability is widely referred to as
    <firstterm>warm standby</firstterm> or <firstterm>log shipping</firstterm>.
+-->
+継続的なアーカイブ処理を使用して、プライマリサーバが失敗した場合に操作を引き継ぐ準備がなされた、1つ以上の<firstterm>スタンバイサーバ</firstterm>を持つ<firstterm>高可用性</firstterm>(HA)クラスタ構成を作成することができます。
+この機能は<firstterm>ウォームスタンバイ</firstterm>または<firstterm>ログシッピング</firstterm>として広く知られています。
   </para>
 
   <para>
+<!--
    The primary and standby server work together to provide this capability,
    though the servers are only loosely coupled. The primary server operates
    in continuous archiving mode, while each standby server operates in
@@ -510,9 +876,16 @@ protocol to make nodes agree on a serializable transactional order.
    so it offers low administration overhead compared to some other
    replication solutions. This configuration also has relatively low
    performance impact on the primary server.
+-->
+プライマリサーバとスタンバイサーバは、この機能を提供するために共同して稼動しますが、サーバとサーバはゆるく結合しています。
+プライマリサーバは継続的アーカイブモードで動作し、各スタンバイサーバはプライマリからWALファイルを読み取る、継続的リカバリモードで動作します。
+この機能を可能にするために、データベースのテーブル変更は不要です。
+したがって、他のレプリケーションの解法に比べて、管理にかかるオーバーヘッドが減少します。
+この構成はプライマリサーバの性能への影響も相対的に減少させます。
   </para>
 
   <para>
+<!--
    Directly moving WAL records from one database server to another
    is typically described as log shipping. <productname>PostgreSQL</productname>
    implements file-based log shipping by transferring WAL records
@@ -524,9 +897,17 @@ protocol to make nodes agree on a serializable transactional order.
    Record-based log shipping is more granular and streams WAL changes
    incrementally over a network connection (see <xref
    linkend="streaming-replication"/>).
+-->
+あるデータベースサーバから他へ直接WALレコードを移動することは通常、ログシッピングと説明されます。
+<productname>PostgreSQL</productname>はファイルベースのログシッピングを実装します。
+つまりWALレコードはある時点で1つのファイル(WALセグメント)として送信されることを意味します。
+WALファイル(16MB)は隣り合うシステム、同じサイトの別システム、地球の裏側のシステムなど距離に関わらず、簡単かつ安価に送付することができます。
+この技法に必要な帯域幅はプライマリサーバのトランザクションの頻度に応じて変動します。
+レコードベースのログシッピングはより粒度を細かくしたもので、ネットワーク接続を介してWALの変更を増分的に流します（<xref linkend="streaming-replication"/>参照）。
   </para>
 
   <para>
+<!--
    It should be noted that log shipping is asynchronous, i.e., the WAL
    records are shipped after transaction commit. As a result, there is a
    window for data loss should the primary server suffer a catastrophic
@@ -537,9 +918,18 @@ protocol to make nodes agree on a serializable transactional order.
    substantially increase the bandwidth required for file shipping.
    Streaming replication (see <xref linkend="streaming-replication"/>)
    allows a much smaller window of data loss.
+-->
+ログシッピングが非同期であることに注意しなければなりません。
+つまり、WALレコードはトランザクションがコミットした後に転送されます。
+結果として、プライマリサーバが災害などの致命的な失敗をうけた場合、送信されていないトランザクションが失われますので、データを損失する空白期間があります。
+ファイルベースのログシッピングにおけるデータ損失の空白期間量を<varname>archive_timeout</varname>パラメータを用いて制限することができます。
+これは数秒程度まで小さく設定することができます。
+しかし、低く設定するとファイル転送に必要な帯域幅が増大します。
+ストリーミングレプリケーション（<xref linkend="streaming-replication"/>参照）により、データを損失する期間を非常に小さくすることができます。
   </para>
 
   <para>
+<!--
    Recovery performance is sufficiently good that the standby will
    typically be only moments away from full
    availability once it has been activated. As a result, this is called
@@ -550,26 +940,48 @@ protocol to make nodes agree on a serializable transactional order.
    A standby server can also be used for read-only queries, in which case
    it is called a Hot Standby server. See <xref linkend="hot-standby"/> for
    more information.
+-->
+リカバリ処理の性能は十分よく、一度実施されれば、スタンバイサーバが完全な状態から逸脱するのは一時的にしかすぎません。
+結果としてこれは、高可用性を提供するウォームスタンバイ構成と呼ばれます。
+保管されたベースバックアップからサーバをリストアし、ロールフォワードを行うことはおそらく長時間かかりますので、これは高可用性のための解法とはいえず、災害からのリカバリのための解法です。
+スタンバイサーバは読み取り専用の問い合わせに使用することもできます。
+この場合ホットスタンバイサーバと呼ばれます。
+詳細については<xref linkend="hot-standby"/>を参照してください。
   </para>
 
   <indexterm zone="high-availability">
+<!--
    <primary>warm standby</primary>
+-->
+   <primary>ウォームスタンバイ</primary>
   </indexterm>
 
   <indexterm zone="high-availability">
+<!--
    <primary>PITR standby</primary>
+-->
+   <primary>PITRスタンバイ</primary>
   </indexterm>
 
   <indexterm zone="high-availability">
+<!--
    <primary>standby server</primary>
+-->
+   <primary>スタンバイサーバ</primary>
   </indexterm>
 
   <indexterm zone="high-availability">
+<!--
    <primary>log shipping</primary>
+-->
+   <primary>ログシッピング</primary>
   </indexterm>
 
   <indexterm zone="high-availability">
+<!--
    <primary>witness server</primary>
+-->
+   <primary>証明サーバ</primary>
   </indexterm>
 
   <indexterm zone="high-availability">
@@ -577,9 +989,13 @@ protocol to make nodes agree on a serializable transactional order.
   </indexterm>
 
   <sect2 id="standby-planning">
+<!--
    <title>Planning</title>
+-->
+   <title>計画</title>
 
    <para>
+<!--
     It is usually wise to create the primary and standby servers
     so that they are as similar as possible, at least from the
     perspective of the database server.  In particular, the path names
@@ -594,9 +1010,17 @@ protocol to make nodes agree on a serializable transactional order.
     dissimilar ones over the lifetime of the application and system.
     In any case the hardware architecture must be the same &mdash; shipping
     from, say, a 32-bit to a 64-bit system will not work.
+-->
+プライマリサーバとスタンバイサーバを、少なくともデータベースサーバという見地でできる限り同じになるように作成することを通常勧めます。
+具体的には、テーブル空間に関連するパス名はそのまま渡されますので、テーブル空間機能を使用する場合には、プライマリとスタンバイサーバの両方でテーブル空間用のマウントパスを同じにしておかなければなりません。
+<xref linkend="sql-createtablespace"/>をプライマリで実行する場合、そのコマンドを実行する前に必要な新しいマウントポイントをプライマリとすべてのスタンバイサーバで作成しなければならないことに注意してください。
+ハードウェアをまったく同じにする必要はありませんが、経験上アプリケーションとシステムの運用期間に渡って2つの同じシステムを管理する方が、異なる2つのシステムを管理するよりも簡単です。
+いずれにしてもハードウェアアーキテクチャは必ず同じでなければなりません。
+例えば32ビットシステムから64ビットシステムへのシッピングは動作しません。
    </para>
 
    <para>
+<!--
     In general, log shipping between servers running different major
     <productname>PostgreSQL</productname> release
     levels is not possible. It is the policy of the PostgreSQL Global
@@ -609,14 +1033,29 @@ protocol to make nodes agree on a serializable transactional order.
     the standby servers first &mdash; a new minor release is more likely
     to be able to read WAL files from a previous minor release than vice
     versa.
+-->
+一般的に、異なるメジャーリリースレベルの<productname>PostgreSQL</productname>間でログシッピングはできません。
+マイナーリリースの更新ではディスク書式を変更しないというのがPostgreSQLグローバル開発グループの方針ですので、プライマリサーバとスタンバイサーバとの間でマイナーリリースレベルの違いがあってもうまく動作するはずです。
+しかし、この場合、公的なサポートは提供されません。
+できる限りプライマリサーバとスタンバイサーバとで同じリリースレベルを使用してください。
+新しいマイナーリリースに更新する場合、もっとも安全な方針はスタンバイサーバを先に更新することです。
+新しいマイナーリリースは以前のマイナーリリースのWALファイルを読み込むことはできますが、逆はできないかもしれません。
    </para>
 
   </sect2>
 
+<<<<<<< HEAD
   <sect2 id="standby-server-operation" xreflabel="Standby Server Operation">
+=======
+  <sect2 id="standby-server-operation">
+<!--
+>>>>>>> doc_ja_13
    <title>Standby Server Operation</title>
+-->
+   <title>スタンバイサーバの動作</title>
 
    <para>
+<<<<<<< HEAD
     A server enters standby mode if a
     <anchor id="file-standby-signal" xreflabel="standby.signal"/>
     <filename>standby.signal</filename>
@@ -625,6 +1064,9 @@ protocol to make nodes agree on a serializable transactional order.
    </para>
 
    <para>
+=======
+<!--
+>>>>>>> doc_ja_13
     In standby mode, the server continuously applies WAL received from the
     primary server. The standby server can read WAL from a WAL archive
     (see <xref linkend="guc-restore-command"/>) or directly from the primary
@@ -634,9 +1076,16 @@ protocol to make nodes agree on a serializable transactional order.
     restart, when the standby replays again WAL that was streamed from the
     primary before the restart, but you can also manually copy files to
     <filename>pg_wal</filename> at any time to have them replayed.
+-->
+スタンバイモードでは、サーバは継続的にマスタサーバから受け取ったWALを適用します。
+スタンバイサーバはWALアーカイブ(<xref linkend="guc-restore-command"/>参照)から、または直接TCP接続(ストリーミングレプリケーション)を介してマスタサーバから、WALを読み取ることができます。
+またスタンバイサーバはスタンバイクラスタの<filename>pg_wal</filename>ディレクトリにあるすべてのWALをリストアしようと試みます。
+これはよくサーバの再起動後、スタンバイが再起動前にマスタから流れ込んだWALを再生する時に発生します。
+しかしまたファイルを再生する任意の時点で、手作業で<filename>pg_wal</filename>にコピーすることもできます。
    </para>
 
    <para>
+<!--
     At startup, the standby begins by restoring all WAL available in the
     archive location, calling <varname>restore_command</varname>. Once it
     reaches the end of WAL available there and <varname>restore_command</varname>
@@ -649,31 +1098,66 @@ protocol to make nodes agree on a serializable transactional order.
     restore the file from the archive again. This loop of retries from the
     archive, <filename>pg_wal</filename>, and via streaming replication goes on until the server
     is stopped or failover is triggered by a trigger file.
+-->
+起動時、スタンバイサーバは<varname>restore_command</varname>を呼び出して、アーカイブ場所にある利用可能なすべてのWALをリストアすることから始めます。
+そこで利用可能なWALの終端に達し、<varname>restore_command</varname>が失敗すると、<filename>pg_wal</filename>ディレクトリにある利用可能な任意のWALのリストアを試みます。
+ストリーミングレプリケーションが設定されている場合、これに失敗すると、スタンバイはプライマリサーバへの接続を試み、アーカイブまたは<filename>pg_wal</filename>内に存在した最終の有効レコードからWALのストリーミングを開始します。
+ストリーミングレプリケーションが未設定時にこれに失敗する場合、または、接続が後で切断される場合、スタンバイは最初に戻り、アーカイブからのファイルのリストアを繰り返し行います。
+このアーカイブ、<filename>pg_wal</filename>、ストリーミングレプリケーションからという再試行の繰り返しはサーバが停止する、あるいはトリガファイルによるフェイルオーバーが発行されるまで続きます。
    </para>
 
    <para>
+<!--
     Standby mode is exited and the server switches to normal operation
     when <command>pg_ctl promote</command> is run,
     <function>pg_promote()</function> is called, or a trigger file is found
     (<varname>promote_trigger_file</varname>). Before failover,
     any WAL immediately available in the archive or in <filename>pg_wal</filename> will be
+<<<<<<< HEAD
     restored, but no attempt is made to connect to the primary.
    </para>
   </sect2>
 
   <sect2 id="preparing-primary-for-standby">
    <title>Preparing the Primary for Standby Servers</title>
+=======
+    restored, but no attempt is made to connect to the master.
+-->
+<command>pg_ctl promote</command>が実行された時、<function>pg_promote()</function>が呼び出された時、またはトリガファイル(<varname>promote_trigger_file</varname>)が存在する時、スタンバイモードは終了し、サーバは通常の動作に切り替わります。
+フェイルオーバーの前に、アーカイブまたは<filename>pg_wal</filename>内の即座に利用可能なWALをすべてリストアします。
+しかし、マスタへの接続を行おうとはしません。
+   </para>
+  </sect2>
+
+  <sect2 id="preparing-master-for-standby">
+<!--
+   <title>Preparing the Master for Standby Servers</title>
+-->
+   <title>スタンバイサーバのためのマスタの準備</title>
+>>>>>>> doc_ja_13
 
    <para>
+<!--
     Set up continuous archiving on the primary to an archive directory
     accessible from the standby, as described
     in <xref linkend="continuous-archiving"/>. The archive location should be
+<<<<<<< HEAD
     accessible from the standby even when the primary is down, i.e., it should
     reside on the standby server itself or another trusted server, not on
     the primary server.
+=======
+    accessible from the standby even when the master is down, i.e., it should
+    reside on the standby server itself or another trusted server, not on
+    the master server.
+-->
+<xref linkend="continuous-archiving"/>で説明したように、スタンバイからアクセス可能なアーカイブディレクトリに対してプライマリで継続的なアーカイブを設定してください。
+このアーカイブ場所はマスタが停止した時であってもスタンバイからアクセス可能でなければなりません。
+つまり、マスタサーバ上ではなく、スタンバイサーバ自身上に存在するか、または他の高信頼性サーバ上に存在しなければなりません。
+>>>>>>> doc_ja_13
    </para>
 
    <para>
+<!--
     If you want to use streaming replication, set up authentication on the
     primary server to allow replication connections from the standby
     server(s); that is, create a role and provide a suitable entry or
@@ -683,18 +1167,30 @@ protocol to make nodes agree on a serializable transactional order.
     server. If replication slots will be used,
     ensure that <varname>max_replication_slots</varname> is set sufficiently
     high as well.
+-->
+ストリーミングレプリケーションを使用したい場合、スタンバイサーバ(複数可)からのレプリケーション接続を受け付けるようにプライマリサーバで認証を設定してください。
+つまり、ロールを作成し適切な項目を提供、あるいは、そのデータベースフィールドとして<literal>replication</literal>を持つ項目を<filename>pg_hba.conf</filename>内に設定してください。
+また、プライマリサーバの設定ファイルにおいて<varname>max_wal_senders</varname>が十分大きな値に設定されていることを確認してください。
+レプリケーションスロットを使用している場合は、<varname>max_replication_slots</varname>も十分に設定されているか確認してください。
    </para>
 
    <para>
+<!--
     Take a base backup as described in <xref linkend="backup-base-backup"/>
     to bootstrap the standby server.
+-->
+<xref linkend="backup-base-backup"/>に記述したように、スタンバイサーバの再起動のために、ベースバックアップを取得してください。
    </para>
   </sect2>
 
   <sect2 id="standby-server-setup">
+<!--
    <title>Setting Up a Standby Server</title>
+-->
+   <title>スタンバイサーバの設定</title>
 
    <para>
+<!--
     To set up the standby server, restore the base backup taken from primary
     server (see <xref linkend="backup-pitr-recovery"/>). Create a file
     <link linkend="file-standby-signal"><filename>standby.signal</filename></link><indexterm><primary>standby.signal</primary></indexterm>
@@ -704,33 +1200,60 @@ protocol to make nodes agree on a serializable transactional order.
     availability purposes, make sure that <varname>recovery_target_timeline</varname> is set to
     <literal>latest</literal> (the default), to make the standby server follow the timeline change
     that occurs at failover to another standby.
+-->
+スタンバイサーバを設定するためには、プライマリサーバから取得したベースバックアップをリストアしてください(<xref linkend="backup-pitr-recovery"/>参照)。
+スタンバイのクラスタデータディレクトリ内に<filename>standby.signal</filename>ファイルを作成し、<varname>standby_mode</varname>を有効にしてください。
+WALアーカイブからファイルをコピーする簡単なコマンドを<xref linkend="guc-restore-command"/>に設定してください。
+高可用性のために複数のスタンバイサーバを持たせようとしている場合、<varname>recovery_target_timeline</varname>を<literal>latest</literal>に設定し（デフォルト）、スタンバイサーバが他のスタンバイにフェイルオーバーする時に発生するタイムラインの変更に従うようにします。
    </para>
 
    <note>
      <para>
+<<<<<<< HEAD
      <xref linkend="guc-restore-command"/> should return immediately
      if the file does not exist; the server will retry the command again if
      necessary.
+=======
+<!--
+     Do not use pg_standby or similar tools with the built-in standby mode
+     described here. <xref linkend="guc-restore-command"/> should return immediately
+     if the file does not exist; the server will retry the command again if
+     necessary. See <xref linkend="log-shipping-alternative"/>
+     for using tools like pg_standby.
+-->
+ここで説明した組み込みのスタンバイモードといっしょにpg_standbyや類似ツールを使用しないでください。
+<xref linkend="guc-restore-command"/>はファイルが存在しない場合に即座に終了しなければなりません。
+サーバが必要に応じてそのコマンドを再度実行します。
+pg_standbyのようなツールを使用するためには<xref linkend="log-shipping-alternative"/>を参照してください。
+>>>>>>> doc_ja_13
     </para>
    </note>
 
    <para>
+<!--
      If you want to use streaming replication, fill in
      <xref linkend="guc-primary-conninfo"/> with a libpq connection string, including
      the host name (or IP address) and any additional details needed to
      connect to the primary server. If the primary needs a password for
      authentication, the password needs to be specified in
      <xref linkend="guc-primary-conninfo"/> as well.
+-->
+ストリーミングレプリケーションを使用したい場合には、ホスト名(またはIPアドレス)とプライマリサーバとの接続に必要な追加情報を含む、libpq接続文字列で<xref linkend="guc-primary-conninfo"/>を記述してください。
+プライマリで認証用のパスワードが必要な場合は<xref linkend="guc-primary-conninfo"/>にそのパスワードも指定する必要があります。
    </para>
 
    <para>
+<!--
     If you're setting up the standby server for high availability purposes,
     set up WAL archiving, connections and authentication like the primary
     server, because the standby server will work as a primary server after
     failover.
+-->
+スタンバイサーバを高可用性を目的に設定しているのであれば、スタンバイサーバはフェイルオーバーの後プライマリサーバとして動作しますので、プライマリサーバと同様にWALアーカイブ処理、接続、認証を設定してください。
    </para>
 
    <para>
+<!--
     If you're using a WAL archive, its size can be minimized using the <xref
     linkend="guc-archive-cleanup-command"/> parameter to remove files that are no
     longer required by the standby server.
@@ -740,10 +1263,17 @@ protocol to make nodes agree on a serializable transactional order.
     Note however, that if you're using the archive for backup purposes, you
     need to retain files needed to recover from at least the latest base
     backup, even if they're no longer needed by the standby.
+-->
+WALアーカイブを使用している場合、<xref linkend="guc-archive-cleanup-command"/>パラメータを使用してスタンバイサーバで不要となったファイルを削除することで、その容量を最小化することができます。
+特に<application>pg_archivecleanup</application>ユーティリティは、典型的な単一スタンバイ構成（<xref linkend="pgarchivecleanup"/>参照）における<varname>archive_cleanup_command</varname>と共に使用されるように設計されています。
+しかし、バックアップを目的にアーカイブを使用している場合には、スタンバイから必要とされなくなったファイルであっても、最新のベースバックアップの時点からリカバリするために必要なファイルを保持しなければならないことに注意してください。
    </para>
 
    <para>
+<!--
     A simple example of configuration is:
+-->
+簡単な設定例を以下に示します。
 <programlisting>
 primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass options=''-c wal_sender_timeout=5000'''
 restore_command = 'cp /path/to/archive/%f %p'
@@ -752,28 +1282,42 @@ archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
    </para>
 
    <para>
+<!--
     You can have any number of standby servers, but if you use streaming
     replication, make sure you set <varname>max_wal_senders</varname> high enough in
     the primary to allow them to be connected simultaneously.
+-->
+スタンバイサーバの台数に制限はありませんが、ストリーミングレプリケーションを使用するなら、プライマリサーバに同時に接続できるように<varname>max_wal_senders</varname>を十分な数に設定してください。
    </para>
 
   </sect2>
 
   <sect2 id="streaming-replication">
+<!--
    <title>Streaming Replication</title>
+-->
+   <title>ストリーミングレプリケーション</title>
 
    <indexterm zone="high-availability">
+<!--
     <primary>Streaming Replication</primary>
+-->
+    <primary>ストリーミングレプリケーション</primary>
    </indexterm>
 
    <para>
+<!--
     Streaming replication allows a standby server to stay more up-to-date
     than is possible with file-based log shipping. The standby connects
     to the primary, which streams WAL records to the standby as they're
     generated, without waiting for the WAL file to be filled.
+-->
+ストリーミングレプリケーションによりスタンバイサーバはファイルベースのログシッピングよりもより最近の状態を維持できるようになります。
+スタンバイは、WALレコードが生成された時にWALファイルがいっぱいになるまで待機せずにWALレコードをスタンバイに流し出すプライマリと接続します。
    </para>
 
    <para>
+<!--
     Streaming replication is asynchronous by default
     (see <xref linkend="synchronous-replication"/>), in which case there is
     a small delay between committing a transaction in the primary and the
@@ -782,9 +1326,15 @@ archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
     assuming the standby is powerful enough to keep up with the load. With
     streaming replication, <varname>archive_timeout</varname> is not required to
     reduce the data loss window.
+-->
+ストリーミングレプリケーションはデフォルトで非同期で、(<xref linkend="synchronous-replication"/>参照)
+この場合、プライマリでトランザクションがコミットされてから、その変更がスタンバイ側で参照可能になるまでの間にわずかな遅延がまだあります。
+しかし、この遅延はファイルベースのログシッピングよりも非常に小さなもので、負荷に追随できる程度の能力があるスタンバイであれば通常は1秒以下です。
+ストリーミングレプリケーションでは、データ損失期間を減らすための<varname>archive_timeout</varname>を必要としません。
    </para>
 
    <para>
+<!--
     If you use streaming replication without file-based continuous
     archiving, the server might recycle old WAL segments before the standby
     has received them.  If this occurs, the standby will need to be
@@ -794,9 +1344,14 @@ archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
     slot for the standby.  If you set up a WAL archive that's accessible from
     the standby, these solutions are not required, since the standby can
     always use the archive to catch up provided it retains enough segments.
+-->
+ファイルベースの継続的アーカイブのないストリーミングレプリケーションを使用している場合、スタンバイが受け取る前に古いWALセグメントを再利用するかもしれません。
+もし、そうなった場合はスタンバイは新しいベースバックアップから再作成しなければならなくなります。
+<varname>wal_keep_size</varname>を十分に大きくしたり、レプリケーションスロットにスタンバイを設定することでWALセグメントがすぐに再利用されることを防ぎ、これを防ぐことができます。WALアーカイブをスタンバイからアクセスできる位置に設定する場合は、スタンバイが常にWALセグメントを追随することができるため、これらの解決策は要求されません。
    </para>
 
    <para>
+<!--
     To use streaming replication, set up a file-based log-shipping standby
     server as described in <xref linkend="warm-standby"/>. The step that
     turns a file-based log-shipping standby into streaming replication
@@ -806,32 +1361,50 @@ archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
     (see <filename>pg_hba.conf</filename>) on the primary so that the standby server
     can connect to the <literal>replication</literal> pseudo-database on the primary
     server (see <xref linkend="streaming-replication-authentication"/>).
+-->
+ストリーミングレプリケーションを使用するためには、<xref linkend="warm-standby"/>の説明のようにファイルベースのログシッピングを行うスタンバイサーバを設定してください。
+ファイルベースのログシッピングを行うスタンバイをストリーミングレプリケーションを行うスタンバイに切り替える手順は、<varname>primary_conninfo</varname>設定をプライマリサーバを指し示すように設定することです。
+スタンバイサーバがプライマリサーバ上の<literal>replication</literal>疑似データベースに接続できる(<xref linkend="streaming-replication-authentication"/>参照)ように、プライマリで<xref linkend="guc-listen-addresses"/>と認証オプション(<filename>pg_hba.conf</filename>参照)を設定してください。
    </para>
 
    <para>
+<!--
     On systems that support the keepalive socket option, setting
     <xref linkend="guc-tcp-keepalives-idle"/>,
     <xref linkend="guc-tcp-keepalives-interval"/> and
     <xref linkend="guc-tcp-keepalives-count"/> helps the primary promptly
     notice a broken connection.
+-->
+キープアライブソケットオプションをサポートするシステムでは、<xref linkend="guc-tcp-keepalives-idle"/>、<xref linkend="guc-tcp-keepalives-interval"/>および<xref linkend="guc-tcp-keepalives-count"/>を設定することで、プライマリの接続切断の即時検知に有用です。
    </para>
 
    <para>
+<!--
     Set the maximum number of concurrent connections from the standby servers
     (see <xref linkend="guc-max-wal-senders"/> for details).
+-->
+スタンバイサーバからの同時接続数の最大値を設定してください（詳細は<xref linkend="guc-max-wal-senders"/>を参照）。
    </para>
 
    <para>
+<!--
     When the standby is started and <varname>primary_conninfo</varname> is set
     correctly, the standby will connect to the primary after replaying all
     WAL files available in the archive. If the connection is established
     successfully, you will see a <literal>walreceiver</literal> in the standby, and
     a corresponding <literal>walsender</literal> process in the primary.
+-->
+スタンバイが起動し、<varname>primary_conninfo</varname>が正しく設定されると、スタンバイはアーカイブ内で利用可能なWALファイルをすべて再生した後にプライマリと接続します。
+接続の確立に成功すると、スタンバイで<literal>walreceiver</literal>が存在し、プライマリで対応する<literal>walsender</literal>が存在します。
    </para>
 
    <sect3 id="streaming-replication-authentication">
+<!--
     <title>Authentication</title>
+-->
+    <title>認証</title>
     <para>
+<!--
      It is very important that the access privileges for replication be set up
      so that only trusted users can read the WAL stream, because it is
      easy to extract privileged information from it.  Standby servers must
@@ -843,25 +1416,40 @@ archive_cleanup_command = 'pg_archivecleanup /path/to/archive %r'
      privilege gives very high permissions, it does not allow the user to
      modify any data on the primary system, which the
      <literal>SUPERUSER</literal> privilege does.
+-->
+信頼できるユーザのみがWALストリームを読み取ることができるように、レプリケーション用のアクセス権限を設定することは非常に重要です。
+WALから機密情報を取り出すことは簡単だからです。
+スタンバイサーバはプライマリに対してプライマリの<literal>REPLICATION</literal>権限を持つアカウントか、スーパーユーザとして認証されなければなりません。
+レプリケーションのための<literal>REPLICATION</literal>権限 と <literal>LOGIN</literal>権限を持つ専用のユーザを作成することをお勧めします。
+<literal>REPLICATION</literal>権限は非常に強力な権限なので、<literal>SUPERUSER</literal>のようにプライマリのデータを変更することを許可されていません。
     </para>
 
     <para>
+<!--
      Client authentication for replication is controlled by a
      <filename>pg_hba.conf</filename> record specifying <literal>replication</literal> in the
      <replaceable>database</replaceable> field. For example, if the standby is running on
      host IP <literal>192.168.1.100</literal> and the account name for replication
      is <literal>foo</literal>, the administrator can add the following line to the
      <filename>pg_hba.conf</filename> file on the primary:
+-->
+レプリケーション用のクライアント認証は<filename>pg_hba.conf</filename>内でその<replaceable>database</replaceable>フィールドに<literal>replication</literal>を指定したレコードで制御されます。
+例えば、スタンバイがIPアドレス<literal>192.168.1.100</literal>のホストで稼動し、レプリケーション用のアカウントの名前が<literal>foo</literal>である場合、管理者はプライマリ上の<filename>pg_hba.conf</filename>に以下の行を追加することができます。
 
 <programlisting>
+<!--
 # Allow the user "foo" from host 192.168.1.100 to connect to the primary
 # as a replication standby if the user's password is correctly supplied.
+-->
+# 利用者 foo のホスト 192.168.1.100 からプライマリサーバへのレプリケーションスタンバイとしての接続を
+# 利用者のパスワードが正しく入力されたならば許可する
 #
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
 host    replication     foo             192.168.1.100/32        md5
 </programlisting>
     </para>
     <para>
+<!--
      The host name and port number of the primary, connection user name,
      and password are specified in the <xref linkend="guc-primary-conninfo"/>.
      The password can also be set in the <filename>~/.pgpass</filename> file on the
@@ -872,18 +1460,30 @@ host    replication     foo             192.168.1.100/32        md5
      <literal>foo</literal>, and the password is <literal>foopass</literal>, the administrator
      can add the following line to the <filename>postgresql.conf</filename> file on the
      standby:
+-->
+プライマリサーバのホスト名とポート番号、接続する利用者名およびパスワードは、<xref linkend="guc-primary-conninfo"/>で指定します。
+パスワードはスタンバイサーバの<filename>~/.pgpass</filename>ファイルでも設定できます（<replaceable>database</replaceable>フィールドの<literal>replication</literal>を指定します）。
+例えば、プライマリサーバが稼動するホストの IP アドレスが<literal>192.168.1.50</literal>でポート番号が<literal>5432</literal>であり、レプリケーションのアカウント名が<literal>foo</literal>であり、パスワードが<literal>foopass</literal>である場合、管理者はスタンバイサーバの<filename>postgresql.conf</filename>ファイルに次行を追加できます。
 
 <programlisting>
+<!--
 # The standby connects to the primary that is running on host 192.168.1.50
 # and port 5432 as the user "foo" whose password is "foopass".
+-->
+# プライマリサーバが 192.168.1.50 のホストの 5432ポートで稼動し
+# 利用者名が foo でパスワードが foopass とする
 primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
 </programlisting>
     </para>
    </sect3>
 
    <sect3 id="streaming-replication-monitoring">
+<!--
     <title>Monitoring</title>
+-->
+    <title>監視</title>
     <para>
+<!--
      An important health indicator of streaming replication is the amount
      of WAL records generated in the primary, but not yet applied in the
      standby. You can calculate this lag by comparing the current WAL write
@@ -896,8 +1496,14 @@ primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
      The last WAL receive location in the standby is also displayed in the
      process status of the WAL receiver process, displayed using the
      <command>ps</command> command (see <xref linkend="monitoring-ps"/> for details).
+-->
+ストリーミングレプリケーションの重要な健全性尺度は、プライマリサーバで生成されたがスタンバイサーバではまだ適用されていないWALレコードの量です。
+プライマリサーバの現在のWAL書き込み位置とスタンバイサーバの受理したWALの最終位置を比較すれば、この遅延を計算できます。
+これらの位置は、プライマリサーバでは<function>pg_current_wal_lsn</function>を、スタンバイサーバでは<function>pg_last_wal_receive_lsn</function>を使用すれば検索できます（詳細は<xref linkend="functions-admin-backup-table"/>および<xref linkend="functions-recovery-info-table"/>を参照）。
+スタンバイサーバの最終位置は、<command>ps</command>コマンドを使用して WAL受信プロセスの状態としても表示できます（詳細は<xref linkend="monitoring-ps"/>を参照）。
     </para>
     <para>
+<!--
      You can retrieve a list of WAL sender processes via the
      <link linkend="monitoring-pg-stat-replication-view"><structname>
      pg_stat_replication</structname></link> view. Large differences between
@@ -906,32 +1512,56 @@ primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
      differences between <literal>sent_lsn</literal> and
      <function>pg_last_wal_receive_lsn</function> on the standby might indicate
      network delay, or that the standby is under heavy load.
+-->
+<link linkend="monitoring-pg-stat-replication-view"><structname>pg_stat_replication</structname></link>ビューを介してWAL送信処理プロセスのリストを入手することができます。
+<function>pg_current_wal_lsn</function>とビューの<literal>sent_lsn</literal>フィールドとの違いが大きい場合、マスタサーバが高負荷状態であることを示している可能性があります。
+一方でスタンバイサーバ上の<literal>sent_lsn</literal>と<function>pg_last_wal_receive_lsn</function>の値の差異は、ネットワーク遅延、またはスタンバイが高負荷状態であることを示す可能性があります。
     </para>
     <para>
+<!--
      On a hot standby, the status of the WAL receiver process can be retrieved
      via the <link linkend="monitoring-pg-stat-wal-receiver-view">
      <structname>pg_stat_wal_receiver</structname></link> view.  A large
      difference between <function>pg_last_wal_replay_lsn</function> and the
      view's <literal>flushed_lsn</literal> indicates that WAL is being
      received faster than it can be replayed.
+-->
+ホットスタンバイ上では、WAL受信プロセスの状態は、<link linkend="monitoring-pg-stat-wal-receiver-view"><structname>pg_stat_wal_receiver</structname></link>ビューを通じて入手することができます。
+<function>pg_last_wal_replay_lsn</function>とビューの<literal>received_lsn</literal>との違いが大きい場合、WALのリプレイを上回る速さでWALが受信されていることを示しています。
     </para>
    </sect3>
   </sect2>
 
   <sect2 id="streaming-replication-slots">
+<!--
    <title>Replication Slots</title>
+-->
+   <title>レプリケーションスロット</title>
    <indexterm>
+<!--
     <primary>replication slot</primary>
     <secondary>streaming replication</secondary>
+-->
+    <primary>レプリケーションスロット</primary>
+    <secondary>ストリーミングレプリケーション</secondary>
    </indexterm>
    <para>
+<<<<<<< HEAD
     Replication slots provide an automated way to ensure that the primary does
+=======
+<!--
+    Replication slots provide an automated way to ensure that the master does
+>>>>>>> doc_ja_13
     not remove WAL segments until they have been received by all standbys,
     and that the primary does not remove rows which could cause a
     <link linkend="hot-standby-conflict">recovery conflict</link> even when the
     standby is disconnected.
+-->
+レプリケーションスロットは、以下のことを保証する自動的な方法を提供します。
+全てのスタンバイがWALセグメントを受け取るまでは、マスターがWALセグメントを削除しないこと、また、スタンバイが接続していない際にも、<link linkend="hot-standby-conflict">リカバリの競合</link>が発生する可能性がある行をマスターが削除しないこと、です。
    </para>
    <para>
+<!--
     In lieu of using replication slots, it is possible to prevent the removal
     of old WAL segments using <xref linkend="guc-wal-keep-size"/>, or by
     storing the segments in an archive using
@@ -943,36 +1573,64 @@ primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
     for <literal>pg_wal</literal>;
     <xref linkend="guc-max-slot-wal-keep-size"/> limits the size of WAL files
     retained by replication slots.
+-->
+レプリケーションスロットを使う代わりに、<xref linkend="guc-wal-keep-size"/>を使う、あるいは<xref linkend="guc-archive-command"/>を使用してセグメントをアーカイブに保存することによっても、古いWALセグメントの削除を防ぐことができます。
+しかし、これらの方法はしばしば要求される以上のWALセグメントを残すことになってしまうのに対し、レプリケーションスロットは必要と判断されたセグメントのみを残します。
+一方で、レプリケーションスロットは<literal>pg_wal</literal>のための領域を埋め尽くす大量のWALセグメントを残してしまうかも知れません。
+これらの方法のメリットの一つは<literal>pg_wal</literal>が要求する領域を制限できることです。現時点でレプリケーションスロットを使って同じことをする方法はありません。
    </para>
    <para>
+<!--
     Similarly, <xref linkend="guc-hot-standby-feedback"/>
     and <xref linkend="guc-vacuum-defer-cleanup-age"/> provide protection against
     relevant rows being removed by vacuum, but the former provides no
     protection during any time period when the standby is not connected,
     and the latter often needs to be set to a high value to provide adequate
     protection.  Replication slots overcome these disadvantages.
+-->
+同様に、<xref linkend="guc-hot-standby-feedback"/>と<xref linkend="guc-vacuum-defer-cleanup-age"/>は必要な行をvacuumが削除するのを防ぐ機能を提供しますが、前者はスタンバイが接続されていない間は行の保護を提供しませんし、後者は適切な保護を提供するために高い値を設定せざるを得ないことがしばしばあります。
+レプリケーションスロットはこのような短所を克服しています。
    </para>
    <sect3 id="streaming-replication-slots-manipulation">
+<!--
     <title>Querying and Manipulating Replication Slots</title>
+-->
+    <title>レプリケーションスロットへの問い合わせと操作</title>
     <para>
+<!--
      Each replication slot has a name, which can contain lower-case letters,
      numbers, and the underscore character.
+-->
+いずれのレプリケーションスロットにも小文字、数字、アンダースコアを含む名前があります。
     </para>
     <para>
+<!--
      Existing replication slots and their state can be seen in the
      <link linkend="view-pg-replication-slots"><structname>pg_replication_slots</structname></link>
      view.
+-->
+レプリケーションスロットとその状態は<link linkend="view-pg-replication-slots"><structname>pg_replication_slots</structname></link>
+ビューより確認できます。
     </para>
     <para>
+<!--
      Slots can be created and dropped either via the streaming replication
      protocol (see <xref linkend="protocol-replication"/>) or via SQL
      functions (see <xref linkend="functions-replication"/>).
+-->
+レプリケーションスロットはストリーミングレプリケーションプロトコル( <xref linkend="protocol-replication"/>参照)もしくはSQL関数(<xref linkend="functions-replication"/>参照)を使用し、作成や削除ができます。
     </para>
    </sect3>
    <sect3 id="streaming-replication-slots-config">
+<!--
     <title>Configuration Example</title>
+-->
+    <title>設定の例</title>
     <para>
+<!--
      You can create a replication slot like this:
+-->
+以下のような方法でレプリケーションスロットを作成できます。
 <programlisting>
 postgres=# SELECT * FROM pg_create_physical_replication_slot('node_a_slot');
   slot_name  | lsn
@@ -985,8 +1643,12 @@ postgres=# SELECT slot_name, slot_type, active FROM pg_replication_slots;
  node_a_slot | physical  | f
 (1 row)
 </programlisting>
+<!--
      To configure the standby to use this slot, <varname>primary_slot_name</varname>
      should be configured on the standby. Here is a simple example:
+-->
+スタンバイのレプリケーションスロットを使用できるように設定するためには、<varname>primary_slot_name</varname>をスタンバイ側で設定します。
+以下は単純な設定例です。：
 <programlisting>
 primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
 primary_slot_name = 'node_a_slot'
@@ -996,52 +1658,92 @@ primary_slot_name = 'node_a_slot'
   </sect2>
 
   <sect2 id="cascading-replication">
+<!--
    <title>Cascading Replication</title>
+-->
+   <title>カスケードレプリケーション</title>
 
    <indexterm zone="high-availability">
+<!--
     <primary>Cascading Replication</primary>
+-->
+    <primary>カスケードレプリケーション</primary>
    </indexterm>
 
    <para>
+<!--
     The cascading replication feature allows a standby server to accept replication
     connections and stream WAL records to other standbys, acting as a relay.
     This can be used to reduce the number of direct connections to the primary
     and also to minimize inter-site bandwidth overheads.
+-->
+カスケードレプリケーションは、リレーのような振る舞い、つまり、スタンバイサーバから他のスタンバイにレプリケーション接続し、WALレコードを送信することができます。
+マスターサーバへ直接の接続を減らしたり、サイト相互の帯域オーバヘッドを最小化するために使用することができます。
    </para>
 
    <para>
+<!--
     A standby acting as both a receiver and a sender is known as a cascading
     standby.  Standbys that are more directly connected to the primary are known
     as upstream servers, while those standby servers further away are downstream
     servers.  Cascading replication does not place limits on the number or
     arrangement of downstream servers, though each standby connects to only
+<<<<<<< HEAD
     one upstream server which eventually links to a single primary server.
+=======
+    one upstream server which eventually links to a single master/primary
+    server.
+-->
+カスケードスタンバイとして知られているとおり、スタンバイは受け取り手としても送り手としても振る舞うことができます。
+よりマスターサーバに近いスタンバイサーバは上流サーバと呼ばれるのに対し、より遠いスタンバイサーバは下流サーバと呼ばれます。
+カスケードレプリケーションには下流サーバの数に制限は設定されていません。しかし、どのスタンバイサーバも最終的には1つのマスター/プライマリサーバに繋がる1つの上流サーバに接続します。
+>>>>>>> doc_ja_13
    </para>
 
    <para>
+<!--
     A cascading standby sends not only WAL records received from the
     primary but also those restored from the archive. So even if the replication
     connection in some upstream connection is terminated, streaming replication
     continues downstream for as long as new WAL records are available.
+-->
+カスケードスタンバイはマスターから受け取ったWALレコードだけでなく、アーカイブからリストアしたWALレコードも送信します。
+このため、レプリケーション接続が上流サーバで切断しても、ストリーミングレプリケーションは下流サーバへ新しいWAL
+レコードがある限り継続します。
    </para>
 
    <para>
+<!--
     Cascading replication is currently asynchronous. Synchronous replication
     (see <xref linkend="synchronous-replication"/>) settings have no effect on
     cascading replication at present.
+-->
+カスケードレプリケーションは現時点では非同期です。同期レプリケーション（参照<xref linkend="synchronous-replication"/>）の設定は現時点でカスケードレプリケーションへは影響を与えません。
    </para>
 
    <para>
+<!--
     Hot Standby feedback propagates upstream, whatever the cascaded arrangement.
+-->
+ホットスタンバイがどの様に配置されていても、ホットスタンバイフィードバックは上流に伝播します。
    </para>
 
    <para>
+<<<<<<< HEAD
     If an upstream standby server is promoted to become the new primary, downstream
     servers will continue to stream from the new primary if
+=======
+<!--
+    If an upstream standby server is promoted to become new master, downstream
+    servers will continue to stream from the new master if
+>>>>>>> doc_ja_13
     <varname>recovery_target_timeline</varname> is set to <literal>'latest'</literal> (the default).
+-->
+上流スタンバイサーバが昇格し、新しいマスターサーバになった場合、<varname>recovery_target_timeline</varname>が<literal>'latest'</literal>に設定されていれば、下流サーバは新マスターサーバからのストリーミングレプリケーションを継続します（デフォルトです）。
    </para>
 
    <para>
+<!--
     To use cascading replication, set up the cascading standby so that it can
     accept replication connections (that is, set
     <xref linkend="guc-max-wal-senders"/> and <xref linkend="guc-hot-standby"/>,
@@ -1049,26 +1751,41 @@ primary_slot_name = 'node_a_slot'
     <link linkend="auth-pg-hba-conf">host-based authentication</link>).
     You will also need to set <varname>primary_conninfo</varname> in the downstream
     standby to point to the cascading standby.
+-->
+カスケードレプリケーションを使うためには、カスケードスタンバイをセットアップ、つまり、レプリケーション接続を許可してください。(<xref linkend="guc-max-wal-senders"/>と<xref linkend="guc-hot-standby"/>および、 <link linkend="auth-pg-hba-conf">クライアント認証</link>を設定してください)
+また、下流スタンバイがカスケードスタンバイに接続できるために、下流スタンバイでは<varname>primary_conninfo</varname>を設定する必要があります。
    </para>
   </sect2>
 
   <sect2 id="synchronous-replication">
+<!--
    <title>Synchronous Replication</title>
+-->
+   <title>同期レプリケーション</title>
 
    <indexterm zone="high-availability">
+<!--
     <primary>Synchronous Replication</primary>
+-->
+    <primary>同期レプリケーション</primary>
    </indexterm>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> streaming replication is asynchronous by
     default. If the primary server
     crashes then some transactions that were committed may not have been
     replicated to the standby server, causing data loss. The amount
     of data loss is proportional to the replication delay at the time of
     failover.
+-->
+<productname>PostgreSQL</productname>のストリーミングレプリケーションはデフォルトで非同期です。
+プライマリサーバがクラッシュした場合、コミットされた一部のトランザクションがスタンバイサーバに複製されず、データ損失を引き起こす可能性があります。
+データ損失量はフェイルオーバー時点のレプリケーション遅延に比例します。
    </para>
 
    <para>
+<!--
     Synchronous replication offers the ability to confirm that all changes
     made by a transaction have been transferred to one or more synchronous
     standby servers. This extends that standard level of durability
@@ -1076,9 +1793,14 @@ primary_slot_name = 'node_a_slot'
     to as 2-safe replication in computer science theory, and group-1-safe
     (group-safe and 1-safe) when <varname>synchronous_commit</varname> is set to
     <literal>remote_write</literal>.
+-->
+同期レプリケーションは、あるトランザクションでなされた変更はすべて、１つ以上の同期スタンバイサーバに転送されていることを確実にする機能を提供します。
+これはトランザクションコミットで提供される永続性の標準レベルを拡張します。
+この保護レベルはコンピュータ科学理論では、2-safeレプリケーション、そして<varname>synchronous_commit</varname>が<literal>remote_write</literal>に設定されている場合にはgroup-1-safe (group-safeと1-safe) と呼ばれます。
    </para>
 
    <para>
+<!--
     When requesting synchronous replication, each commit of a
     write transaction will wait until confirmation is
     received that the commit has been written to the write-ahead log on disk
@@ -1090,18 +1812,35 @@ primary_slot_name = 'node_a_slot'
     changes will not be lost in the event of server crashes but it also
     necessarily increases the response time for the requesting transaction.
     The minimum wait time is the round-trip time between primary to standby.
+-->
+同期レプリケーションを要求する時、書き込みトランザクションのコミットはそれぞれ、そのコミットがプライマリサーバおよびスタンバイサーバの両方で、ディスク上の書き込み先行ログに書き込まれたという確認を受けとるまで待機します。
+データ損失が起こる可能性は、プライマリサーバとスタンバイサーバが同時にクラッシュしてしまった場合のみです。
+これは非常に高い永続性を提供することができますが、それはシステム管理者が２つのサーバの設置と管理に関して注意を払っている場合のみです。
+確認のための待機は、サーバがクラッシュした場合でも変更が失われないということでユーザからの信頼性が大きくなりますが、同時に要求するトランザクションの応答時間も必ず大きくなります。
+最小待機時間はプライマリとスタンバイの間の往復遅延時間です。
    </para>
 
    <para>
+<<<<<<< HEAD
     Read-only transactions and transaction rollbacks need not wait for
+=======
+<!--
+    Read only transactions and transaction rollbacks need not wait for
+>>>>>>> doc_ja_13
     replies from standby servers. Subtransaction commits do not wait for
     responses from standby servers, only top-level commits. Long
     running actions such as data loading or index building do not wait
     until the very final commit message. All two-phase commit actions
     require commit waits, including both prepare and commit.
+-->
+読み取り専用のトランザクションおよびトランザクションのロールバックはスタンバイサーバからの応答を待つ必要はありません。
+副トランザクションのコミットもスタンバイサーバからの応答を待つことはなく、最上位レベルのコミットのみ待機します。
+データロード処理やインデックス構築など長時間実行される操作は、最終コミットメッセージまで待機しません。
+準備およびコミットの両方を含め、二相コミット動作はすべてコミット待機を必要とします。
    </para>
 
    <para>
+<!--
     A synchronous standby can be a physical replication standby or a logical
     replication subscriber.  It can also be any other physical or logical WAL
     replication stream consumer that knows how to send the appropriate
@@ -1111,12 +1850,21 @@ primary_slot_name = 'node_a_slot'
     as well as some third-party replication systems and custom programs.
     Check the respective documentation for details on synchronous replication
     support.
+-->
+同期スタンバイは、物理レプリケーションのスタンバイでも、論理レプリケーションのサブスクライバーのどちらでも構いません。
+また同期スタンバイは、適切なフィードバックメッセージを送信する方法を知っている、物理あるいは論理WALレプリケーションストリームの消費者であっても構いません。
+組み込みの物理あるいは論理レプリケーションシステムを別にすると、<command>pg_receivewal</command>と<command>pg_recvlogical</command>、それにサードパーティーのレプリケーションシステムとカスタムプログラムが該当します。
+対応する同期レプリケーションのサポートの詳細に関するドキュメントを参照してください。
    </para>
 
    <sect3 id="synchronous-replication-config">
+<!--
     <title>Basic Configuration</title>
+-->
+    <title>基本設定</title>
 
    <para>
+<!--
     Once streaming replication has been configured, configuring synchronous
     replication requires only one additional configuration step:
     <xref linkend="guc-synchronous-standby-names"/> must be set to
@@ -1131,9 +1879,16 @@ primary_slot_name = 'node_a_slot'
     users, so it can be configured in the configuration file, for particular
     users or databases, or dynamically by applications, in order to control
     the durability guarantee on a per-transaction basis.
+-->
+一度、ストリーミングレプリケーションが設定されている場合、同期レプリケーションの設定には必要な追加設定は１つだけ：<xref linkend="guc-synchronous-standby-names"/>を空でない値に設定することです。
+また<varname>synchronous_commit</varname>は<literal>on</literal>に設定されていなければなりませんが、これはデフォルト値ですので、通常は変更する必要はありません。(<xref linkend="runtime-config-wal-settings"/> および<xref linkend="runtime-config-replication-master"/>を参照してください)
+この設定によりスタンバイがそのコミットレコードを信頼できるストレージに書き込んだことが確認できるまで、各コミットが待たされるようになります。
+<varname>synchronous_commit</varname>は個々のユーザによって設定することができます。
+このため、トランザクション単位を基準とした永続性の保証を制御するために、設定ファイルの中で特定のユーザまたはデータベースについて設定することも、アプリケーションによって動的に設定することもできます。
    </para>
 
    <para>
+<!--
     After a commit record has been written to disk on the primary, the
     WAL record is then sent to the standby. The standby sends reply
     messages each time a new batch of WAL data is written to disk, unless
@@ -1151,9 +1906,19 @@ primary_slot_name = 'node_a_slot'
     replication is mainly on the primary. Named standbys must be directly
     connected to the primary; the primary knows nothing about downstream
     standby servers using cascaded replication.
+-->
+コミットレコードがプライマリ上のディスクに書き出された後、WALレコードがスタンバイに送信されます。
+スタンバイにて<varname>wal_receiver_status_interval</varname>がゼロに設定されていない限り、スタンバイは新しいWALデータの塊がディスクに書き出される度に応答メッセージを返します。
+<varname>synchronous_commit</varname>が<literal>remote_apply</literal>に設定されている場合には、コミットレコードが再生され、そのトランザクションが可視化されたときに応答メッセージを返します。
+スタンバイが、プライマリ上の<varname>synchronous_standby_names</varname>にしたがって、同期スタンバイとして選ばれた時は、コミットレコードの受領の確認のために待機しているトランザクションをいつ解放すべきかを決めるために、他の同期スタンバイとともにそれらスタンバイからの応答メッセージが考慮されます。
+これらのパラメータにより、管理者はどのスタンバイサーバを同期スタンバイとすべきかを指定することができます。
+同期レプリケーションの設定は主にマスタでなされることに注意してください。
+指名されたスタンバイは直接マスターサーバに接続される必要があります。
+つまり、カスケードレプリケーションを使用している下流スタンバイサーバについて、マスターサーバは何も知りません。
    </para>
 
    <para>
+<!--
     Setting <varname>synchronous_commit</varname> to <literal>remote_write</literal> will
     cause each commit to wait for confirmation that the standby has received
     the commit record and written it out to its own operating system, but not
@@ -1165,29 +1930,47 @@ primary_slot_name = 'node_a_slot'
     because it can decrease the response time for the transaction.
     Data loss could only occur if both the primary and the standby crash and
     the database of the primary gets corrupted at the same time.
+-->
+<varname>synchronous_commit</varname>を<literal>remote_write</literal>に設定することで、個々のコミットは、スタンバイサーバがコミットされたレコードを受け取り、オペレーティングシステムに書きだしたことが確認できるまで待ちますが、スタンバイ上のディスクに吐き出すまでは待ちません。
+これは、<literal>on</literal>と設定するより、提供される永続性は弱くなります。
+具体的には、スタンバイサーバはオペレーティングシステムがクラッシュした場合にデータを失う可能性がありますが、<productname>PostgreSQL</productname>がクラッシュした場合にはデータを失いません。
+しかし、実用的にはこの設定はトランザクションの応答時間を短くすることができるので有用です。
+データの損失は、プライマリサーバとスタンバイサーバが同時にクラッシュし、かつ、プライマリのデータベースが同時に壊れた場合にのみ発生します。
    </para>
 
    <para>
+<!--
     Setting <varname>synchronous_commit</varname> to <literal>remote_apply</literal> will
     cause each commit to wait until the current synchronous standbys report
     that they have replayed the transaction, making it visible to user
     queries.  In simple cases, this allows for load balancing with causal
     consistency.
+-->
+<varname>synchronous_commit</varname>を<literal>remote_apply</literal>に設定することで、現在の同期スタンバイがトランザクションを再生し、ユーザから見えるようにしたと報告するまでは各々のコミットは待たされます。
+単純なケースでは、因果一貫性を保つ負荷分散を可能にします。
    </para>
 
    <para>
+<!--
     Users will stop waiting if a fast shutdown is requested.  However, as
     when using asynchronous replication, the server will not fully
     shutdown until all outstanding WAL records are transferred to the currently
     connected standby servers.
+-->
+高速シャットダウンが要求された場合、ユーザは待ち状態ではなくなります。
+しかし非同期レプリケーションを使用している時と同じく、送信中のWALレコードが現在接続しているスタンバイサーバに転送されるまで、サーバは完全に停止しません。
    </para>
 
    </sect3>
 
    <sect3 id="synchronous-replication-multiple-standbys">
+<!--
     <title>Multiple Synchronous Standbys</title>
+-->
+    <title>複数の同期スタンバイ</title>
 
    <para>
+<!--
     Synchronous replication supports one or more synchronous standby servers;
     transactions will wait until all the standby servers which are considered
     as synchronous confirm receipt of their data. The number of synchronous
@@ -1195,8 +1978,14 @@ primary_slot_name = 'node_a_slot'
     <varname>synchronous_standby_names</varname>. This parameter also specifies
     a list of standby names and the method (<literal>FIRST</literal> and
     <literal>ANY</literal>) to choose synchronous standbys from the listed ones.
+-->
+同期レプリケーションは、一つ以上の同期スタンバイサーバをサポートします。
+同期と見なされるすべてのスタンバイサーバがデータの受領を確認するまで、トランザクションは待機します。
+トランザクションが応答を待たなければならない同期スタンバイの数は、<varname>synchronous_standby_names</varname>で指定されます。
+また、このパラメータには、スタンバイの名前のリストと、リストされたものから同期スタンバイを選ぶ方法（<literal>FIRST</literal>と<literal>ANY</literal>）を指定します。
    </para>
    <para>
+<!--
     The method <literal>FIRST</literal> specifies a priority-based synchronous
     replication and makes transaction commits wait until their WAL records are
     replicated to the requested number of synchronous standbys chosen based on
@@ -1206,13 +1995,24 @@ primary_slot_name = 'node_a_slot'
     standbys. If any of the current synchronous standbys disconnects for
     whatever reason, it will be replaced immediately with the
     next-highest-priority standby.
+-->
+方法<literal>FIRST</literal>は優先度に基づく同期レプリケーションを指定し、優先度に応じて選択された同期スタンバイにWALレコードがレプリケーションされるまで、トランザクションのコミットは待機します。
+リストの前の方に名前が書いてあるスタンバイにはより高い優先度が与えられ、同期とみなされます。
+リストの後ろの方に書いてあるスタンバイは、潜在的な同期スタンバイであることを示します。
+どんな理由であれ、現在のスタンバイのどれかの接続が切断されると、次に優先度が高いスタンバイがとって代わります。
    </para>
    <para>
+<!--
     An example of <varname>synchronous_standby_names</varname> for
     a priority-based multiple synchronous standbys is:
+-->
+優先度に基づく複数同期スタンバイのための<varname>synchronous_standby_names</varname>の例を示します。
+   </para>
 <programlisting>
 synchronous_standby_names = 'FIRST 2 (s1, s2, s3)'
 </programlisting>
+   <para>
+<!--
     In this example, if four standby servers <literal>s1</literal>, <literal>s2</literal>,
     <literal>s3</literal> and <literal>s4</literal> are running, the two standbys
     <literal>s1</literal> and <literal>s2</literal> will be chosen as synchronous standbys
@@ -1221,105 +2021,167 @@ synchronous_standby_names = 'FIRST 2 (s1, s2, s3)'
     the role of synchronous standby when either of <literal>s1</literal> or
     <literal>s2</literal> fails. <literal>s4</literal> is an asynchronous standby since
     its name is not in the list.
+-->
+この例では、もし4つのスタンバイサーバ<literal>s1</literal>、<literal>s2</literal>、<literal>s3</literal>、<literal>s4</literal>が稼働中なら、<literal>s1</literal>と<literal>s2</literal>が同期スタンバイに選ばれます。
+それらの名前がスタンバイ名のリストの最初の方にあるからです。
+<literal>s3</literal>は潜在的な同期スタンバイで、<literal>s1</literal>あるいは<literal>s2</literal>が故障した時に同期スタンバイの役割を取って代わります。
+このリストに名前が載っていないので、<literal>s4</literal>は非同期スタンバイです。
    </para>
    <para>
+<!--
     The method <literal>ANY</literal> specifies a quorum-based synchronous
     replication and makes transaction commits wait until their WAL records
     are replicated to <emphasis>at least</emphasis> the requested number of
     synchronous standbys in the list.
+-->
+方法<literal>ANY</literal>はクォーラムに基づく同期レプリケーションを指定し、<emphasis>少なくとも</emphasis>リスト中で指定された数の同期スタンバイにWALレコードがレプリケーションされるまで、トランザクションのコミットを待たせます
    </para>
    <para>
+<!--
     An example of <varname>synchronous_standby_names</varname> for
     a quorum-based multiple synchronous standbys is:
+-->
+クォーラムに基づく同期スタンバイのための<varname>synchronous_standby_names</varname>の例を示します。
 <programlisting>
 synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
 </programlisting>
+<!--
     In this example, if four standby servers <literal>s1</literal>, <literal>s2</literal>,
     <literal>s3</literal> and <literal>s4</literal> are running, transaction commits will
     wait for replies from at least any two standbys of <literal>s1</literal>,
     <literal>s2</literal> and <literal>s3</literal>. <literal>s4</literal> is an asynchronous
     standby since its name is not in the list.
+-->
+この例では、もし4つのスタンバイサーバ<literal>s1</literal>、<literal>s2</literal>、<literal>s3</literal>、<literal>s4</literal>が稼働中なら、トランザクションのコミットは、<literal>s1</literal>、<literal>s2</literal>、<literal>s3</literal>のどれか二つのスタンバイから応答があるまで待たされます。
+このリストに名前が載っていないので、<literal>s4</literal>は非同期スタンバイです。
    </para>
    <para>
+<!--
     The synchronous states of standby servers can be viewed using
     the <structname>pg_stat_replication</structname> view.
+-->
+<structname>pg_stat_replication</structname>ビューを使って、スタンバイサーバの同期状態を見ることができます。
    </para>
    </sect3>
 
    <sect3 id="synchronous-replication-performance">
+<!--
     <title>Planning for Performance</title>
+-->
+    <title>性能に関する考慮</title>
 
    <para>
+<!--
     Synchronous replication usually requires carefully planned and placed
     standby servers to ensure applications perform acceptably. Waiting
     doesn't utilize system resources, but transaction locks continue to be
     held until the transfer is confirmed. As a result, incautious use of
     synchronous replication will reduce performance for database
     applications because of increased response times and higher contention.
+-->
+通常、同期レプリケーションは、アプリケーションが満足できる程度に実行されることを確実にするために、注意深くスタンバイサーバを計画し設置しなければなりません。
+待機のためにシステムリソースを使用することはありませんが、トランザクションロックは転送が確認されるまで継続して保持されます。
+結果として同期レプリケーションを注意せずに使用すると、応答時間が増加する、および競合がより高くなるため、データベースアプリケーションの性能は低下します。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> allows the application developer
     to specify the durability level required via replication. This can be
     specified for the system overall, though it can also be specified for
     specific users or connections, or even individual transactions.
+-->
+<productname>PostgreSQL</productname>ではアプリケーション開発者がレプリケーション経由で必要とする永続性レベルを指定することができます。
+これをシステム全体に対して指定することができますし、特定のユーザ、接続、個々のトランザクションに対してさえ指定することもできます。
    </para>
 
    <para>
+<!--
     For example, an application workload might consist of:
     10% of changes are important customer details, while
     90% of changes are less important data that the business can more
     easily survive if it is lost, such as chat messages between users.
+-->
+例えばアプリケーションの作業量が、重要な顧客詳細の変更が10%、ユーザ間のチャットメッセージなど、あまり重要ではなく、失ったとしても業務をより簡単に戻すことができるようなデータの変更が90% という構成を考えてみます。
    </para>
 
    <para>
+<!--
     With synchronous replication options specified at the application level
     (on the primary) we can offer synchronous replication for the most
     important changes, without slowing down the bulk of the total workload.
     Application level options are an important and practical tool for allowing
     the benefits of synchronous replication for high performance applications.
+-->
+（プライマリ上で）アプリケーションレベルで指定する同期レプリケーションオプションを使用して、作業全体を低速化させることなく、最も重要な変更に対して同期レプリケーションを企てることができます。
+アプリケーションレベルのオプションは、高い性能が求められるアプリケーションで同期レプリケーションの利点が得られる、重要かつ現実的な手段です。
    </para>
 
    <para>
+<!--
     You should consider that the network bandwidth must be higher than
     the rate of generation of WAL data.
+-->
+生成されるWALデータの割合よりネットワーク帯域幅が大きくなければならないことを考慮しなければなりません。
    </para>
 
    </sect3>
 
    <sect3 id="synchronous-replication-ha">
+<!--
     <title>Planning for High Availability</title>
+-->
+    <title>高可用性に関する検討</title>
 
    <para>
+<!--
     <varname>synchronous_standby_names</varname> specifies the number and
     names of synchronous standbys that transaction commits made when
     <varname>synchronous_commit</varname> is set to <literal>on</literal>,
     <literal>remote_apply</literal> or <literal>remote_write</literal> will wait for
     responses from. Such transaction commits may never be completed
     if any one of synchronous standbys should crash.
+-->
+<varname>synchronous_commit</varname>が、<literal>on</literal>、<literal>remote_apply</literal>、<literal>remote_write</literal>のいずれかに設定されている場合、<varname>synchronous_standby_names</varname>には、コミットされたトランザクションが応答を待つ同期スタンバイの数と名前を指定します。
+そのようなトランザクションのコミットは、同期スタンバイのどれかがクラッシュすると決して完了しないかもしれません。
    </para>
 
    <para>
+<!--
     The best solution for high availability is to ensure you keep as many
     synchronous standbys as requested. This can be achieved by naming multiple
     potential synchronous standbys using <varname>synchronous_standby_names</varname>.
+-->
+高可用性のもっとも良い解決方法は、想定したのと同じ数の同期スタンバイを確実に確保することです。
+これは、<varname>synchronous_standby_names</varname>を使って同期スタンバイ候補を複数指定することによって実現できます。
+そのリストの最初の方に名前が上がっているスタンバイは、同期スタンバイとして使用されます。
+その後の方に名前が上がっているスタンバイは、同期スタンバイのどれかが故障した時に、その役割を取って代わります。
    </para>
 
    <para>
+<!--
     In a priority-based synchronous replication, the standbys whose names
     appear earlier in the list will be used as synchronous standbys.
     Standbys listed after these will take over the role of synchronous standby
     if one of current ones should fail.
+-->
+優先度に基づく同期レプリケーションでは、リストの前の方に名前が現れるスタンバイが同期スタンバイになります。
+現在の同期スタンバイのどれかが故障した際には、リストの後の方にあるスタンバイが同期スタンバイの役割を引き継ぎます。
    </para>
 
    <para>
+<!--
     In a quorum-based synchronous replication, all the standbys appearing
     in the list will be used as candidates for synchronous standbys.
     Even if one of them should fail, the other standbys will keep performing
     the role of candidates of synchronous standby.
+-->
+クォーラムに基づく同期レプリケーションでは、リストに現れたすべてのスタンバイが同期スタンバイの候補となります。
+そのどれかが故障した場合でも、他のスタンバイは引き続き同期スタンバイの候補としての役割を担い続けます。
    </para>
 
    <para>
+<!--
     When a standby first attaches to the primary, it will not yet be properly
     synchronized. This is described as <literal>catchup</literal> mode. Once
     the lag between standby and primary reaches zero for the first time
@@ -1331,9 +2193,18 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     once it has reached <literal>streaming</literal> state.
     This state can be viewed using
     the <structname>pg_stat_replication</structname> view.
+-->
+スタンバイが最初にプライマリに接続された時、それはまだ適切に同期されていません。
+これは<literal>catchup</literal>モードと呼ばれます。
+一旦スタンバイとプライマリ間の遅延がゼロになると、実時間<literal>streaming</literal>状態に移ります。
+追従（catchup）期間はスタンバイが作成された直後は長くなるかもしれません。
+スタンバイが停止している場合、追従期間はスタンバイの停止期間にしたがって長くなります。
+スタンバイは、<literal>streaming</literal>状態に達した後でのみ、同期スタンバイになることができます。
+この状態は、<structname>pg_stat_replication</structname>ビューで見ることができます。
    </para>
 
    <para>
+<!--
     If primary restarts while commits are waiting for acknowledgment, those
     waiting transactions will be marked fully committed once the primary
     database recovers.
@@ -1344,41 +2215,65 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     the application will not receive explicit acknowledgment of the
     successful commit of a transaction until the WAL data is known to be
     safely received by all the synchronous standbys.
+-->
+コミットが受領通知を待機している間にプライマリが再起動した場合、プライマリデータベースが復旧した後、待機中のトランザクションは完全にコミットされたものと記録されます。
+すべてのスタンバイがプライマリのクラッシュ時点で送信中のWALデータのすべてを受信したかどうかを確認する方法はありません。
+トランザクションの一部は、プライマリではコミットされたものと表示されていたとしても、スタンバイではコミットされていないと表示されるかもしれません。
+PostgreSQLは、WALデータをすべてのスタンバイが安全に受信したことが分かるまで、アプリケーションは明示的なトランザクションコミットの成功に関する受領通知を受けとらないことを保証しています。
    </para>
 
    <para>
+<!--
     If you really cannot keep as many synchronous standbys as requested
     then you should decrease the number of synchronous standbys that
     transaction commits must wait for responses from
     in <varname>synchronous_standby_names</varname> (or disable it) and
     reload the configuration file on the primary server.
+-->
+要求していた数の同期スタンバイを本当に確保できないときは、トランザクションが応答を待たなければならない同期スタンバイの数を、<varname>synchronous_standby_names</varname>から減らしてください（もしくは無効にします）。
+そして、プライマリサーバの設定ファイルを再読み込みしてください。
    </para>
 
    <para>
+<!--
     If the primary is isolated from remaining standby servers you should
     fail over to the best candidate of those other remaining standby servers.
+-->
+プライマリが既存のスタンバイサーバから切り離された場合は、スタンバイサーバの中から最善と思われる候補にフェイルオーバーしてください。
    </para>
 
    <para>
+<!--
     If you need to re-create a standby server while transactions are
     waiting, make sure that the commands pg_start_backup() and
     pg_stop_backup() are run in a session with
     <varname>synchronous_commit</varname> = <literal>off</literal>, otherwise those
     requests will wait forever for the standby to appear.
+-->
+トランザクションの待機中にスタンバイサーバを再作成する必要がある場合、pg_start_backup()およびpg_stop_backup()を実行するコマンドを<varname>synchronous_commit</varname> = <literal>off</literal>であるセッション内で確実に実行してください。
+さもないとこれらの要求はスタンバイに現れるまで永遠に待機します。
    </para>
 
    </sect3>
   </sect2>
 
   <sect2 id="continuous-archiving-in-standby">
+<!--
    <title>Continuous Archiving in Standby</title>
+-->
+   <title>スタンバイにおける継続的アーカイビング</title>
 
    <indexterm>
+<!--
      <primary>continuous archiving</primary>
      <secondary>in standby</secondary>
+-->
+     <primary>継続的アーカイビング</primary>
+     <secondary>スタンバイにおける</secondary>
    </indexterm>
 
    <para>
+<!--
      When continuous WAL archiving is used in a standby, there are two
      different scenarios: the WAL archive can be shared between the primary
      and the standby, or the standby can have its own WAL archive. When
@@ -1394,9 +2289,18 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
      but return success if the exactly same file is archived twice. And
      all that must be done free of race conditions, if two servers attempt
      to archive the same file at the same time.
+-->
+スタンバイにおいてWALの継続的アーカイビングが行われる場合、2つのシナリオが考えられます。
+WALアーカイブがプライマリとスタンバイで共有されるケースと、スタンバイが自分のWALアーカイブを持つケースです。
+スタンバイが自分のWALアーカイブを持つケースでは、<varname>archive_mode</varname>を<literal>always</literal>に設定しておくことにより、アーカイブからリストアされたWALセグメントであろうと、ストリーミングレプリケーション由来のWALセグメントであろうと、WALセグメントを受信する度にスタンバイはアーカイブコマンドを呼び出します。
+共有アーカイブのケースも同じように扱えますが、<varname>archive_command</varname>はアーカイブしようとしているファイルがすでに存在していて、それが同一内容かどうかのチェックを行う必要があります。
+このため、<varname>archive_command</varname>はより工夫が必要です。
+というのも、<varname>archive_command</varname>は既存のファイルを異なる内容で置き換えてはいけませんし、またまったく同じ内容のファイルを置き換えた場合には成功したと報告しなければならないからです。
+更に、2つのサーバが同時に同じファイルをアーカイブしようとした時に、競合状態が起きないようにしなければなりません。
    </para>
 
    <para>
+<!--
      If <varname>archive_mode</varname> is set to <literal>on</literal>, the
      archiver is not enabled during recovery or standby mode. If the standby
      server is promoted, it will start archiving after the promotion, but
@@ -1408,36 +2312,62 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
      are found in the archive, but not if streaming replication is enabled.
      When a server is not in recovery mode, there is no difference between
      <literal>on</literal> and <literal>always</literal> modes.
+-->
+<varname>archive_mode</varname>が<literal>on</literal>の場合には、リカバリモードあるいはスタンバイモードではアーカイブは有効になりません。
+スタンバイサーバが昇格すると、昇格後にスタンバイサーバはアーカイブを開始します。
+しかし、自分が生成しなかったWALやタイムライン履歴ファイルは一切アーカイブしません。
+完全な一連のWALファイルをアーカイブから取り出すためには、WALがスタンバイに到着する前に、すべてのWALがアーカイブされていることを保証しなければなりません。
+ファイルベースのログシッピングにおいても本質的にはこの通りです。
+というのも、スタンバイはアーカイブにあるファイルだけをリストアできるからです。
+ストリーミングレプリケーションが有効ならば、この限りではありません。
+サーバがリカバリモードでない場合には、<literal>on</literal>と<literal>always</literal>のモードの間には違いはありません。
    </para>
   </sect2>
   </sect1>
 
   <sect1 id="warm-standby-failover">
+<!--
    <title>Failover</title>
+-->
+   <title>フェイルオーバー</title>
 
    <para>
+<!--
     If the primary server fails then the standby server should begin
     failover procedures.
+-->
+プライマリサーバに障害が起こると、スタンバイサーバはフェイルオーバー処理を始めなければなりません。
    </para>
 
    <para>
+<!--
     If the standby server fails then no failover need take place. If the
     standby server can be restarted, even some time later, then the recovery
     process can also be restarted immediately, taking advantage of
     restartable recovery. If the standby server cannot be restarted, then a
     full new standby server instance should be created.
+-->
+スタンバイサーバが故障した場合、フェイルオーバーは不要です。
+多少の時間の後に、スタンバイサーバを再起動できれば、再起動可能なリカバリのため、リカバリ処理も即座に再起動することができます。
+スタンバイサーバを再起動できなければ、新しい完全なスタンバイサーバのインスタンスを作成しなければなりません。
    </para>
 
    <para>
+<!--
     If the primary server fails and the standby server becomes the
     new primary, and then the old primary restarts, you must have
     a mechanism for informing the old primary that it is no longer the primary. This is
     sometimes known as <acronym>STONITH</acronym> (Shoot The Other Node In The Head), which is
     necessary to avoid situations where both systems think they are the
     primary, which will lead to confusion and ultimately data loss.
+-->
+プライマリサーバに障害が起こりスタンバイサーバが新しいプライマリとなり、その後古いプライマリが再起動した場合、もはやプライマリサーバでなくなっていることを古いプライマリに知らせる機構が必要です。
+これは<acronym>STONITH</acronym> (Shoot the Other Node In The Head)と一部ではいわれています。
+これは、混乱と最悪はデータ損失をもたらしかねない、両方のシステムが自身をプライマリとして認識してしまう状況を防ぐために必要です。
    </para>
 
    <para>
+<!--
     Many failover systems use just two systems, the primary and the standby,
     connected by some kind of heartbeat mechanism to continually verify the
     connectivity between the two and the viability of the primary. It is
@@ -1445,17 +2375,27 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     some cases of inappropriate failover, but the additional complexity
     might not be worthwhile unless it is set up with sufficient care and
     rigorous testing.
+-->
+多くのフェイルオーバーシステムではプライマリとスタンバイといった２つのシステムを使用します。
+なんらかのハートビート機構でプライマリとスタンバイを接続し、両者の接続性とプライマリの実行能力を継続的に確認します。
+また、第３のシステム（証言サーバと呼ばれます）を使用して、不適切なフェイルオーバーなどの状況を防ぐこともできます。
+しかし、さらに複雑になりますので、十分な注意と厳密な検証の元に設定を行わない限り行う意味がありません。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> does not provide the system
     software required to identify a failure on the primary and notify
     the standby database server.  Many such tools exist and are well
     integrated with the operating system facilities required for
     successful failover, such as IP address migration.
+-->
+<productname>PostgreSQL</productname>は、プライマリサーバの障害を識別し、スタンバイデータベースサーバに通知するために必要なシステムソフトウェアを提供しません。
+こうしたツールは多く存在し、IPアドレスの移行といったフェイルオーバーを成功させるために必要な機能をオペレーティングシステムにうまく統合させています。
    </para>
 
    <para>
+<!--
     Once failover to the standby occurs, there is only a
     single server in operation. This is known as a degenerate state.
     The former standby is now the primary, but the former primary is down
@@ -1470,18 +2410,34 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     server is recreated,
     though clearly this complicates the system configuration and
     operational processes.
+-->
+スタンバイサーバへのフェイルオーバーが起きた後、運用可能なサーバは1つしかありません。
+これは縮退状態と呼ばれます。
+以前のスタンバイサーバはプライマリサーバになり、以前のプライマリは停止し、その後も停止し続けるかもしれません。
+通常の運用に戻すには、スタンバイサーバを再作成しなければなりません。
+以前のプライマリサーバが起動できれば、これを使用しても構いませんし、第三のおそらく新規のシステムを使用しても構いません。
+<xref linkend="app-pgrewind"/>を使って、大きなクラスタにおける処理を早めることもできます。
+完了すれば、プライマリとスタンバイの役割が切り替わったとみなすことができます。
+新しいスタンバイサーバを再作成するまでに第三のサーバを使用して新しいプライマリのバックアップを提供することを選択する人もいますが、これがシステム構成と運用手順を複雑にすることは明らかです。
    </para>
 
    <para>
+<!--
     So, switching from primary to standby server can be fast but requires
     some time to re-prepare the failover cluster. Regular switching from
     primary to standby is useful, since it allows regular downtime on
     each system for maintenance. This also serves as a test of the
     failover mechanism to ensure that it will really work when you need it.
     Written administration procedures are advised.
+-->
+プライマリサーバからスタンバイサーバへの切り替えは高速ですが、フェイルオーバークラスタを再度準備するのに多少時間が必要です。
+それぞれのシステムを保守のために定期的に停止することができるので、プライマリからスタンバイへの定期的切り替えは有益です。
+これは同時に、必要になった時、フェイルオーバー機構が実際に機能するかどうかを確認する試験としても役立ちます。
+管理手順の文書化を勧めます。
    </para>
 
    <para>
+<!--
     To trigger failover of a log-shipping standby server, run
     <command>pg_ctl promote</command>, call <function>pg_promote()</function>,
     or create a trigger file with the file name and path specified by the
@@ -1492,17 +2448,314 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     setting up the reporting servers that are only used to offload read-only
     queries from the primary, not for high availability purposes, you don't
     need to promote it.
+-->
+ログシッピングを行うスタンバイサーバのフェイルオーバーを発生させるためには、<command>pg_ctl promote</command>を実行する、<function>pg_promote()</function>を呼び出す、あるいは<varname>promote_trigger_file</varname>で指定されるファイル名とパスを持つトリガファイルを作成してください。
+フェイルオーバーのために<command>pg_ctl promote</command>を使用する、あるいは<function>pg_promote()</function>を呼び出すつもりならば、<varname>promote_trigger_file</varname>は必要ありません。
+プライマリから読み取り専用の問い合わせによる負荷を軽減させるためだけに使用し、高可用性を目的としていない、報告処理用サーバを構築する場合は、昇格させる必要はありません。
    </para>
   </sect1>
 
+<<<<<<< HEAD
+=======
+  <sect1 id="log-shipping-alternative">
+<!--
+   <title>Alternative Method for Log Shipping</title>
+-->
+   <title>この他のログシッピングの方法</title>
+
+   <para>
+<!--
+    An alternative to the built-in standby mode described in the previous
+    sections is to use a <varname>restore_command</varname> that polls the archive location.
+    This was the only option available in versions 8.4 and below. See the
+    <xref linkend="pgstandby"/> module for a reference implementation of this.
+-->
+これまでの節で説明した組み込みのスタンバイモードの他の方法として、アーカイブ場所を順次問い合わせる<varname>restore_command</varname>を使用する方法があります。
+これはバージョン8.4以前では唯一の利用可能な選択肢でした。
+このリファレンス実装として<xref linkend="pgstandby"/>を参照してください。
+   </para>
+
+   <para>
+<!--
+    Note that in this mode, the server will apply WAL one file at a
+    time, so if you use the standby server for queries (see Hot Standby),
+    there is a delay between an action in the master and when the
+    action becomes visible in the standby, corresponding to the time it takes
+    to fill up the WAL file. <varname>archive_timeout</varname> can be used to make that delay
+    shorter. Also note that you can't combine streaming replication with
+    this method.
+-->
+このモードでは、サーバは1度に1つのWALファイルを適用することに注意してください。
+このため問い合わせ用にスタンバイサーバを使用する場合(ホットスタンバイを参照)、マスタにおける動作とそれがスタンバイで可視になるまでの間に、WALファイルをみたすために必要とする時間に相当する、遅延が存在します。
+<varname>archive_timeout</varname>を使用して遅延を短くすることができます。
+また、この方法とストリーミングレプリケーションと組み合わせることができないことにも注意してください。
+   </para>
+
+   <para>
+<!--
+    The operations that occur on both primary and standby servers are
+    normal continuous archiving and recovery tasks. The only point of
+    contact between the two database servers is the archive of WAL files
+    that both share: primary writing to the archive, standby reading from
+    the archive. Care must be taken to ensure that WAL archives from separate
+    primary servers do not become mixed together or confused. The archive
+    need not be large if it is only required for standby operation.
+-->
+プライマリおよびスタンバイサーバの両方で発生する操作は通常の継続的なアーカイブ処理とリカバリ処理です。
+2つのデータベースサーバが連携する唯一の点は、両者が共有するWALファイルのアーカイブです。
+プライマリがアーカイブに書き出し、スタンバイがアーカイブから読み取ります。
+注意して他のプライマリサーバ由来のWALアーカイブが混在しないことを確実にしなければなりません。
+さもないと混乱が発生します。
+スタンバイ操作でのみ必要なものですので、アーカイブは必ずしも巨大になりません。
+   </para>
+
+   <para>
+<!--
+    The magic that makes the two loosely coupled servers work together is
+    simply a <varname>restore_command</varname> used on the standby that,
+    when asked for the next WAL file, waits for it to become available from
+    the primary. Normal recovery
+    processing would request a file from the WAL archive, reporting failure
+    if the file was unavailable.  For standby processing it is normal for
+    the next WAL file to be unavailable, so the standby must wait for
+    it to appear. For files ending in
+    <literal>.history</literal> there is no need to wait, and a non-zero return
+    code must be returned. A waiting <varname>restore_command</varname> can be
+    written as a custom script that loops after polling for the existence of
+    the next WAL file. There must also be some way to trigger failover, which
+    should interrupt the <varname>restore_command</varname>, break the loop and
+    return a file-not-found error to the standby server. This ends recovery
+    and the standby will then come up as a normal server.
+-->
+2つの疎結合サーバを協調させる秘訣は簡単で、スタンバイサーバにて使用される<varname>restore_command</varname>です。
+これは次のWALファイルを問い合わせ、それをプライマリから利用可能になるまで待機します。
+通常のリカバリ処理はWALアーカイブからファイルを要求し、ファイルが利用できなければ失敗を報告します。
+スタンバイ処理では、次のWALファイルを入手できないことは異常ではありませんので、スタンバイは利用可能になるまで待機しなければなりません。
+<literal>.history</literal>で終わるファイルについては、待機する必要はなく、非ゼロの終了コードを返さなければなりません。
+<varname>restore_command</varname>を待機させるには、次のWALファイルの存在を確認した後にループする独自のスクリプトを作成することで実現できます。
+また、<varname>restore_command</varname>に割り込み、ループを終了させ、ファイルが存在しないというエラーをスタンバイサーバに返す、フェイルオーバーを発生させる何らかの方法がなければなりません。
+これがリカバリ処理を停止しますので、スタンバイサーバは通常のサーバになります。
+   </para>
+
+   <para>
+<!--
+    Pseudocode for a suitable <varname>restore_command</varname> is:
+-->
+<varname>restore_command</varname>の擬似コードの一例は以下です。
+<programlisting>
+triggered = false;
+while (!NextWALFileReady() &amp;&amp; !triggered)
+{
+    sleep(100000L);         /* wait for ~0.1 sec */
+    if (CheckForExternalTrigger())
+        triggered = true;
+}
+if (!triggered)
+        CopyWALFileForRecovery();
+</programlisting>
+   </para>
+
+   <para>
+<!--
+    A working example of a waiting <varname>restore_command</varname> is provided
+    in the <xref linkend="pgstandby"/> module. It
+    should be used as a reference on how to correctly implement the logic
+    described above. It can also be extended as needed to support specific
+    configurations and environments.
+-->
+待機を行う<varname>restore_command</varname>の実例は<xref linkend="pgstandby"/>モジュール内で提供されています。
+これは上記のロジックをどのように正確に実装するかについての参照として使用すべきです。
+また、これを特定の設定または環境をサポートするため必要に応じて拡張することができます。
+   </para>
+
+   <para>
+<!--
+    The method for triggering failover is an important part of planning
+    and design. One potential option is the <varname>restore_command</varname>
+    command.  It is executed once for each WAL file, but the process
+    running the <varname>restore_command</varname> is created and dies for
+    each file, so there is no daemon or server process, and
+    signals or a signal handler cannot be used. Therefore, the
+    <varname>restore_command</varname> is not suitable to trigger failover.
+    It is possible to use a simple timeout facility, especially if
+    used in conjunction with a known <varname>archive_timeout</varname>
+    setting on the primary. However, this is somewhat error prone
+    since a network problem or busy primary server might be sufficient
+    to initiate failover. A notification mechanism such as the explicit
+    creation of a trigger file is ideal, if this can be arranged.
+-->
+フェイルオーバーを通知する手段は計画・設計段階で重要な部分です。
+考えられる選択肢の1つは<varname>restore_command</varname>です。
+これは各WALファイルに対して1度実行されるものですが、<varname>restore_command</varname>を実行するプロセスは各ファイルに対して起動・終了します。
+このようにデーモンやサーバプロセスはありませんので、シグナルやシグナルハンドラを使用することはできません。
+したがって、<varname>restore_command</varname>はフェイルオーバーの通知には適していません。
+特にプライマリサーバ上の既知の<varname>archive_timeout</varname>設定と連係して使用できるならば、単純なタイムアウト機能を使用することができます。
+しかし、これはネットワーク障害や高負荷なプライマリサーバによりフェイルオーバーが始まってしまうため、どちらかというとエラーになりやすいものです。
+実現可能ならば、明示的な通知用ファイルの作成などの通知機構の方が理想的です。
+   </para>
+
+  <sect2 id="warm-standby-config">
+<!--
+   <title>Implementation</title>
+-->
+   <title>実装</title>
+
+   <para>
+<!--
+    The short procedure for configuring a standby server using this alternative
+    method is as follows. For
+    full details of each step, refer to previous sections as noted.
+-->
+この代替方式を使用してスタンバイサーバを構築する短めの手順を以下に示します。
+各段階の詳細については、注記していますので、前の節を参照してください。
+    <orderedlist>
+     <listitem>
+      <para>
+<!--
+       Set up primary and standby systems as nearly identical as
+       possible, including two identical copies of
+       <productname>PostgreSQL</productname> at the same release level.
+-->
+できる限り同じようにプライマリシステムとスタンバイシステムを設定してください。
+同じリリースレベルの<productname>PostgreSQL</productname>の同一コピーの導入も含みます。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       Set up continuous archiving from the primary to a WAL archive
+       directory on the standby server. Ensure that
+       <xref linkend="guc-archive-mode"/>,
+       <xref linkend="guc-archive-command"/> and
+       <xref linkend="guc-archive-timeout"/>
+       are set appropriately on the primary
+       (see <xref linkend="backup-archiving-wal"/>).
+-->
+プライマリサーバで、継続的アーカイブをスタンバイサーバ上のディレクトリ上にWALをアーカイブするように設定してください。
+プライマリサーバで、<xref linkend="guc-archive-mode"/>、<xref linkend="guc-archive-command"/>および<xref linkend="guc-archive-timeout"/>が適切に設定されていることを確認してください（<xref linkend="backup-archiving-wal"/>を参照してください）。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       Make a base backup of the primary server (see <xref
+       linkend="backup-base-backup"/>), and load this data onto the standby.
+-->
+プライマリサーバでベースバックアップを作成（<xref linkend="backup-base-backup"/>を参照してください）し、スタンバイサーバでこのデータをロードしてください。
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+<!--
+       Begin recovery on the standby server from the local WAL
+       archive, using <varname>restore_command</varname> that waits
+       as described previously (see <xref linkend="backup-pitr-recovery"/>).
+-->
+スタンバイサーバで、上記の通り待機を行う<varname>restore_command</varname>を使用して、ローカルなWALアーカイブからリカバリ処理を実行してください（<xref linkend="backup-pitr-recovery"/>を参照してください）。
+      </para>
+     </listitem>
+    </orderedlist>
+   </para>
+
+   <para>
+<!--
+    Recovery treats the WAL archive as read-only, so once a WAL file has
+    been copied to the standby system it can be copied to tape at the same
+    time as it is being read by the standby database server.
+    Thus, running a standby server for high availability can be performed at
+    the same time as files are stored for longer term disaster recovery
+    purposes.
+-->
+リカバリ処理はWALアーカイブを読み取り専用として扱います。
+このため、WALファイルがスタンバイシステムにコピーされた後、スタンバイデータベースサーバによる読み取りと同時にWALファイルをテープにコピーすることができます。
+このように、高可用性スタンバイサーバの実行を、災害からのリカバリを目的とした長期的な保管と同時に行うことができます。
+   </para>
+
+   <para>
+<!--
+    For testing purposes, it is possible to run both primary and standby
+    servers on the same system. This does not provide any worthwhile
+    improvement in server robustness, nor would it be described as HA.
+-->
+試験のためにプライマリサーバとスタンバイサーバを同じシステムで稼動させることができます。
+これによりサーバ堅牢性が向上することも、高可用性と呼べることもありません。
+   </para>
+  </sect2>
+
+  <sect2 id="warm-standby-record">
+<!--
+   <title>Record-Based Log Shipping</title>
+-->
+   <title>レコードベースのログシッピング</title>
+
+   <para>
+<!--
+    It is also possible to implement record-based log shipping using this
+    alternative method, though this requires custom development, and changes
+    will still only become visible to hot standby queries after a full WAL
+    file has been shipped.
+-->
+この代替手法を用いたレコード単位のログシッピングの実装も可能ですが、利用者側の開発が必要です。
+さらに、完全なWALファイルが転送された後のみで、変更がホットスタンバイ問い合わせで可視になります。
+   </para>
+
+   <para>
+<!--
+    An external program can call the <function>pg_walfile_name_offset()</function>
+    function (see <xref linkend="functions-admin"/>)
+    to find out the file name and the exact byte offset within it of
+    the current end of WAL.  It can then access the WAL file directly
+    and copy the data from the last known end of WAL through the current end
+    over to the standby servers.  With this approach, the window for data
+    loss is the polling cycle time of the copying program, which can be very
+    small, and there is no wasted bandwidth from forcing partially-used
+    segment files to be archived.  Note that the standby servers'
+    <varname>restore_command</varname> scripts can only deal with whole WAL files,
+    so the incrementally copied data is not ordinarily made available to
+    the standby servers.  It is of use only when the primary dies &mdash;
+    then the last partial WAL file is fed to the standby before allowing
+    it to come up.  The correct implementation of this process requires
+    cooperation of the <varname>restore_command</varname> script with the data
+    copying program.
+-->
+外部プログラムは<function>pg_walfile_name_offset()</function>関数（<xref linkend="functions-admin"/>を参照）を呼び出して、WALの現在の終了点のファイル名と正確なバイトオフセットを見つけ出すことができます。
+そして、WALファイルに直接アクセスし、直前の既知のWAL終了点から現在の終了点までのデータをスタンバイサーバにコピーすることができます。
+この方法では、データ損失期間はコピー処理プログラムの実行周期となります。
+非常に短くすることができますし、部分的に使用されたセグメントファイルを強制的にアーカイブするため無駄な帯域もありません。
+スタンバイサーバの<varname>restore_command</varname>スクリプトがWALファイル全体しか扱うことができないことに注意してください。
+このため、逐次的にコピーしたデータは通常はスタンバイサーバで利用することができません。
+プライマリサーバが停止した時のみこれを使用します。
+その場合、プライマリサーバが立ち上がる前に、最後の部分的なWALファイルがセカンダリサーバに渡されます。
+この処理の正しい実装では、データコピープログラムと<varname>restore_command</varname>スクリプトとの連係が必要です。
+   </para>
+
+   <para>
+<!--
+    Starting with <productname>PostgreSQL</productname> version 9.0, you can use
+    streaming replication (see <xref linkend="streaming-replication"/>) to
+    achieve the same benefits with less effort.
+-->
+<productname>PostgreSQL</productname>バージョン9.0から、同じ利点をより少ない設定で実現できるストリーミングレプリケーション(<xref linkend="streaming-replication"/>参照)を使用することができます。
+   </para>
+  </sect2>
+ </sect1>
+
+>>>>>>> doc_ja_13
  <sect1 id="hot-standby">
+<!--
   <title>Hot Standby</title>
+-->
+  <title>ホットスタンバイ</title>
 
   <indexterm zone="high-availability">
+<!--
    <primary>Hot Standby</primary>
+-->
+   <primary>ホットスタンバイ</primary>
   </indexterm>
 
    <para>
+<!--
     Hot Standby is the term used to describe the ability to connect to
     the server and run read-only queries while the server is in archive
     recovery or standby mode. This
@@ -1511,25 +2764,41 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     The term Hot Standby also refers to the ability of the server to move
     from recovery through to normal operation while users continue running
     queries and/or keep their connections open.
+-->
+ホットスタンバイという単語は、サーバがアーカイブリカバリを実行している最中にサーバに接続し読み取り専用の問い合わせを実行することができる機能を説明するために使われます。
+これは、レプリケーションという目的およびバックアップからのリストアの両方で高い精度で好ましい状態にするために有用です。
+ホットスタンバイという単語はまた、ユーザが問い合わせを実行しながら、または、開いている接続を維持しながら、またはその両方で、サーバをリカバリ状態から通常の動作に移すことができる機能も示すものです。
    </para>
 
    <para>
+<!--
     Running queries in hot standby mode is similar to normal query operation,
     though there are several usage and administrative differences
     explained below.
+-->
+ホットスタンバイモードにおける問い合わせは、通常の問い合わせに類似していますが、利用上および管理上の差異が多少あり、以下に説明します。
    </para>
 
   <sect2 id="hot-standby-users">
+<!--
    <title>User's Overview</title>
+-->
+   <title>ユーザのための概説</title>
 
    <para>
+<!--
     When the <xref linkend="guc-hot-standby"/> parameter is set to true on a
     standby server, it will begin accepting connections once the recovery has
     brought the system to a consistent state.  All such connections are
     strictly read-only; not even temporary tables may be written.
+-->
+スタンバイサーバで<xref linkend="guc-hot-standby"/>パラメータが真に設定されている場合、リカバリによりシステムが一貫性を持つようになった後接続を受け付け始めます。
+こうした接続はすべて読み取り専用に限定されます。
+一時テーブルであっても書き込むことはできません。
    </para>
 
    <para>
+<!--
     The data on the standby takes some time to arrive from the primary server
     so there will be a measurable delay between primary and standby. Running the
     same query nearly simultaneously on both primary and standby might therefore
@@ -1540,44 +2809,76 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     the standby.  Snapshots may be taken at the start of each query or at the
     start of each transaction, depending on the current transaction isolation
     level.  For more details, see <xref linkend="transaction-iso"/>.
+-->
+スタンバイ上のデータはプライマリサーバから届くまでに多少の時間がかかります。
+このため、プライマリとスタンバイの間にはある程度の遅延があります。
+したがって、同じ問い合わせをほとんど同時にプライマリとスタンバイに対して実行すると、異なる結果が返る可能性があります。
+スタンバイ上のデータはプライマリに対して<firstterm>最後には一貫性を持つ</firstterm>といいます。
+あるトランザクションのコミットレコードがスタンバイ上で再生されると、そのトランザクションでなされた変更はスタンバイで獲得されるすべての新規スナップショットで可視になります。
+現在のトランザクション隔離レベルに応じて、スナップショットは各問い合わせの開始時または各トランザクションの開始時に獲得されます。
+詳細については<xref linkend="transaction-iso"/>を参照してください。
    </para>
 
    <para>
+<!--
     Transactions started during hot standby may issue the following commands:
+-->
+ホットスタンバイ中に開始されたトランザクションは以下のコマンドを発行することができます。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Query access: <command>SELECT</command>, <command>COPY TO</command>
+-->
+問い合わせによるアクセス: <command>SELECT</command>および<command>COPY TO</command>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Cursor commands: <command>DECLARE</command>, <command>FETCH</command>, <command>CLOSE</command>
+-->
+カーソルコマンド: <command>DECLARE</command>と<command>FETCH</command>と<command>CLOSE</command>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Settings: <command>SHOW</command>, <command>SET</command>, <command>RESET</command>
+-->
+設定の操作: <command>SHOW</command>と<command>SET</command>と<command>RESET</command>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Transaction management commands:
+-->
+トランザクション管理コマンド:
         <itemizedlist>
          <listitem>
           <para>
+<!--
            <command>BEGIN</command>, <command>END</command>, <command>ABORT</command>, <command>START TRANSACTION</command>
+-->
+<command>BEGIN</command>と<command>END</command>と<command>ABORT</command>と<command>START TRANSACTION</command>
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <command>SAVEPOINT</command>, <command>RELEASE</command>, <command>ROLLBACK TO SAVEPOINT</command>
+-->
+<command>SAVEPOINT</command>と<command>RELEASE</command>と<command>ROLLBACK TO SAVEPOINT</command>
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <command>EXCEPTION</command> blocks and other internal subtransactions
+-->
+<command>EXCEPTION</command>ブロックおよびこの他の内部サブトランザクション
           </para>
          </listitem>
         </itemizedlist>
@@ -1585,19 +2886,35 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
      </listitem>
      <listitem>
       <para>
+<!--
        <command>LOCK TABLE</command>, though only when explicitly in one of these modes:
        <literal>ACCESS SHARE</literal>, <literal>ROW SHARE</literal> or <literal>ROW EXCLUSIVE</literal>.
+-->
+<command>LOCK TABLE</command>。
+なお、以下のモードが明示された場合に限ります。
+<literal>ACCESS SHARE</literal>または<literal>ROW SHARE</literal>または<literal>ROW EXCLUSIVE</literal>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Plans and resources: <command>PREPARE</command>, <command>EXECUTE</command>,
        <command>DEALLOCATE</command>, <command>DISCARD</command>
+-->
+計画と資源: <command>PREPARE</command>と<command>EXECUTE</command>と<command>DEALLOCATE</command>と<command>DISCARD</command>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Plugins and extensions: <command>LOAD</command>
+-->
+プラグインと拡張: <command>LOAD</command>
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       <command>UNLISTEN</command>
       </para>
      </listitem>
      <listitem>
@@ -1609,13 +2926,19 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
    </para>
 
    <para>
+<!--
     Transactions started during hot standby will never be assigned a
     transaction ID and cannot write to the system write-ahead log.
     Therefore, the following actions will produce error messages:
+-->
+ホットスタンバイ中に開始したトランザクションではトランザクションIDを割り当てられません。
+また、システムのログ先行書き込みに書き出すことができません。
+このため、以下の動作はエラーメッセージを生成します。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Data Manipulation Language (DML): <command>INSERT</command>,
        <command>UPDATE</command>, <command>DELETE</command>, <command>COPY FROM</command>,
        <command>TRUNCATE</command>.
@@ -1624,56 +2947,93 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
        temporary tables, because table rows cannot be read or written without
        assigning a transaction ID, which is currently not possible in a
        Hot Standby environment.
+-->
+データ操作言語（DML）:
+<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>COPY FROM</command>および<command>TRUNCATE</command>。
+リカバリ中にトリガ内で実行されてしまう場合でも許されていない動作であることに注意してください。
+現在のホットスタンバイ環境では行うことができないトランザクションIDの割り当てを行うことなく、テーブル行の読み書きを行うことができませんので、この制限は一時テーブルであっても適用されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Data Definition Language (DDL): <command>CREATE</command>,
        <command>DROP</command>, <command>ALTER</command>, <command>COMMENT</command>.
        This restriction applies even to temporary tables, because carrying
        out these operations would require updating the system catalog tables.
+-->
+データ定義言語（DDL）:
+<command>CREATE</command>、<command>DROP</command>、<command>ALTER</command>および<command>COMMENT</command>。
+この制約は一時テーブルに対しても適用されます。
+これらの操作の実行がシステムカタログテーブルの更新を必要とするためです。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <command>SELECT ... FOR SHARE | UPDATE</command>, because row locks cannot be
        taken without updating the underlying data files.
+-->
+<command>SELECT ... FOR SHARE | UPDATE</command>。
+背後のデータファイルを更新することなく行ロックを獲得することはできないためです。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Rules on <command>SELECT</command> statements that generate DML commands.
+-->
+データ操作言語のコマンドを生成する<command>SELECT</command>文のルール
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <command>LOCK</command> that explicitly requests a mode higher than <literal>ROW EXCLUSIVE MODE</literal>.
+-->
+<literal>ROW EXCLUSIVE MODE</literal>より高いモードを明示的に要求する<command>LOCK</command>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <command>LOCK</command> in short default form, since it requests <literal>ACCESS EXCLUSIVE MODE</literal>.
+-->
+短いデフォルト構文の<command>LOCK</command>。
+これは<literal>ACCESS EXCLUSIVE MODE</literal>を要求するためです。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Transaction management commands that explicitly set non-read-only state:
+-->
+読み取り専用でない状態を明示的に設定するトランザクション処理コマンド
         <itemizedlist>
          <listitem>
           <para>
+<!--
             <command>BEGIN READ WRITE</command>,
             <command>START TRANSACTION READ WRITE</command>
+-->
+<command>BEGIN READ WRITE</command>と<command>START TRANSACTION READ WRITE</command>
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
             <command>SET TRANSACTION READ WRITE</command>,
             <command>SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE</command>
+-->
+<command>SET TRANSACTION READ WRITE</command>と<command>SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE</command>
           </para>
          </listitem>
          <listitem>
           <para>
+<!--
            <command>SET transaction_read_only = off</command>
+-->
+<command>SET transaction_read_only = off</command>
           </para>
          </listitem>
         </itemizedlist>
@@ -1681,34 +3041,50 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
      </listitem>
      <listitem>
       <para>
+<!--
        Two-phase commit commands: <command>PREPARE TRANSACTION</command>,
        <command>COMMIT PREPARED</command>, <command>ROLLBACK PREPARED</command>
        because even read-only transactions need to write WAL in the
        prepare phase (the first phase of two phase commit).
+-->
+二相コミットコマンド: <command>PREPARE TRANSACTION</command>、<command>COMMIT PREPARED</command>および<command>ROLLBACK PREPARED</command>。
+読み取り専用トランザクションでも、プリペア相（二相コミットの第1相）においてWALの書き込みが必要だからです。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Sequence updates: <function>nextval()</function>, <function>setval()</function>
+-->
+シーケンス更新の関数: <function>nextval()</function>と<function>setval()</function>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <command>LISTEN</command>, <command>NOTIFY</command>
+-->
+<command>LISTEN</command>、<command>NOTIFY</command>
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     In normal operation, <quote>read-only</quote> transactions are allowed to
     use <command>LISTEN</command> and <command>NOTIFY</command>,
     so Hot Standby sessions operate under slightly tighter
     restrictions than ordinary read-only sessions.  It is possible that some
     of these restrictions might be loosened in a future release.
+-->
+通常の操作では、<quote>読み取り専用</quote>トランザクションには<command>LISTEN</command>と<command>NOTIFY</command>の使用が許可されています。
+ホットスタンバイセッションの操作では、通常の読み取り専用セッションよりも少し厳しい制約を受けます。
+将来のリリースではこの制約の一部が緩和されるかもしれません。
    </para>
 
    <para>
+<!--
     During hot standby, the parameter <varname>transaction_read_only</varname> is always
     true and may not be changed.  But as long as no attempt is made to modify
     the database, connections during hot standby will act much like any other
@@ -1717,79 +3093,129 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     server changes mode.  Once hot standby finishes, it will be possible to
     initiate read-write transactions (even from a session begun during
     hot standby).
+-->
+ホットスタンバイ中は、<varname>transaction_read_only</varname>パラメータは常に真であり、変更することはできません。
+しかし、データベースを変更するような試行がない限り、ホットスタンバイ中の接続は他のデータベース接続とほとんど同じように動作します。
+もし、フェイルオーバーまたはスイッチオーバが発生すると、データベースは通常処理モードに切り替わります。
+サーバのモードが変わってもセッションは接続を保持します。
+ホットスタンバイが完了すると、読み書き可能なトランザクションを（ホットスタンバイ中に始まったセッションからであっても）始められるようになります。
    </para>
 
    <para>
+<<<<<<< HEAD
     Users can determine whether hot standby is currently active for their
     session by issuing <command>SHOW in_hot_standby</command>.
     (In server versions before 14, the <varname>in_hot_standby</varname>
     parameter did not exist; a workable substitute method for older servers
     is <command>SHOW transaction_read_only</command>.)  In addition, a set of
+=======
+<!--
+    Users will be able to tell whether their session is read-only by
+    issuing <command>SHOW transaction_read_only</command>.  In addition, a set of
+>>>>>>> doc_ja_13
     functions (<xref linkend="functions-recovery-info-table"/>) allow users to
     access information about the standby server. These allow you to write
     programs that are aware of the current state of the database. These
     can be used to monitor the progress of recovery, or to allow you to
     write complex programs that restore the database to particular states.
+-->
+ユーザは<command>SHOW transaction_read_only</command>を発行することで、そのセッションが読み取り専用かどうかを調べることができます。
+さらに、ユーザがスタンバイサーバに関する情報にアクセスできる関数群(<xref linkend="functions-recovery-info-table"/>)があります。
+これらによりデータベースの現状認識を行うプログラムを作成することができます。
+これらを使用して、リカバリの進行状況を監視するために使用したり、データベースを特定の状態にリストアする複雑なプログラムを作成したりすることができます。
    </para>
   </sect2>
 
   <sect2 id="hot-standby-conflict">
+<!--
    <title>Handling Query Conflicts</title>
+-->
+   <title>問い合わせコンフリクトの処理</title>
 
    <para>
+<!--
     The primary and standby servers are in many ways loosely connected. Actions
     on the primary will have an effect on the standby. As a result, there is
     potential for negative interactions or conflicts between them. The easiest
     conflict to understand is performance: if a huge data load is taking place
     on the primary then this will generate a similar stream of WAL records on the
     standby, so standby queries may contend for system resources, such as I/O.
+-->
+プライマリサーバとスタンバイサーバは、多方面でゆるく結合しています。
+プライマリサーバの動作はスタンバイサーバに影響します。
+その結果、負の相互作用またはコンフリクトの可能性があります。
+最も分かりやすいコンフリクトは性能です。
+プライマリサーバで巨大なデータがロードされた場合、スタンバイサーバにおいて同様に巨大なWALレコードが生成されるので、スタンバイサーバにおける問い合わせは互いにI/Oなどのシステム資源を奪い合います。
    </para>
 
    <para>
+<!--
     There are also additional types of conflict that can occur with Hot Standby.
     These conflicts are <emphasis>hard conflicts</emphasis> in the sense that queries
     might need to be canceled and, in some cases, sessions disconnected to resolve them.
     The user is provided with several ways to handle these
     conflicts. Conflict cases include:
+-->
+ホットスタンバイで発生する可能性があるコンフリクトの種類には他にもあります。
+これらのコンフリクトは、問い合わせをキャンセルしなければならない可能性があり、解消させるためにはセッションの接続を閉ざすことになる場合もあるため、<emphasis>致命的なコンフリクト</emphasis>です。
+ユーザにはこうしたコンフリクトを扱うための複数の方法が提供されます。
+コンフリクトする状況には以下があります。
 
       <itemizedlist>
        <listitem>
         <para>
+<!--
          Access Exclusive locks taken on the primary server, including both
          explicit <command>LOCK</command> commands and various <acronym>DDL</acronym>
          actions, conflict with table accesses in standby queries.
+-->
+プライマリサーバで獲得されたアクセス排他ロックは、スタンバイの問い合わせにおけるテーブルアクセスとコンフリクトします。
+明示的な<command>LOCK</command>コマンドおよび各種<acronym>DDL</acronym>操作を含みます。
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Dropping a tablespace on the primary conflicts with standby queries
          using that tablespace for temporary work files.
+-->
+プライマリでテーブル空間を削除することは、一時作業ファイル用にそのテーブル空間を使用するスタンバイ側の問い合わせとコンフリクトします。
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Dropping a database on the primary conflicts with sessions connected
          to that database on the standby.
+-->
+プライマリでデータベースを削除することは、スタンバイ側でそのデータベースに接続するセッションとコンフリクトします。
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Application of a vacuum cleanup record from WAL conflicts with
          standby transactions whose snapshots can still <quote>see</quote> any of
          the rows to be removed.
+-->
+WALからのバキュームクリーンアップレコードの適用は、その適用により削除される行のどれか1つでも<quote>見る</quote>ことができるスナップショットを持つスタンバイでのトランザクションとコンフリクトします。
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Application of a vacuum cleanup record from WAL conflicts with
          queries accessing the target page on the standby, whether or not
          the data to be removed is visible.
+-->
+WALからのバキュームクリーンアップレコードは、消去されるデータが可視か否かに関係なく、スタンバイで対象ページにアクセスする問い合わせとコンフリクトします。
         </para>
        </listitem>
       </itemizedlist>
    </para>
 
    <para>
+<!--
     On the primary server, these cases simply result in waiting; and the
     user might choose to cancel either of the conflicting actions.  However,
     on the standby there is no choice: the WAL-logged action already occurred
@@ -1798,9 +3224,18 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     because the standby's state will become increasingly far behind the
     primary's.  Therefore, a mechanism is provided to forcibly cancel standby
     queries that conflict with to-be-applied WAL records.
+-->
+プライマリサーバでは、こうした状況は単に待たされるだけです。
+ユーザはコンフリクトする操作をキャンセルすることを選ぶことができます。
+しかし、スタンバイ側には選択肢がありません。
+WALに記録された操作はすでにプライマリで発生したものですので、スタンバイではその適用に失敗してはなりません。
+さらに、適用したいWALを無制限に待機させることを許すことは、まったく望まない結果になってしまうかもしれません。
+なぜなら、スタンバイの状態がプライマリの状態とだんだんとかけ離れてしまうからです。
+したがって適用すべきWALレコードとコンフリクトするスタンバイの問い合わせを強制的に取り消す仕組みが用意されています。
    </para>
 
    <para>
+<!--
     An example of the problem situation is an administrator on the primary
     server running <command>DROP TABLE</command> on a table that is currently being
     queried on the standby server.  Clearly the standby query cannot continue
@@ -1814,9 +3249,17 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     must either delay application of the WAL records (and everything after
     them, too) or else cancel the conflicting query so that the <command>DROP
     TABLE</command> can be applied.
+-->
+この問題の例として、スタンバイサーバで現在問い合わせ対象となっているテーブルをプライマリサーバで<command>DROP TABLE</command>を行う管理者を考えてみます。
+スタンバイで<command>DROP TABLE</command>が適用されたら問い合わせを継続できないことは明確です。
+プライマリ上でこうした状況が発生した場合は、他の問い合わせが終わるまで<command>DROP TABLE</command>は待機させられます。
+しかし、<command>DROP TABLE</command>がプライマリで実行された時、プライマリ側でスタンバイで稼動する問い合わせに関する情報がありませんので、スタンバイ側のこうした問い合わせを待機させることはできません。
+スタンバイ側で問い合わせが実行している時にWALの変更レコードがスタンバイに届けば、コンフリクトが発生します。
+スタンバイサーバはWALレコードの適用を遅延させる（およびその後の適用すべても遅延させる）か、<command>DROP TABLE</command>を適用できるようにコンフリクトする問い合わせを取り消すかのいずれかを行わなければなりません。
    </para>
 
    <para>
+<!--
     When a conflicting query is short, it's typically desirable to allow it to
     complete by delaying WAL application for a little bit; but a long delay in
     WAL application is usually not desirable.  So the cancel mechanism has
@@ -1829,9 +3272,17 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     (i.e., initial recovery from a base backup or <quote>catching up</quote> a
     standby server that has fallen far behind) versus reading WAL data via
     streaming replication.
+-->
+コンフリクトする問い合わせが短ければ、適用したいWALを多少遅延させることで、問い合わせを完了させることが通常望まれます。
+しかし、WALの適用が長く遅延することはたいていは望まれません。
+したがって、取り消し機能は<xref linkend="guc-max-standby-archive-delay"/>と<xref linkend="guc-max-standby-streaming-delay"/>というパラメータを持ちます。
+これらはWAL適用に許される遅延を定義するものです。
+コンフリクトする問い合わせは、何らかの新しく受信したWALデータを適用するための各種遅延設定を超えたら取り消されます。
+アーカイブからWALデータを読み取る場合（つまりベースバックアップからの初期リカバリや大きく遅延したスタンバイサーバの<quote>追従</quote>）とストリーミングレプリケーションとで異なる遅延値を指定することができるように2つのパラメータが存在します。
    </para>
 
    <para>
+<!--
     In a standby server that exists primarily for high availability, it's
     best to set the delay parameters relatively short, so that the server
     cannot fall far behind the primary due to delays caused by standby
@@ -1840,9 +3291,14 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     preferable.  Keep in mind however that a long-running query could
     cause other sessions on the standby server to not see recent changes
     on the primary, if it delays application of WAL records.
+-->
+主に高可用性のために存在するスタンバイサーバでは、スタンバイ側の問い合わせによって発生する遅延のためにプライマリと大きく遅延が発生することがないように、遅延パラメータを相対的に短く設定することが最善です。
+しかし、スタンバイサーバが長時間かかる問い合わせを実行するためのものであれば、長い遅延もしくは制限を設けないことが好まれるかもしれません。
+しかし、長時間かかる問い合わせがWALレコードの適用を遅延させてしまう場合、スタンバイサーバ上の他のセッションがプライマリにおける最近の変更を参照することができなくなることは覚えておいてください。
    </para>
 
    <para>
+<!--
     Once the delay specified by <varname>max_standby_archive_delay</varname> or
     <varname>max_standby_streaming_delay</varname> has been exceeded, conflicting
     queries will be canceled.  This usually results just in a cancellation
@@ -1850,25 +3306,39 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     the entire conflicting session will be terminated.  Also, if the conflict
     is over a lock held by an idle transaction, the conflicting session is
     terminated (this behavior might change in the future).
+-->
+<varname>max_standby_archive_delay</varname>または<varname>max_standby_streaming_delay</varname>で指定した遅延を超えると、コンフリクトする問い合わせは取り消されます。
+通常これは単なる取り消しエラーという結果となりますが、<command>DROP DATABASE</command>を再生する場合では、コンフリクトするセッション全体が終了します。
+また、コンフリクトが待機中のトランザクションで保持されるロックについてのものであれば、そのコンフリクトするセッションが終了します（この動作は将来変更されるかもしれません）。
    </para>
 
    <para>
+<!--
     Canceled queries may be retried immediately (after beginning a new
     transaction, of course).  Since query cancellation depends on
     the nature of the WAL records being replayed, a query that was
     canceled may well succeed if it is executed again.
+-->
+ユーザは取り消された問い合わせをすぐに再試行するかもしれません（もちろん新規のトランザクション開始後に）。
+問い合わせの取り消しは、再生されるWALレコードの性質に依存するので、取り消された問い合わせが再度実行された場合には正常に動作するかもしれません。
    </para>
 
    <para>
+<!--
     Keep in mind that the delay parameters are compared to the elapsed time
     since the WAL data was received by the standby server.  Thus, the grace
     period allowed to any one query on the standby is never more than the
     delay parameter, and could be considerably less if the standby has already
     fallen behind as a result of waiting for previous queries to complete, or
     as a result of being unable to keep up with a heavy update load.
+-->
+遅延パラメータはスタンバイサーバでWALデータを受信してからの経過時間と比べられることに注意してください。
+したがって、スタンバイ上で任意の問い合わせに許される猶予期間は、この遅延パラメータよりも大きくなることは決してありません。
+これまでの問い合わせを完了させるために待機した結果、あるいは、大量の更新負荷に追従することができなくなった結果、スタンバイがすでに遅延している場合は相当小さくなります。
    </para>
 
    <para>
+<!--
     The most common reason for conflict between standby queries and WAL replay
     is <quote>early cleanup</quote>.  Normally, <productname>PostgreSQL</productname> allows
     cleanup of old row versions when there are no transactions that need to
@@ -1876,25 +3346,39 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     However, this rule can only be applied for transactions executing on the
     primary.  So it is possible that cleanup on the primary will remove row
     versions that are still visible to a transaction on the standby.
+-->
+スタンバイ側の問い合わせとWAL再生の間でもっともよくあるコンフリクト理由は<quote>早すぎる消去</quote>です。
+通常<productname>PostgreSQL</productname>はMVCC規則にしたがって正確なデータの可視性を確実にするために、古い行バージョンを参照するトランザクションが存在しない場合それらを消去することが許されています。
+しかし、この規則はマスタ上で実行するトランザクションのみに適用させることができます。
+したがって、スタンバイ上のトランザクションでまだ可視である行バージョンを、マスタ上の消去処理が削除してしまう可能性があります。
    </para>
 
    <para>
+<!--
     Experienced users should note that both row version cleanup and row version
     freezing will potentially conflict with standby queries. Running a manual
     <command>VACUUM FREEZE</command> is likely to cause conflicts even on tables with
     no updated or deleted rows.
+-->
+熟練したユーザは、行バージョンの消去と行バージョンの凍結の両方ともスタンバイ側の問い合わせとコンフリクトする可能性があることに気づくはずです。
+手作業での<command>VACUUM FREEZE</command>は、更新または削除された行がないテーブルであったとしてもコンフリクトを発生し易いものです。
    </para>
 
    <para>
+<!--
     Users should be clear that tables that are regularly and heavily updated
     on the primary server will quickly cause cancellation of longer running
     queries on the standby. In such cases the setting of a finite value for
     <varname>max_standby_archive_delay</varname> or
     <varname>max_standby_streaming_delay</varname> can be considered similar to
     setting <varname>statement_timeout</varname>.
+-->
+プライマリサーバにおいて規則的かつ頻繁に更新されるテーブルは、スタンバイサーバにおける問い合わせの取り消しの原因になりやすいことを利用者は理解するべきです。
+そのような場合、<varname>max_standby_archive_delay</varname>または<varname>max_standby_streaming_delay</varname>の設定値は<varname>statement_timeout</varname>の設定と同様に考えることができます。
    </para>
 
    <para>
+<!--
     Remedial possibilities exist if the number of standby-query cancellations
     is found to be unacceptable.  The first option is to set the parameter
     <varname>hot_standby_feedback</varname>, which prevents <command>VACUUM</command> from
@@ -1913,9 +3397,19 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     files during disconnected periods.  You should also consider increasing
     <varname>max_standby_streaming_delay</varname> to avoid rapid cancellations
     by newly-arrived streaming WAL entries after reconnection.
+-->
+スタンバイのクエリが中断される受け入れがたいほど多い場合、この問題を解決する方法が用意されています。
+１つ目の選択肢は、<varname>hot_standby_feedback</varname>パラメータを設定することです。
+これは<command>VACUUM</command>による最近不要になった行の削除を防止しますので、消去によるコンフリクトが発生しません。
+これを行う場合、プライマリで不要になった行の消去が遅延することに注意が必要です。望まないテーブルの膨張が発生してしまうかもしれません。
+しかし、スタンバイ側で行うべき問い合わせをプライマリサーバ上で直接実行することと比べ、こうした消去に関する問題を優先する価値はありません。
+また、スタンバイに実行負荷を分散できるという利点があります。
+スタンバイサーバが接続、切断を頻繁に繰り返す場合、<varname>hot_standby_feedback</varname>によるフィードバックが提供されていなければ、その値を調整したいと思うでしょう。
+例えば、<varname>max_standby_archive_delay</varname>が増大し、切断している期間WALアーカイブのコンフリクト発生による問い合わせの中断が速やかに行われないことを考えてみてください。また、再接続後に速やかに問い合わせが中断されることを避けるために<varname>max_standby_streaming_delay</varname>を大きくすることを考えてみてください。
    </para>
 
    <para>
+<!--
     Another option is to increase <xref linkend="guc-vacuum-defer-cleanup-age"/>
     on the primary server, so that dead rows will not be cleaned up as quickly
     as they normally would be.  This will allow more time for queries to
@@ -1924,13 +3418,21 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     difficult to guarantee any specific execution-time window with this
     approach, since <varname>vacuum_defer_cleanup_age</varname> is measured in
     transactions executed on the primary server.
+-->
+他の選択肢は、不要になった行が通常よりも早く消去されないようにプライマリサーバで<xref linkend="guc-vacuum-defer-cleanup-age"/>を増やすことです。
+これにより、<varname>max_standby_streaming_delay</varname>を長くすることなく、スタンバイでキャンセルが起こるようになる前により多くの時間、問い合わせを実行することができます。
+しかし、<varname>vacuum_defer_cleanup_age</varname>はプライマリサーバ上で実行されたトランザクションを単位に測定されますので、この方法では特定の実行期間を保証することは困難です。
    </para>
 
    <para>
+<!--
     The number of query cancels and the reason for them can be viewed using
     the <structname>pg_stat_database_conflicts</structname> system view on the standby
     server. The <structname>pg_stat_database</structname> system view also contains
     summary information.
+-->
+問い合わせキャンセルの個数とその原因はスタンバイサーバ上の<structname>pg_stat_database_conflicts</structname>システムビューを用いて参照することができます。
+また<structname>pg_stat_database</structname>システムビューには要約された情報が含まれます。
    </para>
 
    <para>
@@ -1941,9 +3443,13 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
   </sect2>
 
   <sect2 id="hot-standby-admin">
+<!--
    <title>Administrator's Overview</title>
+-->
+   <title>管理者のための概説</title>
 
    <para>
+<!--
     If <varname>hot_standby</varname> is <literal>on</literal> in <filename>postgresql.conf</filename>
     (the default value) and there is a
     <link linkend="file-standby-signal"><filename>standby.signal</filename></link><indexterm><primary>standby.signal</primary><secondary>for hot standby</secondary></indexterm>
@@ -1955,16 +3461,24 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     clients that attempt to connect will be refused with an error message.
     To confirm the server has come up, either loop trying to connect from
     the application, or look for these messages in the server logs:
+-->
+<filename>postgresql.conf</filename>において<varname>hot_standby</varname>が<literal>on</literal>で（これはデフォルトです）、かつ<filename>standby.signal</filename>が存在すれば、サーバはホットスタンバイモードで稼動します。
+しかし、サーバはまず問い合わせが実行できる程度の一貫性を持つ状態を提供するために十分なリカバリを完了させなければなりませんので、ホットスタンバイでの接続が有効になるまでに多少の時間がかかるかもしれません。
+サーバの準備ができたことを確認するために、アプリケーションで接続試行を繰り返すか、サーバログに以下のメッセージがあるかどうかを確認します。
 
 <programlisting>
 LOG:  entering standby mode
 
+<!--
 ... then some time later ...
+-->
+... 多少時間が経過して ...
 
 LOG:  consistent recovery state reached
 LOG:  database system is ready to accept read-only connections
 </programlisting>
 
+<!--
     Consistency information is recorded once per checkpoint on the primary.
     It is not possible to enable hot standby when reading WAL
     written during a period when <varname>wal_level</varname> was not set to
@@ -1972,25 +3486,39 @@ LOG:  database system is ready to accept read-only connections
     a consistent state can also be delayed in the presence of both of these
     conditions:
 
+-->
+一貫性に関する情報はプライマリでチェックポイント毎に一回記録されます。
+プライマリで<varname>wal_level</varname>が<literal>replica</literal>もしくは<literal>logical</literal>に設定されていなかった期間に書き込まれたWALを読み取っている間は、ホットスタンバイを有効にすることはできません。
+また、一貫性のある状態への到達は、以下の両方が存在する間遅延することがあります。
       <itemizedlist>
        <listitem>
         <para>
+<!--
          A write transaction has more than 64 subtransactions
+-->
+サブトランザクション数が64を超える書き込みトランザクション
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Very long-lived write transactions
+-->
+非常に長く実行される書き込みトランザクション
         </para>
        </listitem>
       </itemizedlist>
 
+<!--
     If you are running file-based log shipping ("warm standby"), you might need
     to wait until the next WAL file arrives, which could be as long as the
     <varname>archive_timeout</varname> setting on the primary.
+-->
+ファイルベースのログシッピング(「ウォームスタンバイ」)を実行しているのであれば、次のWALファイルが届く、長くともプライマリの<varname>archive_timeout</varname>設定まで待機しなければなりません。
    </para>
 
    <para>
+<<<<<<< HEAD
     The settings of some parameters determine the size of shared memory for
     tracking transaction IDs, locks, and prepared transactions.  These shared
     memory structures must be no smaller on a standby than on the primary in
@@ -1999,6 +3527,29 @@ LOG:  database system is ready to accept read-only connections
     the standby had not allocated any shared memory for tracking prepared
     transactions, then recovery could not continue until the standby's
     configuration is changed.  The parameters affected are:
+=======
+<!--
+    The setting of some parameters on the standby will need reconfiguration
+    if they have been changed on the primary. For these parameters,
+    the value on the standby must
+    be equal to or greater than the value on the primary.
+    Therefore, if you want to increase these values, you should do so on all
+    standby servers first, before applying the changes to the primary server.
+    Conversely, if you want to decrease these values, you should do so on the
+    primary server first, before applying the changes to all standby servers.
+    If these parameters
+    are not set high enough then the standby will refuse to start.
+    Higher values can then be supplied and the server
+    restarted to begin recovery again.  These parameters are:
+-->
+プライマリサーバにおける設定値を変更した場合、スタンバイサーバにおいて数個のパラメータの再設定が必要です。
+スタンバイサーバにおける設定値は、プライマリサーバにおける設定値以上でなければなりません。
+ですから、これらの値を増やしたいなら、プライマリで設定を変更する前に、まずスタンバイで設定変更するべきです。
+逆にこれらの値を減らしたいなら、スタンバイで設定を変更する前に、まずプライマリで設定変更するべきです。
+これらのパラメータが所定値未満の設定の場合、スタンバイは起動を取りやめます。
+所定値以上の設定により、スタンバイサーバは再起動してリカバリが再び開始されます。
+このパラメータは以下です。
+>>>>>>> doc_ja_13
 
       <itemizedlist>
        <listitem>
@@ -2061,6 +3612,7 @@ HINT:  You can then restart the server after making the necessary configuration 
    </para>
 
    <para>
+<!--
     It is important that the administrator select appropriate settings for
     <xref linkend="guc-max-standby-archive-delay"/> and <xref
     linkend="guc-max-standby-streaming-delay"/>.  The best choices vary
@@ -2070,9 +3622,16 @@ HINT:  You can then restart the server after making the necessary configuration 
     the standby server is tasked as an additional server for decision support
     queries then it might be acceptable to set the maximum delay values to
     many hours, or even -1 which means wait forever for queries to complete.
+-->
+<xref linkend="guc-max-standby-archive-delay"/>および<xref linkend="guc-max-standby-streaming-delay"/>の値が適切であるように管理者が選択することが重要です。
+最善の選択は業務上の優先順位によって変化します。
+例えば、サーバが主に高可用性を目的としたサーバとして作業するものであれば、短い遅延を設定したいでしょう。
+非常に積極的な設定ですが、ゼロにしたいかもしれません。
+スタンバイサーバが意思決定支援のための問い合わせ用の追加サーバとして作業するものであれば、数時間程度の最大の遅延値の設定、あるいは問い合わせの完了を永遠に待つことを意味する-1という設定でさえ、許容範囲であるかもしれません。
    </para>
 
    <para>
+<!--
     Transaction status "hint bits" written on the primary are not WAL-logged,
     so data on the standby will likely re-write the hints again on the standby.
     Thus, the standby server will still perform disk writes even though
@@ -2084,47 +3643,78 @@ HINT:  You can then restart the server after making the necessary configuration 
     <application>dblink</application> module, and other operations outside the
     database using PL functions will still be possible, even though the
     transaction is read-only locally.
+-->
+プライマリ側で「ヒントビット」として書き出されたトランザクション状態はWALに記録されません。
+このためスタンバイ側のデータはスタンバイ側でヒントを再度書き出すことになります。
+ユーザは大規模なソート用の一時ファイルを書き出し、relcache情報ファイルを再作成します。
+したがって、ホットスタンバイモードではデータベースのすべてが本当に読み取り専用ではありません。
+また、ローカルでは読み取り専用のトランザクションであっても<application>dblink</application>モジュールを使用したリモートデータベースへの書き出しや、その他のPL関数を使用したデータベース外部への操作が可能であることに注意してください。
    </para>
 
    <para>
+<!--
     The following types of administration commands are not accepted
     during recovery mode:
+-->
+リカバリモードの間、下記の管理者用コマンドは受理されません。
 
       <itemizedlist>
        <listitem>
         <para>
+<<<<<<< HEAD
          Data Definition Language (DDL): e.g., <command>CREATE INDEX</command>
+=======
+<!--
+         Data Definition Language (DDL): e.g., <command>CREATE INDEX</command>
+-->
+データ定義言語: 例えば<command>CREATE INDEX</command>
+>>>>>>> doc_ja_13
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Privilege and Ownership: <command>GRANT</command>, <command>REVOKE</command>,
          <command>REASSIGN</command>
+-->
+権限および所有権: <command>GRANT</command>と<command>REVOKE</command>と<command>REASSIGN</command>
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Maintenance commands: <command>ANALYZE</command>, <command>VACUUM</command>,
          <command>CLUSTER</command>, <command>REINDEX</command>
+-->
+保守コマンド: <command>ANALYZE</command>と<command>VACUUM</command>と<command>CLUSTER</command>と<command>REINDEX</command>
         </para>
        </listitem>
       </itemizedlist>
    </para>
 
    <para>
+<!--
     Again, note that some of these commands are actually allowed during
     "read only" mode transactions on the primary.
+-->
+繰り返しますが、これらのコマンドの一部は、プライマリサーバにおける「読み取り専用」モードのトランザクションで実際に許可されていることに注意してください。
    </para>
 
    <para>
+<!--
     As a result, you cannot create additional indexes that exist solely
     on the standby, nor statistics that exist solely on the standby.
     If these administration commands are needed, they should be executed
     on the primary, and eventually those changes will propagate to the
     standby.
+-->
+その結果、スタンバイ側にのみ存在する追加のインデックスやスタンバイ側にのみ存在する統計情報を作成することはできません。
+これらの管理者用コマンドが必要な場合、プライマリ側で実行しなければなりません。
+最終的にこの変更はスタンバイ側に伝播します。
    </para>
 
    <para>
+<!--
     <function>pg_cancel_backend()</function>
     and <function>pg_terminate_backend()</function> will work on user backends,
     but not the Startup process, which performs
@@ -2134,9 +3724,15 @@ HINT:  You can then restart the server after making the necessary configuration 
     recovery. If you wish to resolve in-doubt prepared transactions, view
     <literal>pg_prepared_xacts</literal> on the primary and issue commands to
     resolve transactions there or resolve them after the end of recovery.
+-->
+<function>pg_cancel_backend()</function>と<function>pg_terminate_backend()</function>は利用者のバックエンドでは実行できますが、リカバリを実行する起動プロセスでは実行できません。
+<structname>pg_stat_activity</structname>はリカバリ中のトランザクションをアクティブとして表示しません。
+その結果、リカバリの間<structname>pg_prepared_xacts</structname>は常に空となります。
+調査が必要な準備されたトランザクションがある場合は、プライマリサーバにおいて<literal>pg_prepared_xacts</literal>を表示し、その場でトランザクションを解決するか、リカバリが終わるのを待ってからトランザクションを解決します。
    </para>
 
    <para>
+<!--
     <structname>pg_locks</structname> will show locks held by backends,
     as normal. <structname>pg_locks</structname> also shows
     a virtual transaction managed by the Startup process that owns all
@@ -2145,9 +3741,16 @@ HINT:  You can then restart the server after making the necessary configuration 
     make database changes, and thus locks other than <literal>AccessExclusiveLocks</literal>
     do not show in <structname>pg_locks</structname> for the Startup
     process; they are just presumed to exist.
+-->
+<structname>pg_locks</structname>は通常通りバックエンドで保持されるロックを示します。
+<structname>pg_locks</structname>はまた、リカバリによって再生されているトランザクションで保持される<literal>AccessExclusiveLocks</literal>のすべてを所有する、起動プロセスで管理される仮想トランザクションも表示します。
+起動プロセスはデータベースの変更を行うためのロックを獲得しません。
+このため起動プロセスにおいて<literal>AccessExclusiveLocks</literal>以外のロックは<structname>pg_locks</structname>では表示されません。
+これらは存在することを想定されているだけです。
    </para>
 
    <para>
+<!--
     The <productname>Nagios</productname> plugin <productname>check_pgsql</productname> will
     work, because the simple information it checks for exists.
     The <productname>check_postgres</productname> monitoring script will also work,
@@ -2155,27 +3758,49 @@ HINT:  You can then restart the server after making the necessary configuration 
     For example, last vacuum time will not be maintained, since no
     vacuum occurs on the standby.  Vacuums running on the primary
     do still send their changes to the standby.
+-->
+存在を検知する情報が単純なので、<productname>Nagios</productname>プラグインは稼動します。
+一部の報告値が異なった、混乱を招く結果となりますが、<productname>check_postgres</productname>の監視スクリプトも動作します。
+それでも、プライマリで行われるバキュームはその変更をスタンバイに送信します。
    </para>
 
    <para>
+<!--
     WAL file control commands will not work during recovery,
     e.g., <function>pg_start_backup</function>, <function>pg_switch_wal</function> etc.
+<<<<<<< HEAD
+=======
+-->
+リカバリの間WALの制御コマンドは稼動しません。
+例えば、<function>pg_start_backup</function>や<function>pg_switch_wal</function>などです。
+>>>>>>> doc_ja_13
    </para>
 
    <para>
+<!--
     Dynamically loadable modules work, including <structname>pg_stat_statements</structname>.
+-->
+<structname>pg_stat_statements</structname>も含み、動的に読み込み可能なモジュールは稼動します。
    </para>
 
    <para>
+<!--
     Advisory locks work normally in recovery, including deadlock detection.
     Note that advisory locks are never WAL logged, so it is impossible for
     an advisory lock on either the primary or the standby to conflict with WAL
     replay. Nor is it possible to acquire an advisory lock on the primary
     and have it initiate a similar advisory lock on the standby. Advisory
     locks relate only to the server on which they are acquired.
+訳者注、advisory lockはアドバイザリロックとした
+-->
+デッドロック検出を含むアドバイザリロックは、通常リカバリにおいて稼動します。
+アドバイザリロックはWALに決して記録されないので、プライマリサーバでもスタンバイサーバでもWALの再実行においてコンフリクトが起こらないことに注意してください。
+プライマリサーバでアドバイザリロックを取得して、スタンバイサーバで同様のアドバイザリロックを掛けることはできません。
+アドバイザリロックは取得したサーバだけに関係するものです。
    </para>
 
    <para>
+<!--
     Trigger-based replication systems such as <productname>Slony</productname>,
     <productname>Londiste</productname> and <productname>Bucardo</productname> won't run on the
     standby at all, though they will run happily on the primary server as
@@ -2183,30 +3808,58 @@ HINT:  You can then restart the server after making the necessary configuration 
     WAL replay is not trigger-based so you cannot relay from the
     standby to any system that requires additional database writes or
     relies on the use of triggers.
+-->
+<productname>Slony</productname>や<productname>Londiste</productname>や<productname>Bucardo</productname>のようにトリガに基づいたレプリケーションシステムは、スタンバイサーバで全く稼動しません。
+しかし、それによる変更がスタンバイサーバに送られるまでは、プライマリサーバにおいて問題なく稼動します。
+WALの再実行はトリガに基づいたものではありません。
+したがって、データベースへの付加的な書き込みを必要とするか、トリガの使用に依存するものを、スタンバイサーバを中継して他のシステムへ送ることはできません。
    </para>
 
    <para>
+<!--
     New OIDs cannot be assigned, though some <acronym>UUID</acronym> generators may still
     work as long as they do not rely on writing new status to the database.
+-->
+一部の<acronym>UUID</acronym>ジェネレータは、データベースに新しい状態を書き出すことに依存していない限り動作可能ですが、新しいOIDを割り当てることはできません。
    </para>
 
    <para>
+<<<<<<< HEAD
     Currently, temporary table creation is not allowed during read-only
     transactions, so in some cases existing scripts will not run correctly.
     This restriction might be relaxed in a later release. This is
     both an SQL Standard compliance issue and a technical issue.
+=======
+<!--
+    Currently, temporary table creation is not allowed during read only
+    transactions, so in some cases existing scripts will not run correctly.
+    This restriction might be relaxed in a later release. This is
+    both a SQL Standard compliance issue and a technical issue.
+-->
+現時点では、読み取り専用のトランザクションでは一時テーブルの作成は許されません。
+このため既存のスクリプトが正しく動作しない場合があります。
+この制限は将来のリリースで緩和されるかもしれません。
+これは、標準SQLとの互換性の問題でもあり、技術的な問題でもあります。
+>>>>>>> doc_ja_13
    </para>
 
    <para>
+<!--
     <command>DROP TABLESPACE</command> can only succeed if the tablespace is empty.
     Some standby users may be actively using the tablespace via their
     <varname>temp_tablespaces</varname> parameter. If there are temporary files in the
     tablespace, all active queries are canceled to ensure that temporary
     files are removed, so the tablespace can be removed and WAL replay
     can continue.
+-->
+テーブル空間が空の場合だけ、<command>DROP TABLESPACE</command>が成功します。
+一部のスタンバイ側のユーザは<varname>temp_tablespaces</varname>パラメータを介してテーブル空間を活発に使用しているかもしれません。
+テーブル空間に一時ファイルが存在する場合、一時ファイルを確実に削除するためすべての問い合わせが取り消されます。
+このため、WAL再生を続けながらテーブル空間を削除することができます。
    </para>
 
    <para>
+<!--
     Running <command>DROP DATABASE</command> or <command>ALTER DATABASE ... SET
     TABLESPACE</command> on the primary
     will generate a WAL entry that will cause all users connected to that
@@ -2216,31 +3869,56 @@ HINT:  You can then restart the server after making the necessary configuration 
     <command>ALTER DATABASE ... RENAME</command> does not disconnect users, which
     in most cases will go unnoticed, though might in some cases cause a
     program confusion if it depends in some way upon database name.
+-->
+プライマリサーバにおける<command>DROP DATABASE</command>または<command>ALTER DATABASE ... SET TABLESPACE</command>の実行により、スタンバイサーバのデータベースに接続するすべてのユーザを強制的に接続を切断させることになるWALエントリを生成します。
+これは<varname>max_standby_streaming_delay</varname>の設定にかかわらず、直ちに起こります。
+<command>ALTER DATABASE ... RENAME</command>はユーザを切断しないので大部分の場合は気がつきませんが、プログラムがデータベースの名称に依存するときは混乱の原因となることに注意してください。
    </para>
 
    <para>
+<!--
     In normal (non-recovery) mode, if you issue <command>DROP USER</command> or <command>DROP ROLE</command>
     for a role with login capability while that user is still connected then
     nothing happens to the connected user &mdash; they remain connected. The user cannot
     reconnect however. This behavior applies in recovery also, so a
     <command>DROP USER</command> on the primary does not disconnect that user on the standby.
+-->
+通常の(リカバリ以外の)モードで、ログイン権限を持つロールが接続している間にそのロールに<command>DROP USER</command>または<command>DROP ROLE</command>を発行した場合、接続中のユーザには何も起こらず、接続し続けます。
+しかし、そのユーザは再接続できません。
+この振舞いはリカバリモードでも適用されます。
+このためプライマリ側で<command>DROP USER</command>されたとしても、スタンバイ側のユーザの接続は切断されません。
    </para>
 
    <para>
+<!--
     The statistics collector is active during recovery. All scans, reads, blocks,
     index usage, etc., will be recorded normally on the standby. Replayed
     actions will not duplicate their effects on primary, so replaying an
     insert will not increment the Inserts column of pg_stat_user_tables.
     The stats file is deleted at the start of recovery, so stats from primary
     and standby will differ; this is considered a feature, not a bug.
+-->
+リカバリの間も統計情報は収集されます。
+すべてのスキャン、読み取り、ブロック、インデックスの使用などは、スタンバイサーバにおいて正常に記録されます。
+再実行によりプライマリサーバの結果が重複して収集されることはないので、行の挿入によりpg_stat_user_tablesの挿入列の値は増加しません。
+リカバリの開始時点で統計情報ファイルが削除されるので、プライマリサーバとスタンバイサーバで統計情報は異なります。
+これは将来どうするか検討中であり、バグではありません。
    </para>
 
    <para>
+<!--
     Autovacuum is not active during recovery.  It will start normally at the
     end of recovery.
+-->
+リカバリの間は自動バキュームは稼動しません。
+リカバリが終わると正常に起動します。
    </para>
 
    <para>
+<<<<<<< HEAD
+=======
+<!--
+>>>>>>> doc_ja_13
     The checkpointer process and the background writer process are active during
     recovery. The checkpointer process will perform restartpoints (similar to
     checkpoints on the primary) and the background writer process will perform
@@ -2248,55 +3926,88 @@ HINT:  You can then restart the server after making the necessary configuration 
     information stored on the standby server.
     The <command>CHECKPOINT</command> command is accepted during recovery,
     though it performs a restartpoint rather than a new checkpoint.
+-->
+リカバリの間、チェックポイントプロセスとバックグラウンドライタプロセスは稼動しています。
+チェックポイントプロセスは（プライマリサーバにおけるチェックポイントに類似した）リスタートポイントを設定し、通常のブロック消去を行います。
+これはスタンバイサーバに保存されるヒントビット情報の更新を含むことができます。
+リカバリの間<command>CHECKPOINT</command>コマンドは受理されますが、新規のチェックポイントではなくてリスタートポイントが設定されます。
    </para>
   </sect2>
 
   <sect2 id="hot-standby-parameters">
+<!--
    <title>Hot Standby Parameter Reference</title>
+-->
+   <title>ホットスタンバイパラメータリファレンス</title>
 
    <para>
+<!--
     Various parameters have been mentioned above in
     <xref linkend="hot-standby-conflict"/> and
     <xref linkend="hot-standby-admin"/>.
+-->
+種々のパラメータが上記<xref linkend="hot-standby-conflict"/>および<xref linkend="hot-standby-admin"/>で述べられています。
    </para>
 
    <para>
+<!--
     On the primary, parameters <xref linkend="guc-wal-level"/> and
     <xref linkend="guc-vacuum-defer-cleanup-age"/> can be used.
     <xref linkend="guc-max-standby-archive-delay"/> and
     <xref linkend="guc-max-standby-streaming-delay"/> have no effect if set on
     the primary.
+-->
+プライマリサーバでは、<xref linkend="guc-wal-level"/>および<xref linkend="guc-vacuum-defer-cleanup-age"/>のパラメータを使用できます。
+プライマリサーバに<xref linkend="guc-max-standby-archive-delay"/>および<xref linkend="guc-max-standby-streaming-delay"/>を設定しても無効です。
    </para>
 
    <para>
+<!--
     On the standby, parameters <xref linkend="guc-hot-standby"/>,
     <xref linkend="guc-max-standby-archive-delay"/> and
     <xref linkend="guc-max-standby-streaming-delay"/> can be used.
     <xref linkend="guc-vacuum-defer-cleanup-age"/> has no effect
     as long as the server remains in standby mode, though it will
     become relevant if the standby becomes primary.
+-->
+スタンバイサーバでは<xref linkend="guc-hot-standby"/>と<xref linkend="guc-max-standby-archive-delay"/>と<xref linkend="guc-max-standby-streaming-delay"/>のパラメータを使用できます。
+サーバがスタンバイモードの間<xref linkend="guc-vacuum-defer-cleanup-age"/>を設定しても無効です。
+しかし、スタンバイサーバがプライマリサーバになった場合、意味を持つようになります。
    </para>
   </sect2>
 
   <sect2 id="hot-standby-caveats">
+<!--
    <title>Caveats</title>
+-->
+   <title>警告</title>
 
    <para>
+<!--
     There are several limitations of Hot Standby.
     These can and probably will be fixed in future releases:
+-->
+ホットスタンバイには幾つかの制限があります。
+将来のリリースでは改善されると思われます。
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      Full knowledge of running transactions is required before snapshots
      can be taken. Transactions that use large numbers of subtransactions
      (currently greater than 64) will delay the start of read-only
      connections until the completion of the longest running write transaction.
      If this situation occurs, explanatory messages will be sent to the server log.
+-->
+スナップショットを取ることができるようになる前に、実行中のトランザクションについての完全な知識が要求されます。
+(現時点では64を超える)多くのサブトランザクションを使用するトランザクションでは、実行中の最長の書き込みトランザクションが完了するまで、読み取り専用の接続の開始は遅延されます。
+この状況が起こると、それを説明するメッセージがサーバログに記録されます。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Valid starting points for standby queries are generated at each
      checkpoint on the primary. If the standby is shut down while the primary
      is in a shutdown state, it might not be possible to re-enter Hot Standby
@@ -2308,10 +4019,17 @@ HINT:  You can then restart the server after making the necessary configuration 
      the new primary anyway.  And in situations where the primary is
      being intentionally taken down, coordinating to make sure the standby
      becomes the new primary smoothly is also standard procedure.
+-->
+スタンバイ問い合わせ用の有効な起動ポイントは、マスタにおけるチェックポイント毎に生成されます。
+マスタが停止状態にある時にスタンバイが停止した場合、プライマリが起動し、さらに起動ポイントをWALログに生成するまで再度ホットスタンバイになることができないことがあります。
+この状況は、通常考えられる状態では問題ではありません。
+一般的に、プライマリが停止し利用できなくなった場合、それはスタンバイに対して新しいプライマリに切り替わることを要求するような深刻な失敗が原因であることが多いはずです。
+また、プライマリを意図的に停止させるような状況では、それに伴いスタンバイが新しいプライマリになめらかに切り替わることも普通の手順です。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      At the end of recovery, <literal>AccessExclusiveLocks</literal> held by prepared transactions
      will require twice the normal number of lock table entries. If you plan
      on running either a large number of concurrent prepared transactions
@@ -2321,15 +4039,24 @@ HINT:  You can then restart the server after making the necessary configuration 
      perhaps as much as twice the value of the parameter on
      the primary server. You need not consider this at all if
      your setting of <varname>max_prepared_transactions</varname> is 0.
+-->
+リカバリの終了において、準備されたトランザクションが保持する<literal>AccessExclusiveLocks</literal>には、通常の2倍のロックテーブルへのエントリ数が必要です。
+通常<literal>AccessExclusiveLocks</literal>を取るプリペアドトランザクションを大量に同時実行させる、または、多くの<literal>AccessExclusiveLocks</literal>を取る大規模なトランザクションを1つ実行させることを考えている場合、<varname>max_locks_per_transaction</varname>の値を、おそらくプライマリサーバのパラメータ値の倍程度に大きくすることを勧めます。
+<varname>max_prepared_transactions</varname>の設定が0ならば、これを検討する必要はまったくありません。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      The Serializable transaction isolation level is not yet available in hot
      standby.  (See <xref linkend="xact-serializable"/> and
      <xref linkend="serializable-consistency"/> for details.)
      An attempt to set a transaction to the serializable isolation level in
      hot standby mode will generate an error.
+-->
+シリアライザブルトランザクション隔離レベルはまだホットスタンバイでは利用できません。
+（<xref linkend="xact-serializable"/>および<xref linkend="serializable-consistency"/>参照）
+ホットスタンバイにおいてトランザクションをシリアライザブルトランザクション隔離レベルに設定しようとすると、エラーになります。
     </para>
    </listitem>
   </itemizedlist>

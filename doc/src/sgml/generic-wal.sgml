@@ -1,36 +1,53 @@
 <!-- doc/src/sgml/generic-wal.sgml -->
 
 <chapter id="generic-wal">
+<!--
  <title>Generic WAL Records</title>
+-->
+ <title>汎用WALレコード</title>
 
   <para>
+<!--
    Although all built-in WAL-logged modules have their own types of WAL
    records, there is also a generic WAL record type, which describes changes
    to pages in a generic way.  This is useful for extensions that provide
    custom access methods, because they cannot register their own WAL redo
    routines.
+-->
+組み込みのWALにログを書き込むすべてのモジュールは、それぞれに独自の型のWALレコードがありますが、ページへの変更を汎用的な方法で記述する汎用WALレコード型もあります。
+カスタムアクセスメソッドを提供する拡張では、独自のWALの再実行(redo)ルーチンを登録できないため、汎用WALレコードが役立ちます。
   </para>
 
   <para>
+<!--
    The API for constructing generic WAL records is defined in
    <filename>access/generic_xlog.h</filename> and implemented
    in <filename>access/transam/generic_xlog.c</filename>.
+-->
+汎用WALレコードを構築するためのAPIは<filename>access/generic_xlog.h</filename>に定義されており、<filename>access/transam/generic_xlog.c</filename>で実装されています。
   </para>
 
   <para>
+<!--
    To perform a WAL-logged data update using the generic WAL record
    facility, follow these steps:
+-->
+汎用WALレコードの機能を使ってWAL書き込みを伴うデータ更新を行うには、以下の手順に従ってください。
 
    <orderedlist>
     <listitem>
      <para>
+<!--
       <function>state = GenericXLogStart(relation)</function> &mdash; start
       construction of a generic WAL record for the given relation.
+-->
+<function>state = GenericXLogStart(relation)</function> により、指定のリレーションについての汎用WALレコードの構築を開始します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <function>page = GenericXLogRegisterBuffer(state, buffer, flags)</function>
       &mdash; register a buffer to be modified within the current generic WAL
       record.  This function returns a pointer to a temporary copy of the
@@ -43,37 +60,59 @@
       rewritten completely.
       <function>GenericXLogRegisterBuffer</function> can be repeated if the
       WAL-logged action needs to modify multiple pages.
+-->
+<function>page = GenericXLogRegisterBuffer(state, buffer, flags)</function> により、現在の汎用WALレコード内で更新されるバッファを登録します。
+この関数はバッファページの一時コピーへのポインタを返すので、更新はそれに対して行ってください。
+（バッファの内容は直接更新しないでください。）
+3番目の引数は、操作についてのフラグのビットマスクです。
+現在のところ、使用できるフラグは<literal>GENERIC_XLOG_FULL_IMAGE</literal>のみで、これはWALレコードには変更の差分ではなく、ページ全体のイメージが含まれることを示します。
+典型的には、このフラグはページが新しいか、あるいは完全に書き換えられるときにセットされます。
+WAL書き込み対象の動作が複数のページを更新する必要がある場合は、<function>GenericXLogRegisterBuffer</function>を繰り返すことができます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Apply modifications to the page images obtained in the previous step.
+-->
+前の手順で取得したページのイメージに更新を適用する。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <function>GenericXLogFinish(state)</function> &mdash; apply the changes to
       the buffers and emit the generic WAL record.
+-->
+<function>GenericXLogFinish(state)</function>により、バッファの変更を適用し、汎用WALレコードを送出する。
      </para>
     </listitem>
    </orderedlist>
   </para>
 
   <para>
+<!--
    WAL record construction can be canceled between any of the above steps by
    calling <function>GenericXLogAbort(state)</function>.  This will discard all
    changes to the page image copies.
+-->
+WALレコードの構築は、上記の手順内の間のどこででも、<function>GenericXLogAbort(state)</function>を呼び出すことで中止できます。
+これによりページイメージのコピーに対する変更はすべて廃棄されます。
   </para>
 
   <para>
+<!--
    Please note the following points when using the generic WAL record
    facility:
+-->
+汎用WALレコードの機能を使うときは、以下の点に注意してください。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       No direct modifications of buffers are allowed!  All modifications must
       be done in copies acquired from <function>GenericXLogRegisterBuffer()</function>.
       In other words, code that makes generic WAL records should never call
@@ -82,36 +121,55 @@
       appropriate times.  Exclusive lock must be held on each target buffer
       from before <function>GenericXLogRegisterBuffer()</function> until after
       <function>GenericXLogFinish()</function>.
+-->
+バッファの直接更新は許されません！
+すべての更新は<function>GenericXLogRegisterBuffer()</function>で取得したコピーに対して行わなければなりません。
+言い換えれば、汎用WALレコードを使うコードでは<function>BufferGetPage()</function>を呼び出してはいけません。
+しかし、適切なときにバッファにピンを立てる、外す、そしてロックする、解除するのが呼び出し側の責任であることに変わりはありません。
+各ターゲットバッファの排他的ロックを<function>GenericXLogRegisterBuffer()</function>の前から<function>GenericXLogFinish()</function>の後まで保持していなければなりません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Registrations of buffers (step 2) and modifications of page images
       (step 3) can be mixed freely, i.e., both steps may be repeated in any
       sequence.  Keep in mind that buffers should be registered in the same
       order in which locks are to be obtained on them during replay.
+-->
+手順2のバッファの登録と、手順3のページイメージの更新は自由に混在させることができます。
+つまり、両方の手順を任意の順序で繰り返すことができます。
+バッファの登録は、再生時にロックを取得する順序と同じにすべきであることを覚えていてください。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       The maximum number of buffers that can be registered for a generic WAL
       record is <literal>MAX_GENERIC_XLOG_PAGES</literal>.  An error will be thrown
       if this limit is exceeded.
+-->
+汎用WALレコードに登録できるバッファの最大数は<literal>MAX_GENERIC_XLOG_PAGES</literal>です。
+この制限を超えるとエラーが発生します。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Generic WAL assumes that the pages to be modified have standard
       layout, and in particular that there is no useful data between
       <structfield>pd_lower</structfield> and <structfield>pd_upper</structfield>.
+-->
+汎用WALでは、更新対象のページが標準的なレイアウトになっている、特に<structfield>pd_lower</structfield>と<structfield>pd_upper</structfield>の間には意味のあるデータがないということを想定しています。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Since you are modifying copies of buffer
       pages, <function>GenericXLogStart()</function> does not start a critical
       section.  Thus, you can safely do memory allocation, error throwing,
@@ -120,39 +178,61 @@
       present inside <function>GenericXLogFinish()</function>.  There is no need to
       worry about calling  <function>GenericXLogAbort()</function> during an error
       exit, either.
+-->
+ここではバッファページのコピーを更新するため、<function>GenericXLogStart()</function>はクリティカルセクションを開始しません。
+従って、<function>GenericXLogStart()</function>と<function>GenericXLogFinish()</function>の間では、メモリの割り当て、エラーの発生などを安全に実行できます。
+唯一の本当のクリティカルセクションは<function>GenericXLogFinish()</function>の内部にあります。
+エラー終了の中で<function>GenericXLogAbort()</function>を呼び出すことについても心配する必要はありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       <function>GenericXLogFinish()</function> takes care of marking buffers dirty
       and setting their LSNs.  You do not need to do this explicitly.
+-->
+<function>GenericXLogFinish()</function>はバッファをダーティにして、LSNの設定をすることの処理をします。
+これについて明示的な処理をする必要はありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       For unlogged relations, everything works the same except that no
       actual WAL record is emitted.  Thus, you typically do not need to do
       any explicit checks for unlogged relations.
+-->
+ログを取らないリレーションは、実際のWALレコードが送出されないことを除けば、すべてが同じように動作します。
+従って、通常は、ログを取らないリレーションについて明示的な検査をする必要はありません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       The generic WAL redo function will acquire exclusive locks to buffers
       in the same order as they were registered.  After redoing all changes,
       the locks will be released in the same order.
+-->
+汎用WALを再生する機能は、バッファの排他的ロックを、バッファが登録されたのと同じ順序で取得します。
+すべての変更を再生した後で、ロックは同じ順序で解放されます。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       If <literal>GENERIC_XLOG_FULL_IMAGE</literal> is not specified for a
       registered buffer, the generic WAL record contains a delta between
       the old and the new page images.  This delta is based on byte-by-byte
       comparison.  This is not very compact for the case of moving data
       within a page, and might be improved in the future.
+-->
+登録バッファに<literal>GENERIC_XLOG_FULL_IMAGE</literal>が指定されない場合、汎用WALレコードは古いページイメージと新しいページイメージの間の差分を含むものとされます。
+この差分はバイト毎の比較に基づくものです。
+これはデータをページ内で移動する場合、あまり小さくなりませんが、将来は改善されるかもしれません。
      </para>
     </listitem>
    </itemizedlist>

@@ -1,13 +1,20 @@
 <!-- doc/src/sgml/bgworker.sgml -->
 
 <chapter id="bgworker">
+<!--
  <title>Background Worker Processes</title>
+-->
+ <title>バックグラウンドワーカプロセス</title>
 
  <indexterm zone="bgworker">
+<!--
   <primary>Background workers</primary>
+-->
+  <primary>バックグラウンドワーカ</primary>
  </indexterm>
 
  <para>
+<!--
   PostgreSQL can be extended to run user-supplied code in separate processes.
   Such processes are started, stopped and monitored by <command>postgres</command>,
   which permits them to have a lifetime closely linked to the server's status.
@@ -16,20 +23,31 @@
   multiple transactions serially, just like a regular client-connected server
   process.  Also, by linking to <application>libpq</application> they can connect to the
   server and behave like a regular client application.
+-->
+PostgreSQLはユーザ提供のコードを別のプロセスとして実行できるように拡張することができます。
+このプロセスは<command>postgres</command>によって起動、終了、監視され、サーバの状態に密接にリンクした寿命を持つことができます。
+これらのプロセスは<productname>PostgreSQL</productname>の共有メモリ領域にアタッチしたり、データベースの内部に接続するオプションを持ちます。これらはまた、通常のクライアントに接続された実際のサーバプロセスのように複数のトランザクションを連続して実行することができます。
+また、アプリケーションは<application>libpq</application>とリンクすることにより通常のクライアントアプリケーションのようにサーバに接続して動作することができます。
  </para>
 
  <warning>
   <para>
+<!--
    There are considerable robustness and security risks in using background
    worker processes because, being written in the <literal>C</literal> language,
    they have unrestricted access to data.  Administrators wishing to enable
    modules that include background worker processes should exercise extreme
    caution.  Only carefully audited modules should be permitted to run
    background worker processes.
+-->
+バックグラウンドワーカを使うにあたっては、堅牢性とセキュリティリスクを考慮しなくてはなりません。なぜならば、<literal>C</literal>言語で書かれており、データへのアクセスが制限されていないためです。
+バックグラウンドワーカプロセスを含むモジュールを有効にしたいと思っている管理者は、細心の注意を払って実践してください。
+バックグラウンドワーカプロセスの実行は、注意深く検査されたモジュールだけを許可する必要があります。
   </para>
  </warning>
 
  <para>
+<!--
   Background workers can be initialized at the time that
   <productname>PostgreSQL</productname> is started by including the module name in
   <varname>shared_preload_libraries</varname>.  A module wishing to run a background
@@ -46,10 +64,18 @@
   within the postmaster process,
   <function>RegisterDynamicBackgroundWorker</function> must be called
   from a regular backend or another background worker.
+-->
+バックグラウンドワーカは、モジュールを<varname>shared_preload_libraries</varname>に記すことによって、<productname>PostgreSQL</productname>スタート時に初期化できます。
+バックグラウンドワーカとして実行したいモジュールは、<function>_PG_init()</function>関数から<function>RegisterBackgroundWorker(<type>BackgroundWorker</type> *<parameter>worker</parameter>)</function>を呼び出すことで登録できます。
+バックグラウンドワーカはシステム起動後も<function>RegisterDynamicBackgroundWorker(<type>BackgroundWorker</type> *<parameter>worker</parameter>, <type>BackgroundWorkerHandle</type> **<parameter>handle</parameter>)</function>を呼び出すことによって開始することができます。
+postmasterプロセスからのみ呼び出すことができる<function>RegisterBackgroundWorker</function>とは異なり、<function>RegisterDynamicBackgroundWorker</function>は通常のバックエンドまたは他のバックグラウンドワーカから呼び出す必要があります。
  </para>
 
  <para>
+<!--
   The structure <structname>BackgroundWorker</structname> is defined thus:
+-->
+<structname>BackgroundWorker</structname>の構造体は以下のように定義されます。
 <programlisting>
 typedef void (*bgworker_main_type)(Datum main_arg);
 typedef struct BackgroundWorker
@@ -69,6 +95,7 @@ typedef struct BackgroundWorker
   </para>
 
   <para>
+<!--
    <structfield>bgw_name</structfield> and <structfield>bgw_type</structfield> are
    strings to be used in log messages, process listings and similar contexts.
    <structfield>bgw_type</structfield> should be the same for all background
@@ -77,23 +104,36 @@ typedef struct BackgroundWorker
    other hand can contain additional information about the specific process.
    (Typically, the string for <structfield>bgw_name</structfield> will contain
    the type somehow, but that is not strictly required.)
+-->
+<structfield>bgw_name</structfield>や<structfield>bgw_type</structfield>は、ログメッセージ、プロセス一覧、および同様の場面で使用される文字列です。
+<structfield>bgw_type</structfield>は、同じ種類のバックグラウンドワーカで全て同じになるため、例えば同じ種類のワーカをプロセス一覧でグループ化することができます。
+一方で<structfield>bgw_name</structfield>は、特定のプロセスに関する追加情報を含むことができます。
+（通常、<structfield>bgw_name</structfield>の文字列は何らかの形で種類に関する情報を含んでいますが、必須であるというわけではありません。）
   </para>
 
   <para>
+<!--
    <structfield>bgw_flags</structfield> is a bitwise-or'd bit mask indicating the
    capabilities that the module wants.  Possible values are:
+-->
+<structfield>bgw_flags</structfield>は、モジュールが要求する機能をOR演算したビットマスクです。可能な値は以下の通りです。
    <variablelist>
 
     <varlistentry>
      <term><literal>BGWORKER_SHMEM_ACCESS</literal></term>
      <listitem>
       <para>
+<!--
        <indexterm><primary>BGWORKER_SHMEM_ACCESS</primary></indexterm>
        Requests shared memory access.  Workers without shared memory access
        cannot access any of <productname>PostgreSQL's</productname> shared
        data structures, such as heavyweight or lightweight locks, shared
        buffers, or any custom data structures which the worker itself may
        wish to create and use.
+-->
+<indexterm><primary>BGWORKER_SHMEM_ACCESS</primary></indexterm>
+共有メモリへのアクセスを要求します。
+共有メモリアクセスがないワーカは、重量または軽量のロック、共有バッファ、ワーカが作成して利用したいカスタムデータ構造等、<productname>PostgreSQL</productname>の共有データ構造にアクセスできません。
       </para>
      </listitem>
     </varlistentry>
@@ -102,12 +142,17 @@ typedef struct BackgroundWorker
      <term><literal>BGWORKER_BACKEND_DATABASE_CONNECTION</literal></term>
      <listitem>
       <para>
+<!--
        <indexterm><primary>BGWORKER_BACKEND_&zwsp;DATABASE_CONNECTION</primary></indexterm>
        Requests the ability to establish a database connection through which it
        can later run transactions and queries.  A background worker using
        <literal>BGWORKER_BACKEND_DATABASE_CONNECTION</literal> to connect to a
        database must also attach shared memory using
        <literal>BGWORKER_SHMEM_ACCESS</literal>, or worker start-up will fail.
+-->
+<indexterm><primary>BGWORKER_BACKEND_&zwsp;DATABASE_CONNECTION</primary></indexterm>
+トランザクションやクエリの実行が出来るデータベース接続を要求します。
+<literal>BGWORKER_BACKEND_DATABASE_CONNECTION</literal>を使用してデータベースに接続するバックグラウンドワーカは<literal>BGWORKER_SHMEM_ACCESS</literal>を使用して共有メモリにアタッチしなければなりません。さもなければ起動時に失敗します。
       </para>
      </listitem>
     </varlistentry>
@@ -117,6 +162,7 @@ typedef struct BackgroundWorker
   </para>
 
   <para>
+<!--
    <structfield>bgw_start_time</structfield> is the server state during which
    <command>postgres</command> should start the process; it can be one of
    <literal>BgWorkerStart_PostmasterStart</literal> (start as soon as
@@ -130,32 +176,54 @@ typedef struct BackgroundWorker
    in a server that's not a hot standby.  Note that this setting only indicates
    when the processes are to be started; they do not stop when a different state
    is reached.
+-->
+<structfield>bgw_start_time</structfield>は、<command>postgres</command>がプロセスを起動するべきタイミングを指定します。
+そのタイミングは、以下のうちの１つです。
+<literal>BgWorkerStart_PostmasterStart</literal>（<command>postgres</command>自身が初期化を終えるとすぐに起動します。これを要求するプロセスはデータベース接続に望ましいものではありません）、
+<literal>BgWorkerStart_ConsistentState</literal>（ホットスタンバイで一貫性のある状態に到達し、データベースに接続して参照のみのクエリが実行できるようになると起動します）、
+<literal>BgWorkerStart_RecoveryFinished</literal>（システムが通常の参照/更新クエリを実行できるようになると起動します）。
+最後の２つの値は、ホットスタンバイでないサーバでは同等であることに注意してください。
+この設定はいつプロセスが起動されるかを示すだけであることに注意してください。
+これらのプロセスは、違う状態になったときに停止するわけではありません。
   </para>
 
   <para>
+<!--
    <structfield>bgw_restart_time</structfield> is the interval, in seconds, that
    <command>postgres</command> should wait before restarting the process in
    the event that it crashes.  It can be any positive value,
    or <literal>BGW_NEVER_RESTART</literal>, indicating not to restart the
    process in case of a crash.
+-->
+<structfield>bgw_restart_time</structfield>は、プロセスがクラッシュした場合に<command>postgres</command>がそのプロセスを再起動するために待つ必要のある間隔を秒単位で指定します。
+これは任意の正の値、またはクラッシュしても再起動させない場合に<literal>BGW_NEVER_RESTART</literal>を指定します。
   </para>
 
   <para>
+<!--
    <structfield>bgw_library_name</structfield> is the name of a library in
    which the initial entry point for the background worker should be sought.
    The named library will be dynamically loaded by the worker process and
    <structfield>bgw_function_name</structfield> will be used to identify the
    function to be called.  If loading a function from the core code, this must
    be set to "postgres".
+-->
+<structfield>bgw_library_name</structfield>はバックグラウンドワーカの初期エントリーポイントのためのライブラリ名です。
+その指定されたライブラリがワーカプロセスによって動的にロードされます。呼び出すべき関数を特定するために<structfield>bgw_function_name</structfield>が使用されます。
+コアコードから関数をロードする場合、"postgres"を設定する必要があります。
   </para>
 
   <para>
+<!--
    <structfield>bgw_function_name</structfield> is the name of a function in
    a dynamically loaded library which should be used as the initial entry point
    for a new background worker.
+-->
+<structfield>bgw_function_name</structfield>は新しいバックグラウンドワーカから動的にロードされるときに初期エントリポイントの関数名です。
   </para>
 
   <para>
+<!--
    <structfield>bgw_main_arg</structfield> is the <type>Datum</type> argument
    to the background worker main function.  This main function should take a
    single argument of type <type>Datum</type> and return <type>void</type>.
@@ -164,9 +232,16 @@ typedef struct BackgroundWorker
    points to a copy of the <structname>BackgroundWorker</structname> structure
    passed at registration time; the worker may find it helpful to examine
    this structure.
+-->
+<structfield>bgw_main_arg</structfield>は、バックグラウンドワーカのメイン関数の<type>Datum</type>引数です。
+メイン関数は単一の<type>Datum</type>引数を取り、<type>void</type>を返します。
+<structfield>bgw_main_arg</structfield>は引数として渡されます。
+加えて、グローバル変数<literal>MyBgworkerEntry</literal>は、登録時に渡された<structname>BackgroundWorker</structname>構造体のコピーを指しています。
+ワーカはこの構造を調べることがあり、役に立ちます。
   </para>
 
   <para>
+<!--
    On Windows (and anywhere else where <literal>EXEC_BACKEND</literal> is
    defined) or in dynamic background workers it is not safe to pass a
    <type>Datum</type> by reference, only by value. If an argument is required, it
@@ -174,24 +249,38 @@ typedef struct BackgroundWorker
    into an array allocated in shared memory. If a value like a <type>cstring</type>
    or <type>text</type> is passed then the pointer won't be valid from the
    new background worker process.
+-->
+Windowsの（どこか他の場所で<literal>EXEC_BACKEND</literal>が定義されている）場合、または動的バックグラウンドワーカは、<type>Datum</type>を参照で渡すのは安全ではありません。値のみで渡してください。
+引数が必要な場合は、int32型または他の小さな値を渡し、共有メモリに割り当てられた配列へのインデックスとしてそれを使用するのが最も安全です。
+<type>cstring</type>や<type>text</type>のようなポインタを渡された場合は、新しいバックグラウンドワーカプロセスから有効になりません。
   </para>
 
   <para>
+<!--
    <structfield>bgw_extra</structfield> can contain extra data to be passed
    to the background worker.  Unlike <structfield>bgw_main_arg</structfield>, this data
    is not passed as an argument to the worker's main function, but it can be
    accessed via <literal>MyBgworkerEntry</literal>, as discussed above.
+-->
+<structfield>bgw_extra</structfield>はバックグラウンドワーカに渡す追加データを含めることが出来ます。
+<structfield>bgw_main_arg</structfield>とは異なり、このデータはワーカのメイン関数の引数として渡されていませんが、上述したように<literal>MyBgworkerEntry</literal>を介してアクセスすることが出来ます。
   </para>
 
   <para>
+<!--
    <structfield>bgw_notify_pid</structfield> is the PID of a PostgreSQL
    backend process to which the postmaster should send <literal>SIGUSR1</literal>
    when the process is started or exits.  It should be 0 for workers registered
    at postmaster startup time, or when the backend registering the worker does
    not wish to wait for the worker to start up.  Otherwise, it should be
    initialized to <literal>MyProcPid</literal>.
+-->
+<structfield>bgw_notify_pid</structfield>はプロセスの開始時と終了時にpostmasterが<literal>SIGUSR1</literal>を送信するPostgreSQLバックエンドプロセスのPIDです。
+それはpostmasterの起動時に登録されたワーカの場合、またはワーカを登録しているバックエンドがワーカーの起動を待ちたくない場合は0にする必要があります。
+それ以外の場合は、<literal>MyProcPid</literal>で初期化する必要があります。
   </para>
 
+<!--
   <para>Once running, the process can connect to a database by calling
    <function>BackgroundWorkerInitializeConnection(<parameter>char *dbname</parameter>, <parameter>char *username</parameter>, <parameter>uint32 flags</parameter>)</function> or
    <function>BackgroundWorkerInitializeConnectionByOid(<parameter>Oid dboid</parameter>, <parameter>Oid useroid</parameter>, <parameter>uint32 flags</parameter>)</function>.
@@ -207,17 +296,33 @@ typedef struct BackgroundWorker
    A background worker can only call one of these two functions, and only
    once.  It is not possible to switch databases.
   </para>
+-->
+  <para>
+ひとたび実行すると、このプロセスは<function>BackgroundWorkerInitializeConnection(<parameter>char *dbname</parameter>, <parameter>char *username</parameter>, <parameter>uint32 flags</parameter>)</function>または<function>BackgroundWorkerInitializeConnectionByOid(<parameter>Oid dboid</parameter>, <parameter>Oid useroid</parameter>, <parameter>uint32 flags</parameter>)</function>を呼び出すことによって、データベースに接続できます。
+これはプロセスに<literal>SPI</literal>インタフェースを使用してのトランザクションとクエリの実行を許します。
+もし、<varname>dbname</varname>がNULLであった場合、または<varname>dboid</varname>が<literal>InvalidOid</literal>であった場合には、そのセッションは特定のデータベースに接続しません。しかし、共有カタログにはアクセス出来ます。
+もし、<varname>username</varname>がNULLの場合、または<varname>useroid</varname>が<literal>InvalidOid</literal>の場合には、そのプロセスは<command>initdb</command>時に作成されたスーパーユーザとして実行されます。
+<varname>flags</varname>として<literal>BGWORKER_BYPASS_ALLOWCONN</literal>が設定されている場合、データベースへ接続する際のユーザ接続を許可しない制約を回避することが出来ます。
+バックグラウンドワーカはこれら２つの関数をどちらかを一度だけ呼ぶことが出来ます。
+データベースを切り替えることができません。
+  </para>
 
   <para>
+<!--
    Signals are initially blocked when control reaches the
    background worker's main function, and must be unblocked by it; this is to
    allow the process to customize its signal handlers, if necessary.
    Signals can be unblocked in the new process by calling
    <function>BackgroundWorkerUnblockSignals</function> and blocked by calling
    <function>BackgroundWorkerBlockSignals</function>.
+-->
+バックグラウンドワーカのメイン関数に制御が達したとき、シグナルは最初にブロックされています。このブロックは解除されなければなりません。
+これは、必要に応じてプロセスがシグナルハンドラをカスタマイズできるようにするためです。
+シグナルは、新しいプロセスで<function>BackgroundWorkerUnblockSignals</function>を呼び出すことにより解除でき、<function>BackgroundWorkerBlockSignals</function>を呼び出すことでブロックできます。
   </para>
 
   <para>
+<!--
    If <structfield>bgw_restart_time</structfield> for a background worker is
    configured as <literal>BGW_NEVER_RESTART</literal>, or if it exits with an exit
    code of 0 or is terminated by <function>TerminateBackgroundWorker</function>,
@@ -231,9 +336,16 @@ typedef struct BackgroundWorker
    <literal>WL_POSTMASTER_DEATH</literal> flag is set when calling that function, and
    verify the return code for a prompt exit in the emergency case that
    <command>postgres</command> itself has terminated.
+-->
+バックグラウンドワーカは、<structfield>bgw_restart_time</structfield>が<literal>BGW_NEVER_RESTART</literal>に設定されている場合、または終了コード0で終了した場合、または<function>TerminateBackgroundWorker</function>によって終了した場合、postmasterに自動的に登録が解除されて終了します。
+それ以外の場合、<structfield>bgw_restart_time</structfield>で設定された時間の後に再起動します。または、バックエンドの障害のためにpostmasterがクラスタを再初期化した場合は、すぐに再起動します。
+一時的に実行を中断するだけでよいバックエンドは、終了するのではなく、割り込み可能なスリープを使用する必要があります。
+これは<function>WaitLatch()</function>を呼び出すことによって可能になります。
+この関数を呼び出すときには<literal>WL_POSTMASTER_DEATH</literal>フラグが設定されているか確認し、<command>postgres</command>自身が終了する緊急事態には、リターンコードを確認するようにしてください。
   </para>
 
   <para>
+<!--
    When a background worker is registered using the
    <function>RegisterDynamicBackgroundWorker</function> function, it is
    possible for the backend performing the registration to obtain information
@@ -254,9 +366,20 @@ typedef struct BackgroundWorker
    <function>TerminateBackgroundWorker</function> causes the postmaster to send
    <literal>SIGTERM</literal> to the worker if it is running, and to unregister it
    as soon as it is not.
+-->
+バックグラウンドワーカを<function>RegisterDynamicBackgroundWorker</function>関数により登録している場合、登録を実行するバックエンドはワーカの状態に関する情報を取得することが可能です。
+取得したい場合は<function>RegisterDynamicBackgroundWorker</function>に2番目の引数として<type>BackgroundWorkerHandle *</type>のアドレスを渡す必要があります。
+もし登録に成功した場合、このポインタは後で<function>GetBackgroundWorkerPid(<parameter>BackgroundWorkerHandle *</parameter>,<parameter>pid_t *</parameter>)</function>または<function>TerminateBackgroundWorker(<parameter>BackgroundWorkerHandle *</parameter>)</function>に渡すことができるopaque(不透明)ハンドルで、初期化されます。
+<function>GetBackgroundWorkerPid</function>はワーカの状態を監視することができます。以下の返り値が得られます。
+<literal>BGWH_NOT_YET_STARTED</literal>ワーカはまだpostmasterにより開始されていない。
+<literal>BGWH_STOPPED</literal>開始されたが、もはや実行されていない。
+<literal>BGWH_STARTED</literal>実行中です。
+この最後のケースでは、PIDは、2番目の引数を介して返されます。
+<function>TerminateBackgroundWorker</function>はワーカが実行していた場合postmasterがワーカに<literal>SIGTERM</literal>を送信し、実行が終了次第すぐに登録を解除します。
   </para>
 
   <para>
+<!--
    In some cases, a process which registers a background worker may wish to
    wait for the worker to start up.  This can be accomplished by initializing
    <structfield>bgw_notify_pid</structfield> to <literal>MyProcPid</literal> and
@@ -270,9 +393,16 @@ typedef struct BackgroundWorker
    the PID will be written to the provided address.  Otherwise, the return
    value will be <literal>BGWH_STOPPED</literal> or
    <literal>BGWH_POSTMASTER_DIED</literal>.
+-->
+場合によっては、バックグラウンドワーカが起動するのを待ってから、ワーカを登録したい場合もあるでしょう。
+これは <structfield>bgw_notify_pid</structfield>を<literal>MyProcPid</literal>で初期化し、登録時に得られた<type>BackgroundWorkerHandle *</type>を使用して<function>WaitForBackgroundWorkerStartup(<parameter>BackgroundWorkerHandle *handle</parameter>,<parameter>pid_t *</parameter>)</function>関数を呼び出すことで実現します。
+postmasterがバックグラウンドワーカを開始しようと試みたか、postmasterが死ぬまで、この関数はブロックします。
+バックグラウンドワーカが実行されている場合、戻り値は<literal>BGWH_STARTED</literal>となり、指定されたアドレスにPIDが書き込まれます。
+そうでない場合、戻り値は<literal>BGWH_STOPPED</literal>または<literal>BGWH_POSTMASTER_DIED</literal>になります。
   </para>
 
   <para>
+<!--
    A process can also wait for a background worker to shut down, by using the
    <function>WaitForBackgroundWorkerShutdown(<parameter>BackgroundWorkerHandle
    *handle</parameter>)</function> function and passing the
@@ -281,9 +411,14 @@ typedef struct BackgroundWorker
    When the background worker exits, the return value is
    <literal>BGWH_STOPPED</literal>, if postmaster dies it will return
    <literal>BGWH_POSTMASTER_DIED</literal>.
+-->
+登録時に得られた<type>BackgroundWorkerHandle *</type>を使用して<function>WaitForBackgroundWorkerShutdown(<parameter>BackgroundWorkerHandle *handle</parameter>)</function>関数を呼び出すことで、バックグラウンドワーカがシャットダウンするのを待つこともできます。
+バックグラウンドワーカが終了するか、postmasterが死ぬまで、この関数はブロックします。
+バックグラウンドワーカが終了した場合の戻り値は<literal>BGWH_STOPPED</literal>、postmasterが死んだ場合の戻り値は<literal>BGWH_POSTMASTER_DIED</literal>になります。
   </para>
 
   <para>
+<!--
    Background workers can send asynchronous notification messages, either by
    using the <command>NOTIFY</command> command via <acronym>SPI</acronym>,
    or directly via <function>Async_Notify()</function>.  Such notifications
@@ -291,16 +426,26 @@ typedef struct BackgroundWorker
    Background workers should not register to receive asynchronous
    notifications with the <command>LISTEN</command> command, as there is no
    infrastructure for a worker to consume such notifications.
+-->
+バックグラウンドワーカは、サーバプログラミングインタフェース(<acronym>SPI</acronym>)経由で<command>NOTIFY</command>コマンドにより非同期に通知を送る場合、囲んでいるトランザクションをコミットした後、通知を配信することができるように明示的に<function>ProcessCompletedNotifies</function>を呼ぶ必要があります。
+バックグラウンドワーカは、<acronym>SPI</acronym>を通じて<command>LISTEN</command>による非同期通知の受信を登録した場合、ワーカがこれらの通知をログに記録しますが、ワーカが傍受し、それらの通知に応答するためのプログラム的な方法はありません。
   </para>
 
   <para>
+<!--
    The <filename>src/test/modules/worker_spi</filename> module
    contains a working example,
    which demonstrates some useful techniques.
+-->
+バックグラウンドワーカの実例として、<filename>src/test/modules/worker_spi</filename>というモジュールがあります。
+これはいくつかの有用な技術を示しています。
   </para>
 
   <para>
+<!--
    The maximum number of registered background workers is limited by
    <xref linkend="guc-max-worker-processes"/>.
+-->
+登録できるバックグラウンドワーカの最大数は<xref linkend="guc-max-worker-processes"/>によって制限されています。
   </para>
 </chapter>

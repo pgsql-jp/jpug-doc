@@ -4,128 +4,215 @@
  <title>cube</title>
 
  <indexterm zone="cube">
+<!--
   <primary>cube (extension)</primary>
+-->
+  <primary>cube (拡張)</primary>
  </indexterm>
 
  <para>
+<!--
   This module implements a data type <type>cube</type> for
   representing multidimensional cubes.
+-->
+本モジュールは、多次元立方体を表すための<type>cube</type>データ型を実装します。
+（訳注：以下cubeを立方体と訳しますが、ここでのcubeが指しているものは、厳密には「（超）立方体」ではありません。正確には、それぞれの「（超）面」がある座標軸に対して垂直な「（超）直方体」です。）
  </para>
 
  <para>
+<!--
   This module is considered <quote>trusted</quote>, that is, it can be
   installed by non-superusers who have <literal>CREATE</literal> privilege
   on the current database.
+-->
+このモジュールは<quote>trusted</quote>と見なされます。つまり、現在のデータベースに対して<literal>CREATE</literal>権限を持つ非スーパーユーザがインストールできます。
  </para>
 
  <sect2>
+<!--
   <title>Syntax</title>
+-->
+  <title>構文</title>
 
   <para>
+<!--
    <xref linkend="cube-repr-table"/> shows the valid external
    representations for the <type>cube</type>
    type.  <replaceable>x</replaceable>, <replaceable>y</replaceable>, etc. denote
    floating-point numbers.
+-->
+<xref linkend="cube-repr-table"/>は<type>cube</type>型で有効な外部表現を示します。
+<replaceable>x</replaceable>、<replaceable>y</replaceable>などは浮動小数点数を意味します。
   </para>
 
   <table id="cube-repr-table">
+<!--
    <title>Cube External Representations</title>
+-->
+   <title>cubeの外部表現</title>
    <tgroup cols="2">
     <thead>
      <row>
+<!--
       <entry>External Syntax</entry>
+-->
+      <entry>外部構文</entry>
+<!--
       <entry>Meaning</entry>
+-->
+      <entry>意味</entry>
      </row>
     </thead>
 
     <tbody>
      <row>
       <entry><literal><replaceable>x</replaceable></literal></entry>
+<!--
       <entry>A one-dimensional point
        (or, zero-length one-dimensional interval)
+-->
+      <entry>
+1次元の点。（すなわち、幅ゼロの一次元間隔）
       </entry>
      </row>
      <row>
       <entry><literal>(<replaceable>x</replaceable>)</literal></entry>
+<!--
       <entry>Same as above</entry>
+-->
+      <entry>同上</entry>
      </row>
      <row>
       <entry><literal><replaceable>x1</replaceable>,<replaceable>x2</replaceable>,...,<replaceable>xn</replaceable></literal></entry>
+<!--
       <entry>A point in n-dimensional space, represented internally as a
       zero-volume cube
+-->
+      <entry>
+n次元空間の点。
+内部的には体積0の立方体として表されます。
       </entry>
      </row>
      <row>
       <entry><literal>(<replaceable>x1</replaceable>,<replaceable>x2</replaceable>,...,<replaceable>xn</replaceable>)</literal></entry>
+<!--
       <entry>Same as above</entry>
+-->
+      <entry>同上</entry>
      </row>
      <row>
       <entry><literal>(<replaceable>x</replaceable>),(<replaceable>y</replaceable>)</literal></entry>
+<!--
       <entry>A one-dimensional interval starting at <replaceable>x</replaceable> and ending at <replaceable>y</replaceable> or vice versa; the
        order does not matter
+-->
+      <entry>
+<replaceable>x</replaceable>から<replaceable>y</replaceable>まで（またはその逆）の1次元の間隔。
+順序は関係ありません。
       </entry>
      </row>
      <row>
       <entry><literal>[(<replaceable>x</replaceable>),(<replaceable>y</replaceable>)]</literal></entry>
+<!--
       <entry>Same as above</entry>
+-->
+      <entry>同上</entry>
      </row>
      <row>
       <entry><literal>(<replaceable>x1</replaceable>,...,<replaceable>xn</replaceable>),(<replaceable>y1</replaceable>,...,<replaceable>yn</replaceable>)</literal></entry>
+<!--
       <entry>An n-dimensional cube represented by a pair of its diagonally
        opposite corners
+-->
+      <entry>
+対角の組み合わせで表されるn次元の立方体。
       </entry>
      </row>
      <row>
       <entry><literal>[(<replaceable>x1</replaceable>,...,<replaceable>xn</replaceable>),(<replaceable>y1</replaceable>,...,<replaceable>yn</replaceable>)]</literal></entry>
+<!--
       <entry>Same as above</entry>
+-->
+      <entry>同上</entry>
      </row>
     </tbody>
    </tgroup>
   </table>
 
   <para>
+<!--
    It does not matter which order the opposite corners of a cube are
    entered in.  The <type>cube</type> functions
    automatically swap values if needed to create a uniform
    <quote>lower left &mdash; upper right</quote> internal representation.
    When the corners coincide, <type>cube</type> stores only one corner
    along with an <quote>is point</quote> flag to avoid wasting space.
+-->
+立方体の対角の入力順序は関係ありません。
+統一的な<quote>左下 &mdash; 右上</quote>という内部表現を作成するために必要ならば、<type>cube</type>関数は自動的に値を交換します。
+角が一致する場合、<type>cube</type>型には無駄を省くために、<quote>点である</quote>フラグを加えた一つの角のみ格納されます。
   </para>
 
   <para>
+<!--
    White space is ignored on input, so
    <literal>[(<replaceable>x</replaceable>),(<replaceable>y</replaceable>)]</literal> is the same as
    <literal>[ ( <replaceable>x</replaceable> ), ( <replaceable>y</replaceable> ) ]</literal>.
+-->
+空白文字は入力時に無視されます。
+このため、<literal>[(<replaceable>x</replaceable>),(<replaceable>y</replaceable>)]</literal>は<literal>[ ( <replaceable>x</replaceable> ), ( <replaceable>y</replaceable> ) ]</literal>と同じです。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Precision</title>
+-->
+  <title>精度</title>
 
   <para>
+<!--
    Values are stored internally as 64-bit floating point numbers. This means
    that numbers with more than about 16 significant digits will be truncated.
+-->
+値は内部的に64ビットの浮動小数点数値として格納されます。
+つまり、有効桁が16より大きい数値は切り詰められることを意味します。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Usage</title>
+-->
+  <title>使用方法</title>
 
   <para>
+<!--
    <xref linkend="cube-operators-table"/> shows the specialized operators
    provided for type <type>cube</type>.
+-->
+<xref linkend="cube-operators-table"/>は、<type>cube</type>型に提供されている専用の演算子を示します。
   </para>
 
   <table id="cube-operators-table">
+<!--
    <title>Cube Operators</title>
+-->
+   <title>cubeの演算子</title>
     <tgroup cols="1">
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+<!--
         Operator
+-->
+        演算子
        </para>
        <para>
+<!--
         Description
+-->
+        説明
        </para></entry>
       </row>
      </thead>
@@ -137,7 +224,10 @@
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Do the cubes overlap?
+-->
+立方体が重なるか。
        </para></entry>
       </row>
 
@@ -147,7 +237,10 @@
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the first cube contain the second?
+-->
+1番目の立方体は2番目のものを含むか。
        </para></entry>
       </row>
 
@@ -157,7 +250,10 @@
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the first cube contained in the second?
+-->
+1番目の立方体は2番目のものに含まれるか。
        </para></entry>
       </row>
 
@@ -167,8 +263,11 @@
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Extracts the <parameter>n</parameter>-th coordinate of the cube
         (counting from 1).
+-->
+立方体の（1から数えた）<parameter>n</parameter>次座標を取得します。
        </para></entry>
       </row>
 
@@ -178,6 +277,7 @@
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Extracts the <parameter>n</parameter>-th coordinate of the cube,
         counting in the following way: <parameter>n</parameter> = 2
         * <parameter>k</parameter> - 1 means lower bound
@@ -186,6 +286,11 @@
         <parameter>k</parameter>-th dimension.  Negative
         <parameter>n</parameter> denotes the inverse value of the corresponding
         positive coordinate.  This operator is designed for KNN-GiST support.
+-->
+以下のように立方体の<parameter>n</parameter>次座標を取得します。
+<parameter>n</parameter> = 2 * <parameter>k</parameter> - 1 は<parameter>k</parameter>次元の下界を、<parameter>n</parameter> = 2 * <parameter>k</parameter> は<parameter>k</parameter>次元の上界を意味します。
+負の<parameter>n</parameter>は、対応する正の座標の正負反転した値を示します。
+この演算子はKNN-GiSTのサポートのために設計されています。
        </para></entry>
       </row>
 
@@ -195,7 +300,10 @@
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Computes the Euclidean distance between the two cubes.
+-->
+2つの立方体のユークリッド距離を計算します。
        </para></entry>
       </row>
 
@@ -205,7 +313,10 @@
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Computes the taxicab (L-1 metric) distance between the two cubes.
+-->
+2つの立方体のタクシー(L-1計量)距離を計算します。
        </para></entry>
       </row>
 
@@ -215,7 +326,10 @@
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Computes the Chebyshev (L-inf metric) distance between the two cubes.
+-->
+2つの立方体のチェビシェフ(L-無限大計量)距離を計算します。
        </para></entry>
       </row>
      </tbody>
@@ -223,6 +337,7 @@
   </table>
 
   <para>
+<!--
    In addition to the above operators, the usual comparison
    operators shown in <xref linkend="functions-comparison-op-table"/> are
    available for type <type>cube</type>.  These
@@ -231,60 +346,94 @@
    b-tree index operator class for <type>cube</type>, which can be useful for
    example if you would like a UNIQUE constraint on a <type>cube</type> column.
    Otherwise, this ordering is not of much practical use.
+-->
+上記の演算子に加えて、<type>cube</type>型では<xref linkend="functions-comparison-op-table"/>にある通常の比較演算子が利用可能です。
+これらの演算子は、まず最初の座標を比較し、それらが同一の場合は2番目の座標を比較し、と続けます。
+それらは、主に<type>cube</type>型のためのB-treeインデックス演算子クラスをサポートするために存在し、例えば<type>cube</type>型の列にUNIQUE制約をつけたい場合に便利です。
   </para>
 
   <para>
+<!--
    The <filename>cube</filename> module also provides a GiST index operator class for
    <type>cube</type> values.
    A <type>cube</type> GiST index can be used to search for values using the
    <literal>=</literal>, <literal>&amp;&amp;</literal>, <literal>@&gt;</literal>, and
    <literal>&lt;@</literal> operators in <literal>WHERE</literal> clauses.
+-->
+<filename>cube</filename>モジュールは、<type>cube</type>型の値用にGiSTインデックス演算子クラスも提供します。
+<type>cube</type>型GiSTインデックスは、<literal>WHERE</literal>句内にて<literal>=</literal>、<literal>&amp;&amp;</literal>、<literal>@&gt;</literal>、<literal>&lt;@</literal>演算子を用いて値を検索するために使用することができます。
   </para>
 
   <para>
+<!--
    In addition, a <type>cube</type> GiST index can be used to find nearest
    neighbors using the metric operators
    <literal>&lt;-&gt;</literal>, <literal>&lt;#&gt;</literal>, and
    <literal>&lt;=&gt;</literal> in <literal>ORDER BY</literal> clauses.
    For example, the nearest neighbor of the 3-D point (0.5, 0.5, 0.5)
    could be found efficiently with:
+-->
+加えて、<type>cube</type>型GiSTインデックスは、<literal>ORDER BY</literal>句内にて<literal>&lt;-&gt;</literal>、<literal>&lt;#&gt;</literal>、<literal>&lt;=&gt;</literal>のメトリック演算子を用いて近傍値を発見するために使用することができます。
+例えば、3次元の点である(0.5, 0.5, 0.5)の最近傍点は、以下のように効率よく発見できます。
 <programlisting>
 SELECT c FROM test ORDER BY c &lt;-&gt; cube(array[0.5,0.5,0.5]) LIMIT 1;
 </programlisting>
   </para>
 
   <para>
+<!--
    The <literal>~&gt;</literal> operator can also be used in this way to
    efficiently retrieve the first few values sorted by a selected coordinate.
    For example, to get the first few cubes ordered by the first coordinate
    (lower left corner) ascending one could use the following query:
+-->
+<literal>~&gt;</literal>演算子でもこの方法で、選択された座標によってソートされた最初のいくつかの値を効率よく探査するために使用できます。
+例えば、1番目の座標（左下隅）によって昇順に並べ替えられた最初のいくつかの立方体を取得するために、以下のような問い合わせを使用することができます。
 <programlisting>
 SELECT c FROM test ORDER BY c ~&gt; 1 LIMIT 5;
 </programlisting>
+<!--
    And to get 2-D cubes ordered by the first coordinate of the upper right
    corner descending:
+-->
+そして、右上の1番目の座標によって昇順に並び替えられた2次元の立方体を取得するために、以下のような問い合わせを使用することができます。
 <programlisting>
 SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
 </programlisting>
   </para>
 
   <para>
+<!--
    <xref linkend="cube-functions-table"/> shows the available functions.
+-->
+<xref linkend="cube-functions-table"/>は有効な関数を示します。
   </para>
 
   <table id="cube-functions-table">
+<!--
    <title>Cube Functions</title>
+-->
+   <title>cubeの関数</title>
     <tgroup cols="1">
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+<!--
         Function
+-->
+        関数
        </para>
        <para>
+<!--
         Description
+-->
+        説明
        </para>
        <para>
+<!--
         Example(s)
+-->
+        例
        </para></entry>
       </row>
      </thead>
@@ -296,7 +445,10 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Makes a one dimensional cube with both coordinates the same.
+-->
+同じ座標をもつ、1次元の立方体を作成します。
        </para>
        <para>
         <literal>cube(1)</literal>
@@ -310,7 +462,10 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Makes a one dimensional cube.
+-->
+1次元の立方体を作成します。
        </para>
        <para>
         <literal>cube(1, 2)</literal>
@@ -324,7 +479,10 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Makes a zero-volume cube using the coordinates defined by the array.
+-->
+配列で定義される座標を使用した体積0の立方体を作成します。
        </para>
        <para>
         <literal>cube(ARRAY[1,2,3])</literal>
@@ -338,8 +496,11 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Makes a cube with upper right and lower left coordinates as defined by
         the two arrays, which must be of the same length.
+-->
+2つの配列で定義される右上および左下座標を持つ立方体を作成します。配列長は同じでなければなりません。
        </para>
        <para>
         <literal>cube(ARRAY[1,2], ARRAY[3,4])</literal>
@@ -353,9 +514,13 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Makes a new cube by adding a dimension on to an existing cube,
         with the same values for both endpoints of the new coordinate.  This
         is useful for building cubes piece by piece from calculated values.
+-->
+既存の立方体に次元を加え、新しい座標の同じ値の端点をもつ立方体を新しく作成します。
+これは計算した値で部品を追加しながら立方体を構築する場合に有用です。
        </para>
        <para>
         <literal>cube('(1,2),(3,4)'::cube, 5)</literal>
@@ -369,8 +534,12 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Makes a new cube by adding a dimension on to an existing cube. This is
         useful for building cubes piece by piece from calculated values.
+-->
+既存の立方体に次元を加えた立方体を新しく作成します。
+これは計算した値で部品を追加しながら立方体を構築する場合に有用です。
        </para>
        <para>
         <literal>cube('(1,2),(3,4)'::cube, 5, 6)</literal>
@@ -384,7 +553,10 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>integer</returnvalue>
        </para>
        <para>
+<!--
         Returns the number of dimensions of the cube.
+-->
+立方体の次元数を返します。
        </para>
        <para>
         <literal>cube_dim('(1,2),(3,4)')</literal>
@@ -398,8 +570,11 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Returns the <parameter>n</parameter>-th coordinate value for the lower
         left corner of the cube.
+-->
+立方体の左下隅の<parameter>n</parameter>次座標の値を返します。
        </para>
        <para>
         <literal>cube_ll_coord('(1,2),(3,4)', 2)</literal>
@@ -413,8 +588,11 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Returns the <parameter>n</parameter>-th coordinate value for the
         upper right corner of the cube.
+-->
+立方体の右上隅の<parameter>n</parameter>次座標の値を返します。
        </para>
        <para>
         <literal>cube_ur_coord('(1,2),(3,4)', 2)</literal>
@@ -428,8 +606,11 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Returns true if the cube is a point, that is,
         the two defining corners are the same.
+-->
+立方体が点、つまり立方体が定義する2つの隅が同一の場合真を返します。
        </para>
        <para>
         <literal>cube_is_point(cube(1,1))</literal>
@@ -443,8 +624,12 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>float8</returnvalue>
        </para>
        <para>
+<!--
         Returns the distance between two cubes. If both
         cubes are points, this is the normal distance function.
+-->
+2つの立方体間の距離を返します。
+両方の立方体が点の場合、これは通常の距離測定関数です。
        </para>
        <para>
         <literal>cube_distance('(1,2)', '(3,4)')</literal>
@@ -458,10 +643,14 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Makes a new cube from an existing cube, using a list of
         dimension indexes from an array. Can be used to extract the endpoints
         of a single dimension, or to drop dimensions, or to reorder them as
         desired.
+-->
+配列内の次元インデックスの一覧を使用して、既存の立方体から新しい立方体を作成します。
+単一次元の端点を展開するために使用したり、次元を除去したり、希望通りの順序に並び替えたりすることができます。
        </para>
        <para>
         <literal>cube_subset(cube('(1,3,5),(6,7,8)'), ARRAY[2])</literal>
@@ -479,7 +668,10 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Produces the union of two cubes.
+-->
+2つの立方体の和集合を作成します。
        </para>
        <para>
         <literal>cube_union('(1,2)', '(3,4)')</literal>
@@ -493,7 +685,10 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Produces the intersection of two cubes.
+-->
+2つの立方体の共通部分を作成します。
        </para>
        <para>
         <literal>cube_inter('(1,2)', '(3,4)')</literal>
@@ -507,6 +702,7 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         <returnvalue>cube</returnvalue>
        </para>
        <para>
+<!--
         Increases the size of the cube by the specified
         radius <parameter>r</parameter> in at least <parameter>n</parameter>
         dimensions.  If the radius is negative the cube is shrunk instead.
@@ -522,6 +718,14 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
         make <parameter>n</parameter> altogether; 0 is used as the initial
         value for the extra coordinates.  This function is useful for creating
         bounding boxes around a point for searching for nearby points.
+-->
+最小で<parameter>n</parameter>次元において指定した径<parameter>r</parameter>で立方体のサイズを増加させます。
+径が負の場合、立方体は縮小されます。
+定義済のすべての次元は径<parameter>r</parameter>だけ変わります。
+左下座標を<parameter>r</parameter>だけ減少し、右上座標を<parameter>r</parameter>だけ増加します。
+左下座標が対応する右上座標よりも増加する場合(これは<parameter>r</parameter> &lt; 0の場合にのみ発生します)、両方の座標はその平均値に設定されます。
+<parameter>n</parameter>が定義済の次元より多く、かつ、立方体が拡大される(<parameter>r</parameter> &gt; 0)場合、<parameter>n</parameter>次元すべてを作成するために余分な次元が追加されます。余分な座標には、初期値として0が使用されます。
+この関数は、近傍点を見つけるための点を囲む外接矩形を作成する際に有用です。
        </para>
        <para>
         <literal>cube_enlarge('(1,2),(3,4)', 0.5, 3)</literal>
@@ -534,10 +738,15 @@ SELECT c FROM test ORDER BY c ~&gt; 3 DESC LIMIT 5;
  </sect2>
 
  <sect2>
+<!--
   <title>Defaults</title>
+-->
+  <title>デフォルト</title>
 
   <para>
+<!--
    I believe this union:
+-->
   </para>
 <programlisting>
 select cube_union('(0,5,2),(2,3,1)', '0');
@@ -548,7 +757,10 @@ cube_union
 </programlisting>
 
    <para>
+<!--
     does not contradict common sense, neither does the intersection
+-->
+この和集合および以下の共通集合は一般常識と矛盾しないと思います。
    </para>
 
 <programlisting>
@@ -560,10 +772,14 @@ cube_inter
 </programlisting>
 
    <para>
+<!--
     In all binary operations on differently-dimensioned cubes, I assume the
     lower-dimensional one to be a Cartesian projection, i. e., having zeroes
     in place of coordinates omitted in the string representation. The above
     examples are equivalent to:
+-->
+次元が異なる立方体の二項演算すべてにおいて、より低い次元の方がデカルト投影、つまり、文字列表現で省略された座標に0を持つものになると仮定します。
+上の例は以下と同じです。
    </para>
 
 <programlisting>
@@ -572,10 +788,14 @@ cube_inter('(0,-1),(1,1)','(-2,0),(2,0)');
 </programlisting>
 
    <para>
+<!--
     The following containment predicate uses the point syntax,
     while in fact the second argument is internally represented by a box.
     This syntax makes it unnecessary to define a separate point type
     and functions for (box,point) predicates.
+-->
+以下の包含の述部は点構文を使用しますが、実際内部的には第2引数は矩形として表されます。
+この構文により、別の点用の型や(box,point)という述部用の関数を定義することが不要になります。
    </para>
 
 <programlisting>
@@ -588,28 +808,46 @@ t
  </sect2>
 
  <sect2>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    For examples of usage, see the regression test <filename>sql/cube.sql</filename>.
+-->
+使用例については、<filename>sql/cube.sql</filename>リグレッションテストを参照してください。
   </para>
 
   <para>
+<!--
    To make it harder for people to break things, there
    is a limit of 100 on the number of dimensions of cubes. This is set
    in <filename>cubedata.h</filename> if you need something bigger.
+-->
+破壊防止のために立方体の次元数に100までという制限を行いました。
+これは<filename>cubedata.h</filename>で設定されており、必要に応じて多少大きくすることができます。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Credits</title>
+-->
+  <title>クレジット</title>
 
   <para>
+<!--
    Original author: Gene Selkov, Jr. <email>selkovjr@mcs.anl.gov</email>,
+   Mathematics and Computer Science Division, Argonne National Laboratory.
+-->
+   原作者: Gene Selkov, Jr. <email>selkovjr@mcs.anl.gov</email>,
    Mathematics and Computer Science Division, Argonne National Laboratory.
   </para>
 
   <para>
+<!--
    My thanks are primarily to Prof. Joe Hellerstein
    (<ulink url="https://dsf.berkeley.edu/jmh/"></ulink>) for elucidating the
    gist of the GiST (<ulink url="http://gist.cs.berkeley.edu/"></ulink>), and
@@ -619,20 +857,33 @@ t
    would like to acknowledge my gratitude to Argonne Lab and to the
    U.S. Department of Energy for the years of faithful support of my database
    research.
+-->
+GiST (<ulink url="http://gist.cs.berkeley.edu/"></ulink>)の要点(gist)を説明してくださったJoe Hellerstein博士 (<ulink url="https://dsf.berkeley.edu/jmh/"></ulink>) に感謝します。
+また、Illustra用の例の作者である彼の以前の生徒Andy Dongに感謝します。
+また、自分の世界を作成できるようにし、静かに生活できるようにしてもらった、過去から現在までのすべてのPostgres開発者に感謝します。
+データベース研究を長年誠実にサポートしてくれたArgonne LabとU.S. Department of Energyにも感謝します。
   </para>
 
   <para>
+<!--
    Minor updates to this package were made by Bruno Wolff III
    <email>bruno@wolff.to</email> in August/September of 2002. These include
    changing the precision from single precision to double precision and adding
    some new functions.
+-->
+2002年8月/9月にBruno Wolff III <email>bruno@wolff.to</email>による小規模な改修がこのパッケージになされました。
+この改修には、単精度から倍精度への精度の変更といくつかの関数の追加が含まれます。
   </para>
 
   <para>
+<!--
    Additional updates were made by Joshua Reich <email>josh@root.net</email> in
    July 2006. These include <literal>cube(float8[], float8[])</literal> and
    cleaning up the code to use the V1 call protocol instead of the deprecated
    V0 protocol.
+-->
+2006年7月にJoshua Reich <email>josh@root.net</email>による改修がさらになされました。
+この改修には<literal>cube(float8[], float8[])</literal>が含まれ、また、古いV0プロトコルからV1呼び出しプロトコルを使用するようコードが整理されました。
   </para>
  </sect2>
 

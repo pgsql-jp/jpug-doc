@@ -1,31 +1,46 @@
 <!-- doc/src/sgml/charset.sgml -->
 
 <chapter id="charset">
+<!--
  <title>Localization</title>
+-->
+<title>多言語対応</title>
 
  <para>
+<!--
   This chapter describes the available localization features from the
   point of view of the administrator.
   <productname>PostgreSQL</productname> supports two localization
   facilities:
+-->
+本章では、管理者の立場から見た、利用可能な多言語対応機能について説明します。
+<productname>PostgreSQL</productname>では、2つの手法で多言語対応をサポートします。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       Using the locale features of the operating system to provide
       locale-specific collation order, number formatting, translated
       messages, and other aspects.
       This is covered in <xref linkend="locale"/> and
       <xref linkend="collation"/>.
+-->
+ロケール固有の照合順序、数字の書式、翻訳されたメッセージなどを提供するためオペレーティングシステムのロケールの機能を使います。
+これは<xref linkend="locale"/>と<xref linkend="collation"/>内で解説されています。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Providing a number of different character sets to support storing text
       in all kinds of languages, and providing character set translation
       between client and server.
       This is covered in <xref linkend="multibyte"/>.
+-->
+全ての種類の言語によるテキストの格納のサポート、およびクライアントサーバ間の文字セット翻訳の提供を行うため、多くの文字セットを提供します。
+これは<xref linkend="multibyte"/>内で解説されています。
      </para>
     </listitem>
    </itemizedlist>
@@ -33,23 +48,38 @@
 
 
  <sect1 id="locale">
+<!--
   <title>Locale Support</title>
+-->
+<title>ロケールのサポート</title>
 
+<!--
   <indexterm zone="locale"><primary>locale</primary></indexterm>
+-->
+  <indexterm zone="locale"><primary>ロケール</primary></indexterm>
 
   <para>
+<!--
    <firstterm>Locale</firstterm> support refers to an application respecting
    cultural preferences regarding alphabets, sorting, number
    formatting, etc.  <productname>PostgreSQL</productname> uses the standard ISO
    C and <acronym>POSIX</acronym> locale facilities provided by the server operating
    system.  For additional information refer to the documentation of your
    system.
+-->
+<firstterm>ロケール</firstterm>のサポートはアルファベット、並び換え、数字の書式など文化的嗜好を配慮したアプリケーションを対象にします。
+<productname>PostgreSQL</productname>は、サーバのオペレーティングシステムが提供する、標準ISO Cと<acronym>POSIX</acronym>のロケール機能を使用します。
+これ以上の情報についてはお使いのシステムのドキュメントを参照ください。
   </para>
 
   <sect2>
+<!--
    <title>Overview</title>
+-->
+<title>概要</title>
 
    <para>
+<!--
     Locale support is automatically initialized when a database
     cluster is created using <command>initdb</command>.
     <command>initdb</command> will initialize the database cluster
@@ -59,13 +89,20 @@
     do.  If you want to use a different locale (or you are not sure
     which locale your system is set to), you can instruct
     <command>initdb</command> exactly which locale to use by
-    specifying the <option>--locale</option> option. For example:
+    specifying the <option>&#045;&#045;locale</option> option. For example:
+-->
+ロケールのサポートは、<command>initdb</command>を使用してデータベースクラスタを作成する時自動的に初期化されます。
+<command>initdb</command>は、デフォルトでその実行環境のロケール設定に従ってデータベースクラスタを初期化します。
+そのため、システムがデータベースクラスタで使用したいロケールを使用するように既に設定してある場合は何も行う必要はありません。
+違うロケールを使用したい場合（またはシステムのロケール設定が不明な場合）は、<command>initdb</command>の<option>--locale</option>オプションで希望のロケールを指定することができます。
+以下に例を示します。
 <screen>
 initdb --locale=sv_SE
 </screen>
    </para>
 
    <para>
+<!--
     This example for Unix systems sets the locale to Swedish
     (<literal>sv</literal>) as spoken
     in Sweden (<literal>SE</literal>).  Other possibilities might include
@@ -76,22 +113,36 @@ initdb --locale=sv_SE
     <literal>fr_BE.UTF-8</literal> represents the French language (fr) as
     spoken in Belgium (BE), with a <acronym>UTF-8</acronym> character set
     encoding.
+-->
+Unixシステム用のこの例の設定はロケールをスウェーデン（<literal>SE</literal>）で使用されているスウェーデン語（<literal>sv</literal>）に合わせています。
+他にも<literal>en_US</literal>（米国英語）や<literal>fr_CA</literal>（カナダのフランス語）などの設定もできます。
+ロケールに複数の文字セットが使用可能であれば、<replaceable>language_territory.codeset</replaceable>のように記述することができます。
+例えば、<literal>fr_BE.UTF-8</literal>はベルギー（BE）で使用されているフランス語（fr）で<acronym>UTF-8</acronym>の文字セットを表します。
    </para>
 
    <para>
+<!--
     What locales are available on your
     system under what names depends on what was provided by the operating
     system vendor and what was installed.  On most Unix systems, the command
     <literal>locale -a</literal> will provide a list of available locales.
     Windows uses more verbose locale names, such as <literal>German_Germany</literal>
     or <literal>Swedish_Sweden.1252</literal>, but the principles are the same.
+-->
+お使いのシステムでどのロケールがどういう名前で使えるかはオペレーティングシステムのベンダがどのようなものを提供しているかと、何がインストールされているかに依存します。
+ほとんどのUnixシステムでは、<literal>locale -a</literal>というコマンドで利用可能なロケールの一覧を入手することができます。
+Windowsは、<literal>German_Germany</literal>や<literal>Swedish_Sweden.1252</literal>のようなもっと冗長なロケール名を使用しますが、原理は同じです。
    </para>
 
    <para>
+<!--
     Occasionally it is useful to mix rules from several locales, e.g.,
     use English collation rules but Spanish messages.  To support that, a
     set of locale subcategories exist that control only certain
     aspects of the localization rules:
+-->
+英語の照合順序規則でスペイン語のメッセージを使用する時など、時として複数のロケールの規則を併用すると便利です。
+これをサポートするために、ロケールには以下のような多言語対応規則の特定の箇所だけを管理する一連のサブカテゴリがあります。
 
     <informaltable>
      <tgroup cols="2">
@@ -100,46 +151,72 @@ initdb --locale=sv_SE
       <tbody>
        <row>
         <entry><envar>LC_COLLATE</envar></entry>
+<!--
         <entry>String sort order</entry>
+-->
+<entry>文字列の並び換え順</entry>
        </row>
        <row>
         <entry><envar>LC_CTYPE</envar></entry>
+<!--
         <entry>Character classification (What is a letter? Its upper-case equivalent?)</entry>
+-->
+<entry>文字の分類（文字とはどんなもの？大文字小文字を区別しない？）</entry>
        </row>
        <row>
         <entry><envar>LC_MESSAGES</envar></entry>
+<!--
         <entry>Language of messages</entry>
+-->
+<entry>メッセージの言語</entry>
        </row>
        <row>
         <entry><envar>LC_MONETARY</envar></entry>
+<!--
         <entry>Formatting of currency amounts</entry>
+-->
+<entry>通貨書式</entry>
        </row>
        <row>
         <entry><envar>LC_NUMERIC</envar></entry>
+<!--
         <entry>Formatting of numbers</entry>
+-->
+<entry>数字の書式</entry>
        </row>
        <row>
         <entry><envar>LC_TIME</envar></entry>
+<!--
         <entry>Formatting of dates and times</entry>
+-->
+<entry>日付と時刻の書式</entry>
        </row>
       </tbody>
      </tgroup>
     </informaltable>
 
+<!--
     The category names translate into names of
     <command>initdb</command> options to override the locale choice
     for a specific category.  For instance, to set the locale to
     French Canadian, but use U.S. rules for formatting currency, use
-    <literal>initdb --locale=fr_CA --lc-monetary=en_US</literal>.
+    <literal>initdb &#045;&#045;locale=fr_CA &#045;&#045;lc-monetary=en_US</literal>.
+-->
+これらのカテゴリの名前は、特定のカテゴリについてのロケールの選択を上書きするための<command>initdb</command>オプションの名前としてそのまま使用できます。
+例えば、ロケールをカナダのフランス語に設定しながら通貨書式については米国の規則を使用するには、<literal>initdb --locale=fr_CA --lc-monetary=en_US</literal>とします。
    </para>
 
    <para>
+<!--
     If you want the system to behave as if it had no locale support,
     use the special locale name <literal>C</literal>, or equivalently
     <literal>POSIX</literal>.
+-->
+システムがロケールをサポートしていないように動作させたい場合は、特別なロケールの<literal>C</literal>、もしくは同等な<literal>POSIX</literal>を使用してください。
    </para>
 
    <para>
+<!--
     Some locale categories must have their values
     fixed when the database is created.  You can use different settings
     for different databases, but once a database is created, you cannot
@@ -153,9 +230,18 @@ initdb --locale=sv_SE
     categories are determined when <command>initdb</command> is run, and
     those values are used when new databases are created, unless
     specified otherwise in the <command>CREATE DATABASE</command> command.
+-->
+一部のロケールカテゴリでは、その値がデータベース生成時に固定されていなければならないものがあります。
+他のデータベースで他の設定を使用することができますが、一度データベースが生成されると、そのデータベースでは変更することができません。
+<literal>LC_COLLATE</literal>と<literal>LC_CTYPE</literal>がこれらのカテゴリにあてはまります。
+これらはインデックスのソート順に影響を及ぼすため、固定されていなければなりません。
+さもないと、テキスト型の列上のインデックスは破壊されるでしょう。
+(しかし<xref linkend="collation"/>内で述べられているように、照合順序を使用することで、この制限を緩和することができます)
+<command>initdb</command>が実行された時に、これらのカテゴリのデフォルト値は決定され、<command>CREATE DATABASE</command>コマンドで他を指定しない限り、新しいデータベースが作成されるときにこの値が使用されます。
    </para>
 
    <para>
+<!--
     The other locale categories can be changed whenever desired
     by setting the server configuration parameters
     that have the same name as the locale categories (see <xref
@@ -165,19 +251,30 @@ initdb --locale=sv_SE
     serve as defaults when the server is started.  If you remove these
     assignments from <filename>postgresql.conf</filename> then the
     server will inherit the settings from its execution environment.
+-->
+その他のロケールカテゴリは、いつでも、ロケールカテゴリと同じ名前の実行時パラメータを設定することで、希望値に変更することができます
+（詳細は<xref linkend="runtime-config"/>を参照してください）。
+<command>initdb</command>で選択された値は、実際のところ、サーバの起動時にデフォルトとして動作するように<filename>postgresql.conf</filename>設定ファイルに書き込まれるだけです。
+この代入文を<filename>postgresql.conf</filename>から削除すると、サーバは実行環境の設定をそのまま使用します。
    </para>
 
    <para>
+<!--
     Note that the locale behavior of the server is determined by the
     environment variables seen by the server, not by the environment
     of any client.  Therefore, be careful to configure the correct locale settings
     before starting the server.  A consequence of this is that if
     client and server are set up in different locales, messages might
     appear in different languages depending on where they originated.
+-->
+サーバのロケールの動作はどのクライアントの環境にも依存せず、サーバが参照できる環境変数で決まります。
+ですからサーバを稼動させる前に正しいロケール設定を行うように注意してください。
+結果としてサーバとクライアントで異なるロケールが設定されていると、メッセージはそれらがどこから生じたかによって、異なる言語で表示されます。
    </para>
 
    <note>
     <para>
+<!--
      When we speak of inheriting the locale from the execution
      environment, this means the following on most operating systems:
      For a given locale category, say the collation, the following
@@ -186,85 +283,130 @@ initdb --locale=sv_SE
      (or the variable corresponding to the respective category),
      <envar>LANG</envar>.  If none of these environment variables are
      set then the locale defaults to <literal>C</literal>.
+-->
+実行環境のロケールをそのまま使用するということは、ほとんどのオペレーティングシステムでは次のような意味を持ちます。
+指定されたロケールカテゴリ（例えば照合順序）について、設定するものが見つかるまで、以下の環境変数がこの順番で調べられます。<envar>LC_ALL</envar>、<envar>LC_COLLATE</envar>（またはそれぞれのカテゴリに対応する変数）、<envar>LANG</envar>。
+これらのいずれの環境変数も設定されない場合に、ロケールはデフォルトで<literal>C</literal>に設定されます。
     </para>
 
     <para>
+<!--
      Some message localization libraries also look at the environment
      variable <envar>LANGUAGE</envar> which overrides all other locale
      settings for the purpose of setting the language of messages.  If
      in doubt, please refer to the documentation of your operating
      system, in particular the documentation about
      <application>gettext</application>.
+-->
+メッセージの言語を設定する目的で、メッセージ多言語化ライブラリの中には全てのロケール設定を上書きする環境変数<envar>LANGUAGE</envar>を検索するものがあります。
+お使いのシステムでの挙動が不明ならばより詳細な情報を得るためお使いのオペレーティングシステムの文書、特に<application>gettext</application>の文書を参照してください。
     </para>
    </note>
 
    <para>
+<!--
     To enable messages to be translated to the user's preferred language,
     <acronym>NLS</acronym> must have been selected at build time
-    (<literal>configure --enable-nls</literal>).  All other locale support is
+    (<literal>configure &#045;-enable-nls</literal>).  All other locale support is
     built in automatically.
+-->
+ユーザの選択した言語にメッセージを翻訳できるようにするためには<acronym>NLS</acronym>を構築時に有効にする（<literal>configure --enable-nls</literal>）必要があります。
+他のロケールサポートはすべて自動的に構築されます。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Behavior</title>
+-->
+<title>動作</title>
 
    <para>
+<!--
     The locale settings influence the following SQL features:
+-->
+ロケールの設定は以下のSQL機能に影響を与えます。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Sort order in queries using <literal>ORDER BY</literal> or the standard
        comparison operators on textual data
        <indexterm><primary>ORDER BY</primary><secondary>and locales</secondary></indexterm>
+-->
+文字列データに対する<literal>ORDER BY</literal>または標準の比較演算子を使用した問い合わせにおける並び替え順
+<indexterm><primary>ORDER BY</primary><secondary>とロケール</secondary></indexterm>
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        The <function>upper</function>, <function>lower</function>, and <function>initcap</function>
        functions
        <indexterm><primary>upper</primary><secondary>and locales</secondary></indexterm>
        <indexterm><primary>lower</primary><secondary>and locales</secondary></indexterm>
+-->
+<function>upper</function>、<function>lower</function>、<function>initcap</function>関数
+<indexterm><primary>upper</primary><secondary>とロケール</secondary></indexterm>
+<indexterm><primary>lower</primary><secondary>とロケール</secondary></indexterm>
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Pattern matching operators (<literal>LIKE</literal>, <literal>SIMILAR TO</literal>,
        and POSIX-style regular expressions); locales affect both case
        insensitive matching and the classification of characters by
        character-class regular expressions
        <indexterm><primary>LIKE</primary><secondary>and locales</secondary></indexterm>
        <indexterm><primary>regular expressions</primary><secondary>and locales</secondary></indexterm>
+-->
+(<literal>LIKE</literal>、<literal>SIMILAR TO</literal>やPOSIX形式の正規表現といった)パターンマッチング演算子では
+ロケールは大文字、小文字を区別せず正規表現の文字クラスによる文字の区別に影響を及ぼします。
+<indexterm><primary>LIKE</primary><secondary>とロケール</secondary></indexterm>
+<indexterm><primary>正規表現</primary><secondary>とロケール</secondary></indexterm>
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        The <function>to_char</function> family of functions
        <indexterm><primary>to_char</primary><secondary>and locales</secondary></indexterm>
+-->
+一群の<function>to_char</function>関数
+<indexterm><primary>to_char</primary><secondary>とロケール</secondary></indexterm>
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        The ability to use indexes with <literal>LIKE</literal> clauses
+-->
+<literal>LIKE</literal>節が付いたインデックスを使用する性能
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     The drawback of using locales other than <literal>C</literal> or
     <literal>POSIX</literal> in <productname>PostgreSQL</productname> is its performance
     impact. It slows character handling and prevents ordinary indexes
     from being used by <literal>LIKE</literal>. For this reason use locales
     only if you actually need them.
+-->
+<literal>C</literal>や<literal>POSIX</literal>以外で、<productname>PostgreSQL</productname>でロケールを使用する際の欠点は実行速度です。
+ロケールは文字の扱いを遅くし、さらに<literal>LIKE</literal>で通常のインデックスが使用されなくなります。この理由から、本当に必要な時のみロケールを使用してください。
    </para>
 
    <para>
+<!--
     As a workaround to allow <productname>PostgreSQL</productname> to use indexes
     with <literal>LIKE</literal> clauses under a non-C locale, several custom
     operator classes exist. These allow the creation of an index that
@@ -273,21 +415,34 @@ initdb --locale=sv_SE
     for more information.  Another approach is to create indexes using
     the <literal>C</literal> collation, as discussed in
     <xref linkend="collation"/>.
+-->
+C以外のロケールにおいて、<productname>PostgreSQL</productname>が<literal>LIKE</literal>句を持つインデックスを使用できるようにする回避方法として、いくつかのカスタム演算子クラスがあります。
+これらを用いると、文字と文字を厳密に比較するようなインデックスや、ロケールの比較規則を無視するようなインデックスを作成できます。
+詳細は<xref linkend="indexes-opclass"/>を参照してください。
+もうひとつの方法は、<xref linkend="collation"/>内で解説されているような<literal>C</literal>照合順序を使用してインデックスを作成することです。
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Problems</title>
+-->
+<title>問題点</title>
 
    <para>
+<!--
     If locale support doesn't work according to the explanation above,
     check that the locale support in your operating system is
     correctly configured.  To check what locales are installed on your
     system, you can use the command <literal>locale -a</literal> if
     your operating system provides it.
+-->
+上記の説明に従ってロケールのサポートが正常に動作しない場合、オペレーティングシステムのロケールサポートが正確に設定されているか確認してください。
+指定されたロケールがインストールされているかどうか確認するために、オペレーティングシステムが提供していれば、<literal>locale -a</literal>コマンドを使用することができます。
    </para>
 
    <para>
+<!--
     Check that <productname>PostgreSQL</productname> is actually using the locale
     that you think it is.  The <envar>LC_COLLATE</envar> and <envar>LC_CTYPE</envar>
     settings are determined when a database is created, and cannot be
@@ -296,23 +451,36 @@ initdb --locale=sv_SE
     are initially determined by the environment the server is started
     in, but can be changed on-the-fly.  You can check the active locale
     settings using the <command>SHOW</command> command.
+-->
+<productname>PostgreSQL</productname>が想定しているロケールを実際に使用しているかどうかを確認してください。
+<envar>LC_COLLATE</envar>と<envar>LC_CTYPE</envar>の設定はデータベース作成時に決定され、新しいデータベースを作成する方法以外に変更することはできません。
+<envar>LC_MESSAGES</envar>や<envar>LC_MONETARY</envar>など他のロケール設定はサーバ起動時の環境変数によって初めに決定されますが、その場で変更することができます。
+<command>SHOW</command>コマンドを使用して、使用中のロケール設定を確認することができます。
    </para>
 
    <para>
+<!--
     The directory <filename>src/test/locale</filename> in the source
     distribution contains a test suite for
     <productname>PostgreSQL</productname>'s locale support.
+-->
+ソース配布物の<filename>src/test/locale</filename>ディレクトリには、<productname>PostgreSQL</productname>のロケールサポート用の試験一式があります。
    </para>
 
    <para>
+<!--
     Client applications that handle server-side errors by parsing the
     text of the error message will obviously have problems when the
     server's messages are in a different language.  Authors of such
     applications are advised to make use of the error code scheme
     instead.
+-->
+エラーメッセージ内のテキストを解析してサーバ側のエラーを扱っているクライアントアプリケーションでは、サーバのメッセージが異なる言語で記載されると、明らかに問題になります。
+こうしたアプリケーションの作者には、エラーコードスキームで代替させることを推奨します。
    </para>
 
    <para>
+<!--
     Maintaining catalogs of message translations requires the on-going
     efforts of many volunteers that want to see
     <productname>PostgreSQL</productname> speak their preferred language well.
@@ -320,28 +488,43 @@ initdb --locale=sv_SE
     translated, your assistance would be appreciated.  If you want to
     help, refer to <xref linkend="nls"/> or write to the developers'
     mailing list.
+-->
+メッセージ翻訳のカタログのメンテナンスには<productname>PostgreSQL</productname>に選択した言語を話させてみたいという数多くのボランティアのたゆみのない努力を必要としています。
+もしあなたの言語が現在使えなかったり完全に翻訳されてない場合、助力をよろしくお願いします。
+もし助力頂けるのであれば、<xref linkend="nls"/>を参照するか開発グループのメーリングリストに投稿してください。
    </para>
   </sect2>
  </sect1>
 
 
  <sect1 id="collation">
+<!--
   <title>Collation Support</title>
+-->
+  <title>照合順序サポート</title>
 
   <indexterm zone="collation"><primary>collation</primary></indexterm>
 
   <para>
+<!--
    The collation feature allows specifying the sort order and character
    classification behavior of data per-column, or even per-operation.
    This alleviates the restriction that the
    <symbol>LC_COLLATE</symbol> and <symbol>LC_CTYPE</symbol> settings
    of a database cannot be changed after its creation.
+-->
+照合順序機能は、ソート順番と列ごともしくは操作ごとのデータの文字区別の振る舞いを指定することを可能にします。
+これにより、作成後のデータベースの<symbol>LC_COLLATE</symbol>と<symbol>LC_CTYPE</symbol>の設定が変更できない制限が緩和されます。
   </para>
 
   <sect2>
+<!--
    <title>Concepts</title>
+-->
+   <title>概念</title>
 
    <para>
+<!--
     Conceptually, every expression of a collatable data type has a
     collation.  (The built-in collatable data types are
     <type>text</type>, <type>varchar</type>, and <type>char</type>.
@@ -352,17 +535,29 @@ initdb --locale=sv_SE
     collation is the default collation of the data type of the
     constant.  The collation of a more complex expression is derived
     from the collations of its inputs, as described below.
+-->
+概念的に照合可能なデータ型のそれぞれの式は、照合順序を保持しています
+(組み込みの照合可能なデータ型は<type>text</type>、<type>varchar</type>、 <type>char</type>です。
+ユーザ定義の基本型は照合可能とマーキングできます。もちろん照合可能なデータ型上のドメインは照合可能となります)。
+もし、式が列参照である場合は、式の照合順序は列の定義された照合順序となります。
+もし、式が定数である場合は、照合順序は定数のデータ型のデフォルトの照合順序となります。
+より複雑な式の照合順序は、下記に示すように、その入力の照合順序から引き出されます。
    </para>
 
    <para>
+<!--
     The collation of an expression can be the <quote>default</quote>
     collation, which means the locale settings defined for the
     database.  It is also possible for an expression's collation to be
     indeterminate.  In such cases, ordering operations and other
     operations that need to know the collation will fail.
+-->
+式の照合順序は、<quote>default</quote>照合順序となります。これはデータベースに対して定義されたロケール設定を意味しています。
+式の照合順序は非決定となることもあります。そのような場合に、照合順序が必要となるような順序操作や他の操作は失敗するでしょう。
    </para>
 
    <para>
+<!--
     When the database system has to perform an ordering or a character
     classification, it uses the collation of the input expression.  This
     happens, for example, with <literal>ORDER BY</literal> clauses
@@ -375,9 +570,16 @@ initdb --locale=sv_SE
     letters, such as <function>lower</function>, <function>upper</function>, and
     <function>initcap</function>; by pattern matching operators; and by
     <function>to_char</function> and related functions.
+-->
+データベースシステムが並び変えや文字区別を行う場合、データベースは入力の照合順序を使用します。
+これは、たとえば<literal>ORDER BY</literal>句や<literal>&lt;</literal>演算子や関数を使用する際に発生します。
+<literal>ORDER BY</literal>句に適用する照合順序は、単純にソートキーの照合順序です。
+関数や演算子の呼び出しに対して適用される照合順序は、以下に述べるように引数により決まります。
+比較演算子に加えて、照合順序は<function>lower</function>、<function>upper</function>、<function>initcap</function>といった小文字と大文字を変換する関数やパターンマッチングの演算子、<function>to_char</function>関連の関数で考慮されています。
    </para>
 
    <para>
+<!--
     For a function or operator call, the collation that is derived by
     examining the argument collations is used at run time for performing
     the specified operation.  If the result of the function or operator
@@ -385,9 +587,14 @@ initdb --locale=sv_SE
     time as the defined collation of the function or operator expression,
     in case there is a surrounding expression that requires knowledge of
     its collation.
+-->
+関数や演算子の呼び出しに対して、引数の照合順序検査により得られた照合順序は実行時に特定の操作を行うために使用されます。
+もし関数や演算子の呼び出しの結果が照合順序可能なデータ型であった場合、照合順序は関数もしくは演算子式の定義済みの照合順序として
+解析時にも試用されます。このとき照合順序の知識が必要となるような囲み式があります。
    </para>
 
    <para>
+<!--
     The <firstterm>collation derivation</firstterm> of an expression can be
     implicit or explicit.  This distinction affects how collations are
     combined when multiple different collations appear in an
@@ -396,39 +603,61 @@ initdb --locale=sv_SE
     derivations are implicit.  When multiple collations need to be
     combined, for example in a function call, the following rules are
     used:
+-->
+式の<firstterm>照合順序の導出</firstterm>は暗黙でも明示的にでも可能です。
+この区別は、複数の異なる照合順序が式中に現れるときに照合順序がどのように組み合わされるか、に影響を与えます。
+明示的な照合順序の導出は、<literal>COLLATE</literal>句が使用されたときに発生します。
+他の全ての照合順序は暗黙となります。例えば関数呼び出しの中では、次の規則が用いられます。
 
     <orderedlist>
      <listitem>
       <para>
+<!--
        If any input expression has an explicit collation derivation, then
        all explicitly derived collations among the input expressions must be
        the same, otherwise an error is raised.  If any explicitly
        derived collation is present, that is the result of the
        collation combination.
+-->
+入力式に明示的な照合順序の導出がある場合、入力式の中の明示的に導出された全ての照合順序は同一でなくてはなりません。
+そうでない場合はエラーが発生します。もし明示的に導出された照合順序がある場合は、それは照合順序の組み合わせの結果となります。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Otherwise, all input expressions must have the same implicit
        collation derivation or the default collation.  If any non-default
        collation is present, that is the result of the collation combination.
        Otherwise, the result is the default collation.
+-->
+そうでない場合は、全ての入力式は同一の暗黙の照合順序の導出またはデフォルトの照合順序を持たなくてはなりません。
+もしデフォルトではない照合順序がある場合は、それは照合順序の組み合わせの結果となります。
+もしそうでない場合は、結果はデフォルトの照合順序となります。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        If there are conflicting non-default implicit collations among the
        input expressions, then the combination is deemed to have indeterminate
        collation.  This is not an error condition unless the particular
        function being invoked requires knowledge of the collation it should
        apply.  If it does, an error will be raised at run-time.
+-->
+入力式内でデフォルトではない暗黙の照合順序が衝突している場合、決定不能な照合順序であるとみなされます。
+これは、もし呼び出された特定の関数が適用するべき照合順序を知っておく必要がないかぎりエラーの条件ではありません。
+もし知っておく必要がある場合は、実行時にエラーとなります。
       </para>
      </listitem>
     </orderedlist>
 
+<!--
     For example, consider this table definition:
+-->
+例えば、このテーブル定義を考えてみます。
 <programlisting>
 CREATE TABLE test1 (
     a text COLLATE "de_DE",
@@ -437,61 +666,101 @@ CREATE TABLE test1 (
 );
 </programlisting>
 
+<!--
     Then in
+-->
+このとき
 <programlisting>
 SELECT a &lt; 'foo' FROM test1;
 </programlisting>
+<!--
     the <literal>&lt;</literal> comparison is performed according to
     <literal>de_DE</literal> rules, because the expression combines an
     implicitly derived collation with the default collation.  But in
+-->
+<literal>&lt;</literal>の比較は<literal>de_DE</literal>の規則により実行されます。
+というのも式は暗黙的に導出されたデフォルトの照合順序と組み合わせます。しかし、
+
 <programlisting>
 SELECT a &lt; ('foo' COLLATE "fr_FR") FROM test1;
 </programlisting>
+<!--
     the comparison is performed using <literal>fr_FR</literal> rules,
     because the explicit collation derivation overrides the implicit one.
     Furthermore, given
+-->
+このとき比較は、明示的な照合順序の導出は暗黙の照合順序をオーバライドするため<literal>fr_FR</literal>規則が用いられます。
+さらに、次の例では
 <programlisting>
 SELECT a &lt; b FROM test1;
 </programlisting>
+<!--
     the parser cannot determine which collation to apply, since the
     <structfield>a</structfield> and <structfield>b</structfield> columns have conflicting
     implicit collations.  Since the <literal>&lt;</literal> operator
     does need to know which collation to use, this will result in an
     error.  The error can be resolved by attaching an explicit collation
     specifier to either input expression, thus:
+-->
+パーサはどの照合順序を適用するか決定できません。というのも<structfield>a</structfield>と<structfield>b</structfield>列は暗黙の衝突する照合順序を持つためです。
+<literal>&lt;</literal>演算子がどちらの照合順序を使用するか知る必要があるため、これはエラーとなります。
+
 <programlisting>
 SELECT a &lt; b COLLATE "de_DE" FROM test1;
 </programlisting>
+<!--
     or equivalently
+-->
+もしくは同じく
 <programlisting>
 SELECT a COLLATE "de_DE" &lt; b FROM test1;
 </programlisting>
+<!--
     On the other hand, the structurally similar case
+-->
+一方で、以下のように構造的に似たケースとして
 <programlisting>
 SELECT a || b FROM test1;
 </programlisting>
+<!--
     does not result in an error, because the <literal>||</literal> operator
     does not care about collations: its result is the same regardless
     of the collation.
+-->
+これはエラーとなりません。というのも<literal>||</literal>演算子は、照合順序には関係がないためです。
+この結果は照合順序とは関係なく同じになります。
    </para>
 
    <para>
+<!--
     The collation assigned to a function or operator's combined input
     expressions is also considered to apply to the function or operator's
     result, if the function or operator delivers a result of a collatable
     data type.  So, in
+-->
+もし関数や演算子が照合順序可能なデータ型の結果を出力する場合は、関数に割り当てられた照合順序、もしくは演算子の組み合わされた入力式は、関数もしくは演算子の結果に対しても
+適用されると考えられます。よって、以下の例では
 <programlisting>
 SELECT * FROM test1 ORDER BY a || 'foo';
 </programlisting>
+<!--
     the ordering will be done according to <literal>de_DE</literal> rules.
     But this query:
+-->
+順序は<literal>de_DE</literal>規則に基づき実行されますが、以下のクエリでは
 <programlisting>
 SELECT * FROM test1 ORDER BY a || b;
 </programlisting>
+<!--
     results in an error, because even though the <literal>||</literal> operator
     doesn't need to know a collation, the <literal>ORDER BY</literal> clause does.
     As before, the conflict can be resolved with an explicit collation
     specifier:
+-->
+エラーとなります。というのも<literal>||</literal>演算子が照合順序を知る必要がなかったとしても
+<literal>ORDER BY</literal>句が照合順序を知る必要があるためです。
+以前と同様、この衝突は明示的に照合順序を指定することにより解決できます。
+
 <programlisting>
 SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
 </programlisting>
@@ -499,9 +768,13 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
   </sect2>
 
   <sect2 id="collation-managing">
+<!--
    <title>Managing Collations</title>
+-->
+   <title>照合順序の管理</title>
 
    <para>
+<!--
     A collation is an SQL schema object that maps an SQL name to locales
     provided by libraries installed in the operating system.  A collation
     definition has a <firstterm>provider</firstterm> that specifies which
@@ -512,9 +785,17 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
     is <literal>icu</literal>, which uses the external
     ICU<indexterm><primary>ICU</primary></indexterm> library.  ICU locales can only be
     used if support for ICU was configured when PostgreSQL was built.
+-->
+照合順序は、SQL名称を、オペレーティングシステム中にインストールされたライブラリによって提供されるロケールにマッピングするSQLスキーマオブジェクトです。
+照合順序の定義には、ロケールデータを提供するライブラリを指定する<firstterm>プロバイダ</firstterm>(provider)が含まれます。
+標準プロバイダの一つは<literal>libc</literal>で、オペレーティングシステムのCライブラリが提供するロケールを使用します。
+オペレーティングシステムが提供するほとんどのツールが、このロケールを使用します。
+他のプロバイダとしては<literal>icu</literal>があり、外部のICU<indexterm><primary>ICU</primary></indexterm>ライブラリを使います。
+ICUロケールは、PostgreSQLがビルドされた際にICUサポートが設定されていた場合にのみ利用可能です。
    </para>
 
    <para>
+<!--
     A collation object provided by <literal>libc</literal> maps to a
     combination of <symbol>LC_COLLATE</symbol> and <symbol>LC_CTYPE</symbol>
     settings, as accepted by the <literal>setlocale()</literal> system library call.  (As
@@ -528,21 +809,38 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
     a <literal>libc</literal> collation
     is tied to a character set encoding (see <xref linkend="multibyte"/>).
     The same collation name may exist for different encodings.
+-->
+<literal>libc</literal>が提供する照合順序は、<literal>setlocale()</literal>システムライブラリの呼び出しが許可する<symbol>LC_COLLATE</symbol>と<symbol>LC_CTYPE</symbol>の組み合わせ設定にマッピングします。
+(名称から推測されるように、照合順序の主な目的はソート順序を制御する<symbol>LC_COLLATE</symbol>を設定することです。
+しかし実際には<symbol>LC_CTYPE</symbol>の設定を<symbol>LC_COLLATE</symbol>と異なるようにする必要はほとんどありません。
+そのため、式ごとに<symbol>LC_CTYPE</symbol>を設定するような別の機構を作成するより、これらの設定を収集する方が、より便利です。)
+また、<literal>libc</literal>の照合順序は文字エンコーディングと結びついています(<xref linkend="multibyte"/>を参照下さい)。
+同一の照合順序名称が異なるエンコーディングに対して存在しています。
    </para>
 
    <para>
+<!--
     A collation object provided by <literal>icu</literal> maps to a named
     collator provided by the ICU library.  ICU does not support
     separate <quote>collate</quote> and <quote>ctype</quote> settings, so
     they are always the same.  Also, ICU collations are independent of the
     encoding, so there is always only one ICU collation of a given name in
     a database.
+-->
+<literal>icu</literal>が提供する照合順序オブジェクトは、ICUライブラリが提供する照合順序機能(collator)にマップします。
+ICUは<quote>collate</quote>と<quote>ctype</quote>を別々に設定する機能を提供しないので、それら常に同じものになります。
+また、ICUの照合順序はエンコーディングからは独立しています。
+ですから、データベース中のある名前のICU照合順序は、常にただひとつだけです。
    </para>
 
    <sect3>
+<!--
     <title>Standard Collations</title>
+-->
+    <title>標準の照合順序</title>
 
    <para>
+<!--
     On all platforms, the collations named <literal>default</literal>,
     <literal>C</literal>, and <literal>POSIX</literal> are available.  Additional
     collations may be available depending on operating system support.
@@ -553,19 +851,34 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
     <quote><literal>A</literal></quote> through <quote><literal>Z</literal></quote>
     are treated as letters, and sorting is done strictly by character
     code byte values.
+-->
+すべてのプラットフォーム上で<literal>default</literal>、<literal>C</literal>そして<literal>POSIX</literal>という名称の照合順序が
+利用できます。
+オペレーティングシステムによっては追加の照合順序が利用可能な場合もあります。
+<literal>default</literal>照合順序は、データベース作成時に<symbol>LC_COLLATE</symbol>値と<symbol>LC_CTYPE</symbol>値を
+選択します。<literal>C</literal>と<literal>POSIX</literal>照合順序は共に<quote>traditional C</quote>の動作を指定します。
+これはASCII文字の<quote><literal>A</literal></quote>から<quote><literal>Z</literal></quote>を文字として扱い、ソート順は厳密な文字コードのバイト値によります。
    </para>
 
    <para>
+<!--
     Additionally, the SQL standard collation name <literal>ucs_basic</literal>
     is available for encoding <literal>UTF8</literal>.  It is equivalent
     to <literal>C</literal> and sorts by Unicode code point.
+-->
+加えて、エンコーディング<literal>UTF8</literal>では、SQL標準の照合順序名<literal>ucs_basic</literal>が利用できます。
+<literal>ucs_basic</literal>は<literal>C</literal>と同等のもので、ソート順はUnicodeのコードポイントです。
    </para>
   </sect3>
 
   <sect3>
+<!--
    <title>Predefined Collations</title>
+-->
+   <title>定義済みの照合順序</title>
 
    <para>
+<!--
     If the operating system provides support for using multiple locales
     within a single program (<function>newlocale</function> and related functions),
     or if support for ICU is configured,
@@ -573,18 +886,27 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
     populates the system catalog <literal>pg_collation</literal> with
     collations based on all the locales it finds in the operating
     system at the time.
+-->
+オペレーティングシステムが単一のプログラム内(<function>newlocale</function>や関連する関数)で複数のロケールを使用することをサポートしているか、ICUサポートが組み込み済みの場合、データベースクラスタが初期化されると<command>initdb</command>は、オペレーティングシステム上で見つけた全てのロケールに基づく照合順序をシステムカタログの<literal>pg_collation</literal>に書き込みます。
    </para>
 
    <para>
+<!--
     To inspect the currently available locales, use the query <literal>SELECT
     * FROM pg_collation</literal>, or the command <command>\dOS+</command>
     in <application>psql</application>.
+-->
+現在利用可能なロケールを調べるには、<literal>SELECT * FROM pg_collation</literal>という問合せを使うか、<application>psql</application>内で<command>\dOS+</command>コマンドを使用します。
    </para>
 
   <sect4>
+<!--
    <title>libc Collations</title>
+-->
+   <title>libc照合順序</title>
 
    <para>
+<!--
     For example, the operating system might
     provide a locale named <literal>de_DE.utf8</literal>.
     <command>initdb</command> would then create a collation named
@@ -597,9 +919,15 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
     to write and makes the name less encoding-dependent.  Note that,
     nevertheless, the initial set of collation names is
     platform-dependent.
+-->
+例えば、オペレーティングシステムが<literal>de_DE.utf8</literal>という名称のロケールを提供した場合、<command>initdb</command>は、<literal>de_DE.utf8</literal>に設定された<symbol>LC_COLLATE</symbol>と<symbol>LC_CTYPE</symbol>の両方を持つ<literal>UTF8</literal>エンコーディングの<literal>de_DE.utf8</literal>という名称の照合順序を作成します。
+同時に照合順序の名称から<literal>.utf8</literal>タグを削除した照合順序も作成します。
+これは手間を省き、名称がエンコーディングに依存しにくいようになります。
+それにもかかわらず、照合順序名称の初期値はプラットフォーム依存となることに気をつけてください。
    </para>
 
    <para>
+<!--
     The default set of collations provided by <literal>libc</literal> map
     directly to the locales installed in the operating system, which can be
     listed using the command <literal>locale -a</literal>.  In case
@@ -610,9 +938,14 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
     the <xref linkend="sql-createcollation"/> command.
     New operating system locales can also be imported en masse using
     the <link linkend="functions-admin-collation"><function>pg_import_system_collations()</function></link> function.
+-->
+<literal>libc</literal>が提供するデフォルトの照合順序の集合は、直接オペレーティングシステム内にインストールされたロケールにマップされ、コマンド<literal>locale -a</literal>で参照できます。
+<symbol>LC_COLLATE</symbol>と<symbol>LC_CTYPE</symbol>で違う値を持つ<literal>libc</literal>照合順序が必要な場合、あるいはデータベースシステムが初期化された後に新しいロケールがインストールされた場合は、新しい照合順序を<xref linkend="sql-createcollation"/>コマンドで作成できます。
+また、新しいオペレーティングシステムロケールは、<link linkend="functions-admin-collation"><function>pg_import_system_collations()</function></link>関数でインポートできます。
    </para>
 
    <para>
+<!--
     Within any particular database, only collations that use that
     database's encoding are of interest.  Other entries in
     <literal>pg_collation</literal> are ignored.  Thus, a stripped collation
@@ -623,25 +956,45 @@ SELECT * FROM test1 ORDER BY a || b COLLATE "fr_FR";
     another database encoding.  Note however that the <literal>default</literal>,
     <literal>C</literal>, and <literal>POSIX</literal> collations can be used regardless of
     the database encoding.
+-->
+どのようなデータベース内でも、データベースのエンコーディングを使用している照合順序のみが興味の対象となります。
+<literal>pg_collation</literal>内の他のエントリは無視されます。
+よって<literal>de_DE</literal>といったようなエンコーディング名が省かれた照合順序は、一般的には一意でなくてもデータベース内では一意であるとみなされます。
+エンコーディング名が省かれた照合順序を使用することを推奨します。
+というのも、データベースのエンコーディングを変更するときに、変えなければならないものを１つ減らせるからです。
+しかし、<literal>default</literal>、<literal>C</literal>そして<literal>POSIX</literal>照合順序は、データベースのエンコーディングに関係なく使用可能であることに注意してください。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> considers distinct collation
     objects to be incompatible even when they have identical properties.
     Thus for example,
+-->
+<productname>PostgreSQL</productname>は、異なる照合順序オブジェクトは、それらが同じプロパティを持っていても互換性がないものとみなします。
+例えば、
+
 <programlisting>
 SELECT a COLLATE "C" &lt; b COLLATE "POSIX" FROM test1;
 </programlisting>
+<!--
     will draw an error even though the <literal>C</literal> and <literal>POSIX</literal>
     collations have identical behaviors.  Mixing stripped and non-stripped
     collation names is therefore not recommended.
+-->
+は、<literal>C</literal>と<literal>POSIX</literal>照合順序が同じ動作であってもエラーとなります。
+よってエンコーディング名が省かれた照合順序を混ぜて使用することは推奨されません。
    </para>
   </sect4>
 
   <sect4>
+<!--
    <title>ICU Collations</title>
+-->
+   <title>ICU照合順序</title>
 
    <para>
+<!--
     With ICU, it is not sensible to enumerate all possible locale names.  ICU
     uses a particular naming system for locales, but there are many more ways
     to name a locale than there are actually distinct locales.
@@ -651,37 +1004,64 @@ SELECT a COLLATE "C" &lt; b COLLATE "POSIX" FROM test1;
     format, with a <quote>private use</quote>
     extension <literal>-x-icu</literal> appended, to distinguish them from
     libc locales.
+-->
+ICUにおいては、すべての可能なロケール名を列挙するのは賢明ではありません。
+ICUはロケールの固有の名前付けシステムを使っています。
+しかし、実際の個別のロケール名以上の名前を付ける多くの方法があります。
+<command>initdb</command>はICUのAPIを使い、照合順序の初期集合を入力するための
+個別のロケールの集合を取り出します。
+ICUが提供する照合順序は、libcロケールと区別するために、SQL環境において、<quote>私的利用</quote>拡張<literal>-x-icu</literal>を追加したBCP 47言語タグ形式の名前で作成されます。
    </para>
 
    <para>
+<!--
     Here are some example collations that might be created:
+-->
+以下は作成されるかもしれない照合順序の例です。
 
     <variablelist>
      <varlistentry>
       <term><literal>de-x-icu</literal></term>
       <listitem>
+<!--
        <para>German collation, default variant</para>
+-->
+       <para>ドイツ語照合順序、デフォルトの異型</para>
       </listitem>
      </varlistentry>
 
      <varlistentry>
       <term><literal>de-AT-x-icu</literal></term>
       <listitem>
+<!--
        <para>German collation for Austria, default variant</para>
+-->
+       <para>オーストリアのドイツ語照合順序、デフォルトの異型</para>
        <para>
+<!--
         (There are also, say, <literal>de-DE-x-icu</literal>
         or <literal>de-CH-x-icu</literal>, but as of this writing, they are
         equivalent to <literal>de-x-icu</literal>.)
+-->
+（他に、<literal>de-DE-x-icu</literal>あるいは<literal>de-CH-x-icu</literal>というのがあります。
+しかし、本稿執筆時点では、それらは<literal>de-x-icu</literal>と同じです。）
        </para>
       </listitem>
      </varlistentry>
 
      <varlistentry>
+<!--
       <term><literal>und-x-icu</literal> (for <quote>undefined</quote>)</term>
+-->
+      <term><literal>und-x-icu</literal> (<quote>undefined</quote>用)</term>
       <listitem>
        <para>
+<!--
         ICU <quote>root</quote> collation.  Use this to get a reasonable
         language-agnostic sort order.
+-->
+ICU<quote>root</quote>照合順序。
+言語に依存しない適当なソート順を得るために使用してください。
        </para>
       </listitem>
      </varlistentry>
@@ -689,45 +1069,71 @@ SELECT a COLLATE "C" &lt; b COLLATE "POSIX" FROM test1;
    </para>
 
    <para>
+<!--
     Some (less frequently used) encodings are not supported by ICU.  When the
     database encoding is one of these, ICU collation entries
     in <literal>pg_collation</literal> are ignored.  Attempting to use one
     will draw an error along the lines of <quote>collation "de-x-icu" for
     encoding "WIN874" does not exist</quote>.
+-->
+ある種の（利用頻度が低い）エンコーディングをICUはサポートしません。
+データベースエンコーディングがこのようなものであった場合、<literal>pg_collation</literal>中のICU照合順序は無視されます。
+このようなものを使おうとすると、<quote>collation "de-x-icu" for encoding "WIN874" does not exist</quote>というメッセージを伴ったエラーが発生します。
    </para>
   </sect4>
   </sect3>
 
   <sect3 id="collation-create">
+<!--
    <title>Creating New Collation Objects</title>
+-->
+   <title>新しい照合順序オブジェクの作成</title>
 
    <para>
+<!--
     If the standard and predefined collations are not sufficient, users can
     create their own collation objects using the SQL
     command <xref linkend="sql-createcollation"/>.
+-->
+標準の定義済み照合順序が十分でない場合は、ユーザはSQLコマンド<xref linkend="sql-createcollation"/>で照合順序オブジェクトを作成できます。
    </para>
 
    <para>
+<!--
     The standard and predefined collations are in the
     schema <literal>pg_catalog</literal>, like all predefined objects.
     User-defined collations should be created in user schemas.  This also
     ensures that they are saved by <command>pg_dump</command>.
+-->
+すべての定義済みオブジェクト同様、標準の定義済み照合順序は<literal>pg_catalog</literal>スキーマにあります。
+これはまた、<command>pg_dump</command>の保存対象になることを確実にします。
    </para>
 
    <sect4>
+<!--
     <title>libc Collations</title>
+-->
+    <title>libc照合順序</title>
 
     <para>
+<!--
      New libc collations can be created like this:
+-->
+以下のようにして新しいlibc照合順序を作成できます。
 <programlisting>
 CREATE COLLATION german (provider = libc, locale = 'de_DE');
 </programlisting>
+<!--
      The exact values that are acceptable for the <literal>locale</literal>
      clause in this command depend on the operating system.  On Unix-like
      systems, the command <literal>locale -a</literal> will show a list.
+-->
+コマンド中の<literal>locale</literal>句に使用できる正確な値は、オペレーティングシステムに依存します。
+Unix系のシステムでは、<literal>locale -a</literal>コマンドでこのリストを表示できるでしょう。
     </para>
 
     <para>
+<!--
      Since the predefined libc collations already include all collations
      defined in the operating system when the database instance is
      initialized, it is not often necessary to manually create new ones.
@@ -735,13 +1141,20 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
      see also <xref linkend="collation-copy"/>) or if the operating system has
      been upgraded to provide new locale definitions (in which case see
      also <link linkend="functions-admin-collation"><function>pg_import_system_collations()</function></link>).
+-->
+定義済みのlibc照合順序は、データベースインスタンスが初期化された際に、オペレーティングシステムで定義されたすべての照合順序をすでに含んでいるので、新しいものを手動で作る必要はあまりないでしょう。
+そうしたことをする理由があるとすれば、異なる命名規則が必要である（この場合は、<xref linkend="collation-copy"/>も参照してください）、あるいはオペレーティングシステムが更新されて、新しい照合順序の定義が提供されるようになった場合です。（この場合は<link linkend="functions-admin-collation"><function>pg_import_system_collations()</function></link>も参照してください。）
     </para>
    </sect4>
 
    <sect4>
+<!--
     <title>ICU Collations</title>
+-->
+    <title>ICU照合順序</title>
 
    <para>
+<!--
     ICU allows collations to be customized beyond the basic language+country
     set that is preloaded by <command>initdb</command>.  Users are encouraged
     to define their own collation objects that make use of these facilities to
@@ -750,28 +1163,50 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
     and <ulink url="http://userguide.icu-project.org/collation/api"></ulink> for
     information on ICU locale naming.  The set of acceptable names and
     attributes depends on the particular ICU version.
+-->
+ICUでは、<command>initdb</command>であらかじめロードされた基本的な言語＋国の集合を超えて照合順序をカスタマイズできます。
+ユーザが、これらの機能を利用して、ソート処理の挙動が自分の要件に適合する照合順序オブジェクトを定義することを推奨します。
+ICUロケールの命名規則に関する情報に関しては、<ulink url="http://userguide.icu-project.org/locale"></ulink>と<ulink url="http://userguide.icu-project.org/collation/api"></ulink>を参照してください。
+利用可能な名前と属性の集合は、ICUのバージョンに依存します。
    </para>
 
    <para>
+<!--
     Here are some examples:
+-->
+例を示します。
 
     <variablelist>
      <varlistentry>
       <term><literal>CREATE COLLATION "de-u-co-phonebk-x-icu" (provider = icu, locale = 'de-u-co-phonebk');</literal></term>
       <term><literal>CREATE COLLATION "de-u-co-phonebk-x-icu" (provider = icu, locale = 'de@collation=phonebook');</literal></term>
       <listitem>
+<!--
        <para>German collation with phone book collation type</para>
+-->
+       <para>電話帳照合順形式を伴うドイツ語の照合順序</para>
        <para>
+<!--
         The first example selects the ICU locale using a <quote>language
         tag</quote> per BCP 47.  The second example uses the traditional
         ICU-specific locale syntax.  The first style is preferred going
         forward, but it is not supported by older ICU versions.
+-->
+
+最初の例では、BCP 47による<quote>language tag</quote>を使ったICU照合順序を選択しています。
+次の例は伝統的なICU固有のロケール構文を使用しています。
+最初の形式を以後使用しますが、これは古いICUのバージョンではサポートされません。
        </para>
        <para>
+<!--
         Note that you can name the collation objects in the SQL environment
         anything you want.  In this example, we follow the naming style that
         the predefined collations use, which in turn also follow BCP 47, but
         that is not required for user-defined collations.
+-->
+SQL環境における照合順序オブジェクトにはどのような名前でも付けられることに注意してください。
+この例では、定義済みの照合順序が使っている名前付け形式に従っているので、結果としてBCP 47に従っています。
+しかし、これはユーザ定義照合順序では必須ではありません。
        </para>
       </listitem>
      </varlistentry>
@@ -781,11 +1216,17 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
       <term><literal>CREATE COLLATION "und-u-co-emoji-x-icu" (provider = icu, locale = '@collation=emoji');</literal></term>
       <listitem>
        <para>
+<!--
         Root collation with Emoji collation type, per Unicode Technical Standard #51
+-->
+絵文字照合順序型を伴うRoot照合順序。Unicode標準51番による。
        </para>
        <para>
+<!--
         Observe how in the traditional ICU locale naming system, the root
         locale is selected by an empty string.
+-->
+伝統的なICUロケール命名規則では、rootロケールは空文字列によって選択されることに注目してください。
        </para>
       </listitem>
      </varlistentry>
@@ -795,7 +1236,10 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
       <term><literal>CREATE COLLATION latinlast (provider = icu, locale = 'en@colReorder=grek-latn');</literal></term>
       <listitem>
        <para>
+<!--
         Sort Greek letters before Latin ones.  (The default is Latin before Greek.)
+-->
+ラテン文字の前にギリシャ文字が来るように並べます。（デフォルトではギリシャ文字の前にラテン文字が来ます。）
        </para>
       </listitem>
      </varlistentry>
@@ -805,8 +1249,11 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
       <term><literal>CREATE COLLATION upperfirst (provider = icu, locale = 'en@colCaseFirst=upper');</literal></term>
       <listitem>
        <para>
+<!--
         Sort upper-case letters before lower-case letters.  (The default is
         lower-case letters first.)
+-->
+小文字の前に大文字が来るように並べます。（デフォルトでは最初に小文字が来ます。）
        </para>
       </listitem>
      </varlistentry>
@@ -816,7 +1263,10 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
       <term><literal>CREATE COLLATION special (provider = icu, locale = 'en@colCaseFirst=upper;colReorder=grek-latn');</literal></term>
       <listitem>
        <para>
+<!--
         Combines both of the above options.
+-->
+上記のオプションを組み合わせます。
        </para>
       </listitem>
      </varlistentry>
@@ -826,14 +1276,20 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
       <term><literal>CREATE COLLATION numeric (provider = icu, locale = 'en@colNumeric=yes');</literal></term>
       <listitem>
        <para>
+<!--
         Numeric ordering, sorts sequences of digits by their numeric value,
         for example: <literal>A-21</literal> &lt; <literal>A-123</literal>
         (also known as natural sort).
+-->
+数値の値により、数字の列を並べる数値の順序付けです。
+例： <literal>A-21</literal> &lt; <literal>A-123</literal>
+（自然順ソート(natural sort)としても知られています。）
        </para>
       </listitem>
      </varlistentry>
     </variablelist>
 
+<!--
     See <ulink url="https://www.unicode.org/reports/tr35/tr35-collation.html">Unicode
     Technical Standard #35</ulink>
     and <ulink url="https://tools.ietf.org/html/bcp47">BCP 47</ulink> for
@@ -845,9 +1301,15 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
     Explorer</ulink> can be used to check the details of a particular locale
     definition.  The examples using the <literal>k*</literal> subtags require
     at least ICU version 54.
+-->
+詳細は、<ulink url="https://www.unicode.org/reports/tr35/tr35-collation.html">Unicode Technical Standard #35</ulink>と、<ulink url="https://tools.ietf.org/html/bcp47">BCP 47</ulink>をご覧ください。
+可能な照合順序型(<literal>co</literal>下位タグ)のリストは、<ulink url="https://github.com/unicode-org/cldr/blob/master/common/bcp47/collation.xml">CLDR repository</ulink>で参照できます。
+<ulink url="https://ssl.icu-project.org/icu-bin/locexp">ICU Locale Explorer</ulink>で、特定のロケール定義の詳細を確認できます。
+<literal>k*</literal>下位タグを使う例では、は少なくともICUのバージョン54が必要です。
    </para>
 
    <para>
+<!--
     Note that while this system allows creating collations that <quote>ignore
     case</quote> or <quote>ignore accents</quote> or similar (using the
     <literal>ks</literal> key), in order for such collations to act in a
@@ -856,10 +1318,15 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
     see <xref linkend="collation-nondeterministic"/>.
     Otherwise, any strings that compare equal according to the collation but
     are not byte-wise equal will be sorted according to their byte values.
+-->
+このシステムでは、<quote>大文字小文字の違いを無視</quote>、あるいは<quote>アクセントを無視</quote>、あるいはその類似（<literal>ks</literal>キーを使用）の照合順序を作成できますが、照合順序が真の大文字小文字あるいはアクセントを無視するように動作するためには、<command>CREATE COLLATION</command>内で<firstterm>決定論的</firstterm>でないとして宣言されている必要があることに注意してください。
+<xref linkend="collation-nondeterministic"/>を参照してください。
+宣言されていない場合、照合順序としては同一に扱われるものの、バイトごとの比較では異なる文字列は、バイト値によってソートされます。
    </para>
 
    <note>
     <para>
+<!--
      By design, ICU will accept almost any string as a locale name and match
      it to the closest locale it can provide, using the fallback procedure
      described in its documentation.  Thus, there will be no direct feedback
@@ -867,19 +1334,31 @@ CREATE COLLATION german (provider = libc, locale = 'de_DE');
      ICU installation does not actually support.  It is therefore recommended
      to create application-level test cases to check that the collation
      definitions satisfy one's requirements.
+-->
+設計上、ICUはロケール名としてどのような文字列も受け入れ、ドキュメントで説明されているフォールバック手続きを使って、ICUが提供するもっとも近いロケールにマッチさせます。
+したがって、インストールされたICUが実際にはサポートしていない機能を使って照合順序の指定が構成されていたとしても、直接にはフィードバックはありません。
+そういうわけで、照合順序の定義が要件を満たしているかどうかを確認するためのアプリケーションレベルのテストケースを作成することをお勧めします。
     </para>
    </note>
    </sect4>
 
    <sect4 id="collation-copy">
+<!--
    <title>Copying Collations</title>
+-->
+   <title>照合順序の複製</title>
 
    <para>
+<!--
     The command <xref linkend="sql-createcollation"/> can also be used to
     create a new collation from an existing collation, which can be useful to
     be able to use operating-system-independent collation names in
     applications, create compatibility names, or use an ICU-provided collation
     under a more readable name.  For example:
+-->
+コマンド<xref linkend="sql-createcollation"/>は、既存の照合順序から新しい照合順序を作る際にも利用できます。
+これは、オペレーティングシステムから独立した照合順序名をアプリケーションで使用可能にしたり、互換性のある名称を作成したり、ICUが提供する照合順序を、よりわかりやすい名称で利用するのに役立ちます。
+例を示します。
 <programlisting>
 CREATE COLLATION german FROM "de_DE";
 CREATE COLLATION french FROM "fr-x-icu";
@@ -889,9 +1368,13 @@ CREATE COLLATION french FROM "fr-x-icu";
    </sect3>
 
    <sect3 id="collation-nondeterministic">
+<!--
     <title>Nondeterministic Collations</title>
+-->
+    <title>非決定論的な照合順序</title>
 
     <para>
+<!--
      A collation is either <firstterm>deterministic</firstterm> or
      <firstterm>nondeterministic</firstterm>.  A deterministic collation uses
      deterministic comparisons, which means that it considers strings to be
@@ -904,20 +1387,39 @@ CREATE COLLATION french FROM "fr-x-icu";
      only determines whether ties are to be broken using bytewise comparison.
      See also <ulink url="https://www.unicode.org/reports/tr10">Unicode Technical
      Standard 10</ulink> for more information on the terminology.
+-->
+照合順序は<firstterm>決定論的</firstterm>もしくは<firstterm>非決定論的</firstterm>のどちらかです。
+決定論的な照合順序は決定論的な比較を使用します。
+つまり、同じバイト列で構成される場合に限り等しい文字列とみなします。
+非決定論的な比較は、異なるバイト値で構成される文字列の場合でさえ文字列が等しいと判定するかもしれません。
+一般的な状況では、大文字小文字を区別しない比較、アクセントを区別しない比較および異なるUnicode正規化形式による文字列の比較が含まれます。
+このような区別しない比較を実際に実装するかは照合順序のプロパイダ次第です。
+deterministicフラグはバイト単位の比較を用いて分解されるかどうかのみを決定します。
+用語の詳細については、<ulink url="https://www.unicode.org/reports/tr10">Unicode Technical Standard 10</ulink>を参照してください。
     </para>
 
     <para>
+<!--
      To create a nondeterministic collation, specify the property
      <literal>deterministic = false</literal> to <command>CREATE
      COLLATION</command>, for example:
+-->
+非決定論的な照合順序を作るためには<command>CREATE COLLATION</command>に<literal>deterministic = false</literal>プロパティを指定します。
+以下に例を示します。
 <programlisting>
 CREATE COLLATION ndcoll (provider = icu, locale = 'und', deterministic = false);
 </programlisting>
+<!--
      This example would use the standard Unicode collation in a
      nondeterministic way.  In particular, this would allow strings in
      different normal forms to be compared correctly.  More interesting
      examples make use of the ICU customization facilities explained above.
      For example:
+-->
+この例では非決定論的な方法で標準のUnicode照合順序を使えます。
+具体的には、これは異なる正規形の文字列を正しく比較できるでしょう。
+より興味深い例は上述したICUカスタマイズ機能を用いた場合です。
+以下に例を示します。
 <programlisting>
 CREATE COLLATION case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
 CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-true', deterministic = false);
@@ -925,6 +1427,7 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
     </para>
 
     <para>
+<!--
      All standard and predefined collations are deterministic, all
      user-defined collations are deterministic by default.  While
      nondeterministic collations give a more <quote>correct</quote> behavior,
@@ -935,15 +1438,26 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
      certain operations are not possible with nondeterministic collations,
      such as pattern matching operations.  Therefore, they should be used
      only in cases where they are specifically wanted.
+-->
+すべての標準および事前に定義された照合順序は決定論的であり、すべてのユーザ定義の照合順序はデフォルトで決定論的です。
+特にUnicodeの全機能およびその特別な場合を考えた際、非決定論的な照合順序はより多くの<quote>正しい</quote>振る舞いを与えると同時に、いくつかの欠点もあります。
+第一にそれらを使用するとパフォーマンスが低下します。
+B-treeは非決定的照合順序を使用したインデックスでは重複排除には使用できないことに特に注意してください。
+また、パターンマッチング操作などで非決定論的な照合順序による操作ができないことも避けられません。
+したがって、これらは明確に必要とされる場合のみに使用されるべきです。
     </para>
 
     <tip>
      <para>
+<!--
       To deal with text in different Unicode normalization forms, it is also
       an option to use the functions/expressions
       <function>normalize</function> and <literal>is normalized</literal> to
       preprocess or check the strings, instead of using nondeterministic
       collations.  There are different trade-offs for each approach.
+-->
+異なるUnicode正規化形式のテキストを処理する場合、非決定論的な照合を使用する代わりに<function>normalize</function>および<literal>is normalized</literal>関数もしくは式を使用して文字列の前処理もしくはチェックをするオプションもあります。
+それぞれのアプローチで異なるトレードオフがあります。
      </para>
     </tip>
    </sect3>
@@ -951,11 +1465,18 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
  </sect1>
 
  <sect1 id="multibyte">
+<!--
   <title>Character Set Support</title>
+-->
 
+  <title>文字セットサポート</title>
+<!--
   <indexterm zone="multibyte"><primary>character set</primary></indexterm>
+-->
+  <indexterm zone="multibyte"><primary>文字セット</primary></indexterm>
 
   <para>
+<!--
    The character set support in <productname>PostgreSQL</productname>
    allows you to store text in a variety of character sets (also called
    encodings), including
@@ -969,9 +1490,14 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
    cluster using <command>initdb</command>.  It can be overridden when you
    create a database, so you can have multiple
    databases each with a different character set.
+-->
+<productname>PostgreSQL</productname>の文字セット（エンコーディングとも呼ばれます）サポートにより、ISO 8859シリーズなどのシングルバイト文字や<acronym>EUC</acronym>（拡張Unixコード）、UTF-8、Mule内部コードなどのマルチバイト文字を含む、各種文字セットでテキストを保存することができます。
+全ての文字セットはクライアントにより透過的に使用することができますが、いくつかは、サーバ内での（つまりサーバサイドエンコーディングとして）使用はサポートされていません。デフォルトの文字セットは、<command>initdb</command>を使用した<productname>PostgreSQL</productname>データベースクラスタの初期化時に決定されます。
+これは、データベースを作成する時に上書きすることができるので、異なる文字セットを使用した複数のデータベースを持つことができます。
   </para>
 
   <para>
+<!--
    An important restriction, however, is that each database's character set
    must be compatible with the database's <envar>LC_CTYPE</envar> (character
    classification) and <envar>LC_COLLATE</envar> (string sort order) locale
@@ -982,18 +1508,33 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
    (On Windows, however, UTF-8 encoding can be used with any locale.)
    If you have ICU support configured, ICU-provided locales can be used
    with most but not all server-side encodings.
+-->
+しかし重要な制限として、それぞれのデータベースの文字セットがサーバの<envar>LC_CTYPE</envar>（文字分類）および<envar>LC_COLLATE</envar>（文字列並び替え順序）ロケール設定と互換性がなくてはいけないことがあげられます。
+<literal>C</literal>もしくは<literal>POSIX</literal>ロケール設定の場合、どのような文字セットも許可されています。
+しかし、libcが提供する他のロケール設定の場合、正しく動作する文字セットはひとつだけとなります。
+（しかしWindowsではUTF-8符号化方式をどのロケールでも使用できます。）
+ICUサポートが組み込まれている場合は、サーバサイドのすべてではないにしても、ほとんどのエンコーディングで、ICUが提供する照合順序が利用できます。
   </para>
 
    <sect2 id="multibyte-charset-supported">
+<!--
     <title>Supported Character Sets</title>
+-->
+<title>サポートされる文字セット</title>
 
     <para>
+<!--
      <xref linkend="charset-table"/> shows the character sets available
      for use in <productname>PostgreSQL</productname>.
+-->
+<productname>PostgreSQL</productname>で使用できる文字セットを<xref linkend="charset-table"/>に示します。
     </para>
 
      <table id="charset-table">
+<!--
       <title><productname>PostgreSQL</productname> Character Sets</title>
+-->
+      <title><productname>PostgreSQL</productname>文字セット</title>
       <tgroup cols="7">
        <colspec colname="col1" colwidth="3*"/>
        <colspec colname="col2" colwidth="2*"/>
@@ -1004,410 +1545,779 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
        <colspec colname="col7" colwidth="2*"/>
        <thead>
         <row>
+<!--
          <entry>Name</entry>
          <entry>Description</entry>
          <entry>Language</entry>
          <entry>Server?</entry>
          <entry>ICU?</entry>
+-->
+         <entry>名前</entry>
+         <entry>説明</entry>
+         <entry>言語</entry>
+         <entry>サーバ？</entry>
+         <entry>ICU?</entry>
          <!--
           The Bytes/Char field is populated by looking at the values returned
           by pg_wchar_table.mblen function for each encoding.
          -->
+<!--
+バイト数/文字列は、それぞれの符号化方式に対するpg_wchar_table.mblen関数の戻り値を見ることにより登録されます。
+-->
+<!--
          <entry>Bytes/&zwsp;Char</entry>
          <entry>Aliases</entry>
+-->
+         <entry>バイト数/&zwsp;文字</entry>
+         <entry>別名</entry>
         </row>
        </thead>
        <tbody>
         <row>
          <entry><literal>BIG5</literal></entry>
          <entry>Big Five</entry>
+<!--
          <entry>Traditional Chinese</entry>
+-->
+         <entry>繁体字</entry>
+<!--
          <entry>No</entry>
          <entry>No</entry>
          <entry>1&ndash;2</entry>
+-->
+         <entry>いいえ</entry>
+         <entry>いいえ</entry>
+         <entry>1-2</entry>
+<!--
          <entry><literal>WIN950</literal>, <literal>Windows950</literal></entry>
+-->
+         <entry><literal>WIN950</literal>、<literal>Windows950</literal></entry>
         </row>
         <row>
          <entry><literal>EUC_CN</literal></entry>
          <entry>Extended UNIX Code-CN</entry>
+<!--
          <entry>Simplified Chinese</entry>
+-->
+         <entry>簡体字</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
          <entry>1&ndash;3</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
+         <entry>1-3</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>EUC_JP</literal></entry>
          <entry>Extended UNIX Code-JP</entry>
+<!--
          <entry>Japanese</entry>
+-->
+         <entry>日本語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
          <entry>1&ndash;3</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
+         <entry>1-3</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>EUC_JIS_2004</literal></entry>
          <entry>Extended UNIX Code-JP, JIS X 0213</entry>
+<!--
          <entry>Japanese</entry>
+-->
+         <entry>日本語</entry>
+<!--
          <entry>Yes</entry>
          <entry>No</entry>
          <entry>1&ndash;3</entry>
+-->
+         <entry>はい</entry>
+         <entry>いいえ</entry>
+         <entry>1-3</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>EUC_KR</literal></entry>
          <entry>Extended UNIX Code-KR</entry>
+<!--
          <entry>Korean</entry>
+-->
+         <entry>韓国語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
          <entry>1&ndash;3</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
+         <entry>1-3</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>EUC_TW</literal></entry>
          <entry>Extended UNIX Code-TW</entry>
+<!--
          <entry>Traditional Chinese, Taiwanese</entry>
+-->
+         <entry>繁体字、台湾語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
          <entry>1&ndash;3</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
+         <entry>1-3</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>GB18030</literal></entry>
          <entry>National Standard</entry>
+<!--
          <entry>Chinese</entry>
+-->
+         <entry>中国語</entry>
+<!--
          <entry>No</entry>
          <entry>No</entry>
          <entry>1&ndash;4</entry>
+-->
+         <entry>いいえ</entry>
+         <entry>いいえ</entry>
+         <entry>1-4</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>GBK</literal></entry>
          <entry>Extended National Standard</entry>
+<!--
          <entry>Simplified Chinese</entry>
+-->
+         <entry>簡体字</entry>
+<!--
          <entry>No</entry>
          <entry>No</entry>
          <entry>1&ndash;2</entry>
+-->
+         <entry>いいえ</entry>
+         <entry>いいえ</entry>
+         <entry>1-2</entry>
+<!--
          <entry><literal>WIN936</literal>, <literal>Windows936</literal></entry>
+-->
+         <entry><literal>WIN936</literal>、<literal>Windows936</literal></entry>
         </row>
         <row>
          <entry><literal>ISO_8859_5</literal></entry>
+<!--
          <entry>ISO 8859-5, <acronym>ECMA</acronym> 113</entry>
+-->
+         <entry>ISO 8859-5、<acronym>ECMA</acronym> 113</entry>
+<!--
          <entry>Latin/Cyrillic</entry>
+-->
+         <entry>ラテン/キリル</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>ISO_8859_6</literal></entry>
+<!--
          <entry>ISO 8859-6, <acronym>ECMA</acronym> 114</entry>
+-->
+         <entry>ISO 8859-6、<acronym>ECMA</acronym> 114</entry>
+<!--
          <entry>Latin/Arabic</entry>
+-->
+         <entry>ラテン/アラビア語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>ISO_8859_7</literal></entry>
+<!--
          <entry>ISO 8859-7, <acronym>ECMA</acronym> 118</entry>
+-->
+         <entry>ISO 8859-7、<acronym>ECMA</acronym> 118</entry>
+<!--
          <entry>Latin/Greek</entry>
+-->
+         <entry>ラテン/ギリシャ語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>ISO_8859_8</literal></entry>
+<!--
          <entry>ISO 8859-8, <acronym>ECMA</acronym> 121</entry>
+-->
+         <entry>ISO 8859-8、<acronym>ECMA</acronym> 121</entry>
+<!--
          <entry>Latin/Hebrew</entry>
+-->
+         <entry>ラテン/ヘブライ語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>JOHAB</literal></entry>
          <entry><acronym>JOHAB</acronym></entry>
+<!--
          <entry>Korean (Hangul)</entry>
+-->
+         <entry>韓国語（ハングル）</entry>
+<!--
          <entry>No</entry>
          <entry>No</entry>
          <entry>1&ndash;3</entry>
+-->
+         <entry>いいえ</entry>
+         <entry>いいえ</entry>
+         <entry>1-3</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>KOI8R</literal></entry>
          <entry><acronym>KOI</acronym>8-R</entry>
+<!--
          <entry>Cyrillic (Russian)</entry>
+-->
+         <entry>キリル文字（ロシア）</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>KOI8</literal></entry>
         </row>
         <row>
          <entry><literal>KOI8U</literal></entry>
          <entry><acronym>KOI</acronym>8-U</entry>
+<!--
          <entry>Cyrillic (Ukrainian)</entry>
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>キリル文字（ウクライナ）</entry>
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>LATIN1</literal></entry>
+<!--
          <entry>ISO 8859-1, <acronym>ECMA</acronym> 94</entry>
+-->
+         <entry>ISO 8859-1、<acronym>ECMA</acronym> 94</entry>
+<!--
          <entry>Western European</entry>
+-->
+         <entry>西ヨーロッパ</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO88591</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN2</literal></entry>
+<!--
          <entry>ISO 8859-2, <acronym>ECMA</acronym> 94</entry>
+-->
+         <entry>ISO 8859-2、<acronym>ECMA</acronym> 94</entry>
+<!--
          <entry>Central European</entry>
+-->
+         <entry>中央ヨーロッパ</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO88592</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN3</literal></entry>
+<!--
          <entry>ISO 8859-3, <acronym>ECMA</acronym> 94</entry>
+-->
+         <entry>ISO 8859-3、<acronym>ECMA</acronym> 94</entry>
+<!--
          <entry>South European</entry>
+-->
+         <entry>南ヨーロッパ</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO88593</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN4</literal></entry>
+<!--
          <entry>ISO 8859-4, <acronym>ECMA</acronym> 94</entry>
+-->
+         <entry>ISO 8859-4、<acronym>ECMA</acronym> 94</entry>
+<!--
          <entry>North European</entry>
+-->
+         <entry>北ヨーロッパ</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO88594</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN5</literal></entry>
+<!--
          <entry>ISO 8859-9, <acronym>ECMA</acronym> 128</entry>
+-->
+         <entry>ISO 8859-9、<acronym>ECMA</acronym> 128</entry>
+<!--
          <entry>Turkish</entry>
+-->
+         <entry>トルコ</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO88599</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN6</literal></entry>
+<!--
          <entry>ISO 8859-10, <acronym>ECMA</acronym> 144</entry>
+-->
+         <entry>ISO 8859-10、<acronym>ECMA</acronym> 144</entry>
+<!--
          <entry>Nordic</entry>
+-->
+         <entry>北欧</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO885910</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN7</literal></entry>
          <entry>ISO 8859-13</entry>
+<!--
          <entry>Baltic</entry>
+-->
+         <entry>バルト語派</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO885913</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN8</literal></entry>
          <entry>ISO 8859-14</entry>
+<!--
          <entry>Celtic</entry>
+-->
+         <entry>ケルト</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO885914</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN9</literal></entry>
          <entry>ISO 8859-15</entry>
+<!--
          <entry>LATIN1 with Euro and accents</entry>
+-->
+         <entry>LATIN1でヨーロッパと訛りを含む</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ISO885915</literal></entry>
         </row>
         <row>
          <entry><literal>LATIN10</literal></entry>
+<!--
          <entry>ISO 8859-16, <acronym>ASRO</acronym> SR 14111</entry>
+-->
+         <entry>ISO 8859-16、<acronym>ASRO</acronym> SR 14111</entry>
+<!--
          <entry>Romanian</entry>
+-->
+         <entry>ルーマニア</entry>
+<!--
          <entry>Yes</entry>
          <entry>No</entry>
+-->
+         <entry>はい</entry>
+         <entry>いいえ</entry>
          <entry>1</entry>
          <entry><literal>ISO885916</literal></entry>
         </row>
         <row>
          <entry><literal>MULE_INTERNAL</literal></entry>
+<!--
          <entry>Mule internal code</entry>
+-->
+         <entry>Mule内部コード</entry>
+<!--
          <entry>Multilingual Emacs</entry>
+-->
+         <entry>多言語Emacs</entry>
+<!--
          <entry>Yes</entry>
          <entry>No</entry>
          <entry>1&ndash;4</entry>
+-->
+         <entry>はい</entry>
+         <entry>いいえ</entry>
+         <entry>1-4</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>SJIS</literal></entry>
          <entry>Shift JIS</entry>
+<!--
          <entry>Japanese</entry>
+-->
+         <entry>日本語</entry>
+<!--
          <entry>No</entry>
          <entry>No</entry>
          <entry>1&ndash;2</entry>
+-->
+         <entry>いいえ</entry>
+         <entry>いいえ</entry>
+         <entry>1-2</entry>
+<!--
          <entry><literal>Mskanji</literal>, <literal>ShiftJIS</literal>, <literal>WIN932</literal>, <literal>Windows932</literal></entry>
+-->
+         <entry><literal>Mskanji</literal>、<literal>ShiftJIS</literal>、<literal>WIN932</literal>、<literal>Windows932</literal></entry>
         </row>
         <row>
          <entry><literal>SHIFT_JIS_2004</literal></entry>
          <entry>Shift JIS, JIS X 0213</entry>
+<!--
          <entry>Japanese</entry>
          <entry>No</entry>
          <entry>No</entry>
          <entry>1&ndash;2</entry>
+-->
+         <entry>日本語</entry>
+         <entry>いいえ</entry>
+         <entry>いいえ</entry>
+         <entry>1-2</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>SQL_ASCII</literal></entry>
+<!--
          <entry>unspecified (see text)</entry>
          <entry><emphasis>any</emphasis></entry>
+-->
+         <entry>未指定（テキストを参照）</entry>
+         <entry><emphasis>何でも</emphasis></entry>
+<!--
          <entry>Yes</entry>
          <entry>No</entry>
+-->
+         <entry>はい</entry>
+         <entry>いいえ</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>UHC</literal></entry>
+<!--
          <entry>Unified Hangul Code</entry>
          <entry>Korean</entry>
+-->
+         <entry>統合ハングルコード</entry>
+         <entry>韓国語</entry>
+<!--
          <entry>No</entry>
          <entry>No</entry>
          <entry>1&ndash;2</entry>
+-->
+         <entry>いいえ</entry>
+         <entry>いいえ</entry>
+         <entry>1-2</entry>
+<!--
          <entry><literal>WIN949</literal>, <literal>Windows949</literal></entry>
+-->
+         <entry><literal>WIN949</literal>、<literal>Windows949</literal></entry>
         </row>
         <row>
          <entry><literal>UTF8</literal></entry>
+<!--
          <entry>Unicode, 8-bit</entry>
          <entry><emphasis>all</emphasis></entry>
+-->
+         <entry>Unicode、8ビット</entry>
+         <entry><emphasis>すべて</emphasis></entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
          <entry>1&ndash;4</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
+         <entry>1-4</entry>
          <entry><literal>Unicode</literal></entry>
         </row>
         <row>
          <entry><literal>WIN866</literal></entry>
          <entry>Windows CP866</entry>
+<!--
          <entry>Cyrillic</entry>
+-->
+         <entry>キリル文字</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>ALT</literal></entry>
         </row>
         <row>
          <entry><literal>WIN874</literal></entry>
          <entry>Windows CP874</entry>
+<!--
          <entry>Thai</entry>
+-->
+         <entry>タイ語</entry>
+<!--
          <entry>Yes</entry>
          <entry>No</entry>
+-->
+         <entry>はい</entry>
+         <entry>いいえ</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1250</literal></entry>
          <entry>Windows CP1250</entry>
+<!--
          <entry>Central European</entry>
+-->
+         <entry>中央ヨーロッパ</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1251</literal></entry>
          <entry>Windows CP1251</entry>
+<!--
          <entry>Cyrillic</entry>
+-->
+         <entry>キリル文字</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry><literal>WIN</literal></entry>
         </row>
         <row>
          <entry><literal>WIN1252</literal></entry>
          <entry>Windows CP1252</entry>
+<!--
          <entry>Western European</entry>
+-->
+         <entry>西ヨーロッパ</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1253</literal></entry>
          <entry>Windows CP1253</entry>
+<!--
          <entry>Greek</entry>
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>ギリシャ</entry>
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1254</literal></entry>
          <entry>Windows CP1254</entry>
+<!--
          <entry>Turkish</entry>
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>トルコ</entry>
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1255</literal></entry>
          <entry>Windows CP1255</entry>
+<!--
          <entry>Hebrew</entry>
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>ヘブライ</entry>
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1256</literal></entry>
          <entry>Windows CP1256</entry>
+<!--
          <entry>Arabic</entry>
+-->
+         <entry>アラビア語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1257</literal></entry>
          <entry>Windows CP1257</entry>
+<!--
          <entry>Baltic</entry>
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>バルト語派</entry>
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
          <entry></entry>
         </row>
         <row>
          <entry><literal>WIN1258</literal></entry>
          <entry>Windows CP1258</entry>
+<!--
          <entry>Vietnamese</entry>
+-->
+         <entry>ベトナム語</entry>
+<!--
          <entry>Yes</entry>
          <entry>Yes</entry>
+-->
+         <entry>はい</entry>
+         <entry>はい</entry>
          <entry>1</entry>
+<!--
          <entry><literal>ABC</literal>, <literal>TCVN</literal>, <literal>TCVN5712</literal>, <literal>VSCII</literal></entry>
+-->
+         <entry><literal>ABC</literal>、<literal>TCVN</literal>、<literal>TCVN5712</literal>、<literal>VSCII</literal></entry>
         </row>
        </tbody>
       </tgroup>
      </table>
 
      <para>
+<!--
       Not all client <acronym>API</acronym>s support all the listed character sets. For example, the
       <productname>PostgreSQL</productname>
       JDBC driver does not support <literal>MULE_INTERNAL</literal>, <literal>LATIN6</literal>,
       <literal>LATIN8</literal>, and <literal>LATIN10</literal>.
+-->
+全てのクライアントの<acronym>API</acronym>が上の一覧表に示した文字セットをサポートしているわけではありません。
+例えば<productname>PostgreSQL</productname> JDBCドライバは<literal>MULE_INTERNAL</literal>、<literal>LATIN6</literal>、<literal>LATIN8</literal>、そして<literal>LATIN10</literal>をサポートしません。
      </para>
 
      <para>
+<!--
       The <literal>SQL_ASCII</literal> setting behaves considerably differently
       from the other settings.  When the server character set is
       <literal>SQL_ASCII</literal>, the server interprets byte values 0&ndash;127
@@ -1420,57 +2330,89 @@ CREATE COLLATION ignore_accents (provider = icu, locale = 'und-u-ks-level1-kc-tr
       <literal>SQL_ASCII</literal> setting because
       <productname>PostgreSQL</productname> will be unable to help you by
       converting or validating non-ASCII characters.
+-->
+<literal>SQL_ASCII</literal>の設定は、他の設定とかなり異なります。サーバのキャラクタセットが<literal>SQL_ASCII</literal>のとき、サーバは0から127のバイト値をASCIIに変換します。一方、128から255までは変換されません。
+設定が<literal>SQL_ASCII</literal>の場合は、符号化は実行されません。よって、この設定は特定の符号化を使用している場合には、その符号化を無視するようになってしまいます。
+多くの場合、ASCIIではない環境で作業する場合は<literal>SQL_ASCII</literal>の設定を使用するのは、賢いことではありません。なぜなら<productname>PostgreSQL</productname>はASCIIではない文字を変換したり検査したりすることは出来ないからです。
      </para>
     </sect2>
 
    <sect2>
+<!--
     <title>Setting the Character Set</title>
+-->
+    <title>文字セットの設定</title>
 
     <para>
+<!--
      <command>initdb</command> defines the default character set (encoding)
      for a <productname>PostgreSQL</productname> cluster. For example,
+-->
+<command>initdb</command>で<productname>PostgreSQL</productname>クラスタのデフォルト文字セット(エンコーディング)を定義します。
+以下に例を示します。
 
 <screen>
 initdb -E EUC_JP
 </screen>
 
+<!--
      sets the default character set to
      <literal>EUC_JP</literal> (Extended Unix Code for Japanese).  You
-     can use <option>--encoding</option> instead of
+     can use <option>&#045;&#045;encoding</option> instead of
      <option>-E</option> if you prefer longer option strings.
-     If no <option>-E</option> or <option>--encoding</option> option is
+     If no <option>-E</option> or <option>&#045;&#045;encoding</option> option is
      given, <command>initdb</command> attempts to determine the appropriate
      encoding to use based on the specified or default locale.
+-->
+これはデフォルトの文字セットを<literal>EUC_JP</literal>（日本語拡張Unixコード）に設定します。
+より長いオプションの文字列がお好みなら<option>-E</option>の代わりに<option>&#045;&#045;encoding</option>と書くこともできます。
+<option>-E</option>オプションも<option>&#045;&#045;encoding</option>オプションも与えられない場合、<command>initdb</command>は、指定もしくはデフォルトのロケールに基づいて適当な符号化方式を決定しようとします。
     </para>
 
     <para>
+<!--
      You can specify a non-default encoding at database creation time,
      provided that the encoding is compatible with the selected locale:
+-->
+データベース作成時に選択したロケールと互換性を持つ符号化方式を提供することで、デフォルト以外の符号化方式を指定することができます。
 
 <screen>
 createdb -E EUC_KR -T template0 --lc-collate=ko_KR.euckr --lc-ctype=ko_KR.euckr korean
 </screen>
 
+<!--
      This will create a database named <literal>korean</literal> that
      uses the character set <literal>EUC_KR</literal>, and locale <literal>ko_KR</literal>.
      Another way to accomplish this is to use this SQL command:
+-->
+これは<literal>EUC_KR</literal>文字セットと<literal>ko_KR</literal>ロケールを使用する<database>korean</database>という名前のデータベースを作成します。
+SQLコマンドで同じことを行うには次のようにします。
 
 <programlisting>
 CREATE DATABASE korean WITH ENCODING 'EUC_KR' LC_COLLATE='ko_KR.euckr' LC_CTYPE='ko_KR.euckr' TEMPLATE=template0;
 </programlisting>
 
+<!--
      Notice that the above commands specify copying the <literal>template0</literal>
      database.  When copying any other database, the encoding and locale
      settings cannot be changed from those of the source database, because
      that might result in corrupt data.  For more information see
      <xref linkend="manage-ag-templatedbs"/>.
+-->
+上のコマンドにて<literal>template0</literal>データベースのコピーが指定されていることに注目してください。
+他のデータベースからコピーする場合、データが破損する結果となる可能性がありますので、符号化方式とロケール設定を元のデータベースの設定から変更することはできません。
+詳細については<xref linkend="manage-ag-templatedbs"/>を参照してください。
     </para>
 
     <para>
+<!--
      The encoding for a database is stored in the system catalog
      <literal>pg_database</literal>.  You can see it by using the
      <command>psql</command> <option>-l</option> option or the
      <command>\l</command> command.
+-->
+データベースの符号化方式は<literal>pg_database</literal>システムカタログに格納されます。
+<command>psql</command>の<option>-l</option>オプションか<command>\l</command>コマンドで符号化方式を確認することができます。
 
 <screen>
 $ <userinput>psql -l</userinput>
@@ -1490,6 +2432,7 @@ $ <userinput>psql -l</userinput>
 
     <important>
      <para>
+<!--
       On most modern operating systems, <productname>PostgreSQL</productname>
       can determine which character set is implied by the <envar>LC_CTYPE</envar>
       setting, and it will enforce that only the matching database encoding is
@@ -1497,9 +2440,15 @@ $ <userinput>psql -l</userinput>
       the encoding expected by the locale you have selected.  A mistake in
       this area is likely to lead to strange behavior of locale-dependent
       operations such as sorting.
+-->
+最近のオペレーティングシステムでは、<productname>PostgreSQL</productname>は、<envar>LC_CTYPE</envar>の設定によりどの文字セットが指定されているか決定できます。
+そして、一致するデータベース符号化方式のみを強制的に使用します。
+古いオペレーティングシステムでは、自分で選択したロケールが想定している符号化方式を確実に使用することは各自の責任になります。
+ここでの間違いは、ソート処理などのロケールに依存する操作が、奇妙な動作するといったことにつながります。
      </para>
 
      <para>
+<!--
       <productname>PostgreSQL</productname> will allow superusers to create
       databases with <literal>SQL_ASCII</literal> encoding even when
       <envar>LC_CTYPE</envar> is not <literal>C</literal> or <literal>POSIX</literal>.  As noted
@@ -1507,34 +2456,51 @@ $ <userinput>psql -l</userinput>
       the database has any particular encoding, and so this choice poses risks
       of locale-dependent misbehavior.  Using this combination of settings is
       deprecated and may someday be forbidden altogether.
+-->
+      <productname>PostgreSQL</productname>は、<envar>LC_CTYPE</envar>が<literal>C</literal>もしくは<literal>POSIX</literal>でもない場合にも、スーパーユーザが<literal>SQL_ASCII</literal>エンコーディングでデータベースを作成することを許可します。上記のように、<literal>SQL_ASCII</literal>は、データベースに保存されているデータが特定のエンコーディングを持つことを強制しません。さらに、この選択はロケールに依存したおかしな動作を引き起こすリスクを高めます。この設定の組み合わせを使用することは、お勧めできませんし、いつの日か完全に禁止されるかもしれません。
      </para>
     </important>
    </sect2>
 
    <sect2>
+<!--
     <title>Automatic Character Set Conversion Between Server and Client</title>
+-->
+<title>サーバ・クライアント間の自動文字セット変換</title>
 
     <para>
+<!--
      <productname>PostgreSQL</productname> supports automatic character
      set conversion between server and client for many combinations of
      character sets (<xref linkend="multibyte-conversions-supported"/>
      shows which ones).
+-->
+<productname>PostgreSQL</productname>は、多数の文字セットの組み合わせ (<xref linkend="multibyte-conversions-supported"/> のいずれか)に対してサーバとクライアントの間で自動的に文字セットを変換する機能を提供しています。
     </para>
 
     <para>
+<!--
      To enable automatic character set conversion, you have to
      tell <productname>PostgreSQL</productname> the character set
      (encoding) you would like to use in the client. There are several
      ways to accomplish this:
+-->
+自動文字セット変換を有効にするためには、クライアントでどのような文字セット（符号化方式）を使用させたいかを<productname>PostgreSQL</productname>に伝えなければなりません。
+これを行うにはいくつかの方法があります。
 
      <itemizedlist>
       <listitem>
        <para>
+<!--
         Using the <command>\encoding</command> command in
         <application>psql</application>.
         <command>\encoding</command> allows you to change client
         encoding on the fly. For
         example, to change the encoding to <literal>SJIS</literal>, type:
+-->
+<application>psql</application>で<command>\encoding</command>コマンドを使います。
+<command>\encoding</command>は実行中であってもクライアントの符号化方式を変更させることができます。
+例えば符号化方式を<literal>SJIS</literal>に変えたい場合は次のように入力します。
 
 <programlisting>
 \encoding SJIS
@@ -1544,34 +2510,50 @@ $ <userinput>psql -l</userinput>
 
       <listitem>
        <para>
+<!--
         <application>libpq</application> (<xref linkend="libpq-control"/>) has functions to control the client encoding.
+-->
+        <application>libpq</application> (<xref linkend="libpq-control"/>)はクライアントの符号化方式を制御する関数を保持しています。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Using <command>SET client_encoding TO</command>.
 
         Setting the client encoding can be done with this SQL command:
+-->
+<command>SET client_encoding TO</command>を使います。
+次のSQLコマンドでクライアントの符号化方式を設定できます。
 
 <programlisting>
 SET CLIENT_ENCODING TO '<replaceable>value</replaceable>';
 </programlisting>
 
+<!--
         Also you can use the standard SQL syntax <literal>SET NAMES</literal>
         for this purpose:
+-->
+標準SQLの構文<literal>SET NAMES</literal>を同じ目的で使うこともできます。
 
 <programlisting>
 SET NAMES '<replaceable>value</replaceable>';
 </programlisting>
 
+<!--
         To query the current client encoding:
+-->
+現在のクライアントの符号化方式を問い合わせるには次のようにします。
 
 <programlisting>
 SHOW client_encoding;
 </programlisting>
 
+<!--
         To return to the default encoding:
+-->
+デフォルトの符号化方式に戻すのには次のようにします。
 
 <programlisting>
 RESET client_encoding;
@@ -1581,23 +2563,35 @@ RESET client_encoding;
 
       <listitem>
        <para>
+<!--
         Using <envar>PGCLIENTENCODING</envar>. If the environment variable
         <envar>PGCLIENTENCODING</envar> is defined in the client's
         environment, that client encoding is automatically selected
         when a connection to the server is made.  (This can
         subsequently be overridden using any of the other methods
         mentioned above.)
+-->
+<envar>PGCLIENTENCODING</envar>を使います。
+クライアントの環境で<envar>PGCLIENTENCODING</envar>環境変数が定義されていると、サーバと接続が確立した時点で自動的にクライアントの符号化方式が選択されます
+（上で説明したその他のどんな方法でもその後書き換えできます）。
+
        </para>
       </listitem>
 
       <listitem>
       <para>
+<!--
        Using the configuration variable <xref
        linkend="guc-client-encoding"/>. If the
        <varname>client_encoding</varname> variable is set, that client
        encoding is automatically selected when a connection to the
        server is made.  (This can subsequently be overridden using any
        of the other methods mentioned above.)
+-->
+<xref linkend="guc-client-encoding"/>変数を使います。
+<varname>client_encoding</varname>変数が設定されていると、サーバとの接続が確立した時点で自動的にクライアントの符号化方式が選択されます
+（上で説明したその他のどんな方法でもその後書き換えできます）。
+
        </para>
       </listitem>
 
@@ -1605,14 +2599,20 @@ RESET client_encoding;
     </para>
 
     <para>
+<!--
      If the conversion of a particular character is not possible
      &mdash; suppose you chose <literal>EUC_JP</literal> for the
      server and <literal>LATIN1</literal> for the client, and some
      Japanese characters are returned that do not have a representation in
      <literal>LATIN1</literal> &mdash; an error is reported.
+-->
+<literal>EUC_JP</literal>をサーバに、そして<literal>LATIN1</literal>をクライアントに選んだ場合のように、
+特定の文字の変換ができない時、日本語文字は<literal>LATIN1</literal>に入っていないという旨の日本語が返され、エラーが報告されます。
+
     </para>
 
     <para>
+<!--
      If the client character set is defined as <literal>SQL_ASCII</literal>,
      encoding conversion is disabled, regardless of the server's character
      set.  (However, if the server's character set is
@@ -1621,13 +2621,20 @@ RESET client_encoding;
      though the client character set were the same as the server's.)
      Just as for the server, use of <literal>SQL_ASCII</literal> is unwise
      unless you are working with all-ASCII data.
+-->
+クライアント側のキャラクタセットが<literal>SQL_ASCII</literal>に定義されている場合は、符号化変換はサーバ側のキャラクタセットに関係無く無効化されます。
+サーバ側と同じように、<literal>SQL_ASCII</literal>を使用することは、すべてASCIIのデータを扱っている場合を除き、賢い方法ではありません。
     </para>
    </sect2>
 
    <sect2 id="multibyte-conversions-supported">
+<!--
     <title>Available Character Set Conversions</title>
+-->
+    <title>利用可能な文字セットの変換</title>
 
     <para>
+<!--
      <productname>PostgreSQL</productname> allows conversion between any
      two character sets for which a conversion function is listed in the
      <link linkend="catalog-pg-conversion"><structname>pg_conversion</structname></link>
@@ -1639,23 +2646,37 @@ RESET client_encoding;
      <xref linkend="sql-createconversion"/>.  (To be used for automatic
      client/server conversions, a conversion must be marked
      as <quote>default</quote> for its character set pair.)
+-->
+<productname>PostgreSQL</productname>は、<link linkend="catalog-pg-conversion"><structname>pg_conversion</structname></link>システムカタログ内にリストされた変換関数によって2つの文字セット間を変換することが可能です。
+<productname>PostgreSQL</productname>では<xref linkend="multibyte-translation-table"/>で要約され<xref linkend="builtin-conversions-table"/>に詳細が示されているように、いくつかの変換があらかじめ組み込まれています。
+<xref linkend="sql-createconversion"/>SQLコマンドを用いることで新しい変換を作成することができます。（クライアントもしくはサーバの自動変換を使用するためには、変換がその文字セットの組み合わせのための<quote>デフォルト</quote>として設定されている必要があります。）
     </para>
 
     <table id="multibyte-translation-table">
+<!--
      <title>Built-in Client/Server Character Set Conversions</title>
+-->
+     <title>組み込みクライアントもしくはサーバ文字セット変換</title>
      <tgroup cols="2">
       <colspec colname="col1" colwidth="1*"/>
       <colspec colname="col2" colwidth="3*"/>
       <thead>
        <row>
+<!--
         <entry>Server Character Set</entry>
         <entry>Available Client Character Sets</entry>
+-->
+        <entry>サーバ文字セット</entry>
+        <entry>利用可能なクライアント文字セット</entry>
        </row>
       </thead>
       <tbody>
        <row>
         <entry><literal>BIG5</literal></entry>
+<!--
         <entry><emphasis>not supported as a server encoding</emphasis>
+-->
+        <entry><emphasis>サーバの符号化方式としてサポートされていません</emphasis>
         </entry>
        </row>
        <row>
@@ -1697,12 +2718,18 @@ RESET client_encoding;
        </row>
        <row>
         <entry><literal>GB18030</literal></entry>
+<!--
         <entry><emphasis>not supported as a server encoding</emphasis>
+-->
+        <entry><emphasis>サーバの符号化方式としてサポートされていません</emphasis>
         </entry>
        </row>
        <row>
         <entry><literal>GBK</literal></entry>
+<!--
         <entry><emphasis>not supported as a server encoding</emphasis>
+-->
+        <entry><emphasis>サーバの符号化方式としてサポートされていません</emphasis>
         </entry>
        </row>
        <row>
@@ -1735,7 +2762,10 @@ RESET client_encoding;
        </row>
        <row>
         <entry><literal>JOHAB</literal></entry>
+<!--
         <entry><emphasis>not supported as a server encoding</emphasis>
+-->
+        <entry><emphasis>サーバの符号化方式としてサポートされていません</emphasis>
         </entry>
        </row>
        <row>
@@ -1829,7 +2859,10 @@ RESET client_encoding;
          <literal>EUC_TW</literal>,
          <literal>ISO_8859_5</literal>,
          <literal>KOI8R</literal>,
+<!--
          <literal>LATIN1</literal> to <literal>LATIN4</literal>,
+-->
+         <literal>LATIN1</literal> から <literal>LATIN4</literal>,
          <literal>SJIS</literal>,
          <literal>WIN866</literal>,
          <literal>WIN1250</literal>,
@@ -1838,27 +2871,42 @@ RESET client_encoding;
        </row>
        <row>
         <entry><literal>SJIS</literal></entry>
+<!--
         <entry><emphasis>not supported as a server encoding</emphasis>
+-->
+        <entry><emphasis>サーバの符号化方式としてサポートされていません</emphasis>
         </entry>
        </row>
        <row>
         <entry><literal>SHIFT_JIS_2004</literal></entry>
+<!--
         <entry><emphasis>not supported as a server encoding</emphasis>
+-->
+        <entry><emphasis>サーバの符号化方式としてサポートされていません</emphasis>
         </entry>
        </row>
        <row>
         <entry><literal>SQL_ASCII</literal></entry>
+<!--
         <entry><emphasis>any (no conversion will be performed)</emphasis>
+-->
+        <entry><emphasis>任意（変換は実行されません）</emphasis>
         </entry>
        </row>
        <row>
         <entry><literal>UHC</literal></entry>
+<!--
         <entry><emphasis>not supported as a server encoding</emphasis>
+-->
+        <entry><emphasis>サーバの符号化方式としてサポートされていません</emphasis>
         </entry>
        </row>
        <row>
         <entry><literal>UTF8</literal></entry>
+<!--
         <entry><emphasis>all supported encodings</emphasis>
+-->
+        <entry><emphasis>すべての符号化方式がサポートされています</emphasis>
         </entry>
        </row>
        <row>
@@ -1942,16 +2990,23 @@ RESET client_encoding;
     </table>
 
     <table id="builtin-conversions-table">
+<!--
      <title>All Built-in Character Set Conversions</title>
+-->
+     <title>すべての組み込み文字セット変換</title>
      <tgroup cols="3">
       <colspec colname="col1" colwidth="2*"/>
       <colspec colname="col2" colwidth="1*"/>
       <colspec colname="col3" colwidth="1*"/>
       <thead>
        <row>
+<!--
         <entry>Conversion Name
+-->
+        <entry>変換名
          <footnote>
           <para>
+<!--
            The conversion names follow a standard naming scheme: The
            official name of the source encoding with all
            non-alphanumeric characters replaced by underscores, followed
@@ -1959,11 +3014,19 @@ RESET client_encoding;
            destination encoding name.  Therefore, these names sometimes
            deviate from the customary encoding names shown in
            <xref linkend="charset-table"/>.
+-->
+変換名は、標準の命名規定に従います。
+英数字以外のすべての文字がアンダースコアに置き換えられた変換元符号化方式の正式名に<literal>_to_</literal>が続き、同様に処理された変換先符号化方式名が続きます。
+したがって、これらの名前は、<xref linkend="charset-table"/>に示されている通常の符号化方式名と異なる場合があります。
           </para>
          </footnote>
         </entry>
+<!--
         <entry>Source Encoding</entry>
         <entry>Destination Encoding</entry>
+-->
+        <entry>変換元符号化方式</entry>
+        <entry>変換先符号化方式</entry>
        </row>
       </thead>
 
@@ -2594,21 +3657,33 @@ RESET client_encoding;
    </sect2>
 
    <sect2>
+<!--
     <title>Further Reading</title>
+-->
+    <title>推奨文書</title>
 
     <para>
+<!--
      These are good sources to start learning about various kinds of encoding
      systems.
+-->
+ここに記したものは様々な符号化方式システムを学習するのに良い資料です。
 
      <variablelist>
       <varlistentry>
+<!--
        <term><citetitle>CJKV Information Processing: Chinese, Japanese, Korean &amp; Vietnamese Computing</citetitle></term>
+-->
+       <term><citetitle>CJKV日中韓越情報処理: 中国語、日本語、韓国語 &amp; ベトナム語処理</citetitle></term>
 
        <listitem>
         <para>
+<!--
          Contains detailed explanations of <literal>EUC_JP</literal>,
          <literal>EUC_CN</literal>, <literal>EUC_KR</literal>,
          <literal>EUC_TW</literal>.
+-->
+<literal>EUC_JP</literal>、<literal>EUC_CN</literal>、<literal>EUC_KR</literal>、<literal>EUC_TW</literal>の詳しい説明があります。
         </para>
        </listitem>
       </varlistentry>
@@ -2618,7 +3693,10 @@ RESET client_encoding;
 
        <listitem>
         <para>
+<!--
          The web site of the Unicode Consortium.
+-->
+Unicode協会のWebサイトです。
         </para>
        </listitem>
       </varlistentry>
@@ -2628,8 +3706,11 @@ RESET client_encoding;
 
        <listitem>
         <para>
+<!--
          <acronym>UTF</acronym>-8 (8-bit UCS/Unicode Transformation
          Format) is defined here.
+-->
+ここで<acronym>UTF</acronym>-8（8ビットUCS/Unicode変換書式）が定義されています。
         </para>
        </listitem>
       </varlistentry>

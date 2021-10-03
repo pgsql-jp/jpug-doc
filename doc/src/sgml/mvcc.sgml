@@ -1,13 +1,20 @@
 <!-- doc/src/sgml/mvcc.sgml -->
 
  <chapter id="mvcc">
+<!--
   <title>Concurrency Control</title>
+-->
+  <title>同時実行制御</title>
 
   <indexterm>
+<!--
    <primary>concurrency</primary>
+-->
+   <primary>同時実行制御</primary>
   </indexterm>
 
   <para>
+<!--
    This chapter describes the behavior of the
    <productname>PostgreSQL</productname> database system when two or
    more sessions try to access the same data at the same time.  The
@@ -15,13 +22,23 @@
    sessions while maintaining strict data integrity.  Every developer
    of database applications should be familiar with the topics covered
    in this chapter.
+-->
+本章では同時に2つ以上のセッションが同じデータにアクセスしようとした場合、<productname>PostgreSQL</productname>データベースシステムがどう振舞うかについて説明します。
+このような状況でデータの整合性を確実に保つ一方、全てのセッションに対して効果的なアクセスを許可するようにすることが目的です。
+データベースアプリケーションを開発する方は、本章で扱われている内容を熟知していなければなりません。
   </para>
 
   <sect1 id="mvcc-intro">
+<!--
    <title>Introduction</title>
+-->
+   <title>序文</title>
 
    <indexterm>
+<!--
     <primary>Multiversion Concurrency Control</primary>
+-->
+    <primary>多版型同時実行制御</primary>
    </indexterm>
 
    <indexterm>
@@ -29,7 +46,10 @@
    </indexterm>
 
    <indexterm>
+<!--
     <primary>Serializable Snapshot Isolation</primary>
+-->
+    <primary>シリアライザブルスナップショット分離</primary>
    </indexterm>
 
    <indexterm>
@@ -37,6 +57,7 @@
    </indexterm>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> provides a rich set of tools
     for developers to manage concurrent access to data.  Internally,
     data consistency is maintained by using a multiversion
@@ -52,9 +73,16 @@
     the locking methodologies of traditional database systems,
     minimizes lock contention in order to allow for reasonable
     performance in multiuser environments.
+-->
+<productname>PostgreSQL</productname>は、データへの同時アクセスを管理するために高度な開発者向けツール群を提供します。
+内部的に、データ一貫性は多版方式（多版型同時実行制御<acronym>MVCC</acronym>）を使用して管理されています。
+つまり、処理の基礎となっているデータの現在の状態にかかわらず、各SQL文は遡ったある時点におけるスナップショット（<firstterm>データベースバージョン</firstterm>）を参照する、というものです。
+これは、同時に並行しているトランザクションが同じ行を更新することによって引き起こす整合性を欠いたデータの参照を文にさせないようにし、それぞれのデータベースセッションに対して<firstterm>トランザクションの分離</firstterm>を提供します。
+<acronym>MVCC</acronym>は、マルチユーザ環境で理想的な性能を得るために、伝統的なデータベースシステムで行われるようなロック手法を避けることで、ロックの競合を最小化します。
    </para>
 
    <para>
+<!--
     The main advantage of using the <acronym>MVCC</acronym> model of
     concurrency control rather than locking is that in
     <acronym>MVCC</acronym> locks acquired for querying (reading) data
@@ -64,9 +92,14 @@
     even when providing the strictest level of transaction
     isolation through the use of an innovative <firstterm>Serializable
     Snapshot Isolation</firstterm> (<acronym>SSI</acronym>) level.
+-->
+ロックではなく同時実行制御の<acronym>MVCC</acronym>モデルを使用する主な利点は、<acronym>MVCC</acronym>では問い合わせ（読み込み）ロックの獲得と、書き込みロックの獲得が競合しないことです。
+したがって、読み込みは書き込みを絶対にブロックしませんし、書き込みも読み込みをブロックすることがありません。
+革新的な<firstterm>シリアライザブルスナップショット分離</firstterm> (<acronym>SSI</acronym>)レベルの使用を通した最も厳密なトランザクションの分離レベルを提供する場合にも<productname>PostgreSQL</productname>はこれの保証を維持します。
    </para>
 
    <para>
+<!--
     Table- and row-level locking facilities are also available in
     <productname>PostgreSQL</productname> for applications which don't
     generally need full transaction isolation and prefer to explicitly
@@ -75,17 +108,28 @@
     performance than locks.  In addition, application-defined advisory
     locks provide a mechanism for acquiring locks that are not tied
     to a single transaction.
+-->
+全般的に完全なトランザクションの分離を必要とせず、明示的に競合する点を管理することを望むアプリケーションのために、<productname>PostgreSQL</productname>ではテーブルレベルおよび行レベルのロック機能も使用可能です。
+とはいえ、<acronym>MVCC</acronym>を適切に使用すると通常ロックよりも性能が向上します。
+さらに、アプリケーションが定義した勧告的ロックは単一トランザクションに拘束されないロックの獲得機構を提供します。
    </para>
   </sect1>
 
   <sect1 id="transaction-iso">
+<!--
    <title>Transaction Isolation</title>
+-->
+   <title>トランザクションの分離</title>
 
    <indexterm>
+<!--
     <primary>transaction isolation</primary>
+-->
+    <primary>トランザクションの分離</primary>
    </indexterm>
 
    <para>
+<!--
     The <acronym>SQL</acronym> standard defines four levels of
     transaction isolation.  The most strict is Serializable,
     which is defined by the standard in a paragraph which says that any
@@ -95,65 +139,103 @@
     interaction between concurrent transactions, which must not occur at
     each level.  The standard notes that due to the definition of
     Serializable, none of these phenomena are possible at that level.  (This
-    is hardly surprising -- if the effect of the transactions must be
+    is hardly surprising &#045;- if the effect of the transactions must be
     consistent with having been run one at a time, how could you see any
     phenomena caused by interactions?)
+-->
+<acronym>SQL</acronym>の標準規格では、トランザクションの分離について4つのレベルを定義しています。
+標準規格で定義されているもののうち最も厳密なものはシリアライザブルです。
+1セットのシリアライザブルなトランザクションを同時実行した場合には、ある順番でひとつずつそれらを実行した場合と同じ結果となることが保証されるものです。本文で詳しく述べます。
+他の3レベルは、同時実行しているトランザクション間の相互作用に起因する、各レベルでは発生してはならない現象面に基づき定義されます。
+標準規格のシリアライザブルの定義では、このレベルではこれらの現象が起こりえないと述べています。
+(これは驚くことではありません。トランザクションの効果がひとつずつ実行された場合と一貫性を持たなければならないとしたら、相互作用によって発生した現象はどうやっても見つけ出すことはできないでしょう。)
    </para>
 
    <para>
+<!--
     The phenomena which are prohibited at various levels are:
+-->
+各種レベルにおける禁止される現象を以下に示します。
 
     <variablelist>
      <varlistentry>
       <term>
+<!--
        dirty read
        <indexterm><primary>dirty read</primary></indexterm>
+-->
+ダーティリード
+       <indexterm><primary>ダーティリード</primary></indexterm>
       </term>
      <listitem>
       <para>
+<!--
         A transaction reads data written by a concurrent uncommitted transaction.
+-->
+同時に実行されている他のトランザクションが書き込んで未だコミットしていないデータを読み込んでしまう。
        </para>
       </listitem>
      </varlistentry>
 
      <varlistentry>
       <term>
+<!--
        nonrepeatable read
        <indexterm><primary>nonrepeatable read</primary></indexterm>
+-->
+反復不能読み取り
+       <indexterm><primary>反復不能読み取り</primary></indexterm>
       </term>
      <listitem>
       <para>
+<!--
         A transaction re-reads data it has previously read and finds that data
         has been modified by another transaction (that committed since the
         initial read).
+-->
+トランザクションが、以前読み込んだデータを再度読み込み、そのデータが(最初の読み込みの後にコミットした)別のトランザクションによって更新されたことを見出す。
        </para>
       </listitem>
      </varlistentry>
 
      <varlistentry>
       <term>
+<!--
        phantom read
        <indexterm><primary>phantom read</primary></indexterm>
+-->
+ファントムリード
+       <indexterm><primary>ファントムリード</primary></indexterm>
       </term>
      <listitem>
       <para>
+<!--
         A transaction re-executes a query returning a set of rows that satisfy a
         search condition and finds that the set of rows satisfying the condition
         has changed due to another recently-committed transaction.
+-->
+トランザクションが、複数行のある集合を返す検索条件で問い合わせを再実行した時、別のトランザクションがコミットしてしまったために、同じ検索条件で問い合わせを実行しても異なる結果を得てしまう。
        </para>
       </listitem>
      </varlistentry>
 
      <varlistentry>
       <term>
+<!--
        serialization anomaly
        <indexterm><primary>serialization anomaly</primary></indexterm>
+-->
+直列化異常
+       <indexterm><primary>直列化異常</primary></indexterm>
       </term>
      <listitem>
       <para>
+<!--
         The result of successfully committing a group of transactions
         is inconsistent with all possible orderings of running those
         transactions one at a time.
+-->
+複数のトランザクションを正常にコミットした結果が、それらのトランザクションを1つずつあらゆる可能な順序で実行する場合とは一貫性がない。
        </para>
       </listitem>
      </varlistentry>
@@ -162,104 +244,188 @@
 
    <para>
     <indexterm>
+<!--
      <primary>transaction isolation level</primary>
+-->
+     <primary>トランザクション分離レベル</primary>
     </indexterm>
+<!--
     The SQL standard and PostgreSQL-implemented transaction isolation levels
     are described in <xref linkend="mvcc-isolevel-table"/>.
+-->
+標準SQLおよびPostgreSQLで実装されているトランザクション分離レベルを<xref linkend="mvcc-isolevel-table"/>に示します。
    </para>
 
     <table tocentry="1" id="mvcc-isolevel-table">
+<!--
      <title>Transaction Isolation Levels</title>
+-->
+     <title>トランザクション分離レベル</title>
      <tgroup cols="5">
       <thead>
        <row>
         <entry>
+<!--
          Isolation Level
+-->
+分離レベル
         </entry>
         <entry>
+<!--
          Dirty Read
+-->
+ダーティリード
         </entry>
         <entry>
+<!--
          Nonrepeatable Read
+-->
+反復不能読み取り
         </entry>
         <entry>
+<!--
          Phantom Read
+-->
+ファントムリード
         </entry>
         <entry>
+<!--
          Serialization Anomaly
+-->
+直列化異常
         </entry>
        </row>
       </thead>
       <tbody>
        <row>
         <entry>
+<!--
          Read uncommitted
+-->
+リードアンコミッティド
         </entry>
         <entry>
+<!--
          Allowed, but not in PG
+-->
+許容されるが、PostgreSQLでは発生しない
         </entry>
         <entry>
+<!--
          Possible
+-->
+可能性あり
         </entry>
         <entry>
+<!--
          Possible
+-->
+可能性あり
         </entry>
         <entry>
+<!--
          Possible
+-->
+可能性あり
         </entry>
        </row>
 
        <row>
         <entry>
+<!--
          Read committed
+-->
+リードコミッティド
         </entry>
         <entry>
+<!--
          Not possible
+-->
+安全
         </entry>
         <entry>
+<!--
          Possible
+-->
+可能性あり
         </entry>
         <entry>
+<!--
          Possible
+-->
+可能性あり
         </entry>
         <entry>
+<!--
          Possible
+-->
+可能性あり
         </entry>
        </row>
 
        <row>
         <entry>
+<!--
          Repeatable read
+-->
+リピータブルリード
         </entry>
         <entry>
+<!--
          Not possible
+-->
+安全
         </entry>
         <entry>
+<!--
          Not possible
+-->
+安全
         </entry>
         <entry>
+<!--
          Allowed, but not in PG
+-->
+許容されるが、PostgreSQLでは発生しない
         </entry>
         <entry>
+<!--
          Possible
+-->
+可能性あり
         </entry>
        </row>
 
        <row>
         <entry>
+<!--
          Serializable
+-->
+シリアライザブル
         </entry>
         <entry>
+<!--
          Not possible
+-->
+安全
         </entry>
         <entry>
+<!--
          Not possible
+-->
+安全
         </entry>
         <entry>
+<!--
          Not possible
+-->
+安全
         </entry>
         <entry>
+<!--
          Not possible
+-->
+安全
         </entry>
        </row>
       </tbody>
@@ -267,30 +433,46 @@
     </table>
 
    <para>
+<!--
     In <productname>PostgreSQL</productname>, you can request any of
     the four standard transaction isolation levels, but internally only
     three distinct isolation levels are implemented, i.e., PostgreSQL's
     Read Uncommitted mode behaves like Read Committed.  This is because
     it is the only sensible way to map the standard isolation levels to
     PostgreSQL's multiversion concurrency control architecture.
+-->
+<productname>PostgreSQL</productname>では、4つの標準トランザクション分離レベルを全て要求することができます。
+しかし、内部的には3つの分離レベルしか実装されていません。
+つまり、PostgreSQLのリードアンコミッティドモードは、リードコミッティドのように動作します。
+これは、PostgreSQLの多版型同時実行制御という仕組みに標準の分離レベルを関連付ける実際的な方法がこれしかないからです。
    </para>
 
    <para>
+<!--
     The table also shows that PostgreSQL's Repeatable Read implementation
     does not allow phantom reads.  Stricter behavior is permitted by the
     SQL standard: the four isolation levels only define which phenomena
     must not happen, not which phenomena <emphasis>must</emphasis> happen.
     The behavior of the available isolation levels is detailed in the
     following subsections.
+-->
+このテーブルはまた、PostgreSQLのリピータブルリードの実装ではファントムリードが起こらないことを示しています。
+より厳密な動作をすることは標準SQLでも許されています。
+つまり、この4つの分離レベルでは、発生してはならない事象のみが定義され、発生<emphasis>しなければならない</emphasis>事象は定義されていません。
+利用可能な分離レベルでの動作については後で詳細に説明します。
    </para>
 
    <para>
+<!--
     To set the transaction isolation level of a transaction, use the
     command <xref linkend="sql-set-transaction"/>.
+-->
+トランザクションのトランザクション分離レベルを設定するには<xref linkend="sql-set-transaction"/>コマンドを使用してください。
    </para>
 
    <important>
      <para>
+<!--
        Some <productname>PostgreSQL</productname> data types and functions have
        special rules regarding transactional behavior.  In particular, changes
        made to a sequence (and therefore the counter of a
@@ -298,22 +480,37 @@
        to all other transactions and are not rolled back if the transaction
        that made the changes aborts.  See <xref linkend="functions-sequence"/>
        and <xref linkend="datatype-serial"/>.
+-->
+いくつかの<productname>PostgreSQL</productname>データ型と関数はトランザクションの振る舞いに関して特別の規則があります。
+特に、シーケンスに対しての変更は（従い、<type>serial</type>を使用して宣言された列のカウンタ）は直後に全ての他のトランザクションで可視となり、変更を行ったトランザクションが中止されるとロールバックはできません。
+<xref linkend="functions-sequence"/>および<xref linkend="datatype-serial"/>を参照してください。
      </para>
    </important>
 
   <sect2 id="xact-read-committed">
+<!--
    <title>Read Committed Isolation Level</title>
+-->
+   <title>リードコミッティド分離レベル</title>
 
    <indexterm>
+<!--
     <primary>transaction isolation level</primary>
     <secondary>read committed</secondary>
+-->
+    <primary>トランザクション分離レベル</primary>
+    <secondary>リードコミッティド</secondary>
    </indexterm>
 
    <indexterm>
+<!--
     <primary>read committed</primary>
+-->
+    <primary>リードコミッティド</primary>
    </indexterm>
 
    <para>
+<!--
     <firstterm>Read Committed</firstterm> is the default isolation
     level in <productname>PostgreSQL</productname>.  When a transaction
     uses this isolation level, a <command>SELECT</command> query
@@ -329,9 +526,16 @@
     though they are within a single transaction, if other transactions
     commit changes after the first <command>SELECT</command> starts and
     before the second <command>SELECT</command> starts.
+-->
+<productname>PostgreSQL</productname>では<firstterm>リードコミッティド</firstterm>がデフォルトの分離レベルです。
+トランザクションがこの分離レベルを使用すると、<command>SELECT</command>問い合わせ（<literal>FOR UPDATE/SHARE</literal>句を伴わない）はその問い合わせが実行される直前までにコミットされたデータのみを参照し、まだコミットされていないデータや、その問い合わせの実行中に別の同時実行トランザクションがコミットした更新は参照しません。
+結果として、<command>SELECT</command>問い合わせはその問い合わせが実行を開始した時点のデータベースのスナップショットを参照することになります。
+しかし<command>SELECT</command>文は、自分自身のトランザクション内で実行され更新された結果はたとえまだコミットされていなくても参照します。
+単一のトランザクション内であっても、<command>SELECT</command>文を2回連続して発行した場合、最初の<command>SELECT</command>文が開始した後で2番目の<command>SELECT</command>文が開始する前に他のトランザクションが更新をコミットすると、最初とその次に発行した<command>SELECT</command>問い合わせは異なるデータを参照してしまうことにも注意してください。
    </para>
 
    <para>
+<!--
     <command>UPDATE</command>, <command>DELETE</command>, <command>SELECT
     FOR UPDATE</command>, and <command>SELECT FOR SHARE</command> commands
     behave the same as <command>SELECT</command>
@@ -352,9 +556,21 @@
     <command>SELECT FOR UPDATE</command> and <command>SELECT FOR
     SHARE</command>, this means it is the updated version of the row that is
     locked and returned to the client.
+-->
+<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、および<command>SELECT FOR SHARE</command>コマンドは対象行を検索する際に<command>SELECT</command>コマンドと同じように振舞います。
+これらのコマンドは、問い合わせが開始された時点で既にコミットされた対象行のみを検出します。
+しかし、その対象行は、検出されるまでに、同時実行中の他のトランザクションによって、既に更新（もしくは削除あるいはロック）されてしまっているかもしれません。
+このような場合更新されるべき処理は、最初の更新トランザクションが（それがまだ進行中の場合）コミットもしくはロールバックするのを待ちます。
+最初の更新処理がロールバックされるとその結果は無視されて、2番目の更新処理で元々検出した行の更新を続行することができます。
+最初の更新処理がコミットされると、2番目の更新処理では、最初の更新処理により行が削除された場合はその行を無視します。
+行が削除されなかった時の更新処理は、最初のコミットで更新された行に適用されます。
+コマンドの検索条件（<literal>WHERE</literal>句）は、更新された行がまだその検索条件に一致するかどうかの確認のため再評価されます。
+検索条件と一致している場合、2番目の更新処理は、更新された行を使用して処理を開始します。
+<command>SELECT FOR UPDATE</command>および<command>SELECT FOR SHARE</command>の場合、ロックされクライアントに返されるのは、更新されるバージョンの行であることを意味します。
    </para>
 
    <para>
+<!--
     <command>INSERT</command> with an <literal>ON CONFLICT DO UPDATE</literal> clause
     behaves similarly. In Read Committed mode, each row proposed for insertion
     will either insert or update. Unless there are unrelated errors, one of
@@ -363,17 +579,27 @@
     </command>, the <command>UPDATE</command> clause will affect that row,
     even though possibly <emphasis>no</emphasis> version of that row is
     conventionally visible to the command.
+-->
+<literal>ON CONFLICT DO UPDATE</literal>句のある<command>INSERT</command>は同じように動作します。
+リードコミッティドモードでは、挿入を提案された各行は挿入または更新されます。
+無関係なエラーが発生しなければ、それら2つの結果のうち1つが保証されます。
+まだその結果が<command>INSERT</command>に対して可視になっていない他のトランザクションに起因する競合では、慣習的な意味でそのコマンドに対して可視のバージョンの行が存在<emphasis>しない</emphasis>にも関わらず、<command>UPDATE</command>句がその行に対して動作します。
    </para>
 
    <para>
+<!--
     <command>INSERT</command> with an <literal>ON CONFLICT DO
     NOTHING</literal> clause may have insertion not proceed for a row due to
     the outcome of another transaction whose effects are not visible
     to the <command>INSERT</command> snapshot.  Again, this is only
     the case in Read Committed mode.
+-->
+<literal>ON CONFLICT DO NOTHING</literal>句のある<command>INSERT</command>では、<command>INSERT</command>のスナップショットに対してその結果が可視になっていない他のトランザクションの結果のために、行の挿入が処理されないかもしれません。
+ここでも、問題になるのはリードコミッティドモードのときだけです。
    </para>
 
    <para>
+<!--
     Because of the above rules, it is possible for an updating command to see
     an inconsistent snapshot: it can see the effects of concurrent updating
     commands on the same rows it is trying to update, but it
@@ -382,6 +608,12 @@
     involve complex search conditions; however, it is just right for simpler
     cases.  For example, consider updating bank balances with transactions
     like:
+-->
+このような仕組みにより、更新コマンドが、一貫しないスナップショットを参照する可能性があります。
+つまり、自分が更新を試みているのと同じ行に対して同時に更新するコマンドの結果は参照できますが、それらのコマンドがデータベース中の他の行に対して更新した結果は参照しません。
+このような動作をするために複雑な検索条件を含む問い合わせにリードコミッティドモードを使用することは適切ではありません。
+しかし、より単純な検索条件の場合、このモードの使用が適しています。
+例えば、銀行の残高を更新する以下のようなトランザクションを考えてみます。
 
 <screen>
 BEGIN;
@@ -390,14 +622,19 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 7534;
 COMMIT;
 </screen>
 
+<!--
     If two such transactions concurrently try to change the balance of account
     12345, we clearly want the second transaction to start with the updated
     version of the account's row.  Because each command is affecting only a
     predetermined row, letting it see the updated version of the row does
     not create any troublesome inconsistency.
+-->
+2つのこのようなトランザクションが同時に口座番号12345の残高を変更しようとした場合、口座の行の更新されたバージョンに対して2番目のトランザクションが開始されることは明らかに望まれるところです。
+各コマンドは事前に決定していた行に対してのみ処理を行うため、行の更新されたバージョンを見せることによって、何の問題となる不整合も引き起こしません。
    </para>
 
    <para>
+<!--
     More complex usage can produce undesirable results in Read Committed
     mode.  For example, consider a <command>DELETE</command> command
     operating on data that is being both added and removed from its
@@ -405,14 +642,22 @@ COMMIT;
     <literal>website</literal> is a two-row table with
     <literal>website.hits</literal> equaling <literal>9</literal> and
     <literal>10</literal>:
+-->
+より複雑な使用法により、リードコミッティドモードでは好ましくない結果を生成する場合があります。
+例えば、別のコマンドによって<command>DELETE</command>の制約条件からデータが同時に追加・削除される場合を考えます。
+例えば、<literal>website</literal>は2行のテーブルで、<literal>website.hits</literal>の値には<literal>9</literal>と<literal>10</literal>があるとします。
 
 <screen>
 BEGIN;
 UPDATE website SET hits = hits + 1;
--- run from another session:  DELETE FROM website WHERE hits = 10;
+<!--
+&#045;&#045; run from another session:  DELETE FROM website WHERE hits = 10;
+-->
+-- 別のセッションから DELETE FROM website WHERE hits = 10; を実行します
 COMMIT;
 </screen>
 
+<!--
     The <command>DELETE</command> will have no effect even though
     there is a <literal>website.hits = 10</literal> row before and
     after the <command>UPDATE</command>. This occurs because the
@@ -420,39 +665,62 @@ COMMIT;
     <command>UPDATE</command> completes and <command>DELETE</command>
     obtains a lock, the new row value is no longer <literal>10</literal> but
     <literal>11</literal>, which no longer matches the criteria.
+-->
+<command>UPDATE</command>の前後の両方で<literal>website.hits = 10</literal>の行があるにも関わらず、<command>DELETE</command>は何もしません。
+なぜこうなるのかと言うと、更新前の行値<literal>9</literal>は読み飛ばされ、また<command>UPDATE</command>が完了して<command>DELETE</command>がロックを獲得した時点では、新しい行値は<literal>10</literal>ではなく<literal>11</literal>となり、判定条件にもはやマッチしなくなっているからです。
    </para>
 
    <para>
+<!--
     Because Read Committed mode starts each command with a new snapshot
     that includes all transactions committed up to that instant,
     subsequent commands in the same transaction will see the effects
     of the committed concurrent transaction in any case.  The point
     at issue above is whether or not a <emphasis>single</emphasis> command
     sees an absolutely consistent view of the database.
+-->
+リードコミッティドモードは、それぞれのコマンドをその時点までにコミットされた全てのトランザクションを含む新規スナップショットを伴って開始するので、同一のトランザクション内でそれに続くコマンドは、いかなる場合でもコミットされた同時実行トランザクションの結果を参照します。
+上記問題の要点は<emphasis>単一の</emphasis>コマンドがデータベースの厳密に一貫性のある見え方を見るか否かです。
    </para>
 
    <para>
+<!--
     The partial transaction isolation provided by Read Committed mode
     is adequate for many applications, and this mode is fast and simple
     to use;  however, it is not sufficient for all cases.  Applications
     that do complex queries and updates might require a more rigorously
     consistent view of the database than Read Committed mode provides.
+-->
+リードコミッティドモードで提供されている部分的なトランザクション分離は、多くのアプリケーションでは適切です。
+またこのモードは高速で、使い方も簡単ですが、全ての場合に対して充分ではありません。
+複雑な問い合わせや更新を行うアプリケーションは、リードコミッティドモードが提供する以上のより厳正なデータベースの厳密に一貫性のある見え方を必要とします。
    </para>
   </sect2>
 
   <sect2 id="xact-repeatable-read">
+<!--
    <title>Repeatable Read Isolation Level</title>
+-->
+   <title>リピータブルリード分離レベル</title>
 
    <indexterm>
+<!--
     <primary>transaction isolation level</primary>
     <secondary>repeatable read</secondary>
+-->
+    <primary>トランザクション分離レベル</primary>
+    <secondary>リピータブルリード</secondary>
    </indexterm>
 
    <indexterm>
+<!--
     <primary>repeatable read</primary>
+-->
+    <primary>リピータブルリード</primary>
    </indexterm>
 
    <para>
+<!--
     The <firstterm>Repeatable Read</firstterm> isolation level only sees
     data committed before the transaction began; it never sees either
     uncommitted data or changes committed during transaction execution
@@ -466,9 +734,16 @@ COMMIT;
     specifically allowed by the standard, which only describes the
     <emphasis>minimum</emphasis> protections each isolation level must
     provide.
+-->
+<firstterm>リピータブルリード</firstterm>分離レベルは、トランザクションが開始される前までにコミットされたデータのみを参照します。
+コミットされていないデータや、そのトランザクションの実行中に別のトランザクションでコミットされた変更を参照しません。
+（しかし、その問い合わせと同じトランザクション内で行われた過去の更新は、まだコミットされていませんが、参照します。）
+これは<acronym>SQL</acronym>の標準規格で求められるものよりもより強く保証するもので、直列化異常を除いて、<xref linkend="mvcc-isolevel-table"/>で述べている現象をすべて防ぎます。
+上で述べたように、これは標準規格によって明示的に許容されているもので、標準ではそれぞれの分離レベルが提供しなくてはならない<emphasis>最小</emphasis>の保護のみが示されています。
    </para>
 
    <para>
+<!--
     This level is different from Read Committed in that a query in a
     repeatable read transaction sees a snapshot as of the start of the
     first non-transaction-control statement in the
@@ -477,14 +752,21 @@ COMMIT;
     <command>SELECT</command> commands within a <emphasis>single</emphasis>
     transaction see the same data, i.e., they do not see changes made by
     other transactions that committed after their own transaction started.
+-->
+リピータブルリードのトランザクション内の問い合わせは、トランザクション内の現在の文の開始時点ではなく、<emphasis>トランザクション</emphasis>の最初のトランザクション制御以外の文の開始時点のスナップショットを見る、という点でこのレベルはリードコミッティドと異なります。
+従って、<emphasis>単一</emphasis>トランザクション内の連続する<command>SELECT</command>文は、同じデータを参照します。つまり、自身のトランザクションが開始した後にコミットされた他のトランザクションによる変更を参照しません。
    </para>
 
    <para>
+<!--
     Applications using this level must be prepared to retry transactions
     due to serialization failures.
+-->
+このレベルを使ったアプリケーションでは、直列化の失敗によるトランザクションの再実行に備えておく必要があります。
    </para>
 
    <para>
+<!--
     <command>UPDATE</command>, <command>DELETE</command>, <command>SELECT
     FOR UPDATE</command>, and <command>SELECT FOR SHARE</command> commands
     behave the same as <command>SELECT</command>
@@ -498,30 +780,49 @@ COMMIT;
     with updating the originally found row.  But if the first updater commits
     (and actually updated or deleted the row, not just locked it)
     then the repeatable read transaction will be rolled back with the message
+-->
+<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、および<command>SELECT FOR SHARE</command>コマンドでは、<command>SELECT</command>と同じように対象行を検索します。
+これらのコマンドでは、トランザクションが開始された時点で既にコミットされている対象行のみを検出します。
+しかし、その対象行は、検出されるまでに、同時実行中の他のトランザクションによって、既に更新（もしくは削除あるいはロック）されている可能性があります。
+このような場合、リピータブルリードトランザクションは、最初の更新トランザクションが（それらがまだ進行中の場合）コミットもしくはロールバックするのを待ちます。
+最初の更新処理がロールバックされると、その結果は無視され、リピータブルリードトランザクションでは元々検出した行の更新を続行することができます。
+しかし、最初の更新処理がコミット（かつ、単にロックされるだけでなく、実際に行が更新または削除）されると、リピータブルリードトランザクションでは、以下のようなメッセージを出力してロールバックを行います。
 
 <screen>
 ERROR:  could not serialize access due to concurrent update
 </screen>
 
+<!--
     because a repeatable read transaction cannot modify or lock rows changed by
     other transactions after the repeatable read transaction began.
+-->
+これは、リピータブルリードトランザクションでは、トランザクションが開始された後に別のトランザクションによって更新されたデータは変更またはロックすることができないためです。
    </para>
 
    <para>
+<!--
     When an application receives this error message, it should abort
     the current transaction and retry the whole transaction from
     the beginning.  The second time through, the transaction will see the
     previously-committed change as part of its initial view of the database,
     so there is no logical conflict in using the new version of the row
     as the starting point for the new transaction's update.
+-->
+アプリケーションがこのエラーメッセージを受け取った場合、現在のトランザクションを中止して、トランザクション全体を始めからやり直されなければなりません。
+2回目では、トランザクションはコミットされた変更を含めてデータベースの最初の状態とみなすので、新しいバージョンの行を新しいトランザクションにおける更新の始点としても、論理的矛盾は起こりません。
    </para>
 
    <para>
+<!--
     Note that only updating transactions might need to be retried; read-only
     transactions will never have serialization conflicts.
+-->
+再実行する必要があるかもしれないのは、更新トランザクションのみです。
+読み込み専用トランザクションでは直列化の衝突は決して起こりません。
    </para>
 
    <para>
+<!--
     The Repeatable Read mode provides a rigorous guarantee that each
     transaction sees a completely stable view of the database.  However,
     this view will not necessarily always be consistent with some serial
@@ -533,6 +834,33 @@ ERROR:  could not serialize access due to concurrent update
     record.  Attempts to enforce business rules by transactions running at
     this isolation level are not likely to work correctly without careful use
     of explicit locks to block conflicting transactions.
+-->
+リピータブルリードモードでは、全てのトランザクションがデータベースの一貫した不変のビューの状態を参照することが保証されます。
+しかし、このビューは常にいくつかの同じレベルの同時実行トランザクションの直列（一度に一つずつの）実行と一貫性を持つとは限りません。
+例えば、このレベルの読み取りのみのトランザクションは、バッチが完了したことを示すために更新された制御レコードを参照することができますが、
+制御レコードのより以前のバージョンを読み取るため、論理的にそのバッチの一部となる詳細なレコードの１つを参照することは<emphasis>できません</emphasis>。
+この分離レベルで実行するトランザクションによりビジネスルールを強制しようとすることは、競合するトランザクションをブロックするために注意深く明示的なロックを持たないと、正確に動作しないことが多くあります。
+   </para>
+
+   <para>
+<!--
+    The Repeatable Read isolation level is implemented using a technique
+    known in academic database literature and in some other database products
+    as <firstterm>Snapshot Isolation</firstterm>.  Differences in behavior
+    and performance may be observed when compared with systems that use a
+    traditional locking technique that reduces concurrency.  Some other
+    systems may even offer Repeatable Read and Snapshot Isolation as distinct
+    isolation levels with different behavior.  The permitted phenomena that
+    distinguish the two techniques were not formalized by database researchers
+    until after the SQL standard was developed, and are outside the scope of
+    this manual.  For a full treatment, please see
+    <xref linkend="berenson95"/>.
+-->
+リピータブルリード分離レベルは、学術的なデータベースの文献や他のデータベース製品のいくつかでは<firstterm>スナップショット分離</firstterm>として知られる技術を用いて実装されています。
+同時実行性の面で劣る伝統的なロック技術を使うシステムと比較すると振舞いや性能の違いが観察されるかもしれません。
+他のシステムでは、リピータブルリードとスナップショット分離を異なる振舞いをする別の分離レベルとして提供しているかもしれません。
+2つの技術を区別する許容される現象は、標準SQLが制定されるまではデータベース研究者により定式化されておらず、この文書の範囲を超えます。
+詳細な取り扱いについては<xref linkend="berenson95"/>を参照してください。
    </para>
 
    <para>
@@ -551,35 +879,56 @@ ERROR:  could not serialize access due to concurrent update
 
    <note>
     <para>
+<!--
      Prior to <productname>PostgreSQL</productname> version 9.1, a request
      for the Serializable transaction isolation level provided exactly the
      same behavior described here.  To retain the legacy Serializable
      behavior, Repeatable Read should now be requested.
+-->
+<productname>PostgreSQL</productname> version 9.1より前まででは、シリアライザブル分離レベルの要求はここで説明した通りの動作をそのまま提供していました。
+以前のシリアライザブルの動作を維持するためには、リピータブルリードを要求しなければならなくなりました。
     </para>
    </note>
   </sect2>
 
   <sect2 id="xact-serializable">
+<!--
    <title>Serializable Isolation Level</title>
+-->
+   <title>シリアライザブル分離レベル</title>
 
    <indexterm>
+<!--
     <primary>transaction isolation level</primary>
     <secondary>serializable</secondary>
+-->
+    <primary>トランザクション分離レベル</primary>
+    <secondary>シリアライザブル</secondary>
    </indexterm>
 
    <indexterm>
+<!--
     <primary>serializable</primary>
+-->
+    <primary>シリアライザブル</primary>
    </indexterm>
 
    <indexterm>
+<!--
     <primary>predicate locking</primary>
+-->
+    <primary>述語ロック</primary>
    </indexterm>
 
    <indexterm>
+<!--
     <primary>serialization anomaly</primary>
+-->
+    <primary>直列化異常</primary>
    </indexterm>
 
    <para>
+<!--
     The <firstterm>Serializable</firstterm> isolation level provides
     the strictest transaction isolation.  This level emulates serial
     transaction execution for all committed transactions;
@@ -597,11 +946,20 @@ ERROR:  could not serialize access due to concurrent update
     conditions which could cause a
     <firstterm>serialization anomaly</firstterm> will trigger a
     <firstterm>serialization failure</firstterm>.
+-->
+<firstterm>シリアライザブル</firstterm>分離レベルは、最も厳しいトランザクションの分離性を提供します。
+このレベルではトランザクションが同時にではなく、次から次へと、あたかも順に実行されているように逐次的なトランザクションの実行を全てのコミットされたトランザクションに対しエミュレートします。
+しかし、このレベルを使ったアプリケーションでは、リピータブルリードレベルと同様に、直列化の失敗によるトランザクションの再実行に備えておく必要があります。
+実際、この分離レベルは、（ある時点で）逐次実行可能なすべてのトランザクションにおいて、シリアライザブルトランザクションの同時実行の組が一貫性のないような振る舞いをしていないか監視することを除き、リピータブルリードと全く同じ動きをします。
+この監視では、リピータブルリードが示すものを越えてブロックすることはありませんが、監視によりいくらかのオーバーヘッドがあり、<firstterm>直列化異常</firstterm>を引き起こすような状態の検知は、<firstterm>直列化の失敗</firstterm>を引き起こすでしょう。
    </para>
 
    <para>
+<!--
     As an example,
     consider a table <structname>mytab</structname>, initially containing:
+-->
+例えば、以下の初期データを持つ<structname>mytab</structname>というテーブルを考えてみます。
 <screen>
  class | value
 -------+-------
@@ -610,34 +968,51 @@ ERROR:  could not serialize access due to concurrent update
      2 |   100
      2 |   200
 </screen>
+<!--
     Suppose that serializable transaction A computes:
+-->
+ここでシリアライザブルトランザクションAが以下を計算し、
 <screen>
 SELECT SUM(value) FROM mytab WHERE class = 1;
 </screen>
+<!--
     and then inserts the result (30) as the <structfield>value</structfield> in a
     new row with <structfield>class</structfield><literal> = 2</literal>.  Concurrently, serializable
     transaction B computes:
+-->
+そして、<structfield>value</structfield>にその結果（30）を、<structfield>class</structfield><literal> = 2</literal>の行として新たに挿入したとします。
+同時にシリアライザブルトランザクションBが以下を計算し、
 <screen>
 SELECT SUM(value) FROM mytab WHERE class = 2;
 </screen>
+<!--
     and obtains the result 300, which it inserts in a new row with
     <structfield>class</structfield><literal> = 1</literal>.  Then both transactions try to commit.
     If either transaction were running at the Repeatable Read isolation level,
     both would be allowed to commit; but since there is no serial order of execution
     consistent with the result, using Serializable transactions will allow one
     transaction to commit and will roll the other back with this message:
+-->
+その結果300を得、そして、この結果を<structfield>class</structfield><literal> = 1</literal>の新たな行として挿入したとします。
+その後、両方のトランザクションがコミットを試みます。
+もし一方の処理がリピータブルリード分離レベルで実行していれば、両方のコミットが許されるでしょう。
+しかし、この結果と一貫する実行順序が存在しないため、シリアライザブルトランザクションを使用した場合は、ひとつのトランザクションがコミットを許され、他方は次のメッセージとともにロールバックされることになります。
 
 <screen>
 ERROR:  could not serialize access due to read/write dependencies among transactions
 </screen>
 
+<!--
     This is because if A had
     executed before B, B would have computed the sum 330, not 300, and
     similarly the other order would have resulted in a different sum
     computed by A.
+-->
+この理由は、もしAがBよりも前に実行されていた場合、Bの総和は300ではなく330と計算され、また同様に逆の順序で実行されたとすればAで計算される総和が異なる結果になるからです。
    </para>
 
    <para>
+<!--
     When relying on Serializable transactions to prevent anomalies, it is
     important that any data read from a permanent user table not be
     considered valid until the transaction which read it has successfully
@@ -649,9 +1024,15 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     applications must not depend on results read during a transaction that
     later aborted; instead, they should retry the transaction until it
     succeeds.
+-->
+異常を防止するためにシリアライザブルトランザクションを使用するのであれば、恒久的なユーザテーブルから読み取られたいかなるデータも、それを読んだトランザクションがコミットされるまで有効とは認められない点は重要です。
+このことは読み取り専用トランザクションにも当てはまりますが、<firstterm>遅延可能な</firstterm>読み取り専用トランザクション内で読み込まれたデータは例外で、読み込まれてすぐに有効とみなされます。
+なぜなら、遅延可能なトランザクションはすべてのデータを読み込む前にこのような問題がないことを保証されているスナップショットを取得できるまで待機するからです。
+それ以外の全ての場合において、後に中止されたトランザクション内で読み込まれた結果をアプリケーションは信用してはならず、アプリケーションはトランザクションが成功するまで再試行すべきです。
    </para>
 
    <para>
+<!--
     To guarantee true serializability <productname>PostgreSQL</productname>
     uses <firstterm>predicate locking</firstterm>, which means that it keeps locks
     which allow it to determine when a write would have had an impact on
@@ -666,9 +1047,16 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     users attempting to use that table, or it may use <literal>SELECT FOR
     UPDATE</literal> or <literal>SELECT FOR SHARE</literal> which not only
     can block other transactions but cause disk access.
+-->
+真の直列性を保証するために<productname>PostgreSQL</productname>では、<firstterm>述語ロック</firstterm>を使います。
+述語ロックでは、トランザクションが最初に実行されたとしたら、それによる書き込みが同時実行トランザクションによる読み取り結果にいつ影響を及ぼしたかの決定を可能にするロックを保持します。
+<productname>PostgreSQL</productname>では、これらのロックはブロッキングを引き起こさないため、デッドロックの要因となら<emphasis>ない</emphasis>ものです。
+それらは、同時実行中のシリアライザブルトランザクションが、直列化異常につながる組み合わせであることを識別しフラグを立てることに使用されます。
+それとは対照的に、データの一貫性を保証したいリードコミッティドあるいはリピータブルリードトランザクションでは、テーブル全体のロック（そのテーブルを使用しようとしている他のユーザをブロックするかもしれません）を必要とするかもしれませんし、あるいは、他のトランザクションをブロックするだけでなくディスク・アクセスを引き起こす<literal>SELECT FOR UPDATE</literal>あるいは<literal>SELECT FOR SHARE</literal>を使用するかもしれません。
    </para>
 
    <para>
+<!--
     Predicate locks in <productname>PostgreSQL</productname>, like in most
     other database systems, are based on data actually accessed by a
     transaction.  These will show up in the
@@ -690,9 +1078,20 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     Repeatable Read transactions don't.)  On the other hand, SIRead locks
     often need to be kept past transaction commit, until overlapping read
     write transactions complete.
+-->
+<productname>PostgreSQL</productname>の述語ロックは、他のほとんどのデータベースシステムと同様、トランザクションによって実際にアクセスされたデータを元にしています。
+これらは、<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューに<literal>mode</literal>が<literal>SIReadLock</literal>のデータとして現れます。
+問い合わせの実行期間中に獲得される個別のロックは、問い合わせが使用した計画に依存するでしょう。
+また、ロックを追跡するために使用されるメモリの消耗を防ぐために、トランザクションの過程において、多数のよりきめの細かいロック（例えばタプル・ロック）が結合されて、より少数のよりきめの粗いロック（例えばページ・ロック）になるかもしれません。
+直列化異常につながるような競合が継続して生じないことを検知すると、<literal>READ ONLY</literal>トランザクションは、それが完了する前にSIReadロックを解放できるかもしれません。
+実際、<literal>READ ONLY</literal>トランザクションは、よく開始時点でその事実を確証し、どんな述語ロックもとらないこともあります。
+<literal>SERIALIZABLE READ ONLY DEFERRABLE</literal>トランザクションを明示的に要求した場合には、この事実を確証できるまでブロックします。
+（これは、シリアライザブルトランザクションはブロックするけれども、リピータブルリードトランザクションはブロックしない<emphasis>唯一</emphasis>のケースです。）
+他方で、SIReadロックは、しばしば読み取りと書き込みが重なっているトランザクションが完了するまで、トランザクションのコミットが終わっても保持される必要があります。
    </para>
 
    <para>
+<!--
     Consistent use of Serializable transactions can simplify development.
     The guarantee that any set of successfully committed concurrent
     Serializable transactions will have the same effect as if they were run
@@ -712,9 +1111,17 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     explicit locks and <literal>SELECT FOR UPDATE</literal> or <literal>SELECT FOR
     SHARE</literal>, Serializable transactions are the best performance choice
     for some environments.
+-->
+シリアライザブルトランザクションの一貫した使用は開発を単純化することができます。
+正常にコミットされた同時実行のシリアライザブルトランザクションのどんな集合も、あたかもそれらが一度に一つずつ実行されたのと同じ結果になることが保証されるので、単独で実行されたときに単一トランザクションが正しく動作するよう書かれていると実証できるなら、他のトランザクションが何をしているかの情報が全く無くとも、複数シリアライザブルトランザクションが混在する中で正しく動作するかコミットに成功しないかであると確証を持つことができます。
+この技術を使用する環境では、直列化の失敗(常にSQLSTATE値が'40001'で返る)を扱うための、汎用的な手段を持っていることが重要です。
+なぜなら、どのトランザクションが読み取り/書き込みの依存性に影響し、直列化異常を防ぐためにロールバックさせる必要があるかということを、正確に予測することは非常に困難だからです。
+読み取り/書き込みの依存性を監視したり、直列化異常で終了したトランザクションを再起動することはコストがかかります。
+しかしながら、このコストと、明示的なロックと<literal>SELECT FOR UPDATE</literal>または<literal>SELECT FOR SHARE</literal>を使用したブロッキングとで比較検討すると、シリアライザブルトランザクションはいくつかの環境において最良な実行を選択することになります。
    </para>
 
    <para>
+<!--
     While <productname>PostgreSQL</productname>'s Serializable transaction isolation
     level only allows concurrent transactions to commit if it can prove there
     is a serial order of execution that would produce the same effect, it
@@ -732,49 +1139,76 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     protocol, unique constraints violations might be reported even in cases
     where they could not occur in a serial execution of the concurrent
     transactions.
+-->
+<productname>PostgreSQL</productname>のシリアライザブルトランザクション隔離レベルが同じ結果を生む実行順序があることを証明できるときだけ、同時のトランザクションのコミットを許すとはいえ、本当のシリアル実行では起こらないエラーが常に防げるわけではありません。
+特に、たとえそのキーが生成されていないことを挿入しようとする前に明示的に調査した後でも重複しているシリアライザブルトランザクションとの競合が原因で一意性制約違反を見ることになる可能性があります。
+これは潜在的に競合しているキーを挿入する<emphasis>全ての</emphasis>シリアライザブルトランザクションで確実に挿入できるかどうか最初に明示的に調査することで防ぐことができます。
+例えば、ユーザに新しいキーを聞いてからまずselectでそれがすでに存在しているか確かめるアプリケーション、もしくは存在している中で一番大きなキーを選択しそれに1を足すことで新しいキーを生成するアプリケーションを想像してみてください。
+もしいくつかのシリアライザブルトランザクションがこのプロトコルに沿わずに直接新しいキーを挿入すれば、たとえそれがシリアル実行の同時トランザクションでは起こりえないケースでも一意性制約違反が報告されることになります。
    </para>
 
    <para>
+<!--
     For optimal performance when relying on Serializable transactions for
     concurrency control, these issues should be considered:
+-->
+同時実行制御のためにシリアライザブルトランザクションを使用する場合、最適な性能のためには、以下の問題を考慮すべきです。
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Declare transactions as <literal>READ ONLY</literal> when possible.
+-->
+可能であればトランザクションを<literal>READ ONLY</literal>として宣言してください。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Control the number of active connections, using a connection pool if
        needed.  This is always an important performance consideration, but
        it can be particularly important in a busy system using Serializable
        transactions.
+-->
+もし必要ならばコネクションプールを使用して、活動中の接続数を制御してください。
+これは常に重要な性能上の考慮点ですが、シリアライザブルトランザクションを使用した多忙なシステムにおいては、特に重要になる可能性があります。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Don't put more into a single transaction than needed for integrity
        purposes.
+-->
+完全性のために必要とされる以上のものを１つのトランザクションに入れないようにしてください。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Don't leave connections dangling <quote>idle in transaction</quote>
        longer than necessary.  The configuration parameter
        <xref linkend="guc-idle-in-transaction-session-timeout"/> may be used to
        automatically disconnect lingering sessions.
+-->
+必要以上に長く<quote>トランザクション内で待機状態</quote>で接続したまま放置しておかないようにしてください。
+長引くセッションを自動的に切断するために、設定パラメータ<xref linkend="guc-idle-in-transaction-session-timeout"/>を使うことができます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        Eliminate explicit locks, <literal>SELECT FOR UPDATE</literal>, and
        <literal>SELECT FOR SHARE</literal> where no longer needed due to the
        protections automatically provided by Serializable transactions.
+-->
+シリアライザブルトランザクションにより自動的に提供される保護により、不必要な、明示的なロック、<literal>SELECT FOR UPDATE</literal>および<literal>SELECT FOR SHARE</literal>を取り除いてください。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        When the system is forced to combine multiple page-level predicate
        locks into a single relation-level predicate lock because the predicate
        lock table is short of memory, an increase in the rate of serialization
@@ -782,10 +1216,14 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        <xref linkend="guc-max-pred-locks-per-transaction"/>,
        <xref linkend="guc-max-pred-locks-per-relation"/>, and/or
        <xref linkend="guc-max-pred-locks-per-page"/>.
+-->
+述語ロックのテーブルがメモリ不足になると、複数のページレベルの述語ロックを単一のリレーションレベルの述語ロックへと結合するようシステムが強いられ、直列化失敗の発生割合が増加する恐れがあります。
+これは、<xref linkend="guc-max-pred-locks-per-transaction"/>、<xref linkend="guc-max-pred-locks-per-relation"/>、<xref linkend="guc-max-pred-locks-per-page"/>のいずれか、あるいは、すべてを増やすことにより回避することができます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        A sequential scan will always necessitate a relation-level predicate
        lock.  This can result in an increased rate of serialization failures.
        It may be helpful to encourage the use of index scans by reducing
@@ -793,30 +1231,47 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        <xref linkend="guc-cpu-tuple-cost"/>.  Be sure to weigh any decrease
        in transaction rollbacks and restarts against any overall change in
        query execution time.
+-->
+シーケンシャルスキャンは常にリレーションレベルでの述語ロックを必要とします。
+これによって、直列化失敗の頻度が増える可能性があります。
+<xref linkend="guc-random-page-cost"/>を縮小および(または)<xref linkend="guc-cpu-tuple-cost"/>を増加することによりインデックススキャンの使用を促進することは有用かもしれません。
+トランザクションのロールバックや再実行の減少を、問い合わせ実行時間の全体的な変化と比較検討するようにしてください。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     The Serializable isolation level is implemented using a technique known
     in academic database literature as Serializable Snapshot Isolation, which
     builds on Snapshot Isolation by adding checks for serialization anomalies.
     Some differences in behavior and performance may be observed when compared
     with other systems that use a traditional locking technique.  Please see
     <xref linkend="ports12"/> for detailed information.
+-->
+シリアライザブル分離レベルは、学術的なデータベースの文献ではシリアライザブルスナップショット分離として知られる技術を使って実装されています。シリアライザブルスナップショット分離は、スナップショット分離の上に直列化異常の確認を追加することで構築されています。
+伝統的なロック技術を使う他のシステムと比較すると振舞いや性能の違いが観察されるかもしれません。
+詳細な情報は<xref linkend="ports12"/>を参照してください。
    </para>
   </sect2>
  </sect1>
 
   <sect1 id="explicit-locking">
+<!--
    <title>Explicit Locking</title>
+-->
+   <title>明示的ロック</title>
 
    <indexterm>
+<!--
     <primary>lock</primary>
+-->
+    <primary>ロック</primary>
    </indexterm>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> provides various lock modes
     to control concurrent access to data in tables.  These modes can
     be used for application-controlled locking in situations where
@@ -828,24 +1283,37 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     executed concurrently with other operations on the same table, so it
     obtains an <literal>ACCESS EXCLUSIVE</literal> lock on the table to
     enforce that.)
+-->
+<productname>PostgreSQL</productname>は、テーブル内のデータに対する同時アクセスを制御するために様々な種類のロックモードを備えています。
+これらのモードは、<acronym>MVCC</acronym>では必要な動作を得られない場合、アプリケーション制御のロックに使用することができます。
+また、ほとんどの<productname>PostgreSQL</productname>コマンドでは、参照されるテーブルがそのコマンドの実行中に別の方法で削除もしくは変更されていないことを確実にするために、適切なモードのロックを自動的に獲得します。
+（例えば、<command>TRUNCATE</command>コマンドは、同じテーブルに対する他の操作と同時に安全に実行することはできないので、それを確実に実行するため、そのテーブルの排他ロックを獲得します。）
    </para>
 
    <para>
+<!--
     To examine a list of the currently outstanding locks in a database
     server, use the
     <link linkend="view-pg-locks"><structname>pg_locks</structname></link>
     system view. For more information on monitoring the status of the lock
     manager subsystem, refer to <xref linkend="monitoring"/>.
+-->
+現在のデータベースサーバに残っているロックの一覧を確認するには、<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューを使用してください。
+ロック管理サブシステムの状況監視についての詳細は<xref linkend="monitoring"/>を参照してください。
    </para>
 
   <sect2 id="locking-tables">
+<!--
    <title>Table-Level Locks</title>
+-->
+   <title>テーブルレベルロック</title>
 
    <indexterm zone="locking-tables">
     <primary>LOCK</primary>
    </indexterm>
 
    <para>
+<!--
     The list below shows the available lock modes and the contexts in
     which they are used automatically by
     <productname>PostgreSQL</productname>.  You can also acquire any
@@ -868,24 +1336,47 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     an <literal>ACCESS EXCLUSIVE</literal> lock cannot be held by more than one
     transaction at a time) while others are not self-conflicting (for example,
     an <literal>ACCESS SHARE</literal> lock can be held by multiple transactions).
+-->
+以下のリストに、使用可能なロックモードとそれらが<productname>PostgreSQL</productname>で自動的に使用される文脈を示します。
+また、<xref linkend="sql-lock"/>コマンドを使用して、こうしたロックを明示的に獲得することもできます。
+これらのロックモードは、たとえその名前に<quote>row（行）</quote>という言葉が付いていても、全てテーブルレベルのロックであることに注意してください。
+ロックモードの名前は歴史的なものです。
+これらの名前は、各ロックモードの代表的な使用方法をある程度表しています。
+しかし、意味的には全て同じです。
+ロックモード間における唯一の実質的な差異は、どのモードがどのモードと競合するかというロックモードの組み合わせです(<xref linkend="table-lock-compatibility"/>を参照してください)。
+2つのトランザクションで、競合するモードのロックを同時に同一テーブル上に保持することはできません
+（しかし、トランザクションは自分自身とは決して競合しません。
+例えば、<literal>ACCESS EXCLUSIVE</literal>ロックを獲得し、その後同じテーブルに<literal>ACCESS SHARE</literal>ロックを獲得できる可能性があります）。
+競合しないロックモードは、多くのトランザクションで同時に保持することが可能です。
+特に、ロックモードには、自己競合するもの（例えば、<literal>ACCESS EXCLUSIVE</literal>は同時に複数のトランザクションで保持することは不可能）と、自己競合しないもの（例えば、<literal>ACCESS SHARE</literal>は複数のトランザクションで保持可能）があることに注意してください。
    </para>
 
      <variablelist>
+<!--
       <title>Table-Level Lock Modes</title>
+-->
+      <title>テーブルレベルロックモード</title>
       <varlistentry>
        <term>
         <literal>ACCESS SHARE</literal>
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with the <literal>ACCESS EXCLUSIVE</literal> lock
          mode only.
+-->
+         <literal>ACCESS EXCLUSIVE</literal>ロックモードとのみ競合します。
         </para>
 
         <para>
+<!--
          The <command>SELECT</command> command acquires a lock of this mode on
          referenced tables.  In general, any query that only <emphasis>reads</emphasis> a table
          and does not modify it will acquire this lock mode.
+-->
+<command>SELECT</command>コマンドにより、参照されるテーブルに対してこのモードのロックが獲得されます。
+通常、テーブルの<emphasis>読み取り</emphasis>のみで変更を行わない問い合わせであれば全て、このロックモードを獲得します。
         </para>
        </listitem>
       </varlistentry>
@@ -896,17 +1387,23 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with the <literal>EXCLUSIVE</literal> and
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
+-->
+<literal>EXCLUSIVE</literal>および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
         </para>
 
         <para>
+<!--
          The <command>SELECT FOR UPDATE</command> and
          <command>SELECT FOR SHARE</command> commands acquire a
          lock of this mode on the target table(s) (in addition to
          <literal>ACCESS SHARE</literal> locks on any other tables
          that are referenced but not selected
          <option>FOR UPDATE/FOR SHARE</option>).
+-->
+<command>SELECT FOR UPDATE</command>および<command>SELECT FOR SHARE</command>コマンドは、（参照はされているが、<option>FOR UPDATE/FOR SHARE</option>として選択はされていない他のテーブルに対する<literal>ACCESS SHARE</literal>ロックに加えて）対象となるテーブル上にこのモードのロックを獲得します。
         </para>
        </listitem>
       </varlistentry>
@@ -917,18 +1414,25 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with the <literal>SHARE</literal>, <literal>SHARE ROW
          EXCLUSIVE</literal>, <literal>EXCLUSIVE</literal>, and
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
+-->
+<literal>SHARE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
         </para>
 
         <para>
+<!--
          The commands <command>UPDATE</command>,
          <command>DELETE</command>, and <command>INSERT</command>
          acquire this lock mode on the target table (in addition to
          <literal>ACCESS SHARE</literal> locks on any other referenced
          tables).  In general, this lock mode will be acquired by any
          command that <emphasis>modifies data</emphasis> in a table.
+-->
+<command>UPDATE</command>、<command>DELETE</command>、および<command>INSERT</command>コマンドは、（参照される他の全てのテーブルに対する<literal>ACCESS SHARE</literal>ロックに加えて）対象となるテーブル上にこのモードのロックを獲得します。
+通常、このロックモードは、テーブルの<emphasis>データを変更する</emphasis>問い合わせにより獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -939,21 +1443,28 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with the <literal>SHARE UPDATE EXCLUSIVE</literal>,
          <literal>SHARE</literal>, <literal>SHARE ROW
          EXCLUSIVE</literal>, <literal>EXCLUSIVE</literal>, and
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
          This mode protects a table against
          concurrent schema changes and <command>VACUUM</command> runs.
+-->
+<literal>SHARE UPDATE EXCLUSIVE</literal>、<literal>SHARE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードにより、同時実行されるスキーマの変更および<command>VACUUM</command>コマンドの実行から、テーブルを保護します。
         </para>
 
         <para>
+<!--
          Acquired by <command>VACUUM</command> (without <option>FULL</option>),
          <command>ANALYZE</command>, <command>CREATE INDEX CONCURRENTLY</command>,
          <command>REINDEX CONCURRENTLY</command>,
          <command>CREATE STATISTICS</command>, and certain <link linkend="sql-alterindex"><command>ALTER
          INDEX</command></link> and <link linkend="sql-altertable"><command>ALTER TABLE</command></link> variants (for full
          details see the documentation of these commands).
+-->
+（<option>FULL</option>なしの）<command>VACUUM</command>、<command>ANALYZE</command>、<command>CREATE INDEX CONCURRENTLY</command>、<command>REINDEX CONCURRENTLY</command>、<command>CREATE STATISTICS</command>、および、<command>ALTER INDEX</command>や<command>ALTER TABLE</command>の特定の亜種(詳細は<xref linkend="sql-alterindex"/>や<xref linkend="sql-altertable"/>を参照してください)によって獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -964,16 +1475,23 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with the <literal>ROW EXCLUSIVE</literal>,
          <literal>SHARE UPDATE EXCLUSIVE</literal>, <literal>SHARE ROW
          EXCLUSIVE</literal>, <literal>EXCLUSIVE</literal>, and
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
          This mode protects a table against concurrent data changes.
+-->
+<literal>ROW EXCLUSIVE</literal>、<literal>SHARE UPDATE EXCLUSIVE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードは、同時実行されるデータ変更からテーブルを保護します。
         </para>
 
         <para>
+<!--
          Acquired by <command>CREATE INDEX</command>
          (without <option>CONCURRENTLY</option>).
+-->
+（<option>CONCURRENTLY</option>なしの）<command>CREATE INDEX</command>によって獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -984,6 +1502,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with the <literal>ROW EXCLUSIVE</literal>,
          <literal>SHARE UPDATE EXCLUSIVE</literal>,
          <literal>SHARE</literal>, <literal>SHARE ROW
@@ -991,11 +1510,18 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <literal>ACCESS EXCLUSIVE</literal> lock modes.
          This mode protects a table against concurrent data changes, and
          is self-exclusive so that only one session can hold it at a time.
+-->
+<literal>ROW EXCLUSIVE</literal>、<literal>SHARE UPDATE EXCLUSIVE</literal>、
+<literal>SHARE</literal>、<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードは、1つのセッションだけが一度にそれを保持することができるよう、自己排他的に同時のデータ変更からテーブルを保護します。
         </para>
 
         <para>
+<!--
          Acquired by <command>CREATE TRIGGER</command> and some forms of
          <link linkend="sql-altertable"><command>ALTER TABLE</command></link>.
+-->
+<command>CREATE TRIGGER</command>、および、<command>ALTER TABLE</command>（<xref linkend="sql-altertable"/>参照）のいくつか形式により獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1006,6 +1532,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with the <literal>ROW SHARE</literal>, <literal>ROW
          EXCLUSIVE</literal>, <literal>SHARE UPDATE
          EXCLUSIVE</literal>, <literal>SHARE</literal>, <literal>SHARE
@@ -1014,10 +1541,19 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          This mode allows only concurrent <literal>ACCESS SHARE</literal> locks,
          i.e., only reads from the table can proceed in parallel with a
          transaction holding this lock mode.
+-->
+<literal>ROW SHARE</literal>、<literal>ROW EXCLUSIVE</literal>、
+<literal>SHARE UPDATE EXCLUSIVE</literal>、<literal>SHARE</literal>、
+<literal>SHARE ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および<literal>ACCESS EXCLUSIVE</literal>ロックモードと競合します。
+このモードは、同時実行される<literal>ACCESS SHARE</literal>のみを許可します。
+つまり、このロックモードを保持するトランザクションと並行して実行できる処理は、テーブルの読み取りだけです。
         </para>
 
         <para>
+<!--
          Acquired by <command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>.
+-->
+<command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>により獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1028,6 +1564,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Conflicts with locks of all modes (<literal>ACCESS
          SHARE</literal>, <literal>ROW SHARE</literal>, <literal>ROW
          EXCLUSIVE</literal>, <literal>SHARE UPDATE
@@ -1036,9 +1573,18 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <literal>ACCESS EXCLUSIVE</literal>).
          This mode guarantees that the
          holder is the only transaction accessing the table in any way.
+-->
+全てのモードのロック（<literal>ACCESS
+         SHARE</literal>、<literal>ROW SHARE</literal>、<literal>ROW
+         EXCLUSIVE</literal>、<literal>SHARE UPDATE
+         EXCLUSIVE</literal>、<literal>SHARE</literal>、<literal>SHARE
+         ROW EXCLUSIVE</literal>、<literal>EXCLUSIVE</literal>、および
+         <literal>ACCESS EXCLUSIVE</literal>）と競合します。
+このモードにより、その保持者以外にテーブルにアクセスするトランザクションがないことが保証されます。
         </para>
 
         <para>
+<!--
          Acquired by the <command>DROP TABLE</command>,
          <command>TRUNCATE</command>, <command>REINDEX</command>,
          <command>CLUSTER</command>, <command>VACUUM FULL</command>,
@@ -1048,6 +1594,10 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          a lock at this level. This is also the default lock mode for
          <command>LOCK TABLE</command> statements that do not specify
          a mode explicitly.
+-->
+<command>DROP TABLE</command>、<command>TRUNCATE</command>、<command>REINDEX</command>、<command>CLUSTER</command>、<command>VACUUM FULL</command>、（<option>CONCURRENTLY</option>なしの）<command>REFRESH MATERIALIZED VIEW</command>コマンドによって獲得されます。
+<command>ALTER INDEX</command>と<command>ALTER TABLE</command>の多くの形式もこのレベルでロックを獲得します。
+これはまた、明示的にモードを指定しない<command>LOCK TABLE</command>文のデフォルトのロックモードです。
         </para>
        </listitem>
       </varlistentry>
@@ -1055,13 +1605,17 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 
      <tip>
       <para>
+<!--
        Only an <literal>ACCESS EXCLUSIVE</literal> lock blocks a
        <command>SELECT</command> (without <option>FOR UPDATE/SHARE</option>)
        statement.
+-->
+<literal>ACCESS EXCLUSIVE</literal>ロックのみが、<command>SELECT</command>（<option>FOR UPDATE/SHARE</option>なし）文をブロックします。
       </para>
      </tip>
 
    <para>
+<!--
     Once acquired, a lock is normally held until the end of the transaction.  But if a
     lock is acquired after establishing a savepoint, the lock is released
     immediately if the savepoint is rolled back to.  This is consistent with
@@ -1069,12 +1623,21 @@ ERROR:  could not serialize access due to read/write dependencies among transact
     commands since the savepoint.  The same holds for locks acquired within a
     <application>PL/pgSQL</application> exception block: an error escape from the block
     releases locks acquired within it.
+-->
+通常ロックは獲得した後、トランザクションの終わりまで保持されます。
+しかし、ロックがセーブポイントの確立後に獲得された場合、セーブポイントがロールバックされると、ロックは即座に解放されます。
+これは、<command>ROLLBACK</command>がセーブポイント以降に行われたすべてのコマンドの効果を取消すという原則と整合性が取れています。
+<application>PL/pgSQL</application>例外ブロック内で獲得されたロックに対しても同様です。
+そのブロックからエラーで抜けた後、獲得されたロックは解放されます。
    </para>
 
 
 
     <table tocentry="1" id="table-lock-compatibility">
+<!--
      <title>Conflicting Lock Modes</title>
+-->
+     <title> ロックモードの競合</title>
      <tgroup cols="9">
       <colspec colnum="1" colwidth="1.25*"/>
       <colspec colnum="2" colwidth="1*" colname="lockst"/>
@@ -1088,8 +1651,12 @@ ERROR:  could not serialize access due to read/write dependencies among transact
       <spanspec spanname="lockreq" namest="lockst" nameend="lockend" align="center"/>
       <thead>
        <row>
+<!--
         <entry morerows="1">Requested Lock Mode</entry>
         <entry spanname="lockreq">Existing Lock Mode</entry>
+-->
+        <entry morerows="1">要求するロックモード</entry>
+        <entry spanname="lockreq">既存のロックモード</entry>
        </row>
        <row>
         <entry><literal>ACCESS SHARE</literal></entry>
@@ -1197,9 +1764,13 @@ ERROR:  could not serialize access due to read/write dependencies among transact
    </sect2>
 
    <sect2 id="locking-rows">
+<!--
     <title>Row-Level Locks</title>
+-->
+    <title>行レベルロック</title>
 
     <para>
+<!--
      In addition to table-level locks, there are row-level locks, which
      are listed as below with the contexts in which they are used
      automatically by <productname>PostgreSQL</productname>.  See
@@ -1211,17 +1782,28 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      block only <emphasis>writers and lockers</emphasis> to the same
      row.  Row-level locks are released at transaction end or during
      savepoint rollback, just like table-level locks.
-
+-->
+テーブルレベルロックに加えて、行レベルロックがあります。<productname>PostgreSQL</productname>が自動的に使う文脈付きで以下に行レベルロックの一覧があります。
+行レベルロックの競合の完全な表については<xref linkend="row-lock-compatibility"/>を参照してください。
+トランザクションは異なる副トランザクション内であっても、同じ行に対して競合するロックを保持できることに注意してください。
+しかし、それ以外では、二つのトランザクションは同じ行に対して競合するロックを決して保持できません。
+行レベルロックは、データの問い合わせには影響を与えません。
+行レベルロックは、<emphasis>同じ行に対する書き込みとロック</emphasis>だけをブロックします。
+テーブルレベルロックと同じように、行レベルロックはトランザクションの終わり、または、セーブポイントへのロールバックで解放されます。
     </para>
 
      <variablelist>
+<!--
       <title>Row-Level Lock Modes</title>
+-->
+      <title>行レベルロックモード</title>
       <varlistentry>
        <term>
         <literal>FOR UPDATE</literal>
        </term>
        <listitem>
         <para>
+<!--
          <literal>FOR UPDATE</literal> causes the rows retrieved by the
          <command>SELECT</command> statement to be locked as though for
          update.  This prevents them from being locked, modified or deleted by
@@ -1242,8 +1824,15 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          however, an error will be thrown if a row to be locked has changed
          since the transaction started.  For further discussion see
          <xref linkend="applevel-consistency"/>.
+-->
+<literal>FOR UPDATE</literal>により<command>SELECT</command>文により取り出された行が更新用であるかのようにロックされます。
+これにより、それらは現在のトランザクションが終わるまで、他のトランザクションがロック、変更、削除できなくなります。
+すなわち、これらの行に対して<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、<command>SELECT FOR NO KEY UPDATE</command>、<command>SELECT FOR SHARE</command>、<command>SELECT FOR KEY SHARE</command>をしようとする他のトランザクションは現在のトランザクションが終わるまでブロックされます。逆に言えば、<command>SELECT FOR UPDATE</command>は同じ行に対して上記のコマンドを実行している同時実行トランザクションを待ち、それから更新された行をロックして返します(行が削除されていれば、行は返しません)。
+しかし、<literal>REPEATABLE READ</literal>もしくは<literal>SERIALIZABLE</literal>トランザクション内では、ロックする行がトランザクションの開始した後に変更された場合にはエラーが返ります。
+これ以上の議論は<xref linkend="applevel-consistency"/>を参照してください。
         </para>
         <para>
+<!--
          The <literal>FOR UPDATE</literal> lock mode
          is also acquired by any <command>DELETE</command> on a row, and also by an
          <command>UPDATE</command> that modifies the values of certain columns.  Currently,
@@ -1251,6 +1840,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          have a unique index on them that can be used in a foreign key (so partial
          indexes and expressional indexes are not considered), but this may change
          in the future.
+-->
+<literal>FOR UPDATE</literal>ロックモードは行に対する<command>DELETE</command>でも、ある列の値を変更する<command>UPDATE</command>でも獲得されます。
+現時点では、<command>UPDATE</command>の場合に考慮される列の集合は、外部キーとして使うことのできる一意のインデックス(つまり部分インデックスや式インデックスは考慮されません)があるものですが、これは将来変わるかもしれません。
         </para>
        </listitem>
       </varlistentry>
@@ -1261,11 +1853,15 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Behaves similarly to <literal>FOR UPDATE</literal>, except that the lock
          acquired is weaker: this lock will not block
          <literal>SELECT FOR KEY SHARE</literal> commands that attempt to acquire
          a lock on the same rows. This lock mode is also acquired by any
          <command>UPDATE</command> that does not acquire a <literal>FOR UPDATE</literal> lock.
+-->
+獲得するロックが弱い以外は<literal>FOR UPDATE</literal>と同じように振る舞います。このロックは同じ行のロックを獲得しようとする<literal>SELECT FOR KEY SHARE</literal>コマンドをブロックしません。
+このロックモードは<literal>FOR UPDATE</literal>ロックを獲得しない<command>UPDATE</command>によっても獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1276,6 +1872,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Behaves similarly to <literal>FOR NO KEY UPDATE</literal>, except that it
          acquires a shared lock rather than exclusive lock on each retrieved
          row.  A shared lock blocks other transactions from performing
@@ -1284,6 +1881,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <command>SELECT FOR NO KEY UPDATE</command> on these rows, but it does not
          prevent them from performing <command>SELECT FOR SHARE</command> or
          <command>SELECT FOR KEY SHARE</command>.
+-->
+取り出された各行に対して排他ロックではなく共有ロックを獲得する以外は、<literal>FOR NO KEY UPDATE</literal>と同じように振る舞います。
+共有ロックは、他のトランザクションがこれらの行に対して<command>UPDATE</command>、<command>DELETE</command>、<command>SELECT FOR UPDATE</command>、<command>SELECT FOR NO KEY UPDATE</command>を実行するのをブロックしますが、<command>SELECT FOR SHARE</command>や<command>SELECT FOR KEY SHARE</command>を実行するのを阻害しません。
         </para>
        </listitem>
       </varlistentry>
@@ -1294,6 +1894,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
        </term>
        <listitem>
         <para>
+<!--
          Behaves similarly to <literal>FOR SHARE</literal>, except that the
          lock is weaker: <literal>SELECT FOR UPDATE</literal> is blocked, but not
          <literal>SELECT FOR NO KEY UPDATE</literal>.  A key-shared lock blocks
@@ -1302,22 +1903,33 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          other <command>UPDATE</command>, and neither does it prevent
          <command>SELECT FOR NO KEY UPDATE</command>, <command>SELECT FOR SHARE</command>,
          or <command>SELECT FOR KEY SHARE</command>.
+-->
+獲得するロックが弱い以外は<literal>FOR SHARE</literal>と同じように振る舞います。<literal>SELECT FOR UPDATE</literal>はブロックされますが、<literal>SELECT FOR NO KEY UPDATE</literal>はブロックされません。
+キー共有ロックは、他のトランザクションが<command>DELETE</command>やキー値を変更する<command>UPDATE</command>を実行するのをブロックしますが、それ以外の<command>UPDATE</command>や、<command>SELECT FOR NO KEY UPDATE</command>、<command>SELECT FOR SHARE</command>、<command>SELECT FOR KEY SHARE</command>を阻害しません。
         </para>
        </listitem>
       </varlistentry>
      </variablelist>
 
     <para>
+<!--
      <productname>PostgreSQL</productname> doesn't remember any
      information about modified rows in memory, so there is no limit on
      the number of rows locked at one time.  However, locking a row
      might cause a disk write, e.g., <command>SELECT FOR
      UPDATE</command> modifies selected rows to mark them locked, and so
      will result in disk writes.
+-->
+<productname>PostgreSQL</productname>では、メモリ上に変更された行の情報を記憶しないため、同時にロックできる行数の上限はありません。
+しかし、行をロックする際に、ディスクに書き込む作業が発生するかもしれません。
+例えば<command>SELECT FOR UPDATE</command>は、選択された行をロックしたものと印を付けるために変更を行いますので、ディスクにその結果を書き込むことになります。
     </para>
 
     <table tocentry="1" id="row-lock-compatibility">
+<!--
      <title>Conflicting Row-Level Locks</title>
+-->
+     <title>行レベルロックの競合</title>
      <tgroup cols="5">
       <colspec colname="col1"    colwidth="1.5*"/>
       <colspec colname="lockst"  colwidth="1*"/>
@@ -1327,8 +1939,12 @@ ERROR:  could not serialize access due to read/write dependencies among transact
       <spanspec namest="lockst" nameend="lockend" spanname="lockreq"/>
       <thead>
        <row>
+<!--
         <entry morerows="1">Requested Lock Mode</entry>
         <entry spanname="lockreq">Current Lock Mode</entry>
+-->
+        <entry morerows="1">要求するロックモード</entry>
+        <entry spanname="lockreq">現在のロックモード</entry>
        </row>
        <row>
         <entry>FOR KEY SHARE</entry>
@@ -1372,26 +1988,41 @@ ERROR:  could not serialize access due to read/write dependencies among transact
    </sect2>
 
    <sect2 id="locking-pages">
+<!--
     <title>Page-Level Locks</title>
+-->
+    <title>ページレベルロック</title>
 
     <para>
+<!--
      In addition to table and row locks, page-level share/exclusive locks are
      used to control read/write access to table pages in the shared buffer
      pool.  These locks are released immediately after a row is fetched or
      updated.  Application developers normally need not be concerned with
      page-level locks, but they are mentioned here for completeness.
+-->
+テーブルと行ロックに加え、ページレベルの共有/排他ロックがあり、これらは共有バッファプールにあるテーブルページへの読み書きのアクセスを管理するために使用されます。
+これらのロックは、行が取得された後や更新された後に即座に解除されます。
+アプリケーション開発者は通常ページレベルロックを考慮する必要はありませんが、ロックについて全てを説明したかったためここで取り上げました。
     </para>
 
    </sect2>
 
    <sect2 id="locking-deadlocks">
+<!--
     <title>Deadlocks</title>
+-->
+    <title>デッドロック</title>
 
     <indexterm zone="locking-deadlocks">
+<!--
      <primary>deadlock</primary>
+-->
+     <primary>デッドロック</primary>
     </indexterm>
 
     <para>
+<!--
      The use of explicit locking can increase the likelihood of
      <firstterm>deadlocks</firstterm>, wherein two (or more) transactions each
      hold locks that the other wants.  For example, if transaction 1
@@ -1404,26 +2035,43 @@ ERROR:  could not serialize access due to read/write dependencies among transact
      transactions involved, allowing the other(s) to complete.
      (Exactly which transaction will be aborted is difficult to
      predict and should not be relied upon.)
+-->
+明示的なロックの使用は、<firstterm>デッドロック</firstterm>の原因となる可能性があります。
+デッドロックとは、2つ（もしくはそれ以上）のトランザクションにおいて、それぞれが、他方のトランザクションが必要とするロックを所持してしまうことです。
+例えば、トランザクション1がテーブルAに排他ロックを獲得していて、次にテーブルBに排他ロックを獲得しようとする際に、トランザクション2が既にテーブルBに排他ロックを獲得済みであって、今からテーブルAに排他ロックを獲得しようと試みる場合、どちらのトランザクションも処理を進められません。
+<productname>PostgreSQL</productname>では、自動的にデッドロック状況を検知し、関係するトランザクションの一方をアボートすることにより、この状況を解決し、もう一方のトランザクションの処理を完了させます
+（どちらのトランザクションをアボートするかを正確に予期するのは難しく、これに依存すべきではありません）。
     </para>
 
     <para>
+<!--
      Note that deadlocks can also occur as the result of row-level
      locks (and thus, they can occur even if explicit locking is not
      used). Consider the case in which two concurrent
      transactions modify a table. The first transaction executes:
+-->
+デッドロックは行レベルロックの結果として発生する可能性があります
+（したがって、明示的なロック処理を使用していなくても発生する可能性があります）。
+2つの同時実行トランザクションがあるテーブルを変更する状況を考えてみます。
+1つ目のトランザクションは以下を実行します。
 
 <screen>
 UPDATE accounts SET balance = balance + 100.00 WHERE acctnum = 11111;
 </screen>
 
+<!--
      This acquires a row-level lock on the row with the specified
      account number. Then, the second transaction executes:
+-->
+これは、指定した口座番号の行に対し行レベルロックを獲得します。
+次に2番目のトランザクションが以下を実行します。
 
 <screen>
 UPDATE accounts SET balance = balance + 100.00 WHERE acctnum = 22222;
 UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 11111;
 </screen>
 
+<!--
      The first <command>UPDATE</command> statement successfully
      acquires a row-level lock on the specified row, so it succeeds in
      updating that row. However, the second <command>UPDATE</command>
@@ -1432,11 +2080,17 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 11111;
      acquired the lock to complete. Transaction two is now waiting on
      transaction one to complete before it continues execution. Now,
      transaction one executes:
+-->
+1つ目の<command>UPDATE</command>文は指定された行に対する行レベルロックの獲得に成功し、この行の更新に成功します。
+しかし、2つ目の<command>UPDATE</command>文は、更新対象の行がロックされていることを検知し、ロックを獲得したトランザクションが完了するまで待機します。
+トランザクション2は、ここで、続きを実行する前にトランザクション1が完了するのを待機しています。
+さて、トランザクション1がここで以下を実行します。
 
 <screen>
 UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
 </screen>
 
+<!--
      Transaction one attempts to acquire a row-level lock on the
      specified row, but it cannot: transaction two already holds such
      a lock. So it waits for transaction two to complete. Thus,
@@ -1444,9 +2098,16 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      two is blocked on transaction one: a deadlock
      condition. <productname>PostgreSQL</productname> will detect this
      situation and abort one of the transactions.
+-->
+トランザクション1は指定した行の行レベルロックを獲得しようとしますが、これは不可能です。
+トランザクション2がそのロックを既に獲得しているからです。
+そのため、トランザクション2が完了するのを待機することになります。
+こうして、トランザクション1はトランザクション2でブロックされ、トランザクション2はトランザクション1でブロックされる、つまり、デッドロック状態です。
+<productname>PostgreSQL</productname>はデッドロック状態を検知し、片方のトランザクションを中断させます。
     </para>
 
     <para>
+<!--
      The best defense against deadlocks is generally to avoid them by
      being certain that all applications using a database acquire
      locks on multiple objects in a consistent order. In the example
@@ -1457,30 +2118,50 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      needed for that object.  If it is not feasible to verify this in
      advance, then deadlocks can be handled on-the-fly by retrying
      transactions that abort due to deadlocks.
+-->
+デッドロックを防ぐ最も良い方法は、データベースを使用する全てのアプリケーションが、整合性のある順序で複数のオブジェクトに対するロックを獲得することです。
+前に示したデッドロックの例で、もし両方のトランザクションで同じ順序で行を更新していたらデッドロックは起こりません。
+また、トランザクション内のオブジェクトに対して獲得した最初のロックが、そのオブジェクトが必要とする最も制限的なモードであることを確実に保証すべきです。
+このことが事前に検証できない場合、デッドロックによりアボートするトランザクションを再試行すれば、デッドロックをデータベースを稼働させながらでも処理することができます。
     </para>
 
     <para>
+<!--
      So long as no deadlock situation is detected, a transaction seeking
      either a table-level or row-level lock will wait indefinitely for
      conflicting locks to be released.  This means it is a bad idea for
      applications to hold transactions open for long periods of time
      (e.g., while waiting for user input).
+-->
+デッドロック状況が検出されなければ、テーブルレベルロックもしくは行レベルロックを要求するトランザクションは、競合するロックが解放されるまで、無期限に待機します。
+したがって、アプリケーションで長時間（例えば、ユーザの入力待ち）トランザクションを開いたまま保持しておくのは、推奨されません。
     </para>
    </sect2>
 
    <sect2 id="advisory-locks">
+<!--
     <title>Advisory Locks</title>
+-->
+    <title>勧告的ロック</title>
 
     <indexterm zone="advisory-locks">
+<!--
      <primary>advisory lock</primary>
+-->
+     <primary>勧告的ロック</primary>
     </indexterm>
 
     <indexterm zone="advisory-locks">
+<!--
      <primary>lock</primary>
      <secondary>advisory</secondary>
+-->
+     <primary>ロック</primary>
+     <secondary>勧告的</secondary>
     </indexterm>
 
     <para>
+<!--
      <productname>PostgreSQL</productname> provides a means for
      creating locks that have application-defined meanings.  These are
      called <firstterm>advisory locks</firstterm>, because the system does not
@@ -1493,9 +2174,17 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      While a flag stored in a table could be used for the same purpose,
      advisory locks are faster, avoid table bloat, and are automatically
      cleaned up by the server at the end of the session.
+-->
+<productname>PostgreSQL</productname>は、アプリケーション独自の意味を持つロックを生成する手法を提供します。
+これは、その使用に関してシステムによる制限がないこと、つまり、正しい使用に関してはアプリケーションが責任を持つことから<firstterm>勧告的ロック</firstterm>と呼ばれます。
+勧告的ロックは、MVCC方式に合わせづらいロック戦略で有用に使用することができます。
+例えば、勧告的ロックのよくある利用として、いわゆる<quote>フラットファイル</quote>データ管理システムで典型的な、悲観的なロック戦略を模擬することです。
+この用途のためにテーブル内にフラグを格納することもできますが、勧告的ロックの方が高速で、テーブルの膨張を防ぐことができます。
+また、セッション終了時にサーバによる自動整理を行うこともできるようになります。
     </para>
 
     <para>
+<!--
      There are two ways to acquire an advisory lock in
      <productname>PostgreSQL</productname>: at session level or at
      transaction level.
@@ -1518,17 +2207,35 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      it will always succeed, even if other sessions are awaiting the lock; this
      statement is true regardless of whether the existing lock hold and new
      request are at session level or transaction level.
+-->
+<productname>PostgreSQL</productname>には、セッションレベルとトランザクションレベルという２つの勧告的ロックの獲得方法があります。
+セッションレベルで獲得すると、勧告的ロックは明示的に解放されるか、セッションが終了するまで保持されます。
+標準のロック要求と異なり、セッションレベル勧告的ロックはトランザクションという意味には従いません。
+ロックがトランザクション期間中に獲得され、そのトランザクションを後でロールバックしたとしても、ロールバック後も保持されます。
+そして、呼び出し元のトランザクションが後で失敗したとしてもロック解除は有効です。
+所有するプロセスの中で、同一のセッションレベルのロックを複数回獲得することもできます。
+この場合、個々のロック要求に対して、ロックを実際に解放する前に対応するロック解除要求がなければなりません。
+一方トランザクションレベルのロックはより通常のロックに似たように動作します。
+それらは、処理の終わりに自動的に解放されますので、明示的なロック解放操作はありません。
+短期間の勧告的ロックを利用する場合は、セッションレベルの動作よりもこの動作の方が便利なことが多くあります。
+同じ勧告的ロック識別子に対するセッションレベルのロックとトランザクションレベルのロック要求は、想像通り互いをブロックします。
+セッションがすでに指定された勧告的ロックを保持している場合、他のセッションがそのロックを待機していたとしても、追加の要求は常に成功します。
+これは保持されているロックと新しい要求がセッションレベルかトランザクションレベルかどうかに関わらず、この文は当てはまります。
     </para>
 
     <para>
+<!--
      Like all locks in
      <productname>PostgreSQL</productname>, a complete list of advisory locks
      currently held by any session can be found in the <link
      linkend="view-pg-locks"><structname>pg_locks</structname></link> system
      view.
+-->
+<productname>PostgreSQL</productname>におけるすべてのロックと同様に、現時点ですべてのセッションで保持されている勧告的ロックの全一覧は<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューにあります。
     </para>
 
     <para>
+<!--
      Both advisory locks and regular locks are stored in a shared memory
      pool whose size is defined by the configuration variables
      <xref linkend="guc-max-locks-per-transaction"/> and
@@ -1538,21 +2245,40 @@ UPDATE accounts SET balance = balance - 100.00 WHERE acctnum = 22222;
      This imposes an upper limit on the number of advisory locks
      grantable by the server, typically in the tens to hundreds of thousands
      depending on how the server is configured.
+-->
+勧告的ロックと通常のロックは共有メモリプールに割り当てられ、その容量は<xref linkend="guc-max-locks-per-transaction"/>と<xref linkend="guc-max-connections"/>設定変数により決定されます。
+このメモリを浪費しないように注意が必要です。
+さもないと、サーバはロック獲得をまったく許可することができなくなります。
+これは、サーバで許可できる勧告的ロック数に上限があることを意味します。
+サーバの設定によりますが、通常、1万から10万程度になります。
     </para>
 
     <para>
+<!--
      In certain cases using advisory locking methods, especially in queries
      involving explicit ordering and <literal>LIMIT</literal> clauses, care must be
      taken to control the locks acquired because of the order in which SQL
      expressions are evaluated.  For example:
+-->
+特に明示的な順序付けと<literal>LIMIT</literal>句を持つ問い合わせでは、この勧告ロックモードを使用する幾つかの場合において、SQL式が評価される順序を考慮し獲得されたロックを制御することに気を配らなければなりません。
+以下に例を示します。
 <screen>
-SELECT pg_advisory_lock(id) FROM foo WHERE id = 12345; -- ok
-SELECT pg_advisory_lock(id) FROM foo WHERE id &gt; 12345 LIMIT 100; -- danger!
+<!--
+SELECT pg_advisory_lock(id) FROM foo WHERE id = 12345; &#045;&#045; ok
+SELECT pg_advisory_lock(id) FROM foo WHERE id &gt; 12345 LIMIT 100; &#045;&#045; danger!
 SELECT pg_advisory_lock(q.id) FROM
 (
   SELECT id FROM foo WHERE id &gt; 12345 LIMIT 100
-) q; -- ok
+) q; &#045;&#045; ok
+-->
+SELECT pg_advisory_lock(id) FROM foo WHERE id = 12345; -- 問題なし
+SELECT pg_advisory_lock(id) FROM foo WHERE id &gt; 12345 LIMIT 100; -- 危険！
+SELECT pg_advisory_lock(q.id) FROM
+(
+  SELECT id FROM foo WHERE id &gt; 12345 LIMIT 100
+) q; -- 問題なし
 </screen>
+<!--
      In the above queries, the second form is dangerous because the
      <literal>LIMIT</literal> is not guaranteed to be applied before the locking
      function is executed.  This might cause some locks to be acquired
@@ -1561,27 +2287,42 @@ SELECT pg_advisory_lock(q.id) FROM
      From the point of view of the application, such locks
      would be dangling, although still viewable in
      <structname>pg_locks</structname>.
+-->
+上の例では、ロック獲得関数が実行される前に<literal>LIMIT</literal> が適用されることを保障できないため、2番目の形式は危険です。
+これにより、アプリケーションが想定していないなんらかのロックが生成される可能性があります。
+そのため、（セッションが終了するまで）解放に失敗することになります。
+アプリケーションから見ると、こうしたロックはただの飾りですが、<structname>pg_locks</structname>からは参照され続けます。
     </para>
 
     <para>
+<!--
      The functions provided to manipulate advisory locks are described in
      <xref linkend="functions-advisory-locks"/>.
+-->
+勧告的ロックを扱うための関数については、<xref linkend="functions-advisory-locks"/>で説明します。
     </para>
    </sect2>
 
   </sect1>
 
   <sect1 id="applevel-consistency">
+<!--
    <title>Data Consistency Checks at the Application Level</title>
+-->
+   <title>アプリケーションレベルでのデータの一貫性チェック</title>
 
    <para>
+<!--
     It is very difficult to enforce business rules regarding data integrity
     using Read Committed transactions because the view of the data is
     shifting with each statement, and even a single statement may not
     restrict itself to the statement's snapshot if a write conflict occurs.
+-->
+データの参照範囲は各ステートメントで変化するので、リードコミッティドトランザクションを使用して、データ保全性に関するビジネスルールを強化するのは非常に難しいことです。また、書き込み競合が生じる場合、単一のステートメントでさえステートメントのスナップショットに限定されないかもしれません。
    </para>
 
    <para>
+<!--
     While a Repeatable Read transaction has a stable view of the data
     throughout its execution, there is a subtle issue with using
     <acronym>MVCC</acronym> snapshots for data consistency checks, involving
@@ -1598,30 +2339,49 @@ SELECT pg_advisory_lock(q.id) FROM
     cycle to appear in a graph of the order of execution of the transactions.
     When such a cycle appears, integrity checks will not work correctly
     without some help.
+-->
+リピータブルリードトランザクションは実行全体にわたってデータの安定した参照範囲を持ちますが、<acronym>MVCC</acronym>スナップショットをデータ完全性チェックに使用することによる、<firstterm>読み取り/書き込み競合</firstterm>として知られるものを含む、微妙な問題があります。
+1つのトランザクションがデータを書き、同時に実行するトランザクションが、同じデータ(書き込みの前に、あるいはその書き込みの後にも)を読むことを試みる場合、それは別のトランザクションの働きを見ることができません。
+その後、読み手は、どれが最初にスタートしたか、あるいは、どれが最初にコミットしたかにかかわらず最初に実行したように見えます。
+そのままいけば問題はありませんが、読み手がさらにデータを書けば、同時に実行したトランザクションがそれを読んだ場合、上で述べたトランザクションのどちらかの前に走ったように見えるトランザクションとなってしまいます。
+最後に実行したように見えるトランザクションが実際には最初にコミットしていた場合、トランザクションの実行順のグラフには循環が容易に出現します。
+そのような循環が出現する時、完全性のチェックはなにかしらの支援がなければ正しく動作しません。
    </para>
 
    <para>
+<!--
     As mentioned in <xref linkend="xact-serializable"/>, Serializable
     transactions are just Repeatable Read transactions which add
     nonblocking monitoring for dangerous patterns of read/write conflicts.
     When a pattern is detected which could cause a cycle in the apparent
     order of execution, one of the transactions involved is rolled back to
     break the cycle.
+-->
+<xref linkend="xact-serializable"/>により述べたように、シリアライザブルトランザクションは、危険なパターンの読み取り/書き込み競合のための非ブロッキング監視を加えたリピータブルリードトランザクションです。
+明白に実行順が循環を引き起こすパターンが検知された場合、含まれていたトランザクションのうちの1つは循環を断ち切るためにロールバックされます。
    </para>
 
    <sect2 id="serializable-consistency">
+<!--
     <title>Enforcing Consistency with Serializable Transactions</title>
+-->
+    <title>シリアライザブルトランザクションを用いた一貫性の強化</title>
 
     <para>
+<!--
      If the Serializable transaction isolation level is used for all writes
      and for all reads which need a consistent view of the data, no other
      effort is required to ensure consistency.  Software from other
      environments which is written to use serializable transactions to
      ensure consistency should <quote>just work</quote> in this regard in
      <productname>PostgreSQL</productname>.
+-->
+シリアライザブルトランザクション分離レベルが、データの一貫性を必要とするすべての書き込みおよびすべての読み取りに使用される場合、一貫性を確実にするために必要なことは他にはありません。
+一貫性を保証するためにシリアライザブルトランザクションを使用するよう書かれている他の環境からのソフトウェアは、<productname>PostgreSQL</productname>でこの点に関して<quote>正しく動く</quote>べきです。
     </para>
 
     <para>
+<!--
      When using this technique, it will avoid creating an unnecessary burden
      for application programmers if the application software goes through a
      framework which automatically retries transactions which are rolled
@@ -1631,26 +2391,40 @@ SELECT pg_advisory_lock(q.id) FROM
      transaction isolation level is used, either inadvertently or to
      subvert integrity checks, through checks of the transaction isolation
      level in triggers.
+-->
+この技術を使用した場合、アプリケーションソフトウェアが直列化失敗でロールバックしたトランザクションを自動的に再試行するようなフレームワークを備えている場合、アプリケーションプログラマにとって不必要な負担を生み出さないようにするでしょう。
+<literal>default_transaction_isolation</literal>を<literal>serializable</literal>にセットすることはよい考えかもしれません。
+他のトランザクション分離レベルは使用されないことを保証する処置を講ずる、そうでなければ、不注意に完全位チェックを失わないよう、トリガーでトランザクション分離レベルのチェックをすることも賢明でしょう。
     </para>
 
     <para>
+<!--
      See <xref linkend="xact-serializable"/> for performance suggestions.
+-->
+実行に関する提言は<xref linkend="xact-serializable"/>を参照してください。
     </para>
 
     <warning>
      <para>
+<!--
       This level of integrity protection using Serializable transactions
       does not yet extend to hot standby mode (<xref linkend="hot-standby"/>).
       Because of that, those using hot standby may want to use Repeatable
       Read and explicit locking on the primary.
+-->
+シリアライザブルトランザクションを使用する整合性保護レベルは、まだホットスタンバイモード(<xref linkend="hot-standby"/>)には拡張されていません。そのために、ホットスタンバイを使用する場合は、マスタにおけるリピータブルリードと明示的なロック処理の利用が望まれるかもしれません。
      </para>
     </warning>
    </sect2>
 
    <sect2 id="non-serializable-consistency">
+<!--
     <title>Enforcing Consistency with Explicit Blocking Locks</title>
+-->
+    <title>明示的なブロッキングロックを用いた一貫性の強化</title>
 
     <para>
+<!--
      When non-serializable writes are possible,
      to ensure the current validity of a row and protect it against
      concurrent updates one must use <command>SELECT FOR UPDATE</command>,
@@ -1661,9 +2435,15 @@ SELECT pg_advisory_lock(q.id) FROM
      TABLE</command> locks the whole table.)  This should be taken into
      account when porting applications to
      <productname>PostgreSQL</productname> from other environments.
+-->
+非シリアライザブルの書き込みが可能な場合、
+ある行の現時点の有効性を確実なものとし、同時更新を避けるためには、<command>SELECT FOR UPDATE</command>文や<command>SELECT FOR SHARE</command>文、適切な<command>LOCK TABLE</command>文を使用する必要があります
+（<command>SELECT FOR UPDATE</command>文および<command>SELECT FOR SHARE</command>文は返ってきた行のみを同時に起こる更新からロックし、<command>LOCK TABLE</command>はテーブル全体をロックします）。
+これは<productname>PostgreSQL</productname>に他の環境からアプリケーションを移植する時に考慮されなければなりません
     </para>
 
     <para>
+<!--
      Also of note to those converting from other environments is the fact
      that <command>SELECT FOR UPDATE</command> does not ensure that a
      concurrent transaction will not update or delete a selected row.
@@ -1676,9 +2456,15 @@ SELECT pg_advisory_lock(q.id) FROM
      commits or rolls back, a blocked transaction will proceed with the
      conflicting operation unless an actual <command>UPDATE</command> of
      the row was performed while the lock was held.
+-->
+他の環境から切り替えた場合のさらなる注意点としては、同時実行トランザクションが選択された行を更新しないか削除しないということを<command>SELECT FOR UPDATE</command>が保証しないという事実です。
+<productname>PostgreSQL</productname>でそれをするためには、値を変更する必要がなくても、実際に行を更新しなければなりません。
+<command>SELECT FOR UPDATE</command>は、他のトランザクションが同じロックを獲得すること、または、ロックされた行に影響する<command>UPDATE</command>または<command>DELETE</command>を実行することを<emphasis>一時的にブロックします。</emphasis>
+しかしトランザクションがコミットするかロールバックして一度このロックを獲得すると、ロックが獲得されている間に、行の実際の<command>UPDATE</command>が行なわれなかった場合、ブロックされたトランザクションは、競合した操作を続けることになります。
     </para>
 
     <para>
+<!--
      Global validity checks require extra thought under
      non-serializable <acronym>MVCC</acronym>.
      For example, a banking application might wish to check that the sum of
@@ -1699,9 +2485,20 @@ SELECT pg_advisory_lock(q.id) FROM
      <literal>SHARE</literal> mode (or higher) lock guarantees that there are no
      uncommitted changes in the locked table, other than those of the current
      transaction.
+-->
+非シリアライザブル<acronym>MVCC</acronym>においては全体的な有効性チェックに特別な考慮を払わなければなりません。
+例えば銀行のアプリケーションで、１つのテーブルにある全ての貸方の合計が、別のテーブルにある借方の合計と同じであることを、二つのテーブルが常に更新されているときに、チェックする必要があるとします。
+2つの連続する<literal>SELECT sum(...)</literal>コマンドの結果を比べると、2番目の問い合わせは、おそらく最初の問い合わせによってカウントされなかったトランザクションの結果を含んでいるため、リードコミッティドモードでは信頼のおける処理を実行できないことがわかります。
+1つのリピータブルリードトランザクションで2つの合計を出力すると、リピータブルリードトランザクションが開始される前にコミットされたトランザクション結果のみの正確な状況を得ることができます。
+しかし、その結果がもたらされた時点でもなお妥当であるかどうかは、実際には疑わしいかもしれません。
+整合性チェックを行う前にリピータブルリードトランザクション自身が変更を行った場合、そのチェックの有効性はさらに疑わしくなります。
+これにより、トランザクション開始後に行われる変更の全てだけでなく、何か別のものが含まれるためです。
+このような場合、注意深い人であれば、現状を確実に把握するためにチェックに必要な全てのテーブルをロックするでしょう。
+<literal>SHARE</literal>モード（もしくはそれ以上）のロックにより、現在のトランザクションでの変更を除き、ロックされたテーブルにコミットされていない変更が存在しないことが保証されます。
     </para>
 
     <para>
+<!--
      Note also that if one is relying on explicit locking to prevent concurrent
      changes, one should either use Read Committed mode, or in Repeatable Read
      mode be careful to obtain
@@ -1715,14 +2512,24 @@ SELECT pg_advisory_lock(q.id) FROM
      <literal>UPDATE</literal>, or <literal>DELETE</literal>), so
      it is possible to obtain locks explicitly before the snapshot is
      frozen.
+-->
+同時に、明示的なロック処理を使用して、同時に変更が実行されるのを防ごうとする場合、リードコミッティドモードを使用するか、または、リピータブルリードモードの場合は、問い合わせを実行する前にロックを獲得するよう留意してください。
+リピータブルリードトランザクションにおいて獲得されたロックは、テーブルに変更をかける他のトランザクションが現在実行されていないことを保証します。
+しかし、トランザクションが参照しているスナップショットが、ロックの獲得より前に取得されたものであれば、そのスナップショットは現時点においてコミットされている変更より前のテーブルのものである可能性があります。
+リピータブルリードトランザクションのスナップショットは、実際にはその最初の問い合わせもしくはデータ変更コマンド（<literal>SELECT</literal>、<literal>INSERT</literal>、<literal>UPDATE</literal>、または<literal>DELETE</literal>）が開始された時点で取得されます。
+したがって、スナップショットを取得する前に、明示的にロックを獲得することが可能です。
     </para>
    </sect2>
   </sect1>
 
   <sect1 id="mvcc-caveats">
+<!--
    <title>Caveats</title>
+-->
+   <title>警告</title>
 
    <para>
+<!--
     Some DDL commands, currently only <link linkend="sql-truncate"><command>TRUNCATE</command></link> and the
     table-rewriting forms of <link linkend="sql-altertable"><command>ALTER TABLE</command></link>, are not
     MVCC-safe.  This means that after the truncation or rewrite commits, the
@@ -1736,9 +2543,15 @@ SELECT pg_advisory_lock(q.id) FROM
     table contents for successive queries on the target table, but they
     could cause visible inconsistency between the contents of the target
     table and other tables in the database.
+-->
+DDLコマンドの中には、現在は<xref linkend="sql-truncate"/>とテーブルを書き換える形の<xref linkend="sql-altertable"/>だけですが、MVCCセーフでないものがあります。
+これは、DDLコマンドをコミットする前に取得したスナップショットを使っていると、切り詰めまたは書き換えのコミット後に、同時実行トランザクションに対してテーブルが空に見えることを意味しています。
+該当するテーブルにDDLコマンドが開始する前にアクセスしなかったトランザクションにとってのみ、これは問題となるでしょう&mdash;開始前にアクセスしたトランザクションは少なくとも<literal>ACCESS SHARE</literal>テーブルロックを保持しており、そのトランザクションが完了するまでDDLコマンドはブロックされるでしょう。
+ですので、対象のテーブルに対する連続した問い合わせで、このコマンドはテーブルの内容の見かけ上の不整合の原因とはなりません。しかし、対象のテーブルとデータベース内の他のテーブルの内容の間の可視の不整合の原因となるかもしれません。
    </para>
 
    <para>
+<!--
     Support for the Serializable transaction isolation level has not yet
     been added to Hot Standby replication targets (described in
     <xref linkend="hot-standby"/>).  The strictest isolation level currently
@@ -1748,9 +2561,14 @@ SELECT pg_advisory_lock(q.id) FROM
     state, a Repeatable Read transaction run on the standby can sometimes
     see a transient state that is inconsistent with any serial execution
     of the transactions on the primary.
+-->
+シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby"/>で述べます)。
+ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
+マスタ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々マスタのトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
    </para>
 
    <para>
+<!--
     Internal access to the system catalogs is not done using the isolation
     level of the current transaction.  This means that newly created database
     objects such as tables are visible to concurrent Repeatable Read and
@@ -1758,67 +2576,107 @@ SELECT pg_advisory_lock(q.id) FROM
     contrast, queries that explicitly examine the system catalogs don't see
     rows representing concurrently created database objects, in the higher
     isolation levels.
+-->
+システムカタログへの内部のアクセスは現在のトランザクションの分離レベルを使っては行われません。
+これは、テーブルのような新しく作られたデータベースオブジェクトが、たとえシステムカタログが含む行が可視でないとしても、並行するリピータブルリードトランザクションやシリアライザブルトランザクションに対して可視であることを意味します。
+対照的に、明示的にシステムカタログを確認する問い合わせは、より高い分離レベルで並行して作られているデータベースオブジェクトを表す行を見ることはできません。
    </para>
   </sect1>
 
   <sect1 id="locking-indexes">
+<!--
    <title>Locking and Indexes</title>
+-->
+   <title>ロックとインデックス</title>
 
    <indexterm zone="locking-indexes">
+<!--
     <primary>index</primary>
     <secondary>locks</secondary>
+-->
+    <primary>インデックス</primary>
+    <secondary>ロック</secondary>
    </indexterm>
 
    <para>
+<!--
     Though <productname>PostgreSQL</productname>
     provides nonblocking read/write access to table
     data, nonblocking read/write access is not currently offered for every
     index access method implemented
     in <productname>PostgreSQL</productname>.
     The various index types are handled as follows:
+-->
+<productname>PostgreSQL</productname>は、テーブルデータへのノンブロック読み込み/書き込みアクセスを備えています。しかし現在、この機能は<productname>PostgreSQL</productname>で実装されている全てのインデックスアクセスメソッドに対して実装されているわけではありません。
+各種のインデックスでは下記のように扱われます。
 
     <variablelist>
      <varlistentry>
       <term>
+<!--
        B-tree, <acronym>GiST</acronym> and <acronym>SP-GiST</acronym> indexes
+-->
+B-treeインデックス、<acronym>GiST</acronym>および<acronym>SP-GiST</acronym>インデックス
       </term>
       <listitem>
        <para>
+<!--
         Short-term share/exclusive page-level locks are used for
         read/write access. Locks are released immediately after each
         index row is fetched or inserted.  These index types provide
         the highest concurrency without deadlock conditions.
+-->
+読み込み/書き込みアクセスに短期の共有/排他モードのページレベルロックを使います。
+ロックは、インデックス行が挿入または取り出されるとただちに解放されます。
+これらのインデックス種類は、デッドロック状態になることなく、最も高い同時実行性を提供します。
        </para>
       </listitem>
      </varlistentry>
 
      <varlistentry>
       <term>
+<!--
        Hash indexes
+-->
+       ハッシュインデックス
       </term>
       <listitem>
        <para>
+<!--
         Share/exclusive hash-bucket-level locks are used for read/write
         access.  Locks are released after the whole bucket is processed.
         Bucket-level locks provide better concurrency than index-level
         ones, but deadlock is possible since the locks are held longer
         than one index operation.
+-->
+読み込み/書き込みアクセスに共有/排他モードのハッシュバケットレベルロックを使います。
+ロックは、バケット全体が処理された後に解放されます。
+バケットレベルロックは、インデックスレベルのロックよりも同時実行性に優れていますが、1つのインデックス操作よりも長くロックが保持されますので、デッドロックに陥りやすくなります。
        </para>
       </listitem>
      </varlistentry>
 
      <varlistentry>
       <term>
+<!--
        <acronym>GIN</acronym> indexes
+-->
+       <acronym>GIN</acronym>インデックス
       </term>
       <listitem>
        <para>
+<!--
         Short-term share/exclusive page-level locks are used for
         read/write access. Locks are released immediately after each
         index row is fetched or inserted. But note that insertion of a
         GIN-indexed value usually produces several index key insertions
         per row, so GIN might do substantial work for a single value's
         insertion.
+-->
+読み込み/書き込みアクセスに短期の共有/排他モードのページレベルロックを使います。
+ロックは、インデックス行が挿入または取り出されるとただちに解放されます。
+しかし、GINによりインデックス付けされた値の挿入は、通常1行当たり複数のインデックスキーの挿入をもたらすことに注意してください。
+そのため、GINは単一の値を挿入する時に更に多くの作業を行います。
        </para>
       </listitem>
      </varlistentry>
@@ -1826,12 +2684,18 @@ SELECT pg_advisory_lock(q.id) FROM
    </para>
 
    <para>
+<!--
     Currently, B-tree indexes offer the best performance for concurrent
     applications; since they also have more features than hash
     indexes, they are the recommended index type for concurrent
     applications that need to index scalar data. When dealing with
     non-scalar data, B-trees are not useful, and GiST, SP-GiST or GIN
     indexes should be used instead.
+-->
+現時点では、B-treeインデックスは同時実行アプリケーションにおいて最善の性能を提供します。
+これはまた、ハッシュインデックスよりも多くの機能を持つため、スカラデータのインデックスが必要な同時実行アプリケーションで推奨するインデックス型です。
+非スカラデータを扱う場合、B-treeを使用することができないことは明確です。
+この場合は代わりにGiST、SP-GiSTもしくはGINインデックスを使用すべきです。
    </para>
   </sect1>
  </chapter>

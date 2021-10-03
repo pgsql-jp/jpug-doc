@@ -1,55 +1,86 @@
 <!-- doc/src/sgml/extend.sgml -->
 
  <chapter id="extend">
+<!--
   <title>Extending <acronym>SQL</acronym></title>
+-->
+  <title><acronym>SQL</acronym>の拡張</title>
 
   <indexterm zone="extend">
+<!--
    <primary>extending SQL</primary>
+-->
+   <primary>SQLの拡張</primary>
   </indexterm>
 
   <para>
+<!--
    In  the  sections  that follow, we will discuss how you
    can extend the <productname>PostgreSQL</productname>
    <acronym>SQL</acronym> query language by adding:
+-->
+本節では以下を追加することで<productname>PostgreSQL</productname>の<acronym>SQL</acronym>問い合わせ言語をどのように拡張できるかを説明します。
 
    <itemizedlist spacing="compact" mark="bullet">
     <listitem>
      <para>
+<!--
       functions (starting in <xref linkend="xfunc"/>)
+-->
+関数（<xref linkend="xfunc"/>から）。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       aggregates (starting in <xref linkend="xaggr"/>)
+-->
+集約（<xref linkend="xaggr"/>から）。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       data types (starting in <xref linkend="xtypes"/>)
+-->
+データ型（<xref linkend="xtypes"/>から）。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       operators (starting in <xref linkend="xoper"/>)
+-->
+演算子（<xref linkend="xoper"/>から）。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       operator classes for indexes (starting in <xref linkend="xindex"/>)
+-->
+インデックス用演算子クラス（<xref linkend="xindex"/>から）。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       packages of related objects (starting in <xref linkend="extend-extensions"/>)
+-->
+      関連オブジェクトのパッケージ（<xref linkend="extend-extensions"/>から）。
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <sect1 id="extend-how">
+<!--
    <title>How Extensibility Works</title>
+-->
+   <title>拡張の作用法</title>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> is extensible because its operation  is
     catalog-driven.   If  you  are familiar with standard
     relational database systems, you know that  they  store  information
@@ -69,9 +100,20 @@
     database systems can only be extended by changing hardcoded
     procedures in the source code or by loading modules
     specially written by the <acronym>DBMS</acronym> vendor.
+-->
+<productname>PostgreSQL</productname>の動作は、カタログに定義された方法で駆動されているため拡張が可能です。
+もし標準のリレーショナルデータベースシステムに慣れ親しんでいるのであれば、システムカタログとして一般に知られている中に、データベース、テーブル、列などの情報が格納されていることは知っていると思います。
+（システムによってはデータディクショナリと呼ぶものもあります。）
+このカタログはユーザの目には他のテーブルと同じように見えますが、<acronym>DBMS</acronym>は内部情報をそこに格納しているのです。
+<productname>PostgreSQL</productname>と標準的なリレーショナルデータベースシステムの重要な違いは、<productname>PostgreSQL</productname>はカタログにより多くの情報を格納するということです。
+テーブルと列に関する情報だけではなく、データ型、関数、アクセスメソッドなどの情報も格納されています。
+これらのテーブルはユーザが変更できます。
+そして、<productname>PostgreSQL</productname>は操作をこれらのテーブルに基づいて行うので、<productname>PostgreSQL</productname>はユーザによって拡張することができるのです。
+これに対して、一般のデータベースシステムでは、ソースコード内にハードコーディングされたプロシージャを変えるか、<acronym>DBMS</acronym>ベンダによって特別に書かれたモジュールをロードしなければ拡張することができません。
    </para>
 
    <para>
+<!--
     The <productname>PostgreSQL</productname> server can moreover
     incorporate user-written code into itself through dynamic loading.
     That is, the user can specify an object code file (e.g., a shared
@@ -82,48 +124,84 @@
     fly</quote> makes <productname>PostgreSQL</productname> uniquely
     suited for rapid prototyping of new applications and storage
     structures.
+-->
+さらに<productname>PostgreSQL</productname>サーバは動的ローディングによってユーザの作成したコードを取り入れることができます。
+つまり、ユーザが新しい型か関数を実装するオブジェクトコードファイル（例えば共有ライブラリ）を指定することができ、<productname>PostgreSQL</productname>は要求された時にロードします。
+<acronym>SQL</acronym>で作成されたコードをサーバに追加するのはさらに簡単です。
+このように演算を<quote>その場で</quote>変えることができるため、<productname>PostgreSQL</productname>は新しいアプリケーションや格納構造をラピッドプロトタイプする場合に適しています。
    </para>
   </sect1>
 
   <sect1 id="extend-type-system">
+<!--
    <title>The <productname>PostgreSQL</productname> Type System</title>
+-->
+   <title><productname>PostgreSQL</productname>の型システム</title>
 
    <indexterm zone="extend-type-system">
+<!--
     <primary>base type</primary>
+-->
+    <primary>基本型</primary>
    </indexterm>
 
    <indexterm zone="extend-type-system">
+<!--
     <primary>data type</primary>
     <secondary>base</secondary>
+-->
+    <primary>データ型</primary>
+    <secondary>基本</secondary>
    </indexterm>
 
    <indexterm zone="extend-type-system">
+<!--
     <primary>composite type</primary>
+-->
+    <primary>複合型</primary>
    </indexterm>
 
    <indexterm zone="extend-type-system">
+<!--
     <primary>data type</primary>
     <secondary>composite</secondary>
+-->
+    <primary>データ型</primary>
+    <secondary>複合</secondary>
    </indexterm>
 
    <indexterm zone="extend-type-system">
+<!--
     <primary>container type</primary>
+-->
+    <primary>コンテナ型</primary>
    </indexterm>
 
    <indexterm zone="extend-type-system">
+<!--
     <primary>data type</primary>
     <secondary>container</secondary>
+-->
+    <primary>データ型</primary>
+    <secondary>コンテナ</secondary>
    </indexterm>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> data types can be divided into base
     types, container types, domains, and pseudo-types.
+-->
+<productname>PostgreSQL</productname>のデータ型は、基本型、コンテナ型、ドメイン、疑似型に分類されます。
    </para>
 
    <sect2>
+<!--
     <title>Base Types</title>
+-->
+    <title>基本型</title>
 
     <para>
+<!--
      Base types are those, like <type>integer</type>, that are
      implemented below the level of the <acronym>SQL</acronym> language
      (typically in a low-level language such as C).  They generally
@@ -133,35 +211,61 @@
      the behavior of such types to the extent that the user describes
      them.
      The built-in base types are described in <xref linkend="datatype"/>.
+-->
+基本型は<type>integer</type>のように、<acronym>SQL</acronym>言語レベル以下で実装されたものです
+（通常はCのような低レベル言語で作成されます）。
+一般的にこれらは抽象データ型とも呼ばれるものに対応します。
+<productname>PostgreSQL</productname>は、ユーザによって提供された関数を通してのみ、こうした型に対する操作が可能で、また、こうした型の動作をユーザが記述する限りにおいてのみ理解します。
+組み込みの基本型は、<xref linkend="datatype"/>に記載されています。
     </para>
 
     <para>
+<!--
      Enumerated (enum) types can be considered as a subcategory of base
      types.  The main difference is that they can be created using
      just <acronym>SQL</acronym> commands, without any low-level programming.
      Refer to <xref linkend="datatype-enum"/> for more information.
+-->
+列挙(enum)型は基本型の一種とみなすことができます。
+主な違いは、列挙型は低レベルプログラミング無しに、<acronym>SQL</acronym>コマンドだけで作ることができることです。
+より詳細については、<xref linkend="datatype-enum"/>を参照してください。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Container Types</title>
+-->
+    <title>コンテナ型</title>
 
     <para>
+<!--
      <productname>PostgreSQL</productname> has three kinds
      of <quote>container</quote> types, which are types that contain multiple
      values of other types.  These are arrays, composites, and ranges.
+-->
+<productname>PostgreSQL</productname>には三種類の<quote>コンテナ</quote>型があります。これは他の型の複数の値を含む型です。
+配列、複合型、範囲型があります。
     </para>
 
     <para>
+<!--
      Arrays can hold multiple values that are all of the same type.  An array
      type is automatically created for each base type, composite type, range
      type, and domain type.  But there are no arrays of arrays.  So far as
      the type system is concerned, multi-dimensional arrays are the same as
      one-dimensional arrays.  Refer to <xref linkend="arrays"/> for more
      information.
+-->
+配列は、全て同じ型の複数の値を保持することができます。
+配列型は各基本型、複合型、範囲型およびドメイン型に対して自動的に作られます。
+しかし、配列の配列はありません。
+この型システムにおいては多次元配列は一次元配列と同じです。
+より詳細については、<xref linkend="arrays"/>を参照してください。
     </para>
 
     <para>
+<!--
      Composite types, or row types, are created whenever the user
      creates a table. It is also possible to use <xref
      linkend="sql-createtype"/> to
@@ -170,33 +274,57 @@
      associated field names.  A value of a composite type is a row or
      record of field values.  Refer to <xref linkend="rowtypes"/>
      for more information.
+-->
+ユーザがテーブルを作成すると、複合型、もしくは行型が作成されます。
+関連するテーブルを持たない<quote>スタンドアローン</quote>の複合型を<xref linkend="sql-createtype"/>を使用して定義することもできます。
+複合型は関連したフィールド名を持つ基本型の単なるリストです。
+複合型の値は行もしくはフィールド値のレコードです。
+より詳細については、<xref linkend="rowtypes"/>を参照してください。
     </para>
 
     <para>
+<!--
      A range type can hold two values of the same type, which are the lower
      and upper bounds of the range.  Range types are user-created, although
      a few built-in ones exist.  Refer to <xref linkend="rangetypes"/>
      for more information.
+-->
+範囲型は同じ型の二つの値を保持することができます。これらは範囲の下限と上限です。
+範囲型はユーザによって作られますが、少数の組み込みの型もあります。
+より詳細については、<xref linkend="rangetypes"/>を参照してください。
     </para>
    </sect2>
 
    <sect2 id="extend-type-system-domains">
+<!--
     <title>Domains</title>
+-->
+    <title>ドメイン</title>
 
     <para>
+<!--
      A domain is based on a particular underlying type and for many purposes
      is interchangeable with its underlying type.  However, a domain can have
      constraints that restrict its valid values to a subset of what the
      underlying type would allow.  Domains are created using
      the <acronym>SQL</acronym> command <xref linkend="sql-createdomain"/>.
      Refer to <xref linkend="domains"/> for more information.
+-->
+ドメインは、特定の元となる型に基づいたもので、多くの目的では、その元となる型と交換可能です。
+しかし、ドメインは元となる基本型で許可される範囲内で値の有効範囲を制限する制約を持つことができます。
+ドメインは<acronym>SQL</acronym>コマンドの<xref linkend="sql-createdomain"/>を使って作られます。
+より詳細については、<xref linkend="domains"/>を参照してください。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Pseudo-Types</title>
+-->
+    <title>疑似型</title>
 
     <para>
+<!--
      There are a few <quote>pseudo-types</quote> for special purposes.
      Pseudo-types cannot appear as columns of tables or components of
      container types, but they can be used to declare the argument and
@@ -204,31 +332,55 @@
      type system to identify special classes of functions.  <xref
      linkend="datatype-pseudotypes-table"/> lists the existing
      pseudo-types.
+-->
+特殊な目的用に数個の<quote>疑似型</quote>があります。
+疑似型はテーブルの列やコンテナ型の構成要素として現れることはありません。
+しかし、関数の引数や結果型を宣言する際に使用することができます。
+これは、型システム内で特殊な関数クラスを識別するための機構を提供します。
+<xref linkend="datatype-pseudotypes-table"/>に既存の疑似型を列挙します。
     </para>
    </sect2>
 
    <sect2 id="extend-types-polymorphic">
+<!--
     <title>Polymorphic Types</title>
+-->
+    <title>多様型</title>
 
    <indexterm zone="extend-types-polymorphic">
+<!--
     <primary>polymorphic type</primary>
+-->
+    <primary>多様型</primary>
    </indexterm>
 
    <indexterm zone="extend-types-polymorphic">
+<!--
     <primary>polymorphic function</primary>
+-->
+    <primary>多様関数</primary>
    </indexterm>
 
    <indexterm zone="extend-types-polymorphic">
+<!--
     <primary>data type</primary>
     <secondary>polymorphic</secondary>
+-->
+    <primary>データ型</primary>
+    <secondary>多様</secondary>
    </indexterm>
 
    <indexterm zone="extend-types-polymorphic">
+<!--
     <primary>function</primary>
     <secondary>polymorphic</secondary>
+-->
+    <primary>関数</primary>
+    <secondary>多様</secondary>
    </indexterm>
 
     <para>
+<!--
      Some pseudo-types of special interest are the <firstterm>polymorphic
      types</firstterm>, which are used to declare <firstterm>polymorphic
      functions</firstterm>.  This powerful feature allows a single function
@@ -237,19 +389,32 @@
      in a particular call.  The polymorphic types are shown in
      <xref linkend="extend-types-polymorphic-table"/>.  Some examples of
      their use appear in <xref linkend="xfunc-sql-polymorphic-functions"/>.
+-->
+いくつかの特殊な用途を持つ疑似型は<firstterm>多様型</firstterm>で、<firstterm>多様関数</firstterm>を宣言するのに使われます。
+この強力な機能により、特定の呼び出しで実際に渡されたデータ型で決定される具体的なデータ型について、一つの関数定義で多数の異なるデータ型を処理できるようになります。
+多様型を<xref linkend="extend-types-polymorphic-table"/>に示します。
+これらの使用例は<xref linkend="xfunc-sql-polymorphic-functions"/>にあります。
     </para>
 
     <table id="extend-types-polymorphic-table">
+<!--
      <title>Polymorphic Types</title>
+-->
+     <title>多様型</title>
      <tgroup cols="3">
       <colspec colname="col1" colwidth="2*"/>
       <colspec colname="col2" colwidth="1*"/>
       <colspec colname="col3" colwidth="2*"/>
       <thead>
        <row>
+<!--
         <entry>Name</entry>
         <entry>Family</entry>
         <entry>Description</entry>
+-->
+        <entry>名前</entry>
+        <entry>族</entry>
+        <entry>説明</entry>
        </row>
       </thead>
 
@@ -257,34 +422,49 @@
        <row>
         <entry><type>anyelement</type></entry>
         <entry>Simple</entry>
+<!--
         <entry>Indicates that a function accepts any data type</entry>
+-->
+        <entry>関数があらゆるデータ型を受け付けることを示します</entry>
        </row>
 
        <row>
         <entry><type>anyarray</type></entry>
         <entry>Simple</entry>
+<!--
         <entry>Indicates that a function accepts any array data type</entry>
+-->
+        <entry>関数があらゆる配列データ型を受け付けることを示します</entry>
        </row>
 
        <row>
         <entry><type>anynonarray</type></entry>
         <entry>Simple</entry>
+<!--
         <entry>Indicates that a function accepts any non-array data type</entry>
+-->
+        <entry>関数があらゆる配列でないデータ型を受け付けることを示します</entry>
        </row>
 
        <row>
         <entry><type>anyenum</type></entry>
         <entry>Simple</entry>
+<!--
         <entry>Indicates that a function accepts any enum data type
         (see <xref linkend="datatype-enum"/>)
+-->
+        <entry>関数があらゆる列挙型（<xref linkend="datatype-enum"/>を参照）を受け付けることを示します
         </entry>
        </row>
 
        <row>
         <entry><type>anyrange</type></entry>
         <entry>Simple</entry>
+<!--
         <entry>Indicates that a function accepts any range data type
         (see <xref linkend="rangetypes"/>)
+-->
+        <entry>関数があらゆる範囲データ型（<xref linkend="rangetypes"/>を参照）を受け付けることを示します
         </entry>
        </row>
 
@@ -299,32 +479,44 @@
        <row>
         <entry><type>anycompatible</type></entry>
         <entry>Common</entry>
+<!--
         <entry>Indicates that a function accepts any data type,
         with automatic promotion of multiple arguments to a common data type
+-->
+        <entry>さまざまな引数の共通データ型への自動昇格によって、関数があらゆるデータ型を受け付けることを示します
         </entry>
        </row>
 
        <row>
         <entry><type>anycompatiblearray</type></entry>
         <entry>Common</entry>
+<!--
         <entry>Indicates that a function accepts any array data type,
         with automatic promotion of multiple arguments to a common data type
+-->
+        <entry>さまざまな引数の共通データ型への自動昇格によって、関数があらゆる配列データ型を受け付けることを示します
         </entry>
        </row>
 
        <row>
         <entry><type>anycompatiblenonarray</type></entry>
         <entry>Common</entry>
+<!--
         <entry>Indicates that a function accepts any non-array data type,
         with automatic promotion of multiple arguments to a common data type
+-->
+        <entry>さまざまな引数の共通データ型への自動昇格によって、関数があらゆる配列でないデータ型を受け付けることを示します。
         </entry>
        </row>
 
        <row>
         <entry><type>anycompatiblerange</type></entry>
         <entry>Common</entry>
+<!--
         <entry>Indicates that a function accepts any range data type,
         with automatic promotion of multiple arguments to a common data type
+-->
+        <entry>さまざまな引数の共通データ型への自動昇格によって、配列があらゆる範囲データ型を受け付けることを示します。
         </entry>
        </row>
 
@@ -340,6 +532,7 @@
     </table>
 
     <para>
+<!--
      Polymorphic arguments and results are tied to each other and are resolved
      to specific data types when a query calling a polymorphic function is
      parsed.  When there is more than one polymorphic argument, the actual
@@ -347,14 +540,22 @@
      function's result type is polymorphic, or it has output parameters of
      polymorphic types, the types of those results are deduced from the
      actual types of the polymorphic inputs as described below.
+-->
+多様の引数と結果は互いに結びつけられていて、多様関数を呼ぶ問い合わせが解析されるときに特定のデータ型に決定されます。
+2つ以上の多様引数がある時には、入力値の実データ型は後述するように合わせなければなりません。
+関数の結果型が多様、あるいは、多様型の出力パラメータを持つ場合には、それらの結果の型は後述するように多様入力の実際の型から導出されます。
     </para>
 
     <para>
+<!--
      For the <quote>simple</quote> family of polymorphic types, the
      matching and deduction rules work like this:
+-->
+多様型の<quote>simple</quote>族では、一致と導出の規則は以下のように動作します。
     </para>
 
     <para>
+<!--
      Each position (either argument or return value) declared as
      <type>anyelement</type> is allowed to have any specific actual
      data type, but in any given call they must all be the
@@ -377,6 +578,14 @@
      <type>anyenum</type> is treated exactly the same as <type>anyelement</type>,
      but adds the additional constraint that the actual type must
      be an enum type.
+-->
+<type>anyelement</type>として宣言された位置（引数もしくは戻り値）にはそれぞれ、任意の実データ型を指定することができますが、1つの呼び出しでは、これらはすべて<emphasis>同一の</emphasis>実データ型でなければなりません。
+<type>anyarray</type>として宣言された位置にはそれぞれ、任意の配列データ型を持つことができますが、同様にこれらはすべて同じデータ型でなければなりません。
+また同様に、<type>anyrange</type>として宣言された位置はすべて同じ範囲型でなければなりません。
+さらに、<type>anyarray</type>と宣言された位置と<type>anyelement</type>と宣言された位置の両方がある場合、<type>anyarray</type>の位置の実際の配列型は、その要素の型が<type>anyelement</type>位置に現れる型と同じでなければなりません。
+同様に<type>anyrange</type>と宣言された位置と<type>anyelement</type>もしくは<type>anyarray</type>と宣言された位置の両方がある場合、<type>anyrange</type>の位置の実際の範囲型は、その範囲の派生元型が<type>anyelement</type>位置に現れる型と同じであり、<type>anyarray</type>位置の要素の型と同じでなければなりません。
+<type>anynonarray</type>は、実際の型が配列型であってはならないという制限が加わっている点を除き、<type>anyelement</type>とまったく同様に扱われます。
+<type>anyenum</type>は、実際の型が列挙型でなければならないという制約が加わっている点を除き、<type>anyelement</type>とまったく同様に扱われます。
     </para>
 
     <para>
@@ -393,14 +602,19 @@
     </para>
 
     <para>
+<!--
      Thus, when more than one argument position is declared with a polymorphic
      type, the net effect is that only certain combinations of actual argument
      types are allowed.  For example, a function declared as
      <literal>equal(anyelement, anyelement)</literal> will take any two input values,
      so long as they are of the same data type.
+-->
+このように、2つ以上の引数位置が多様型と宣言されると、全体の効果として、実引数型の特定の組み合わせのみが許されるようになります。
+例えば、<literal>equal(anyelement, anyelement)</literal>と宣言された関数は、2つの引数が同じデータ型である限り、任意の入力値を2つ取ることになります。
     </para>
 
     <para>
+<!--
      When the return value of a function is declared as a polymorphic type,
      there must be at least one argument position that is also polymorphic,
      and the actual data type(s) supplied for the polymorphic arguments
@@ -413,9 +627,16 @@
      result type from the actual first argument's type.  Another example
      is that a function declared as <literal>f(anyarray) returns anyenum</literal>
      will only accept arrays of enum types.
+-->
+関数の戻り値を多様型として宣言する時、少なくとも1つの引数位置も多様でなければなりません。
+そして多様の引数として与えられる実データ型がその呼び出しの実結果型を決定します。
+例えば、配列添字機構がなかったとすると、<literal>subscript(anyarray, integer) returns anyelement</literal>として添字機構を実装する関数を定義できます。
+この宣言には、最初の実引数は配列型になり、パーサはこの最初の実引数の型より正しい結果型を推論することができます。
+他にも例えば、<literal>f(anyarray) returns anyenum</literal>と宣言された関数は列挙型の配列のみを受け付けます。
     </para>
 
     <para>
+<!--
      In most cases, the parser can infer the actual data type for a
      polymorphic result type from arguments that are of a different
      polymorphic type in the same family; for example <type>anyarray</type>
@@ -425,18 +646,31 @@
      of type <type>anyrange</type>; it cannot be deduced
      from <type>anyarray</type> or <type>anyelement</type> arguments.  This
      is because there could be multiple range types with the same subtype.
+-->
+ほとんどの場合、パーサは同じ族の異なる多様型の引数から多様結果型の実データ型を推論できます。
+例えば、<type>anyarray</type>を<type>anyelement</type>から、もしくはその逆から推定できます。
+例外は<type>anyrange</type>型の多様結果は<type>anyrange</type>型の引数を必要とします。
+<type>anyarray</type>もしくは<type>anyelement</type>の引数からは推定できません。
+これは、同じ派生元型の複数の範囲型が存在する可能性があるためです。
     </para>
 
     <para>
+<!--
      Note that <type>anynonarray</type> and <type>anyenum</type> do not represent
      separate type variables; they are the same type as
      <type>anyelement</type>, just with an additional constraint.  For
      example, declaring a function as <literal>f(anyelement, anyenum)</literal>
      is equivalent to declaring it as <literal>f(anyenum, anyenum)</literal>:
      both actual arguments have to be the same enum type.
+-->
+<type>anynonarray</type>型と<type>anyenum</type>型が、別個の型変数を表していないことに注意してください。
+これは<type>anyelement</type>と同じ型で、追加の制約が付いているだけです。
+例えば、<literal>f(anyelement, anyenum)</literal>として関数を宣言することは、<literal>f(anyenum, anyenum)</literal>と宣言することと同一です。
+両方の実引数は同じ列挙型でなければなりません。
     </para>
 
     <para>
+<!--
      For the <quote>common</quote> family of polymorphic types, the
      matching and deduction rules work approximately the same as for
      the <quote>simple</quote> family, with one major difference: the
@@ -455,9 +689,17 @@
      and <type>anycompatiblenonarray</type> positions are automatically
      cast to that type, and arguments in <type>anycompatiblearray</type>
      positions are automatically cast to the array type for that type.
+-->
+多様型の<quote>common</quote>族については、一致と導出の規則は概ね<quote>simple</quote>と同じに動作しますが、一つの大きな違いがあります。
+一つの共通型へ暗黙にキャスト可能である限り、引数の実際の型が同一である必要がありません。
+共通型は<literal>UNION</literal>や関連する構文と同じ規則（<xref linkend="typeconv-union-case"/>を参照）に従って選択されます。
+共通型の選択では、<type>anycompatible</type>や<type>anycompatiblenonarray</type>の入力の実際の型、<type>anycompatiblearray</type>入力の配列要素型、<type>anycompatiblerange</type>入力の範囲の派生元型が、考慮されます。
+<type>anycompatiblenonarray</type>が存在する場合、共通型は配列でない型である必要があります。
+共通データ型が特定されたなら、<type>anycompatible</type>および<type>anycompatiblenonarray</type>の位置の引数は自動的にその型にキャストされ、<type>anycompatiblearray</type>位置の引数は自動的にその型に対する配列にキャストされます。
     </para>
 
     <para>
+<!--
      Since there is no way to select a range type knowing only its subtype,
      use of <type>anycompatiblerange</type> and/or
      <type>anycompatiblemultirange</type> requires that all arguments declared
@@ -468,32 +710,49 @@
      <type>anymultirange</type> as a function result type requires that there be
      an <type>anycompatiblerange</type> or <type>anycompatiblemultirange</type>
      argument.
+-->
+その派生元型だけ分かっている範囲型を選択する方法がないため、<type>anycompatiblerange</type>の使用にはその型で宣言されている全ての引数が同じ実範囲型をとり、また、その型の派生元型は選択された共通型に即したものである必要があり、そのため、範囲値のキャストは必要ありません。
+<type>anyrange</type>と同様に、関数の結果型としての<type>anycompatiblerange</type>の使用には、<type>anycompatiblerange</type>の引数がある必要があります。
     </para>
 
     <para>
+<!--
      Notice that there is no <type>anycompatibleenum</type> type.  Such a
      type would not be very useful, since there normally are not any
      implicit casts to enum types, meaning that there would be no way to
      resolve a common type for dissimilar enum inputs.
+-->
+<type>anycompatibleenum</type>型は無いことに注意してください。
+通常、列挙型への暗黙キャストはありません。これは異なる列挙入力に対する共通型を決める方法が無いことを意味します。そのため、このような型はあまり有益ではないでしょう。
     </para>
 
     <para>
+<!--
      The <quote>simple</quote> and <quote>common</quote> polymorphic
      families represent two independent sets of type variables.  Consider
      for example
+-->
+<quote>simple</quote>と<quote>common</quote>の多様族は型変数の二つの独立したセットに相当します。
+例えば以下を考えてください。
 <programlisting>
 CREATE FUNCTION myfunc(a anyelement, b anyelement,
                        c anycompatible, d anycompatible)
 RETURNS anycompatible AS ...
 </programlisting>
+<!--
      In an actual call of this function, the first two inputs must have
      exactly the same type.  The last two inputs must be promotable to a
      common type, but this type need not have anything to do with the type
      of the first two inputs.  The result will have the common type of the
      last two inputs.
+-->
+この関数の実際の呼び出しでは、最初の2つの入力は正確に同じ型を持たなければなりません。
+最後の2つの入力は共通型に昇格できなければなりませんが、この型が最初の2つの入力型と何らか関係がある必要はありません。
+結果は最後の2つの入力の共通型を持ちます。
     </para>
 
     <para>
+<!--
      A variadic function (one taking a variable number of arguments, as in
      <xref linkend="xfunc-sql-variadic-functions"/>) can be
      polymorphic: this is accomplished by declaring its last parameter as
@@ -504,6 +763,10 @@ RETURNS anycompatible AS ...
      the same as if you had written the appropriate number of
      <type>anynonarray</type> or <type>anycompatiblenonarray</type>
      parameters.
+-->
+可変長引数の関数（<xref linkend="xfunc-sql-variadic-functions"/>で説明する可変個の引数を取る関数）を多様とすることができます。
+最後のパラメータを<literal>VARIADIC</literal> <type>anyarray</type>または<literal>VARIADIC</literal> <type>anycompatiblearray</type>と宣言することで実現されます。
+引数を一致させ、実際の結果型を決めるために、こうした関数は<type>anynonarray</type>または<type>anycompatiblenonarray</type>パラメータをあたかも適切な個数記述した場合と同様に動作します
     </para>
    </sect2>
   </sect1>
@@ -516,13 +779,20 @@ RETURNS anycompatible AS ...
 
 
   <sect1 id="extend-extensions">
+<!--
    <title>Packaging Related Objects into an Extension</title>
+-->
+   <title>関連するオブジェクトを拡張としてパッケージ化</title>
 
    <indexterm zone="extend-extensions">
+<!--
     <primary>extension</primary>
+-->
+    <primary>拡張</primary>
    </indexterm>
 
    <para>
+<!--
     A useful extension to <productname>PostgreSQL</productname> typically includes
     multiple SQL objects; for example, a new data type will require new
     functions, new operators, and probably new index operator classes.
@@ -537,9 +807,18 @@ RETURNS anycompatible AS ...
     has been built.  Once you have these files, a simple
     <link linkend="sql-createextension"><command>CREATE EXTENSION</command></link> command loads the objects into
     your database.
+-->
+<productname>PostgreSQL</productname>への有用な拡張は通常、複数のSQLオブジェクトを含んでいます。
+例えば、新しいデータ型は新しい関数、新しい演算子、おそらく新しいインデックス演算子クラスを必要とします。
+これらのオブジェクトをすべて単一のパッケージとしてまとめることは、データベース管理を単純化するために役に立ちます。
+<productname>PostgreSQL</productname>ではこうしたパッケージを<firstterm>拡張</firstterm>とよびます。
+拡張を定義するためには、少なくとも、拡張のオブジェクトを作成するための<acronym>SQL</acronym>コマンドを含む<firstterm>スクリプトファイル</firstterm>、拡張自身の数個の基本属性を指定する<firstterm>制御ファイル</firstterm>が必要です。
+また拡張がCコードを含む場合、通常Cコードで構築された共有ライブラリが存在します。
+これらのファイルがあれば、単純な<xref linkend="sql-createextension"/>コマンドがそのオブジェクトをデータベース内に読み込みます。
    </para>
 
    <para>
+<!--
     The main advantage of using an extension, rather than just running the
     <acronym>SQL</acronym> script to load a bunch of <quote>loose</quote> objects
     into your database, is that <productname>PostgreSQL</productname> will then
@@ -553,9 +832,17 @@ RETURNS anycompatible AS ...
     that might contain more or different objects than the old version.
     Note however that you must have the extension's control, script, and
     other files available when loading such a dump into a new database.
+-->
+拡張を使用する主な利点は、<acronym>SQL</acronym>スクリプトを実行するだけでデータベースに<quote>粗な</quote>なオブジェクトの群をロードできることではなく、<productname>PostgreSQL</productname>が拡張のオブジェクトをまとまったものと理解できることです。
+単一の<xref linkend="sql-dropextension"/>コマンドでオブジェクトすべてを削除することができます（個々の<quote>アンインストール</quote>スクリプトを保守する必要はありません）。
+もっと有用なことは、<application>pg_dump</application>が拡張の個々のメンバオブジェクトを削除してはならないことを把握していることです。
+代わりにダンプ内には<command>CREATE EXTENSION</command>コマンドだけが含まれます。
+これは、古いバージョンよりも多くのまたは異なるオブジェクトを含む可能性がある、拡張の新しいバージョンへの移行を大きく単純化します。
+しかし、こうしたダンプを新しいデータベースにロードする際には、拡張の制御ファイル、スクリプトファイル、その他のファイルが利用できるようにしておく必要があります。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> will not let you drop an individual object
     contained in an extension, except by dropping the whole extension.
     Also, while you can change the definition of an extension member object
@@ -567,9 +854,16 @@ RETURNS anycompatible AS ...
     data; see <xref linkend="extend-extensions-config-tables"/>.)
     In production situations, it's generally better to create an extension
     update script to perform changes to extension member objects.
+-->
+<productname>PostgreSQL</productname>はユーザに、拡張全体を削除させる以外に、拡張内に含まれる個々のオブジェクトを削除させません。
+また、拡張のメンバオブジェクトの定義を変更する（例えば関数では<command>CREATE OR REPLACE FUNCTION</command>を介して変更する）ことはできますが、変更した定義は<application>pg_dump</application>によりダンプされないことに留意してください。
+こうした変更は通常、同時に拡張のスクリプトファイルにも同じ変更を行った場合のみ認識することができます。
+（しかし設定データを持つテーブルに対しては特殊な準備があります。<xref linkend="extend-extensions-config-tables"/>を参照してください。）
+本番環境では、拡張メンバオブジェクトへの変更を処理するために拡張更新スクリプトを作成するのが一般により良い方法です。
    </para>
 
    <para>
+<!--
     The extension script may set privileges on objects that are part of the
     extension, using <command>GRANT</command> and <command>REVOKE</command>
     statements.  The final set of privileges for each object (if any are set)
@@ -580,17 +874,27 @@ RETURNS anycompatible AS ...
     by the set of <command>GRANT</command> and <command>REVOKE</command>
     statements necessary to set the privileges on the objects to what they were
     at the time the dump was taken.
+-->
+拡張スクリプトは、<command>GRANT</command>文と<command>REVOKE</command>文を使って拡張の一部のオブジェクトに権限を設定するかもしれません。
+それぞれのオブジェクト（どれかが設定される場合）の最終的な権限のセットは、<link linkend="catalog-pg-init-privs"><structname>pg_init_privs</structname></link>システムカタログに格納されます。
+<application>pg_dump</application>が使用されると、<command>CREATE EXTENSION</command>コマンドがダンプ内に含まれ、オブジェクトの権限をダンプが取られた時点のものに設定するために必要となる<command>GRANT</command>文と<command>REVOKE</command>文が後に続きます。
    </para>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> does not currently support extension scripts
     issuing <command>CREATE POLICY</command> or <command>SECURITY LABEL</command>
     statements.  These are expected to be set after the extension has been
     created.  All RLS policies and security labels on extension objects will be
     included in dumps created by <application>pg_dump</application>.
+-->
+<productname>PostgreSQL</productname>は、現在拡張スクリプトにて<command>CREATE POLICY</command>文や<command>SECURITY LABEL</command>文の発行をサポートしていません。
+これらは拡張が作成された後に設定されるべきです。
+拡張オブジェクトのすべての行セキュリティポリシーとセキュリティラベルは<application>pg_dump</application>によって作成されたダンプに含まれます。
    </para>
 
    <para>
+<!--
     The extension mechanism also has provisions for packaging modification
     scripts that adjust the definitions of the SQL objects contained in an
     extension.  For example, if version 1.1 of an extension adds one function
@@ -599,9 +903,14 @@ RETURNS anycompatible AS ...
     two changes.  The <command>ALTER EXTENSION UPDATE</command> command can then
     be used to apply these changes and track which version of the extension
     is actually installed in a given database.
+-->
+また拡張機構は、拡張に含まれるSQLオブジェクトの定義を調整するパッケージ調整スクリプトを準備しています。
+例えば、拡張のバージョン1.1でバージョン1.0と比べて１つの関数を追加し、他の関数本体を変更する場合、拡張の作成者はこれらの２つの変更のみを行う<firstterm>更新スクリプト</firstterm>を提供することができます。
+そして<command>ALTER EXTENSION UPDATE</command>コマンドを使用して、これらの変更を適用し、指定されたデータベース内に実際にインストールされた拡張のバージョンが何かを記録します。
    </para>
 
    <para>
+<!--
     The kinds of SQL objects that can be members of an extension are shown in
     the description of <link linkend="sql-alterextension"><command>ALTER EXTENSION</command></link>.  Notably, objects
     that are database-cluster-wide, such as databases, roles, and tablespaces,
@@ -617,49 +926,84 @@ RETURNS anycompatible AS ...
     however, will belong to schemas whenever appropriate for their object
     types.  It may or may not be appropriate for an extension to own the
     schema(s) its member objects are within.
+-->
+拡張のメンバとなり得るSQLオブジェクトの種類を<xref linkend="sql-alterextension"/>で説明します。
+拡張は１つのデータベースの中でのみ認識されますので、データベース、ロール、テーブル空間などデータベースクラスタ全体のオブジェクトは拡張のメンバにすることができないことに注意してください。
+（拡張のスクリプトでこうしたオブジェクトを生成することは禁止されていませんが、作成したとしても、拡張の一部として記録されません。）
+また、テーブルは拡張のメンバになることができますが、インデックスなどそれに付随するオブジェクトは拡張の直接的なメンバとはみなされません。
+もう一つの重要な点は、スキーマは拡張に属すことがありますがその逆はないということです。
+拡張は非修飾名でいかなるスキーマ<quote>の中に</quote>も存在しません。
+しかし、拡張のメンバオブジェクトはオブジェクトの型が適切であればスキーマに属します。
+拡張が自身のメンバオブジェクトが属するスキーマを所有することは適切かも知れませんし、そうでないかも知れません。
    </para>
 
    <para>
+<!--
     If an extension's script creates any temporary objects (such as temp
     tables), those objects are treated as extension members for the
     remainder of the current session, but are automatically dropped at
     session end, as any temporary object would be.  This is an exception
     to the rule that extension member objects cannot be dropped without
     dropping the whole extension.
+-->
+ある拡張のスクリプトが（一時テーブルのような）一時オブジェクトを作成する場合、現在のセッションで、以降そのオブジェクトは拡張のメンバーとして扱われます。
+しかしすべての一時オブジェクト同様、セッションの終わりに削除されます。
+これは、拡張全体を削除することなしに、拡張のメンバーオブジェクトは削除できない、という規則の例外です。
    </para>
 
    <sect2>
+<!--
     <title>Extension Files</title>
+-->
+    <title>拡張のファイル</title>
 
    <indexterm>
+<!--
     <primary>control file</primary>
+-->
+    <primary>制御ファイル</primary>
    </indexterm>
 
     <para>
+<!--
      The <command>CREATE EXTENSION</command> command relies on a control
      file for each extension, which must be named the same as the extension
      with a suffix of <literal>.control</literal>, and must be placed in the
      installation's <literal>SHAREDIR/extension</literal> directory.  There
      must also be at least one <acronym>SQL</acronym> script file, which follows the
      naming pattern
-     <literal><replaceable>extension</replaceable>--<replaceable>version</replaceable>.sql</literal>
-     (for example, <literal>foo--1.0.sql</literal> for version <literal>1.0</literal> of
+     <literal><replaceable>extension</replaceable>&#045;&#045;<replaceable>old_version</replaceable>&#045;&#045;<replaceable>target_version</replaceable>.sql</literal>
+     (for example, <literal>foo&#045;&#045;1.0.sql</literal> for version <literal>1.0</literal> of
      extension <literal>foo</literal>).  By default, the script file(s) are also
      placed in the <literal>SHAREDIR/extension</literal> directory; but the
      control file can specify a different directory for the script file(s).
+-->
+<xref linkend="sql-createextension"/>コマンドは各拡張に関して、拡張と同じ名前に<literal>.control</literal>という拡張子を持つファイル名である必要がある、制御ファイルに依存します。
+また、このファイルはインストレーションの<literal>SHAREDIR/extension</literal>ディレクトリ内に存在しなければなりません。
+また少なくとも１つの、<literal><replaceable>extension</replaceable>--<replaceable>old_version</replaceable>--<replaceable>target_version</replaceable>.sql</literal>という命名規約（例えば<literal>foo</literal>拡張のバージョン<literal>1.0</literal>では<literal>foo--1.0.sql</literal>）に従った<acronym>SQL</acronym>スクリプトファイルが存在しなければなりません。
+デフォルトでは、このスクリプトファイルも<literal>SHAREDIR/extension</literal>ディレクトリに格納されますが、制御ファイルでスクリプトファイルを別のディレクトリに指定することができます。
     </para>
 
     <para>
+<!--
      The file format for an extension control file is the same as for the
      <filename>postgresql.conf</filename> file, namely a list of
      <replaceable>parameter_name</replaceable> <literal>=</literal> <replaceable>value</replaceable>
      assignments, one per line.  Blank lines and comments introduced by
      <literal>#</literal> are allowed.  Be sure to quote any value that is not
      a single word or number.
+-->
+拡張の制御ファイルのファイル書式は<filename>postgresql.conf</filename>ファイルと同じです。
+すなわち、<replaceable>parameter_name</replaceable> <literal>=</literal> <replaceable>value</replaceable>という代入を１行当たり１つ記述します。
+空行および<literal>#</literal>から始まるコメントが許されます。
+単一の単語または数字ではない値にはすべて引用符で確実にくくってください。
     </para>
 
     <para>
+<!--
      A control file can set the following parameters:
+-->
+制御ファイルは以下のパラメータを設定することができます。
     </para>
 
     <variablelist>
@@ -667,11 +1011,16 @@ RETURNS anycompatible AS ...
       <term><varname>directory</varname> (<type>string</type>)</term>
       <listitem>
        <para>
+<!--
         The directory containing the extension's <acronym>SQL</acronym> script
         file(s).  Unless an absolute path is given, the name is relative to
         the installation's <literal>SHAREDIR</literal> directory.  The
         default behavior is equivalent to specifying
         <literal>directory = 'extension'</literal>.
+-->
+拡張の<acronym>SQL</acronym>スクリプトファイルを含むディレクトリです。
+絶対パスで指定されていない限り、この名前はインストレーションの<literal>SHAREDIR</literal>ディレクトリからの相対パスになります。
+デフォルトの動作は<literal>directory = 'extension'</literal>と指定した場合と同じです。
        </para>
       </listitem>
      </varlistentry>
@@ -680,11 +1029,16 @@ RETURNS anycompatible AS ...
       <term><varname>default_version</varname> (<type>string</type>)</term>
       <listitem>
        <para>
+<!--
         The default version of the extension (the one that will be installed
         if no version is specified in <command>CREATE EXTENSION</command>).  Although
         this can be omitted, that will result in <command>CREATE EXTENSION</command>
         failing if no <literal>VERSION</literal> option appears, so you generally
         don't want to do that.
+-->
+拡張のデフォルトのバージョン（<command>CREATE EXTENSION</command>でバージョン指定がない場合にインストールされるバージョン）です。
+これは省略することができますが、その場合<literal>VERSION</literal>オプションがない<command>CREATE EXTENSION</command>は失敗します。
+ですので通常省略しようとは思わないでしょう。
        </para>
       </listitem>
      </varlistentry>
@@ -693,11 +1047,16 @@ RETURNS anycompatible AS ...
       <term><varname>comment</varname> (<type>string</type>)</term>
       <listitem>
        <para>
+<!--
         A comment (any string) about the extension.  The comment is applied
         when initially creating an extension, but not during extension updates
         (since that might override user-added comments).  Alternatively,
         the extension's comment can be set by writing
         a <xref linkend="sql-comment"/> command in the script file.
+-->
+拡張に関するコメント（任意の文字列）です。
+最初に拡張が作成されるときにコメントは適用されますが、拡張が更新される間はされません（ユーザが追加したコメントを上書いてしまうため）。
+この他の方法として、スクリプトファイル内で<xref linkend="sql-comment"/>コマンドを使用してコメントを設定することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -706,9 +1065,14 @@ RETURNS anycompatible AS ...
       <term><varname>encoding</varname> (<type>string</type>)</term>
       <listitem>
        <para>
+<!--
         The character set encoding used by the script file(s).  This should
         be specified if the script files contain any non-ASCII characters.
         Otherwise the files will be assumed to be in the database encoding.
+-->
+スクリプトファイルで使用される文字セット符号化方式です。
+スクリプトファイルに何らかの非ASCII文字が含まれる場合に指定しなければなりません。
+指定がなければ、ファイルはデータベース符号化方式であると仮定されます。
        </para>
       </listitem>
      </varlistentry>
@@ -717,6 +1081,7 @@ RETURNS anycompatible AS ...
       <term><varname>module_pathname</varname> (<type>string</type>)</term>
       <listitem>
        <para>
+<!--
         The value of this parameter will be substituted for each occurrence
         of <literal>MODULE_PATHNAME</literal> in the script file(s).  If it is not
         set, no substitution is made.  Typically, this is set to
@@ -724,6 +1089,10 @@ RETURNS anycompatible AS ...
         then <literal>MODULE_PATHNAME</literal> is used in <command>CREATE
         FUNCTION</command> commands for C-language functions, so that the script
         files do not need to hard-wire the name of the shared library.
+-->
+このパラメータの値でスクリプトファイル内の<literal>MODULE_PATHNAME</literal>の出現箇所が置換されます。
+設定されていない場合は置換は行われません。
+通常これは、スクリプトファイル内で共有ライブラリの名前を直接書き込む必要がなくなるように<literal>$libdir/<replaceable>shared_library_name</replaceable></literal>に設定され、C言語関数では<command>CREATE FUNCTION</command>コマンド中で<literal>MODULE_PATHNAME</literal>を使用します。
        </para>
       </listitem>
      </varlistentry>
@@ -732,9 +1101,14 @@ RETURNS anycompatible AS ...
       <term><varname>requires</varname> (<type>string</type>)</term>
       <listitem>
        <para>
+<!--
         A list of names of extensions that this extension depends on,
         for example <literal>requires = 'foo, bar'</literal>.  Those
         extensions must be installed before this one can be installed.
+-->
+拡張が依存する拡張の名前のリストです。
+例えば<literal>requires = 'foo, bar'</literal>です。
+対象の拡張がインストールできるようになる前に、これらの拡張がインストールされていなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -743,6 +1117,7 @@ RETURNS anycompatible AS ...
       <term><varname>superuser</varname> (<type>boolean</type>)</term>
       <listitem>
        <para>
+<!--
         If this parameter is <literal>true</literal> (which is the default),
         only superusers can create the extension or update it to a new
         version (but see also <varname>trusted</varname>, below).
@@ -752,6 +1127,11 @@ RETURNS anycompatible AS ...
         This should normally be set to <literal>true</literal> if any of the
         script commands require superuser privileges.  (Such commands would
         fail anyway, but it's more user-friendly to give the error up front.)
+-->
+このパラメータが<literal>true</literal>（デフォルト）の場合、スーパーユーザのみが拡張を作成または新しいバージョンに更新することができます（ただし、後述する<varname>trusted</varname>も参照してください）。
+<literal>false</literal>に設定されている場合は、インストール中のコマンド実行またはスクリプト更新のために必要な権限のみが必要とされます。
+いずれかスクリプトコマンドがスーパーユーザ権限を必要とするなら、通常は<literal>true</literal>に設定されるべきです。
+（このようなコマンドはいずれにせよ失敗するでしょうけれども、前もってエラーを出す方がよりユーザフレンドリです。）
        </para>
       </listitem>
      </varlistentry>
@@ -760,6 +1140,7 @@ RETURNS anycompatible AS ...
       <term><varname>trusted</varname> (<type>boolean</type>)</term>
       <listitem>
        <para>
+<!--
         This parameter, if set to <literal>true</literal> (which is not the
         default), allows some non-superusers to install an extension that
         has <varname>superuser</varname> set to <literal>true</literal>.
@@ -777,6 +1158,13 @@ RETURNS anycompatible AS ...
         Also, marking an extension trusted requires significant extra effort
         to write the extension's installation and update script(s) securely;
         see <xref linkend="extend-extensions-security"/>.
+-->
+このパラメータは、<literal>true</literal>（デフォルトではありません）に設定されている場合、一部の非スーパーユーザが<varname>superuser</varname>に<literal>true</literal>を設定している拡張をインストールできるようにします。
+具体的には、現在のデータベースに<literal>CREATE</literal>権限を持っているユーザにインストールが許可されるようになります。
+<command>CREATE EXTENSION</command>を実行するユーザがスーパーユーザでないけれども本パラメータの効力でインストールできるとき、インストールやスクリプトの更新は実行したユーザではなく、サービス起動のスーパーユーザとして実行されます。
+<varname>superuser</varname>が<literal>false</literal>の場合、本パラメータは無意味です。
+一般に、ファイルシステムのアクセスなど、別の方法ではスーパーユーザのみができることにアクセスができる拡張に対して、これをtrueにすべきではありません。
+また、拡張をtrustedとして作成するには、拡張のインストールとスクリプト更新を安全に記述するために、かなりの追加の労力が影響が必要です。<xref linkend="extend-extensions-security"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -785,11 +1173,16 @@ RETURNS anycompatible AS ...
       <term><varname>relocatable</varname> (<type>boolean</type>)</term>
       <listitem>
        <para>
+<!--
         An extension is <firstterm>relocatable</firstterm> if it is possible to move
         its contained objects into a different schema after initial creation
         of the extension.  The default is <literal>false</literal>, i.e., the
         extension is not relocatable.
         See <xref linkend="extend-extensions-relocation"/> for more information.
+-->
+拡張を最初に作成した後に拡張により含まれるオブジェクトを別のスキーマに移動することができる場合、拡張は<firstterm>再配置可能</firstterm>です。
+デフォルトは<literal>false</literal>、つまり、拡張は再配置可能ではありません。
+詳しくは<xref linkend="extend-extensions-relocation"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -798,39 +1191,57 @@ RETURNS anycompatible AS ...
       <term><varname>schema</varname> (<type>string</type>)</term>
       <listitem>
        <para>
+<!--
         This parameter can only be set for non-relocatable extensions.
         It forces the extension to be loaded into exactly the named schema
         and not any other.
         The <varname>schema</varname> parameter is consulted only when
         initially creating an extension, not during extension updates.
         See <xref linkend="extend-extensions-relocation"/> for more information.
+-->
+このパラメータは再配置可能ではない拡張に対してのみ設定することができます。
+拡張が指名したスキーマのみにロードされ、他にはロードされないことを強制します。
+<varname>schema</varname>パラメータは、拡張を最初に作成するときにのみ参照され、拡張が更新される間はされません。
+詳しくは<xref linkend="extend-extensions-relocation"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
     </variablelist>
 
     <para>
+<!--
      In addition to the primary control file
      <literal><replaceable>extension</replaceable>.control</literal>,
      an extension can have secondary control files named in the style
-     <literal><replaceable>extension</replaceable>--<replaceable>version</replaceable>.control</literal>.
+     <literal><replaceable>extension</replaceable>&#045;-<replaceable>version</replaceable>.control</literal>.
      If supplied, these must be located in the script file directory.
      Secondary control files follow the same format as the primary control
      file.  Any parameters set in a secondary control file override the
      primary control file when installing or updating to that version of
      the extension.  However, the parameters <varname>directory</varname> and
      <varname>default_version</varname> cannot be set in a secondary control file.
+-->
+主制御ファイル<literal><replaceable>extension</replaceable>.control</literal>に加え、拡張は<literal><replaceable>extension</replaceable>--<replaceable>version</replaceable>.control</literal>という形の名前の副制御ファイルを持つことができます。
+これらを提供する場合は、スクリプトファイルディレクトリに格納しなければなりません。
+副制御ファイルは主制御ファイルと同じ書式に従います。
+拡張の対応するバージョンをインストールまたは更新する時、副制御ファイル内で設定されるパラメータはいずれも、主制御ファイルを上書きします。
+しかし<varname>directory</varname>および<varname>default_version</varname>パラメータは副制御ファイルで設定することはできません。
     </para>
 
     <para>
+<!--
      An extension's <acronym>SQL</acronym> script files can contain any SQL commands,
      except for transaction control commands (<command>BEGIN</command>,
      <command>COMMIT</command>, etc) and commands that cannot be executed inside a
      transaction block (such as <command>VACUUM</command>).  This is because the
      script files are implicitly executed within a transaction block.
+-->
+拡張の<acronym>SQL</acronym>スクリプトファイルにはトランザクション制御コマンド（<command>BEGIN</command>、<command>COMMIT</command>など）およびトランザクションブロックの内側で実行することができないコマンド（<command>VACUUM</command>など）を除く任意のSQLコマンドを含めることができます。
+スクリプトファイルが暗黙的にトランザクションブロック内で実行されるためです。
     </para>
 
     <para>
+<!--
      An extension's <acronym>SQL</acronym> script files can also contain lines
      beginning with <literal>\echo</literal>, which will be ignored (treated as
      comments) by the extension mechanism.  This provision is commonly used
@@ -840,9 +1251,15 @@ RETURNS anycompatible AS ...
      Without that, users might accidentally load the
      extension's contents as <quote>loose</quote> objects rather than as an
      extension, a state of affairs that's a bit tedious to recover from.
+-->
+拡張の<acronym>SQL</acronym>スクリプトファイルには、<literal>\echo</literal>から始まる行を含めることができます。
+この行は拡張の機構では無視されます（コメントとして扱われます）。
+これは、このスクリプトが<command>CREATE EXTENSION</command>（<xref linkend="extend-extensions-example"/>のスクリプト例を参照）ではなく<application>psql</application>に渡された場合にエラーを発生するために一般的に使用するために用意されたものです。
+これがないと、ユーザは間違って拡張としてではなく、<quote>まとまっていない</quote>オブジェクトとして拡張の内容をロードしてしまい、復旧が多少困難な状態になる可能性があります。
     </para>
 
     <para>
+<!--
      If the extension script contains the
      string <literal>@extowner@</literal>, that string is replaced with the
      (suitably quoted) name of the user calling <command>CREATE
@@ -852,9 +1269,14 @@ RETURNS anycompatible AS ...
      bootstrap superuser.  (One should be careful about doing so, however.
      For example, assigning ownership of a C-language function to a
      non-superuser would create a privilege escalation path for that user.)
+-->
+拡張のスクリプトに文字列<literal>@extowner@</literal>が含まれている場合、この文字列は、<command>CREATE EXTENSION</command>や<command>ALTER EXTENSION</command>を実行した（適切にクォートされた）ユーザ名で置き換えられます。
+典型的には、この機能はtrustedと印付けされた拡張が選択されたオブジェクトにサービス起動のスーパーユーザではなく実行したユーザを所有者として割り当てる際に使われます。
+（とはいえ、このようにするには注意深くすべきです。例えば、C言語関数の所有者を非スーパーユーザに割り当てると、そのユーザに権限昇格の経路を作ることになるでしょう）
     </para>
 
     <para>
+<!--
      While the script files can contain any characters allowed by the specified
      encoding, control files should contain only plain ASCII, because there
      is no way for <productname>PostgreSQL</productname> to know what encoding a
@@ -863,22 +1285,34 @@ RETURNS anycompatible AS ...
      practice in that case is to not use the control file <varname>comment</varname>
      parameter, but instead use <command>COMMENT ON EXTENSION</command>
      within a script file to set the comment.
+-->
+スクリプトファイルは指定した符号化方式で認められる任意の文字を含めることができますが、<productname>PostgreSQL</productname>が制御ファイルの符号化方式が何かを把握する方法がありませんので、制御ファイルにはASCII文字のみを含めなければなりません。
+実際には、拡張のコメントに非ASCII文字を含めたい場合にのみ、これが問題になります。
+このような場合には、制御ファイルの<varname>comment</varname>を使用せず、代わりにコメントを設定するためにスクリプトファイル内で<command>COMMENT ON EXTENSION</command>を使用することを勧めます。
     </para>
 
    </sect2>
 
    <sect2 id="extend-extensions-relocation">
+<!--
     <title>Extension Relocatability</title>
+-->
+    <title>拡張の再配置性</title>
 
     <para>
+<!--
      Users often wish to load the objects contained in an extension into a
      different schema than the extension's author had in mind.  There are
      three supported levels of relocatability:
+-->
+ユーザは拡張に含まれるオブジェクトを拡張の作成者が考えていたスキーマとは別のスキーマにロードしたいとよく考えます。
+再配置性に関して３つのレベルがサポートされます。
     </para>
 
     <itemizedlist>
      <listitem>
       <para>
+<!--
        A fully relocatable extension can be moved into another schema
        at any time, even after it's been loaded into a database.
        This is done with the <command>ALTER EXTENSION SET SCHEMA</command>
@@ -890,11 +1324,18 @@ RETURNS anycompatible AS ...
        schema, such as procedural languages).  Mark a fully relocatable
        extension by setting <literal>relocatable = true</literal> in its control
        file.
+-->
+完全な再配置可能な拡張は、いつでも、データベースにロードされた後であっても、他のスキーマに移動させることができます。
+これは、自動的にすべてのメンバオブジェクトを新しいスキーマに名前を変更する、<command>ALTER EXTENSION SET SCHEMA</command>を用いて行います。
+通常これは、拡張がオブジェクトが含まれるスキーマが何かに関して内部的な仮定を持たない場合のみ可能です。
+また、拡張のオブジェクト（手続き言語など何らかのスキーマに属さないオブジェクトは無視して）はすべて最初に１つのスキーマ内に存在しなければなりません。
+制御ファイル内で<literal>relocatable = true</literal>と設定することで、完全な再配置可能と印付けます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        An extension might be relocatable during installation but not
        afterwards.  This is typically the case if the extension's script
        file needs to reference the target schema explicitly, for example
@@ -905,11 +1346,18 @@ RETURNS anycompatible AS ...
        replaced by the actual target schema's name before the script is
        executed.  The user can set the target schema using the
        <literal>SCHEMA</literal> option of <command>CREATE EXTENSION</command>.
+-->
+拡張はインストール処理の間再配置可能ですが、その後再配置することはできません。
+通常これは、拡張のスクリプトファイルが、SQL関数用の<literal>search_path</literal>属性の設定など、対象のスキーマを明示的に参照する必要がある場合です。
+こうした拡張では、制御ファイルで<literal>relocatable = false</literal>と設定し、スクリプトファイル内で対象のスキーマを参照するために<literal>@extschema@</literal>を設定してください。
+この文字列の出現箇所はすべて、スクリプトが実行される前に、実際の対象のスキーマ名に置換されます。
+ユーザは<command>CREATE EXTENSION</command>の<literal>SCHEMA</literal>オプションを使用して対象のスキーマを設定することができます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        If the extension does not support relocation at all, set
        <literal>relocatable = false</literal> in its control file, and also set
        <literal>schema</literal> to the name of the intended target schema.  This
@@ -920,25 +1368,40 @@ RETURNS anycompatible AS ...
        uses of <literal>@extschema@</literal>.  The <literal>@extschema@</literal>
        substitution mechanism is available in this case too, although it is
        of limited use since the schema name is determined by the control file.
+-->
+拡張が再配置をまったくサポートしない場合、制御ファイルで<literal>relocatable = false</literal>を設定し、かつ、<literal>schema</literal>を意図している対象スキーマの名前に設定してください。
+これは、制御ファイル内で指定されたスキーマと同じ名前が指定されていない限り、<command>CREATE EXTENSION</command>の<literal>SCHEMA</literal>オプションの指定を阻止します。
+この選択は通常、拡張が<literal>@extschema@</literal>を使用して置き換えることができないスキーマ名について内部的な仮定を持つ場合に必要です。
+<literal>@extschema@</literal>置換機構はこの場合でも使用することができますが、スキーマ名が制御ファイルによって決定されますので、用途は限定されます。
       </para>
      </listitem>
     </itemizedlist>
 
     <para>
+<!--
      In all cases, the script file will be executed with
      <xref linkend="guc-search-path"/> initially set to point to the target
      schema; that is, <command>CREATE EXTENSION</command> does the equivalent of
      this:
+-->
+すべての場合において、スクリプトファイルは対象のスキーマを指し示すようにあらかじめ設定した<xref linkend="guc-search-path"/>を用いて実行されます。
+つまり<command>CREATE EXTENSION</command>は以下と同じことを行います。
 <programlisting>
 SET LOCAL search_path TO @extschema@, pg_temp;
 </programlisting>
+<!--
      This allows the objects created by the script file to go into the target
      schema.  The script file can change <varname>search_path</varname> if it wishes,
      but that is generally undesirable.  <varname>search_path</varname> is restored
      to its previous setting upon completion of <command>CREATE EXTENSION</command>.
+-->
+これによりスクリプトファイルで作成されるオブジェクトを対象のスキーマ内に格納することができます。
+スクリプトファイルは要望に応じて<varname>search_path</varname>を変更することができますが、一般的には望まれません。
+<command>CREATE EXTENSION</command>の実行後、<varname>search_path</varname>は以前の設定に戻されます。
     </para>
 
     <para>
+<!--
      The target schema is determined by the <varname>schema</varname> parameter in
      the control file if that is given, otherwise by the <literal>SCHEMA</literal>
      option of <command>CREATE EXTENSION</command> if that is given, otherwise the
@@ -946,14 +1409,22 @@ SET LOCAL search_path TO @extschema@, pg_temp;
      <varname>search_path</varname>).  When the control file <varname>schema</varname>
      parameter is used, the target schema will be created if it doesn't
      already exist, but in the other two cases it must already exist.
+-->
+対象のスキーマは制御ファイル内の<varname>schema</varname>パラメータがあればこのパラメータにより決定されます。
+このパラメータがなければ、<command>CREATE EXTENSION</command>の<literal>SCHEMA</literal>があればこの値で決まり、これ以外の場合は現在のデフォルトのオブジェクト生成用スキーマ（呼び出し元の<varname>search_path</varname>の最初のもの）になります。
+制御ファイルの<varname>schema</varname>パラメータが使用される時、対象のスキーマが存在しない場合は作成されますが、これ以外の２つの場合ではすでに存在しなければなりません。
     </para>
 
     <para>
+<!--
      If any prerequisite extensions are listed in <varname>requires</varname>
      in the control file, their target schemas are added to the initial
      setting of <varname>search_path</varname>, following the new
      extension's target schema.  This allows their objects to be visible to
      the new extension's script file.
+-->
+何らかの事前に必要な拡張が制御ファイル内の<varname>requires</varname>に列挙されていた場合、それらのターゲットスキーマは新しい機能拡張のターゲットスキーマに続いて<varname>search_path</varname>の初期設定に追加されます。
+これにより新しい拡張のスクリプトファイルからそれらのオブジェクトが可視になります。
     </para>
 
     <para>
@@ -962,19 +1433,36 @@ SET LOCAL search_path TO @extschema@, pg_temp;
     </para>
 
     <para>
+<!--
+     For security, <literal>pg_temp</literal> is automatically appended to
+     the end of <varname>search_path</varname> in all cases.
+-->
+安全のため、全てのケースにおいて<literal>pg_temp</literal>は自動的に<varname>search_path</varname>の最後に追記されます。
+    </para>
+
+    <para>
+<!--
      Although a non-relocatable extension can contain objects spread across
      multiple schemas, it is usually desirable to place all the objects meant
      for external use into a single schema, which is considered the extension's
      target schema.  Such an arrangement works conveniently with the default
      setting of <varname>search_path</varname> during creation of dependent
      extensions.
+-->
+再配置不可能な拡張は複数スキーマにまたがるオブジェクトを含めることができますが、通常、外部使用を意図したオブジェクトはすべて単一スキーマに格納することが望まれます。
+この単一スキーマが拡張の対象のスキーマとみなされます。
+こうした調整は依存する拡張を作成する間、デフォルトの<varname>search_path</varname>設定を都合に合わせて扱います。
     </para>
    </sect2>
 
    <sect2 id="extend-extensions-config-tables">
+<!--
     <title>Extension Configuration Tables</title>
+-->
+    <title>拡張設定テーブル</title>
 
     <para>
+<!--
      Some extensions include configuration tables, which contain data that
      might be added or changed by the user after installation of the
      extension.  Ordinarily, if a table is part of an extension, neither
@@ -983,6 +1471,12 @@ SET LOCAL search_path TO @extschema@, pg_temp;
      configuration table; any data changes made by the user need to be
      included in dumps, or the extension will behave differently after a dump
      and reload.
+-->
+一部の拡張は、拡張をインストールした後でユーザにより追加または変更される可能性があるデータを持つ設定テーブルを含みます。
+通常、テーブルが拡張の一部である場合、テーブル定義もその内容も<application>pg_dump</application>によりダンプされません。
+しかしこの振舞いは設定テーブルの場合望まれません。
+ユーザによってなされたデータ変更はダンプ内に含まれなければなりません。
+さもないとダンプしリストアした後で拡張の動作が変わってしまいます。
     </para>
 
    <indexterm>
@@ -990,12 +1484,16 @@ SET LOCAL search_path TO @extschema@, pg_temp;
    </indexterm>
 
     <para>
+<!--
      To solve this problem, an extension's script file can mark a table
      or a sequence it has created as a configuration relation, which will
      cause <application>pg_dump</application> to include the table's or the sequence's
      contents (not its definition) in dumps.  To do that, call the function
      <function>pg_extension_config_dump(regclass, text)</function> after creating the
      table or the sequence, for example
+-->
+この問題を解消するために、拡張のスクリプトファイルでは設定リレーションとして作成されるテーブル、またはシーケンスに印を付け、<application>pg_dump</application>にテーブルの、またはシーケンスの内容をダンプに含める（定義は含まれません）ようにさせることができます。
+このためには、以下の例のようにテーブル、またはシーケンスを作成した後に<function>pg_extension_config_dump(regclass, text)</function>関数を呼び出してください。
 <programlisting>
 CREATE TABLE my_config (key text, value text);
 CREATE SEQUENCE my_config_seq;
@@ -1003,12 +1501,17 @@ CREATE SEQUENCE my_config_seq;
 SELECT pg_catalog.pg_extension_config_dump('my_config', '');
 SELECT pg_catalog.pg_extension_config_dump('my_config_seq', '');
 </programlisting>
+<!--
      Any number of tables or sequences can be marked this way. Sequences
      associated with <type>serial</type> or <type>bigserial</type> columns can
      be marked as well.
+-->
+任意数のテーブル、またはシーケンスをこの方法で印付けることができます。
+<type>serial</type>列または<type>bigserial</type>列に関連したシーケンスが、同様に印付けることができます。
     </para>
 
     <para>
+<!--
      When the second argument of <function>pg_extension_config_dump</function> is
      an empty string, the entire contents of the table are dumped by
      <application>pg_dump</application>.  This is usually only correct if the table
@@ -1017,35 +1520,55 @@ SELECT pg_catalog.pg_extension_config_dump('my_config_seq', '');
      the second argument of <function>pg_extension_config_dump</function> provides
      a <literal>WHERE</literal> condition that selects the data to be dumped.
      For example, you might do
+-->
+<function>pg_extension_config_dump</function>の第２引数が空文字列である場合、テーブルのすべての内容が<application>pg_dump</application>によりダンプされます。
+これは、拡張のスクリプトによって作成された初期段階においてテーブルが空である場合のみ正しいものです。
+テーブルの中で初期データとユーザが提供したデータが混在する場合、<function>pg_extension_config_dump</function>の第２引数においてダンプすべきデータを選択する<literal>WHERE</literal>条件を提供します。
+以下に例を示します。
 <programlisting>
 CREATE TABLE my_config (key text, value text, standard_entry boolean);
 
 SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entry');
 </programlisting>
+<!--
      and then make sure that <structfield>standard_entry</structfield> is true only
      in the rows created by the extension's script.
+-->
+このようにした後、拡張のスクリプトで作成される行のみで<structfield>standard_entry</structfield>が確実に真になるようにします。
     </para>
 
     <para>
+<!--
      For sequences, the second argument of <function>pg_extension_config_dump</function>
      has no effect.
+-->
+シーケンスにおいて、<function>pg_extension_config_dump</function>の第２引数は何も影響を及ぼしません。
     </para>
 
     <para>
+<!--
      More complicated situations, such as initially-provided rows that might
      be modified by users, can be handled by creating triggers on the
      configuration table to ensure that modified rows are marked correctly.
+-->
+初期状態で提供される行がユーザによって変更されるようなもっと複雑な状況では、設定テーブルに対するトリガを作成して、変更された行が正しく印付けられることを確実にするように取り扱うことができます。
     </para>
 
     <para>
+<!--
      You can alter the filter condition associated with a configuration table
      by calling <function>pg_extension_config_dump</function> again.  (This would
      typically be useful in an extension update script.)  The only way to mark
      a table as no longer a configuration table is to dissociate it from the
      extension with <command>ALTER EXTENSION ... DROP TABLE</command>.
+-->
+<function>pg_extension_config_dump</function>を再度呼び出すことにより、設定テーブルに関連付いたフィルタ条件を変更することができます。
+（通常これは拡張の更新スクリプト内で役に立つでしょう。）
+設定ファイルからテーブルを取り除くように印付ける方法は、<command>ALTER EXTENSION ... DROP TABLE</command>を用いてテーブルを拡張から分離するしかありません。
     </para>
 
     <para>
+<!--
      Note that foreign key relationships between these tables will dictate the
      order in which the tables are dumped out by pg_dump.  Specifically, pg_dump
      will attempt to dump the referenced-by table before the referencing table.
@@ -1054,19 +1577,32 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
      supported.  When circular dependencies exist, the data will still be dumped
      out but the dump will not be able to be restored directly and user
      intervention will be required.
+-->
+このテーブルとの外部キーの関係は、テーブルがpg_dumpによってダンプされる順序に影響します。
+特に、pg_dumpは参照しているテーブルの前に参照されているテーブルをダンプしようとします。
+外部キーの関係はCREATE EXTENSION時(データがテーブルにロードされる前)に設定されますので、循環依存はサポートされません。
+循環依存が存在すれば、データはダンプされますが、そのダンプを直接はリストアできず、ユーザの介入が必要になります。
     </para>
 
     <para>
+<!--
      Sequences associated with <type>serial</type> or <type>bigserial</type> columns
      need to be directly marked to dump their state. Marking their parent
      relation is not enough for this purpose.
+-->
+<type>serial</type>列または<type>bigserial</type>列に関連したシーケンスは、それらの状態をダンプするために直接印付けする必要があります。
+親リレーションを印付けすることは、この目的に十分ではありません。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Extension Updates</title>
+-->
+    <title>拡張の更新</title>
 
     <para>
+<!--
      One advantage of the extension mechanism is that it provides convenient
      ways to manage updates to the SQL commands that define an extension's
      objects.  This is done by associating a version name or number with
@@ -1075,13 +1611,19 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
      dynamically from one version to the next, you should provide
      <firstterm>update scripts</firstterm> that make the necessary changes to go from
      one version to the next.  Update scripts have names following the pattern
-     <literal><replaceable>extension</replaceable>--<replaceable>old_version</replaceable>--<replaceable>target_version</replaceable>.sql</literal>
-     (for example, <literal>foo--1.0--1.1.sql</literal> contains the commands to modify
+     <literal><replaceable>extension</replaceable>&#045;&#045;<replaceable>old_version</replaceable>&#045;&#045;<replaceable>target_version</replaceable>.sql</literal>
+     (for example, <literal>foo&#045;&#045;1.0&#045;&#045;1.1.sql</literal> contains the commands to modify
      version <literal>1.0</literal> of extension <literal>foo</literal> into version
      <literal>1.1</literal>).
+-->
+拡張機構の１つの利点は、拡張のオブジェクトを定義するSQLコマンドの更新を簡便に管理する方法を提供していることです。
+これは、拡張のインストール用スクリプトのリリース版それぞれにバージョン名称またはバージョン番号を関連付けることで行われます。
+さらに、ユーザにあるバージョンから次のバージョンへ動的にデータベースを更新させることができるようにしたい場合、あるバージョンから次のバージョンまでの間に行われる必要な変更を行う<firstterm>更新スクリプト</firstterm>を提供しなければなりません。
+更新スクリプトは<literal><replaceable>extension</replaceable>--<replaceable>old_version</replaceable>--<replaceable>target_version</replaceable>.sql</literal>というパターンに従った名前（例えば、<literal>foo--1.0--1.1.sql</literal>は<literal>foo</literal>拡張のバージョン<literal>1.0</literal>からバージョン<literal>1.1</literal>に変更するコマンドを含みます。）を持たなければなりません。
     </para>
 
     <para>
+<!--
      Given that a suitable update script is available, the command
      <command>ALTER EXTENSION UPDATE</command> will update an installed extension
      to the specified new version.  The update script is run in the same
@@ -1090,35 +1632,54 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
      way, and any new objects created by the script are automatically added
      to the extension.  Also, if the script chooses to drop extension member
      objects, they are automatically dissociated from the extension.
+-->
+適切な更新スクリプトが利用可能である場合、<command>ALTER EXTENSION UPDATE</command>コマンドはインストール済みの拡張を指定した新しいバージョンへ更新します。
+更新スクリプトは、<command>CREATE EXTENSION</command>がインストール用スクリプト向けに提供する環境と同じ環境で実行されます。
+具体的には<varname>search_path</varname>は同じ方法で設定され、スクリプトにより作成される新しいオブジェクトはすべて自動的に拡張に追加されます。
+また、スクリプトが拡張のメンバーオブジェクトを削除する場合には、それらのメンバーオブジェクトは拡張から自動的に分離されます。
     </para>
 
     <para>
+<!--
      If an extension has secondary control files, the control parameters
      that are used for an update script are those associated with the script's
      target (new) version.
+-->
+拡張が副制御ファイルを持つ場合、更新スクリプトで使用される制御パラメータは、スクリプトの対象の（新しい）バージョンに関連付けされたものになります。
     </para>
 
     <para>
+<!--
      <command>ALTER EXTENSION</command> is able to execute sequences of update
      script files to achieve a requested update.  For example, if only
-     <literal>foo--1.0--1.1.sql</literal> and <literal>foo--1.1--2.0.sql</literal> are
+     <literal>foo&#045;-1.0&#045;-1.1.sql</literal> and <literal>foo&#045;-1.1&#045;-2.0.sql</literal> are
      available, <command>ALTER EXTENSION</command> will apply them in sequence if an
      update to version <literal>2.0</literal> is requested when <literal>1.0</literal> is
      currently installed.
+-->
+<command>ALTER EXTENSION</command>は、要求される更新を実現するために更新スクリプトを連続して実行することができます。
+例えば<literal>foo--1.0--1.1.sql</literal>と<literal>foo--1.1--2.0.sql</literal>のみが利用可能であるとすると、現在<literal>1.0</literal>がインストールされている時にバージョン<literal>2.0</literal>への更新が要求された場合、<command>ALTER EXTENSION</command>はこれらを順番に適用します。
     </para>
 
     <para>
+<!--
      <productname>PostgreSQL</productname> doesn't assume anything about the properties
      of version names: for example, it does not know whether <literal>1.1</literal>
      follows <literal>1.0</literal>.  It just matches up the available version names
      and follows the path that requires applying the fewest update scripts.
      (A version name can actually be any string that doesn't contain
-     <literal>--</literal> or leading or trailing <literal>-</literal>.)
+     <literal>&#045;-</literal> or leading or trailing <literal>-</literal>.)
+-->
+<productname>PostgreSQL</productname>はバージョン名称の特性についてまったく仮定を行いません。
+例えば<literal>1.0</literal>の次が<literal>1.1</literal>であるかどうかを把握しません。
+これは利用可能なバージョン名をかみ合わせ、もっとも少ない数の更新スクリプトを適用するために必要な経路を続けるだけです。
+（バージョン名には、<literal>--</literal>を含まず先頭または最後に<literal>-</literal>が付かなければ、任意の文字を取ることができます。）
     </para>
 
     <para>
+<!--
      Sometimes it is useful to provide <quote>downgrade</quote> scripts, for
-     example <literal>foo--1.1--1.0.sql</literal> to allow reverting the changes
+     example <literal>foo&#045;-1.1&#045;-1.0.sql</literal> to allow reverting the changes
      associated with version <literal>1.1</literal>.  If you do that, be careful
      of the possibility that a downgrade script might unexpectedly
      get applied because it yields a shorter path.  The risky case is where
@@ -1127,43 +1688,62 @@ SELECT pg_catalog.pg_extension_config_dump('my_config', 'WHERE NOT standard_entr
      It might take fewer steps to apply the downgrade and then the fast
      path than to move ahead one version at a time.  If the downgrade script
      drops any irreplaceable objects, this will yield undesirable results.
+-->
+<quote>ダウングレード</quote>スクリプトを提供することが便利な場合があります。
+例えば<literal>foo--1.1--1.0.sql</literal>は、バージョン<literal>1.1</literal>に関連した変更を元に戻すことができます。
+この場合、ダウングレードスクリプトがより短いパスを生成するために、予期せず適用されてしまう可能性に注意してください。
+複数のバージョンをまたがって更新する<quote>近道</quote>更新スクリプトと近道の開始バージョンへのダウングレードスクリプトが存在する場合に危険性があります。
+ダウングレードしてから近道となる更新スクリプトを実行する方が、バージョンを１つずつ進めるよりも少ない処理で済んでしまうかもしれません。
+ダウングレードスクリプトが取り返しがつかないオブジェクトを何か削除してしまう場合、望まない結果になってしまいます。
     </para>
 
     <para>
+<!--
      To check for unexpected update paths, use this command:
+-->
+想定外の更新経路かどうかを検査するためには、以下のコマンドを使用してください。
 <programlisting>
 SELECT * FROM pg_extension_update_paths('<replaceable>extension_name</replaceable>');
 </programlisting>
+<!--
      This shows each pair of distinct known version names for the specified
      extension, together with the update path sequence that would be taken to
      get from the source version to the target version, or <literal>NULL</literal> if
      there is no available update path.  The path is shown in textual form
-     with <literal>--</literal> separators.  You can use
-     <literal>regexp_split_to_array(path,'--')</literal> if you prefer an array
+     with <literal>&#045;-</literal> separators.  You can use
+     <literal>regexp_split_to_array(path,'&#045;-')</literal> if you prefer an array
      format.
+-->
+これは指定した拡張の個々の既知のバージョン名の組み合わせをそれぞれ、元のバージョンから対象のバージョンへ進む時に取られる更新経路順、またはもし利用できる更新経路がなければ<literal>NULL</literal>を付けて、表示します。
+経路は<literal>--</literal>を区切り文字として使用したテキスト形式で表示されます。
+配列形式の方が良ければ<literal>regexp_split_to_array(path,'--')</literal>を使用することができます。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Installing Extensions Using Update Scripts</title>
+-->
+    <title>更新スクリプトを利用した拡張のインストール</title>
 
     <para>
+<!--
      An extension that has been around for awhile will probably exist in
      several versions, for which the author will need to write update scripts.
      For example, if you have released a <literal>foo</literal> extension in
      versions <literal>1.0</literal>, <literal>1.1</literal>, and <literal>1.2</literal>, there
-     should be update scripts <filename>foo--1.0--1.1.sql</filename>
-     and <filename>foo--1.1--1.2.sql</filename>.
+     should be update scripts <filename>foo&#045;&#045;1.0&#045;&#045;1.1.sql</filename>
+     and <filename>foo&#045;&#045;1.1&#045;&#045;1.2.sql</filename>.
      Before <productname>PostgreSQL</productname> 10, it was necessary to also create
-     new script files <filename>foo--1.1.sql</filename> and <filename>foo--1.2.sql</filename>
+     new script files <filename>foo&#045;&#045;1.1.sql</filename> and <filename>foo&#045;&#045;1.2.sql</filename>
      that directly build the newer extension versions, or else the newer
      versions could not be installed directly, only by
      installing <literal>1.0</literal> and then updating.  That was tedious and
      duplicative, but now it's unnecessary, because <command>CREATE
      EXTENSION</command> can follow update chains automatically.
      For example, if only the script
-     files <filename>foo--1.0.sql</filename>, <filename>foo--1.0--1.1.sql</filename>,
-     and <filename>foo--1.1--1.2.sql</filename> are available then a request to
+     files <filename>foo&#045;&#045;1.0.sql</filename>, <filename>foo&#045;&#045;1.0&#045;&#045;1.1.sql</filename>,
+     and <filename>foo&#045;&#045;1.1&#045;&#045;1.2.sql</filename> are available then a request to
      install version <literal>1.2</literal> is honored by running those three
      scripts in sequence.  The processing is the same as if you'd first
      installed <literal>1.0</literal> and then updated to <literal>1.2</literal>.
@@ -1171,18 +1751,264 @@ SELECT * FROM pg_extension_update_paths('<replaceable>extension_name</replaceabl
      available then the shortest is preferred.)  Arranging an extension's
      script files in this style can reduce the amount of maintenance effort
      needed to produce small updates.
+-->
+以前から存在している拡張は、おそらく複数のバージョンに渡って存在しているので、拡張の作者は更新スクリプトを開発する必要性が出てきます。
+たとえば、拡張<literal>foo</literal>がバージョン<literal>1.0</literal>、<literal>1.1</literal>、<literal>1.2</literal>をリリースしていたとすると、更新スクリプト<filename>foo--1.0--1.1.sql</filename>と<filename>foo--1.1--1.2.sql</filename>が存在しなければなりません。
+<productname>PostgreSQL</productname> 10より前では、新しい拡張のバージョンを直接作成するスクリプトファイル<filename>foo--1.1.sql</filename>と<filename>foo--1.2.sql</filename>も新規に作る必要がありました。
+これらがないと、新しいバージョンの拡張を直接インストールすることはできず、<literal>1.0</literal>をインストールしてから更新するしかありませんでした。
+それにはうんざりしますし、また冗長です。
+しかし、今では<command>CREATE EXTENSION</command>が自動的に更新連鎖を追跡してくるので、それは不要になりました。
+たとえば、<filename>foo--1.0.sql</filename>、<filename>foo--1.0--1.1.sql</filename>、<filename>foo--1.1--1.2.sql</filename>だけしかない場合、バージョン<literal>1.2</literal>のインストールのリクエストは、これらのスクリプトを順に実行することによって達成されます。
+この手順は、最初に<literal>1.0</literal>をインストールして、<literal>1.2</literal>にアップデートする場合でも同じです。
+（<command>ALTER EXTENSION UPDATE</command>は、複数の手順がある場合には、最短の手順を選びます。）
+この方法で拡張のスクリプトを調整することにより、小さな更新を複数作成するための保守の手間を減らすことができます。
     </para>
 
     <para>
+<!--
      If you use secondary (version-specific) control files with an extension
      maintained in this style, keep in mind that each version needs a control
      file even if it has no stand-alone installation script, as that control
      file will determine how the implicit update to that version is performed.
-     For example, if <filename>foo--1.0.control</filename> specifies <literal>requires
+     For example, if <filename>foo&#045;&#045;1.0.control</filename> specifies <literal>requires
      = 'bar'</literal> but <literal>foo</literal>'s other control files do not, the
      extension's dependency on <literal>bar</literal> will be dropped when updating
      from <literal>1.0</literal> to another version.
+-->
+この方法で保守している拡張に二次的な（バージョン固有の）制御ファイルがある場合は、スタンドアローンのインストールスクリプトがない場合でも、各バージョンで制御ファイルが必要になることに注意してください。
+そのバージョンへと更新する暗黙的な方法を、制御ファイルが決定するからです。
+たとえば、<filename>foo--1.0.control</filename>が<literal>requires = 'bar'</literal>を指定しているのに、<literal>foo</literal>の他の制御ファイルが指定していないとすると、<literal>1.0</literal>から他のバージョンに更新した際に<literal>bar</literal>への依存性が削除されてしまうでしょう。
     </para>
+   </sect2>
+
+   <sect2 id="extend-extensions-security">
+<!--
+    <title>Security Considerations for Extensions</title>
+-->
+    <title>拡張のためのセキュリティに関する考慮事項</title>
+
+    <para>
+<!--
+     Widely-distributed extensions should assume little about the database
+     they occupy.  Therefore, it's appropriate to write functions provided
+     by an extension in a secure style that cannot be compromised by
+     search-path-based attacks.
+-->
+広く配布される拡張では、インストールされるデータベースについて想定していないはずです。
+このため、拡張はサーチパスに基づく攻撃を受けないよう、安全なスタイルで拡張によって提供される関数記述するのが適切です。
+    </para>
+
+    <para>
+<!--
+     An extension that has the <varname>superuser</varname> property set to
+     true must also consider security hazards for the actions taken within
+     its installation and update scripts.  It is not terribly difficult for
+     a malicious user to create trojan-horse objects that will compromise
+     later execution of a carelessly-written extension script, allowing that
+     user to acquire superuser privileges.
+-->
+<varname>superuser</varname>プロパティを真にしている拡張はインストールや更新スクリプトの中で行われるアクションのセキュリティ面での危険も考慮しなければなりません。
+悪意あるユーザが不用意に書かれた拡張スクリプトを悪用してトロイの木馬を作成し、スーパーユーザ権限を獲得できるようにすることは、そう難しくありません。
+    </para>
+
+    <para>
+<!--
+     If an extension is marked <varname>trusted</varname>, then its
+     installation schema can be selected by the installing user, who might
+     intentionally use an insecure schema in hopes of gaining superuser
+     privileges.  Therefore, a trusted extension is extremely exposed from a
+     security standpoint, and all its script commands must be carefully
+     examined to ensure that no compromise is possible.
+-->
+拡張が<varname>trusted</varname>と印付けされている場合、そのインストールスキーマはインストールするユーザにより選択できます。そのユーザはスーパーユーザ権限を獲得することを狙って意図的に安全でないスキーマを使用するかもしれません。
+したがって、trustedの拡張はセキュリティ観点から極めて危険で、そのスクリプトのコマンドは危険性がないことを確実にするため注意深く検証されなければなりません。
+    </para>
+
+    <para>
+<!--
+     Advice about writing functions securely is provided in
+     <xref linkend="extend-extensions-security-funcs"/> below, and advice
+     about writing installation scripts securely is provided in
+     <xref linkend="extend-extensions-security-scripts"/>.
+-->
+関数を安全に書くためのアドバイスは以下のリンクから提供されます。
+<xref linkend="extend-extensions-security-funcs"/>
+また、インストールスクリプトを安全に書くためのアドバイスは以下のリンクから提供されます。
+<xref linkend="extend-extensions-security-scripts"/>
+    </para>
+
+    <sect3 id="extend-extensions-security-funcs">
+<!--
+     <title>Security Considerations for Extension Functions</title>
+-->
+     <title>拡張関数のためのセキュリティに関する考慮事項</title>
+
+     <para>
+<!--
+      SQL-language and PL-language functions provided by extensions are at
+      risk of search-path-based attacks when they are executed, since
+      parsing of these functions occurs at execution time not creation time.
+-->
+拡張により提供されるSQL言語とPL言語関数は実行されるときにサーチパスに基づく攻撃を受ける危険性があります。
+これらの関数は作成時ではなく、実行時に解析されるためです。
+     </para>
+
+     <para>
+<!--
+      The <link linkend="sql-createfunction-security"><command>CREATE
+      FUNCTION</command></link> reference page contains advice about
+      writing <literal>SECURITY DEFINER</literal> functions safely.  It's
+      good practice to apply those techniques for any function provided by
+      an extension, since the function might be called by a high-privilege
+      user.
+-->
+<link linkend="sql-createfunction-security"><command>CREATE FUNCTION</command></link>のリファレンスページには<literal>SECURITY DEFINER</literal>関数を安全に書くためのアドバイスが記載されています。
+拡張が提供するあらゆる関数は、強い権限を持つユーザから実行されることがあるので、これらのテクニックを適用することは、良い習慣です。
+     </para>
+<!-- 
+(原文もコメント中にあり)
+          XXX It's not enough to use qualified names, because one might write a
+          qualified name to an object that itself uses unqualified names.  Many
+          information_schema functions have that defect, for example.  However,
+          that's a defect in the referenced object, and relatively few queries
+          will be affected.  Also, we direct applications to secure search_path
+          when connecting to an untrusted database; if applications do that,
+          they are immune to known attacks even if some extension refers to a
+          defective object.  Therefore, guide extension authors as though core
+          postgreSQL contained no such defect. 
+XXX 名前を(スキーマ)修飾するだけでは十分ではありません。なぜなら修飾されていない名前を使っているオブジェクトに修飾された名前を書くかもしれないためです。
+例えば、多くのインフォメーションスキーマの関数にはこの欠陥があります。
+しかし、これは参照されるオブジェクトの欠陥なので影響を受ける問い合わせは少ないでしょう。
+また、信頼できないデータベースにアクセスする際、アプリケーションは安全なsearch_pathを使うよう、指示しています。
+そして、アプリケーションが指示どおりに作成されていれば、拡張が欠陥があるオブジェクトを参照していたとしても、既知の攻撃に影響されません。
+そのため、コアのPostgreSQLにはそのような欠陥が含まれないかのように拡張の作成者に案内して下さい。
+-->
+     <para>
+<!--
+      If you cannot set the <varname>search_path</varname> to contain only
+      secure schemas, assume that each unqualified name could resolve to an
+      object that a malicious user has defined.  Beware of constructs that
+      depend on <varname>search_path</varname> implicitly; for
+      example, <token>IN</token>
+      and <literal>CASE <replaceable>expression</replaceable> WHEN</literal>
+      always select an operator using the search path.  In their place, use
+      <literal>OPERATOR(<replaceable>schema</replaceable>.=) ANY</literal>
+      and <literal>CASE WHEN <replaceable>expression</replaceable></literal>.
+-->
+<varname>search_path</varname>に安全なスキーマだけを設定できない場合は、修飾されていない名前は悪意あるユーザが定義したオブジェクトとして名前解決されうることを想定してください。
+暗黙的に<varname>search_path</varname>に依存する構文に注意してください。
+例えば、<token>IN</token>や <literal>CASE <replaceable>式</replaceable> WHEN</literal>は常にサーチパスを使って演算子を選びます。
+これらの場所には、<literal>OPERATOR(<replaceable>スキーマ</replaceable>.=) ANY</literal>や<literal>CASE WHEN <replaceable>式</replaceable></literal>を使用してください。
+     </para>
+
+     <para>
+<!--
+      A general-purpose extension usually should not assume that it's been
+      installed into a secure schema, which means that even schema-qualified
+      references to its own objects are not entirely risk-free.  For
+      example, if the extension has defined a
+      function <literal>myschema.myfunc(bigint)</literal> then a call such
+      as <literal>myschema.myfunc(42)</literal> could be captured by a
+      hostile function <literal>myschema.myfunc(integer)</literal>.  Be
+      careful that the data types of function and operator parameters exactly
+      match the declared argument types, using explicit casts where necessary.
+-->
+汎用の拡張は通常、安全なスキーマにインストールされることを想定するべきではありません。これはスキーマ修飾された自身のオブジェクトであっても完全にリスクがないわけではないことを意味しています。
+例えば、拡張が <literal>myschema.myfunc(bigint)</literal>という関数を定義しているとき、<literal>myschema.myfunc(42)</literal>というような呼び出しは、悪意ある関数<literal>myschema.myfunc(integer)</literal>に捕捉される可能性があります。
+必要に応じて明示的なキャストを使用して関数と演算子のデータ型が引数の型と厳密に一致するように注意してください。
+     </para>
+    </sect3>
+
+    <sect3 id="extend-extensions-security-scripts">
+<!--
+     <title>Security Considerations for Extension Scripts</title>
+-->
+     <title>拡張スクリプトのためのセキュリティに関する考慮事項</title>
+
+     <para>
+<!--
+      An extension installation or update script should be written to guard
+      against search-path-based attacks occurring when the script executes.
+      If an object reference in the script can be made to resolve to some
+      other object than the script author intended, then a compromise might
+      occur immediately, or later when the mis-defined extension object is
+      used.
+-->
+拡張のインストールや更新スクリプトはスクリプト実行時にサーチパスに基づく攻撃を防ぐように記述されなければなりません。
+スクリプトが参照するオブジェクトがスクリプトの著者が意図したものではないオブジェクトとして解決されうる場合、即座もしくは、誤って定義された拡張オブジェクトが使われたときに攻撃を受ける可能性があります。
+     </para>
+
+     <para>
+<!--
+      DDL commands such as <command>CREATE FUNCTION</command>
+      and <command>CREATE OPERATOR CLASS</command> are generally secure,
+      but beware of any command having a general-purpose expression as a
+      component.  For example, <command>CREATE VIEW</command> needs to be
+      vetted, as does a <literal>DEFAULT</literal> expression
+      in <command>CREATE FUNCTION</command>.
+-->
+<command>CREATE FUNCTION</command>や<command>CREATE OPERATOR CLASS</command>などのDDLコマンドは一般的には安全ですが、汎用的な式を構成に持つコマンドには注意が必要です。
+例えば、<command>CREATE FUNCTION</command>の<literal>DEFAULT</literal>式に行うのと同様に<command>CREATE VIEW</command>には審査が必要です。
+     </para>
+
+     <para>
+<!--
+      Sometimes an extension script might need to execute general-purpose
+      SQL, for example to make catalog adjustments that aren't possible via
+      DDL.  Be careful to execute such commands with a
+      secure <varname>search_path</varname>; do <emphasis>not</emphasis>
+      trust the path provided by <command>CREATE/ALTER EXTENSION</command>
+      to be secure.  Best practice is to temporarily
+      set <varname>search_path</varname> to <literal>'pg_catalog,
+      pg_temp'</literal> and insert references to the extension's
+      installation schema explicitly where needed.  (This practice might
+      also be helpful for creating views.)  Examples can be found in
+      the <filename>contrib</filename> modules in
+      the <productname>PostgreSQL</productname> source code distribution.
+-->
+拡張スクリプトには汎用SQLを実行する必要があることがあります。
+例えば、DDLではできないカタログの調整などです。
+そのようなコマンドは安全な<varname>search_path</varname>使って実行するように気をつけてください。
+<command>CREATE/ALTER EXTENSION</command>で提供されるパスが安全であると<emphasis>信用しないで</emphasis>ください。
+最も良い方法は一時的に<varname>search_path</varname>を<literal>'pg_catalog, pg_temp'</literal>にセットし、必要な箇所に明示的に拡張のインストールスキーマの参照を記述する方法です(この方法はビューを作成する場合にも参考になります)。
+例は配布される<productname>PostgreSQL</productname>ソースコードの<filename>contrib</filename>に見つけることができます。
+     </para>
+
+     <para>
+<!--
+      Cross-extension references are extremely difficult to make fully
+      secure, partially because of uncertainty about which schema the other
+      extension is in.  The hazards are reduced if both extensions are
+      installed in the same schema, because then a hostile object cannot be
+      placed ahead of the referenced extension in the installation-time
+      <varname>search_path</varname>.  However, no mechanism currently exists
+      to require that.  For now, best practice is to not mark an extension
+      trusted if it depends on another one, unless that other one is always
+      installed in <literal>pg_catalog</literal>.
+-->
+拡張をまたがる参照を完璧に安全にすることは極めて困難です。
+理由の一つに、他の拡張がどのスキーマにあるのか定かではないことがあります。
+この危険性は両方の拡張を同じスキーマにインストールすることで軽減できます。
+悪意あるオブジェクトをインストール時の<varname>search_path</varname>内で参照された拡張の前に置くことができないからです。
+しかしながら、現時点ではこれを要求するメカニズムはありません。
+今のところ、最良の手段は他の拡張に依存する拡張であるなら、依存する拡張が常に<literal>pg_catalog</literal>にインストールされるのでない限り、拡張をtrustedと印付けしないことです。
+     </para>
+
+     <para>
+<!--
+      Do <emphasis>not</emphasis> use <command>CREATE OR REPLACE
+      FUNCTION</command>, except in an update script that must change the
+      definition of a function that is known to be an extension member
+      already.  (Likewise for other <literal>OR REPLACE</literal> options.)
+      Using <literal>OR REPLACE</literal> unnecessarily not only has a risk
+      of accidentally overwriting someone else's function, but it creates a
+      security hazard since the overwritten function would still be owned by
+      its original owner, who could modify it.
+-->
+拡張のメンバーであることが分かっている関数の定義を変更しなければならない更新スクリプトを除いて、<command>CREATE OR REPLACE FUNCTION</command>は<emphasis>使用しないで</emphasis>ください(他の<literal>OR REPLACE</literal>でも同様です)。
+<literal>OR REPLACE</literal> を不必要に使うことは他の誰かの別の関数を誤って上書きしてしまうリスクがあるだけでなく、上書きされた関数は元の所有者のままなので元の所有者が変更できる状態となってしまい、セキュリティの脆弱性になります。
+     </para>
+    </sect3>
    </sect2>
 
    <sect2 id="extend-extensions-security">
@@ -1334,20 +2160,34 @@ SELECT * FROM pg_extension_update_paths('<replaceable>extension_name</replaceabl
    </sect2>
 
    <sect2 id="extend-extensions-example">
+<!--
     <title>Extension Example</title>
+-->
+    <title>拡張の例</title>
 
     <para>
+<!--
      Here is a complete example of an <acronym>SQL</acronym>-only
      extension, a two-element composite type that can store any type of value
      in its slots, which are named <quote>k</quote> and <quote>v</quote>.  Non-text
      values are automatically coerced to text for storage.
+-->
+ここでは、<acronym>SQL</acronym>のみの拡張の完全な例を示します。
+<quote>k</quote>と<quote>v</quote>という名称の２つの要素からなる複合型であり、そのスロットには任意の型の値を格納することができるものです。
+格納の際テキスト以外の値は自動的にテキストに変換されます。
     </para>
 
     <para>
-     The script file <filename>pair--1.0.sql</filename> looks like this:
+<!--
+     The script file <filename>pair&#045;-1.0.sql</filename> looks like this:
+-->
+<filename>pair--1.0.sql</filename>スクリプトファイルは以下のようになります。
 
 <programlisting><![CDATA[
--- complain if script is sourced in psql, rather than via CREATE EXTENSION
+]]><!--
+&#045;- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--><![CDATA[
+-- スクリプトが、CREATE EXTENSION経由ではなく、psqlのソースとして使われた場合には文句を言う
 \echo Use "CREATE EXTENSION pair" to load this file. \quit
 
 CREATE TYPE pair AS ( k text, v text );
@@ -1372,7 +2212,10 @@ AS 'SELECT ROW($1.k OPERATOR(pg_catalog.||) $2.k,
     </para>
 
     <para>
+<!--
      The control file <filename>pair.control</filename> looks like this:
+-->
+<filename>pair.control</filename>制御ファイルは以下のようになります。
 
 <programlisting>
 # pair extension
@@ -1384,8 +2227,11 @@ relocatable = false
     </para>
 
     <para>
+<!--
      While you hardly need a makefile to install these two files into the
      correct directory, you could use a <filename>Makefile</filename> containing this:
+-->
+これらの２つのファイルを正しいディレクトリにインストールするためにメークファイルを作成する必要はほとんどありませんが、以下を含む<filename>Makefile</filename>を使用することができます。
 
 <programlisting>
 EXTENSION = pair
@@ -1396,28 +2242,39 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 </programlisting>
 
+<!--
      This makefile relies on <acronym>PGXS</acronym>, which is described
      in <xref linkend="extend-pgxs"/>.  The command <literal>make install</literal>
      will install the control and script files into the correct
      directory as reported by <application>pg_config</application>.
+-->
+このメークファイルは<xref linkend="extend-pgxs"/>で説明する<acronym>PGXS</acronym>に依存します。
+<literal>make install</literal>コマンドは制御ファイルとスクリプトファイルを<application>pg_config</application>で報告される正しいディレクトリにインストールします。
     </para>
 
     <para>
+<!--
      Once the files are installed, use the
      <command>CREATE EXTENSION</command> command to load the objects into
      any particular database.
+-->
+ファイルがインストールされた後、<xref linkend="sql-createextension"/>コマンドを使用してオブジェクトを任意の特定のデータベースにロードしてください。
     </para>
    </sect2>
   </sect1>
 
   <sect1 id="extend-pgxs">
+<!--
    <title>Extension Building Infrastructure</title>
+-->
+   <title>拡張構築基盤</title>
 
    <indexterm zone="extend-pgxs">
     <primary>pgxs</primary>
    </indexterm>
 
    <para>
+<!--
     If you are thinking about distributing your
     <productname>PostgreSQL</productname> extension modules, setting up a
     portable build system for them can be fairly difficult.  Therefore
@@ -1432,9 +2289,17 @@ include $(PGXS)
     it simply automates common build rules for simple server extension
     modules.  For more complicated packages, you might need to write your
     own build system.
+-->
+<productname>PostgreSQL</productname>拡張モジュールの配布を考えているのであれば、移植可能な構築システムを準備することはかなり難しいものになるかもしれません。
+このため<productname>PostgreSQL</productname>インストレーションは単純な拡張モジュールをすでにインストールされているサーバに対して簡単に構築することができるように、<acronym>PGXS</acronym>と呼ばれる拡張向けの構築基盤を提供します。
+<acronym>PGXS</acronym>は主にCコードを含む拡張を意図していますが、SQLのみからなる拡張でも使用することができます。
+<acronym>PGXS</acronym>が<productname>PostgreSQL</productname>と相互に作用する任意のソフトウェアを構築するために使用できるような万能な構築システムを意図したものではないことに注意してください。
+これは単に、単純なサーバ拡張用の一般的な構築規則を自動化するものです。
+より複雑なパッケージでは、独自の構築システムを作成する必要があるかもしれません。
    </para>
 
    <para>
+<!--
     To use the <acronym>PGXS</acronym> infrastructure for your extension,
     you must write a simple makefile.
     In the makefile, you need to set some variables
@@ -1444,6 +2309,11 @@ include $(PGXS)
     some C code, an extension control file, an SQL script, an include file
     (only needed if other modules might need to access the extension functions
     without going via SQL), and a documentation text file:
+-->
+独自の拡張で<acronym>PGXS</acronym>基盤を使用するためには、簡単なメークファイルを作成する必要があります。
+このメークファイルの中で、いくつか変数を設定し、大域的な<acronym>PGXS</acronym>メークファイルをインクルードする必要があります。
+以下に<literal>isbn_issn</literal>という名称の拡張モジュールを構築する例を示します。
+このモジュールはいくつかのCコードを含む共有ライブラリ、拡張の制御ファイル、SQLスクリプト、インクルードファイル（他のモジュールが拡張の関数にSQLを経由せずにアクセスする必要があるかもしれない場合にのみ必要です）、ドキュメントテキストファイルから構成されます。
 <programlisting>
 MODULES = isbn_issn
 EXTENSION = isbn_issn
@@ -1455,21 +2325,32 @@ PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 </programlisting>
+<!--
     The last three lines should always be the same.  Earlier in the
     file, you assign variables or add custom
     <application>make</application> rules.
+-->
+最後の３行は常に同じです。
+ファイルのこの前に変数の設定と独自の<application>make</application>ルールを記載してください。
    </para>
 
    <para>
+<!--
     Set one of these three variables to specify what is built:
+-->
+以下の３個の変数の１つを構築対象に指定してください。
 
     <variablelist>
      <varlistentry>
       <term><varname>MODULES</varname></term>
       <listitem>
        <para>
+<!--
         list of shared-library objects to be built from source files with same
         stem (do not include library suffixes in this list)
+-->
+同じ家系のソースファイルから構築される共有ライブラリのリストです。
+（このリストにはライブラリ接頭辞を含めないでください。）
        </para>
       </listitem>
      </varlistentry>
@@ -1478,8 +2359,12 @@ include $(PGXS)
       <term><varname>MODULE_big</varname></term>
       <listitem>
        <para>
+<!--
         a shared library to build from multiple source files
         (list object files in <varname>OBJS</varname>)
+-->
+複数のソースファイルから構築される共有ライブラリです。
+（<varname>OBJS</varname>にオブジェクトファイルを列挙します。）
        </para>
       </listitem>
      </varlistentry>
@@ -1488,24 +2373,35 @@ include $(PGXS)
       <term><varname>PROGRAM</varname></term>
       <listitem>
        <para>
+<!--
         an executable program to build
         (list object files in <varname>OBJS</varname>)
+-->
+構築する実行プログラムです。
+（<varname>OBJS</varname>にオブジェクトファイルを列挙します。）
        </para>
       </listitem>
      </varlistentry>
     </variablelist>
 
+<!--
     The following variables can also be set:
+-->
+以下の変数も設定することができます。
 
     <variablelist>
      <varlistentry>
       <term><varname>EXTENSION</varname></term>
       <listitem>
        <para>
+<!--
         extension name(s); for each name you must provide an
         <literal><replaceable>extension</replaceable>.control</literal> file,
         which will be installed into
         <literal><replaceable>prefix</replaceable>/share/extension</literal>
+-->
+拡張の名前です。
+各名前に対して、<literal><replaceable>prefix</replaceable>/share/extension</literal>にインストールされる<literal><replaceable>extension</replaceable>.control</literal>を提供しなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -1514,11 +2410,15 @@ include $(PGXS)
       <term><varname>MODULEDIR</varname></term>
       <listitem>
        <para>
+<!--
         subdirectory of <literal><replaceable>prefix</replaceable>/share</literal>
         into which DATA and DOCS files should be installed
         (if not set, default is <literal>extension</literal> if
         <varname>EXTENSION</varname> is set,
         or <literal>contrib</literal> if not)
+-->
+DATAおよびDOCSファイルのインストール先となるはずの<literal><replaceable>prefix</replaceable>/share</literal>サブディレクトリです。
+（設定がない場合、デフォルトは<varname>EXTENSION</varname>が設定されている場合は<literal>extension</literal>に、設定されていない場合は<literal>contrib</literal>になります。）
        </para>
       </listitem>
      </varlistentry>
@@ -1527,7 +2427,10 @@ include $(PGXS)
       <term><varname>DATA</varname></term>
       <listitem>
        <para>
+<!--
         random files to install into <literal><replaceable>prefix</replaceable>/share/$MODULEDIR</literal>
+-->
+<literal><replaceable>prefix</replaceable>/share/$MODULEDIR</literal>にインストールされる様々なファイルです。
        </para>
       </listitem>
      </varlistentry>
@@ -1536,9 +2439,12 @@ include $(PGXS)
       <term><varname>DATA_built</varname></term>
       <listitem>
        <para>
+<!--
         random files to install into
         <literal><replaceable>prefix</replaceable>/share/$MODULEDIR</literal>,
         which need to be built first
+-->
+<literal><replaceable>prefix</replaceable>/share/$MODULEDIR</literal>にインストールされる、最初に構築しなければならない様々なファイルです。
        </para>
       </listitem>
      </varlistentry>
@@ -1547,8 +2453,11 @@ include $(PGXS)
       <term><varname>DATA_TSEARCH</varname></term>
       <listitem>
        <para>
+<!--
         random files to install under
         <literal><replaceable>prefix</replaceable>/share/tsearch_data</literal>
+-->
+<literal><replaceable>prefix</replaceable>/share/tsearch_data</literal>以下にインストールされる様々なファイルです。
        </para>
       </listitem>
      </varlistentry>
@@ -1557,8 +2466,11 @@ include $(PGXS)
       <term><varname>DOCS</varname></term>
       <listitem>
        <para>
+<!--
         random files to install under
         <literal><replaceable>prefix</replaceable>/doc/$MODULEDIR</literal>
+-->
+<literal><replaceable>prefix</replaceable>/doc/$MODULEDIR</literal>以下にインストールされる様々なファイルです。
        </para>
       </listitem>
      </varlistentry>
@@ -1568,13 +2480,19 @@ include $(PGXS)
       <term><varname>HEADERS_built</varname></term>
       <listitem>
        <para>
+<!--
         Files to (optionally build and) install under
         <literal><replaceable>prefix</replaceable>/include/server/$MODULEDIR/$MODULE_big</literal>.
+-->
+（必要に応じてビルドして）<literal><replaceable>prefix</replaceable>/include/server/$MODULEDIR/$MODULE_big</literal>以下にインストールをするファイル。
        </para>
        <para>
+<!--
         Unlike <literal>DATA_built</literal>, files in <literal>HEADERS_built</literal>
         are not removed by the <literal>clean</literal> target; if you want them removed,
         also add them to <literal>EXTRA_CLEAN</literal> or add your own rules to do it.
+-->
+<literal>DATA_built</literal>と違って、<literal>HEADERS_built</literal>のファイルは<literal>clean</literal>ターゲットによって削除されません。削除したい場合には、それらを<literal>EXTRA_CLEAN</literal>にも加えるか、削除を行う独自のルールを追加してください。
        </para>
       </listitem>
      </varlistentry>
@@ -1584,23 +2502,33 @@ include $(PGXS)
       <term><varname>HEADERS_built_$MODULE</varname></term>
       <listitem>
        <para>
+<!--
         Files to install (after building if specified) under
         <literal><replaceable>prefix</replaceable>/include/server/$MODULEDIR/$MODULE</literal>,
         where <literal>$MODULE</literal> must be a module name used
         in <literal>MODULES</literal> or <literal>MODULE_big</literal>.
+-->
+（指定されていたならビルド後に）<literal><replaceable>prefix</replaceable>/include/server/$MODULEDIR/$MODULE</literal>の下にインストールするファイル。ここでの<literal>$MODULE</literal>は<literal>MODULES</literal>か<literal>MODULE_big</literal>で使われているモジュール名でなければなりません。
        </para>
        <para>
+<!--
         Unlike <literal>DATA_built</literal>, files in <literal>HEADERS_built_$MODULE</literal>
         are not removed by the <literal>clean</literal> target; if you want them removed,
         also add them to <literal>EXTRA_CLEAN</literal> or add your own rules to do it.
+-->
+<literal>DATA_built</literal>と違って、<literal>HEADERS_built_$MODULE</literal>のファイルは<literal>clean</literal>ターゲットによって削除されません。削除したい場合には、これらを<literal>EXTRA_CLEAN</literal>にも加えるか、削除を行う独自のルールを追加してください。
        </para>
        <para>
+<!--
         It is legal to use both variables for the same module, or any
         combination, unless you have two module names in the
         <literal>MODULES</literal> list that differ only by the presence of a
         prefix <literal>built_</literal>, which would cause ambiguity. In
         that (hopefully unlikely) case, you should use only the
         <literal>HEADERS_built_$MODULE</literal> variables.
+-->
+同じモジュールあるいは任意の組み合わせに対して両方の変数を使うことは正当ですが、<literal>MODULES</literal>リストにプレフィックス<literal>built_</literal>の有無しか異ならない二つのモジュール名を書く場合を除きます。これは両義解釈をひき起こすでしょう。
+このような（おそらくありそうにない）場合、<literal>HEADERS_built_$MODULE</literal>変数だけを使うべきです。
        </para>
       </listitem>
      </varlistentry>
@@ -1609,8 +2537,11 @@ include $(PGXS)
       <term><varname>SCRIPTS</varname></term>
       <listitem>
        <para>
+<!--
         script files (not binaries) to install into
         <literal><replaceable>prefix</replaceable>/bin</literal>
+-->
+<literal><replaceable>prefix</replaceable>/bin</literal>にインストールされるスクリプトファイルです（バイナリファイルではありません）。
        </para>
       </listitem>
      </varlistentry>
@@ -1619,9 +2550,12 @@ include $(PGXS)
       <term><varname>SCRIPTS_built</varname></term>
       <listitem>
        <para>
+<!--
         script files (not binaries) to install into
         <literal><replaceable>prefix</replaceable>/bin</literal>,
         which need to be built first
+-->
+<literal><replaceable>prefix</replaceable>/bin</literal>にインストールされる、最初に構築しなければならないスクリプトファイルです（バイナリファイルではありません）。
        </para>
       </listitem>
      </varlistentry>
@@ -1630,7 +2564,11 @@ include $(PGXS)
       <term><varname>REGRESS</varname></term>
       <listitem>
        <para>
+<!--
         list of regression test cases (without suffix), see below
+-->
+リグレッションテストケース（接尾辞がない）のリストです。
+後述します。
        </para>
       </listitem>
      </varlistentry>
@@ -1639,7 +2577,10 @@ include $(PGXS)
       <term><varname>REGRESS_OPTS</varname></term>
       <listitem>
        <para>
+<!--
         additional switches to pass to <application>pg_regress</application>
+-->
+<application>pg_regress</application>に渡す追加オプションです。
        </para>
       </listitem>
      </varlistentry>
@@ -1648,7 +2589,11 @@ include $(PGXS)
       <term><varname>ISOLATION</varname></term>
       <listitem>
        <para>
+<!--
         list of isolation test cases, see below for more details
+-->
+隔離性試験のリストです。
+詳細は後述します。
        </para>
       </listitem>
      </varlistentry>
@@ -1657,8 +2602,11 @@ include $(PGXS)
       <term><varname>ISOLATION_OPTS</varname></term>
       <listitem>
        <para>
+<!--
         additional switches to pass to
         <application>pg_isolation_regress</application>
+-->
+<application>pg_isolation_regress</application>に渡す追加オプションです。
        </para>
       </listitem>
      </varlistentry>
@@ -1667,7 +2615,11 @@ include $(PGXS)
       <term><varname>TAP_TESTS</varname></term>
       <listitem>
        <para>
+<!--
         switch defining if TAP tests need to be run, see below
+-->
+TAPテストを実行する必要があるかどうかを定義するオプションです。
+後述します。
        </para>
       </listitem>
      </varlistentry>
@@ -1686,7 +2638,11 @@ include $(PGXS)
       <term><varname>NO_INSTALLCHECK</varname></term>
       <listitem>
        <para>
+<!--
         don't define an <literal>installcheck</literal> target, useful e.g., if tests require special configuration, or don't use <application>pg_regress</application>
+-->
+<literal>installcheck</literal>ターゲットを定義しません。
+テストの際に特殊な設定が必要、あるいは<application>pg_regress</application>を使用しない場合などに有用です。
        </para>
       </listitem>
      </varlistentry>
@@ -1695,7 +2651,10 @@ include $(PGXS)
       <term><varname>EXTRA_CLEAN</varname></term>
       <listitem>
        <para>
+<!--
         extra files to remove in <literal>make clean</literal>
+-->
+<literal>make clean</literal>で削除される追加ファイルです。
        </para>
       </listitem>
      </varlistentry>
@@ -1704,7 +2663,10 @@ include $(PGXS)
       <term><varname>PG_CPPFLAGS</varname></term>
       <listitem>
        <para>
+<!--
         will be prepended to <varname>CPPFLAGS</varname>
+-->
+<varname>CPPFLAGS</varname>の先頭に加えられます。
        </para>
       </listitem>
      </varlistentry>
@@ -1713,7 +2675,10 @@ include $(PGXS)
       <term><varname>PG_CFLAGS</varname></term>
       <listitem>
        <para>
+<!--
         will be appended to <varname>CFLAGS</varname>
+-->
+<varname>CFLAGS</varname>に加えられます。
        </para>
       </listitem>
      </varlistentry>
@@ -1722,7 +2687,10 @@ include $(PGXS)
       <term><varname>PG_CXXFLAGS</varname></term>
       <listitem>
        <para>
+<!--
         will be appended to <varname>CXXFLAGS</varname>
+-->
+<varname>CXXFLAGS</varname>に加えられます。
        </para>
       </listitem>
      </varlistentry>
@@ -1731,7 +2699,10 @@ include $(PGXS)
       <term><varname>PG_LDFLAGS</varname></term>
       <listitem>
        <para>
+<!--
         will be prepended to <varname>LDFLAGS</varname>
+-->
+<varname>LDFLAGS</varname>の先頭に加えられます。
        </para>
       </listitem>
      </varlistentry>
@@ -1740,7 +2711,10 @@ include $(PGXS)
       <term><varname>PG_LIBS</varname></term>
       <listitem>
        <para>
+<!--
         will be added to <varname>PROGRAM</varname> link line
+-->
+<varname>PROGRAM</varname>のリンク行に追加されます。
        </para>
       </listitem>
      </varlistentry>
@@ -1749,7 +2723,10 @@ include $(PGXS)
       <term><varname>SHLIB_LINK</varname></term>
       <listitem>
        <para>
+<!--
         will be added to <varname>MODULE_big</varname> link line
+-->
+<varname>MODULE_big</varname>リンク行に追加されます。
        </para>
       </listitem>
      </varlistentry>
@@ -1758,10 +2735,14 @@ include $(PGXS)
       <term><varname>PG_CONFIG</varname></term>
       <listitem>
        <para>
+<!--
         path to <application>pg_config</application> program for the
         <productname>PostgreSQL</productname> installation to build against
         (typically just <literal>pg_config</literal> to use the first one in your
         <varname>PATH</varname>)
+-->
+構築対象の<productname>PostgreSQL</productname>インストレーション用の<application>pg_config</application>プログラムへのパスです。
+（通常は<varname>PATH</varname>内の最初に見つかる<literal>pg_config</literal>が単純に使用されます）
        </para>
       </listitem>
      </varlistentry>
@@ -1769,6 +2750,7 @@ include $(PGXS)
    </para>
 
    <para>
+<!--
     Put this makefile as <literal>Makefile</literal> in the directory
     which holds your extension. Then you can do
     <literal>make</literal> to compile, and then <literal>make
@@ -1780,14 +2762,24 @@ include $(PGXS)
     setting <varname>PG_CONFIG</varname> to point to its
     <command>pg_config</command> program, either within the makefile
     or on the <literal>make</literal> command line.
+-->
+このメークファイルを<literal>Makefile</literal>として拡張を保管するディレクトリ内に保管してください。
+その後コンパイルするために<literal>make</literal>を、モジュールをインストールするために<literal>make install</literal>を行うことができます。
+デフォルトでは、<varname>PATH</varname>の中で最初に見つかる<command>pg_config</command>プログラムが対応する<productname>PostgreSQL</productname>インストレーション用に拡張はコンパイルされ、インストールされます。
+メークファイルまたは<literal>make</literal>のコマンドラインのいずれかで<varname>PG_CONFIG</varname>を別の<command>pg_config</command>プログラムを指し示すように設定することで、別のインストレーションを使用することができます。
    </para>
 
    <para>
+<!--
     You can also run <literal>make</literal> in a directory outside the source
     tree of your extension, if you want to keep the build directory separate.
     This procedure is also called a
     <indexterm><primary>VPATH</primary></indexterm><firstterm>VPATH</firstterm>
     build.  Here's how:
+-->
+構築ディレクトリを別にしておきたいのであれば、拡張のソースツリーの外のディレクトリで<literal>make</literal>を実行することもできます。
+この方法は<indexterm><primary>VPATH</primary></indexterm><firstterm>VPATH</firstterm>構築とも呼ばれます。
+以下にやり方を示します。
 <programlisting>
 mkdir build_dir
 cd build_dir
@@ -1797,19 +2789,28 @@ make -f /path/to/extension/source/tree/Makefile install
    </para>
 
    <para>
+<!--
     Alternatively, you can set up a directory for a VPATH build in a similar
     way to how it is done for the core code. One way to do this is using the
     core script <filename>config/prep_buildtree</filename>. Once this has been done
     you can build by setting the <literal>make</literal> variable
     <varname>VPATH</varname> like this:
+-->
+あるいは、コアコードと同様な方法でVPATH構築用のディレクトリを設定できます。
+そのようにする1つの方法は、コアスクリプト<filename>config/prep_buildtree</filename>を使うことです。
+一度そうすれば、<literal>make</literal>変数<varname>VPATH</varname>を以下のように設定することで、構築できます。
 <programlisting>
 make VPATH=/path/to/extension/source/tree
 make VPATH=/path/to/extension/source/tree install
 </programlisting>
+<!--
     This procedure can work with a greater variety of directory layouts.
+-->
+この方法はより様々なディレクトリのレイアウトで機能します。
    </para>
 
    <para>
+<!--
     The scripts listed in the <varname>REGRESS</varname> variable are used for
     regression testing of your module, which can be invoked by <literal>make
     installcheck</literal> after doing <literal>make install</literal>.  For this to
@@ -1827,9 +2828,21 @@ make VPATH=/path/to/extension/source/tree install
     -c</command> format.  Note that trying to run a test that is missing its
     expected file will be reported as <quote>trouble</quote>, so make sure you
     have all expected files.
+-->
+<varname>REGRESS</varname>変数に列挙されたスクリプトは、<literal>make install</literal>を実行した後で<literal>make installcheck</literal>によって呼び出すことができる、作成したモジュールのリグレッションテストで使用されます。
+これが動作するためには、<productname>PostgreSQL</productname>サーバが実行していなければなりません。
+<varname>REGRESS</varname>変数に列挙されたスクリプトは、拡張のディレクトリ内の<literal>sql/</literal>という名前のサブディレクトリ内に存在しなければなりません。
+これらのファイルは<literal>.sql</literal>という拡張子を持たなければなりません。
+この拡張子はメークファイル内の<varname>REGRESS</varname>リストには含まれません。
+また試験ごとに<literal>expected/</literal>という名前のサブディレクトリ内に想定出力を内容として含む、同じステムに<literal>.out</literal>拡張子を付けた名前のファイルがなければなりません。
+<literal>make installcheck</literal>は<application>psql</application>を用いて各試験スクリプトを実行し、結果出力が想定ファイルに一致するかどうか比較します。
+何らかの差異は<command>diff -c</command>書式で<literal>regression.diffs</literal>に書き出されます。
+想定ファイルがない試験を実行しようとすると<quote>問題</quote>として報告されます。
+このためすべての想定ファイルがあることを確認してください。
    </para>
 
    <para>
+<!--
     The scripts listed in the <varname>ISOLATION</varname> variable are used
     for tests stressing behavior of concurrent session with your module, which
     can be invoked by <literal>make installcheck</literal> after doing
@@ -1848,16 +2861,33 @@ make VPATH=/path/to/extension/source/tree install
     <command>diff -c</command> format.  Note that trying to run a test that is
     missing its expected file will be reported as <quote>trouble</quote>, so
     make sure you have all expected files.
+-->
+<varname>ISOLATION</varname>変数に列挙されたスクリプトは、<literal>make install</literal>を実行した後で<literal>make installcheck</literal>によって呼び出すことができるモジュールでの同時実行中のセッションの振舞いの負荷テストで使用されます。
+これが動作するためには、<productname>PostgreSQL</productname>サーバが実行していなければなりません。
+<varname>ISOLATION</varname>変数に列挙されたスクリプトは、拡張のディレクトリ内の<literal>specs/</literal>という名前のサブディレクトリ内に存在しなければなりません。
+これらのファイルは<literal>.spec</literal>という拡張子を持たなければなりません。
+この拡張子はmakefile内の<varname>ISOLATION</varname>リストには含まれません。
+また試験ごとに<literal>expected/</literal>という名前のサブディレクトリ内に想定出力を内容として含む、同じステムに<literal>.out</literal>拡張子を付けた名前のファイルがなければなりません。
+<literal>make installcheck</literal>は各試験スクリプトを実行し、結果出力が想定ファイルに一致するかどうか比較します。
+何らかの差異は<command>diff -c</command>書式で<literal>output_iso/regression.diffs</literal>に書き出されます。
+想定ファイルがない試験を実行しようとすると<quote>問題</quote>として報告されます。
+このためすべての想定ファイルがあることを確認してください。
    </para>
 
    <para>
+<!--
     <literal>TAP_TESTS</literal> enables the use of TAP tests.  Data from each
     run is present in a subdirectory named <literal>tmp_check/</literal>.
     See also <xref linkend="regress-tap"/> for more details.
+-->
+ <literal>TAP_TESTS</literal>はTAPテストの指定を有効にします。
+各試験の実行によるデータは<literal>tmp_check/</literal>という名前のサブディレクトリに含まれます。
+詳細は<xref linkend="regress-tap"/>を参照してください。
    </para>
 
    <tip>
     <para>
+<!--
      The easiest way to create the expected files is to create empty files,
      then do a test run (which will of course report differences).  Inspect
      the actual result files found in the <literal>results/</literal>
@@ -1865,6 +2895,9 @@ make VPATH=/path/to/extension/source/tree install
      <literal>output_iso/results/</literal> directory (for tests in
      <literal>ISOLATION</literal>), then copy them to
      <literal>expected/</literal> if they match what you expect from the test.
+-->
+想定ファイルを作成する最も簡単な方法は、空のファイルを作成し、試験を実行する（当然差異が報告されます）ことです。
+（<literal>REGRESS</literal>の試験による）<literal>results/</literal>ディレクトリまたは（<literal>ISOLATION</literal>の試験による）<literal>output_iso/results/</literal>ディレクトリ内で見つかる実際の結果ファイルを確認し、テストの想定結果と合致するのであれば、<literal>expected/</literal>にコピーしてください。
     </para>
 
    </tip>

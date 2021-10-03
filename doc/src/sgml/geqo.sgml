@@ -1,22 +1,35 @@
 <!-- doc/src/sgml/geqo.sgml -->
 
  <chapter id="geqo">
+<!--
   <title>Genetic Query Optimizer</title>
+-->
+  <title>遺伝的問い合わせ最適化</title>
 
   <para>
    <note>
+<!--
     <title>Author</title>
+-->
+    <title>著者</title>
     <para>
+<!--
      Written by Martin Utesch (<email>utesch@aut.tu-freiberg.de</email>)
      for the Institute of Automatic Control at the University of Mining and Technology in Freiberg, Germany.
+-->
+このドキュメントはMartin Utesch（<email>utesch@aut.tu-freiberg.de</email>）によって、ドイツ、フライブルグにあるUniversity of Mining and TechnologyのInstitute of Automatic Controlのために書かれました。
     </para>
    </note>
   </para>
 
   <sect1 id="geqo-intro">
+<!--
    <title>Query Handling as a Complex Optimization Problem</title>
+-->
+   <title>複雑な最適化問題としての問い合わせ処理</title>
 
    <para>
+<!--
     Among all relational operators the most difficult one to process
     and optimize is the <firstterm>join</firstterm>. The number of
     possible query plans grows exponentially with the
@@ -27,9 +40,14 @@
     and a diversity of <firstterm>indexes</firstterm> (e.g.,
     B-tree, hash, GiST and GIN in <productname>PostgreSQL</productname>) as
     access paths for relations.
+-->
+リレーショナル演算子の中で、処理と最適化が一番難しいのは<firstterm>結合</firstterm>です。
+実行可能な問い合わせ計画の数は問い合わせの中に含まれる結合の数によって指数関数的に増加します。
+個々の結合や、多様な<firstterm>インデックス</firstterm>（例えば<productname>PostgreSQL</productname>のB-tree、ハッシュ、GiST、GINなど）をリレーションのアクセスパスとして処理するため、様々な<firstterm>結合メソッド</firstterm>（例えば<productname>PostgreSQL</productname>のネステッドループ、ハッシュ結合、マージ結合など）を提供することが、さらなる最適化を行わなければならない腐心の原因となっています。
    </para>
 
    <para>
+<!--
     The normal <productname>PostgreSQL</productname> query optimizer
     performs a <firstterm>near-exhaustive search</firstterm> over the
     space of alternative strategies. This algorithm, first introduced
@@ -38,9 +56,14 @@
     number of joins in the query grows large. This makes the ordinary
     <productname>PostgreSQL</productname> query optimizer
     inappropriate for queries that join a large number of tables.
+-->
+通常の<productname>PostgreSQL</productname>問い合わせオプティマイザは、候補ストラテジ空間にわたって<firstterm>しらみつぶしに近い検索</firstterm>を行います。
+IBMのSystem Rデータベースで初めて導入された、このアルゴリズムはほぼ最適な結合順を生成しますが、問い合わせ内の結合数が増えると膨大な処理時間とメモリ空間を必要とします。
+このため、通常の<productname>PostgreSQL</productname>問い合わせオプティマイザは結合するテーブル数の多い問い合わせには向いていません。
    </para>
 
    <para>
+<!--
     The Institute of Automatic Control at the University of Mining and
     Technology, in Freiberg, Germany, encountered some problems when
     it wanted to use <productname>PostgreSQL</productname> as the
@@ -49,47 +72,74 @@
     large join queries for the inference machine of the knowledge
     based system. The number of joins in these queries made using the
     normal query optimizer infeasible.
+-->
+ドイツ、フライブルグにあるUniversity of Mining and TechnologyのInstitute of Automatic Controlでは、送電網の保守のための意志決定知識ベースシステムのためのバックエンドとして<productname>PostgreSQL</productname> DBMSを使おうとしたため問題が起こりました。
+そのDBMSは知識ベースシステムの推論マシンのために、大規模な結合の問い合わせを処理する必要があったのです。
+こうした問い合わせに含まれる結合数を行うことは、通常の問い合わせオプティマイザでは実現不可能でした。
    </para>
 
    <para>
+<!--
     In the following we describe the implementation of a
     <firstterm>genetic algorithm</firstterm> to solve the join
     ordering problem in a manner that is efficient for queries
     involving large numbers of joins.
+-->
+以下では、多数の結合を持つ問い合わせを効率的に行うことができるように、結合順問題を解決する<firstterm>遺伝的アルゴリズム</firstterm>の実装を説明します。
    </para>
   </sect1>
 
   <sect1 id="geqo-intro2">
+<!--
    <title>Genetic Algorithms</title>
+-->
+   <title>遺伝的アルゴリズム</title>
 
    <para>
+<!--
     The genetic algorithm (<acronym>GA</acronym>) is a heuristic optimization method which
     operates through randomized search. The set of possible solutions for the
     optimization problem is considered as a
     <firstterm>population</firstterm> of <firstterm>individuals</firstterm>.
     The degree of adaptation of an individual to its environment is specified
     by its <firstterm>fitness</firstterm>.
+-->
+遺伝的アルゴリズム（<acronym>GA</acronym>）は発見的な最適化手法で、無作為の検索として働きます。
+最適化の問題に対する解の集合は<firstterm>個体</firstterm><firstterm>群</firstterm>とみなされます。
+個体の環境への順応の度合は<firstterm>適応度</firstterm>によって指定されます。
    </para>
 
    <para>
+<!--
     The coordinates of an individual in the search space are represented
     by <firstterm>chromosomes</firstterm>, in essence a set of character
     strings. A <firstterm>gene</firstterm> is a
     subsection of a chromosome which encodes the value of a single parameter
     being optimized. Typical encodings for a gene could be <firstterm>binary</firstterm> or
     <firstterm>integer</firstterm>.
+-->
+検索空間の中で個体の同格性は、その実体が文字列の集合である<firstterm>染色体</firstterm>によって表現されます。
+<firstterm>遺伝子</firstterm>は最適化をしようとしている1つのパラメータの値を符号化する染色体の一部分です。
+遺伝子の符号化の典型的な例として<firstterm>バイナリ</firstterm>もしくは<firstterm>整数</firstterm>が挙げられます。
    </para>
 
    <para>
+<!--
     Through simulation of the evolutionary operations <firstterm>recombination</firstterm>,
     <firstterm>mutation</firstterm>, and
     <firstterm>selection</firstterm> new generations of search points are found
     that show a higher average fitness than their ancestors. <xref linkend="geqo-figure"/>
     illustrates these steps.
+-->
+進化の過程のシミュレーションである、<firstterm>再組合せ</firstterm>、<firstterm>突然変異</firstterm>、<firstterm>淘汰</firstterm>を通して、祖先よりも適応度の平均が高い新世代の検索点が見つけられます。
+この段階を<xref linkend="geqo-figure"/>で図解しています。
    </para>
 
    <figure id="geqo-figure">
+<!--     
     <title>Structure of a Genetic Algorithm</title>
+-->
+    <title>遺伝的アルゴリズムの構造</title>
     <mediaobject>
      <imageobject>
       <imagedata fileref="images/genetic-algorithm.svg" format="SVG" width="100%"/>
@@ -98,85 +148,125 @@
    </figure>
 
    <para>
+<!--
     According to the <systemitem class="resource">comp.ai.genetic</systemitem> <acronym>FAQ</acronym> it cannot be stressed too
     strongly that a <acronym>GA</acronym> is not a pure random search for a solution to a
     problem. A <acronym>GA</acronym> uses stochastic processes, but the result is distinctly
     non-random (better than random).
+-->
+<systemitem class="resource">comp.ai.genetic</systemitem>の<acronym>FAQ</acronym>によると、<acronym>GA</acronym>が問題に対する純粋な無作為検索ではないことをどんなに強調してもし過ぎということはありません。
+<acronym>GA</acronym>は確率的なプロセスを使いますが、結果は明らかに（無作為よりもより良い）非無作為です。
    </para>
 
   </sect1>
 
   <sect1 id="geqo-pg-intro">
+<!--
    <title>Genetic Query Optimization (<acronym>GEQO</acronym>) in PostgreSQL</title>
+-->
+   <title>PostgreSQLの遺伝的問い合わせ最適化（<acronym>GEQO</acronym>）</title>
 
    <para>
+<!--
     The <acronym>GEQO</acronym> module approaches the query
     optimization problem as though it were the well-known traveling salesman
     problem (<acronym>TSP</acronym>).
     Possible query plans are encoded as integer strings. Each string
     represents the join order from one relation of the query to the next.
     For example, the join tree
+-->
+<acronym>GEQO</acronym>のモジュールは、問い合わせ最適化問題をあたかもよく知られている巡回セールスマン問題（<acronym>TSP</acronym>）のように扱います。
+可能な問い合わせプランは、整数の文字列として符号化されます。
+それぞれの文字列は、問い合わせの1つのリレーションから次へと結合の順番を表します。
+例えば、以下の結合ツリーは整数文字列「4-1-3-2」によって符号化されています。
 <literallayout class="monospaced">
    /\
   /\ 2
  /\ 3
 4  1
 </literallayout>
+<!--
     is encoded by the integer string '4-1-3-2',
     which means, first join relation '4' and '1', then '3', and
     then '2', where 1, 2, 3, 4 are relation IDs within the
     <productname>PostgreSQL</productname> optimizer.
+-->
+これが意味するのは、まずリレーション「4」と「1」を、次に「3」を、そして「2」を結合するということです。
+ここで1、2、3、4は<productname>PostgreSQL</productname>オプティマイザ内でリレーションIDを表します。
    </para>
 
    <para>
+<!--
     Specific characteristics of the <acronym>GEQO</acronym>
     implementation in <productname>PostgreSQL</productname>
     are:
+-->
+<productname>PostgreSQL</productname>における<acronym>GEQO</acronym>実装の特有な特徴は下記の様なものです。
 
     <itemizedlist spacing="compact" mark="bullet">
      <listitem>
       <para>
+<!--
        Usage of a <firstterm>steady state</firstterm> <acronym>GA</acronym> (replacement of the least fit
        individuals in a population, not whole-generational replacement)
        allows fast convergence towards improved query plans. This is
        essential for query handling with reasonable time;
+-->
+<firstterm>定常状態</firstterm><acronym>GA</acronym>の使用（世代全体の置き換えではなく、個体の中で適応度の低いものだけの置き換え）は、改良された問い合わせ計画へ素早い収束を可能にします。
+これは、妥当な時間内での問い合わせ処理にはきわめて重要です。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Usage of <firstterm>edge recombination crossover</firstterm>
        which is especially suited to keep edge losses low for the
        solution of the <acronym>TSP</acronym> by means of a
        <acronym>GA</acronym>;
+-->
+<acronym>GA</acronym>による<acronym>TSP</acronym>の解決策の辺損失を低く抑えるため、非常に適した<firstterm>辺再組合せ交叉</firstterm>を使用します。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        Mutation as genetic operator is deprecated so that no repair
        mechanisms are needed to generate legal <acronym>TSP</acronym> tours.
+-->
+<acronym>TSP</acronym>の合法な巡回を行うために必要な修復処理を要求しないように、遺伝的演算子の突然変異は無視しています。
       </para>
      </listitem>
     </itemizedlist>
    </para>
 
    <para>
+<!--
     Parts of the <acronym>GEQO</acronym> module are adapted from D. Whitley's
     Genitor algorithm.
+-->
+<acronym>GEQO</acronym>モジュールの部品は D. WhitleyのGenitorアルゴリズムを適合させたものです。
    </para>
 
    <para>
+<!--
     The <acronym>GEQO</acronym> module allows
     the <productname>PostgreSQL</productname> query optimizer to
     support large join queries effectively through
     non-exhaustive search.
+-->
+<acronym>GEQO</acronym>モジュールにより、<productname>PostgreSQL</productname>問い合わせオプティマイザが、大きな結合問い合わせをしらみつぶし検索以外の方法で実行することが可能になります。
    </para>
 
   <sect2>
+<!--
    <title>Generating Possible Plans with <acronym>GEQO</acronym></title>
+-->
+   <title><acronym>GEQO</acronym>を使用した計画候補の生成</title>
 
    <para>
+<!--
     The <acronym>GEQO</acronym> planning process uses the standard planner
     code to generate plans for scans of individual relations.  Then join
     plans are developed using the genetic approach.  As shown above, each
@@ -197,9 +287,25 @@
     preset number of join sequences have been considered; then the best
     one found at any time during the search is used to generate the finished
     plan.
+-->
+<acronym>GEQO</acronym>の計画作成では、個々のリレーションのスキャンに対する計画を生成するために標準のプランナが使用されます。
+そして、結合計画が遺伝的手法を用いて展開されます。
+上で示した通り、
+結合計画候補はそれぞれ、基本リレーションの結合順によって表現されています。
+初期段階では、<acronym>GEQO</acronym>コードは単純にランダムに取り得る結合順をいくつか生成します。
+考慮された結合順それぞれについて、標準プランナコードが呼び出され、その結合順を使用して問い合わせを行った場合のコストを推定します。
+（結合順の各段階において、全体で3つの取り得る結合戦略が考慮されます。
+そして、あらかじめ決められたリレーションスキャン計画もすべて利用可能です。
+推定コストとはこれらの可能性の中から最も安価なものです。）
+より低い推定コストの結合順を、より高い推定コストのものより<quote>より高い適応度</quote>と判断します。
+遺伝的アルゴリズムは適応度が低い候補を破棄します。
+そして、より多く合致する候補の遺伝子を組み合わせて、つまり、検討すべき新しい順序を作成するために既知の低コスト結合順をランダムに位置を選択して、新しい候補が生成されます。
+事前に設定された数まで結合順を検討するまで、この処理が繰り返されます。
+そして、この検索の間にもっとも優れたものが、最終的な計画を生成するために使用されます。
    </para>
 
    <para>
+<!--
     This process is inherently nondeterministic, because of the randomized
     choices made during both the initial population selection and subsequent
     <quote>mutation</quote> of the best candidates.  To avoid surprising changes
@@ -209,15 +315,24 @@
     GEQO parameters are kept fixed, the same plan will be generated for a
     given query (and other planner inputs such as statistics).  To experiment
     with different search paths, try changing <varname>geqo_seed</varname>.
+-->
+初期の群を選択する時、および、その後の最善の候補の<quote>突然変異</quote>の時に無作為な選択がなされますので、この処理は生来非決定論的なものです。
+選択された計画の予期せぬ変化を避けるために、GEQOアルゴリズムの各実行では乱数生成器を現在の<xref linkend="guc-geqo-seed"/>パラメータ設定で再スタートさせます。
+<varname>geqo_seed</varname>とその他のGEQOパラメータが変更されない限り、一定の問い合わせ（と統計のようなプランナへの他の入力）に対しては同じ計画が生成されます。
+異なる検索パスで実験するためには、<varname>geqo_seed</varname>を変更してみて下さい。
    </para>
 
   </sect2>
 
   <sect2 id="geqo-future">
+<!--
    <title>Future Implementation Tasks for
     <productname>PostgreSQL</productname> <acronym>GEQO</acronym></title>
+-->
+   <title><productname>PostgreSQL</productname> <acronym>GEQO</acronym>の今後の実装作業</title>
 
      <para>
+<!--
       Work is still needed to improve the genetic algorithm parameter
       settings.
       In file <filename>src/backend/optimizer/geqo/geqo_main.c</filename>,
@@ -225,21 +340,31 @@
       <function>gimme_pool_size</function> and <function>gimme_number_generations</function>,
       we have to find a compromise for the parameter settings
       to satisfy two competing demands:
+-->
+遺伝的アルゴリズムのパラメータ設定を改善するためにはまだ課題が残っています。
+<filename>src/backend/optimizer/geqo/geqo_main.c</filename>の<function>gimme_pool_size</function>と<function>gimme_number_generations</function>というルーチンでは、次の2つの相反する要求を満たす妥協点を見つけなければいけません。
       <itemizedlist spacing="compact">
        <listitem>
         <para>
+<!--
          Optimality of the query plan
+-->
+問い合わせ計画の最適性
         </para>
        </listitem>
        <listitem>
         <para>
+<!--
          Computing time
+-->
+計算時間
         </para>
        </listitem>
       </itemizedlist>
      </para>
 
      <para>
+<!--
       In the current implementation, the fitness of each candidate join
       sequence is estimated by running the standard planner's join selection
       and cost estimation code from scratch.  To the extent that different
@@ -247,26 +372,42 @@
       will be repeated.  This could be made significantly faster by retaining
       cost estimates for sub-joins.  The problem is to avoid expending
       unreasonable amounts of memory on retaining that state.
+-->
+現在の実装では、各結合順候補の適応度は標準プランナの結合選択と、一から作成したコスト推定コードを実行して推定されます。
+異なる候補が同様の副結合順で使用されるにつれて、多くの作業が繰り返されることになります。
+これは、副結合のコスト推定を記憶することで、非常に高速になるはずです。
+この状態を記憶するために要するメモリ量が非合理的に拡大することを防止することが問題です。
      </para>
 
      <para>
+<!--
       At a more basic level, it is not clear that solving query optimization
       with a GA algorithm designed for TSP is appropriate.  In the TSP case,
       the cost associated with any substring (partial tour) is independent
       of the rest of the tour, but this is certainly not true for query
       optimization.  Thus it is questionable whether edge recombination
       crossover is the most effective mutation procedure.
+-->
+最も基本的なレベルでは、TSP用に設計されたGAアルゴリズムを用いた問い合わせ最適化の解法が適切かどうかは明確ではありません。
+TSPの場合は、部分文字列（巡回経路の一部）に関連付けられたコストは残りの巡回経路と独立していますが、これは問い合わせ最適化の場合には確実に成り立ちません。
+したがって、辺再組合せ交叉が最も有効な突然変異手続きかどうかは疑わしいと言えます。
      </para>
 
    </sect2>
   </sect1>
 
  <sect1 id="geqo-biblio">
+<!--
   <title>Further Reading</title>
+-->
+  <title>さらに深く知るには</title>
 
   <para>
+<!--
    The following resources contain additional information about
    genetic algorithms:
+-->
+次に示す資料は、さらに詳しい遺伝的アルゴリズムに関する情報が記載されています。
 
    <itemizedlist>
     <listitem>
@@ -280,8 +421,12 @@
     <listitem>
      <para>
       <ulink url="https://www.red3d.com/cwr/evolve.html">
+<!--
       Evolutionary Computation and its application to art and design</ulink>, by
       Craig Reynolds
+-->
+      Evolutionary Computation and its application to art and design</ulink>、
+      Craig Reynoldsによるもの
      </para>
     </listitem>
 

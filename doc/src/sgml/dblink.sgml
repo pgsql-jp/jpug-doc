@@ -8,14 +8,20 @@
  </indexterm>
 
  <para>
+<!--
   <filename>dblink</filename> is a module that supports connections to
   other <productname>PostgreSQL</productname> databases from within a database
   session.
+-->
+<filename>dblink</filename>は、データベースセッション内から他の<productname>PostgreSQL</productname>データベースへの接続をサポートするモジュールです。
  </para>
 
  <para>
+<!--
   See also <xref linkend="postgres-fdw"/>, which provides roughly the same
   functionality using a more modern and standards-compliant infrastructure.
+-->
+<xref linkend="postgres-fdw"/>も参照して下さい。より新しく標準に対する互換性の高い基盤を使ってほぼ同じ機能を提供しています。
  </para>
 
  <refentry id="contrib-dblink-connect">
@@ -30,7 +36,10 @@
 
   <refnamediv>
    <refname>dblink_connect</refname>
+<!--
    <refpurpose>opens a persistent connection to a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースへの永続的な接続を開きます</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -41,9 +50,13 @@ dblink_connect(text connname, text connstr) returns text
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_connect()</function> establishes a connection to a remote
     <productname>PostgreSQL</productname> database.  The server and database to
     be contacted are identified through a standard <application>libpq</application>
@@ -51,29 +64,46 @@ dblink_connect(text connname, text connstr) returns text
     connection.  Multiple named connections can be open at once, but
     only one unnamed connection is permitted at a time.  The connection
     will persist until closed or until the database session is ended.
+-->
+<function>dblink_connect()</function>はリモートの<productname>PostgreSQL</productname>データベースへの接続を確立します。
+接続先のサーバとデータベースは標準の<application>libpq</application>接続文字列を通して識別されます。
+省略可能ですが、名前を接続に割り当てることも可能です。
+複数の名前付きの接続を一度に開くことができますが、無名の接続は同時に1つしか許されません。
+接続は、閉ざされるまで、または、データベースセッションが終わるまで永続します。
    </para>
 
    <para>
+<!--
     The connection string may also be the name of an existing foreign
     server.  It is recommended to use the foreign-data wrapper
     <literal>dblink_fdw</literal> when defining the foreign
     server.  See the example below, as well as
     <xref linkend="sql-createserver"/> and
     <xref linkend="sql-createusermapping"/>.
+-->
+接続文字列は同時に既存の外部サーバ名であっても構いません。
+外部サーバを定義する場合、外部データラッパー<literal>dblink_fdw</literal>を使用することを推奨します。
+後述の例と<xref linkend="sql-createserver"/>、<xref linkend="sql-createusermapping"/>を参照してください。
    </para>
 
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        The name to use for this connection; if omitted, an unnamed
        connection is opened, replacing any existing unnamed connection.
+-->
+接続に使用する名前です。省略した場合、既存の無名の接続を閉ざし、無名の接続を開きます。
       </para>
      </listitem>
     </varlistentry>
@@ -81,11 +111,17 @@ dblink_connect(text connname, text connstr) returns text
     <varlistentry>
      <term><parameter>connstr</parameter></term>
      <listitem>
+<!--
       <para><application>libpq</application>-style connection info string, for example
        <literal>hostaddr=127.0.0.1 port=5432 dbname=mydb user=postgres
        password=mypasswd options=-csearch_path=</literal>.
        For details see <xref linkend="libpq-connstring"/>.
        Alternatively, the name of a foreign server.
+-->
+      <para>
+例えば<literal>hostaddr=127.0.0.1 port=5432 dbname=mydb user=postgres  password=mypasswd</literal>といった<application>libpq</application>形式の接続情報文字列です。
+詳細は<xref linkend="libpq-connstring"/>を参照してください。
+もしくは外部サーバ名です。
       </para>
      </listitem>
     </varlistentry>
@@ -93,18 +129,29 @@ dblink_connect(text connname, text connstr) returns text
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns status, which is always <literal>OK</literal> (since any error
     causes the function to throw an error instead of returning).
+-->
+状態を返します。
+これは常に<literal>OK</literal>です（何らかのエラーが起きるとこの関数は戻らずエラーとなるためです）。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     If untrusted users have access to a database that has not adopted a
     <link linkend="ddl-schemas-patterns">secure schema usage pattern</link>,
     begin each session by removing publicly-writable schemas from
@@ -113,23 +160,38 @@ dblink_connect(text connname, text connstr) returns text
     <parameter>connstr</parameter>.  This consideration is not specific
     to <filename>dblink</filename>; it applies to every interface for
     executing arbitrary SQL commands.
+-->
+信頼できないユーザが、<link linkend="ddl-schemas-patterns">安全なスキーマ使用パターン</link>を適用していないデータベースへアクセスする際には、セッション開始時に<varname>search_path</varname>から、第三者が書き込みができるスキーマを削除してください。
+これはたとえば<parameter>connstr</parameter>に値<literal>-csearch_path=</literal>を設定することで可能となります。
+このような配慮は、<filename>dblink</filename>に限ったことではありません。
+任意のSQLコマンドを実行するすべてのインタフェースに当てはまります。
    </para>
 
    <para>
+<!--
     Only superusers may use <function>dblink_connect</function> to create
     non-password-authenticated connections.  If non-superusers need this
     capability, use <function>dblink_connect_u</function> instead.
+-->
+スーパーユーザのみがパスワード認証がない接続を作成するために<function>dblink_connect</function>を使用することができます。
+スーパーユーザ以外でこの機能が必要ならば<function>dblink_connect_u</function>を代わりに使用してください。
    </para>
 
    <para>
+<!--
     It is unwise to choose connection names that contain equal signs,
     as this opens a risk of confusion with connection info strings
     in other <filename>dblink</filename> functions.
+-->
+他の<filename>dblink</filename>関数内で接続情報文字列が混乱する危険が発生しますので、等号記号を含む接続名を選択することは勧めません。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_connect('dbname=postgres options=-csearch_path=');
@@ -144,9 +206,15 @@ SELECT dblink_connect('myconn', 'dbname=postgres options=-csearch_path=');
  OK
 (1 row)
 
--- FOREIGN DATA WRAPPER functionality
--- Note: local connection must require password authentication for this to work properly
---       Otherwise, you will receive the following error from dblink_connect():
+<!--
+&#045;&#045; FOREIGN DATA WRAPPER functionality
+&#045;&#045; Note: local connection must require password authentication for this to work properly
+&#045;&#045;       Otherwise, you will receive the following error from dblink_connect():
+-->
+-- 外部データラッパー（FOREIGN DATA WRAPPER）の機能
+-- 注意：これが正常に機能するにはローカル接続にパスワード認証が必須です。
+--       さもないと、dblink_connect():から以下のエラーを受け取ります。
+--       ----------------------------------------------------------------------
 --       ERROR:  password is required
 --       DETAIL:  Non-superuser cannot connect if the server does not request a password.
 --       HINT:  Target server's authentication method must be changed.
@@ -204,7 +272,10 @@ DROP SERVER fdtest;
 
   <refnamediv>
    <refname>dblink_connect_u</refname>
+<!--
    <refpurpose>opens a persistent connection to a remote database, insecurely</refpurpose>
+-->
+   <refpurpose>リモートデータベースへの永続的な危険な接続を開きます</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -215,15 +286,22 @@ dblink_connect_u(text connname, text connstr) returns text
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_connect_u()</function> is identical to
     <function>dblink_connect()</function>, except that it will allow non-superusers
     to connect using any authentication method.
+-->
+<function>dblink_connect_u()</function>は、非スーパーユーザが任意の認証方式を使用して接続することができる点を除き、<function>dblink_connect()</function>と同じです。
    </para>
 
    <para>
+<!--
     If the remote server selects an authentication method that does not
     involve a password, then impersonation and subsequent escalation of
     privileges can occur, because the session will appear to have
@@ -241,10 +319,21 @@ dblink_connect_u(text connname, text connstr) returns text
     trustworthy, but this should be done with care.  It is also recommended
     that any <filename>~/.pgpass</filename> file belonging to the server's user
     <emphasis>not</emphasis> contain any records specifying a wildcard host name.
+-->
+リモートサーバがパスワードを含まない認証方式を選択していた場合、セッションがローカルな<productname>PostgreSQL</productname>サーバを実行するユーザから構成されたものとなりますので、なりすましやその後の権限昇格が起こり得ます。
+また、リモートサーバがパスワードを要求したとしても、サーバ側のユーザに属する<filename>~/.pgpass</filename>ファイルなどサーバの環境から提供されるパスワードになる可能性があります。
+これはなりすましの危険性だけでなく、信頼できないリモートサーバへのパスワードが漏れる可能性を引き起こします。
+このため<function>dblink_connect_u()</function>はまず、スーパーユーザ以外から呼び出すことができないように、<literal>PUBLIC</literal>からすべての権限を取り除いた形でインストールされます。
+状況によっては、信頼できるとみなされた特定のユーザに<function>dblink_connect_u()</function>の<literal>EXECUTE</literal>権限を与えることが適切となる場合があります。
+しかしこれは注意して行わなければなりません。
+また、サーバのユーザに属する<filename>~/.pgpass</filename>ファイルにはすべて、ホスト名としてワイルドカードを指定した項目をまったく<emphasis>含めない</emphasis>ことを推奨します。
    </para>
 
    <para>
+<!--
     For further details see <function>dblink_connect()</function>.
+-->
+この他の情報は<function>dblink_connect()</function>を参照してください。
    </para>
   </refsect1>
  </refentry>
@@ -261,7 +350,10 @@ dblink_connect_u(text connname, text connstr) returns text
 
   <refnamediv>
    <refname>dblink_disconnect</refname>
+<!--
    <refpurpose>closes a persistent connection to a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースへの永続的な接続を閉ざします</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -272,24 +364,37 @@ dblink_disconnect(text connname) returns text
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_disconnect()</function> closes a connection previously opened
     by <function>dblink_connect()</function>.  The form with no arguments closes
     an unnamed connection.
+-->
+<function>dblink_disconnect()</function>は<function>dblink_connect()</function>で開かれた既存の接続を閉ざします。
+引数がない構文では無名の接続を閉ざします。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        The name of a named connection to be closed.
+-->
+閉ざす名前付き接続の名前です。
       </para>
      </listitem>
     </varlistentry>
@@ -297,16 +402,26 @@ dblink_disconnect(text connname) returns text
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns status, which is always <literal>OK</literal> (since any error
     causes the function to throw an error instead of returning).
+-->
+状態を返します。
+これは常に<literal>OK</literal>です（何らかのエラーが起きるとこの関数は戻らずエラーとなるためです）。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_disconnect();
@@ -336,7 +451,10 @@ SELECT dblink_disconnect('myconn');
 
   <refnamediv>
    <refname>dblink</refname>
+<!--
    <refpurpose>executes a query in a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースで問い合わせを実行します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -348,32 +466,50 @@ dblink(text sql [, bool fail_on_error]) returns setof record
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink</function> executes a query (usually a <command>SELECT</command>,
     but it can be any SQL statement that returns rows) in a remote database.
+-->
+<function>dblink</function>はリモートデータベースで問い合わせ（通常は<command>SELECT</command>ですが行を返す任意のSQLコマンドを行うことができます）を実行します。
    </para>
 
    <para>
+<!--
     When two <type>text</type> arguments are given, the first one is first
     looked up as a persistent connection's name; if found, the command
     is executed on that connection.  If not found, the first argument
     is treated as a connection info string as for <function>dblink_connect</function>,
     and the indicated connection is made just for the duration of this command.
+-->
+2つの<type>text</type>型の引数が与えられた場合、一番目の引数はまず永続接続の名前を検索するために使われます。
+もし見つかれば、コマンドがその接続上で実行されます。
+見つからなければ、一番目の引数は<function>dblink_connect</function>用の接続情報文字列として扱われ、このコマンド実行時と同様に指定された接続が開きます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use; omit this parameter to use the
        unnamed connection.
+-->
+使用する接続の名前です。
+無名の接続を使用する場合はこのパラメータを省略します。
       </para>
      </listitem>
     </varlistentry>
@@ -382,8 +518,11 @@ dblink(text sql [, bool fail_on_error]) returns setof record
      <term><parameter>connstr</parameter></term>
      <listitem>
       <para>
+<!--
        A connection info string, as previously described for
        <function>dblink_connect</function>.
+-->
+上で<function>dblink_connect</function>で説明した接続情報文字列です。
       </para>
      </listitem>
     </varlistentry>
@@ -392,8 +531,11 @@ dblink(text sql [, bool fail_on_error]) returns setof record
      <term><parameter>sql</parameter></term>
      <listitem>
       <para>
+<!--
        The SQL query that you wish to execute in the remote database,
        for example <literal>select * from foo</literal>.
+-->
+例えば<literal>select * from foo</literal>といった、リモートデータベースで実行させるSQL問い合わせです。
       </para>
      </listitem>
     </varlistentry>
@@ -402,10 +544,14 @@ dblink(text sql [, bool fail_on_error]) returns setof record
      <term><parameter>fail_on_error</parameter></term>
      <listitem>
       <para>
+<!--
        If true (the default when omitted) then an error thrown on the
        remote side of the connection causes an error to also be thrown
        locally. If false, the remote error is locally reported as a NOTICE,
        and the function returns no rows.
+-->
+真（省略時のデフォルト）の場合、接続のリモート側で発生したエラーによりローカル側でもエラーが発生します。
+偽の場合リモート側のエラーはローカル側にはNOTICEとして報告され、この関数は行を返しません。
       </para>
      </listitem>
     </varlistentry>
@@ -413,9 +559,13 @@ dblink(text sql [, bool fail_on_error]) returns setof record
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     The function returns the row(s) produced by the query.  Since
     <function>dblink</function> can be used with any query, it is declared
     to return <type>record</type>, rather than specifying any particular
@@ -423,6 +573,12 @@ dblink(text sql [, bool fail_on_error]) returns setof record
     set of columns in the calling query &mdash; otherwise
     <productname>PostgreSQL</productname> would not know what to expect.
     Here is an example:
+-->
+この関数は問い合わせにより生成された行を返します。
+<function>dblink</function>は任意の問い合わせで使用することができますので、これは特定の列集合を指定するのではなく、<type>record</type>型を返すものと宣言されています。
+これは呼び出し元の問い合わせで想定列集合を指定しなければならないことを意味します。
+さもないと<productname>PostgreSQL</productname>は何が想定されているかわかりません。
+以下に例を示します。
 
 <programlisting>
 SELECT *
@@ -432,6 +588,7 @@ SELECT *
     WHERE proname LIKE 'bytea%';
 </programlisting>
 
+<!--
     The <quote>alias</quote> part of the <literal>FROM</literal> clause must
     specify the column names and types that the function will return.
     (Specifying column names in an alias is actually standard SQL
@@ -446,17 +603,33 @@ SELECT *
     does not insist on exact type matches either.  It will succeed
     so long as the returned data strings are valid input for the
     column type declared in the <literal>FROM</literal> clause.
+-->
+<literal>FROM</literal>句の<quote>別名</quote>部分は関数が返す列名とその型を指定しなければなりません。
+（別名内の列名の指定はSQL標準の構文ですが、列の型の指定は<productname>PostgreSQL</productname>の拡張です。）
+これによりシステムは、関数を実行する前に、<literal>*</literal>がどのように展開されるか、<literal>WHERE</literal>句内の<structname>proname</structname>が何を参照するかを理解します。
+実行時、リモートデータベースから返る実際の問い合わせの結果が<literal>FROM</literal>句で示された列数と異なる場合エラーが発生します。
+しかし、列名は一致する必要はありません。
+また、<function>dblink</function>は正確な型一致も強制しません。
+返されるデータ文字列が<literal>FROM</literal>句で宣言された列型の有効な入力である限り成功します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     A convenient way to use <function>dblink</function> with predetermined
     queries is to create a view.
     This allows the column type information to be buried in the view,
     instead of having to spell it out in every query.  For example,
+-->
+前もって判明している問い合わせを<function>dblink</function>で使用する簡便な方法はビューを作成することです。
+これにより問い合わせの度に列型の情報を記載することなく、ビュー内に隠すことができます。
+以下に例を示します。
 
 <programlisting>
 CREATE VIEW myremote_pg_proc AS
@@ -470,7 +643,10 @@ SELECT * FROM myremote_pg_proc WHERE proname LIKE 'bytea%';
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT * FROM dblink('dbname=postgres options=-csearch_path=',
@@ -557,7 +733,10 @@ SELECT * FROM dblink('myconn', 'select proname, prosrc from pg_proc')
 
   <refnamediv>
    <refname>dblink_exec</refname>
+<!--
    <refpurpose>executes a command in a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースでコマンドを実行します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -569,32 +748,50 @@ dblink_exec(text sql [, bool fail_on_error]) returns text
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_exec</function> executes a command (that is, any SQL statement
     that doesn't return rows) in a remote database.
+-->
+<function>dblink_exec</function>はリモートデータベースでコマンド（つまり行を返さない任意のSQL文）を実行します。
    </para>
 
    <para>
+<!--
     When two <type>text</type> arguments are given, the first one is first
     looked up as a persistent connection's name; if found, the command
     is executed on that connection.  If not found, the first argument
     is treated as a connection info string as for <function>dblink_connect</function>,
     and the indicated connection is made just for the duration of this command.
+-->
+2つの<type>text</type>型の引数が与えられた場合、一番目の引数はまず永続接続の名前を検索するために使われます。
+もし見つかれば、コマンドがその接続上で実行されます。
+見つからなければ、一番目の引数は<function>dblink_connect</function>用の接続情報文字列として扱われ、このコマンド実行時と同様に指定された接続が開きます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use; omit this parameter to use the
        unnamed connection.
+-->
+使用する接続の名前です。
+無名の接続を使用する場合はこのパラメータを省略します。
       </para>
      </listitem>
     </varlistentry>
@@ -603,8 +800,11 @@ dblink_exec(text sql [, bool fail_on_error]) returns text
      <term><parameter>connstr</parameter></term>
      <listitem>
       <para>
+<!--
        A connection info string, as previously described for
        <function>dblink_connect</function>.
+-->
+上で<function>dblink_connect</function>で説明した接続情報文字列です。
       </para>
      </listitem>
     </varlistentry>
@@ -613,9 +813,12 @@ dblink_exec(text sql [, bool fail_on_error]) returns text
      <term><parameter>sql</parameter></term>
      <listitem>
       <para>
+<!--
        The SQL command that you wish to execute in the remote database,
        for example
        <literal>insert into foo values(0, 'a', '{"a0","b0","c0"}')</literal>.
+-->
+例えば<literal>insert into foo values(0, 'a', '{"a0","b0","c0"}')</literal>といった、リモートデータベースで実行させるSQL問い合わせです。
       </para>
      </listitem>
     </varlistentry>
@@ -624,10 +827,14 @@ dblink_exec(text sql [, bool fail_on_error]) returns text
      <term><parameter>fail_on_error</parameter></term>
      <listitem>
       <para>
+<!--
        If true (the default when omitted) then an error thrown on the
        remote side of the connection causes an error to also be thrown
        locally. If false, the remote error is locally reported as a NOTICE,
        and the function's return value is set to <literal>ERROR</literal>.
+-->
+真（省略時のデフォルト）の場合、接続のリモート側で発生したエラーによりローカル側でもエラーが発生します。
+偽の場合リモート側のエラーはローカル側にはNOTICEとして報告され、この関数の戻り値は<literal>ERROR</literal>になります。
       </para>
      </listitem>
     </varlistentry>
@@ -635,15 +842,24 @@ dblink_exec(text sql [, bool fail_on_error]) returns text
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns status, either the command's status string or <literal>ERROR</literal>.
+-->
+状態、つまりコマンドの状態または<literal>ERROR</literal>を返します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_connect('dbname=dblink_test_standby');
@@ -694,7 +910,10 @@ DETAIL:  ERROR:  null value in column "relnamespace" violates not-null constrain
 
   <refnamediv>
    <refname>dblink_open</refname>
+<!--
    <refpurpose>opens a cursor in a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースでカーソルを開きます</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -705,25 +924,39 @@ dblink_open(text connname, text cursorname, text sql [, bool fail_on_error]) ret
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_open()</function> opens a cursor in a remote database.
     The cursor can subsequently be manipulated with
     <function>dblink_fetch()</function> and <function>dblink_close()</function>.
+-->
+<function>dblink_open()</function>はリモートデータベースでカーソルを開きます。
+その後カーソルを<function>dblink_fetch()</function>と<function>dblink_close()</function>で操作することができます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use; omit this parameter to use the
        unnamed connection.
+-->
+使用する接続の名前です。
+無名の接続を使用する場合はこのパラメータを省略します。
       </para>
      </listitem>
     </varlistentry>
@@ -732,7 +965,10 @@ dblink_open(text connname, text cursorname, text sql [, bool fail_on_error]) ret
      <term><parameter>cursorname</parameter></term>
      <listitem>
       <para>
+<!--
        The name to assign to this cursor.
+-->
+このカーソルに割り当てる名前です。
       </para>
      </listitem>
     </varlistentry>
@@ -741,8 +977,11 @@ dblink_open(text connname, text cursorname, text sql [, bool fail_on_error]) ret
      <term><parameter>sql</parameter></term>
      <listitem>
       <para>
+<!--
        The <command>SELECT</command> statement that you wish to execute in the remote
        database, for example <literal>select * from pg_class</literal>.
+-->
+例えば<literal>select * from pg_class</literal>といった、リモートデータベースで実行させたい<command>SELECT</command>文です。
       </para>
      </listitem>
     </varlistentry>
@@ -751,10 +990,14 @@ dblink_open(text connname, text cursorname, text sql [, bool fail_on_error]) ret
      <term><parameter>fail_on_error</parameter></term>
      <listitem>
       <para>
+<!--
        If true (the default when omitted) then an error thrown on the
        remote side of the connection causes an error to also be thrown
        locally. If false, the remote error is locally reported as a NOTICE,
        and the function's return value is set to <literal>ERROR</literal>.
+-->
+真（省略時のデフォルト）の場合、接続のリモート側で発生したエラーによりローカル側でもエラーが発生します。
+偽の場合リモート側のエラーはローカル側にはNOTICEとして報告され、この関数の戻り値は<literal>ERROR</literal>になります。
       </para>
      </listitem>
     </varlistentry>
@@ -762,17 +1005,27 @@ dblink_open(text connname, text cursorname, text sql [, bool fail_on_error]) ret
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns status, either <literal>OK</literal> or <literal>ERROR</literal>.
+-->
+状態、つまり<literal>OK</literal>または<literal>ERROR</literal>を返します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     Since a cursor can only persist within a transaction,
     <function>dblink_open</function> starts an explicit transaction block
     (<command>BEGIN</command>) on the remote side, if the remote side was
@@ -784,11 +1037,19 @@ dblink_open(text connname, text cursorname, text sql [, bool fail_on_error]) ret
     and then an error occurs or you use <function>dblink_disconnect</function> before
     <function>dblink_close</function>, your change <emphasis>will be
     lost</emphasis> because the transaction will be aborted.
+-->
+カーソルはトランザクション内でのみ持続することができますので、リモート側がまだトランザクションの内部でない場合、<function>dblink_open</function>はリモート側で明示的なトランザクションブロックを開始（<command>BEGIN</command>）します。
+このトランザクションは対応する<function>dblink_close</function>が実行された時に同様に閉ざされます。
+<function>dblink_open</function>と<function>dblink_close</function>の間に<function>dblink_exec</function>を使用してデータを変更した場合、エラーが発生することに注意してください。
+また、<function>dblink_close</function>の前に<function>dblink_disconnect</function>を使用すると、トランザクションがアボートしますので変更が<emphasis>失われる</emphasis>ことに注意してください。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_connect('dbname=postgres options=-csearch_path=');
@@ -818,7 +1079,10 @@ SELECT dblink_open('foo', 'select proname, prosrc from pg_proc');
 
   <refnamediv>
    <refname>dblink_fetch</refname>
+<!--
    <refpurpose>returns rows from an open cursor in a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースで開いているカーソルから行を取り出します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -829,24 +1093,37 @@ dblink_fetch(text connname, text cursorname, int howmany [, bool fail_on_error])
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_fetch</function> fetches rows from a cursor previously
     established by <function>dblink_open</function>.
+-->
+<function>dblink_fetch</function>は<function>dblink_open</function>によりあらかじめ確立したカーソルから行を取り出します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use; omit this parameter to use the
        unnamed connection.
+-->
+使用する接続の名前です。
+無名の接続を使用する場合はこのパラメータを省略します。
       </para>
      </listitem>
     </varlistentry>
@@ -855,7 +1132,10 @@ dblink_fetch(text connname, text cursorname, int howmany [, bool fail_on_error])
      <term><parameter>cursorname</parameter></term>
      <listitem>
       <para>
+<!--
        The name of the cursor to fetch from.
+-->
+行を取り出すカーソルの名前です。
       </para>
      </listitem>
     </varlistentry>
@@ -864,9 +1144,14 @@ dblink_fetch(text connname, text cursorname, int howmany [, bool fail_on_error])
      <term><parameter>howmany</parameter></term>
      <listitem>
       <para>
+<!--
        The maximum number of rows to retrieve. The next <parameter>howmany</parameter>
        rows are fetched, starting at the current cursor position, moving
        forward. Once the cursor has reached its end, no more rows are produced.
+-->
+受け取る行の最大数です。
+カーソルの現在位置から次の<parameter>howmany</parameter>行を取り出し、カーソルの位置を前方に移動します。
+カーソルが終端まで達すると、これ以上の行は生成されません。
       </para>
      </listitem>
     </varlistentry>
@@ -875,10 +1160,14 @@ dblink_fetch(text connname, text cursorname, int howmany [, bool fail_on_error])
      <term><parameter>fail_on_error</parameter></term>
      <listitem>
       <para>
+<!--
        If true (the default when omitted) then an error thrown on the
        remote side of the connection causes an error to also be thrown
        locally. If false, the remote error is locally reported as a NOTICE,
        and the function returns no rows.
+-->
+真（省略時のデフォルト）の場合、接続のリモート側で発生したエラーによりローカル側でもエラーが発生します。
+偽の場合リモート側のエラーはローカル側にはNOTICEとして報告され、この関数は行を返しません。
       </para>
      </listitem>
     </varlistentry>
@@ -886,30 +1175,48 @@ dblink_fetch(text connname, text cursorname, int howmany [, bool fail_on_error])
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     The function returns the row(s) fetched from the cursor.  To use this
     function, you will need to specify the expected set of columns,
     as previously discussed for <function>dblink</function>.
+-->
+この関数はカーソルから取り出された行を返します。
+この関数を使用するためには、<function>dblink</function>で説明したように、想定する列集合を指定する必要があります。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     On a mismatch between the number of return columns specified in the
     <literal>FROM</literal> clause, and the actual number of columns returned by the
     remote cursor, an error will be thrown. In this event, the remote cursor
     is still advanced by as many rows as it would have been if the error had
     not occurred.  The same is true for any other error occurring in the local
     query after the remote <command>FETCH</command> has been done.
+-->
+リモートカーソルから返る実際の列数と<literal>FROM</literal>句で指定された列数と異なる場合エラーが発生します。
+この場合リモート側のカーソルは、エラーが発生しなかった場合と同じ行数分位置が変わります。
+リモート側の<command>FETCH</command>が完了した後にローカル側でこの他のエラーが発生した場合も同じです。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_connect('dbname=postgres options=-csearch_path=');
@@ -971,7 +1278,10 @@ SELECT * FROM dblink_fetch('foo', 5) AS (funcname name, source text);
 
   <refnamediv>
    <refname>dblink_close</refname>
+<!--
    <refpurpose>closes a cursor in a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースでカーソルを閉ざします</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -982,24 +1292,37 @@ dblink_close(text connname, text cursorname [, bool fail_on_error]) returns text
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_close</function> closes a cursor previously opened with
     <function>dblink_open</function>.
+-->
+<function>dblink_close</function>は前もって<function>dblink_open</function>で開かれたカーソルを閉ざします。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use; omit this parameter to use the
        unnamed connection.
+-->
+使用する接続の名前です。
+無名の接続を使用する場合はこのパラメータを省略します。
       </para>
      </listitem>
     </varlistentry>
@@ -1008,7 +1331,10 @@ dblink_close(text connname, text cursorname [, bool fail_on_error]) returns text
      <term><parameter>cursorname</parameter></term>
      <listitem>
       <para>
+<!--
        The name of the cursor to close.
+-->
+閉ざすカーソルの名前です。
       </para>
      </listitem>
     </varlistentry>
@@ -1017,10 +1343,14 @@ dblink_close(text connname, text cursorname [, bool fail_on_error]) returns text
      <term><parameter>fail_on_error</parameter></term>
      <listitem>
       <para>
+<!--
        If true (the default when omitted) then an error thrown on the
        remote side of the connection causes an error to also be thrown
        locally. If false, the remote error is locally reported as a NOTICE,
        and the function's return value is set to <literal>ERROR</literal>.
+-->
+真（省略時のデフォルト）の場合、接続のリモート側で発生したエラーによりローカル側でもエラーが発生します。
+偽の場合リモート側のエラーはローカル側にはNOTICEとして報告され、この関数の戻り値は<literal>ERROR</literal>になります。
       </para>
      </listitem>
     </varlistentry>
@@ -1028,25 +1358,40 @@ dblink_close(text connname, text cursorname [, bool fail_on_error]) returns text
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns status, either <literal>OK</literal> or <literal>ERROR</literal>.
+-->
+状態、つまり<literal>OK</literal>または<literal>ERROR</literal>を返します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     If <function>dblink_open</function> started an explicit transaction block,
     and this is the last remaining open cursor in this connection,
     <function>dblink_close</function> will issue the matching <command>COMMIT</command>.
+-->
+<function>dblink_open</function>が明示的なトランザクションブロックを開始し、これが接続上で最後まで開き続けているカーソルであった場合、<function>dblink_close</function>は対応する<command>COMMIT</command>を発行します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_connect('dbname=postgres options=-csearch_path=');
@@ -1082,7 +1427,10 @@ SELECT dblink_close('foo');
 
   <refnamediv>
    <refname>dblink_get_connections</refname>
+<!--
    <refpurpose>returns the names of all open named dblink connections</refpurpose>
+-->
+   <refpurpose>接続中の名前付きdblink接続すべての名前を返します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -1092,22 +1440,37 @@ dblink_get_connections() returns text[]
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_get_connections</function> returns an array of the names
     of all open named <filename>dblink</filename> connections.
+-->
+<function>dblink_get_connections</function>は、接続中の名前付きの<filename>dblink</filename>接続すべての名前を配列として返します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
+<!--
    <para>Returns a text array of connection names, or NULL if none.</para>
+-->
+   <para>接続名のテキスト型配列を返します。なければNULLです。</para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <programlisting>
 SELECT dblink_get_connections();
@@ -1127,7 +1490,10 @@ SELECT dblink_get_connections();
 
   <refnamediv>
    <refname>dblink_error_message</refname>
+<!--
    <refpurpose>gets last error message on the named connection</refpurpose>
+-->
+   <refpurpose>名前付き接続上の最後のエラーメッセージを入手します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -1137,23 +1503,35 @@ dblink_error_message(text connname) returns text
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_error_message</function> fetches the most recent remote
     error message for a given connection.
+-->
+<function>dblink_error_message</function>は指定された接続における、最後のリモートエラーメッセージを取り出します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use.
+-->
+使用する接続名です。
       </para>
      </listitem>
     </varlistentry>
@@ -1161,18 +1539,29 @@ dblink_error_message(text connname) returns text
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns last error message, or <literal>OK</literal> if there has been
     no error in this connection.
+-->
+最後のエラーメッセージを返します。
+接続においてエラーが存在しなかった場合は<literal>OK</literal>を返します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     When asynchronous queries are initiated by
     <function>dblink_send_query</function>, the error message associated with
     the connection might not get updated until the server's response message
@@ -1180,11 +1569,18 @@ dblink_error_message(text connname) returns text
     or <function>dblink_get_result</function> should be called prior to
     <function>dblink_error_message</function>, so that any error generated by
     the asynchronous query will be visible.
+-->
+非同期問い合わせが<function>dblink_send_query</function>で開始された場合、接続に伴うエラーメッセージは、サーバの応答メッセージが消費されるまで更新されないかもしれません。
+典型的にはこのことは、<function>dblink_error_message</function>に先立って<function>dblink_is_busy</function>あるいは<function>dblink_get_result</function>を呼び出すべきであることを意味します。
+そうすることによって非同期問い合わせによって生成されたエラーが見えるようになります。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <programlisting>
 SELECT dblink_error_message('dtest1');
@@ -1204,7 +1600,10 @@ SELECT dblink_error_message('dtest1');
 
   <refnamediv>
    <refname>dblink_send_query</refname>
+<!--
    <refpurpose>sends an async query to a remote database</refpurpose>
+-->
+   <refpurpose>リモートデータベースに非同期問い合わせを送信します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -1214,33 +1613,51 @@ dblink_send_query(text connname, text sql) returns int
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_send_query</function> sends a query to be executed
     asynchronously, that is, without immediately waiting for the result.
     There must not be an async query already in progress on the
     connection.
+-->
+<function>dblink_send_query</function>は非同期に、つまり、結果をすぐに待機することなく実行する問い合わせを送信します。
+接続上で進行中の非同期問い合わせが存在してはなりません。
    </para>
 
    <para>
+<!--
     After successfully dispatching an async query, completion status
     can be checked with <function>dblink_is_busy</function>, and the results
     are ultimately collected with <function>dblink_get_result</function>.
     It is also possible to attempt to cancel an active async query
     using <function>dblink_cancel_query</function>.
+-->
+非同期問い合わせの登録が成功した後、<function>dblink_is_busy</function>を使用して完了状況を検査することができます。
+そして最後に、<function>dblink_get_result</function>を使用して結果を収集します。
+また、<function>dblink_cancel_query</function>を使用して実行中の非同期問い合わせを取り消すことができます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use.
+-->
+使用する接続名です。
       </para>
      </listitem>
     </varlistentry>
@@ -1249,8 +1666,11 @@ dblink_send_query(text connname, text sql) returns int
      <term><parameter>sql</parameter></term>
      <listitem>
       <para>
+<!--
        The SQL statement that you wish to execute in the remote database,
        for example <literal>select * from pg_class</literal>.
+-->
+例えば<literal>select * from pg_class</literal>といった、リモートデータベースで実行させたいSQL文です。
       </para>
      </listitem>
     </varlistentry>
@@ -1258,15 +1678,25 @@ dblink_send_query(text connname, text sql) returns int
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns 1 if the query was successfully dispatched, 0 otherwise.
+-->
+問い合わせの登録に成功した場合1を返します。
+失敗した場合は0を返します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <programlisting>
 SELECT dblink_send_query('dtest1', 'SELECT * FROM foo WHERE f1 &lt; 3');
@@ -1286,7 +1716,10 @@ SELECT dblink_send_query('dtest1', 'SELECT * FROM foo WHERE f1 &lt; 3');
 
   <refnamediv>
    <refname>dblink_is_busy</refname>
+<!--
    <refpurpose>checks if connection is busy with an async query</refpurpose>
+-->
+   <refpurpose>接続において非同期問い合わせが実行中か検査します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -1296,22 +1729,34 @@ dblink_is_busy(text connname) returns int
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_is_busy</function> tests whether an async query is in progress.
+-->
+<function>dblink_is_busy</function>は非同期問い合わせが進行中かどうか試験します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to check.
+-->
+検査対象の接続名です。
       </para>
      </listitem>
     </varlistentry>
@@ -1319,17 +1764,27 @@ dblink_is_busy(text connname) returns int
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns 1 if connection is busy, 0 if it is not busy.
     If this function returns 0, it is guaranteed that
     <function>dblink_get_result</function> will not block.
+-->
+接続において進行中だった場合は1、さもなくば0を返します。
+この関数が0を返した場合、<function>dblink_get_result</function>がブロックされないことが保証されます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <programlisting>
 SELECT dblink_is_busy('dtest1');
@@ -1349,7 +1804,10 @@ SELECT dblink_is_busy('dtest1');
 
   <refnamediv>
    <refname>dblink_get_notify</refname>
+<!--
    <refpurpose>retrieve async notifications on a connection</refpurpose>
+-->
+   <refpurpose>接続上の非同期通知を取り出します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -1360,27 +1818,41 @@ dblink_get_notify(text connname) returns setof (notify_name text, be_pid int, ex
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_get_notify</function> retrieves notifications on either
     the unnamed connection, or on a named connection if specified.
     To receive notifications via dblink, <function>LISTEN</function> must
     first be issued, using <function>dblink_exec</function>.
     For details see <xref linkend="sql-listen"/> and <xref linkend="sql-notify"/>.
+-->
+<function>dblink_get_notify</function>は名前の付いていない接続、または、もし指定されて名前が付いている接続いずれからも通知を取り出します。
+dblink経由で通知を受け取るには、<function>dblink_exec</function>を使用して<function>LISTEN</function>を最初に発行しなければなりません。
+詳細は<xref linkend="sql-listen"/>と<xref linkend="sql-notify"/>を参照ください。
    </para>
 
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        The name of a named connection to get notifications on.
+-->
+通知を受け取る名前つきの接続の名前
       </para>
      </listitem>
     </varlistentry>
@@ -1388,12 +1860,21 @@ dblink_get_notify(text connname) returns setof (notify_name text, be_pid int, ex
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
+<!--
     <para>Returns <type>setof (notify_name text, be_pid int, extra text)</type>, or an empty set if none.</para>
+-->
+    <para><type>setof (notify_name text, be_pid int, extra text)</type>または存在しない場合は空集合を返します。</para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_exec('LISTEN virtual');
@@ -1431,7 +1912,10 @@ SELECT * FROM dblink_get_notify();
 
   <refnamediv>
    <refname>dblink_get_result</refname>
+<!--
    <refpurpose>gets an async query result</refpurpose>
+-->
+   <refpurpose>非同期問い合わせの結果を入手します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -1441,25 +1925,38 @@ dblink_get_result(text connname [, bool fail_on_error]) returns setof record
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_get_result</function> collects the results of an
     asynchronous query previously sent with <function>dblink_send_query</function>.
     If the query is not already completed, <function>dblink_get_result</function>
     will wait until it is.
+-->
+<function>dblink_get_result</function>は、事前に<function>dblink_send_query</function>で送信された非同期問い合わせの結果を収集します。
+問い合わせがまだ完了していなかった場合、<function>dblink_get_result</function>は終わるまで待機します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use.
+-->
+使用する接続名です。
       </para>
      </listitem>
     </varlistentry>
@@ -1468,10 +1965,14 @@ dblink_get_result(text connname [, bool fail_on_error]) returns setof record
      <term><parameter>fail_on_error</parameter></term>
      <listitem>
       <para>
+<!--
        If true (the default when omitted) then an error thrown on the
        remote side of the connection causes an error to also be thrown
        locally. If false, the remote error is locally reported as a NOTICE,
        and the function returns no rows.
+-->
+真（省略時のデフォルト）の場合、接続のリモート側で発生したエラーによりローカル側でもエラーが発生します。
+偽の場合リモート側のエラーはローカル側にはNOTICEとして報告され、この関数は行を返しません。
       </para>
      </listitem>
     </varlistentry>
@@ -1479,36 +1980,56 @@ dblink_get_result(text connname [, bool fail_on_error]) returns setof record
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     For an async query (that is, an SQL statement returning rows),
     the function returns the row(s) produced by the query.  To use this
     function, you will need to specify the expected set of columns,
     as previously discussed for <function>dblink</function>.
+-->
+非同期問い合わせ（行を返すSQL文の場合）について、この関数は問い合わせで生成された行を返します。
+この関数を使用するためには、上の<function>dblink</function>で説明したように想定する列集合を指定する必要があります。
    </para>
 
    <para>
+<!--
     For an async command (that is, an SQL statement not returning rows),
     the function returns a single row with a single text column containing
     the command's status string.  It is still necessary to specify that
     the result will have a single text column in the calling <literal>FROM</literal>
     clause.
+-->
+非同期コマンド（行を返さないSQL文の場合）について、この関数はコマンド状態文字列からなるテキスト列を1つ持つ1行を返します。
+この場合も呼び出し元の<literal>FROM</literal>句で結果が単一のテキスト列を持つことを指定する必要があります。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     This function <emphasis>must</emphasis> be called if
     <function>dblink_send_query</function> returned 1.
     It must be called once for each query
     sent, and one additional time to obtain an empty set result,
     before the connection can be used again.
+-->
+<function>dblink_send_query</function>が1を返した場合にこの関数を<emphasis>呼び出さなければなりません</emphasis>。
+接続を再度利用できるようになる前に、送信した問い合わせに対し一度呼び出されなければなりません。
+もう一度実行すると空の結果集合を得ることになります。
    </para>
 
    <para>
+<!--
     When using <function>dblink_send_query</function> and
     <function>dblink_get_result</function>, <application>dblink</application> fetches the entire
     remote query result before returning any of it to the local query
@@ -1518,11 +2039,20 @@ dblink_get_result(text connname [, bool fail_on_error]) returns setof record
     manageable number of rows at a time.  Alternatively, use plain
     <function>dblink()</function>, which avoids memory bloat by spooling large result
     sets to disk.
+-->
+<function>dblink_send_query</function>と<function>dblink_get_result</function>を使う場合には、<application>dblink</application>はリモート側の問い合わせ結果をローカルの問い合わせ処理に渡す前にすべて取り込みます。
+問い合わせが大量の行を返す場合、ローカルセッションで一時的なメモリ膨張が起こるかも知れません。
+そのような問い合わせは<function>dblink_open</function>でカーソルとして開き、それから一度に管理可能な行数を取り出す方が良いでしょう。
+あるいは、普通の<function>dblink()</function>を使って下さい。
+大きな結果集合をディスクにスプールすることでメモリ膨張を回避します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 contrib_regression=# SELECT dblink_connect('dtest1', 'dbname=contrib_regression');
@@ -1595,7 +2125,10 @@ contrib_regression=# SELECT * FROM dblink_get_result('dtest1') AS t1(f1 int, f2 
 
   <refnamediv>
    <refname>dblink_cancel_query</refname>
+<!--
    <refpurpose>cancels any active query on the named connection</refpurpose>
+-->
+   <refpurpose>名前付き接続上の実行中の問い合わせをすべて取り消します</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -1605,9 +2138,13 @@ dblink_cancel_query(text connname) returns text
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_cancel_query</function> attempts to cancel any query that
     is in progress on the named connection.  Note that this is not
     certain to succeed (since, for example, the remote query might
@@ -1615,18 +2152,29 @@ dblink_cancel_query(text connname) returns text
     odds that the query will fail soon.  You must still complete the
     normal query protocol, for example by calling
     <function>dblink_get_result</function>.
+-->
+<function>dblink_cancel_query</function>は名前付き接続上で進行中の問い合わせをすべて取り消そうとします。
+これは成功するとは限らないことに注意してください（例えばリモート問い合わせがすでに終わっているかもしれないからです）。
+取り消し要求は単に問い合わせがすぐに失敗する可能性を大きくするだけです。
+例えば、<function>dblink_get_result</function>を呼び出すなど、通常の問い合わせ手順を完了させる必要があります。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>connname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of the connection to use.
+-->
+使用する接続名です。
       </para>
      </listitem>
     </varlistentry>
@@ -1634,16 +2182,25 @@ dblink_cancel_query(text connname) returns text
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns <literal>OK</literal> if the cancel request has been sent, or
     the text of an error message on failure.
+-->
+取り消し要求が送信された場合<literal>OK</literal>を、さもなくば失敗についてのエラーメッセージテキストを返します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <programlisting>
 SELECT dblink_cancel_query('dtest1');
@@ -1663,8 +2220,12 @@ SELECT dblink_cancel_query('dtest1');
 
   <refnamediv>
    <refname>dblink_get_pkey</refname>
+<!--
    <refpurpose>returns the positions and field names of a relation's
     primary key fields
+-->
+   <refpurpose>
+リレーションの主キーフィールドの位置とフィールド名を返します
    </refpurpose>
   </refnamediv>
 
@@ -1675,28 +2236,43 @@ dblink_get_pkey(text relname) returns setof dblink_pkey_results
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_get_pkey</function> provides information about the primary
     key of a relation in the local database.  This is sometimes useful
     in generating queries to be sent to remote databases.
+-->
+<function>dblink_get_pkey</function>は、ローカルデータベース内のリレーションの主キーに関する情報を提供します。
+これはリモートデータベースに送信する問い合わせを生成する際に役に立つことがあります。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>relname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of a local relation, for example <literal>foo</literal> or
        <literal>myschema.mytab</literal>.  Include double quotes if the
        name is mixed-case or contains special characters, for
        example <literal>"FooBar"</literal>; without quotes, the string
        will be folded to lower case.
+-->
+例えば<literal>foo</literal>や<literal>myschema.mytab</literal>といった、ローカル側のリレーションの名前です。
+例えば<literal>"FooBar"</literal>のように名前に大文字小文字が混在する場合や特殊文字が含まれる場合は二重引用符で括ってください。
+引用符がないと文字列は小文字に変換されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1704,24 +2280,39 @@ dblink_get_pkey(text relname) returns setof dblink_pkey_results
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
    <para>
+<!--
     Returns one row for each primary key field, or no rows if the relation
     has no primary key.  The result row type is defined as
+-->
+主キー毎に1行を返します。
+リレーションが主キーを持たない場合は行は返されません。
+結果の行型は以下のように定義されます。
 
 <programlisting>
 CREATE TYPE dblink_pkey_results AS (position int, colname text);
 </programlisting>
 
+<!--
     The <literal>position</literal> column simply runs from 1 to <replaceable>N</replaceable>;
     it is the number of the field within the primary key, not the number
     within the table's columns.
+-->
+<literal>position</literal>列は単に1から<replaceable>N</replaceable>を返します。
+それは、主キー内にあるフィールドの数で、テーブルの列内にある数ではありません。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 CREATE TABLE foobar (
@@ -1756,8 +2347,11 @@ SELECT * FROM dblink_get_pkey('foobar');
   <refnamediv>
    <refname>dblink_build_sql_insert</refname>
    <refpurpose>
+<!--
     builds an INSERT statement using a local tuple, replacing the
     primary key field values with alternative supplied values
+-->
+ローカル側のタプルを使用し、主キーフィールドの値を別の提供される値に置き換えてINSERT文を構築します
    </refpurpose>
   </refnamediv>
 
@@ -1772,9 +2366,13 @@ dblink_build_sql_insert(text relname,
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_build_sql_insert</function> can be useful in doing selective
     replication of a local table to a remote database.  It selects a row
     from the local table based on primary key, and then builds an SQL
@@ -1782,22 +2380,34 @@ dblink_build_sql_insert(text relname,
     the primary key values replaced by the values in the last argument.
     (To make an exact copy of the row, just specify the same values for
     the last two arguments.)
+-->
+<function>dblink_build_sql_insert</function>はローカル側のテーブルの一部を選択した複製をリモートデータベースに行う場合に有用になる可能性があります。
+これは主キーによりローカルテーブルから行を選択し、その主キー値を最後の引数で与えた値に置き換えて、行を複製する<command>INSERT</command> SQLコマンドを構築します。
+（行をそのまま複製する場合は、単に最後の2つの引数に同じ値を指定してください。）
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>relname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of a local relation, for example <literal>foo</literal> or
        <literal>myschema.mytab</literal>.  Include double quotes if the
        name is mixed-case or contains special characters, for
        example <literal>"FooBar"</literal>; without quotes, the string
        will be folded to lower case.
+-->
+例えば<literal>foo</literal>や<literal>myschema.mytab</literal>といったローカル側のリレーションの名前です。
+例えば<literal>"FooBar"</literal>のように名前に大文字小文字が混在する場合や特殊文字が含まれる場合は二重引用符で括ってください。
+引用符がないと文字列は小文字に変換されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1806,8 +2416,11 @@ dblink_build_sql_insert(text relname,
      <term><parameter>primary_key_attnums</parameter></term>
      <listitem>
       <para>
+<!--
        Attribute numbers (1-based) of the primary key fields,
        for example <literal>1 2</literal>.
+-->
+例えば<literal>1 2</literal>といった、主キーフィールドの属性番号（1始まり）です。
       </para>
      </listitem>
     </varlistentry>
@@ -1816,7 +2429,10 @@ dblink_build_sql_insert(text relname,
      <term><parameter>num_primary_key_atts</parameter></term>
      <listitem>
       <para>
+<!--
        The number of primary key fields.
+-->
+主キーフィールドの個数です。
       </para>
      </listitem>
     </varlistentry>
@@ -1825,10 +2441,15 @@ dblink_build_sql_insert(text relname,
      <term><parameter>src_pk_att_vals_array</parameter></term>
      <listitem>
       <para>
+<!--
        Values of the primary key fields to be used to look up the
        local tuple.  Each field is represented in text form.
        An error is thrown if there is no local row with these
        primary key values.
+-->
+ローカルタプルを検索するために使用される主キーフィールドの値です。
+各フィールドはテキスト形式で表されます。
+これらの主キーの値を持つ行がローカル側に存在しない場合はエラーが発生します。
       </para>
      </listitem>
     </varlistentry>
@@ -1837,8 +2458,12 @@ dblink_build_sql_insert(text relname,
      <term><parameter>tgt_pk_att_vals_array</parameter></term>
      <listitem>
       <para>
+<!--
        Values of the primary key fields to be placed in the resulting
        <command>INSERT</command> command.  Each field is represented in text form.
+-->
+最終的な<command>INSERT</command>コマンドにおいて置き換えられる主キーフィールドの値です。
+各フィールドはテキスト形式で表されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1846,15 +2471,25 @@ dblink_build_sql_insert(text relname,
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
+<!--
    <para>Returns the requested SQL statement as text.</para>
+-->
+   <para>要求したSQL文をテキストとして返します。</para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     As of <productname>PostgreSQL</productname> 9.0, the attribute numbers in
     <parameter>primary_key_attnums</parameter> are interpreted as logical
     column numbers, corresponding to the column's position in
@@ -1862,11 +2497,18 @@ dblink_build_sql_insert(text relname,
     numbers as physical column positions.  There is a difference if any
     column(s) to the left of the indicated column have been dropped during
     the lifetime of the table.
+-->
+<productname>PostgreSQL</productname> 9.0の段階で、<parameter>primary_key_attnums</parameter>の中の属性数は、<literal>SELECT * FROM relname</literal>内の列の位置に対応する、論理的列数として翻訳されます。
+以前のバージョンは物理的な列の位置として数を翻訳しました。
+テーブルの存続期間中に、表示された列の左側のどんな列でも削除されると差異が生じます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_build_sql_insert('foo', '1 2', 2, '{"1", "a"}', '{"1", "b''a"}');
@@ -1890,8 +2532,12 @@ SELECT dblink_build_sql_insert('foo', '1 2', 2, '{"1", "a"}', '{"1", "b''a"}');
 
   <refnamediv>
    <refname>dblink_build_sql_delete</refname>
+<!--
    <refpurpose>builds a DELETE statement using supplied values for primary
     key field values
+-->
+   <refpurpose>
+主キーフィールドの値として提供された値を使用したDELETE文を構築します
    </refpurpose>
   </refnamediv>
 
@@ -1905,29 +2551,44 @@ dblink_build_sql_delete(text relname,
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_build_sql_delete</function> can be useful in doing selective
     replication of a local table to a remote database.  It builds an SQL
     <command>DELETE</command> command that will delete the row with the given
     primary key values.
+-->
+<function>dblink_build_sql_delete</function>はローカル側のテーブルの一部を選択した複製をリモートデータベースに行う場合に有用になる可能性があります。
+これは指定した主キーの値を持つ行を削除する<command>DELETE</command> SQLコマンドを構築します。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>relname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of a local relation, for example <literal>foo</literal> or
        <literal>myschema.mytab</literal>.  Include double quotes if the
        name is mixed-case or contains special characters, for
        example <literal>"FooBar"</literal>; without quotes, the string
        will be folded to lower case.
+-->
+例えば<literal>foo</literal>や<literal>myschema.mytab</literal>といったローカル側のリレーションの名前です。
+例えば<literal>"FooBar"</literal>のように名前に大文字小文字が混在する場合や特殊文字が含まれる場合は二重引用符で括ってください。
+引用符がないと文字列は小文字に変換されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1936,8 +2597,11 @@ dblink_build_sql_delete(text relname,
      <term><parameter>primary_key_attnums</parameter></term>
      <listitem>
       <para>
+<!--
        Attribute numbers (1-based) of the primary key fields,
        for example <literal>1 2</literal>.
+-->
+例えば<literal>1 2</literal>といった、主キーフィールドの属性番号（1始まり）です。
       </para>
      </listitem>
     </varlistentry>
@@ -1946,7 +2610,10 @@ dblink_build_sql_delete(text relname,
      <term><parameter>num_primary_key_atts</parameter></term>
      <listitem>
       <para>
+<!--
        The number of primary key fields.
+-->
+主キーフィールドの個数です。
       </para>
      </listitem>
     </varlistentry>
@@ -1955,8 +2622,12 @@ dblink_build_sql_delete(text relname,
      <term><parameter>tgt_pk_att_vals_array</parameter></term>
      <listitem>
       <para>
+<!--
        Values of the primary key fields to be used in the resulting
        <command>DELETE</command> command.  Each field is represented in text form.
+-->
+最終的な<command>DELETE</command>コマンドにおいて使用される主キーフィールドの値です。
+各フィールドはテキスト形式で表されます。
       </para>
      </listitem>
     </varlistentry>
@@ -1964,15 +2635,27 @@ dblink_build_sql_delete(text relname,
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
+<!--
    <para>Returns the requested SQL statement as text.</para>
+-->
+   <para>
+要求したSQL文をテキストとして返します。
+   </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     As of <productname>PostgreSQL</productname> 9.0, the attribute numbers in
     <parameter>primary_key_attnums</parameter> are interpreted as logical
     column numbers, corresponding to the column's position in
@@ -1980,11 +2663,18 @@ dblink_build_sql_delete(text relname,
     numbers as physical column positions.  There is a difference if any
     column(s) to the left of the indicated column have been dropped during
     the lifetime of the table.
+-->
+<productname>PostgreSQL</productname> 9.0の段階で、<parameter>primary_key_attnums</parameter>の中の属性数は、<literal>SELECT * FROM relname</literal>内の列の位置に対応する、論理的列数として翻訳されます。
+以前のバージョンは物理的な列の位置として数を翻訳しました。
+テーブルの存続期間中に、表示された列の左側のどんな列でも削除されると差異が生じます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_build_sql_delete('"MyFoo"', '1 2', 2, '{"1", "b"}');
@@ -2008,8 +2698,12 @@ SELECT dblink_build_sql_delete('"MyFoo"', '1 2', 2, '{"1", "b"}');
 
   <refnamediv>
    <refname>dblink_build_sql_update</refname>
+<!--
    <refpurpose>builds an UPDATE statement using a local tuple, replacing
     the primary key field values with alternative supplied values
+   </refpurpose>
+-->
+   <refpurpose>主キーフィールドの値として提供された値を使用したUPDATE文を構築します
    </refpurpose>
   </refnamediv>
 
@@ -2024,9 +2718,13 @@ dblink_build_sql_update(text relname,
   </refsynopsisdiv>
 
   <refsect1>
+<!--
    <title>Description</title>
+-->
+   <title>説明</title>
 
    <para>
+<!--
     <function>dblink_build_sql_update</function> can be useful in doing selective
     replication of a local table to a remote database.  It selects a row
     from the local table based on primary key, and then builds an SQL
@@ -2037,22 +2735,36 @@ dblink_build_sql_update(text relname,
     all fields of the row &mdash; the main difference between this and
     <function>dblink_build_sql_insert</function> is that it's assumed that
     the target row already exists in the remote table.
+-->
+<function>dblink_build_sql_update</function>はローカル側のテーブルの一部を選択した複製をリモートデータベースに行う場合に有用になる可能性があります。
+これは主キーによりローカルテーブルから行を選択し、その主キー値を最後の引数で与えた値に置き換えて、行を複製する<command>UPDATE</command> SQLコマンドを構築します。
+（行をそのまま複製する場合は、単に最後の2つの引数に同じ値を指定してください。）
+この<command>UPDATE</command>コマンドは常に行のすべてのフィールドを代入します。
+この関数と<function>dblink_build_sql_insert</function>の主な違いは、対象の行がリモート側のテーブルにすでに存在すると仮定している点です。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Arguments</title>
+-->
+   <title>引数</title>
 
    <variablelist>
     <varlistentry>
      <term><parameter>relname</parameter></term>
      <listitem>
       <para>
+<!--
        Name of a local relation, for example <literal>foo</literal> or
        <literal>myschema.mytab</literal>.  Include double quotes if the
        name is mixed-case or contains special characters, for
        example <literal>"FooBar"</literal>; without quotes, the string
        will be folded to lower case.
+-->
+例えば<literal>foo</literal>や<literal>myschema.mytab</literal>といったローカル側のリレーションの名前です。
+例えば<literal>"FooBar"</literal>のように名前に大文字小文字が混在する場合や特殊文字が含まれる場合は二重引用符で括ってください。
+引用符がないと文字列は小文字に変換されます。
       </para>
      </listitem>
     </varlistentry>
@@ -2061,8 +2773,11 @@ dblink_build_sql_update(text relname,
      <term><parameter>primary_key_attnums</parameter></term>
      <listitem>
       <para>
+<!--
        Attribute numbers (1-based) of the primary key fields,
        for example <literal>1 2</literal>.
+-->
+例えば<literal>1 2</literal>といった、主キーフィールドの属性番号（1始まり）です。
       </para>
      </listitem>
     </varlistentry>
@@ -2071,7 +2786,10 @@ dblink_build_sql_update(text relname,
      <term><parameter>num_primary_key_atts</parameter></term>
      <listitem>
       <para>
+<!--
        The number of primary key fields.
+-->
+主キーフィールドの個数です。
       </para>
      </listitem>
     </varlistentry>
@@ -2080,10 +2798,15 @@ dblink_build_sql_update(text relname,
      <term><parameter>src_pk_att_vals_array</parameter></term>
      <listitem>
       <para>
+<!--
        Values of the primary key fields to be used to look up the
        local tuple.  Each field is represented in text form.
        An error is thrown if there is no local row with these
        primary key values.
+-->
+ローカルタプルを検索するために使用される主キーフィールドの値です。
+各フィールドはテキスト形式で表されます。
+これらの主キーの値を持つ行がローカル側に存在しない場合はエラーが発生します。
       </para>
      </listitem>
     </varlistentry>
@@ -2092,8 +2815,12 @@ dblink_build_sql_update(text relname,
      <term><parameter>tgt_pk_att_vals_array</parameter></term>
      <listitem>
       <para>
+<!--
        Values of the primary key fields to be placed in the resulting
        <command>UPDATE</command> command.  Each field is represented in text form.
+-->
+最終的な<command>UPDATE</command>コマンドにおいて置き換えられる主キーフィールドの値です。
+各フィールドはテキスト形式で表されます。
       </para>
      </listitem>
     </varlistentry>
@@ -2101,15 +2828,25 @@ dblink_build_sql_update(text relname,
   </refsect1>
 
   <refsect1>
+<!--
    <title>Return Value</title>
+-->
+   <title>戻り値</title>
 
+<!--
    <para>Returns the requested SQL statement as text.</para>
+-->
+   <para>要求したSQL文をテキストとして返します。</para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Notes</title>
+-->
+   <title>注釈</title>
 
    <para>
+<!--
     As of <productname>PostgreSQL</productname> 9.0, the attribute numbers in
     <parameter>primary_key_attnums</parameter> are interpreted as logical
     column numbers, corresponding to the column's position in
@@ -2117,11 +2854,18 @@ dblink_build_sql_update(text relname,
     numbers as physical column positions.  There is a difference if any
     column(s) to the left of the indicated column have been dropped during
     the lifetime of the table.
+-->
+<productname>PostgreSQL</productname> 9.0の段階で、<parameter>primary_key_attnums</parameter>の中の属性数は、<literal>SELECT * FROM relname</literal>内の列の位置に対応する、論理的列数として翻訳されます。
+以前のバージョンは物理的な列の位置として数を翻訳しました。
+テーブルの存続期間中に、表示された列の左側のどんな列でも削除されると差異が生じます。
    </para>
   </refsect1>
 
   <refsect1>
+<!--
    <title>Examples</title>
+-->
+   <title>例</title>
 
 <screen>
 SELECT dblink_build_sql_update('foo', '1 2', 2, '{"1", "a"}', '{"1", "b"}');

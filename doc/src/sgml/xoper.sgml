@@ -1,14 +1,22 @@
 <!-- doc/src/sgml/xoper.sgml -->
 
  <sect1 id="xoper">
+<!--
   <title>User-Defined Operators</title>
+-->
+  <title>ユーザ定義の演算子</title>
 
   <indexterm zone="xoper">
+<!--
    <primary>operator</primary>
    <secondary>user-defined</secondary>
+-->
+   <primary>演算子</primary>
+   <secondary>ユーザ定義</secondary>
   </indexterm>
 
   <para>
+<!--
    Every operator is <quote>syntactic sugar</quote> for a call to an
    underlying function that does the real work; so you must
    first create the underlying function before you can create
@@ -17,9 +25,16 @@
    that helps the query planner optimize queries that use the
    operator.  The next section will be devoted to explaining
    that additional information.
+-->
+演算子は裏側で実際の作業を行う関数を呼び出す<quote>構文上の飾り</quote>です。
+ですから、演算子を作成する前にまずこの基礎となる関数を作成する必要があります。
+しかし、演算子は<emphasis>単なる</emphasis>構文上の飾りでは<emphasis>ありません</emphasis>。
+問い合わせプランナによる演算子を使用する問い合わせの最適化を補助する追加情報をやり取りするからです。
+次節では、この追加情報について重点的に説明します。
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> supports prefix
    and infix operators.  Operators can be
    overloaded;<indexterm><primary>overloading</primary><secondary>operators</secondary></indexterm>
@@ -27,13 +42,25 @@
    that have different numbers and types of operands.  When a query is
    executed, the system determines the operator to call from the
    number and types of the provided operands.
+-->
+<productname>PostgreSQL</productname>では左単項演算子、右単項演算子、二項演算子をサポートしています。
+演算子はオーバーロード可能です。
+<indexterm><primary>オーバーロード</primary><secondary>演算子</secondary></indexterm>
+つまり、同じ演算子名をオペランドの数と型が異なる演算子に対して使用することができるということです。
+問い合わせが実行されると、システムは与えられたオペランドの数と型より呼び出すべき演算子を決定します。
   </para>
 
   <para>
+<!--
    Here is an example of creating an operator for adding two complex
    numbers.  We assume we've already created the definition of type
    <type>complex</type> (see <xref linkend="xtypes"/>).  First we need a
    function that does the work, then we can define the operator:
+-->
+以下に2つの複素数の加算を行う演算子を作成する例を示します。
+既に<type>complex</type>型の定義（<xref linkend="xtypes"/>を参照）を作成していることを前提としています。
+まず、実作業を行う関数が必要です。
+その後、演算子を定義できます。
 
 <programlisting>
 CREATE FUNCTION complex_add(complex, complex)
@@ -51,7 +78,10 @@ CREATE OPERATOR + (
   </para>
 
   <para>
+<!--
    Now we could execute a query like this:
+-->
+これで以下のような問い合わせを実行できるようになります。
 
 <screen>
 SELECT (a + b) AS c FROM test_complex;
@@ -64,6 +94,7 @@ SELECT (a + b) AS c FROM test_complex;
   </para>
 
   <para>
+<!--
    We've shown how to create a binary operator here.  To create a prefix
    operator, just omit the <literal>leftarg</literal>.
    The <literal>function</literal>
@@ -72,18 +103,32 @@ SELECT (a + b) AS c FROM test_complex;
    clause shown in the example is an optional hint to the query
    optimizer.  Further details about <literal>commutator</literal> and other
    optimizer hints appear in the next section.
+-->
+ここでは二項演算子をどのように作成するのかを示しました。
+単項演算子を作成するには、単に<literal>leftarg</literal>（左単項の場合）もしくは<literal>rightarg</literal>（右方単項の場合）を省略するだけです。
+<literal>function</literal>句と引数用の句のみが<command>CREATE OPERATOR</command>での必須項目です。
+例で示した<literal>commutator</literal>句は省略可能で、問い合わせオプティマイザへのヒントとなります。
+<literal>commutator</literal>やその他のオプティマイザへのヒントについての詳細は次節で説明します。
   </para>
  </sect1>
 
   <sect1 id="xoper-optimization">
+<!--
    <title>Operator Optimization Information</title>
+-->
+   <title>演算子最適化に関する情報</title>
 
   <indexterm zone="xoper-optimization">
+<!--
    <primary>optimization information</primary>
    <secondary>for operators</secondary>
+-->
+   <primary>最適化情報</primary>
+   <secondary>演算子に対する</secondary>
   </indexterm>
 
    <para>
+<!--
     A <productname>PostgreSQL</productname> operator definition can include
     several optional clauses that tell the system useful things about how
     the operator behaves.  These clauses should be provided whenever
@@ -94,25 +139,41 @@ SELECT (a + b) AS c FROM test_complex;
     You can always leave out an optimization clause if you are not sure
     about it; the only consequence is that queries might run slower than
     they need to.
+-->
+<productname>PostgreSQL</productname>の演算子定義では、システムに演算子がどう振舞うかに関する有用なことを通知する、いくつかのオプション句を持つことができます。
+これらの句により演算子を使用する問い合わせの実行速度がかなり向上しますので、これらの句は適切な時には常に提供しなければなりません。
+しかし、提供する時にはそれらが正しいことを確認しなければいけません！
+間違って最適化用の句を使用すると、問い合わせの低速化、わけのわからないおかしな出力、その他有害な事が起こり得ます。
+最適化用の句についてわからなければ、使用しなくても構いません。
+使用された時よりも問い合わせの実行が遅くなるかもしれないというだけです。
    </para>
 
    <para>
+<!--
     Additional optimization clauses might be added in future versions of
     <productname>PostgreSQL</productname>.  The ones described here are all
     the ones that release &version; understands.
+-->
+<productname>PostgreSQL</productname>の今後のバージョンで、最適化用の句はさらに追加される可能性があります。
+ここで説明するものはすべて、バージョン&version;で有効なものです。
    </para>
 
    <para>
+<!--
     It is also possible to attach a planner support function to the function
     that underlies an operator, providing another way of telling the system
     about the behavior of the operator.
     See <xref linkend="xfunc-optimization"/> for more information.
+-->
+演算子の基となる関数にプランナサポート関数を結び付けて、システムに演算子の振舞いを通知する別の方法を提供することも可能です。
+より詳細な情報については<xref linkend="xfunc-optimization"/>を参照してください。
    </para>
 
    <sect2>
     <title><literal>COMMUTATOR</literal></title>
 
     <para>
+<!--
      The <literal>COMMUTATOR</literal> clause, if provided, names an operator that is the
      commutator of the operator being defined.  We say that operator A is the
      commutator of operator B if (x A y) equals (y B x) for all possible input
@@ -120,17 +181,29 @@ SELECT (a + b) AS c FROM test_complex;
      operators <literal>&lt;</literal> and <literal>&gt;</literal> for a particular data type are usually each others'
      commutators, and operator <literal>+</literal> is usually commutative with itself.
      But operator <literal>-</literal> is usually not commutative with anything.
+-->
+<literal>COMMUTATOR</literal>句が与えられた場合、それは定義する演算子の交代演算子となる演算子の名前です。
+取り得る全ての入力値x、yに対して、(x A y)が(y B x)と等しい時、演算子Aは演算子Bの交代演算子であると言います。
+また、BはAの交代演算子となることにも注意してください。
+例えば、通常、特定のデータ型用の演算子<literal>&lt;</literal>と<literal>&gt;</literal>は互いの交代演算子になります。
+また、通常、演算子<literal>+</literal>は自身が交代演算子となります。
+しかし、通常、演算子<literal>-</literal>は交代演算子を持ちません。
     </para>
 
     <para>
+<!--
      The left operand type of a commutable operator is the same as the
      right operand type of its commutator, and vice versa.  So the name of
      the commutator operator is all that <productname>PostgreSQL</productname>
      needs to be given to look up the commutator, and that's all that needs to
      be provided in the <literal>COMMUTATOR</literal> clause.
+-->
+交代可能な演算子の左オペランドの型は、その交代演算子の右オペランドの型と同一で、その逆もまた同様です。
+したがって、<productname>PostgreSQL</productname>で交代演算子を検索する時に必要なものは交代演算子の名前のみになりますので、<literal>COMMUTATOR</literal>句でそれのみを与えておけば十分です。
     </para>
 
     <para>
+<!--
      It's critical to provide commutator information for operators that
      will be used in indexes and join clauses, because this allows the
      query optimizer to <quote>flip around</quote> such a clause to the forms
@@ -145,29 +218,49 @@ SELECT (a + b) AS c FROM test_complex;
      assume that this is a valid transformation &mdash; the creator of the
      <literal>=</literal> operator must specify that it is valid, by marking the
      operator with commutator information.
+-->
+インデックスや結合句で使用される演算子では交代演算子の情報を提供することが必須です。
+これにより、問い合わせオプティマイザがその句を他の種類の実行計画で必要とされる形式に<quote>ひっくり返す</quote>ことができるためです。
+例えば、<literal>tab1.x = tab2.y</literal>のようなWHERE句を持った問い合わせを考えてみます。
+ここで<literal>tab1.x</literal>と<literal>tab2.y</literal>はユーザ定義型で、<literal>tab2.y</literal>にはインデックスが付いていると仮定します。
+オプティマイザは、この句を<literal>tab2.y = tab1.x</literal>という形にひっくり返す方法を知らない限り、インデックススキャンを生成できません。
+インデックススキャン機構は演算子の左側にインデックス付けされた列があることを想定しているためです。
+<productname>PostgreSQL</productname>は簡単にこの変形が有効であると前提<emphasis>しません</emphasis>。
+<literal>=</literal>演算子の作成者がこれが有効であることを、交換演算子情報を持つ演算子であると印付けて指定しなければなりません。
     </para>
 
     <para>
+<!--
      When you are defining a self-commutative operator, you just do it.
      When you are defining a pair of commutative operators, things are
      a little trickier: how can the first one to be defined refer to the
      other one, which you haven't defined yet?  There are two solutions
      to this problem:
+-->
+自己交代演算子を定義する場合は、単にそれを指定するだけです。
+交代演算子の対を定義する場合は少し複雑になります。
+最初に他の未定義のものを参照するものをどう定義するのかということが問題となります。
+この問題には下記の2つの解決方法があります。
 
      <itemizedlist>
       <listitem>
        <para>
+<!--
         One way is to omit the <literal>COMMUTATOR</literal> clause in the first operator that
         you define, and then provide one in the second operator's definition.
         Since <productname>PostgreSQL</productname> knows that commutative
         operators come in pairs, when it sees the second definition it will
         automatically go back and fill in the missing <literal>COMMUTATOR</literal> clause in
         the first definition.
+-->
+1つ目の方法は、最初の演算子を定義する際に<literal>COMMUTATOR</literal>句を省略し、2番目の演算子の定義では、<literal>COMMUTATOR</literal>句に最初の演算子を与えるという方法です。
+<productname>PostgreSQL</productname>は交代演算子が対になっていることがわかっていますので、2番目の定義を見た時に、自動的に最初の定義に戻ってその未定義になっている<literal>COMMUTATOR</literal>句を設定します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         The other, more straightforward way is just to include <literal>COMMUTATOR</literal> clauses
         in both definitions.  When <productname>PostgreSQL</productname> processes
         the first definition and realizes that <literal>COMMUTATOR</literal> refers to a nonexistent
@@ -180,6 +273,13 @@ SELECT (a + b) AS c FROM test_complex;
         updates the dummy entry with the additional information from the second
         definition.  If you try to use the dummy operator before it's been filled
         in, you'll just get an error message.
+-->
+もう1つの方法は、両方の定義に<literal>COMMUTATOR</literal>句を含めるというもっと素直な方法です。
+<productname>PostgreSQL</productname>は最初の定義を処理する際に、<literal>COMMUTATOR</literal>が存在しない演算子を参照していることがわかると、システムはその演算子用の仮のエントリをシステムカタログに作成します。
+この仮エントリには、<productname>PostgreSQL</productname>がこの時点で推定できる、演算子名、左オペランドの型、右オペランドの型、および結果の型についてのみの有効なデータが入ります。
+最初の演算子のカタログエントリはこの仮エントリに結び付きます。
+この後、2番目の演算子が定義されたら、システムはその仮エントリに2番目の定義から得られる追加情報を更新します。
+更新される前に仮の演算子を使用すると、エラーメッセージが出力されます。
        </para>
       </listitem>
      </itemizedlist>
@@ -190,6 +290,7 @@ SELECT (a + b) AS c FROM test_complex;
     <title><literal>NEGATOR</literal></title>
 
     <para>
+<!--
      The <literal>NEGATOR</literal> clause, if provided, names an operator that is the
      negator of the operator being defined.  We say that operator A
      is the negator of operator B if both return Boolean results and
@@ -197,30 +298,52 @@ SELECT (a + b) AS c FROM test_complex;
      Notice that B is also the negator of A.
      For example, <literal>&lt;</literal> and <literal>&gt;=</literal> are a negator pair for most data types.
      An operator can never validly be its own negator.
+-->
+<literal>NEGATOR</literal>句が与えられた場合、それは定義する演算子の否定子となる演算子の名前です。
+入力値xとyの取り得るすべての値に対して両方の演算子が論理値を返し、(x A y)がNOT (x B y)と等しい場合、演算子Aは演算子Bの否定子であると言います。
+また、BはAの否定子でもあることに注意してください。
+例えば、ほとんどのデータ型では<literal>&lt;</literal>と<literal>&gt;=</literal>は否定子の対となります。
+演算子が自身の否定子になることは決してありません。
     </para>
 
    <para>
+<!--
     Unlike commutators, a pair of unary operators could validly be marked
     as each other's negators; that would mean (A x) equals NOT (B x)
     for all x.
+-->
+交代演算子と異なり、単項演算子の対は互いに否定子として有効に指定されます。
+つまりすべてのxに対して(A x)がNOT (B x)と等しいことを意味します。
+右単項演算子でも同様です。
    </para>
 
    <para>
+<!--
     An operator's negator must have the same left and/or right operand types
     as the operator to be defined, so just as with <literal>COMMUTATOR</literal>, only the operator
     name need be given in the <literal>NEGATOR</literal> clause.
+-->
+ある演算子の否定子は、その演算子定義の左オペランド、右オペランドと同じ型を持たなければなりません。
+ですので、<literal>COMMUTATOR</literal>句と同様に演算子の名前のみ<literal>NEGATOR</literal>句で与えるだけで済みます。
    </para>
 
    <para>
+<!--
     Providing a negator is very helpful to the query optimizer since
     it allows expressions like <literal>NOT (x = y)</literal> to be simplified into
     <literal>x &lt;&gt; y</literal>.  This comes up more often than you might think, because
     <literal>NOT</literal> operations can be inserted as a consequence of other rearrangements.
+-->
+<literal>NOT (x = y)</literal>という式をx &lt;&gt; yという形に単純化させることが可能なので、否定子があると問い合わせオプティマイザにとって非常に役に立ちます。
+他の再配置の結果として<literal>NOT</literal>操作が挿入されることがありますので、この現象は思ったより頻繁に起こります。
    </para>
 
    <para>
+<!--
     Pairs of negator operators can be defined using the same methods
     explained above for commutator pairs.
+-->
+否定子の対は、上記の交代演算子のペアで説明した方法と同じ方法で定義することができます。
    </para>
 
   </sect2>
@@ -229,47 +352,75 @@ SELECT (a + b) AS c FROM test_complex;
    <title><literal>RESTRICT</literal></title>
 
    <para>
+<!--
     The <literal>RESTRICT</literal> clause, if provided, names a restriction selectivity
     estimation function for the operator.  (Note that this is a function
     name, not an operator name.)  <literal>RESTRICT</literal> clauses only make sense for
     binary operators that return <type>boolean</type>.  The idea behind a restriction
     selectivity estimator is to guess what fraction of the rows in a
     table will satisfy a <literal>WHERE</literal>-clause condition of the form:
+-->
+<literal>RESTRICT</literal>句が与えられた場合、それは、その演算子用の制限選択評価関数を指定します。
+（演算子名ではなく関数名であることに注意してください。）
+<literal>RESTRICT</literal>句は<type>boolean</type>型を返す二項演算子に対してのみ有効です。
+制限選択評価の目的は、現在の演算子と特定の定数値についての<literal>WHERE</literal>句
 <programlisting>
 column OP constant
 </programlisting>
+<!--
     for the current operator and a particular constant value.
     This assists the optimizer by
     giving it some idea of how many rows will be eliminated by <literal>WHERE</literal>
     clauses that have this form.  (What happens if the constant is on
     the left, you might be wondering?  Well, that's one of the things that
     <literal>COMMUTATOR</literal> is for...)
+-->
+の条件を満たすテーブル内の行の割合を推測することです。
+この形式を持った<literal>WHERE</literal>句によって、どのくらいの行が除外されるのかを通知することで、オプティマイザの手助けをします。
+（定数値が左項にあったら何が起こるかという疑問が生じるかもしれませんが、それは<literal>COMMUTATOR</literal>が存在する理由の1つでもあります。）
    </para>
 
    <para>
+<!--
     Writing new restriction selectivity estimation functions is far beyond
     the scope of this chapter, but fortunately you can usually just use
     one of the system's standard estimators for many of your own operators.
     These are the standard restriction estimators:
+-->
+新しい制限選択評価関数の記述方法は本章の内容を超えていますが、幸いなことに、数多いユーザ定義の演算子に対し通常いくつかのシステム標準の評価関数を使用すれば事足ります。
+システム標準の制限評価関数には下記のものがあります。
     <simplelist>
+<!--
      <member><function>eqsel</function> for <literal>=</literal></member>
      <member><function>neqsel</function> for <literal>&lt;&gt;</literal></member>
      <member><function>scalarltsel</function> for <literal>&lt;</literal></member>
      <member><function>scalarlesel</function> for <literal>&lt;=</literal></member>
      <member><function>scalargtsel</function> for <literal>&gt;</literal></member>
      <member><function>scalargesel</function> for <literal>&gt;=</literal></member>
+-->
+     <member><literal>=</literal>用の<function>eqsel</function></member>
+     <member><literal>&lt;&gt;</literal>用の<function>neqsel</function></member>
+     <member><literal>&lt;</literal>用の<function>scalarltsel</function></member>
+     <member><literal>&lt;=</literal>用の<function>scalarlesel</function></member>
+     <member><literal>&gt;</literal>用の<function>scalargtsel</function></member>
+     <member><literal>&gt;=</literal>用の<function>scalargesel</function></member>
     </simplelist>
    </para>
 
    <para>
+<!--
     You can frequently get away with using either <function>eqsel</function> or <function>neqsel</function> for
     operators that have very high or very low selectivity, even if they
     aren't really equality or inequality.  For example, the
     approximate-equality geometric operators use <function>eqsel</function> on the assumption that
     they'll usually only match a small fraction of the entries in a table.
+-->
+非常に高いもしくは低い選択性を所有する演算子が、まったく等しいか等しくないかにかかわらず、<function>eqsel</function>または<function>neqsel</function>を使用しないことも往々にして可能です。
+例えば、近似等号用の幾何演算子はテーブルのエントリの小部分にのみに合致すると仮定して<function>eqsel</function>を使用します。
    </para>
 
    <para>
+<!--
     You can use <function>scalarltsel</function>, <function>scalarlesel</function>,
     <function>scalargtsel</function> and <function>scalargesel</function> for comparisons on
     data types that have some sensible means of being converted into numeric
@@ -280,9 +431,15 @@ column OP constant
     identified through a column of the <classname>pg_type</classname> system catalog; but that hasn't happened
     yet.)  If you do not do this, things will still work, but the optimizer's
     estimates won't be as good as they could be.
+-->
+範囲比較のために数値スカラに変換することに多少の有意性があるデータ型を比較するために、<function>scalarltsel</function>、<function>scalarlesel</function>、<function>scalargtsel</function>、<function>scalargesel</function>を使用することも可能です。
+できれば<filename>src/backend/utils/adt/selfuncs.c</filename>の<function>convert_to_scalar()</function>のルーチンで理解できるところにデータ型を追加してください
+（今後、このルーチンは<classname>pg_type</classname>システムカタログの列で識別された、データ型ごとの関数で置き換えられなければなりませんが、まだ行われていません）。
+これを行わなくても動きますが、オプティマイザは本来の推測機能を十分発揮することができません。
    </para>
 
    <para>
+<!--
     Another useful built-in selectivity estimation function
     is <function>matchingsel</function>, which will work for almost any
     binary operator, if standard MCV and/or histogram statistics are
@@ -292,13 +449,21 @@ column OP constant
     strict than equality.  (Or you could call the
     underlying <function>generic_restriction_selectivity</function>
     function, providing a different default estimate.)
+-->
+もう1つの便利な組み込みの選択評価関数は<function>matchingsel</function>で、入力データ型に対して標準的な最頻値やヒストグラム統計を収集する場合、ほぼすべての二項演算子に対して動作します。
+デフォルトの評価は<function>eqsel</function>で設定されているデフォルトの評価の2倍に設定されており、等価性ほど厳密でないような比較演算子には最適です。
+(裏で実行される<function>generic_restriction_selectivity</function>関数に異なるデフォルトの評価を与えて呼び出すこともできます。)
    </para>
 
    <para>
+<!--
     There are additional selectivity estimation functions designed for geometric
     operators in <filename>src/backend/utils/adt/geo_selfuncs.c</filename>: <function>areasel</function>, <function>positionsel</function>,
     and <function>contsel</function>.  At this writing these are just stubs, but you might want
     to use them (or even better, improve them) anyway.
+-->
+さらに<filename>src/backend/utils/adt/geo_selfuncs.c</filename>には、幾何演算子に対する選択評価関数<function>areasel</function>、<function>positionsel</function>、<function>contsel</function>があります。
+本章の執筆時点では、これらは単なるスタブですが、ともかく使いたい（あるいは改良したい）こともあるでしょう。
    </para>
    </sect2>
 
@@ -306,25 +471,40 @@ column OP constant
     <title><literal>JOIN</literal></title>
 
     <para>
+<!--
      The <literal>JOIN</literal> clause, if provided, names a join selectivity
      estimation function for the operator.  (Note that this is a function
      name, not an operator name.)  <literal>JOIN</literal> clauses only make sense for
      binary operators that return <type>boolean</type>.  The idea behind a join
      selectivity estimator is to guess what fraction of the rows in a
      pair of tables will satisfy a <literal>WHERE</literal>-clause condition of the form:
+-->
+<literal>JOIN</literal>句が与えられた場合、それはその演算子用の結合選択評価関数の名前を指定します。
+（これが演算子名ではなく関数名であることに注意してください。）
+<literal>JOIN</literal>句は<type>boolean</type>型を返す二項演算子に対してのみ有効です。
+結合選択評価の目的は、現在の演算子について、<literal>WHERE</literal>句
 <programlisting>
 table1.column1 OP table2.column2
 </programlisting>
+<!--
      for the current operator.  As with the <literal>RESTRICT</literal> clause, this helps
      the optimizer very substantially by letting it figure out which
      of several possible join sequences is likely to take the least work.
+-->
+を満たすテーブルの組み合わせの行の割合を推測することです。
+<literal>RESTRICT</literal>句の使用と同様、これはいくつかの取り得る結合手順のうち、どれが最も仕事量が少ないように考えられるのかをオプティマイザに計算させることで、大きなオプティマイザへの援助となります。
     </para>
 
     <para>
+<!--
      As before, this chapter will make no attempt to explain how to write
      a join selectivity estimator function, but will just suggest that
      you use one of the standard estimators if one is applicable:
+-->
+以前と同様、本章でも結合選択評価関数の作成方法は説明しません。
+しかし適用できるものがあれば、単に標準の評価関数を使用することをお勧めします。
      <simplelist>
+<!--
       <member><function>eqjoinsel</function> for <literal>=</literal></member>
       <member><function>neqjoinsel</function> for <literal>&lt;&gt;</literal></member>
       <member><function>scalarltjoinsel</function> for <literal>&lt;</literal></member>
@@ -335,6 +515,17 @@ table1.column1 OP table2.column2
       <member><function>areajoinsel</function> for 2D area-based comparisons</member>
       <member><function>positionjoinsel</function> for 2D position-based comparisons</member>
       <member><function>contjoinsel</function> for 2D containment-based comparisons</member>
+-->
+      <member><literal>=</literal>用の<function>eqjoinsel</function> </member>
+      <member><literal>&lt;&gt;</literal>用の<function>neqjoinsel</function></member>
+      <member><literal>&lt;</literal>用の<function>scalarltjoinsel</function></member>
+      <member><literal>&lt;=</literal>用の<function>scalarlejoinsel</function></member>
+      <member><literal>&gt;</literal>用の<function>scalargtjoinsel</function></member>
+      <member><literal>&gt;=</literal>用の<function>scalargejoinsel</function></member>
+      <member>汎用の一致演算子用の<function>matchingjoinsel</function></member>
+      <member>2次元面積を基にした比較用の<function>areajoinsel</function></member>
+      <member>2次元位置を基にした比較用の<function>positionjoinsel</function></member>
+      <member>2次元包含関係を基にした比較用の<function>contjoinsel</function></member>
      </simplelist>
     </para>
    </sect2>
@@ -343,14 +534,20 @@ table1.column1 OP table2.column2
     <title><literal>HASHES</literal></title>
 
     <para>
+<!--
      The <literal>HASHES</literal> clause, if present, tells the system that
      it is permissible to use the hash join method for a join based on this
      operator.  <literal>HASHES</literal> only makes sense for a binary operator that
      returns <literal>boolean</literal>, and in practice the operator must represent
      equality for some data type or pair of data types.
+-->
+<literal>HASHES</literal>句が存在する場合、それはシステムに対して、この演算子に基づいた結合にハッシュ結合方法を使っても問題がないことを伝えます。
+<literal>HASHES</literal>句は<literal>boolean</literal>型を返す二項演算子にのみ有効です。
+実際には、この演算子はあるデータ型またはデータ型の組み合わせの等価性を表現しなければなりません。
     </para>
 
     <para>
+<!--
      The assumption underlying hash join is that the join operator can
      only return true for pairs of left and right values that hash to the
      same hash code.  If two values get put in different hash buckets, the
@@ -364,9 +561,17 @@ table1.column1 OP table2.column2
      same hash codes for <quote>equal</quote> values, even though the values
      have different representations.  For example, it's fairly simple
      to arrange this property when hashing integers of different widths.
+-->
+ハッシュ結合の基礎となっている仮定は、結合演算子は左項と右項の値が同じハッシュコードを持つ時にのみ真を返すことができるということです。
+2つの値が異なるハッシュのバケットに置かれた場合、結合演算子の結果が必ず偽であるという仮定を、結合は暗黙的に行い、それらを比べることをしません。
+したがって、何らかの等価性を表さない演算子に<literal>HASHES</literal>句を指定することはまったく意味がありません。
+ほとんどの場合、両辺に同一のデータ型をとる演算子に対してハッシュ機能をサポートすることが現実的です。
+しかし時として、２つ以上のデータ型に対して互換的なハッシュ関数、つまり、値自体が異なる表現形態を持っていたとしても<quote>等しい</quote>値に対して同一のハッシュコードを生成する関数を設計することもできます。
+例えば、サイズが異なる整数に対するハッシュでは、この性質を調整することで大変単純になります。
     </para>
 
     <para>
+<!--
      To be marked <literal>HASHES</literal>, the join operator must appear
      in a hash index operator family.  This is not enforced when you create
      the operator, since of course the referencing operator family couldn't
@@ -375,9 +580,16 @@ table1.column1 OP table2.column2
      operator family to find the data-type-specific hash function(s) for the
      operator's input data type(s).  Of course, you must also create suitable
      hash functions before you can create the operator family.
+-->
+<literal>HASHES</literal>印を付けるためには、結合演算子はハッシュインデックスの演算子族内になければなりません。
+演算子を作成する時には参照する演算子族がまだ存在しませんので、演算子の作成時にこれは強制されていません。
+しかし、演算子族が存在しない場合に、この演算子をハッシュ結合で使用しようとすると、実行時に失敗します。
+システムは、演算子の入力データ型用のデータ型特有のハッシュ関数を検索するために、演算子族を必要とします。
+もちろん、演算子族を作成する前に適切なハッシュ関数を作成しなければなりません。
     </para>
 
     <para>
+<!--
      Care should be exercised when preparing a hash function, because there
      are machine-dependent ways in which it might fail to do the right thing.
      For example, if your data type is a structure in which there might be
@@ -390,9 +602,16 @@ table1.column1 OP table2.column2
      values (different bit patterns) but they are defined to compare equal.
      If a float value might contain negative zero then extra steps are needed
      to ensure it generates the same hash value as positive zero.
+-->
+ハッシュ関数を準備する時には注意が必要です。
+マシンに依存することから、ハッシュ結合が適切な処理を行わずに失敗することがあるからです。
+例えば、データ型が不要な部分を埋めるビットを持つ可能性がある構造体である場合、（推奨する戦略である、他の演算子と関数を作成して、不要なビットが常にゼロになることを保証しない限り、）その構造体全体を単に<function>hash_any</function>に渡すことはできません。
+この他の例として、<acronym>IEEE</acronym>浮動小数点標準を満たすマシンでは、マイナス0とプラス0は異なる値（異なるビット列）になりますが、この比較は等価と定義されます。
+浮動小数点数値がマイナス0を持つ可能性があるのであれば、それがプラス0と同じハッシュコードを確実に生成するような処置が必要です。
     </para>
 
     <para>
+<!--
      A hash-joinable operator must have a commutator (itself if the two
      operand data types are the same, or a related equality operator
      if they are different) that appears in the same operator family.
@@ -401,18 +620,29 @@ table1.column1 OP table2.column2
      a hash operator family that supports multiple data types to provide
      equality operators for every combination of the data types; this
      allows better optimization.
+-->
+ハッシュ結合可能な演算子は、同一演算子族内に存在する交代演算子を持たなければなりません。
+（２つの入力データ型が同じ場合はその演算子自体が交代演算子となります。異なる場合は関連する等価性演算子となります。）
+これを満たさないと、演算子の使用時にプランナエラーが発生します。
+また、複数のデータ型をサポートするハッシュ演算子族に対して、データ型の組み合わせすべてに対する等価性演算子を持たせることを推奨します（必要ではありません）。
+これにより、より優れた最適化が可能になります。
     </para>
 
     <note>
     <para>
+<!--
      The function underlying a hash-joinable operator must be marked
      immutable or stable.  If it is volatile, the system will never
      attempt to use the operator for a hash join.
+-->
+ハッシュ結合可能演算子の基となる関数はimmutableもしくはstableでなければなりません。
+volatileの場合、システムはその演算子を決してハッシュ結合に使用しません。
     </para>
     </note>
 
     <note>
     <para>
+<!--
      If a hash-joinable operator has an underlying function that is marked
      strict, the
      function must also be complete: that is, it should return true or
@@ -422,6 +652,11 @@ table1.column1 OP table2.column2
      false where the correct answer according to the standard would be null;
      or it might yield an error complaining that it wasn't prepared for a
      null result.)
+-->
+ハッシュ結合可能演算子の基となる関数が厳密（strict）な場合、その関数は完全、つまり2つの非NULL入力に対して、真または偽を返し、決してNULLを返さないものである必要があります。
+この規則に従わないと、<literal>IN</literal>操作におけるハッシュ最適化は間違った結果を生成する可能性があります。
+（特に、標準に従うとNULLが正しい答えになるところで<literal>IN</literal>は偽を返すかもしれません。
+もしくは、NULLという結果に対する準備をしていないといったエラーを生成するかもしれません。）
     </para>
     </note>
 
@@ -431,14 +666,20 @@ table1.column1 OP table2.column2
     <title><literal>MERGES</literal></title>
 
     <para>
+<!--
      The <literal>MERGES</literal> clause, if present, tells the system that
      it is permissible to use the merge-join method for a join based on this
      operator.  <literal>MERGES</literal> only makes sense for a binary operator that
      returns <literal>boolean</literal>, and in practice the operator must represent
      equality for some data type or pair of data types.
+-->
+<literal>MERGES</literal>句が存在する場合、それはシステムに対して、この演算子に基づいた結合にマージ結合方法を使っても問題がないことを伝えます。
+<literal>MERGES</literal>句は<literal>boolean</literal>型を返す二項演算子にのみ有効です。
+実際には、演算子がデータ型またはデータ型の組み合わせの等価性を表すものであることが必要です。
     </para>
 
     <para>
+<!--
      Merge join is based on the idea of sorting the left- and right-hand tables
      into order and then scanning them in parallel.  So, both data types must
      be capable of being fully ordered, and the join operator must be one
@@ -451,9 +692,17 @@ table1.column1 OP table2.column2
      equality operator is merge-joinable.
      We only need sorting operators that will bring both data types into a
      logically compatible sequence.
+-->
+マージ結合は、左側のテーブル、右側のテーブルを順序よくソートし、並列にスキャンするという考えに基づいています。
+したがって、両データ型には完全な順序付け機能が必要であり、結合演算子はソート順で<quote>同じ場所</quote>にある値の対のみを成功したものとするものである必要があります。
+実際問題として、これは、結合演算子は等価性のような振舞いをしなければならないことを意味しています。
+しかし、マージ結合は論理的な互換性を持つ別の2つのデータ型を取ることができます。
+例えば、<type>smallint</type>対<type>integer</type>の等価性演算子はマージ結合が可能です。
+両方のデータ型を論理的な互換性を保つ順番にソートする演算子のみが必要です。
     </para>
 
     <para>
+<!--
      To be marked <literal>MERGES</literal>, the join operator must appear
      as an equality member of a <literal>btree</literal> index operator family.
      This is not enforced when you create
@@ -462,9 +711,15 @@ table1.column1 OP table2.column2
      unless a matching operator family can be found.  The
      <literal>MERGES</literal> flag thus acts as a hint to the planner that
      it's worth looking for a matching operator family.
+-->
+<literal>MERGES</literal>印を付けるためには、結合演算子は、<literal>btree</literal>インデックス演算子族の等価性メンバとして存在しなければなりません。
+演算子を作成する時には参照する演算子族がまだ存在しませんので、演算子の作成時にこれは強制されていません。
+しかし、対応する演算子族が存在しない限り、実際にマージ結合に使用されることはありません。
+このように、<literal>MERGES</literal>フラグは、プランナが対応する演算子族を検索すべきかどうかを決定する際のヒントとして動作します。
     </para>
 
     <para>
+<!--
      A merge-joinable operator must have a commutator (itself if the two
      operand data types are the same, or a related equality operator
      if they are different) that appears in the same operator family.
@@ -473,13 +728,23 @@ table1.column1 OP table2.column2
      a <literal>btree</literal> operator family that supports multiple data types to provide
      equality operators for every combination of the data types; this
      allows better optimization.
+-->
+マージ結合可能な演算子は、同一演算子族内に存在する交代演算子を持たなければなりません。
+（２つの入力データ型が同じ場合はその演算子自体が交代演算子となります。異なる場合は関連する等価性演算子となります。）
+これを満たさないと、演算子の使用時にプランナエラーが発生します。
+また、複数のデータ型をサポートする<literal>btree</literal>演算子族に対して、データ型の組み合わせすべてに対する等価性演算子を持たせることを推奨します（必要ではありません）。
+これにより、より優れた最適化が可能になります。
     </para>
 
     <note>
     <para>
+<!--
      The function underlying a merge-joinable operator must be marked
      immutable or stable.  If it is volatile, the system will never
      attempt to use the operator for a merge join.
+-->
+マージ結合可能演算子の背後にある関数はimmutableもしくはstableでなければなりません。
+volatileの場合、システムはその演算子を決してマージ結合に使用しようとはしません。
     </para>
     </note>
    </sect2>

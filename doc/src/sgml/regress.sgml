@@ -1,27 +1,44 @@
 <!-- doc/src/sgml/regress.sgml -->
 
  <chapter id="regress">
+<!--
   <title>Regression Tests</title>
+-->
+  <title>リグレッションテスト</title>
 
   <indexterm zone="regress">
+<!--
    <primary>regression tests</primary>
+-->
+   <primary>リグレッションテスト</primary>
   </indexterm>
 
   <indexterm zone="regress">
+<!--
    <primary>test</primary>
+-->
+   <primary>テスト</primary>
   </indexterm>
 
   <para>
+<!--
    The regression tests are a comprehensive set of tests for the SQL
    implementation in <productname>PostgreSQL</productname>.  They test
    standard SQL operations as well as the extended capabilities of
    <productname>PostgreSQL</productname>.
+-->
+リグレッションテストとは、<productname>PostgreSQL</productname>のSQL実装についての包括的なテストの集まりです。
+リグレッションテストでは、標準SQLの操作に加えて<productname>PostgreSQL</productname>の拡張SQL機能もテストします。
   </para>
 
   <sect1 id="regress-run">
+<!--
    <title>Running the Tests</title>
+-->
+   <title>テストの実行</title>
 
   <para>
+<!--
    The regression tests can be run against an already installed and
    running server, or using a temporary installation within the build
    tree.  Furthermore, there is a <quote>parallel</quote> and a
@@ -30,20 +47,35 @@
    parallel method starts up multiple server processes to run groups
    of tests in parallel.  Parallel testing adds confidence that
    interprocess communication and locking are working correctly.
+-->
+リグレッションテストは既にインストールされ稼働中のサーバや、ビルドツリー内の一時的なインストレーションに対して実行することができます。
+さらに、テストの実行には<quote>並行</quote>と<quote>連続</quote>モードがあります。
+連続モードでは個々のテストスクリプトを単独で実行し、並行モードでは複数のサーバプロセスを実行し、テストをグループ化して並行的に実行します。
+並行テストではプロセス間通信とロック機能が正常に作動しているかをテストします。
   </para>
 
   <sect2>
+<!--
    <title>Running the Tests Against a Temporary Installation</title>
+-->
+   <title>一時的なインストレーションに対するテストの実行</title>
 
   <para>
+<!--
    To run the parallel regression tests after building but before installation,
    type:
+-->
+構築後、インストール前に並行リグレッションテストを行う場合には、最上位のディレクトリで以下のように入力してください。
 <screen>
 make check
 </screen>
+<!--
    in the top-level directory.  (Or you can change to
    <filename>src/test/regress</filename> and run the command there.)
    At the end you should see something like:
+-->
+（または、<filename>src/test/regress</filename>ディレクトリに移動して、そこで実行してください。）
+終了したら以下のような表示がされるはずです。
 <screen>
 <computeroutput>
 =======================
@@ -51,19 +83,29 @@ make check
 =======================
 </computeroutput>
 </screen>
+<!--
    or otherwise a note about which tests failed.  See <xref
    linkend="regress-evaluation"/> below before assuming that a
    <quote>failure</quote> represents a serious problem.
+-->
+これが表示されなければ、テストは失敗したことになります。
+<quote>失敗</quote>を深刻な問題であると推測する前に、以下の <xref linkend="regress-evaluation"/> を参照してください。
   </para>
 
    <para>
+<!--
     Because this test method runs a temporary server, it will not work
     if you did the build as the root user, since the server will not start as
     root.  Recommended procedure is not to do the build as root, or else to
     perform testing after completing the installation.
+-->
+この試験方法では、一時的にサーバを起動するので、rootユーザとして構築を行なった場合には動作しません。
+サーバがrootでは起動しないからです。
+rootで構築をしないこと、もしくはインストール完了後に試験を実施することをお薦めします。
    </para>
 
    <para>
+<!--
     If you have configured <productname>PostgreSQL</productname> to install
     into a location where an older <productname>PostgreSQL</productname>
     installation already exists, and you perform <literal>make check</literal>
@@ -71,12 +113,18 @@ make check
     because the new programs try to use the already-installed shared
     libraries.  (Typical symptoms are complaints about undefined symbols.)
     If you wish to run the tests before overwriting the old installation,
-    you'll need to build with <literal>configure --disable-rpath</literal>.
+    you'll need to build with <literal>configure &#045;-disable-rpath</literal>.
     It is not recommended that you use this option for the final installation,
     however.
+-->
+古い<productname>PostgreSQL</productname>のインストレーションが既に存在している場所に<productname>PostgreSQL</productname>をインストールするように構築した場合、新しいバージョンをインストールする前に<literal>make check</literal>を行うと、新しいプログラムがインストール済みの共有ライブラリを使用しようとするために試験が失敗することになります。
+（典型的な症状は、未定義シンボルに関するエラーメッセージです。）
+古いインストレーションを上書きする前に試験を行いたいのであれば、<literal>configure --disable-rpath</literal>で構築する必要があります。
+しかし、このオプションを最終的なインストレーションで使用することは推奨しません。
    </para>
 
    <para>
+<!--
     The parallel regression test starts quite a few processes under your
     user ID.  Presently, the maximum concurrency is twenty parallel test
     scripts, which means forty processes: there's a server process and a
@@ -86,62 +134,103 @@ make check
     random-seeming failures in the parallel test.  If you are not in
     a position to raise the limit, you can cut down the degree of parallelism
     by setting the <literal>MAX_CONNECTIONS</literal> parameter.  For example:
+-->
+並行リグレッションテストは、実行したユーザのユーザIDを使用して相当数のプロセスを起動します。
+現在、最大で20個の並行テストスクリプトが同時に実行されますが、これは合計40個のプロセスが実行されることを意味します。
+各テストスクリプトに対して、1つのサーバプロセスと1つの<application>psql</application>プロセスが存在するためです。
+ですので、使用するシステムでユーザ当たりのプロセス数に制限を加えている場合は、その上限が少なくとも50程度であることを確認してください。
+さもないと、並行テストにおいて、ランダムに発生しているように見える失敗が発生するかもしれません。
+この上限を変更できない場合は、<literal>MAX_CONNECTIONS</literal>パラメータを編集して、並行度を減らすことができます。
+例えば、以下は同時実行数を10以下で実行します。
 <screen>
 make MAX_CONNECTIONS=10 check
 </screen>
+<!--
     runs no more than ten tests concurrently.
+-->
    </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Running the Tests Against an Existing Installation</title>
+-->
+   <title>既存のインストレーションに対するテストの実行</title>
 
   <para>
+<!--
    To run the tests after installation (see <xref linkend="installation"/>),
    initialize a data directory and start the
    server as explained in <xref linkend="runtime"/>, then type:
+-->
+インストール（<xref linkend="installation"/>を参照）後にテストを実行するには、<xref linkend="runtime"/>で説明したようにデータディレクトリを初期化し、サーバを起動し、そして以下を入力してください。
 <screen>
 make installcheck
 </screen>
+<!--
 or for a parallel test:
+-->
+もしくは、並行テストの場合は以下を入力してください。
 <screen>
 make installcheck-parallel
 </screen>
+<!--
    The tests will expect to contact the server at the local host and the
    default port number, unless directed otherwise by <envar>PGHOST</envar> and
    <envar>PGPORT</envar> environment variables.  The tests will be run in a
    database named <literal>regression</literal>; any existing database by this name
    will be dropped.
+-->
+テストでは、<envar>PGHOST</envar>環境変数と<envar>PGPORT</envar>環境変数で指定がない限り、ローカルホストのサーバに接続し、デフォルトのポート番号を使用します。
+テストは<literal>regression</literal>という名前のデータベースで行なわれます。
+この名前の既存のデータベースはすべて削除されます。
   </para>
 
   <para>
+<!--
    The tests will also transiently create some cluster-wide objects, such as
    roles, tablespaces, and subscriptions.  These objects will have names
    beginning with <literal>regress_</literal>.  Beware of
    using <literal>installcheck</literal> mode with an installation that has
    any actual global objects named that way.
+-->
+テストは、ロールやテーブル空間、サブスクリプションのようなクラスタ全体にわたるオブジェクトも一時的に作成します。
+このオブジェクトの名前は<literal>regress_</literal>で始まります。
+実際のグローバルオブジェクトがそのように名付けられたインストレーションで<literal>installcheck</literal>モードを使う場合には注意してください。
   </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Additional Test Suites</title>
+-->
+   <title>追加のテストスイート</title>
 
   <para>
+<!--
    The <literal>make check</literal> and <literal>make installcheck</literal> commands
    run only the <quote>core</quote> regression tests, which test built-in
    functionality of the <productname>PostgreSQL</productname> server.  The source
    distribution contains many additional test suites, most of them having
    to do with add-on functionality such as optional procedural languages.
+-->
+<literal>make check</literal>と<literal>make installcheck</literal>コマンドは<quote>コア</quote>リグレッションテストだけを実行します。
+そのテストは<productname>PostgreSQL</productname>サーバに組み込まれている機能のみをテストします。
+ソース配布には、オプションとなっている手続き言語のような追加機能とその多くが関係のある追加のテストスイートが多く含まれています。
   </para>
 
   <para>
+<!--
    To run all test suites applicable to the modules that have been selected
    to be built, including the core tests, type one of these commands at the
    top of the build tree:
+-->
+コアテストを含む、構築するよう選択されたモジュールに適用できるテストスイートをすべて実行するにはビルドツリーの最上位で以下のコマンドの一つを入力して下さい。
 <screen>
 make check-world
 make installcheck-world
 </screen>
+<!--
    These commands run the tests using temporary servers or an
    already-installed server, respectively, just as previously explained
    for <literal>make check</literal> and <literal>make installcheck</literal>.  Other
@@ -149,9 +238,14 @@ make installcheck-world
    Note that <literal>make check-world</literal> builds a separate instance
    (temporary data directory) for each tested module, so it requires more
    time and disk space than <literal>make installcheck-world</literal>.
+-->
+<literal>make check</literal>と<literal>make installcheck</literal>で以前述べたように、このコマンドは、それぞれ、一時的なサーバもしくは既にインストールされているサーバを使ってテストを行ないます。
+それ以外に考慮すべきことはそれぞれのところで以前述べたことと同じです。
+<literal>make check-world</literal>はテストするモジュール毎に別のインスタンス(一時的なデータディレクトリ)を構築しますので、<literal>make installcheck-world</literal>よりもずっとより多くの時間とディスク容量が必要です。
   </para>
 
   <para>
+<!--
    On a modern machine with multiple CPU cores and no tight operating-system
    limits, you can make things go substantially faster with parallelism.
    The recipe that most PostgreSQL developers actually use for running all
@@ -164,73 +258,121 @@ make check-world -j8 >/dev/null
    eliminates chatter that's not interesting when you just want to verify
    success.  (In case of failure, the <systemitem>stderr</systemitem>
    messages are usually enough to determine where to look closer.)
+-->
+複数のCPUコアがあり、オペレーティングシステムの厳しい制限のない最近のマシンでは、並列処理でかなり速くできます。
+ほとんどのPostgreSQL開発者がテストをすべて実行するのに実際に使っている方法は
+<screen>
+make check-world -j8 >/dev/null
+</screen>
+のようなものです。ここで<option>-j</option>の範囲は利用可能なコアの数に近い、もしくはそれより少し多い値です。
+<systemitem>stdout</systemitem>を捨てることで、成功を検証する時には興味のない出力を除きます。(失敗した場合、どこをより詳細に調べるべきか決めるには<systemitem>stderr</systemitem>メッセージでたいてい十分です。)
   </para>
 
   <para>
+<!--
    Alternatively, you can run individual test suites by typing
    <literal>make check</literal> or <literal>make installcheck</literal> in the appropriate
    subdirectory of the build tree.  Keep in mind that <literal>make
    installcheck</literal> assumes you've installed the relevant module(s), not
    only the core server.
+-->
+代わりに、構築ツリーの適切なサブディレクトリで<literal>make check</literal>または<literal>make installcheck</literal>と入力することで個々のテストスイートを実行することもできます。
+<literal>make installcheck</literal>はコアサーバだけでなく、関係のあるモジュールもインストール済みであると仮定することを覚えておいて下さい。
   </para>
 
   <para>
+<!--
    The additional tests that can be invoked this way include:
+-->
+このように実行できる追加のテストには以下のものが含まれます。
   </para>
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      Regression tests for optional procedural languages.
      These are located under <filename>src/pl</filename>.
+-->
+オプションとなっている手続き言語のリグレッションテスト。
+これは<filename>src/pl</filename>にあります。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Regression tests for <filename>contrib</filename> modules,
      located under <filename>contrib</filename>.
      Not all <filename>contrib</filename> modules have tests.
+-->
+<filename>contrib</filename>の下にある<filename>contrib</filename>モジュールのリグレッションテスト。
+すべての<filename>contrib</filename>モジュールにテストがあるわけではありません。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Regression tests for the ECPG interface library,
      located in <filename>src/interfaces/ecpg/test</filename>.
+-->
+ECPGインタフェースライブラリのリグレッションテスト。
+<filename>src/interfaces/ecpg/test</filename>にあります。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Tests for core-supported authentication methods,
      located in <filename>src/test/authentication</filename>.
      (See below for additional authentication-related tests.)
+-->
+コアがサポートする認証方式のテスト。
+<filename>src/test/authentication</filename>にあります。
+(認証に関連する追加のテストについては下記を参照してください。)
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Tests stressing behavior of concurrent sessions,
      located in <filename>src/test/isolation</filename>.
+-->
+同時実行中のセッションの振舞いの負荷テスト。
+<filename>src/test/isolation</filename>にあります。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Tests for crash recovery and physical replication,
      located in <filename>src/test/recovery</filename>.
+-->
+クラッシュリカバリと物理レプリケーションのテスト。
+<filename>src/test/recovery</filename>にあります。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Tests for logical replication,
      located in <filename>src/test/subscription</filename>.
+-->
+論理レプリケーションのテスト。
+<filename>src/test/subscription</filename>にあります。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Tests of client programs, located under <filename>src/bin</filename>.
+-->
+<filename>src/bin</filename>以下のクライアントプログラムのテスト。
     </para>
    </listitem>
   </itemizedlist>
 
   <para>
+<!--
    When using <literal>installcheck</literal> mode, these tests will create
    and destroy test databases whose names
    include <literal>regression</literal>, for
@@ -238,34 +380,54 @@ make check-world -j8 >/dev/null
    or <literal>contrib_regression</literal>.  Beware of
    using <literal>installcheck</literal> mode with an installation that has
    any non-test databases named that way.
+-->
+<literal>installcheck</literal>モードを使う場合には、上記のテストは名前<literal>regression</literal>を含むテストデータベースを破壊します。例えば、<literal>pl_regression</literal>、<literal>contrib_regression</literal>です。
+非テストデータベースがそのように名付けられたインストレーションで<literal>installcheck</literal>モードを使う場合には注意してください。
   </para>
 
   <para>
+<!--
    Some of these auxiliary test suites use the TAP infrastructure explained
    in <xref linkend="regress-tap"/>.
    The TAP-based tests are run only when PostgreSQL was configured with the
-   option <option>--enable-tap-tests</option>.  This is recommended for
+   option <option>&#045;-enable-tap-tests</option>.  This is recommended for
    development, but can be omitted if there is no suitable Perl installation.
+-->
+この補助的なテストスイートの中には<xref linkend="regress-tap"/>で説明するTAP基盤を使うものがあります。
+オプション<option>--enable-tap-tests</option>を指定してPostgreSQLを構築した場合にのみ、TAPベースのテストが行なわれます。
+これは開発にはお薦めですが、適切なPerlのインストレーションがない場合には省略できます。
   </para>
 
   <para>
+<!--
    Some test suites are not run by default, either because they are not secure
    to run on a multiuser system or because they require special software.  You
    can decide which test suites to run additionally by setting the
    <command>make</command> or environment variable
    <varname>PG_TEST_EXTRA</varname> to a whitespace-separated list, for
    example:
+-->
+マルチユーザシステムにおいて安全に実行できない、あるいは、特別なソフトウェアを必要とする、といういずれかの理由により、一部のテストスイートはデフォルトでは実行されません。
+どのテストスイートを追加で実行するかを<command>make</command>や環境変数<varname>PG_TEST_EXTRA</varname>に空白区切りのリストを設定することで決定できます。
+以下に例を示します。
 <programlisting>
 make check-world PG_TEST_EXTRA='kerberos ldap ssl'
 </programlisting>
+<!--
    The following values are currently supported:
+-->
+現在、以下の値がサポートされます。
    <variablelist>
     <varlistentry>
      <term><literal>kerberos</literal></term>
      <listitem>
       <para>
+<!--
        Runs the test suite under <filename>src/test/kerberos</filename>.  This
        requires an MIT Kerberos installation and opens TCP/IP listen sockets.
+-->
+<filename>src/test/kerberos</filename>以下のテストスイートを実行します。
+これはMIT Kerberosのインストールを必要とし、TCP/IPリッスンソケットを開きます。
       </para>
      </listitem>
     </varlistentry>
@@ -274,9 +436,13 @@ make check-world PG_TEST_EXTRA='kerberos ldap ssl'
      <term><literal>ldap</literal></term>
      <listitem>
       <para>
+<!--
        Runs the test suite under <filename>src/test/ldap</filename>.  This
        requires an <productname>OpenLDAP</productname> installation and opens
        TCP/IP listen sockets.
+-->
+<filename>src/test/ldap</filename>以下のテストスイートを実行します。
+これは<productname>OpenLDAP</productname>のインストールを必要としTCP/IPリッスンソケットを開きます。
       </para>
      </listitem>
     </varlistentry>
@@ -285,18 +451,26 @@ make check-world PG_TEST_EXTRA='kerberos ldap ssl'
      <term><literal>ssl</literal></term>
      <listitem>
       <para>
+<!--
        Runs the test suite under <filename>src/test/ssl</filename>.  This opens TCP/IP listen sockets.
+-->
+<filename>src/test/ssl</filename>以下のテストスイートを実行します。
+これはTCP/IPリッスンソケットを開きます。
       </para>
      </listitem>
     </varlistentry>
    </variablelist>
 
+<!--
    Tests for features that are not supported by the current build
    configuration are not run even if they are mentioned in
    <varname>PG_TEST_EXTRA</varname>.
+-->
+現在のビルド設定ではサポートされない機能のテストは、<varname>PG_TEST_EXTRA</varname>に記述されていても、実行されません。
   </para>
 
   <para>
+<!--
    In addition, there are tests in <filename>src/test/modules</filename>
    which will be run by <literal>make check-world</literal> but not
    by <literal>make installcheck-world</literal>.  This is because they
@@ -305,49 +479,79 @@ make check-world PG_TEST_EXTRA='kerberos ldap ssl'
    use <literal>make install</literal> and <literal>make
    installcheck</literal> in one of those subdirectories if you wish,
    but it's not recommended to do so with a non-test server.
+-->
+さらに、<literal>make check-world</literal>では実行されますが、<literal>make installcheck-world</literal>では実行されないテストが<filename>src/test/modules</filename>にあります。
+これは、実運用向けではない拡張をインストールしたり、実運用のインストレーションには望ましくない副作用があったりするためです。
+お望みとあらば、そのサブディレクトリの1つで<literal>make install</literal>と<literal>make installcheck</literal>を使うことはできますが、テスト用でないサーバでそうすることはお勧めしません。
   </para>
   </sect2>
 
   <sect2>
+<!--
    <title>Locale and Encoding</title>
+-->
+   <title>ロケールと符号化方式</title>
 
    <para>
+<!--
     By default, tests using a temporary installation use the
     locale defined in the current environment and the corresponding
     database encoding as determined by <command>initdb</command>.  It
     can be useful to test different locales by setting the appropriate
     environment variables, for example:
+-->
+デフォルトでは、一時的なインストレーションを使うテストは、現在の環境で定義されたロケールと<command>initdb</command>で決定される対応するデータベース符号化方式を使用します。
+異なるロケールを試験する際は、以下の例のように適切な環境変数を設定することが有用です。
 <screen>
 make check LANG=C
 make check LC_COLLATE=en_US.utf8 LC_CTYPE=fr_CA.utf8
 </screen>
+<!--
     For implementation reasons, setting <envar>LC_ALL</envar> does not
     work for this purpose; all the other locale-related environment
     variables do work.
+-->
+実装上の理由のため、<envar>LC_ALL</envar>はこの目的には動作しません。
+この他のロケール関連の環境変数は動作します。
    </para>
 
    <para>
+<!--
     When testing against an existing installation, the locale is
     determined by the existing database cluster and cannot be set
     separately for the test run.
+-->
+既存のインストレーションに対するテストでは、ロケールは既存のデータベースクラスタによって決まり、テスト実行時に別の値に設定することができません。
    </para>
 
    <para>
+<!--
     You can also choose the database encoding explicitly by setting
     the variable <envar>ENCODING</envar>, for example:
+-->
+また、以下の例のように<envar>ENCODING</envar>変数を設定することで明示的にデータベース符号化方式を選択することができます。
 <screen>
 make check LANG=C ENCODING=EUC_JP
 </screen>
+<!--
     Setting the database encoding this way typically only makes sense
     if the locale is C; otherwise the encoding is chosen automatically
     from the locale, and specifying an encoding that does not match
     the locale will result in an error.
+-->
+この方法でデータベース符号化方式を設定することは、通常ロケールがCだった場合にのみ意味があります。
+この他の場合、ロケールから自動的に符号化方式が選択されます。
+ロケールと一致しない符号化方式を指定してもエラーになるだけです。
    </para>
 
    <para>
+<!--
     The database encoding can be set for tests against either a temporary or
     an existing installation, though in the latter case it must be
     compatible with the installation's locale.
+-->
+データベース符号化方式は一時的なインストレーションに対するテストでも既存のインストレーションに対するテストでも設定することができます。
+ただし、後者の場合にはインストレーションのロケールと互換性がなければなりません。
    </para>
   </sect2>
 
@@ -378,14 +582,22 @@ make check EXTRA_REGRESS_OPTS="--temp-config=test_postgresql.conf"
   </sect2>
 
   <sect2>
+<!--
    <title>Extra Tests</title>
+-->
+   <title>追加のテスト</title>
 
    <para>
+<!--
     The core regression test suite contains a few test files that are not
     run by default, because they might be platform-dependent or take a
     very long time to run.  You can run these or other extra test
     files by setting the variable <envar>EXTRA_TESTS</envar>.  For
     example, to run the <literal>numeric_big</literal> test:
+-->
+プラットフォームに依存する、または非常に時間がかかる可能性があるという理由で、コアリグレッションテスト一式にはデフォルトでは動作しないテストがいくつか含まれています。
+<envar>EXTRA_TESTS</envar>変数を設定することでこれらの追加テストやその他のテストを実行することができます。
+例えば、<literal>numeric_big</literal>テストを以下のように実行します。
 <screen>
 make check EXTRA_TESTS=numeric_big
 </screen>
@@ -393,9 +605,13 @@ make check EXTRA_TESTS=numeric_big
   </sect2>
 
   <sect2>
+<!--
    <title>Testing Hot Standby</title>
+-->
+   <title>ホットスタンバイのテスト</title>
 
   <para>
+<!--
    The source distribution also contains regression tests for the static
    behavior of Hot Standby. These tests require a running primary server
    and a running standby server that is accepting new WAL changes from the
@@ -403,28 +619,46 @@ make check EXTRA_TESTS=numeric_big
    Those servers are not automatically created for you, nor is replication
    setup documented here. Please check the various sections of the
    documentation devoted to the required commands and related issues.
+-->
+ソース配布は、ホットスタンバイの静的な挙動に対するリグレッションテストも含んでいます。
+これらのテストは、稼働しているプライマリサーバと、（ファイルベースのログ転送、またはストリーミングレプリケーションによって）プライマリからの新規のWALの変更を受け付けられる稼働中のスタンバイサーバを必要とします。
+これらのサーバは、自動的に作成されませんし、ここにはレプリケーション設定ドキュメントもありません。
+必要なコマンドや関連する問題について記述されている、ドキュメントのさまざまなセクションを参照してください。
   </para>
 
   <para>
+<!--
    To run the Hot Standby tests, first create a database
    called <literal>regression</literal> on the primary:
+-->
+ホットスタンバイテストを実行するには、最初に<literal>regression</literal>という名前のデータベースをプライマリに作成します。
 <screen>
 psql -h primary -c "CREATE DATABASE regression"
 </screen>
+<!--
    Next, run the preparatory script
    <filename>src/test/regress/sql/hs_primary_setup.sql</filename>
    on the primary in the regression database, for example:
+-->
+次に、準備のためのスクリプト<filename>src/test/regress/sql/hs_primary_setup.sql</filename>をプライマリのregressionデータベース上で以下のように実行します。
 <screen>
 psql -h primary -f src/test/regress/sql/hs_primary_setup.sql regression
 </screen>
+<!--
    Allow these changes to propagate to the standby.
+-->
+この変更がスタンバイに伝搬するようにします。
   </para>
 
   <para>
+<!--
    Now arrange for the default database connection to be to the standby
    server under test (for example, by setting the <envar>PGHOST</envar> and
    <envar>PGPORT</envar> environment variables).
    Finally, run <literal>make standbycheck</literal> in the regression directory:
+-->
+ここで、デフォルトデータベース接続がスタンバイサーバの試験環境になるように（例えば、<envar>PGHOST</envar>と<envar>PGPORT</envar>環境変数を設定することで）手配してください。
+最後に、リグレッションテスト用のディレクトリから<literal>make standbycheck</literal>を実行してください。
 <screen>
 cd src/test/regress
 make standbycheck
@@ -432,17 +666,24 @@ make standbycheck
   </para>
 
   <para>
+<!--
    Some extreme behaviors can also be generated on the primary using the
    script <filename>src/test/regress/sql/hs_primary_extremes.sql</filename>
    to allow the behavior of the standby to be tested.
+-->
+いくつかの極端な挙動を、スタンバイのテストのための挙動を実現するスクリプト<filename>src/test/regress/sql/hs_primary_extremes.sql</filename>を用いることでプライマリサーバ上で生成することができます。
   </para>
   </sect2>
   </sect1>
 
   <sect1 id="regress-evaluation">
+<!--
    <title>Test Evaluation</title>
+-->
+   <title>テストの評価</title>
 
    <para>
+<!--
     Some properly installed and fully functional
     <productname>PostgreSQL</productname> installations can
     <quote>fail</quote> some of these regression tests due to
@@ -456,9 +697,16 @@ make standbycheck
     differences are not significant.  Nonetheless, we still strive to
     maintain accurate reference files across all supported platforms,
     so it can be expected that all tests pass.
+-->
+適正にインストールされ、かつ、すべての機能が使用できるような<productname>PostgreSQL</productname>インストレーションであっても、浮動小数点の表現やメッセージ内の単語順など、プラットフォーム特有の誤差のために<quote>失敗</quote>することがあります。
+現在のテストは単純に、（基準となる）参照用システムで生成した出力との<command>diff</command>を取ることで結果の検証を行っているため、システムの些細な違いにも反応します。
+結果が<quote>失敗</quote>となった場合は、予測された結果と実際の結果との差分を必ず評価してください。
+それらの差異が重大ではないことが判明することもあります。
+なお、すべてのテストが成功するように、サポートするすべてのプラットフォームに対する正確な参照ファイルの保守に努めています。
    </para>
 
    <para>
+<!--
     The actual outputs of the regression tests are in files in the
     <filename>src/test/regress/results</filename> directory. The test
     script uses <command>diff</command> to compare each output
@@ -469,28 +717,45 @@ make standbycheck
     (When running a test suite other than the core tests, these files
     of course appear in the relevant subdirectory,
     not <filename>src/test/regress</filename>.)
+-->
+実際のリグレッションテストの出力は、<filename>src/test/regress/results</filename>ディレクトリ内のファイルに書き込まれます。
+テストスクリプトは<command>diff</command>を使用して、各出力ファイルと<filename>src/test/regress/expected</filename>ディレクトリ内の参照用出力とを比較します。
+あらゆる差異は調査用に<filename>src/test/regress/regression.diffs</filename>に保存されます。
+（コアテスト以外のテストスイートを実行する場合には、上記のファイルはもちろん<filename>src/test/regress</filename>ではなく適切なサブディレクトリに現れます。）
    </para>
 
    <para>
+<!--
     If you don't
     like the <command>diff</command> options that are used by default, set the
     environment variable <envar>PG_REGRESS_DIFF_OPTS</envar>, for
     instance <literal>PG_REGRESS_DIFF_OPTS='-c'</literal>.  (Or you
     can run <command>diff</command> yourself, if you prefer.)
+-->
+デフォルトで利用されている<command>diff</command>オプションが気に入らなければ、例えば<literal>PG_REGRESS_DIFF_OPTS='-c'</literal>のように、環境変数<envar>PG_REGRESS_DIFF_OPTS</envar>を設定して下さい。
+（あるいは、自分で<command>diff</command>を実行することもできます。）
    </para>
 
    <para>
+<!--
     If for some reason a particular platform generates a <quote>failure</quote>
     for a given test, but inspection of the output convinces you that
     the result is valid, you can add a new comparison file to silence
     the failure report in future test runs.  See
     <xref linkend="regress-variant"/> for details.
+-->
+何らかの理由で、特定のプラットフォームが指定した試験で<quote>失敗</quote>し、その出力の調査により結果の方が有効であると確信できた場合、新しい比較用ファイルを追加し、今後の試験で失敗の報告が発生しないようにすることができます。
+詳細は<xref linkend="regress-variant"/>を参照してください。
    </para>
 
    <sect2>
+<!--
     <title>Error Message Differences</title>
+-->
+    <title>エラーメッセージの違い</title>
 
     <para>
+<!--
      Some of the regression tests involve intentional invalid input
      values.  Error messages can come from either the
      <productname>PostgreSQL</productname> code or from the host
@@ -499,45 +764,69 @@ make standbycheck
      information. These differences in messages will result in a
      <quote>failed</quote> regression test that can be validated by
      inspection.
+-->
+リグレッションテストのいくつかは、意図的に無効な入力値を使用します。
+エラーメッセージは<productname>PostgreSQL</productname>のコードによるもの、または使用しているプラットフォームの関数によるものがあります。
+後者の場合、プラットフォームによって違いがあるかもしれませんが、似たような内容になるはずです。
+これらのメッセージの違いによりリグレッションテストは<quote>失敗</quote>する可能性がありますが、これらは検査で確認できます。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Locale Differences</title>
+-->
+    <title>ロケールの違い</title>
 
     <para>
+<!--
      If you run the tests against a server that was
      initialized with a collation-order locale other than C, then
      there might be differences due to sort order and subsequent
      failures.  The regression test suite is set up to handle this
      problem by providing alternate result files that together are
      known to handle a large number of locales.
+-->
+Cロケール以外の照合順序のロケールで初期化されたサーバに対してテストを実行する際には、ソート順やその後に発生する失敗に違いが生じる可能性があります。
+リグレッションテストスイートはこの問題を解決するために、多くのロケールを処理するための代替の結果ファイルを提供するように設定されています。
     </para>
 
     <para>
+<!--
      To run the tests in a different locale when using the
      temporary-installation method, pass the appropriate
      locale-related environment variables on
      the <command>make</command> command line, for example:
+-->
+一時的なインストレーションを使用して、異なるロケールのテストを実行するためには、以下の例のように、<command>make</command>コマンドラインに適切なロケール関連の環境変数を渡してください。
 <programlisting>
 make check LANG=de_DE.utf8
 </programlisting>
+<!--
      (The regression test driver unsets <envar>LC_ALL</envar>, so it
      does not work to choose the locale using that variable.)  To use
      no locale, either unset all locale-related environment variables
      (or set them to <literal>C</literal>) or use the following
      special invocation:
+-->
+（リグレッションテストのドライバは<envar>LC_ALL</envar>を設定しないため、この変数を使ってロケールを選択することはできません。）
+ロケール無しを使用するためには、すべてのロケール関連の環境変数を設定しない（または、それらを<literal>C</literal>に設定する）か、もしくは以下の特殊な起動を行います。
 <programlisting>
 make check NO_LOCALE=1
 </programlisting>
+<!--
      When running the tests against an existing installation, the
      locale setup is determined by the existing installation.  To
      change it, initialize the database cluster with a different
      locale by passing the appropriate options
      to <command>initdb</command>.
+-->
+既存のインストレーションに対してテストを実行する場合は、ロケール設定は既存のインストレーションによって決まります。
+変更するためには、<command>initdb</command>に適切なオプションを渡して、異なるロケールでデータベースクラスタを初期化してください。
     </para>
 
     <para>
+<!--
      In general, it is advisable to try to run the
      regression tests in the locale setup that is wanted for
      production use, as this will exercise the locale- and
@@ -546,13 +835,20 @@ make check NO_LOCALE=1
      might get failures, but then you will at least know what
      locale-specific behaviors to expect when running real
      applications.
+-->
+実際に実運用で使用されるロケールおよび符号化方式に関連した部分のコードが検証されますので、一般的には、実運用で使用されるロケール設定でリグレッションテストを実行することを推奨します。
+オペレーティングシステム環境に依存して、結果が失敗する場合もありますが、少なくとも実際のアプリケーションを実行する時に想定されるロケール固有の動作を知ることができます。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Date and Time Differences</title>
+-->
+    <title>日付と時刻の違い</title>
 
     <para>
+<!--
      Most of the date and time results are dependent on the time zone
      environment.  The reference files are generated for time zone
      <literal>PST8PDT</literal> (Berkeley, California), and there will be
@@ -560,13 +856,21 @@ make check NO_LOCALE=1
      The regression test driver sets environment variable
      <envar>PGTZ</envar> to <literal>PST8PDT</literal>, which normally
      ensures proper results.
+-->
+日付と時刻の結果のほとんどはタイムゾーンの環境に依存します。
+参照ファイルはタイムゾーン <literal>PST8PDT</literal> (Berkeley, California) 用に生成されているため、このタイムゾーン設定で実行されていないテストは明らかに失敗します。
+リグレッションテストのドライバは、適切な結果を保証するために、環境変数<envar>PGTZ</envar>に<literal>PST8PDT</literal>を設定します。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Floating-Point Differences</title>
+-->
+    <title>浮動小数点数の違い</title>
 
     <para>
+<!--
      Some of the tests involve computing 64-bit floating-point numbers (<type>double
      precision</type>) from table columns. Differences in
      results involving mathematical functions of <type>double
@@ -576,25 +880,40 @@ make check NO_LOCALE=1
      Human eyeball comparison is needed to determine the real
      significance of these differences which are usually 10 places to
      the right of the decimal point.
+-->
+いくつかのテストでは、64ビット（<type>double precision</type>型）の浮動小数点数値をテーブルの列から取り出して計算を行います。
+<type>double precision</type>列における数学演算関数では、異なった結果が発生する場合があることが知られています。
+<literal>float8</literal>と<literal>geometry</literal>テストは特に、プラットフォーム間、またはコンパイラの最適化の設定による小さな違いが起こりやすくなります。
+これらの違い、通常は小数点以下10桁目以降の相違の、実際の影響度を判断するためには、人間の目で実際に確認する必要があります。
     </para>
 
     <para>
+<!--
      Some systems display minus zero as <literal>-0</literal>, while others
      just show <literal>0</literal>.
+-->
+いくつかのシステムではマイナス0を<literal>-0</literal>と表示することがあり、その他のシステムでは単に<literal>0</literal>と表示します。
     </para>
 
     <para>
+<!--
      Some systems signal errors from <function>pow()</function> and
      <function>exp()</function> differently from the mechanism
      expected by the current <productname>PostgreSQL</productname>
      code.
+-->
+いくつかのシステムでは、現在の<productname>PostgreSQL</productname>のコードが想定しているメカニズムと異なるために、<function>pow()</function>と<function>exp()</function>でエラーを発生する場合があります。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Row Ordering Differences</title>
+-->
+    <title>行の順序の違い</title>
 
     <para>
+<!--
 You might see differences in which the same rows are output in a
 different order than what appears in the expected file.  In most cases
 this is not, strictly speaking, a bug.  Most of the regression test
@@ -608,29 +927,48 @@ cross-platform ordering differences, however.  When testing against an
 already-installed server, ordering differences can also be caused by
 non-C locale settings or non-default parameter settings, such as custom values
 of <varname>work_mem</varname> or the planner cost parameters.
+-->
+同じ行の出力が、参照ファイルで記述されている順序とは異なっている場合があります。
+ほとんどの場合、これは厳密に言ってバグではありません。
+ほとんどのリグレッションテストは、各<literal>SELECT</literal>文に対して<literal>ORDER BY</literal>を使用するほど規則に厳しくなく、そのため、結果の行の順序はSQLの仕様に従って、明確に決まっていません。
+実際には、同じソフトウェアで同じデータを用いて同じ問い合わせで参照しているので、すべてのプラットフォームで同じ順序の結果が返されるため、<literal>ORDER BY</literal>がないことは問題ではないと言えます。
+しかし、問い合わせによっては、プラットフォーム間の順序の違いが起こる可能性があります。
+インストール済みのサーバに対して試験を行う場合、C以外のロケール、独自の<varname>work_mem</varname>や独自のプランナ用のコストパラメータなどデフォルト以外のパラメータ設定により順序の違いが生じる可能性があります。
     </para>
 
     <para>
+<!--
 Therefore, if you see an ordering difference, it's not something to
 worry about, unless the query does have an <literal>ORDER BY</literal> that your
 result is violating.  However, please report it anyway, so that we can add an
 <literal>ORDER BY</literal> to that particular query to eliminate the bogus
 <quote>failure</quote> in future releases.
+-->
+したがって、順序の違いを見つけた場合、問い合わせに<literal>ORDER BY</literal>が含まれていて順序が影響を及ぼす場合以外は、気にする必要はありません。
+ただし、その場合にもとにかくご一報ください。特定の問い合わせから偽の<quote>失敗</quote>を取り除くために、将来のリリースにおいて、<literal>ORDER BY</literal>を追加します。
     </para>
 
     <para>
+<!--
 You might wonder why we don't order all the regression test queries explicitly
 to get rid of this issue once and for all.  The reason is that that would
 make the regression tests less useful, not more, since they'd tend
 to exercise query plan types that produce ordered results to the
 exclusion of those that don't.
+-->
+このような問題を避けるために、なぜ我々がすべてのリグレッションテストに対して明示的に順序を指定しないのか、疑問に思うかもしれません。
+その理由は、ソートが必要がない場合であってもソートされた結果を生成する問い合わせ計画を実行しようとすることによって、リグレッションテストの意義が増すわけではなく、むしろ減るからです。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Insufficient Stack Depth</title>
+-->
+    <title>スタック長の不足</title>
 
     <para>
+<!--
      If the <literal>errors</literal> test results in a server crash
      at the <literal>select infinite_recurse()</literal> command, it means that
      the platform's limit on process stack size is smaller than the
@@ -639,58 +977,94 @@ exclusion of those that don't.
      size limit (4MB is recommended with the default value of
      <varname>max_stack_depth</varname>).  If you are unable to do that, an
      alternative is to reduce the value of <varname>max_stack_depth</varname>.
+-->
+<literal>errors</literal>テストが<literal>select infinite_recurse()</literal>コマンドでサーバをクラッシュさせた場合、プラットフォームのプロセススタックサイズが<xref linkend="guc-max-stack-depth"/>パラメータが示す値よりも小さいことを意味します。
+これは、スタックサイズ制限を高くして（デフォルトの<varname>max_stack_depth</varname>での推奨値は4メガバイト）サーバを実行することで修正することができます。
+これを行うことができない場合、<varname>max_stack_depth</varname>の値を少なくすることが代替方法です。
     </para>
 
     <para>
+<!--
      On platforms supporting <function>getrlimit()</function>, the server should
      automatically choose a safe value of <varname>max_stack_depth</varname>;
      so unless you've manually overridden this setting, a failure of this
      kind is a reportable bug.
+-->
+<function>getrlimit()</function>をサポートするプラットフォームでは、サーバは自動的に<varname>max_stack_depth</varname>の安全な値を選ぶべきです。
+この設定を手で上書きしたのでない限り、この種の失敗は報告する価値のあるバグです。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>The <quote>random</quote> Test</title>
+-->
+    <title><quote>乱数</quote> テスト</title>
 
     <para>
+<!--
      The <literal>random</literal> test script is intended to produce
      random results.   In very rare cases, this causes that regression
      test to fail.  Typing:
+-->
+<literal>random</literal>テストスクリプトは、無作為な結果を生成することを目的としています。
+非常に稀ですが、これがリグレッションテストが失敗する原因になることがあります。
+次のように、
 <programlisting>
 diff results/random.out expected/random.out
 </programlisting>
+<!--
      should produce only one or a few lines of differences.  You need
      not worry unless the random test fails repeatedly.
+-->
+と入力すると、ほんの数行だけの差異が生じるはずです。
+繰り返し失敗しない限り、気に留める必要はありません。
     </para>
    </sect2>
 
    <sect2>
+<!--
     <title>Configuration Parameters</title>
+-->
+    <title>設定パラメータ</title>
 
     <para>
+<!--
      When running the tests against an existing installation, some non-default
      parameter settings could cause the tests to fail.  For example, changing
      parameters such as <varname>enable_seqscan</varname> or
      <varname>enable_indexscan</varname> could cause plan changes that would
      affect the results of tests that use <command>EXPLAIN</command>.
+-->
+既存のインストレーションに対してテストを実行する場合、デフォルトでないパラメータ設定はテストが失敗する原因になり得ます。
+例えば、<varname>enable_seqscan</varname>や<varname>enable_indexscan</varname>のようなパラメータの変更は、<command>EXPLAIN</command>を使うテストの結果に影響する計画の変更の原因となり得ます。
     </para>
    </sect2>
   </sect1>
 
 <!-- We might want to move the following section into the developer's guide. -->
   <sect1 id="regress-variant">
+<!--
    <title>Variant Comparison Files</title>
+-->
+   <title>各種の比較用ファイル</title>
 
    <para>
+<!--
     Since some of the tests inherently produce environment-dependent
     results, we have provided ways to specify alternate <quote>expected</quote>
     result files.  Each regression test can have several comparison files
     showing possible results on different platforms.  There are two
     independent mechanisms for determining which comparison file is used
     for each test.
+-->
+試験の中には必然的に環境に依存した結果となるものがありますので、<quote>expected</quote>結果ファイルの代替を指定する方法を用意しています。
+各リグレッションテストは、異なるプラットフォームで出力される可能性がある、複数の比較用ファイルを持つことができます。
+各試験に対してどの比較用ファイルを使用するかを決定する方法には、独立した２つの機構があります。
    </para>
 
    <para>
+<!--
     The first mechanism allows comparison files to be selected for
     specific platforms.  There is a mapping file,
     <filename>src/test/regress/resultmap</filename>, that defines
@@ -698,13 +1072,21 @@ diff results/random.out expected/random.out
     To eliminate bogus test <quote>failures</quote> for a particular platform,
     you first choose or make a variant result file, and then add a line to the
     <filename>resultmap</filename> file.
+-->
+1つ目のメカニズムにより、特定のプラットフォームのための比較用ファイルを選ぶことができます。
+関連付けを行う<filename>src/test/regress/resultmap</filename>というファイルがあり、どの比較用ファイルがどのプラットフォームで使用されるのかを定義します。
+特定のプラットフォームにおいて試験の<quote>失敗</quote>の誤検知を防ぐためには、まず結果ファイルを選ぶ、あるいは結果ファイルを作成してから、<filename>resultmap</filename>ファイルに1行加えてください。
    </para>
 
    <para>
+<!--
     Each line in the mapping file is of the form
+-->
+マッピングファイルの各行の書式は下記の通りです。
 <synopsis>
 testname:output:platformpattern=comparisonfilename
 </synopsis>
+<!--
     The test name is just the name of the particular regression test
     module. The output value indicates which output file to check. For the
     standard regression tests, this is always <literal>out</literal>. The
@@ -715,9 +1097,18 @@ testname:output:platformpattern=comparisonfilename
     platform name as printed by <command>config.guess</command>.
     The comparison file name is the base name of the substitute result
     comparison file.
+-->
+testnameは特定のリグレッションテストのモジュール名です。
+outputの値は、どの出力ファイルを検査するのかを示します。
+標準のリグレッションテストでは、これは常に<literal>out</literal>です。
+この値は出力ファイルの拡張子に対応します。
+platformpatternとは、<command>expr</command> Unixツールスタイル（最初に暗黙的な<literal>^</literal>がある正規表現）のパターンです。
+これは<command>config.guess</command>によって出力されるプラットフォーム名と比較されます。
+comparisonfilenameは置き換える結果比較ファイルの（ディレクトリ部分を除いた）名前です。
    </para>
 
    <para>
+<!--
     For example: some systems lack a working <literal>strtof</literal> function,
     for which our workaround causes rounding errors in the
     <filename>float4</filename> regression test.
@@ -726,16 +1117,26 @@ testname:output:platformpattern=comparisonfilename
     the results to be expected on these systems.  To silence the bogus
     <quote>failure</quote> message on <systemitem>HP-UX 10</systemitem>
     platforms, <filename>resultmap</filename> includes:
+-->
+以下に例を示します。
+システムの中には、動作する<literal>strtof</literal>関数がないものがあり、そのため私たちの回避策が<filename>float4</filename>リグレッションテストでの丸め誤差の原因となります。
+そのため、<filename>float4-misrounded-input.out</filename>という異なる比較ファイルを用意し、そこにこういったシステムでの期待される値を記述します。
+<systemitem>HP-UX 10</systemitem>プラットフォームにおいて偽の<quote>失敗</quote>メッセージ出力を行わせないようにするために、<filename>resultmap</filename>に以下を含めます。
 <programlisting>
 float4:out:hppa.*-hp-hpux10.*=float4-misrounded-input.out
 </programlisting>
+<!--
     which will trigger on any machine where the output of
     <command>config.guess</command> matches <literal>hppa.*-hp-hpux10.*</literal>.
     Other lines in <filename>resultmap</filename> select the variant comparison
     file for other platforms where it's appropriate.
+-->
+これは、<command>config.guess</command>の出力が<literal>hppa.*-hp-hpux10.*</literal>に一致するすべてのマシンに対して適用されます。
+<filename>resultmap</filename>のその他の行は、他のプラットフォーム向けの適切な比較ファイルを選択します。
    </para>
 
    <para>
+<!--
     The second selection mechanism for variant comparison files is
     much more automatic: it simply uses the <quote>best match</quote> among
     several supplied comparison files.  The regression test driver
@@ -749,17 +1150,29 @@ float4:out:hppa.*-hp-hpux10.*=float4-misrounded-input.out
     <filename>resultmap</filename> includes an entry for the particular
     test, then the base <replaceable>testname</replaceable> is the substitute
     name given in <filename>resultmap</filename>.)
+-->
+2つ目の比較用ファイルの選択の仕組みはかなり自動化されています。
+これは単純に、提供されている各種比較用ファイルの中から<quote>もっとも一致するもの</quote>を使用します。
+リグレッションテストのドライバスクリプトは、試験において、標準の比較用ファイル<literal><replaceable>testname</replaceable>.out</literal>と<literal><replaceable>testname</replaceable>_<replaceable>digit</replaceable>.out</literal>（ここで<replaceable>digit</replaceable>は<literal>0</literal>-<literal>9</literal>のいずれかからなる1つの数字です）という名前の別のファイルの両方を考慮します。
+もしこの中のいずれかのファイルが正確に一致した場合、試験が成功したものとみなします。
+さもなくば、生成されたdiffの結果がもっとも小さかった結果ファイルを選択して、失敗報告を生成します。
+（<filename>resultmap</filename>に特定の試験用の項目が含まれていると、<filename>resultmap</filename>内の名前が元となる<replaceable>testname</replaceable>に置き換えられます。）
    </para>
 
    <para>
+<!--
     For example, for the <literal>char</literal> test, the comparison file
     <filename>char.out</filename> contains results that are expected
     in the <literal>C</literal> and <literal>POSIX</literal> locales, while
     the file <filename>char_1.out</filename> contains results sorted as
     they appear in many other locales.
+-->
+例えば、<literal>char</literal>の試験では、比較用ファイル<filename>char.out</filename>には<literal>C</literal>ロケールと<literal>POSIX</literal>ロケールで想定される結果が含まれています。
+一方、<filename>char_1.out</filename>ファイルには、他の多くのロケールで現れる結果がソートされて含まれています。
    </para>
 
    <para>
+<!--
     The best-match mechanism was devised to cope with locale-dependent
     results, but it can be used in any situation where the test results
     cannot be predicted easily from the platform name alone.  A limitation of
@@ -768,44 +1181,70 @@ float4:out:hppa.*-hp-hpux10.*=float4-misrounded-input.out
     the variant that seems to work best.  Therefore it is safest to use this
     mechanism only for variant results that you are willing to consider
     equally valid in all contexts.
+-->
+この最善一致の仕組みは、ロケールに依存した結果に対応できるように考え出されました。
+しかし、この仕組みはプラットフォームの名前だけでは簡単に予測できる試験結果とならないような、任意の状況で使用することができます。
+この仕組みの制約は、現在の環境でどの種類の比較ファイルが本当に<quote>正しい</quote>のかが試験ドライバでは分からないという点です。
+単にもっともうまく動いていそうなものを選択しているだけだからです。
+したがって、すべての文脈で平等に有効とみなすことができるような種類の結果においてのみ利用するのが、もっとも安全です。
    </para>
 
   </sect1>
 
   <sect1 id="regress-tap">
+<!--
    <title>TAP Tests</title>
+-->
+   <title>TAPテスト</title>
 
    <para>
+<!--
     Various tests, particularly the client program tests
     under <filename>src/bin</filename>, use the Perl TAP tools and are run
     using the Perl testing program <command>prove</command>.  You can pass
     command-line options to <command>prove</command> by setting
     the <command>make</command> variable <varname>PROVE_FLAGS</varname>, for example:
+-->
+様々なテスト、特に<filename>src/bin</filename>以下のクライアントプログラムテストはPerl TAPツールを使い、Perlテストプログラム<command>prove</command>を使って実行されます。
+<command>make</command>変数<varname>PROVE_FLAGS</varname>を設定することで<command>prove</command>コマンドラインオプションを渡すことができます。
+例えば、
 <programlisting>
 make -C src/bin check PROVE_FLAGS='--timer'
 </programlisting>
+<!--
     See the manual page of <command>prove</command> for more information.
+-->
+詳細な情報は<command>prove</command>のマニュアルページを参照してください。
    </para>
 
    <para>
+<!--
     The <command>make</command> variable <varname>PROVE_TESTS</varname>
     can be used to define a whitespace-separated list of paths relative
     to the <filename>Makefile</filename> invoking <command>prove</command>
     to run the specified subset of tests instead of the default
     <filename>t/*.pl</filename>.  For example:
+-->
+デフォルトの<filename>t/*.pl</filename>に替えて、テストの指定サブセットを実行するために、<command>make</command>変数<varname>PROVE_TESTS</varname>を使用できます。<command>prove</command>を起動する<filename>Makefile</filename>からの相対パスの空白区切りのリストを指定します。
+以下に例を示します。
 <programlisting>
 make check PROVE_TESTS='t/001_test1.pl t/003_test3.pl'
 </programlisting>
    </para>
 
    <para>
+<!--
     The TAP tests require the Perl module <literal>IPC::Run</literal>.
     This module is available from CPAN or an operating system package.
     They also require <productname>PostgreSQL</productname> to be
     configured with the option <option>--enable-tap-tests</option>.
+-->
+TAPテストはPerlモジュール<literal>IPC::Run</literal>が必要です。
+このモジュールはCPANもしくはオペレーティングシステムのパッケージから入手可能です。
    </para>
 
    <para>
+<!--
     Generically speaking, the TAP tests will test the executables in a
     previously-installed installation tree if you say <literal>make
     installcheck</literal>, or will build a new local installation tree from
@@ -813,9 +1252,15 @@ make check PROVE_TESTS='t/001_test1.pl t/003_test3.pl'
     case they will initialize a local instance (data directory) and
     transiently run a server in it.  Some of these tests run more than one
     server.  Thus, these tests can be fairly resource-intensive.
+-->
+一般的に言って、TAPテストは、<literal>make installcheck</literal>とした場合には以前インストールしたインストレーションツリーの実行ファイルをテストし、<literal>make check</literal>とした場合には現在のソースから新しいインストレーションツリーを構築します。
+どちらの場合も、ローカルインスタンス(データディレクトリ)を初期化し、その中で一時的にサーバを実行します。
+テストの中には2つ以上のサーバを実行するものがあります。
+従って、このテストはかなりリソース集約的になる可能性があります。
    </para>
 
    <para>
+<!--
     It's important to realize that the TAP tests will start test server(s)
     even when you say <literal>make installcheck</literal>; this is unlike
     the traditional non-TAP testing infrastructure, which expects to use an
@@ -823,44 +1268,69 @@ make check PROVE_TESTS='t/001_test1.pl t/003_test3.pl'
     subdirectories contain both traditional-style and TAP-style tests,
     meaning that <literal>make installcheck</literal> will produce a mix of
     results from temporary servers and the already-running test server.
+-->
+<literal>make installcheck</literal>とした場合でも、TAPテストはテストサーバを開始することを理解しておくことは重要です。
+これは伝統的な非TAPテスト基盤とは異なります。非TAPテスト基盤ではその場合、既に動作しているテストサーバを使うことが期待されます。
+PostgreSQLのサブディレクトリには、伝統的な形式のテストとTAP形式のものの両方を含むものがありますので、<literal>make installcheck</literal>は一時的なサーバと既に動作しているテストサーバからの結果を寄せ集めることになります。
    </para>
   </sect1>
 
   <sect1 id="regress-coverage">
+<!--
    <title>Test Coverage Examination</title>
+-->
+   <title>テストが網羅する範囲の検証</title>
 
    <para>
+<!--
     The PostgreSQL source code can be compiled with coverage testing
     instrumentation, so that it becomes possible to examine which
     parts of the code are covered by the regression tests or any other
     test suite that is run with the code.  This is currently supported
     when compiling with GCC, and it requires the <command>gcov</command>
     and <command>lcov</command> programs.
+-->
+PostgreSQLソースコードは、カバレッジテストツールとともにコンパイルすることができるため、リグレッションテスト、あるいはその他のテストスイートによって、コードのどの部分が網羅されているかを評価することができます。
+これは現在、GCCを使用してコンパイルした時にサポートされ、<command>gcov</command>および<command>lcov</command>プログラムを必要とします。
    </para>
 
    <para>
+<!--
     A typical workflow looks like this:
+-->
+典型的な作業の流れは以下のようになります。
 <screen>
 ./configure --enable-coverage ... OTHER OPTIONS ...
 make
 make check # or other test suite
 make coverage-html
 </screen>
+<!--
     Then point your HTML browser
     to <filename>coverage/index.html</filename>.
+-->
+そして、HTMLブラウザで<filename>coverage/index.html</filename>を参照します。
+<command>gmake</command>コマンドはサブディレクトリ内においても同様に動作します。
    </para>
 
    <para>
+<!--
     If you don't have <command>lcov</command> or prefer text output over an
     HTML report, you can run
+-->
+<command>lcov</command>が無い、あるいは、HTMLレポートよりもテキスト出力を好むなら、<literal>make coverage-html</literal>の代わりに以下を実行してください。
 <screen>
 make coverage
 </screen>
+<!--
     instead of <literal>make coverage-html</literal>, which will
     produce <filename>.gcov</filename> output files for each source file
     relevant to the test.  (<literal>make coverage</literal> and <literal>make
     coverage-html</literal> will overwrite each other's files, so mixing them
     might be confusing.)
+-->
+これはテストに関連する各ソースファイルに対して<filename>.gcov</filename>出力ファイルを生成します。
+（<literal>make coverage</literal>と<literal>make coverage-html</literal>は互いのファイルを上書きしますので、混用は混乱をひき起こすかもしれません）
    </para>
 
    <para>

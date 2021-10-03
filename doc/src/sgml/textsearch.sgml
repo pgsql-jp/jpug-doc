@@ -1,20 +1,33 @@
 <!-- doc/src/sgml/textsearch.sgml -->
 
 <chapter id="textsearch">
+<!--
  <title>Full Text Search</title>
+-->
+ <title>全文検索</title>
 
   <indexterm zone="textsearch">
+<!--
    <primary>full text search</primary>
+-->
+   <primary>全文検索</primary>
   </indexterm>
 
   <indexterm zone="textsearch">
+<!--
    <primary>text search</primary>
+-->
+   <primary>テキスト検索</primary>
   </indexterm>
 
  <sect1 id="textsearch-intro">
+<!--
   <title>Introduction</title>
+-->
 
+  <title>導入</title>
   <para>
+<!--
    Full Text Searching (or just <firstterm>text search</firstterm>) provides
    the capability to identify natural-language <firstterm>documents</firstterm> that
    satisfy a <firstterm>query</firstterm>, and optionally to sort them by
@@ -26,19 +39,28 @@
    application. The simplest search considers <varname>query</varname> as a
    set of words and <varname>similarity</varname> as the frequency of query
    words in the document.
+-->
+全文検索(または単に<firstterm>テキスト検索</firstterm>)は、<firstterm>問い合わせ</firstterm>を満たす自然言語の<firstterm>文書</firstterm>を識別し、更には問い合わせとの関連性の順に並び替えることができます。
+もっとも一般的な検索は、与えられた<firstterm>検索語</firstterm>を含む文書を探し、問い合わせとの<firstterm>類似性</firstterm>の順に返す、というものです。
+<varname>問い合わせ</varname>と<varname>類似性</varname>の記法は非常に柔軟で、特定の用途に適合できます。
+もっとも単純な検索では、<varname>問い合わせ</varname>は単語の集合として、<varname>類似性</varname>は文書中の問い合わせ対象の単語の頻度として扱います。
   </para>
 
   <para>
+<!--
    Textual search operators have existed in databases for years.
    <productname>PostgreSQL</productname> has
    <literal>~</literal>, <literal>~*</literal>, <literal>LIKE</literal>, and
    <literal>ILIKE</literal> operators for textual data types, but they lack
    many essential properties required by modern information systems:
+-->
+テキスト検索演算子は、データベースシステムに長年存在していました。<productname>PostgreSQL</productname>は、テキストデータ型用に、<literal>~</literal>,<literal>~*</literal>, <literal>LIKE</literal>,<literal>ILIKE</literal>の各演算子を持っています。しかし、近代的な情報システムに必要な以下の本質的な特徴を欠いています。
   </para>
 
   <itemizedlist  spacing="compact" mark="bullet">
    <listitem>
     <para>
+<!--
      There is no linguistic support, even for English.  Regular expressions
      are not sufficient because they cannot easily handle derived words, e.g.,
      <literal>satisfies</literal> and <literal>satisfy</literal>. You might
@@ -47,32 +69,47 @@
      <literal>satisfy</literal>. It is possible to use <literal>OR</literal>
      to search for multiple derived forms, but this is tedious and error-prone
      (some words can have several thousand derivatives).
+-->
+英語にさえ、言語学的なサポートがありません。
+派生語、たとえば<literal>satisfies</literal>に対して<literal>satisfy</literal>を容易に扱えないため、正規表現は十分ではありません。
+<literal>satisfy</literal>を探すときは、たぶんあなたは<literal>satisfies</literal>も探したいでしょうが、それらを含む文書は探せないかもしれません。
+<literal>OR</literal>を使えば複数の派生語を検索することができますが、退屈で間違いやすいです（ある種の単語は数千の派生語を持つことがあります）。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      They provide no ordering (ranking) of search results, which makes them
      ineffective when thousands of matching documents are found.
+-->
+検索結果を順序付け(順位付け)することができません。その結果、数千の合致する文書が見つかったような場合に非効率的です。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      They tend to be slow because there is no index support, so they must
      process all documents for every search.
+-->
+インデックスをサポートしないので毎回検索時にすべての文書を処理しなければならず、遅いです。
     </para>
    </listitem>
   </itemizedlist>
 
   <para>
+<!--
    Full text indexing allows documents to be <emphasis>preprocessed</emphasis>
    and an index saved for later rapid searching. Preprocessing includes:
+-->
+全文検索のインデックス付けでは、文書を<emphasis>前もって処理しておき</emphasis>、後で素早く検索するために、インデックスを保存しておくことができます。前処理には以下があります。
   </para>
 
   <itemizedlist  mark="none">
    <listitem>
     <para>
+<!--
      <emphasis>Parsing documents into <firstterm>tokens</firstterm></emphasis>. It is
      useful to identify various classes of tokens, e.g., numbers, words,
      complex words, email addresses, so that they can be processed
@@ -82,11 +119,18 @@
      <productname>PostgreSQL</productname> uses a <firstterm>parser</firstterm> to
      perform this step.  A standard parser is provided, and custom parsers
      can be created for specific needs.
+-->
+<emphasis>文書から<firstterm>トークン</firstterm>を解析します</emphasis>。
+トークンを色々なクラス、たとえば数、単語、複合単語、電子メールアドレスに分けて識別することが有効です。そうすれば、扱いを変えることができます。
+原則として、トークンのクラスは、特定の用途に依存します。しかし、ほとんどの目的には、あらかじめ定義されたクラスの集合を使うのが適当です。
+<productname>PostgreSQL</productname>は、<firstterm>パーサ</firstterm>を使ってこの処理段階を実行します。
+標準搭載のパーサが提供されますが、特別な用途にはカスタム仕様のパーサを作ることもできます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      <emphasis>Converting tokens into <firstterm>lexemes</firstterm></emphasis>.
      A lexeme is a string, just like a token, but it has been
      <firstterm>normalized</firstterm> so that different forms of the same word
@@ -102,11 +146,21 @@
      <productname>PostgreSQL</productname> uses <firstterm>dictionaries</firstterm> to
      perform this step.  Various standard dictionaries are provided, and
      custom ones can be created for specific needs.
+-->
+<emphasis>トークンを<firstterm>語彙素(lexemes)</firstterm>に変換します</emphasis>。
+語彙素はトークンと同じ文字列ですが、違う形態の同じ単語が同じになるように <firstterm>正規化</firstterm>されています。
+たとえば、正規化においてはほぼ常に大文字を小文字に変換し、(英語の<literal>s</literal>または<literal>es</literal>のような)接尾辞を取り除くことが多いです。
+これにより、可能性のあるすべての変種を地道に入力すること無く、同じ単語の変化形を検索できます。
+また、このステップでは、あまりにありふれていて、検索の役に立たない<firstterm>ストップワード</firstterm>を取り除くことが多いです。
+(つまり、トークンは文書テキストの未加工の断片そのものであり、語彙素はインデックス付けや検索に有用と思われる単語です。)
+<productname>PostgreSQL</productname>は、<firstterm>辞書</firstterm>を使ってこのステップを実行します。
+いろいろな標準辞書が提供されています。特定の用途向けにカスタム辞書を作ることもできます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      <emphasis>Storing preprocessed documents optimized for
      searching</emphasis>.  For example, each document can be represented
      as a sorted array of normalized lexemes. Along with the lexemes it is
@@ -114,50 +168,74 @@
      <firstterm>proximity ranking</firstterm>, so that a document that
      contains a more <quote>dense</quote> region of query words is
      assigned a higher rank than one with scattered query words.
+-->
+<emphasis>検索に最適化された前処理済の文書を保存します</emphasis>。
+たとえば、個々の文書は、正規化された語彙素の整列済の配列として表現されます。
+語彙素とともに、<firstterm>適合性ランキング</firstterm>用に、位置情報を格納しておくことがしばしば望まれます。そうすることにより、問い合わせの語を<quote>高密度</quote>に含んでいる文書を、まばらに含む文書よりも高くランクづけすることができます。
     </para>
    </listitem>
   </itemizedlist>
 
   <para>
+<!--
    Dictionaries allow fine-grained control over how tokens are normalized.
    With appropriate dictionaries, you can:
+-->
+辞書を使ってトークンの正規化を細かく制御できます。
+適当な辞書を用意すれば次のようなことができます。
   </para>
 
   <itemizedlist  spacing="compact" mark="bullet">
    <listitem>
     <para>
+<!--
      Define stop words that should not be indexed.
+-->
+インデックスしたくないストップワードの定義
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Map synonyms to a single word using <application>Ispell</application>.
+-->
+<application>Ispell</application>を使って、同義語を単一の単語に関連づける
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Map phrases to a single word using a thesaurus.
+-->
+類語辞書(thesaurus)を使って、成句を単一の単語に関連づける
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Map different variations of a word to a canonical form using
      an <application>Ispell</application> dictionary.
+-->
+<application>Ispell</application>辞書を使って、単語の変種を正規の単語に関連づける
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Map different variations of a word to a canonical form using
      <application>Snowball</application> stemmer rules.
+-->
+<application>Snowball</application>語幹規則を使って、単語の変種を正規の単語に関連づける
     </para>
    </listitem>
   </itemizedlist>
 
   <para>
+<!--
    A data type <type>tsvector</type> is provided for storing preprocessed
    documents, along with a type <type>tsquery</type> for representing processed
    queries (<xref linkend="datatype-textsearch"/>).  There are many
@@ -166,32 +244,51 @@
    the match operator <literal>@@</literal>, which we introduce in
    <xref linkend="textsearch-matching"/>.  Full text searches can be accelerated
    using indexes (<xref linkend="textsearch-indexes"/>).
+-->
+前処理した文書を格納するために、データ型<type>tsvector</type>が提供されています。また、処理済問い合わせを表現するために<type>tsquery</type>型も提供されています(<xref linkend="datatype-textsearch"/>)。これらのデータ型のために、多数の関数と演算子が利用できますが(<xref linkend="functions-textsearch"/>)、もっとも重要なのは、<xref linkend="textsearch-matching"/>で紹介している<literal>@@</literal>演算子です。全文検索はインデックス(<xref linkend="textsearch-indexes"/>)を使って高速化できます。
   </para>
 
 
   <sect2 id="textsearch-document">
+<!--
    <title>What Is a Document?</title>
+-->
+   <title>文書とは何か?</title>
 
    <indexterm zone="textsearch-document">
+<!--
     <primary>document</primary>
     <secondary>text search</secondary>
+-->
+    <primary>文書</primary>
+    <secondary>全文検索</secondary>
    </indexterm>
 
    <para>
+<!--
     A <firstterm>document</firstterm> is the unit of searching in a full text search
     system; for example, a magazine article or email message.  The text search
     engine must be able to parse documents and store associations of lexemes
     (key words) with their parent document. Later, these associations are
     used to search for documents that contain query words.
+-->
+<firstterm>文書</firstterm>は全文検索システムにおける検索の単位です。
+たとえば、雑誌記事やメールのメッセージです。
+テキスト検索エンジンは、文書をパースし、語彙素(キーワード)とそれが含まれる親文書の関連を格納できなければなりません。
+後で、この関連を使って問い合わせ語を含む文書を検索するのに使います。
    </para>
 
    <para>
+<!--
     For searches within <productname>PostgreSQL</productname>,
     a document is normally a textual field within a row of a database table,
     or possibly a combination (concatenation) of such fields, perhaps stored
     in several tables or obtained dynamically. In other words, a document can
     be constructed from different parts for indexing and it might not be
     stored anywhere as a whole. For example:
+-->
+<productname>PostgreSQL</productname>での検索においては、ドキュメントはデータベースのテーブルの行内のテキストフィールドか、あるいはそのようなフィールドの組み合わせ(結合)でもよいです。そうしたフィールドはおそらく複数のテーブルに格納されていたり、動的に獲得されるものであったりします。
+言い換えると、文書はインデックス付けのために複数の異なる部分から構成されても良く、それらが全体としてはひとまとまりに格納されていなくても良いのです。例を示します。
 
 <programlisting>
 SELECT title || ' ' ||  author || ' ' ||  abstract || ' ' || body AS document
@@ -206,13 +303,17 @@ WHERE m.mid = d.did AND m.mid = 12;
 
    <note>
     <para>
+<!--
      Actually, in these example queries, <function>coalesce</function>
      should be used to prevent a single <literal>NULL</literal> attribute from
      causing a <literal>NULL</literal> result for the whole document.
+-->
+実際には、これらの例の問い合わせでは、<function>coalesce</function>を使って、一部<literal>NULL</literal>が含まれているためにドキュメント全体が<literal>NULL</literal>になってしまうのを防ぐべきです。
     </para>
    </note>
 
    <para>
+<!--
     Another possibility is to store the documents as simple text files in the
     file system. In this case, the database can be used to store the full text
     index and to execute searches, and some unique identifier can be used to
@@ -222,9 +323,12 @@ WHERE m.mid = d.did AND m.mid = 12;
     the data inside <productname>PostgreSQL</productname>.  Also, keeping
     everything inside the database allows easy access
     to document metadata to assist in indexing and display.
+-->
+別な方法としては、ファイルシステム上に文書を単純なテキストファイルとして格納することです。この場合、データベースは、フルテキストインデックスを格納し、検索を実行するために使うことができます。ファイルシステムから文書を取り出すためには、何かのユニークな識別子を使います。しかし、データベースの外にあるファイルを取り出すには、スーパーユーザの許可か、特殊な関数のサポートが必要です。そういうわけでたいていの場合は<productname>PostgreSQL</productname>の中にすべてのデータを保持するのよりも不便です。また、すべてのデータをデータベースに保持することにより、文書のインデックス付けと表示の際に文書のメタデータにアクセスすることが容易になります。
    </para>
 
    <para>
+<!--
     For text search purposes, each document must be reduced to the
     preprocessed <type>tsvector</type> format.  Searching and ranking
     are performed entirely on the <type>tsvector</type> representation
@@ -233,18 +337,26 @@ WHERE m.mid = d.did AND m.mid = 12;
     We therefore often speak of the <type>tsvector</type> as being the
     document, but of course it is only a compact representation of
     the full document.
+-->
+テキスト検索という目的のため、各々の文書は前処理されて<type>tsvector</type>形式に変換しておかなければなりません。検索と順位付けはすべて<type>tsvector</type>表現の文書上で行われます。検索とランキングは文書の<type>tsvector</type>表現上で実行されます &mdash; オリジナル文書は、ユーザに表示のため選択された場合にのみ取り出される必要があります。というわけで、ここでは<type>tsvector</type>を文書と見なすことがよくあります。といっても、<type>tsvector</type>は完全な文書の縮小表現でしかありません。
    </para>
   </sect2>
 
   <sect2 id="textsearch-matching">
+<!--
    <title>Basic Text Matching</title>
+-->
+   <title>基本的なテキスト照合</title>
 
    <para>
+<!--
     Full text searching in <productname>PostgreSQL</productname> is based on
     the match operator <literal>@@</literal>, which returns
     <literal>true</literal> if a <type>tsvector</type>
     (document) matches a <type>tsquery</type> (query).
     It doesn't matter which data type is written first:
+-->
+<productname>PostgreSQL</productname>における全文検索は、<type>tsvector</type>(文書)が、<type>tsquery</type>(問い合わせ)に一致したら真を返す照合演算子<literal>@@</literal>に基づいています。どちらのデータ型を先に書いても構いません。
 
 <programlisting>
 SELECT 'a fat cat sat on a mat and ate a fat rat'::tsvector @@ 'cat &amp; rat'::tsquery;
@@ -260,6 +372,7 @@ SELECT 'fat &amp; cow'::tsquery @@ 'a fat cat sat on a mat and ate a fat rat'::t
    </para>
 
    <para>
+<!--
     As the above example suggests, a <type>tsquery</type> is not just raw
     text, any more than a <type>tsvector</type> is.  A <type>tsquery</type>
     contains search terms, which must be already-normalized lexemes, and
@@ -272,6 +385,13 @@ SELECT 'fat &amp; cow'::tsquery @@ 'a fat cat sat on a mat and ate a fat rat'::t
     the text.  Similarly, <function>to_tsvector</function> is used to parse and
     normalize a document string.  So in practice a text search match would
     look more like this:
+-->
+上記の例でわかるように、<type>tsquery</type>は、<type>tsvector</type>と違って、単なるテキストではありません。
+<type>tsquery</type>は正規化済の語彙素である検索表現を含み、AND, OR, NOT, FOLLOWED BY演算子を使って複数の表現を組み合わせても構いません。
+(詳細は<xref linkend="datatype-tsquery"/>を見てください。)
+主にテキスト中の単語を正規化することにより、ユーザが入力したテキストを適切な<type>tsquery</type>に変換するのに便利な関数<function>to_tsquery</function>、<function>plainto_tsquery</function>、<function>phraseto_tsquery</function>があります。
+同様に、文書文字列をパースして正規化するために<function>to_tsvector</function>が利用できます。
+というわけで、実際にはテキスト検索照合はこんな感じになります。
 
 <programlisting>
 SELECT to_tsvector('fat cats ate fat rats') @@ to_tsquery('fat &amp; rat');
@@ -280,7 +400,10 @@ SELECT to_tsvector('fat cats ate fat rats') @@ to_tsquery('fat &amp; rat');
  t
 </programlisting>
 
+<!--
     Observe that this match would not succeed if written as
+-->
+この照合は、もしつぎのように書くとうまくいかないことに注意してください。
 
 <programlisting>
 SELECT 'fat cats ate fat rats'::tsvector @@ to_tsquery('fat &amp; rat');
@@ -289,16 +412,23 @@ SELECT 'fat cats ate fat rats'::tsvector @@ to_tsquery('fat &amp; rat');
  f
 </programlisting>
 
+<!--
     since here no normalization of the word <literal>rats</literal> will occur.
     The elements of a <type>tsvector</type> are lexemes, which are assumed
     already normalized, so <literal>rats</literal> does not match <literal>rat</literal>.
+-->
+というのも、単語<literal>rats</literal>に対して正規化が行われないからです。
+<type>tsvector</type>の要素は、すでに正規化されている語彙素であることになっているので、<literal>rats</literal>は<literal>rat</literal>に一致しません。
    </para>
 
    <para>
+<!--
     The <literal>@@</literal> operator also
     supports <type>text</type> input, allowing explicit conversion of a text
     string to <type>tsvector</type> or <type>tsquery</type> to be skipped
     in simple cases.  The variants available are:
+-->
+また、<literal>@@</literal>演算子は、<type>text</type>を入力として受付けるので、簡単に使うときには、明示的にテキスト文字列を<type>tsvector</type>または<type>tsquery</type>に変換することを省略できます。応用として以下のものがあります。
 
 <programlisting>
 tsvector @@ tsquery
@@ -309,14 +439,20 @@ text @@ text
    </para>
 
    <para>
+<!--
     The first two of these we saw already.
     The form <type>text</type> <literal>@@</literal> <type>tsquery</type>
     is equivalent to <literal>to_tsvector(x) @@ y</literal>.
     The form <type>text</type> <literal>@@</literal> <type>text</type>
     is equivalent to <literal>to_tsvector(x) @@ plainto_tsquery(y)</literal>.
+-->
+最初の2つについてはすでに説明しました。
+<type>text</type> <literal>@@</literal> <type>tsquery</type>という形式は、<literal>to_tsvector(x) @@ y</literal>と同じです。
+<type>text</type> <literal>@@</literal> <type>text</type>という形式は、<literal>to_tsvector(x) @@plainto_tsquery(y)</literal>と同じです。
    </para>
 
    <para>
+<!--
     Within a <type>tsquery</type>, the <literal>&amp;</literal> (AND) operator
     specifies that both its arguments must appear in the document to have a
     match.  Similarly, the <literal>|</literal> (OR) operator specifies that
@@ -325,13 +461,22 @@ text @@ text
     order to have a match.
     For example, the query <literal>fat &amp; ! rat</literal> matches documents that
     contain <literal>fat</literal> but not <literal>rat</literal>.
+-->
+<type>tsquery</type>内において、演算子 <literal>&amp;</literal> (AND) は、マッチと見なされるには引数の両方がドキュメント内に現れる必要があるということを指定します。
+同様に、演算子 <literal>|</literal> (OR) では、引数の少なくとも一方が現れる必要があり、また演算子 <literal>!</literal> (NOT) は、マッチと見なされるには引数が現れては<emphasis>ならない</emphasis>ことを指定します。
+例えば、<literal>fat &amp; ! rat</literal>という問い合わせは、<literal>fat</literal>は含むが<literal>rat</literal>は含まないドキュメントとマッチします。
    </para>
 
    <para>
+<!--
     Searching for phrases is possible with the help of
     the <literal>&lt;-&gt;</literal> (FOLLOWED BY) <type>tsquery</type> operator, which
     matches only if its arguments have matches that are adjacent and in the
     given order.  For example:
+-->
+句の検索は、<type>tsquery</type>演算子 <literal>&lt;-&gt;</literal> (FOLLOWED BY)を使うことで可能です。
+この演算子は、その引数にマッチする語が隣接していて、かつ指定と同じ順序である場合にのみマッチします。
+例を示します。
 
 <programlisting>
 SELECT to_tsvector('fatal error') @@ to_tsquery('fatal &lt;-&gt; error');
@@ -345,6 +490,7 @@ SELECT to_tsvector('error is not fatal') @@ to_tsquery('fatal &lt;-&gt; error');
  f
 </programlisting>
 
+<!--
     There is a more general version of the FOLLOWED BY operator having the
     form <literal>&lt;<replaceable>N</replaceable>&gt;</literal>,
     where <replaceable>N</replaceable> is an integer standing for the difference between
@@ -354,6 +500,12 @@ SELECT to_tsvector('error is not fatal') @@ to_tsquery('fatal &lt;-&gt; error');
     on.  The <literal>phraseto_tsquery</literal> function makes use of this
     operator to construct a <literal>tsquery</literal> that can match a multi-word
     phrase when some of the words are stop words.  For example:
+-->
+FOLLOWED BY演算子にはもっと汎用的なバージョンがあり、それは<literal>&lt;<replaceable>N</replaceable>&gt;</literal>という構文で使います。
+ここで<replaceable>N</replaceable>は整数で、マッチする語彙素の位置の差を表します。
+<literal>&lt;1&gt;</literal>は<literal>&lt;-&gt;</literal>と同じですが、<literal>&lt;2&gt;</literal>ではマッチする語の間にちょうど1つ、他の語彙素が現れることを許容する、という具合です。
+<literal>phraseto_tsquery</literal>関数は、この演算子を利用して、ストップワードを含む複数語の句にマッチ可能な<literal>tsquery</literal>を構築するものです。
+例を示します。
 
 <programlisting>
 SELECT phraseto_tsquery('cats ate rats');
@@ -369,18 +521,26 @@ SELECT phraseto_tsquery('the cats ate the rats');
    </para>
 
    <para>
+<!--
     A special case that's sometimes useful is that <literal>&lt;0&gt;</literal>
     can be used to require that two patterns match the same word.
+-->
+ときに役立つことがある特別な場合として、<literal>&lt;0&gt;</literal>を2つのパターンが同じ語にマッチすることを要求するために使うことができます。
    </para>
 
    <para>
+<!--
     Parentheses can be used to control nesting of the <type>tsquery</type>
     operators.  Without parentheses, <literal>|</literal> binds least tightly,
     then <literal>&amp;</literal>, then <literal>&lt;-&gt;</literal>,
     and <literal>!</literal> most tightly.
+-->
+<type>tsquery</type>演算子を入れ子にして管理するために括弧を使うことができます。
+括弧がない場合、<literal>|</literal>の結合が最も弱く、次が<literal>&amp;</literal>、その次が<literal>&lt;-&gt;</literal>で、<literal>!</literal>が最も強く結合します。
    </para>
 
    <para>
+<!--
     It's worth noticing that the AND/OR/NOT operators mean something subtly
     different when they are within the arguments of a FOLLOWED BY operator
     than when they are not, because within FOLLOWED BY the exact position of
@@ -400,13 +560,24 @@ SELECT phraseto_tsquery('the cats ate the rats');
     since <literal>x</literal> and <literal>y</literal> could not match at the same place;
     but with more complex situations such as prefix-match patterns, a query
     of this form could be useful.)
+-->
+FOLLOWED BYの中ではマッチの正確な位置が重要ですので、AND/OR/NOT演算子は、FOLLOWED BY演算子の引数の中で使われる場合にはそうでない場合と微妙に異なる意味になることに言及しておく価値はあります。
+例えば、通常<literal>!x</literal>は<literal>x</literal>をどこにも含まない文書とのみマッチします。
+しかし、<literal>!x &lt;-&gt; y</literal>は、<literal>x</literal>の直後にあるのでなければ<literal>y</literal>とマッチします。文書の他のところでの<literal>x</literal>の出現は、マッチを邪魔しません。
+もう一つの例は、<literal>x &amp; y</literal>は通常<literal>x</literal>と<literal>y</literal>の両方が文書のどこかに現れることだけを要求しますが、<literal>(x &amp; y) &lt;-&gt; z</literal>は、<literal>x</literal>と<literal>y</literal>が同じ場所、<literal>z</literal>の直前でマッチすることを要求します。
+そのため、この問い合わせは<literal>x &lt;-&gt; z &amp; y &lt;-&gt; z</literal>とは異なった振る舞いをします。後者は2つの別の文字列、<literal>x z</literal>と<literal>y z</literal>を含む文書にマッチします。
+(<literal>x</literal>と<literal>y</literal>が同じ場所でマッチすることはあり得ませんので、上に書いたこの特別な問い合わせは、役に立ちません。しかし、接頭辞マッチパターンのようにより複雑な状況では、この形の問い合わせは役に立つかもしれません。)
    </para>
   </sect2>
 
   <sect2 id="textsearch-intro-configurations">
+<!--
    <title>Configurations</title>
+-->
+   <title>設定</title>
 
    <para>
+<!--
     The above are all simple text search examples.  As mentioned before, full
     text search functionality includes the ability to do many more things:
     skip indexing certain words (stop words), process synonyms, and use
@@ -416,9 +587,17 @@ SELECT phraseto_tsquery('the cats ate the rats');
     configurations for many languages, and you can easily create your own
     configurations.  (<application>psql</application>'s <command>\dF</command> command
     shows all available configurations.)
+-->
+今までのはすべて単純なテキスト検索の例でした。
+すでに述べたように、全文検索機能を使えば、もっと色々なことができます。
+インデックス付けの際に特定の単語をスキップ(ストップワード)、同義語(synonym)処理、賢いパース処理、すなわち、単に空白区切りに基づくパース処理以上のものです。
+この機能は<firstterm>テキスト検索設定</firstterm>で制御します。
+<productname>PostgreSQL</productname>には、多くの言語用の設定があらかじめ組み込まれていますが、ユーザ設定を容易に作ることもできます。
+(<application>psql</application>の<command>\dF</command>コマンドで、利用できる設定を表示できます。)
    </para>
 
    <para>
+<!--
     During installation an appropriate configuration is selected and
     <xref linkend="guc-default-text-search-config"/> is set accordingly
     in <filename>postgresql.conf</filename>.  If you are using the same text search
@@ -427,54 +606,75 @@ SELECT phraseto_tsquery('the cats ate the rats');
     throughout the cluster but the same configuration within any one database,
     use <command>ALTER DATABASE ... SET</command>.  Otherwise, you can set
     <varname>default_text_search_config</varname> in each session.
+-->
+インストールの際には、適当な設定が選ばれ、<xref linkend="guc-default-text-search-config"/>が<filename>postgresql.conf</filename>中にセットされます。クラスタ全体で同じ設定を使用する場合は<filename>postgresql.conf</filename>の設定値を利用できます。クラスタの設定とは異なるが、あるデータベースの中で同じ設定を使う場合には、<command>ALTER DATABASE ... SET</command>を利用します。さもなければ、セッション単位で<varname>default_text_search_config</varname>を設定できます。
    </para>
 
    <para>
+<!--
     Each text search function that depends on a configuration has an optional
     <type>regconfig</type> argument, so that the configuration to use can be
     specified explicitly.  <varname>default_text_search_config</varname>
     is used only when this argument is omitted.
+-->
+設定に依存するテキスト検索関数は、オプションで<type>regconfig</type>引数を持っており、使用する設定を明示的に指定できます。<varname>default_text_search_config</varname>は、この引数が省略されたときだけ使用されます。
    </para>
 
    <para>
+<!--
     To make it easier to build custom text search configurations, a
     configuration is built up from simpler database objects.
     <productname>PostgreSQL</productname>'s text search facility provides
     four types of configuration-related database objects:
+-->
+カスタムテキスト検索設定を作り易くするため、設定はより単純なデータベースオブジェクトから作られます。<productname>PostgreSQL</productname>のテキスト検索機能は、4つの設定関連のデータベースオブジェクトを提供しています。
    </para>
 
   <itemizedlist  spacing="compact" mark="bullet">
    <listitem>
     <para>
+<!--
      <firstterm>Text search parsers</firstterm> break documents into tokens
      and classify each token (for example, as words or numbers).
+-->
+<firstterm>テキスト検索パーサ</firstterm>は、文書をトークンに分解し、トークンを分類します(たとえば、単語とか数のように)。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      <firstterm>Text search dictionaries</firstterm> convert tokens to normalized
      form and reject stop words.
+-->
+<firstterm>テキスト検索辞書</firstterm>はトークンを正規化された形式に変換し、ストップワードを排除します。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      <firstterm>Text search templates</firstterm> provide the functions underlying
      dictionaries.  (A dictionary simply specifies a template and a set
      of parameters for the template.)
+-->
+<firstterm>テキスト検索テンプレート</firstterm>は、現在の辞書が利用する関数を提供します(辞書は、単にテンプレートと、その引数の集合を指定するだけです)。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      <firstterm>Text search configurations</firstterm> select a parser and a set
      of dictionaries to use to normalize the tokens produced by the parser.
+-->
+<firstterm>テキスト検索設定</firstterm>は、パーサと使用する辞書の集合を選択し、パーサが生成したトークンを正規化します。
     </para>
    </listitem>
   </itemizedlist>
 
    <para>
+<!--
     Text search parsers and templates are built from low-level C functions;
     therefore it requires C programming ability to develop new ones, and
     superuser privileges to install one into a database.  (There are examples
@@ -484,6 +684,8 @@ SELECT phraseto_tsquery('the cats ate the rats');
     parsers and templates, no special privilege is needed to create a new
     dictionary or configuration.  Examples of creating custom dictionaries and
     configurations appear later in this chapter.
+-->
+テキスト検索パーサとテンプレートは、低レベルのC関数で作ります。したがって、新しく開発するためにはCのプログラミング能力と、データベースにインストールするためのスーパーユーザ権限が必要になります。(<productname>PostgreSQL</productname>の配布物の<filename>contrib/</filename>には、追加パーサとテンプレートの例があります)。辞書と設定は、単に配下のパーサとテンプレートのパラメータを設定し、両者を結び付けるだけなので、新しい辞書と設定を作るために特別な権限は必要ありません。この章の後でカスタム辞書と設定を作る例が登場します。
    </para>
 
   </sect2>
@@ -491,21 +693,33 @@ SELECT phraseto_tsquery('the cats ate the rats');
  </sect1>
 
  <sect1 id="textsearch-tables">
+<!--
   <title>Tables and Indexes</title>
+-->
+  <title>テーブルとインデックス</title>
 
   <para>
+<!--
    The examples in the previous section illustrated full text matching using
    simple constant strings.  This section shows how to search table data,
    optionally using indexes.
+-->
+前の節の例では、単純な文字列定数を使った全文検索照合を説明しました。この節では、テーブルのデータを検索する方法、そしてインデックスを使う方法を示します。
   </para>
 
   <sect2 id="textsearch-tables-search">
+<!--
    <title>Searching a Table</title>
+-->
+   <title>テーブルを検索する</title>
 
    <para>
+<!--
     It is possible to do a full text search without an index.  A simple query
     to print the <structname>title</structname> of each row that contains the word
     <literal>friend</literal> in its <structfield>body</structfield> field is:
+-->
+インデックスがなくても全文検索をすることは可能です。<structfield>body</structfield>フィールド中の<literal>friend</literal>という単語を含む行の<structname>title</structname>を印刷する単純な問い合わせは次のようになります。
 
 <programlisting>
 SELECT title
@@ -513,15 +727,21 @@ FROM pgweb
 WHERE to_tsvector('english', body) @@ to_tsquery('english', 'friend');
 </programlisting>
 
+<!--
     This will also find related words such as <literal>friends</literal>
     and <literal>friendly</literal>, since all these are reduced to the same
     normalized lexeme.
+-->
+同時に、これは、<literal>friends</literal>、<literal>friendly</literal>のように、関連する単語を見つけ出します。これらはすべて同じ正規化された語彙素に帰結するからです。
    </para>
 
    <para>
+<!--
     The query above specifies that the <literal>english</literal> configuration
     is to be used to parse and normalize the strings.  Alternatively we
     could omit the configuration parameters:
+-->
+上の問い合わせは<literal>english</literal>設定を使って文字列をパースして正規化することを指定しています。別の方法としては、設定パラメータを省略することができます。
 
 <programlisting>
 SELECT title
@@ -529,14 +749,20 @@ FROM pgweb
 WHERE to_tsvector(body) @@ to_tsquery('friend');
 </programlisting>
 
+<!--
     This query will use the configuration set by <xref
     linkend="guc-default-text-search-config"/>.
+-->
+この問い合わせは<xref linkend="guc-default-text-search-config"/>で設定された設定を使用します。
    </para>
 
    <para>
+<!--
     A more complex example is to
     select the ten most recent documents that contain <literal>create</literal> and
     <literal>table</literal> in the <structname>title</structname> or <structname>body</structname>:
+-->
+もっと複雑な例として、<literal>create</literal>と<literal>table</literal>を<structname>title</structname>または<structname>body</structname>に含む文書のうち新しい順に10個選ぶというものを示します。
 
 <programlisting>
 SELECT title
@@ -546,31 +772,45 @@ ORDER BY last_mod_date DESC
 LIMIT 10;
 </programlisting>
 
+<!--
     For clarity we omitted the <function>coalesce</function> function calls
     which would be needed to find rows that contain <literal>NULL</literal>
     in one of the two fields.
+-->
+細かいことですが、この例では、二つのうち一つのフィールドに<literal>NULL</literal>を含む行を探すために必要な<function>coalesce</function>関数の呼び出しを省略しています。
    </para>
 
    <para>
+<!--
     Although these queries will work without an index, most applications
     will find this approach too slow, except perhaps for occasional ad-hoc
     searches.  Practical use of text searching usually requires creating
     an index.
+-->
+これらの問い合わせはインデックスなしでも動きますが、たまに実行する一時的な問い合わせ用を除くと、たいていの用途には遅すぎます。
+実用上は、インデックスを作成することが必要なのが普通です。
    </para>
 
   </sect2>
 
   <sect2 id="textsearch-tables-index">
+<!--
    <title>Creating Indexes</title>
+-->
+   <title>インデックスの作成</title>
 
    <para>
+<!--
     We can create a <acronym>GIN</acronym> index (<xref
     linkend="textsearch-indexes"/>) to speed up text searches:
+-->
+テキスト検索を高速化するために、<acronym>GIN</acronym>インデックス(<xref linkend="textsearch-indexes"/>)を作ることができます。
 
 <programlisting>
 CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', body));
 </programlisting>
 
+<!--
     Notice that the 2-argument version of <function>to_tsvector</function> is
     used.  Only text search functions that specify a configuration name can
     be used in expression indexes (<xref linkend="indexes-expressional"/>).
@@ -580,9 +820,12 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', body));
     contain <type>tsvector</type>s that were created with different text search
     configurations, and there would be no way to guess which was which.  It
     would be impossible to dump and restore such an index correctly.
+-->
+2引数バージョンの<function>to_tsvector</function>を使っていることに注意してください。設定名を指定するテキスト検索関数だけが、式インデックス(<xref linkend="indexes-expressional"/>)で使えます。これは、インデックス内容が、<xref linkend="guc-default-text-search-config"/>の影響を受けないためです。もし影響を受けるとすると、異なるテキスト検索設定で作られた<type>tsvector</type>を持つエントリの間でインデックス内容が首尾一貫しなくなるからです。そして、どのエントリがどのようにして作られたのか、推測する方法はないでしょう。そのようなインデックスを正しくダンプ、リストアするのは不可能でしょう。
    </para>
 
    <para>
+<!--
     Because the two-argument version of <function>to_tsvector</function> was
     used in the index above, only a query reference that uses the 2-argument
     version of <function>to_tsvector</function> with the same configuration
@@ -591,16 +834,22 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', body));
     but <literal>WHERE to_tsvector(body) @@ 'a &amp; b'</literal> cannot.
     This ensures that an index will be used only with the same configuration
     used to create the index entries.
+-->
+上記のインデックスでは、2引数バージョンの<function>to_tsvector</function>が使われているので、同じ設定名の2引数バージョンの<function>to_tsvector</function>を使う問い合わせ参照だけがそのインデックスを使います。すなわち、<literal>WHERE to_tsvector('english', body) @@ 'a &amp; b'</literal>はインデックスが使えますが、<literal>WHERE to_tsvector(body) @@ 'a &amp; b'</literal>は使えません。これにより、インデックスエントリを作ったときの設定と、同じ設定のときだけインデックスが使われることが保証されます。
    </para>
 
   <para>
+<!--
     It is possible to set up more complex expression indexes wherein the
     configuration name is specified by another column, e.g.:
+-->
+他の列によって設定名が指定されたより複雑な式インデックスを作ることができます。例えば、
 
 <programlisting>
 CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector(config_name, body));
 </programlisting>
 
+<!--
     where <literal>config_name</literal> is a column in the <literal>pgweb</literal>
     table.  This allows mixed configurations in the same index while
     recording which configuration was used for each index entry.  This
@@ -608,10 +857,18 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector(config_name, body));
     documents in different languages.  Again,
     queries that are meant to use the index must be phrased to match, e.g.,
     <literal>WHERE to_tsvector(config_name, body) @@ 'a &amp; b'</literal>.
+-->
+ここで、<literal>config_name</literal>は<literal>pgweb</literal>テーブルの列です。
+これによって、各々のインデックスエントリで使用された設定を記録しつつ、同じインデックスの中で異なる設定を混在させることができます。
+これは、例えば文書の集まりが異なる言語の文書を含む場合に有用です。
+繰り返しになりますが、インデックスを使うよう考慮されている問い合わせは、合致するように書かれなければなりません。例えば、<literal>WHERE to_tsvector(config_name, body) @@ 'a &amp; b'</literal>。
    </para>
 
    <para>
+<!--
     Indexes can even concatenate columns:
+-->
+インデックスには、列を連結することさえできます。
 
 <programlisting>
 CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', title || ' ' || body));
@@ -619,6 +876,7 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', title || ' ' |
    </para>
 
    <para>
+<!--
     Another approach is to create a separate <type>tsvector</type> column
     to hold the output of <function>to_tsvector</function>.  To keep this
     column automatically up to date with its source data, use a stored
@@ -626,6 +884,10 @@ CREATE INDEX pgweb_idx ON pgweb USING GIN (to_tsvector('english', title || ' ' |
     concatenation of <literal>title</literal> and <literal>body</literal>,
     using <function>coalesce</function> to ensure that one field will still be
     indexed when the other is <literal>NULL</literal>:
+-->
+別の方法として、<function>to_tsvector</function>の出力を保持する別の<type>tsvector</type>列を作る方法があります。
+この列を元のデータに合わせて自動的に更新し続けるには、格納された生成列を使います。
+この例では、<literal>title</literal>と<literal>body</literal>を連結、<function>coalesce</function>を使って、一つのフィールドが<literal>NULL</literal>であっても他のフィールドがインデックス付けされることを保証しています。
 
 <programlisting>
 ALTER TABLE pgweb
@@ -633,13 +895,19 @@ ALTER TABLE pgweb
                GENERATED ALWAYS AS (to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, ''))) STORED;
 </programlisting>
 
+<!--
     Then we create a <acronym>GIN</acronym> index to speed up the search:
+-->
+そして、<acronym>GIN</acronym>インデックスを作って検索速度を上げます。
 
 <programlisting>
 CREATE INDEX textsearch_idx ON pgweb USING GIN (textsearchable_index_col);
 </programlisting>
 
+<!--
     Now we are ready to perform a fast full text search:
+-->
+これで、高速全文検索を実行する準備ができました。
 
 <programlisting>
 SELECT title
@@ -651,6 +919,7 @@ LIMIT 10;
    </para>
 
    <para>
+<!--
     One advantage of the separate-column approach over an expression index
     is that it is not necessary to explicitly specify the text search
     configuration in queries in order to make use of the index.  As shown
@@ -662,6 +931,8 @@ LIMIT 10;
     linkend="textsearch-indexes"/>.)  The expression-index approach is
     simpler to set up, however, and it requires less disk space since the
     <type>tsvector</type> representation is not stored explicitly.
+-->
+別列方式が式インデックスに勝る点の一つは、インデックスを使うために問い合わせの中でテキスト検索設定を明示的に指定する必要がないことです。上の例で示したように、問い合わせは<varname>default_text_search_config</varname>に依存できます。もう一つの利点は、インデックスの合致を検証するために<function>to_tsvector</function>を再実行する必要がないのでより高速だという事です。(この点はGINインデックスを使うときよりも、GiSTインデックスを使う場合に重要です。<xref linkend="textsearch-indexes"/>参照。)しかしながら、式インデックス方式はセットアップがより容易で、<type>tsvector</type>表現を明示的に保存する必要がないので、ディスクスペースの消費が少ないです。
    </para>
 
   </sect2>
@@ -669,9 +940,13 @@ LIMIT 10;
  </sect1>
 
  <sect1 id="textsearch-controls">
+<!--
   <title>Controlling Text Search</title>
+-->
+  <title>テキスト検索の制御</title>
 
   <para>
+<!--
    To implement full text searching there must be a function to create a
    <type>tsvector</type> from a document and a <type>tsquery</type> from a
    user query. Also, we need to return results in a useful order, so we need
@@ -679,15 +954,23 @@ LIMIT 10;
    the query. It's also important to be able to display the results nicely.
    <productname>PostgreSQL</productname> provides support for all of these
    functions.
+-->
+全文検索を実装するためには、文書から<type>tsvector</type>を、そしてユーザの問い合わせから<type>tsquery</type>を作成する関数が存在しなければなりません。また、結果を意味のある順で返す必要があります。そこで、問い合わせとの関連性で文書を比較する関数も必要になってきます。結果を体裁良く表示できることも重要です。<productname>PostgreSQL</productname>はこれらすべての機能を提供しています。
   </para>
 
   <sect2 id="textsearch-parsing-documents">
+<!--
    <title>Parsing Documents</title>
+-->
+   <title>文書のパース</title>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> provides the
     function <function>to_tsvector</function> for converting a document to
     the <type>tsvector</type> data type.
+-->
+<productname>PostgreSQL</productname>は、文書を<type>tsvector</type>データ型に変換する<function>to_tsvector</function>関数を提供しています。
    </para>
 
    <indexterm>
@@ -699,12 +982,15 @@ to_tsvector(<optional> <replaceable class="parameter">config</replaceable> <type
 </synopsis>
 
    <para>
+<!--
     <function>to_tsvector</function> parses a textual document into tokens,
     reduces the tokens to lexemes, and returns a <type>tsvector</type> which
     lists the lexemes together with their positions in the document.
     The document is processed according to the specified or default
     text search configuration.
     Here is a simple example:
+-->
+<function>to_tsvector</function>は、テキスト文書をパースしてトークンにし、トークンを語彙素に変換、文書中の位置とともに語彙素をリストとして持つ<type>tsvector</type>を返します。文書は、指定したものか、あるいはデフォルトのテキスト検索設定にしたがって処理されます。単純な例を示します。
 
 <screen>
 SELECT to_tsvector('english', 'a fat  cat sat on a mat - it ate a fat rats');
@@ -715,14 +1001,18 @@ SELECT to_tsvector('english', 'a fat  cat sat on a mat - it ate a fat rats');
    </para>
 
    <para>
+<!--
     In the example above we see that the resulting <type>tsvector</type> does not
     contain the words <literal>a</literal>, <literal>on</literal>, or
     <literal>it</literal>, the word <literal>rats</literal> became
     <literal>rat</literal>, and the punctuation sign <literal>-</literal> was
     ignored.
+-->
+上に示す例では、結果の<type>tsvector</type>で、<literal>a</literal>、<literal>on</literal>、<literal>it</literal>という単語が含まれないこと、<literal>rats</literal>という単語が<literal>rat</literal>になっていること、句読点記号<literal>-</literal>が無視されていることがわかります。
    </para>
 
    <para>
+<!--
     The <function>to_tsvector</function> function internally calls a parser
     which breaks the document text into tokens and assigns a type to
     each token.  For each token, a list of
@@ -748,9 +1038,15 @@ SELECT to_tsvector('english', 'a fat  cat sat on a mat - it ate a fat rats');
     configurations are available for various languages. In our example
     we used the default configuration <literal>english</literal> for the
     English language.
+-->
+<function>to_tsvector</function>関数は、文書をトークンに分解して、そのトークンに型を割り当てるパーサを内部的に呼び出しています。それぞれのトークンに対して辞書(<xref linkend="textsearch-dictionaries"/>)のリストが検索されます。ここで、辞書のリストはトークンの型によって異なります。最初の辞書は、トークンを<firstterm>認識</firstterm>し、トークンを表現する一つ以上の正規化された<firstterm>語彙素</firstterm>を出力します。例えば、ある辞書は<literal>rats</literal>は<literal>rat</literal>の複数形であることを認識しているので、<literal>rats</literal>は<literal>rat</literal>になります。
+ある単語は<firstterm>ストップワード</firstterm>(<xref linkend="textsearch-stopwords"/>)として認識されます。これは、あまりにも多く出現し検索の役に立たないため、無視されるものです。
+先の例では、<literal>a</literal>、<literal>on</literal>、および<literal>it</literal>がそれです。
+もしリスト中の辞書のどれもがトークンを認識しなければ、そのトークンは無視されます。先の例では、句読点の<literal>-</literal>がそうです。なぜなら、実際にはそのトークン型(<literal>Space symbols</literal>)に対して辞書が割り当てられておらず、空白トークンは決してインデックス付けされないことを意味します。パーサ、辞書、そしてどのトークンがインデックス付けされるかという選択は、テキスト検索設定(<xref linkend="textsearch-configuration"/>)によって決められます。同じデータベース中に多くの異なった設定を持つことができ、多くの言語用に定義済の設定が用意されています。先の例では、英語用として、デフォルトの<literal>english</literal>設定を使っています。
    </para>
 
    <para>
+<!--
     The function <function>setweight</function> can be used to label the
     entries of a <type>tsvector</type> with a given <firstterm>weight</firstterm>,
     where a weight is one of the letters <literal>A</literal>, <literal>B</literal>,
@@ -758,14 +1054,19 @@ SELECT to_tsvector('english', 'a fat  cat sat on a mat - it ate a fat rats');
     This is typically used to mark entries coming from
     different parts of a document, such as title versus body.  Later, this
     information can be used for ranking of search results.
+-->
+関数<function>setweight</function>を使って<type>tsvector</type>のエントリに与えられた<firstterm>重み</firstterm>のラベルを与えることができます。ここで重みは、<literal>A</literal>, <literal>B</literal>, <literal>C</literal>, <literal>D</literal>のどれかの文字です。重みの典型的な使い方は、文書の各部分がどこから来たのかをマークすることです。たとえば、タイトルから来たのか、本文から来たのかなど。後でこの情報は検索結果のランキングに利用できます。
    </para>
 
    <para>
+<!--
     Because <function>to_tsvector</function>(<literal>NULL</literal>) will
     return <literal>NULL</literal>, it is recommended to use
     <function>coalesce</function> whenever a field might be null.
     Here is the recommended method for creating
     a <type>tsvector</type> from a structured document:
+-->
+<function>to_tsvector</function>(<literal>NULL</literal>)は<literal>NULL</literal>を返すので、NULLになる可能性のある列に対しては<function>coalesce</function>を使うことをお勧めします。構造化された文書から<type>tsvector</type>を作るための推奨できる方法を示します。
 
 <programlisting>
 UPDATE tt SET ti =
@@ -775,20 +1076,27 @@ UPDATE tt SET ti =
     setweight(to_tsvector(coalesce(body,'')), 'D');
 </programlisting>
 
+<!--
     Here we have used <function>setweight</function> to label the source
     of each lexeme in the finished <type>tsvector</type>, and then merged
     the labeled <type>tsvector</type> values using the <type>tsvector</type>
     concatenation operator <literal>||</literal>.  (<xref
     linkend="textsearch-manipulate-tsvector"/> gives details about these
     operations.)
+-->
+ここでは、完成した<type>tsvector</type>の語彙素に対して、ラベル付けのために<function>setweight</function>を使っています。そして、<type>tsvector</type>の連結演算子<literal>||</literal>を使って、ラベルづけされた<type>tsvector</type>の値をマージします。(詳細は<xref linkend="textsearch-manipulate-tsvector"/>を参照してください。)
    </para>
 
   </sect2>
 
   <sect2 id="textsearch-parsing-queries">
+<!--
    <title>Parsing Queries</title>
+-->
+   <title>問い合わせのパース</title>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> provides the
     functions <function>to_tsquery</function>,
     <function>plainto_tsquery</function>,
@@ -801,6 +1109,10 @@ UPDATE tt SET ti =
     input. <function>websearch_to_tsquery</function> is a simplified version
     of <function>to_tsquery</function> with an alternative syntax, similar
     to the one used by web search engines.
+-->
+<productname>PostgreSQL</productname>は、問い合わせを<type>tsquery</type>に変換する関数<function>to_tsquery</function>、<function>plainto_tsquery</function>、<function>phraseto_tsquery</function>、<function>websearch_to_tsquery</function>を提供しています。
+<function>to_tsquery</function>は、<function>plainto_tsquery</function>と<function>phraseto_tsquery</function>のいずれよりも多くの機能を提供していますが、入力のチェックはより厳格です。
+<function>websearch_to_tsquery</function>は、webサーチエンジンで使われているものに似た別の構文を使う<function>to_tsquery</function>の簡易バージョンです。
    </para>
 
    <indexterm>
@@ -812,6 +1124,7 @@ to_tsquery(<optional> <replaceable class="parameter">config</replaceable> <type>
 </synopsis>
 
    <para>
+<!--
     <function>to_tsquery</function> creates a <type>tsquery</type> value from
     <replaceable>querytext</replaceable>, which must consist of single tokens
     separated by the <type>tsquery</type> operators <literal>&amp;</literal> (AND),
@@ -825,6 +1138,13 @@ to_tsquery(<optional> <replaceable class="parameter">config</replaceable> <type>
     <function>to_tsquery</function> normalizes each token into a lexeme using
     the specified or default configuration, and discards any tokens that are
     stop words according to the configuration.  For example:
+-->
+<function>to_tsquery</function>は、<replaceable>querytext</replaceable>から<type>tsquery</type>としての値を生成します。
+<replaceable>querytext</replaceable>は、<type>tsquery</type>演算子<literal>&amp;</literal> (AND), <literal>|</literal> (OR)、<literal>!</literal> (NOT)、<literal>&lt;-&gt;</literal> (FOLLOWED BY)で区切られる単一のトークンから構成されなければなりません。
+これらの演算子は括弧でグループ化できます。
+言い換えると、<function>to_tsquery</function>の入力は、<xref linkend="datatype-tsquery"/>で述べられている一般規則にしたがっていなければなりません。
+違いは、基本的な<type>tsquery</type>の入力はトークンの表面的な値を受け取るのに対し、<function>to_tsquery</function>は指定した、あるいはデフォルトの設定を使ってトークンを語彙素へと正規化し、設定にしたがって、ストップワードであるようなトークンを破棄します。
+例を示します。
 
 <screen>
 SELECT to_tsquery('english', 'The &amp; Fat &amp; Rats');
@@ -833,9 +1153,12 @@ SELECT to_tsquery('english', 'The &amp; Fat &amp; Rats');
  'fat' &amp; 'rat'
 </screen>
 
+<!--
     As in basic <type>tsquery</type> input, weight(s) can be attached to each
     lexeme to restrict it to match only <type>tsvector</type> lexemes of those
     weight(s).  For example:
+-->
+基本的な<type>tsquery</type>の入力では、各々の語彙素に重みを付加することにより、同じ重みを持つ<type>tsvector</type>の語彙素のみに照合するようにすることができます。例を示します。
 
 <screen>
 SELECT to_tsquery('english', 'Fat | Rats:AB');
@@ -844,7 +1167,10 @@ SELECT to_tsquery('english', 'Fat | Rats:AB');
  'fat' | 'rat':AB
 </screen>
 
+<!--
     Also, <literal>*</literal> can be attached to a lexeme to specify prefix matching:
+-->
+また、明示的な前方一致検索のため、<literal>*</literal>を語彙素に与えることもできます。
 
 <screen>
 SELECT to_tsquery('supern:*A &amp; star:A*B');
@@ -853,16 +1179,22 @@ SELECT to_tsquery('supern:*A &amp; star:A*B');
  'supern':*A &amp; 'star':*AB
 </screen>
 
+<!--
     Such a lexeme will match any word in a <type>tsvector</type> that begins
     with the given string.
+-->
+このような語彙素は、与えられた文字列で始まる<type>tsvector</type>中のどんな単語にも照合するでしょう。
    </para>
 
    <para>
+<!--
     <function>to_tsquery</function> can also accept single-quoted
     phrases.  This is primarily useful when the configuration includes a
     thesaurus dictionary that may trigger on such phrases.
     In the example below, a thesaurus contains the rule <literal>supernovae
     stars : sn</literal>:
+-->
+<function>to_tsquery</function>は、単一引用符で囲まれた語句を受け付けることもできます。これは主に、設定の中にそういった語句を持つ同義語辞書を含んでいるときに有用です。以下の例では、ある同義語の中に<literal>supernovae stars : sn</literal>という規則が含まれています。
 
 <screen>
 SELECT to_tsquery('''supernovae stars'' &amp; !crab');
@@ -871,9 +1203,12 @@ SELECT to_tsquery('''supernovae stars'' &amp; !crab');
  'sn' &amp; !'crab'
 </screen>
 
+<!--
     Without quotes, <function>to_tsquery</function> will generate a syntax
     error for tokens that are not separated by an AND, OR, or FOLLOWED BY
     operator.
+-->
+引用符がない場合は、<function>to_tsquery</function>は、AND、ORあるいはFOLLOWED BY演算子で区切られていないトークンに対して構文エラーを引き起こします。
    </para>
 
    <indexterm>
@@ -885,15 +1220,23 @@ plainto_tsquery(<optional> <replaceable class="parameter">config</replaceable> <
 </synopsis>
 
    <para>
+<!--
     <function>plainto_tsquery</function> transforms the unformatted text
     <replaceable>querytext</replaceable> to a <type>tsquery</type> value.
     The text is parsed and normalized much as for <function>to_tsvector</function>,
     then the <literal>&amp;</literal> (AND) <type>tsquery</type> operator is
     inserted between surviving words.
+-->
+<function>plainto_tsquery</function>は整形されていないテキスト<replaceable>querytext</replaceable>を、<type>tsquery</type>の値に変換します。
+テキストはパースされ、<function>to_tsvector</function>としてできる限り正規化されます。
+そして、<type>tsquery</type>演算子<literal>&amp;</literal> (AND) が存続した単語の間に挿入されます。
    </para>
 
    <para>
+<!--
     Example:
+-->
+例：
 
 <screen>
 SELECT plainto_tsquery('english', 'The Fat Rats');
@@ -902,9 +1245,12 @@ SELECT plainto_tsquery('english', 'The Fat Rats');
  'fat' &amp; 'rat'
 </screen>
 
+<!--
     Note that <function>plainto_tsquery</function> will not
     recognize <type>tsquery</type> operators, weight labels,
     or prefix-match labels in its input:
+-->
+<function>plainto_tsquery</function>は、入力中の<type>tsquery</type>演算子も、重み付けラベルも、前方一致ラベルも認識しないことに注意してください。
 
 <screen>
 SELECT plainto_tsquery('english', 'The Fat &amp; Rats:C');
@@ -913,7 +1259,10 @@ SELECT plainto_tsquery('english', 'The Fat &amp; Rats:C');
  'fat' &amp; 'rat' &amp; 'c'
 </screen>
 
+<!--
     Here, all the input punctuation was discarded.
+-->
+ここでは、入力中のすべての句読点が破棄されています。
    </para>
 
    <indexterm>
@@ -925,6 +1274,7 @@ phraseto_tsquery(<optional> <replaceable class="parameter">config</replaceable> 
 </synopsis>
 
    <para>
+<!--
     <function>phraseto_tsquery</function> behaves much like
     <function>plainto_tsquery</function>, except that it inserts
     the <literal>&lt;-&gt;</literal> (FOLLOWED BY) operator between
@@ -934,10 +1284,17 @@ phraseto_tsquery(<optional> <replaceable class="parameter">config</replaceable> 
     than <literal>&lt;-&gt;</literal> operators.  This function is useful
     when searching for exact lexeme sequences, since the FOLLOWED BY
     operators check lexeme order not just the presence of all the lexemes.
+-->
+<function>phraseto_tsquery</function>は<function>plainto_tsquery</function>とほぼ同じ動作をしますが、残った語の間に<literal>&amp;</literal> (AND) 演算子ではなく、<literal>&lt;-&gt;</literal> (FOLLOWED BY) 演算子を挿入するところが違います。
+また、ストップワードを単に無視するのでなく、<literal>&lt;-&gt;</literal>演算子の代わりに<literal>&lt;<replaceable>N</replaceable>&gt;</literal>演算子を挿入することで、意味のあるものとします。
+FOLLOWED BY演算子は、単にすべての語彙素が存在することだけでなく、語彙素の順序についても確認するため、この関数は語彙素の正確な順序について検索するときに役立ちます。
    </para>
 
    <para>
+<!--
     Example:
+-->
+例を示します。
 
 <screen>
 SELECT phraseto_tsquery('english', 'The Fat Rats');
@@ -946,10 +1303,13 @@ SELECT phraseto_tsquery('english', 'The Fat Rats');
  'fat' &lt;-&gt; 'rat'
 </screen>
 
+<!--
     Like <function>plainto_tsquery</function>, the
     <function>phraseto_tsquery</function> function will not
     recognize <type>tsquery</type> operators, weight labels,
     or prefix-match labels in its input:
+-->
+<function>plainto_tsquery</function>と同じく、<function>phraseto_tsquery</function>関数もその入力内の<type>tsquery</type>演算子、重み付けラベル、前方一致ラベルを認識しません。
 
 <screen>
 SELECT phraseto_tsquery('english', 'The Fat &amp; Rats:C');
@@ -964,6 +1324,7 @@ websearch_to_tsquery(<optional> <replaceable class="parameter">config</replaceab
 </synopsis>
 
    <para>
+<!--
     <function>websearch_to_tsquery</function> creates a <type>tsquery</type>
     value from <replaceable>querytext</replaceable> using an alternative
     syntax in which simple unformatted text is a valid query.
@@ -972,46 +1333,70 @@ websearch_to_tsquery(<optional> <replaceable class="parameter">config</replaceab
     operators. Moreover, this function will never raise syntax errors,
     which makes it possible to use raw user-supplied input for search.
     The following syntax is supported:
+-->
+<function>websearch_to_tsquery</function>は、問い合わせとして、単純で整形されていないテキストが代わりに使えるような構文を使って<replaceable>querytext</replaceable>から<type>tsquery</type>を作り出します。
+<function>plainto_tsquery</function>および<function>phraseto_tsquery</function>と違って、ある種の演算子を理解します。
+更にこの関数は決して構文エラーを引き起こさないので、ユーザ入力をそのまま検索で使用することができます。
+以下の構文をサポートします。
 
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
        <para>
+<!--
         <literal>unquoted text</literal>: text not inside quote marks will be
         converted to terms separated by <literal>&amp;</literal> operators, as
         if processed by <function>plainto_tsquery</function>.
+-->
+<literal>引用符なしのテキスト</literal>:引用符の内側にないテキストは、あたかも<function>plainto_tsquery</function>で処理されたように<literal>&amp;</literal>演算子で区切られます。
       </para>
      </listitem>
      <listitem>
        <para>
+<!--
         <literal>"quoted text"</literal>: text inside quote marks will be
         converted to terms separated by <literal>&lt;-&gt;</literal>
         operators, as if processed by <function>phraseto_tsquery</function>.
+-->
+<literal>"引用符内のテキスト"</literal>:引用符内のテキストは、あたかも<function>phraseto_tsquery</function>で処理されたように<literal>&lt;-&gt;</literal>で区切られた表現に変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>OR</literal>: the word <quote>or</quote> will be converted to
        the <literal>|</literal> operator.
+-->
+<literal>OR</literal>:単語<quote>or</quote>は<literal>|</literal>演算子に変換されます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>-</literal>: a dash will be converted to
        the <literal>!</literal> operator.
+-->
+<literal>-</literal>:ダッシュは<literal>!</literal>演算子に変換されます。
       </para>
      </listitem>
     </itemizedlist>
 
+<!--
     Other punctuation is ignored.  So
     like <function>plainto_tsquery</function>
     and <function>phraseto_tsquery</function>,
     the <function>websearch_to_tsquery</function> function will not
     recognize <type>tsquery</type> operators, weight labels, or prefix-match
     labels in its input.
+-->
+その他の句読点は無視されます。
+ですので、<function>plainto_tsquery</function>や<function>phraseto_tsquery</function>と同様、<function>websearch_to_tsquery</function>関数は<type>tsquery</type>演算子、重み付けラベルや前方一致ラベルを入力として認識しません。
    </para>
 
    <para>
+<!--
     Examples:
+-->
+例を示します。
 <screen>
 SELECT websearch_to_tsquery('english', 'The fat rats');
  websearch_to_tsquery
@@ -1047,9 +1432,13 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
   </sect2>
 
   <sect2 id="textsearch-ranking">
+<!--
    <title>Ranking Search Results</title>
+-->
+   <title>検索結果のランキング</title>
 
    <para>
+<!--
     Ranking attempts to measure how relevant documents are to a particular
     query, so that when there are many matches the most relevant ones can be
     shown first.  <productname>PostgreSQL</productname> provides two
@@ -1062,10 +1451,20 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
     e.g., document modification time.  The built-in ranking functions are only
     examples.  You can write your own ranking functions and/or combine their
     results with additional factors to fit your specific needs.
+-->
+ランキングはある問い合わせに対して、どの程度文書が関連しているかを計測しようとするものです。合致している文書が多数あるとき、もっとも関連している文書が最初に表示されるようにするためです。
+<productname>PostgreSQL</productname>は、2つの定義済ランキング関数を提供しています。それらは、辞書情報、近接度情報、構造的情報を加味します。すなわち、問い合わせの用語がどの位の頻度で文書に出現するか、文書中でどの程度それらの用語が近接しているか、どの用語が含まれる文書部位がどの程度重要なのかを考慮します。
+しかし、関連度という概念は曖昧で、用途に強く依存します。
+異なる用途は、ランキングのために追加の情報を必要とするかも知れません。たとえば、文書の更新時刻など。
+組み込みのランキング関数は例に過ぎません。
+利用者の目的に応じて、自分用のランキング関数を作ったり、その結果を追加の情報と組み合わせることができます。
    </para>
 
    <para>
+<!--
     The two ranking functions currently available are:
+-->
+今のところ、二種類のランキング関数が利用可能です。
 
     <variablelist>
 
@@ -1081,7 +1480,10 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
 
       <listitem>
        <para>
+<!--
         Ranks vectors based on the frequency of their matching lexemes.
+-->
+それらの語彙素にマッチした頻度に基づくベクトルのランク。
        </para>
       </listitem>
      </varlistentry>
@@ -1098,6 +1500,7 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
 
       <listitem>
        <para>
+<!--
         This function computes the <firstterm>cover density</firstterm>
         ranking for the given document vector and query, as described in
         Clarke, Cormack, and Tudhope's "Relevance Ranking for One to Three
@@ -1105,9 +1508,13 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
         1999.  Cover density is similar to <function>ts_rank</function> ranking
         except that the proximity of matching lexemes to each other is
         taken into consideration.
+-->
+この関数は、1999年の"Information Processing and Management"ジャーナルに掲載されたClarke, Cormack, Tudhopeの"Relevance Ranking for One to Three Term Queries"で述べられている方法で、与えられた文書ベクトルと問い合わせの<firstterm>被覆密度(cover density)</firstterm>ランクを計算します。
+被覆密度は互いにマッチする語彙素の近接度を考慮に入れる点を除いて<function>ts_rank</function>のランク付けと似ています。
        </para>
 
        <para>
+<!--
         This function requires lexeme positional information to perform
         its calculation.  Therefore, it ignores any <quote>stripped</quote>
         lexemes in the <type>tsvector</type>.  If there are no unstripped
@@ -1115,6 +1522,11 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
         linkend="textsearch-manipulate-tsvector"/> for more information
         about the <function>strip</function> function and positional information
         in <type>tsvector</type>s.)
+-->
+この関数は、計算を実行するために語彙素の位置情報を必要とします。
+ですから、<type>tsvector</type>内の<quote>剥き出しの</quote>語彙素は無視します。
+入力に剥き出しでない語彙素がなければ、 結果は0です。
+(<function>strip</function>関数と<type>tsvector</type>内の位置情報についてのより詳しい情報は<xref linkend="textsearch-manipulate-tsvector"/>を参照してください。)
        </para>
       </listitem>
      </varlistentry>
@@ -1124,29 +1536,40 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
    </para>
 
    <para>
+<!--
     For both these functions,
     the optional <replaceable class="parameter">weights</replaceable>
     argument offers the ability to weigh word instances more or less
     heavily depending on how they are labeled.  The weight arrays specify
     how heavily to weigh each category of word, in the order:
+-->
+これらの関数では、単語がどの程度ラベル付けに依存するかを、単語ごとに指定する機能が<replaceable class="parameter">weights</replaceable>オプションパラメータによって提供されています。
+重み配列で、それぞれのカテゴリの単語がどの程度重み付けするかを指定します。その順は以下のようになっています。
 
 <synopsis>
 {D-weight, C-weight, B-weight, A-weight}
 </synopsis>
 
+<!--
     If no <replaceable class="parameter">weights</replaceable> are provided,
     then these defaults are used:
+-->
+<replaceable class="parameter">weights</replaceable>を与えない場合は、次のデフォルト値が使われます。
 
 <programlisting>
 {0.1, 0.2, 0.4, 1.0}
 </programlisting>
 
+<!--
     Typically weights are used to mark words from special areas of the
     document, like the title or an initial abstract, so they can be
     treated with more or less importance than words in the document body.
+-->
+重みの典型的な使い方は、文書のタイトルやアブストラクトのような特定の場所にある単語をマーク付けするような使い方です。そうすることにより、文書の本体に比べてそこにある単語がより重要なのか、そうでないのか、扱いを変えることができます。
    </para>
 
    <para>
+<!--
     Since a longer document has a greater chance of containing a query term
     it is reasonable to take into account document size, e.g., a hundred-word
     document with five instances of a search word is probably more relevant
@@ -1156,62 +1579,94 @@ SELECT websearch_to_tsquery('english', '""" )( dummy \\ query &lt;-&gt;');
     The integer option controls several behaviors, so it is a bit mask:
     you can specify one or more behaviors using
     <literal>|</literal> (for example, <literal>2|4</literal>).
+-->
+文書が長ければ、それだけ問い合わせ用語を含む確率が高くなるため、文書のサイズを考慮にいれることは理にかなっています。たとえば、5つの検索語を含む100語の文書は、たぶん5つの検索語を含む1000語の文書よりも関連性が高いでしょう。ランキング関数には、どちらも整数型の<replaceable>正規化</replaceable>オプションがあります。これは、文書の長さがランクに影響を与えるのかどうか、与えるとすればどの程度か、ということを指定します。この整数オプションは、いくつかの挙動を制御するので、ビットマスクになっています。複数の挙動を<literal>|</literal>で指定できます(例：<literal>2|4</literal>)。
 
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
       <para>
+<!--
        0 (the default) ignores the document length
+-->
+0(デフォルト):文書の長さを無視します
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        1 divides the rank by 1 + the logarithm of the document length
+-->
+1:ランクを(1 + log(文書の長さ))で割ります
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        2 divides the rank by the document length
+-->
+2:ランクを文書の長さで割ります
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        4 divides the rank by the mean harmonic distance between extents
        (this is implemented only by <function>ts_rank_cd</function>)
+-->
+4:ランクをエクステントの間の調和平均距離で割ります(これは<function>ts_rank_cd</function>のみで実装されています)
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        8 divides the rank by the number of unique words in document
+-->
+8: ランクを文書中の一意の単語の数で割ります
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        16 divides the rank by 1 + the logarithm of the number
        of unique words in document
+-->
+16: ランクをlog(文書中の一意の単語の数)+1 で割ります
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        32 divides the rank by itself + 1
+-->
+32: ランクをランク自身+1 で割ります
       </para>
      </listitem>
     </itemizedlist>
 
+<!--
     If more than one flag bit is specified, the transformations are
     applied in the order listed.
+-->
+2以上のフラグビットが指定された場合には、変換は上記に列挙された順に行われます。
    </para>
 
    <para>
+<!--
     It is important to note that the ranking functions do not use any global
     information, so it is impossible to produce a fair normalization to 1% or
     100% as sometimes desired.  Normalization option 32
     (<literal>rank/(rank+1)</literal>) can be applied to scale all ranks
     into the range zero to one, but of course this is just a cosmetic change;
     it will not affect the ordering of the search results.
+-->
+これは重要なことですが、ランキング関数はグローバル情報を一切使わないので、時には必要になる1%から100%までの均一な正規化はできません。正規化オプション32(<literal>rank/(rank+1)</literal>)を適用することにより、すべてのランクを0から1に分布させることができます。しかし、もちろんこれは表面的な変更に過ぎません。検索結果のならび順に影響を与えるものではありません。
    </para>
 
    <para>
+<!--
     Here is an example that selects only the ten highest-ranked matches:
+-->
+マッチする順位の高い10位までを選ぶ例を示します。
 
 <screen>
 SELECT title, ts_rank_cd(textsearch, query) AS rank
@@ -1233,7 +1688,10 @@ LIMIT 10;
  Weak Lensing Distorts the Universe            | 0.818218
 </screen>
 
+<!--
     This is the same example using normalized ranking:
+-->
+同じ例を正規化ランキングを使ったものを示します。
 
 <screen>
 SELECT title, ts_rank_cd(textsearch, query, 32 /* rank/(rank+1) */ ) AS rank
@@ -1257,23 +1715,33 @@ LIMIT 10;
    </para>
 
    <para>
+<!--
     Ranking can be expensive since it requires consulting the
     <type>tsvector</type> of each matching document, which can be I/O bound and
     therefore slow. Unfortunately, it is almost impossible to avoid since
     practical queries often result in large numbers of matches.
+-->
+ランキングは、I/Oに結び付けられていて遅い可能性のある、一致する各文書の<type>tsvector</type>へのアクセスが必要なので、高価な処理であるかもしれません。
+不幸なことに、実際の問い合わせでは往々にして大量の検索結果が生じるため、これはほとんど不可避であると言えます。
    </para>
 
   </sect2>
 
   <sect2 id="textsearch-headline">
+<!--
    <title>Highlighting Results</title>
+-->
+   <title>結果の強調</title>
 
    <para>
+<!--
     To present search results it is ideal to show a part of each document and
     how it is related to the query. Usually, search engines show fragments of
     the document with marked search terms.  <productname>PostgreSQL</productname>
     provides a function <function>ts_headline</function> that
     implements this functionality.
+-->
+検索結果を表示する際には、文書の該当部分を表示し、どの程度問い合わせと関連しているかを示すのが望ましいです。<productname>PostgreSQL</productname>はこの機能を実装した<function>ts_headline</function>関数を提供しています。
    </para>
 
    <indexterm>
@@ -1285,6 +1753,7 @@ ts_headline(<optional> <replaceable class="parameter">config</replaceable> <type
 </synopsis>
 
    <para>
+<!--
     <function>ts_headline</function> accepts a document along
     with a query, and returns an excerpt from
     the document in which terms from the query are highlighted.  The
@@ -1292,70 +1761,105 @@ ts_headline(<optional> <replaceable class="parameter">config</replaceable> <type
     <replaceable>config</replaceable>; if <replaceable>config</replaceable>
     is omitted, the
     <varname>default_text_search_config</varname> configuration is used.
+-->
+<function>ts_headline</function>は、問い合わせと一緒に文書を受け取り、問い合わせが注目した文書中の語句を抜粋して返します。文書をパースするのに使われる設定を<replaceable>config</replaceable>で指定することができます。<replaceable>config</replaceable>が省略された場合は、<varname>default_text_search_config</varname>設定が使われます。
    </para>
 
    <para>
+<!--
     If an <replaceable>options</replaceable> string is specified it must
     consist of a comma-separated list of one or more
     <replaceable>option</replaceable><literal>=</literal><replaceable>value</replaceable> pairs.
     The available options are:
+-->
+<replaceable>options</replaceable>文字列を指定する場合は、一つ以上の<replaceable>option</replaceable><literal>=</literal><replaceable>value</replaceable>のペアをカンマで区切ったものでなければなりません。
 
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
       <para>
+<!--
        <literal>MaxWords</literal>, <literal>MinWords</literal> (integers):
        these numbers determine the longest and shortest headlines to output.
        The default values are 35 and 15.
+-->
+<literal>MaxWords</literal>, <literal>MinWords</literal> (整数): この数字を使って見出しの最大の長さと最小の長さを指定します。
+デフォルトは35と15です。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>ShortWord</literal> (integer): words of this length or less
        will be dropped at the start and end of a headline, unless they are
        query terms.  The default value of three eliminates common English
        articles.
+-->
+<literal>ShortWord</literal> (整数): この長さか、それ以下の長さの単語は、検索語でない限り、見出しの最初と最後から削除されます。
+デフォルト値の3は、常用される英語の冠詞を取り除きます。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>HighlightAll</literal> (boolean): if
        <literal>true</literal> the whole document will be used as the
        headline, ignoring the preceding three parameters.  The default
        is <literal>false</literal>.
+-->
+<literal>HighlightAll</literal> (論理値): <literal>true</literal>なら文書全体が見出しとして使われ、前の3つのパラメータは無視されます。
+デフォルトは<literal>false</literal>です。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>MaxFragments</literal> (integer): maximum number of text
        fragments to display.  The default value of zero selects a
        non-fragment-based headline generation method.  A value greater
        than zero selects fragment-based headline generation (see below).
+-->
+<literal>MaxFragments</literal> (整数): 表示するテキスト断片の最大数です。
+デフォルト値の0は断片化を起こさない見出しの生成の選択となります。
+0より大きい場合は断片化を基本とした見出しの生成の選択となります(下記参照)。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>StartSel</literal>, <literal>StopSel</literal> (strings):
        the strings with which to delimit query words appearing in the
        document, to distinguish them from other excerpted words.  The
        default values are <quote><literal>&lt;b&gt;</literal></quote> and
        <quote><literal>&lt;/b&gt;</literal></quote>, which can be suitable
        for HTML output.
+-->
+<literal>StartSel</literal>, <literal>StopSel</literal> (文字列): 文書中に現れる問い合わせ単語を区切るこの文字列は、他の抜粋される単語と区別されます。
+デフォルト値は<quote><literal>&lt;b&gt;</literal></quote>と<quote><literal>&lt;/b&gt;</literal></quote>であり、HTML出力には適切でしょう。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>FragmentDelimiter</literal> (string): When more than one
        fragment is displayed, the fragments will be separated by this string.
        The default is <quote><literal> ... </literal></quote>.
+-->
+<literal>FragmentDelimiter</literal> (文字列): 複数の断片が表示される時、その断片はこの文字列で区切られます。
+デフォルトは<quote><literal> ... </literal></quote>です。
       </para>
      </listitem>
     </itemizedlist>
 
+<!--
     These option names are recognized case-insensitively.
     You must double-quote string values if they contain spaces or commas.
+-->
+これらのオプション名は大文字小文字の区別なく認識されます。
+空白やカンマを含む場合には、文字列の値を二重引用符で括ってください。
    </para>
 
    <para>
+<!--
     In non-fragment-based headline
     generation, <function>ts_headline</function> locates matches for the
     given <replaceable class="parameter">query</replaceable> and chooses a
@@ -1372,10 +1876,18 @@ ts_headline(<optional> <replaceable class="parameter">config</replaceable> <type
     In either mode, if no query matches can be identified, then a single
     fragment of the first <literal>MinWords</literal> words in the document
     will be displayed.
+-->
+断片化を起こさない見出しの生成では、<function>ts_headline</function>は与えられた<replaceable class="parameter">query</replaceable>との一致を見つけて、見出しの許される長さ以内でより多くの問い合わせの単語のある一致を優先して一つ選びます。
+断片化を基本とした見出しの生成では、<function>ts_headline</function>は問い合わせの一致を見つけて、各一致を最大で<literal>MaxWords</literal>個の単語からなる<quote>断片</quote>に分割します。このとき、より多くの問い合わせの単語を含む断片を優先します。そして、可能であれば周囲の単語を含むよう断片を<quote>広げます</quote>。
+それゆえ、問い合わせの一致が文書の長い部分に渡る場合や複数の一致を表示するのが望ましい場合には、断片化を基本としたモードがより有用です。
+どちらのモードでも、もし問い合わせの一致が特定されなかった場合は、文書中の最初の<literal>MinWords</literal>個の単語から成る一つの断片が表示されます。
    </para>
 
    <para>
+<!--
     For example:
+-->
+例を示します。
 
 <screen>
 SELECT ts_headline('english',
@@ -1405,9 +1917,12 @@ occurrences to display in the result.',
    </para>
 
    <para>
+<!--
     <function>ts_headline</function> uses the original document, not a
     <type>tsvector</type> summary, so it can be slow and should be used with
     care.
+-->
+<function>ts_headline</function>は、<type>tsvector</type>の要約ではなく、元の文書を使います。ですので遅い可能性があり、注意深く使用する必要があります。
    </para>
 
   </sect2>
@@ -1415,22 +1930,34 @@ occurrences to display in the result.',
  </sect1>
 
  <sect1 id="textsearch-features">
+<!--
   <title>Additional Features</title>
+-->
+  <title>追加機能</title>
 
   <para>
+<!--
    This section describes additional functions and operators that are
    useful in connection with text search.
+-->
+この節では、全文検索に関連する便利な追加の関数と演算子を説明します。
   </para>
 
   <sect2 id="textsearch-manipulate-tsvector">
+<!--
    <title>Manipulating Documents</title>
+-->
+   <title>文書の操作</title>
 
    <para>
+<!--
     <xref linkend="textsearch-parsing-documents"/> showed how raw textual
     documents can be converted into <type>tsvector</type> values.
     <productname>PostgreSQL</productname> also provides functions and
     operators that can be used to manipulate documents that are already
     in <type>tsvector</type> form.
+-->
+<xref linkend="textsearch-parsing-documents"/>に、もとのテキスト形式の文書がどのようにして<type>tsvector</type>に変換されるのか書いてあります。また、<productname>PostgreSQL</productname>では<type>tsvector</type>形式に変換済の文書を操作する関数と演算子が提供されています。
    </para>
 
    <variablelist>
@@ -1439,7 +1966,10 @@ occurrences to display in the result.',
 
      <term>
      <indexterm>
+<!--
       <primary>tsvector concatenation</primary>
+-->
+      <primary>tsvectorの結合</primary>
      </indexterm>
 
       <literal><type>tsvector</type> || <type>tsvector</type></literal>
@@ -1447,6 +1977,7 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        The <type>tsvector</type> concatenation operator
        returns a vector which combines the lexemes and positional information
        of the two vectors given as arguments.  Positions and weight labels
@@ -1459,9 +1990,15 @@ occurrences to display in the result.',
        end of the left-hand argument will not affect the result, whereas
        they would have affected the positions of the lexemes in the
        right-hand argument if textual concatenation were used.)
+-->
+<type>tsvector</type>の結合演算子で、2つのベクトルの語彙素と位置情報を合成し、<type>tsvector</type>を返します。
+位置と重み付けラベルは、結合では維持されます。
+右辺のベクトルの位置は左辺のベクトルの一番大きな位置情報のオフセットになります。その結果、この関数の結果は、元の2つの文書文字列を結合したものに<function>to_tsvector</function>を適用したものとほぼ同じになります。
+(まったく同じと言うわけではありません。左辺の引数の最後から取り除かれたストップワードは結果に影響を与えないのに対し、テキストの結合が行われた場合は、右辺の引数にある語彙素位置に影響を与えるからです。)
       </para>
 
       <para>
+<!--
        One advantage of using concatenation in the vector form, rather than
        concatenating text before applying <function>to_tsvector</function>, is that
        you can use different configurations to parse different sections
@@ -1470,6 +2007,8 @@ occurrences to display in the result.',
        to parse the text and do <function>setweight</function> before concatenating
        if you want to label different parts of the document with different
        weights.
+-->
+<function>to_tsvector</function>を適用する前のテキストを結合するよりも、ベクトルを結合することの利点の一つは、文書の異なる部分をパースするために、異なる設定を使うことができることです。なお、<function>setweight</function>関数は与えられたベクトルのすべての語彙素を同じ方法でマーク付けするため、もしも文書に異なる部分に別の重み付けを行いたいなら、結合する前に文書をパースして<function>setweight</function>を適用することが必要です。
       </para>
      </listitem>
     </varlistentry>
@@ -1486,6 +2025,7 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        <function>setweight</function> returns a copy of the input vector in which every
        position has been labeled with the given <replaceable>weight</replaceable>, either
        <literal>A</literal>, <literal>B</literal>, <literal>C</literal>, or
@@ -1493,12 +2033,20 @@ occurrences to display in the result.',
        vectors and as such is not displayed on output.)  These labels are
        retained when vectors are concatenated, allowing words from different
        parts of a document to be weighted differently by ranking functions.
+-->
+<function>setweight</function>は、<literal>A</literal>, <literal>B</literal>, <literal>C</literal>, <literal>D</literal>のいずれかの与えられた<replaceable>weight</replaceable>を入力のベクトル中の位置にラベル付けし、そのコピーを返します。
+(<literal>D</literal>は新しいベクトルのデフォルトで、出力する際には表示されません。)
+これらのラベルはベクトルが結合される際に保存されるので、ランキング関数によって文書中の異なる部分の語を別々に重み付けできます。
       </para>
 
       <para>
+<!--
        Note that weight labels apply to <emphasis>positions</emphasis>, not
        <emphasis>lexemes</emphasis>.  If the input vector has been stripped of
        positions then <function>setweight</function> does nothing.
+-->
+なお、重み付けラベルは<emphasis>語彙素</emphasis>ではなく<emphasis>位置</emphasis>に与えられることに注意してください。
+入力のベクトルから位置が削除されていると、<function>setweight</function>は何もしません。
       </para>
      </listitem>
     </varlistentry>
@@ -1514,7 +2062,10 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        Returns the number of lexemes stored in the vector.
+-->
+ベクトル中に格納されている語彙素の数を返します。
       </para>
      </listitem>
     </varlistentry>
@@ -1531,6 +2082,7 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        Returns a vector that lists the same lexemes as the given vector, but
        lacks any position or weight information.  The result is usually much
        smaller than an unstripped vector, but it is also less useful.
@@ -1539,6 +2091,11 @@ occurrences to display in the result.',
        the <literal>&lt;-&gt;</literal> (FOLLOWED BY) <type>tsquery</type> operator
        will never match stripped input, since it cannot determine the
        distance between lexeme occurrences.
+-->
+入力のベクトルと同じ語彙素のリストを持つが、位置と重みの情報が全くないベクトルを返します。
+その結果は、通常は情報を削除されていないベクトルよりもずっと小さくなりますが、有用性も低くなります。
+また、<type>tsquery</type>演算子<literal>&lt;-&gt;</literal> (FOLLOWED BY)は情報を削除した入力とマッチすることはありません。
+なぜなら語彙素が発生する間の距離を決定できないからです。
       </para>
      </listitem>
 
@@ -1547,21 +2104,30 @@ occurrences to display in the result.',
    </variablelist>
 
    <para>
+<!--
     A full list of <type>tsvector</type>-related functions is available
     in <xref linkend="textsearch-functions-table"/>.
+-->
+<type>tsvector</type>に関連した関数の完全なリストが<xref linkend="textsearch-functions-table"/>にあります。
    </para>
 
   </sect2>
 
   <sect2 id="textsearch-manipulate-tsquery">
+<!--
    <title>Manipulating Queries</title>
+-->
+   <title>問い合わせを操作する</title>
 
    <para>
+<!--
     <xref linkend="textsearch-parsing-queries"/> showed how raw textual
     queries can be converted into <type>tsquery</type> values.
     <productname>PostgreSQL</productname> also provides functions and
     operators that can be used to manipulate queries that are already
     in <type>tsquery</type> form.
+-->
+<xref linkend="textsearch-parsing-queries"/>は、元のテキストがいかにして<type>tsquery</type>値に変換されるかを解説しています。また<productname>PostgreSQL</productname>は、<type>tsquery</type>形式に変換済の問い合わせを操作するために使用できる関数と演算子を提供しています。
    </para>
 
    <variablelist>
@@ -1574,7 +2140,10 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        Returns the AND-combination of the two given queries.
+-->
+2つの問い合わせをANDで結合したものを返します。
       </para>
      </listitem>
 
@@ -1588,7 +2157,10 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        Returns the OR-combination of the two given queries.
+-->
+2つの問い合わせをORで結合したものを返します。
       </para>
      </listitem>
 
@@ -1602,7 +2174,10 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        Returns the negation (NOT) of the given query.
+-->
+与えられた問い合わせの否定を返します。
       </para>
      </listitem>
 
@@ -1616,10 +2191,14 @@ occurrences to display in the result.',
 
      <listitem>
       <para>
+<!--
        Returns a query that searches for a match to the first given query
        immediately followed by a match to the second given query, using
        the <literal>&lt;-&gt;</literal> (FOLLOWED BY)
        <type>tsquery</type> operator.  For example:
+-->
+1番目の問い合わせにマッチし、その直後に2番目の問い合わせにマッチするものを検索する問い合わせを、<type>tsquery</type>演算子<literal>&lt;-&gt;</literal> (FOLLOWED BY) を使って返します。
+例を示します。
 
 <screen>
 SELECT to_tsquery('fat') &lt;-&gt; to_tsquery('cat | rat');
@@ -1644,11 +2223,15 @@ SELECT to_tsquery('fat') &lt;-&gt; to_tsquery('cat | rat');
 
      <listitem>
       <para>
+<!--
        Returns a query that searches for a match to the first given query
        followed by a match to the second given query at a distance of exactly
        <replaceable>distance</replaceable> lexemes, using
        the <literal>&lt;<replaceable>N</replaceable>&gt;</literal>
        <type>tsquery</type> operator.  For example:
+-->
+1番目の問い合わせにマッチし、その後にちょうど<replaceable>distance</replaceable>個の語彙素の距離で2番目の問い合わせにマッチするものを検索する問い合わせを、<type>tsquery</type>演算子<literal>&lt;<replaceable>N</replaceable>&gt;</literal>を使って返します。
+例を示します。
 
 <screen>
 SELECT tsquery_phrase(to_tsquery('fat'), to_tsquery('cat'), 10);
@@ -1673,11 +2256,14 @@ SELECT tsquery_phrase(to_tsquery('fat'), to_tsquery('cat'), 10);
 
      <listitem>
       <para>
+<!--
        Returns the number of nodes (lexemes plus operators) in a
        <type>tsquery</type>. This function is useful
        to determine if the <replaceable>query</replaceable> is meaningful
        (returns &gt; 0), or contains only stop words (returns 0).
        Examples:
+-->
+<type>tsquery</type>中のノード(語彙素と演算子)の数を返します。この関数は、<replaceable>問い合わせ</replaceable>が意味のあるものか(返却値 &gt; 0)、ストップワードだけを含んでいるか(返却値 0)を判断するのに役に立ちます。例を示します。
 
 <screen>
 SELECT numnode(plainto_tsquery('the any'));
@@ -1707,10 +2293,13 @@ SELECT numnode('foo &amp; bar'::tsquery);
 
      <listitem>
       <para>
+<!--
        Returns the portion of a <type>tsquery</type> that can be used for
        searching an index.  This function is useful for detecting
        unindexable queries, for example those containing only stop words
        or only negated terms.  For example:
+-->
+インデックス検索の際に使用できる<type>tsquery</type>の部分を返します。この関数は、たとえばストップワードのみ、あるいは否定語だけのように、インデックス検索できない問い合わせを検出するのに役立ちます。例を示します。
 
 <screen>
 SELECT querytree(to_tsquery('defined'));
@@ -1730,13 +2319,17 @@ SELECT querytree(to_tsquery('!defined'));
    </variablelist>
 
    <sect3 id="textsearch-query-rewriting">
+<!--
     <title>Query Rewriting</title>
+-->
+    <title>問い合わせの書き換え</title>
 
     <indexterm zone="textsearch-query-rewriting">
      <primary>ts_rewrite</primary>
     </indexterm>
 
     <para>
+<!--
      The <function>ts_rewrite</function> family of functions search a
      given <type>tsquery</type> for occurrences of a target
      subquery, and replace each occurrence with a
@@ -1753,6 +2346,8 @@ SELECT querytree(to_tsquery('!defined'));
      However, you can modify a set of rewrite rules on-the-fly without
      reindexing, whereas updating a thesaurus requires reindexing to be
      effective.
+-->
+<function>ts_rewrite</function>ファミリー関数は、与えられた<type>tsquery</type>から目的の副問い合わせ部分を探し、それを代わりの副問い合わせに置き換えます。本質的には、この操作は、部分文字列置き換えの<type>tsquery</type>版です。置き換え候補と置き換え内容の組は、<firstterm>問い合わせ書き換えルール</firstterm>であると考えることができます。そのような書き換えルールの集合は、強力な検索ツールとなり得ます。たとえば、同義語(たとえば<literal>new york</literal>, <literal>big apple</literal>, <literal>nyc</literal>, <literal>gotham</literal>)を使って問い合わせをより広範囲にしたり、逆によりホットな話題にユーザを導くために問い合わせを狭い範囲に絞ったりすることができます。この機能と、同義語辞書(<xref linkend="textsearch-thesaurus"/>)の間には、機能的な重複があります。しかし、再インデックス付けすることなしに、その場で書き換えルールを変更できるのに対し、同義語辞書の更新が有効になるためには、再インデックス付けを行わなければなりません。
     </para>
 
     <variablelist>
@@ -1765,11 +2360,14 @@ SELECT querytree(to_tsquery('!defined'));
 
       <listitem>
        <para>
+<!--
         This form of <function>ts_rewrite</function> simply applies a single
         rewrite rule: <replaceable class="parameter">target</replaceable>
         is replaced by <replaceable class="parameter">substitute</replaceable>
         wherever it appears in <replaceable
         class="parameter">query</replaceable>.  For example:
+-->
+この形式の <function>ts_rewrite</function> は、単純に単一の書き換えルールを適用します。<replaceable class="parameter">query</replaceable>中に表れる<replaceable class="parameter">target</replaceable>は、<replaceable class="parameter">substitute</replaceable>ですべて置き換えられます。例を示します。
 
 <screen>
 SELECT ts_rewrite('a &amp; b'::tsquery, 'a'::tsquery, 'c'::tsquery);
@@ -1789,6 +2387,7 @@ SELECT ts_rewrite('a &amp; b'::tsquery, 'a'::tsquery, 'c'::tsquery);
 
       <listitem>
        <para>
+<!--
         This form of <function>ts_rewrite</function> accepts a starting
         <replaceable>query</replaceable> and an SQL <replaceable>select</replaceable> command, which
         is given as a text string.  The <replaceable>select</replaceable> must yield two
@@ -1796,6 +2395,8 @@ SELECT ts_rewrite('a &amp; b'::tsquery, 'a'::tsquery, 'c'::tsquery);
         <replaceable>select</replaceable> result, occurrences of the first column value
         (the target) are replaced by the second column value (the substitute)
         within the current <replaceable>query</replaceable> value.  For example:
+-->
+この形式の<function>ts_rewrite</function>は、開始<replaceable>問い合わせ</replaceable>と、テキスト文字列で与えられるSQLの<replaceable>SELECT</replaceable>コマンドを受け取ります。<replaceable>SELECT</replaceable>は、<type>tsquery</type>型の2つの列を出力しなければなりません。現在の<replaceable>問い合わせ</replaceable>は、<replaceable>SELECT</replaceable>のそれぞれの結果行中の最初の列の結果(ターゲット)が、2番目の列の結果(置き換え値)に、置き換えられます。例を示します。
 
 <screen>
 CREATE TABLE aliases (t tsquery PRIMARY KEY, s tsquery);
@@ -1809,9 +2410,12 @@ SELECT ts_rewrite('a &amp; b'::tsquery, 'SELECT t,s FROM aliases');
        </para>
 
        <para>
+<!--
         Note that when multiple rewrite rules are applied in this way,
         the order of application can be important; so in practice you will
         want the source query to <literal>ORDER BY</literal> some ordering key.
+-->
+なお、複数の書き換えルールを適用する際は、適用する順番が重要です。ですから、実際には並び替えのキーを適用する<literal>ORDER BY</literal>を問い合わせに入れておくのがよいでしょう。
        </para>
       </listitem>
      </varlistentry>
@@ -1819,8 +2423,11 @@ SELECT ts_rewrite('a &amp; b'::tsquery, 'SELECT t,s FROM aliases');
     </variablelist>
 
     <para>
+<!--
      Let's consider a real-life astronomical example. We'll expand query
      <literal>supernovae</literal> using table-driven rewriting rules:
+-->
+天文学上の実際的な例を考えてみます。テーブル駆動の書き換えルールを使って、<literal>supernovae</literal>を展開します。
 
 <screen>
 CREATE TABLE aliases (t tsquery primary key, s tsquery);
@@ -1832,7 +2439,10 @@ SELECT ts_rewrite(to_tsquery('supernovae &amp; crab'), 'SELECT * FROM aliases');
  'crab' &amp; ( 'supernova' | 'sn' )
 </screen>
 
+<!--
      We can change the rewriting rules just by updating the table:
+-->
+テーブルを更新するだけで、書き換えルールを変更することができます。
 
 <screen>
 UPDATE aliases
@@ -1847,11 +2457,14 @@ SELECT ts_rewrite(to_tsquery('supernovae &amp; crab'), 'SELECT * FROM aliases');
     </para>
 
     <para>
+<!--
      Rewriting can be slow when there are many rewriting rules, since it
      checks every rule for a possible match. To filter out obvious non-candidate
      rules we can use the containment operators for the <type>tsquery</type>
      type. In the example below, we select only those rules which might match
      the original query:
+-->
+書き換えルールが多くなると、書き換えが遅くなる可能性があります。なぜなら、書き換えの対象になるものを求めて、すべてのルールをチェックするからです。明らかに使われないルールを取り除くために、<type>tsquery</type>の包含演算子を使うことができます。以下の例では、元の問い合わせにマッチするルールだけを選ぶことができます。
 
 <screen>
 SELECT ts_rewrite('a &amp; b'::tsquery,
@@ -1867,27 +2480,40 @@ SELECT ts_rewrite('a &amp; b'::tsquery,
   </sect2>
 
   <sect2 id="textsearch-update-triggers">
+<!--
    <title>Triggers for Automatic Updates</title>
+-->
+   <title>自動更新のためのトリガ</title>
 
    <indexterm>
+<!--
     <primary>trigger</primary>
     <secondary>for updating a derived tsvector column</secondary>
+-->
+    <primary>トリガ</primary>
+    <secondary>tsvectorから派生した列を更新する</secondary>
    </indexterm>
 
    <note>
     <para>
+<!--
      The method described in this section has been obsoleted by the use of
      stored generated columns, as described in <xref
      linkend="textsearch-tables-index"/>.
+-->
+この節で説明する方法は、<xref linkend="textsearch-tables-index"/>で説明するように、格納された生成列の使用に置き換えられました。
     </para>
    </note>
 
    <para>
+<!--
     When using a separate column to store the <type>tsvector</type> representation
     of your documents, it is necessary to create a trigger to update the
     <type>tsvector</type> column when the document content columns change.
     Two built-in trigger functions are available for this, or you can write
     your own.
+-->
+<type>tsvector</type>形式の文書を格納するために別の列を使う場合、文書の内容を格納した列が変更されたときに<type>tsvector</type>を格納した列を更新するトリガを作っておく必要があります。この目的のために、2つの組み込み関数を利用できます。自分で関数を書くこともできます。
    </para>
 
 <synopsis>
@@ -1896,10 +2522,13 @@ tsvector_update_trigger_column(<replaceable class="parameter">tsvector_column_na
 </synopsis>
 
    <para>
+<!--
     These trigger functions automatically compute a <type>tsvector</type>
     column from one or more textual columns, under the control of
     parameters specified in the <command>CREATE TRIGGER</command> command.
     An example of their use is:
+-->
+これらのトリガ関数は、1つ以上のテキスト列から、<command>CREATE TRIGGER</command>コマンドで指定されたパラメータの制御により、<type>tsvector</type>列を自動的に計算します。使い方の例を示します。
 
 <screen>
 CREATE TABLE messages (
@@ -1925,12 +2554,16 @@ SELECT title, body FROM messages WHERE tsv @@ to_tsquery('title &amp; body');
  title here | the body text is here
 </screen>
 
+<!--
     Having created this trigger, any change in <structfield>title</structfield> or
     <structfield>body</structfield> will automatically be reflected into
     <structfield>tsv</structfield>, without the application having to worry about it.
+-->
+このトリガを作っておくことにより、 <structfield>title</structfield> または<structfield>body</structfield>への変更は、アプリケーションで考慮しなくても自動的に<structfield>tsv</structfield>に反映されます。
    </para>
 
    <para>
+<!--
     The first trigger argument must be the name of the <type>tsvector</type>
     column to be updated.  The second argument specifies the text search
     configuration to be used to perform the conversion.  For
@@ -1945,14 +2578,19 @@ SELECT title, body FROM messages WHERE tsv @@ to_tsquery('title &amp; body');
     (of type <type>text</type>, <type>varchar</type>, or <type>char</type>).  These
     will be included in the document in the order given.  NULL values will
     be skipped (but the other columns will still be indexed).
+-->
+トリガの最初の引数は更新対象の<type>tsvector</type>の列名でなければなりません。2番目の引数は、変換を実行する際に使用されるテキスト検索の設定です。<function>tsvector_update_trigger</function>では、設定の名前は単に2番目のトリガ引数で与えられます。上で示すように、スキーマ修飾されていなければなりません。<varname>search_path</varname>の変更がトリガの振る舞いに影響を与えないためです。<function>tsvector_update_trigger_column</function>では、2番目のトリガ引数は別のテーブル列の列名です。この列の型は<type>regconfig</type>でなければなりません。この方法により、設定を行単位で変えることができます。残りの引数はテキスト型(<type>text</type>, <type>varchar</type>, <type>char</type>のいずれか)の列の名前です。与えられた順に、文書中に取り込まれます。NULL値はスキップされます(ただし、それ以外の列はインデックス付けされます)。
    </para>
 
    <para>
+<!--
     A limitation of these built-in triggers is that they treat all the
     input columns alike.  To process columns differently &mdash; for
     example, to weight title differently from body &mdash; it is necessary
     to write a custom trigger.  Here is an example using
     <application>PL/pgSQL</application> as the trigger language:
+-->
+これらの組み込みトリガの制限事項として、すべての列を同じようにしか扱えないというものがあります。それぞれの列を違うように扱うには &mdash; たとえば本文とタイトルの重みを変えるとか &mdash;、カスタムトリガを書く必要があります。トリガ言語として<application>PL/pgSQL</application>を使った例を示します。
 
 <programlisting>
 CREATE FUNCTION messages_trigger() RETURNS trigger AS $$
@@ -1970,25 +2608,34 @@ CREATE TRIGGER tsvectorupdate BEFORE INSERT OR UPDATE
    </para>
 
    <para>
+<!--
     Keep in mind that it is important to specify the configuration name
     explicitly when creating <type>tsvector</type> values inside triggers,
     so that the column's contents will not be affected by changes to
     <varname>default_text_search_config</varname>.  Failure to do this is likely to
     lead to problems such as search results changing after a dump and reload.
+-->
+<type>tsvector</type>値をトリガ内で作るときには、設定名を明示的に与えることが重要であることを銘記しておいてください。そうすれば、<varname>default_text_search_config</varname>が変更されても列の内容は影響を受けません。これを怠ると、ダンプしてリロードすると検索結果が変わってしまうような問題が起きる可能性があります。
    </para>
 
   </sect2>
 
   <sect2 id="textsearch-statistics">
+<!--
    <title>Gathering Document Statistics</title>
+-->
+   <title>文書の統計情報の収集</title>
 
    <indexterm>
     <primary>ts_stat</primary>
    </indexterm>
 
    <para>
+<!--
     The function <function>ts_stat</function> is useful for checking your
     configuration and for finding stop-word candidates.
+-->
+<function>ts_stat</function>関数は、設定をチェックしたり、ストップワードの候補を探すのに役立ちます。
    </para>
 
 <synopsis>
@@ -1998,38 +2645,56 @@ ts_stat(<replaceable class="parameter">sqlquery</replaceable> <type>text</type>,
 </synopsis>
 
    <para>
+<!--
     <replaceable>sqlquery</replaceable> is a text value containing an SQL
     query which must return a single <type>tsvector</type> column.
     <function>ts_stat</function> executes the query and returns statistics about
     each distinct lexeme (word) contained in the <type>tsvector</type>
     data.  The columns returned are
+-->
+<replaceable>sqlquery</replaceable>は単一の<type>tsvector</type>列を返すSQL問い合わせのテキスト値です。<function>ts_stat</function>は問い合わせを実行し、<type>tsvector</type>データに含まれる語彙素(単語)各々の統計情報を返します。返却される列は以下のものです。
 
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
       <para>
+<!--
        <replaceable>word</replaceable> <type>text</type> &mdash; the value of a lexeme
+-->
+<replaceable>word</replaceable> <type>text</type> &mdash; 語彙素の値
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <replaceable>ndoc</replaceable> <type>integer</type> &mdash; number of documents
        (<type>tsvector</type>s) the word occurred in
+-->
+<replaceable>ndoc</replaceable> <type>integer</type> &mdash; 単語が含まれる文書(<type>tsvector</type>)の数
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <replaceable>nentry</replaceable> <type>integer</type> &mdash; total number of
        occurrences of the word
+-->
+<replaceable>nentry</replaceable> <type>integer</type> &mdash; 含まれる単語の数
       </para>
      </listitem>
     </itemizedlist>
 
+<!--
     If <replaceable>weights</replaceable> is supplied, only occurrences
     having one of those weights are counted.
+-->
+<replaceable>weights</replaceable>が与えられていたら、その重みを持つものだけがカウントされます。
    </para>
 
    <para>
+<!--
     For example, to find the ten most frequent words in a document collection:
+-->
+たとえば、文書中もっとも頻繁に現れる単語の上位10位を探すには以下のようにします。
 
 <programlisting>
 SELECT * FROM ts_stat('SELECT vector FROM apod')
@@ -2037,8 +2702,11 @@ ORDER BY nentry DESC, ndoc DESC, word
 LIMIT 10;
 </programlisting>
 
+<!--
     The same, but counting only word occurrences with weight <literal>A</literal>
     or <literal>B</literal>:
+-->
+同じ例で、重みが<literal>A</literal>か<literal>B</literal>の単語だけをカウントするには、以下のようにします。
 
 <programlisting>
 SELECT * FROM ts_stat('SELECT vector FROM apod', 'ab')
@@ -2052,9 +2720,13 @@ LIMIT 10;
  </sect1>
 
  <sect1 id="textsearch-parsers">
+<!--
   <title>Parsers</title>
+-->
+  <title>パーサ</title>
 
   <para>
+<!--
    Text search parsers are responsible for splitting raw document text
    into <firstterm>tokens</firstterm> and identifying each token's type, where
    the set of possible types is defined by the parser itself.
@@ -2064,82 +2736,131 @@ LIMIT 10;
    for custom dictionaries.  At present <productname>PostgreSQL</productname>
    provides just one built-in parser, which has been found to be useful for a
    wide range of applications.
+-->
+テキスト検索パーサは、もとの文書テキストを分割して<firstterm>トークン</firstterm>に変換し、それぞれのトークンの型を識別子する役割を持っています。ここで、可能な型の集合は、パーサ自身が定義します。パーサは文書をまったく変更しないことに注意してください &mdash; それは、単に可能な単語の境界を識別するだけです。このような制限があるため、カスタム辞書を作るのに比べ、用途限定のカスタムパーサを作る必要性は少ないです。今のところ、<productname>PostgreSQL</productname>はたった一つの組み込みパーサを提供しています。これは広い範囲の用途に対して有用であると考えられています。
   </para>
 
   <para>
+<!--
    The built-in parser is named <literal>pg_catalog.default</literal>.
    It recognizes 23 token types, shown in <xref linkend="textsearch-default-parser"/>.
+-->
+組み込みのパーサは<literal>pg_catalog.default</literal>というものです。<xref linkend="textsearch-default-parser"/>に示す23のトークンを理解します。
   </para>
 
   <table id="textsearch-default-parser">
+<!--
    <title>Default Parser's Token Types</title>
+-->
+   <title>デフォルトパーサのトークン型</title>
    <tgroup cols="3">
     <colspec colname="col1" colwidth="2*"/>
     <colspec colname="col2" colwidth="2*"/>
     <colspec colname="col3" colwidth="3*"/>
     <thead>
      <row>
+<!--
       <entry>Alias</entry>
       <entry>Description</entry>
       <entry>Example</entry>
+-->
+      <entry>別名</entry>
+      <entry>説明</entry>
+      <entry>例</entry>
      </row>
     </thead>
     <tbody>
      <row>
       <entry><literal>asciiword</literal></entry>
+<!--
       <entry>Word, all ASCII letters</entry>
+-->
+      <entry>単語、すべてのASCII文字</entry>
       <entry><literal>elephant</literal></entry>
      </row>
      <row>
       <entry><literal>word</literal></entry>
+<!--
       <entry>Word, all letters</entry>
+-->
+      <entry>単語、すべての文字</entry>
       <entry><literal>ma&ntilde;ana</literal></entry>
      </row>
      <row>
       <entry><literal>numword</literal></entry>
+<!--
       <entry>Word, letters and digits</entry>
+-->
+      <entry>単語、文字、数字</entry>
       <entry><literal>beta1</literal></entry>
      </row>
      <row>
       <entry><literal>asciihword</literal></entry>
+<!--
       <entry>Hyphenated word, all ASCII</entry>
+-->
+      <entry>ハイフンでつながれた単語、すべてのASCII</entry>
       <entry><literal>up-to-date</literal></entry>
      </row>
      <row>
       <entry><literal>hword</literal></entry>
+<!--
       <entry>Hyphenated word, all letters</entry>
+-->
+      <entry>ハイフンでつながれた単語、すべての文字</entry>
       <entry><literal>l&oacute;gico-matem&aacute;tica</literal></entry>
      </row>
      <row>
       <entry><literal>numhword</literal></entry>
+<!--
       <entry>Hyphenated word, letters and digits</entry>
+-->
+      <entry>ハイフンでつながれた単語、すべての文字、数字</entry>
       <entry><literal>postgresql-beta1</literal></entry>
      </row>
      <row>
       <entry><literal>hword_asciipart</literal></entry>
+<!--
       <entry>Hyphenated word part, all ASCII</entry>
       <entry><literal>postgresql</literal> in the context <literal>postgresql-beta1</literal></entry>
+-->
+      <entry>ハイフンでつながれた単語の一部、すべての ASCII</entry>
+      <entry><literal>postgresql-beta1</literal>の<literal>postgresql</literal></entry>
      </row>
      <row>
       <entry><literal>hword_part</literal></entry>
+<!--
       <entry>Hyphenated word part, all letters</entry>
       <entry><literal>l&oacute;gico</literal> or <literal>matem&aacute;tica</literal>
        in the context <literal>l&oacute;gico-matem&aacute;tica</literal></entry>
+-->
+      <entry>ハイフンでつながれた単語の一部、すべての文字</entry>
+      <entry><literal>l&oacute;gico-matem&aacute;tica</literal>の<literal>l&oacute;gico</literal>または<literal>matem&aacute;tica</literal></entry>
      </row>
      <row>
       <entry><literal>hword_numpart</literal></entry>
+<!--
       <entry>Hyphenated word part, letters and digits</entry>
       <entry><literal>beta1</literal> in the context
        <literal>postgresql-beta1</literal></entry>
+-->
+      <entry>ハイフンでつながれた単語の文字+数字の部分</entry>
+      <entry><literal>postgresql-beta1</literal>の<literal>beta1</literal></entry>
      </row>
      <row>
       <entry><literal>email</literal></entry>
+<!--
       <entry>Email address</entry>
+-->
+      <entry>電子メールアドレス</entry>
       <entry><literal>foo@example.com</literal></entry>
      </row>
      <row>
       <entry><literal>protocol</literal></entry>
+<!--
       <entry>Protocol head</entry>
+-->
+      <entry>プロトコルヘッダー</entry>
       <entry><literal>http://</literal></entry>
      </row>
      <row>
@@ -2149,58 +2870,94 @@ LIMIT 10;
      </row>
      <row>
       <entry><literal>host</literal></entry>
+<!--
       <entry>Host</entry>
+-->
+      <entry>ホスト名</entry>
       <entry><literal>example.com</literal></entry>
      </row>
      <row>
       <entry><literal>url_path</literal></entry>
+<!--
       <entry>URL path</entry>
       <entry><literal>/stuff/index.html</literal>, in the context of a URL</entry>
+-->
+      <entry>URL中のパス名</entry>
+      <entry>URL中の<literal>/stuff/index.html</literal></entry>
      </row>
      <row>
       <entry><literal>file</literal></entry>
+<!--
       <entry>File or path name</entry>
       <entry><literal>/usr/local/foo.txt</literal>, if not within a URL</entry>
+-->
+      <entry>ファイルまたはパス名</entry>
+      <entry>URL中でない<literal>/usr/local/foo.txt</literal></entry>
      </row>
      <row>
       <entry><literal>sfloat</literal></entry>
+<!--
       <entry>Scientific notation</entry>
+-->
+      <entry>科学技術表記</entry>
       <entry><literal>-1.234e56</literal></entry>
      </row>
      <row>
       <entry><literal>float</literal></entry>
+<!--
       <entry>Decimal notation</entry>
+-->
+      <entry>10進表記</entry>
       <entry><literal>-1.234</literal></entry>
      </row>
      <row>
       <entry><literal>int</literal></entry>
+<!--
       <entry>Signed integer</entry>
+-->
+      <entry>符号付き整数</entry>
       <entry><literal>-1234</literal></entry>
      </row>
      <row>
       <entry><literal>uint</literal></entry>
+<!--
       <entry>Unsigned integer</entry>
+-->
+      <entry>符号なし整数</entry>
       <entry><literal>1234</literal></entry>
      </row>
      <row>
       <entry><literal>version</literal></entry>
+<!--
       <entry>Version number</entry>
+-->
+      <entry>バージョン番号</entry>
       <entry><literal>8.3.0</literal></entry>
      </row>
      <row>
       <entry><literal>tag</literal></entry>
+<!--
       <entry>XML tag</entry>
+-->
+      <entry>XMLタグ</entry>
       <entry><literal>&lt;a href="dictionaries.html"&gt;</literal></entry>
      </row>
      <row>
       <entry><literal>entity</literal></entry>
+<!--
       <entry>XML entity</entry>
+-->
+      <entry>XMLエンティティ</entry>
       <entry><literal>&amp;amp;</literal></entry>
      </row>
      <row>
       <entry><literal>blank</literal></entry>
+<!--
       <entry>Space symbols</entry>
       <entry>(any whitespace or punctuation not otherwise recognized)</entry>
+-->
+      <entry>空白記号</entry>
+      <entry>(他のものに解釈できない空白または句読点)</entry>
      </row>
     </tbody>
    </tgroup>
@@ -2208,26 +2965,35 @@ LIMIT 10;
 
   <note>
    <para>
+<!--
     The parser's notion of a <quote>letter</quote> is determined by the database's
     locale setting, specifically <varname>lc_ctype</varname>.  Words containing
     only the basic ASCII letters are reported as a separate token type,
     since it is sometimes useful to distinguish them.  In most European
     languages, token types <literal>word</literal> and <literal>asciiword</literal>
     should be treated alike.
+-->
+パーサにとっての<quote>文字</quote>は、データベースのロケールの設定、特に<varname>lc_ctype</varname>によって決まります。基本的なASCIIのみを含む単語は、別のトークン型として報告されます。ときには、それらを他と区別することが有用だからです。ヨーロッパのたいていの言語では、<literal>word</literal> と <literal>asciiword</literal>は、同じように扱われます。
    </para>
 
    <para>
+<!--
     <literal>email</literal> does not support all valid email characters as
     defined by <ulink url="https://tools.ietf.org/html/rfc5322">RFC 5322</ulink>.
     Specifically, the only non-alphanumeric characters supported for
     email user names are period, dash, and underscore.
+-->
+<literal>email</literal>はRFC5322で定義されたすべての有効なメールアドレス文字をサポートしません。メールアドレスのユーザ名としてサポートされる英数字以外の文字はピリオド、ダッシュ、アンダースコアのみです。
    </para>
   </note>
 
   <para>
+<!--
    It is possible for the parser to produce overlapping tokens from the same
    piece of text.  As an example, a hyphenated word will be reported both
    as the entire word and as each component:
+-->
+パーサがテキストの同じ部分から重複したトークンを生成することはあり得ます。たとえば、ハイフン付の単語は、単語全体と、各部分の両方を報告します。例を示します。
 
 <screen>
 SELECT alias, description, token FROM ts_debug('foo-bar-beta1');
@@ -2241,9 +3007,12 @@ SELECT alias, description, token FROM ts_debug('foo-bar-beta1');
  hword_numpart   | Hyphenated word part, letters and digits | beta1
 </screen>
 
+<!--
    This behavior is desirable since it allows searches to work for both
    the whole compound word and for components.  Here is another
    instructive example:
+-->
+この挙動は好ましいのものです。単語全体と、各々の部分の両方に対して検索ができるからです。初歩的な別の例を示します。
 
 <screen>
 SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.html');
@@ -2259,9 +3028,13 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
  </sect1>
 
  <sect1 id="textsearch-dictionaries">
+<!--
   <title>Dictionaries</title>
+-->
+  <title>辞書</title>
 
   <para>
+<!--
    Dictionaries are used to eliminate words that should not be considered in a
    search (<firstterm>stop words</firstterm>), and to <firstterm>normalize</firstterm> words so
    that different derived forms of the same word will match.  A successfully
@@ -2270,23 +3043,34 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
    size of the <type>tsvector</type> representation of a document, thereby
    improving performance.  Normalization does not always have linguistic meaning
    and usually depends on application semantics.
+-->
+辞書は、検索の対象とならない単語(<firstterm>ストップワード</firstterm>)を削除するために使われます。また、同じ単語から派生した異なる形態の単語が照合するようにするために、単語を<firstterm>正規化</firstterm>するためにも使われます。検索の品質を向上するという面以外にも、正規化とストップワードの削除は、<type>tsvector</type>表現の文書のサイズを小さくし、結果として性能を向上させます。正規化は常に言語学的な意味を持つとは限らず、通常は用途の意味論に依存します。
   </para>
 
   <para>
+<!--
    Some examples of normalization:
+-->
+   正規化の例を示します。
 
    <itemizedlist  spacing="compact" mark="bullet">
 
     <listitem>
      <para>
+<!--
       Linguistic &mdash; Ispell dictionaries try to reduce input words to a
       normalized form; stemmer dictionaries remove word endings
+-->
+言語学的 &mdash; Ispell辞書は入力された単語を正規化された形式に変換しようとします。語幹辞書は単語の終了部を削除します。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       <acronym>URL</acronym> locations can be canonicalized to make
       equivalent URLs match:
+-->
+以下のような<acronym>URL</acronym>が同一のURLに一致するように正規化することができます。
 
       <itemizedlist  spacing="compact" mark="bullet">
        <listitem>
@@ -2309,17 +3093,23 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
     </listitem>
     <listitem>
      <para>
+<!--
       Color names can be replaced by their hexadecimal values, e.g.,
+-->
+色の名前は、16進値に変換できます。例：
       <literal>red, green, blue, magenta -> FF0000, 00FF00, 0000FF, FF00FF</literal>
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       If indexing numbers, we can
       remove some fractional digits to reduce the range of possible
       numbers, so for example <emphasis>3.14</emphasis>159265359,
       <emphasis>3.14</emphasis>15926, <emphasis>3.14</emphasis> will be the same
       after normalization if only two digits are kept after the decimal point.
+-->
+数をインデックス付けする際には、可能な範囲を縮小するために、端数を削除することができます。たとえば、もし正規化後に小数点未満2桁を保持するならば、<emphasis>3.14</emphasis>159265359、<emphasis>3.14</emphasis>15926、<emphasis>3.14</emphasis>は同じことになります。
      </para>
     </listitem>
    </itemizedlist>
@@ -2327,37 +3117,53 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
   </para>
 
   <para>
+<!--
    A dictionary is a program that accepts a token as
    input and returns:
+-->
+辞書は、トークンを入力し、以下を返すプログラムです。
    <itemizedlist  spacing="compact" mark="bullet">
     <listitem>
      <para>
+<!--
       an array of lexemes if the input token is known to the dictionary
       (notice that one token can produce more than one lexeme)
+-->
+入力が辞書に登録されていれば語彙素の配列(一つのトークンが一つ以上の語彙素を生成する可能性があることに注意してください)
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       a single lexeme with the <literal>TSL_FILTER</literal> flag set, to replace
       the original token with a new token to be passed to subsequent
       dictionaries (a dictionary that does this is called a
       <firstterm>filtering dictionary</firstterm>)
+-->
+元々のトークンを新規のトークンに置き換え、それに続く辞書にその新規トークン渡す場合は、<literal>TSL_FILTER</literal>フラグセットを伴う単一の語彙素(このような置き換え機能をもつ辞書は<firstterm>フィルタリング辞書</firstterm>と呼ばれます)
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       an empty array if the dictionary knows the token, but it is a stop word
+-->
+辞書が入力を認識しないが、ストップワードであることは認識する場合は空の配列
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       <literal>NULL</literal> if the dictionary does not recognize the input token
+-->
+辞書が入力トークンを認識しない場合は<literal>NULL</literal>
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> provides predefined dictionaries for
    many languages.  There are also several predefined templates that can be
    used to create new dictionaries with custom parameters.  Each predefined
@@ -2365,9 +3171,15 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
    template is suitable, it is possible to create new ones; see the
    <filename>contrib/</filename> area of the <productname>PostgreSQL</productname> distribution
    for examples.
+-->
+<productname>PostgreSQL</productname>は、多くの言語に定義済の辞書を提供しています。
+また、カスタムパラメータを使った新しい辞書を作るために使えるテンプレートもいくつかあります。
+定義済の辞書のテンプレートについては、以下で述べています。
+今あるテンプレートが適当でないのなら、新しいものを作ることもできます。例は、<productname>PostgreSQL</productname>の配布物の<filename>contrib/</filename>をご覧下さい。
   </para>
 
   <para>
+<!--
    A text search configuration binds a parser together with a set of
    dictionaries to process the parser's output tokens.  For each token
    type that the parser can return, a separate list of dictionaries is
@@ -2380,9 +3192,14 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
    output determines the result, and any remaining dictionaries are not
    consulted; but a filtering dictionary can replace the given word
    with a modified word, which is then passed to subsequent dictionaries.
+-->
+テキスト検索設定は、パーサと、パーサの出力トークンを処理する辞書の集合を結び付けます。パーサが返却する各々のトークン型に対して、設定で辞書のリストを指定します。パーサがあるトークン型を見つけると、ある辞書が単語を認識するまでリスト中の辞書が順番に調べられます。
+ストップワードであるか、あるいはどの辞書もトークンを認識しない場合はそれは捨てられ、インデックス付けや検索の対象となりません。
+通常、非<literal>NULL</literal>を返す最初の辞書の出力が結果を決めることになり、他の残りの辞書は参照されません。しかし、フィルタリング辞書は与えられたワードを変更し、それを続く辞書へ渡すことができます。
   </para>
 
   <para>
+<!--
    The general rule for configuring a list of dictionaries
    is to place first the most narrow, most specific dictionary, then the more
    general dictionaries, finishing with a very general dictionary, like
@@ -2392,6 +3209,9 @@ SELECT alias, description, token FROM ts_debug('http://example.com/stuff/index.h
    <type>asciiword</type> (ASCII word) to a synonym dictionary of astronomical
    terms, a general English dictionary and a <application>Snowball</application> English
    stemmer:
+-->
+辞書をリストする一般的な方法は、まずもっとも範囲の狭い、特定用途向の辞書を配置し、次にもっと一般的な辞書を置き、最後に<application>Snowball</application>語幹処理や<literal>simple</literal>辞書のような、すべてを認識する非常に一般的な辞書を置くことです。
+たとえば、天文学向の検索では(<literal>astro_en</literal>設定)では、<type>asciiword</type> (ASCII単語)型を天文学用語の同義語辞書、一般的な英語辞書、そして<application>Snowball</application>英語語幹辞書に結び付けることができます。
 
 <programlisting>
 ALTER TEXT SEARCH CONFIGURATION astro_en
@@ -2400,23 +3220,37 @@ ALTER TEXT SEARCH CONFIGURATION astro_en
   </para>
 
   <para>
+<!--
    A filtering dictionary can be placed anywhere in the list, except at the
    end where it'd be useless.  Filtering dictionaries are useful to partially
    normalize words to simplify the task of later dictionaries.  For example,
    a filtering dictionary could be used to remove accents from accented
    letters, as is done by the <xref linkend="unaccent"/> module.
+-->
+フィルタリング辞書は、リスト中の好きな場所へ配置できます。(役に立たなくなるリストの最後を除きます。)
+フィルタリング辞書は、後続の辞書の処理を単純化するために、一部の文字の正規化を行うのに有用です。
+例えば、フィルタリング辞書は<xref linkend="unaccent"/>モジュールで実施される様な、アクセント記号が付与された文字からアクセント記号を取り除くのに使用することができます。
   </para>
 
   <sect2 id="textsearch-stopwords">
+<!--
    <title>Stop Words</title>
+-->
+   <title>ストップワード</title>
 
    <para>
+<!--
     Stop words are words that are very common, appear in almost every
     document, and have no discrimination value. Therefore, they can be ignored
     in the context of full text searching. For example, every English text
     contains words like <literal>a</literal> and <literal>the</literal>, so it is
     useless to store them in an index.  However, stop words do affect the
     positions in <type>tsvector</type>, which in turn affect ranking:
+-->
+ストップワードは、ほとんどすべての文書に現れるような非常に一般的で、ほかのものと同じようには扱う価値のない単語です。
+ですから、全文検索の際には無視して構いません。
+たとえば、すべての英語のテキストは<literal>a</literal>や<literal>the</literal>のような単語を含んでおり、インデックスの中にそれらを入れても役に立ちません。
+しかし、ストップワードは<type>tsvector</type>中の位置に影響を与えるので、結局ランキングにも影響があります。
 
 <screen>
 SELECT to_tsvector('english', 'in the list of stop words');
@@ -2425,8 +3259,12 @@ SELECT to_tsvector('english', 'in the list of stop words');
  'list':3 'stop':5 'word':6
 </screen>
 
+<!--
     The missing positions 1,2,4 are because of stop words.  Ranks
     calculated for documents with and without stop words are quite different:
+-->
+位置1, 2, 4は、ストップワードのために失われています。
+ストップワードの有無により、文書のために計算されたランクは非常に影響を受けます。
 
 <screen>
 SELECT ts_rank_cd (to_tsvector('english', 'in the list of stop words'), to_tsquery('list &amp; stop'));
@@ -2443,19 +3281,28 @@ SELECT ts_rank_cd (to_tsvector('english', 'list stop words'), to_tsquery('list &
    </para>
 
    <para>
+<!--
     It is up to the specific dictionary how it treats stop words. For example,
     <literal>ispell</literal> dictionaries first normalize words and then
     look at the list of stop words, while <literal>Snowball</literal> stemmers
     first check the list of stop words. The reason for the different
     behavior is an attempt to decrease noise.
+-->
+ストップワードをどのように扱うかは、特定の辞書に任されています。
+例えば、<literal>ispell</literal>辞書はまず単語を正規化し、そして、ストップワードのリストを検索します。一方、<literal>Snowball</literal>語幹抽出はまずストップワードのリストを検査します。
+動作が異なる理由は、ノイズが紛れ込む可能性を減らすことです。
    </para>
 
   </sect2>
 
   <sect2 id="textsearch-simple-dictionary">
+<!--
    <title>Simple Dictionary</title>
+-->
+   <title>simple辞書</title>
 
    <para>
+<!--
     The <literal>simple</literal> dictionary template operates by converting the
     input token to lower case and checking it against a file of stop words.
     If it is found in the file then an empty array is returned, causing
@@ -2463,11 +3310,19 @@ SELECT ts_rank_cd (to_tsvector('english', 'list stop words'), to_tsquery('list &
     is returned as the normalized lexeme.  Alternatively, the dictionary
     can be configured to report non-stop-words as unrecognized, allowing
     them to be passed on to the next dictionary in the list.
+-->
+<literal>simple</literal>辞書テンプレートは、入力トークンを小文字に変換し、ストップワードのファイルに対してチェックすることによって動作します。
+もしファイルの中にあれば、空の配列が返却され、そのトークンは捨てられます。
+そうでないときは、小文字形式の単語が正規化された語彙素として返却されます。
+別の方法としては、ストップワードではないものは、認識できないものとすることもできます。そうすることにより、それらをリスト中の次の辞書に渡すことができます。
    </para>
 
    <para>
+<!--
     Here is an example of a dictionary definition using the <literal>simple</literal>
     template:
+-->
+<literal>simple</literal>テンプレートを使った辞書定義の例を示します。
 
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY public.simple_dict (
@@ -2476,21 +3331,30 @@ CREATE TEXT SEARCH DICTIONARY public.simple_dict (
 );
 </programlisting>
 
+<!--
     Here, <literal>english</literal> is the base name of a file of stop words.
     The file's full name will be
     <filename>$SHAREDIR/tsearch_data/english.stop</filename>,
     where <literal>$SHAREDIR</literal> means the
     <productname>PostgreSQL</productname> installation's shared-data directory,
     often <filename>/usr/local/share/postgresql</filename> (use <command>pg_config
-    --sharedir</command> to determine it if you're not sure).
+    &#045;-sharedir</command> to determine it if you're not sure).
     The file format is simply a list
     of words, one per line.  Blank lines and trailing spaces are ignored,
     and upper case is folded to lower case, but no other processing is done
     on the file contents.
+-->
+ここで、<literal>english</literal>は、ストップワードファイルのベースネームです。
+ファイルのフルネームは、<filename>$SHAREDIR/tsearch_data/english.stop</filename>です。<literal>$SHAREDIR</literal>は、<productname>PostgreSQL</productname>インストール先の共有データディレクトリです。これは、よく<filename>/usr/local/share/postgresql</filename>に置いてあります。(良くわからない場合は<command>pg_config --sharedir</command>を使ってください)。
+ファイル形式は、単に1行ごとに単語を書くだけです。
+空行と、後方の空白は無視されます。大文字は小文字に変換されます。このファイルの内容に関する処理はこれだけです。
    </para>
 
    <para>
+<!--
     Now we can test our dictionary:
+-->
+これで辞書のテストができます。
 
 <screen>
 SELECT ts_lexize('public.simple_dict', 'YeS');
@@ -2506,10 +3370,15 @@ SELECT ts_lexize('public.simple_dict', 'The');
    </para>
 
    <para>
+<!--
     We can also choose to return <literal>NULL</literal>, instead of the lower-cased
     word, if it is not found in the stop words file.  This behavior is
     selected by setting the dictionary's <literal>Accept</literal> parameter to
     <literal>false</literal>.  Continuing the example:
+-->
+また、ストップワードファイルの中に見つからないときに、小文字に変換した単語を返す代わりに、<literal>NULL</literal>を返すことを選ぶこともできます。
+この挙動は、辞書の<literal>Accept</literal>パラメータを<literal>false</literal>に設定することで選択されます。
+さらに例を続けます。
 
 <screen>
 ALTER TEXT SEARCH DICTIONARY public.simple_dict ( Accept = false );
@@ -2527,39 +3396,52 @@ SELECT ts_lexize('public.simple_dict', 'The');
    </para>
 
    <para>
+<!--
     With the default setting of <literal>Accept</literal> = <literal>true</literal>,
     it is only useful to place a <literal>simple</literal> dictionary at the end
     of a list of dictionaries, since it will never pass on any token to
     a following dictionary.  Conversely, <literal>Accept</literal> = <literal>false</literal>
     is only useful when there is at least one following dictionary.
+-->
+デフォルト設定の<literal>Accept</literal> = <literal>true</literal>では、<literal>simple</literal>辞書は、辞書リストの最後に置かなければ意味がありません。なぜなら、後続の辞書にトークンを渡すことがないからです。逆に<literal>Accept</literal> = <literal>false</literal>は、後続の辞書が少なくとも一つはあるときに意味があります。
    </para>
 
    <caution>
     <para>
+<!--
      Most types of dictionaries rely on configuration files, such as files of
      stop words.  These files <emphasis>must</emphasis> be stored in UTF-8 encoding.
      They will be translated to the actual database encoding, if that is
      different, when they are read into the server.
+-->
+ほとんどの辞書の形式は、ストップワードファイルのように設定ファイルに依存します。これらのファイルは<emphasis>必ず</emphasis>UTF-8エンコーディングにしてください。サーバのエンコーディングがUTF-8でない場合は、サーバに読み込まれる際に実際のデータベースエンコーディングに変換されます。
     </para>
    </caution>
 
    <caution>
     <para>
+<!--
      Normally, a database session will read a dictionary configuration file
      only once, when it is first used within the session.  If you modify a
      configuration file and want to force existing sessions to pick up the
      new contents, issue an <command>ALTER TEXT SEARCH DICTIONARY</command> command
      on the dictionary.  This can be a <quote>dummy</quote> update that doesn't
      actually change any parameter values.
+-->
+通常、辞書はデータベースセッションの中で最初に使われる際に、一度だけ読み込まれます。辞書を変更し、現在使われているセッションの中で新しい内容が読み込まれるようにしたい場合は、その辞書に対して<command>ALTER TEXT SEARCH DICTIONARY</command>を発行してください。これは実際にはどんなパラメータ値をも変更しない<quote>ダミー</quote>の更新でよいです。
     </para>
    </caution>
 
   </sect2>
 
   <sect2 id="textsearch-synonym-dictionary">
+<!--
    <title>Synonym Dictionary</title>
+-->
+   <title>同義語辞書</title>
 
    <para>
+<!--
     This dictionary template is used to create dictionaries that replace a
     word with a synonym. Phrases are not supported (use the thesaurus
     template (<xref linkend="textsearch-thesaurus"/>) for that).  A synonym
@@ -2568,6 +3450,8 @@ SELECT ts_lexize('public.simple_dict', 'The');
     <quote>pari</quote>.  It is enough to have a <literal>Paris paris</literal> line in the
     synonym dictionary and put it before the <literal>english_stem</literal>
     dictionary.  For example:
+-->
+この辞書テンプレートは、単語を同義語に置き換える辞書を作るために使われます。語句はサポートされていません(そのためには類語テンプレート(<xref linkend="textsearch-thesaurus"/>)を使ってください)。同義語辞書は、言語学的な問題、たとえば、英語語幹辞書が<quote>Paris</quote>という単語を<quote>pari</quote>に縮小してしまうのを防ぎます。<literal>Paris paris</literal>という行を同義語辞書に登録し、<literal>english_stem</literal>辞書の前に置くようにするだけでよいのです。下記はその例です。
 
 <screen>
 SELECT * FROM ts_debug('english', 'Paris');
@@ -2592,6 +3476,7 @@ SELECT * FROM ts_debug('english', 'Paris');
    </para>
 
    <para>
+<!--
     The only parameter required by the <literal>synonym</literal> template is
     <literal>SYNONYMS</literal>, which is the base name of its configuration file
     &mdash; <literal>my_synonyms</literal> in the above example.
@@ -2602,18 +3487,29 @@ SELECT * FROM ts_debug('english', 'Paris');
     The file format is just one line
     per word to be substituted, with the word followed by its synonym,
     separated by white space.  Blank lines and trailing spaces are ignored.
+-->
+<literal>synonym</literal>テンプレートに必要なパラメータは<literal>SYNONYMS</literal>だけで、その設定ファイルのベースネームです &mdash; 上の例では<literal>my_synonyms</literal>です。
+ファイルのフルネームは、<filename>$SHAREDIR/tsearch_data/my_synonyms.syn</filename> となります(ここで<literal>$SHAREDIR</literal>は、<productname>PostgreSQL</productname>をインストールした際の、共有データディレクトリです)。
+ファイルの形式は、置き換え対象の1単語につき1行で、単語には空白で区切られた同義語が後に続きます。
+空行、後方の空白は無視されます。
    </para>
 
    <para>
+<!--
     The <literal>synonym</literal> template also has an optional parameter
     <literal>CaseSensitive</literal>, which defaults to <literal>false</literal>.  When
     <literal>CaseSensitive</literal> is <literal>false</literal>, words in the synonym file
     are folded to lower case, as are input tokens.  When it is
     <literal>true</literal>, words and tokens are not folded to lower case,
     but are compared as-is.
+-->
+<literal>synonym</literal>テンプレートはまた、<literal>CaseSensitive</literal>というオプションパラメータを持っており、デフォルトは<literal>false</literal>です。
+<literal>CaseSensitive</literal>が<literal>false</literal>の時は、同義語辞書内の単語は入力トークンと同様に小文字に変換されます。
+<literal>true</literal>の時は、単語とトークンは小文字に変換されずそのまま比較されます。
    </para>
 
    <para>
+<!--
     An asterisk (<literal>*</literal>) can be placed at the end of a synonym
     in the configuration file.  This indicates that the synonym is a prefix.
     The asterisk is ignored when the entry is used in
@@ -2623,6 +3519,11 @@ SELECT * FROM ts_debug('english', 'Paris');
     <xref linkend="textsearch-parsing-queries"/>).
     For example, suppose we have these entries in
     <filename>$SHAREDIR/tsearch_data/synonym_sample.syn</filename>:
+-->
+アスタリスク(<literal>*</literal>)は設定ファイル中の同義語の最後に付与することができます。
+これは同義語を接頭語とすることを意味します。
+アスタリスクは、エントリが<function>to_tsvector()</function>で使用される場合には無視されますが、<function>to_tsquery()</function>で使用される場合、結果は前方一致を伴った問い合わせになるでしょう。(詳しくは<xref linkend="textsearch-parsing-queries"/>を見てください。)
+例えば、<filename>$SHAREDIR/tsearch_data/synonym_sample.syn</filename>に以下の様なエントリをもっていたとします。
 <programlisting>
 postgres        pgsql
 postgresql      pgsql
@@ -2630,7 +3531,10 @@ postgre pgsql
 gogle   googl
 indices index*
 </programlisting>
+<!--
     Then we will get these results:
+-->
+この場合、次のような結果を得ることになります。
 <screen>
 mydb=# CREATE TEXT SEARCH DICTIONARY syn (template=synonym, synonyms='synonym_sample');
 mydb=# SELECT ts_lexize('syn', 'indices');
@@ -2669,23 +3573,32 @@ mydb=# SELECT 'indexes are very useful'::tsvector @@ to_tsquery('tst', 'indices'
   </sect2>
 
   <sect2 id="textsearch-thesaurus">
+<!--
    <title>Thesaurus Dictionary</title>
+-->
+   <title>類語辞書</title>
 
    <para>
+<!--
     A thesaurus dictionary (sometimes abbreviated as <acronym>TZ</acronym>) is
     a collection of words that includes information about the relationships
     of words and phrases, i.e., broader terms (<acronym>BT</acronym>), narrower
     terms (<acronym>NT</acronym>), preferred terms, non-preferred terms, related
     terms, etc.
+-->
+類語辞書(<acronym>TZ</acronym>と略されることがあります)は、単語と語句の関係情報を集めたものです。つまり、広義用語(<acronym>BT</acronym>)、狭義用語(<acronym>NT</acronym>)、優先用語、非優先用語、関連用語などです。
    </para>
 
    <para>
+<!--
     Basically a thesaurus dictionary replaces all non-preferred terms by one
     preferred term and, optionally, preserves the original terms for indexing
     as well.  <productname>PostgreSQL</productname>'s current implementation of the
     thesaurus dictionary is an extension of the synonym dictionary with added
     <firstterm>phrase</firstterm> support.  A thesaurus dictionary requires
     a configuration file of the following format:
+-->
+基本的には、類語辞書は、非優先用語を優先用語に置き換え、オプションで元の用語もインデックス付けのため保存します。<productname>PostgreSQL</productname>の現在の類語辞書の実装は、同義語辞書を拡張し、<firstterm>語句</firstterm>のサポートを追加したものです。類語辞書は、以下のようなフォーマットの設定ファイルを必要とします。
 
 <programlisting>
 # this is a comment
@@ -2694,11 +3607,15 @@ more sample word(s) : more indexed word(s)
 ...
 </programlisting>
 
+<!--
     where  the colon (<symbol>:</symbol>) symbol acts as a delimiter between a
     phrase and its replacement.
+-->
+ここで、コロン(<symbol>:</symbol>)は、語句とその置き換え対象の区切りです。
    </para>
 
    <para>
+<!--
     A thesaurus dictionary uses a <firstterm>subdictionary</firstterm> (which
     is specified in the dictionary's configuration) to normalize the input
     text before checking for phrase matches. It is only possible to select one
@@ -2708,29 +3625,46 @@ more sample word(s) : more indexed word(s)
     (<symbol>*</symbol>) at the beginning of an indexed word to skip applying
     the subdictionary to it, but all sample words <emphasis>must</emphasis> be known
     to the subdictionary.
+-->
+類語辞書は、<firstterm>副辞書</firstterm>(辞書設定で指定します)を、一致する語句をチェックする前に入力テキストを正規化するために使います。
+副辞書はただ一つだけ選べます。
+副辞書が単語を認識できない場合はエラーが報告されます。
+その場合は、その単語の利用を止めるか、副辞書にそのことを教えなければなりません。
+アスタリスク(<symbol>*</symbol>)をインデックス付けされた単語の先頭に置くことにより、副辞書の適用をスキップできます。しかしながら、すべてのサンプルの単語は、副辞書に認識<emphasis>されなければなりません</emphasis>。
    </para>
 
    <para>
+<!--
     The thesaurus dictionary chooses the longest match if there are multiple
     phrases matching the input, and ties are broken by using the last
     definition.
+-->
+複数の類語が照合するときは、類語辞書はもっとも長いものを選びます。そして、語句は、最後の定義を使って分解されます。
    </para>
 
    <para>
+<!--
     Specific stop words recognized by the subdictionary cannot be
     specified;  instead use <literal>?</literal> to mark the location where any
     stop word can appear.  For example, assuming that <literal>a</literal> and
     <literal>the</literal> are stop words according to the subdictionary:
+-->
+特定のストップワードを副辞書に認識するように指定することはできません。その代わり、ストップワードが出現する位置を<literal>?</literal>でマークします。
+たとえば、<literal>a</literal>と<literal>the</literal>が副辞書によればストップワードだったとします。
 
 <programlisting>
 ? one ? two : swsw
 </programlisting>
 
+<!--
     matches <literal>a one the two</literal> and <literal>the one a two</literal>;
     both would be replaced by <literal>swsw</literal>.
+-->
+は、<literal>a one the two</literal>と<literal>the one a two</literal>に照合します。そして、両方とも<literal>swsw</literal>に置き換えられます。
    </para>
 
    <para>
+<!--
     Since a thesaurus dictionary has the capability to recognize phrases it
     must remember its state and interact with the parser. A thesaurus dictionary
     uses these assignments to check if it should handle the next word or stop
@@ -2739,23 +3673,37 @@ more sample word(s) : more indexed word(s)
     only the <literal>asciiword</literal> token, then a thesaurus dictionary
     definition like <literal>one 7</literal> will not work since token type
     <literal>uint</literal> is not assigned to the thesaurus dictionary.
+-->
+類語辞書は語句を認識することができるので、状態を記憶してパーサと連携を保たなければなりません。
+類語辞書は、この機能を使って次の単語を引き続き処理するのか、単語の蓄積を止めるのかを決定します。
+類語辞書の設定は注意深く行わなければなりません。
+たとえば、類語辞書が<literal>asciiword</literal>トークンだけを扱うようになっている場合、<literal>one 7</literal>のような類語辞書の定義は、トークン型<literal>uint</literal>が類語辞書にアサインされていないので動きません。
    </para>
 
    <caution>
     <para>
+<!--
      Thesauruses are used during indexing so any change in the thesaurus
      dictionary's parameters <emphasis>requires</emphasis> reindexing.
      For most other dictionary types, small changes such as adding or
      removing stopwords does not force reindexing.
+-->
+類語辞書はインデックス付けの際に利用されるので、類語辞書を設定変更すると、再インデックス付けが<emphasis>必要</emphasis>になります。他のほとんどの辞書では、ストップワードを追加あるいは削除するような小さな変更は、インデックス付けを必要としません。
     </para>
    </caution>
 
   <sect3 id="textsearch-thesaurus-config">
+<!--
    <title>Thesaurus Configuration</title>
+-->
+   <title>類語設定</title>
 
    <para>
+<!--
     To define a new thesaurus dictionary, use the <literal>thesaurus</literal>
     template.  For example:
+-->
+新しい類語辞書を定義するには、<literal>thesaurus</literal>テンプレートを使います。例を示します。
 
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY thesaurus_simple (
@@ -2765,34 +3713,51 @@ CREATE TEXT SEARCH DICTIONARY thesaurus_simple (
 );
 </programlisting>
 
+<!--
     Here:
+-->
+ここで、
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
       <para>
+<!--
        <literal>thesaurus_simple</literal> is the new dictionary's name
+-->
+<literal>thesaurus_simple</literal>は新しい辞書の名前です。
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>mythesaurus</literal> is the base name of the thesaurus
        configuration file.
        (Its full name will be <filename>$SHAREDIR/tsearch_data/mythesaurus.ths</filename>,
        where <literal>$SHAREDIR</literal> means the installation shared-data
        directory.)
+-->
+<literal>mythesaurus</literal>は、類語設定ファイルのベースネームです。
+(フルパスは、<filename>$SHAREDIR/tsearch_data/mythesaurus.ths</filename>となります。ここで、<literal>$SHAREDIR</literal>はインストール時の共有データディレクトリです。)
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>pg_catalog.english_stem</literal> is the subdictionary (here,
        a Snowball English stemmer) to use for thesaurus normalization.
        Notice that the subdictionary will have its own
        configuration (for example, stop words), which is not shown here.
+-->
+類語正規化で使用する<literal>pg_catalog.english_stem</literal>は副辞書です(ここでは、Snowball英語語幹辞書)。
+副辞書にはそれ用の設定(たとえばストップワード)があることに注意してください。ここではそれは表示していません。
       </para>
      </listitem>
     </itemizedlist>
 
+<!--
     Now it is possible to bind the thesaurus dictionary <literal>thesaurus_simple</literal>
     to the desired token types in a configuration, for example:
+-->
+これで、類語辞書<literal>thesaurus_simple</literal>を、設定中の希望のトークンにバインドすることができるようになります。例を示します。
 
 <programlisting>
 ALTER TEXT SEARCH CONFIGURATION russian
@@ -2804,19 +3769,28 @@ ALTER TEXT SEARCH CONFIGURATION russian
   </sect3>
 
   <sect3 id="textsearch-thesaurus-examples">
+<!--
    <title>Thesaurus Example</title>
+-->
+   <title>類語の例</title>
 
    <para>
+<!--
     Consider a simple astronomical thesaurus <literal>thesaurus_astro</literal>,
     which contains some astronomical word combinations:
+-->
+天文学の単語の組合わせを含む単純な天文学用の<literal>thesaurus_astro</literal>類語を考えます。
 
 <programlisting>
 supernovae stars : sn
 crab nebulae : crab
 </programlisting>
 
+<!--
     Below we create a dictionary and bind some token types to
     an astronomical thesaurus and English stemmer:
+-->
+以下で辞書を作り、トークン型を天文学類語辞書と英語の語幹辞書に結び付けます。
 
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY thesaurus_astro (
@@ -2830,11 +3804,15 @@ ALTER TEXT SEARCH CONFIGURATION russian
     WITH thesaurus_astro, english_stem;
 </programlisting>
 
+<!--
     Now we can see how it works.
     <function>ts_lexize</function> is not very useful for testing a thesaurus,
     because it treats its input as a single token.  Instead we can use
     <function>plainto_tsquery</function> and <function>to_tsvector</function>
     which will break their input strings into multiple tokens:
+-->
+さあ、これでどのように動くか試せます。<function>ts_lexize</function>は類語をテストする目的にはあまり有用ではありません。なぜなら、それは入力を単一のトークンとして扱うからです。
+その代わりに、<function>plainto_tsquery</function>と<function>to_tsvector</function>を使って入力文字列を複数のトークンに分解します。
 
 <screen>
 SELECT plainto_tsquery('supernova star');
@@ -2848,8 +3826,11 @@ SELECT to_tsvector('supernova star');
  'sn':1
 </screen>
 
+<!--
     In principle, one can use <function>to_tsquery</function> if you quote
     the argument:
+-->
+原則として、引数を引用符で囲めば<function>to_tsquery</function>が使えます。
 
 <screen>
 SELECT to_tsquery('''supernova star''');
@@ -2858,15 +3839,22 @@ SELECT to_tsquery('''supernova star''');
  'sn'
 </screen>
 
+<!--
     Notice that <literal>supernova star</literal> matches <literal>supernovae
     stars</literal> in <literal>thesaurus_astro</literal> because we specified
     the <literal>english_stem</literal> stemmer in the thesaurus definition.
     The stemmer removed the <literal>e</literal> and <literal>s</literal>.
+-->
+<literal>english_stem</literal>語幹辞書を同義語辞書の定義時に指定したので、<literal>supernova star</literal>が<literal>thesaurus_astro</literal>中の<literal>supernovae stars</literal>に照合していることに注意してください。
+語幹処理が<literal>e</literal>と<literal>s</literal>を削除しています。
    </para>
 
    <para>
+<!--
     To index the original phrase as well as the substitute, just include it
     in the right-hand part of the definition:
+-->
+置き換え後の語句とオリジナルの語句の両方をインデックス付けするには、定義の右項にオリジナルを追加するだけで良いです。
 
 <screen>
 supernovae stars : sn supernovae stars
@@ -2883,9 +3871,13 @@ SELECT plainto_tsquery('supernova star');
   </sect2>
 
   <sect2 id="textsearch-ispell-dictionary">
+<!--
    <title><application>Ispell</application> Dictionary</title>
+-->
+   <title><application>Ispell</application>辞書</title>
 
    <para>
+<!--
     The <application>Ispell</application> dictionary template supports
     <firstterm>morphological dictionaries</firstterm>, which can normalize many
     different linguistic forms of a word into the same lexeme.  For example,
@@ -2893,9 +3885,13 @@ SELECT plainto_tsquery('supernova star');
     conjugations of the search term <literal>bank</literal>, e.g.,
     <literal>banking</literal>, <literal>banked</literal>, <literal>banks</literal>,
     <literal>banks'</literal>, and <literal>bank's</literal>.
+-->
+<application>Ispell</application>辞書テンプレートは、<firstterm>形態論辞書</firstterm>を提供します。これによって、言語学的に多様な単語の形態を同じ語彙素に変換することができます。
+たとえば、英語<application>Ispell</application>辞書は、検索語<literal>bank</literal>の語形変化と活用変化、たとえば<literal>banking</literal>, <literal>banked</literal>, <literal>banks</literal>, <literal>banks'</literal>, <literal>bank's</literal>に照合します。
    </para>
 
    <para>
+<!--
     The standard <productname>PostgreSQL</productname> distribution does
     not include any <application>Ispell</application> configuration files.
     Dictionaries for a large number of languages are available from <ulink
@@ -2906,20 +3902,34 @@ SELECT plainto_tsquery('supernova star');
     (OO &gt;= 2.0.2).  A large list of dictionaries is available on the <ulink
     url="https://wiki.openoffice.org/wiki/Dictionaries">OpenOffice
     Wiki</ulink>.
+-->
+<productname>PostgreSQL</productname>の標準配布には、<application>Ispell</application>の設定ファイルは含まれていません。
+多くの言語用の辞書が<ulink url="https://www.cs.hmc.edu/~geoff/ispell.html">Ispell</ulink>で入手できます。
+また、より新しい辞書のフォーマットもサポートされています &mdash; <ulink url="https://en.wikipedia.org/wiki/MySpell">MySpell</ulink>(OO &lt; 2.0.1)と<ulink url="https://sourceforge.net/projects/hunspell/">Hunspell</ulink>(OO &gt;= 2.0.2)。
+多数の辞書のリストが <ulink url="https://wiki.openoffice.org/wiki/Dictionaries">OpenOffice Wiki</ulink>で入手できます。
    </para>
 
    <para>
+<!--
     To create an <application>Ispell</application> dictionary perform these steps:
+-->
+<application>Ispell</application>辞書を作るには、以下の手順を実行します。
    </para>
    <itemizedlist spacing="compact" mark="bullet">
     <listitem>
      <para>
+<!--
       download dictionary configuration files. <productname>OpenOffice</productname>
       extension files have the <filename>.oxt</filename> extension. It is necessary
       to extract <filename>.aff</filename> and <filename>.dic</filename> files, change
       extensions to <filename>.affix</filename> and <filename>.dict</filename>. For some
       dictionary files it is also needed to convert characters to the UTF-8
       encoding with commands (for example, for a Norwegian language dictionary):
+-->
+辞書の設定ファイルをダウンロードします。
+<productname>OpenOffice</productname>の拡張ファイルは拡張子<filename>.oxt</filename>があります。
+<filename>.aff</filename>ファイルと<filename>.dic</filename>ファイルを抽出し、拡張子を<filename>.affix</filename>と<filename>.dict</filename>に変更する必要があります。
+一部の辞書ファイルでは、以下のコマンドで文字をUTF-8の符号化に変換する必要もあります（例えば、ノルウェー語の辞書では次のようになります）。
 <programlisting>
 iconv -f ISO_8859-1 -t UTF-8 -o nn_no.affix nn_NO.aff
 iconv -f ISO_8859-1 -t UTF-8 -o nn_no.dict nn_NO.dic
@@ -2928,12 +3938,18 @@ iconv -f ISO_8859-1 -t UTF-8 -o nn_no.dict nn_NO.dic
     </listitem>
     <listitem>
      <para>
+<!--
       copy files to the <filename>$SHAREDIR/tsearch_data</filename> directory
+-->
+ファイルを<filename>$SHAREDIR/tsearch_data</filename>ディレクトリにコピーします。
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       load files into PostgreSQL with the following command:
+-->
+以下のコマンドでファイルをPostgreSQLにロードします。
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY english_hunspell (
     TEMPLATE = ispell,
@@ -2946,22 +3962,33 @@ CREATE TEXT SEARCH DICTIONARY english_hunspell (
    </itemizedlist>
 
    <para>
+<!--
     Here, <literal>DictFile</literal>, <literal>AffFile</literal>, and <literal>StopWords</literal>
     specify the base names of the dictionary, affixes, and stop-words files.
     The stop-words file has the same format explained above for the
     <literal>simple</literal> dictionary type.  The format of the other files is
     not specified here but is available from the above-mentioned web sites.
+-->
+ここで、<literal>DictFile</literal>, <literal>AffFile</literal>, および<literal>StopWords</literal>は、辞書のベースネーム、接辞ファイル、ストップワードファイルを指定します。
+ストップワードファイルは、上で説明した<literal>simple</literal>辞書と同じ形式です。
+ほかのファイルの形式はここでは説明されませんが、上にあげたウェブサイトに説明があります。
    </para>
 
    <para>
+<!--
     Ispell dictionaries usually recognize a limited set of words, so they
     should be followed by another broader dictionary; for
     example, a Snowball dictionary, which recognizes everything.
+-->
+Ispell辞書は通常限られた数の単語を認識します。ですので、なんでも認識できるSnowball辞書のような、より適用範囲の広い辞書による後処理が必要です。
    </para>
 
    <para>
+<!--
     The <filename>.affix</filename> file of <application>Ispell</application> has the following
     structure:
+-->
+<application>Ispell</application>の<filename>.affix</filename>ファイルは次のような構造になっています。
 <programlisting>
 prefixes
 flag *A:
@@ -2975,7 +4002,10 @@ flag T:
 </programlisting>
    </para>
    <para>
+<!--
     And the <filename>.dict</filename> file has the following structure:
+-->
+そして、<filename>.dict</filename>ファイルは次のような構造になっています。
 <programlisting>
 lapse/ADGRS
 lard/DGRS
@@ -2985,21 +4015,28 @@ lark/MRS
    </para>
 
    <para>
+<!--
     Format of the <filename>.dict</filename> file is:
+-->
+<filename>.dict</filename>ファイルのフォーマットは次の通りです。
 <programlisting>
 basic_form/affix_class_name
 </programlisting>
    </para>
 
    <para>
+<!--
     In the <filename>.affix</filename> file every affix flag is described in the
     following format:
+-->
+<filename>.affix</filename>ファイルで、すべてのaffix(接辞)フラグは次のフォーマットで記述されています。
 <programlisting>
 condition > [-stripping_letters,] adding_affix
 </programlisting>
    </para>
 
    <para>
+<!--
     Here, condition has a format similar to the format of regular expressions.
     It can use groupings <literal>[...]</literal> and <literal>[^...]</literal>.
     For example, <literal>[AEIOU]Y</literal> means that the last letter of the word
@@ -3007,20 +4044,32 @@ condition > [-stripping_letters,] adding_affix
     <literal>"e"</literal>, <literal>"i"</literal>, <literal>"o"</literal> or <literal>"u"</literal>.
     <literal>[^EY]</literal> means that the last letter is neither <literal>"e"</literal>
     nor <literal>"y"</literal>.
+-->
+ここで、condition(条件)は正規表現の形式と同じような形式になります。
+<literal>[...]</literal>および<literal>[^...]</literal>のグループ化を使うことができます。
+例えば<literal>[AEIOU]Y</literal>は、単語の最後の文字が<literal>"y"</literal>で、その前の文字が<literal>"a"</literal>、<literal>"e"</literal>、<literal>"i"</literal>、<literal>"o"</literal>、<literal>"u"</literal>のいずれかであることを意味します。
+<literal>[^EY]</literal>は最後の文字が<literal>"e"</literal>でも<literal>"y"</literal>でもないことを意味します。
    </para>
 
    <para>
+<!--
     Ispell dictionaries support splitting compound words;
     a useful feature.
     Notice that the affix file should specify a special flag using the
     <literal>compoundwords controlled</literal> statement that marks dictionary
     words that can participate in compound formation:
+-->
+Ispell辞書を使って複合語を分割することができます。これは優れた機能です。
+接辞ファイルは、複合語形式の候補になる辞書中の単語に印を付ける<literal>compoundwords controlled</literal>文を使う特別なフラグを指定しなければならないことに注意してください。
 
 <programlisting>
 compoundwords  controlled z
 </programlisting>
 
+<!--
     Here are some examples for the Norwegian language:
+-->
+ノルウェー語の例をいくつか示します。
 
 <programlisting>
 SELECT ts_lexize('norwegian_ispell', 'overbuljongterningpakkmesterassistent');
@@ -3031,9 +4080,13 @@ SELECT ts_lexize('norwegian_ispell', 'sjokoladefabrikk');
    </para>
 
    <para>
+<!--
     <application>MySpell</application> format is a subset of <application>Hunspell</application>.
     The <filename>.affix</filename> file of <application>Hunspell</application> has the following
     structure:
+-->
+<application>MySpell</application>のフォーマットは<application>Hunspell</application>の部分集合です。
+<application>Hunspell</application>の<filename>.affix</filename>ファイルは以下のような構造になっています。
 <programlisting>
 PFX A Y 1
 PFX A   0     re         .
@@ -3046,41 +4099,63 @@ SFX T   0     est        [^ey]
    </para>
 
    <para>
+<!--
     The first line of an affix class is the header. Fields of an affix rules are
     listed after the header:
+-->
+接辞(affix)クラスの1行目はヘッダです。
+接辞ルールのフィールドはヘッダの後に列挙されます。
    </para>
    <itemizedlist spacing="compact" mark="bullet">
     <listitem>
      <para>
+<!--
       parameter name (PFX or SFX)
+-->
+パラメータ名（PFXまたはSFX）
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       flag (name of the affix class)
+-->
+フラグ（接辞クラスの名前）
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       stripping characters from beginning (at prefix) or end (at suffix) of the
       word
+-->
+単語の先頭（接頭辞）から、あるいは終わり（接尾辞）から文字を削除する
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       adding affix
+-->
+接辞を追加する
      </para>
     </listitem>
     <listitem>
      <para>
+<!--
       condition that has a format similar to the format of regular expressions.
+-->
+正規表現の形式と類似の形式の条件
      </para>
     </listitem>
    </itemizedlist>
 
    <para>
+<!--
     The <filename>.dict</filename> file looks like the <filename>.dict</filename> file of
     <application>Ispell</application>:
+-->
+<filename>.dict</filename>ファイルは<application>Ispell</application>の<filename>.dict</filename>ファイルと同じように見えます。
 <programlisting>
 larder/M
 lardy/RT
@@ -3091,19 +4166,26 @@ largehearted
 
    <note>
     <para>
+<!--
      <application>MySpell</application> does not support compound words.
      <application>Hunspell</application> has sophisticated support for compound words. At
      present, <productname>PostgreSQL</productname> implements only the basic
      compound word operations of Hunspell.
+-->
+<application>MySpell</application>は複合語をサポートしていません。<application>Hunspell</application>は複合語の高度なサポートを提供しています。いまのところ、<productname>PostgreSQL</productname>はHunspellの基本的な複合語操作しかサポートしていません。
     </para>
    </note>
 
   </sect2>
 
   <sect2 id="textsearch-snowball-dictionary">
+<!--
    <title><application>Snowball</application> Dictionary</title>
+-->
+   <title><application>Snowball</application>辞書</title>
 
    <para>
+<!--
     The <application>Snowball</application> dictionary template is based on a project
     by Martin Porter, inventor of the popular Porter's stemming algorithm
     for the English language.  Snowball now provides stemming algorithms for
@@ -3116,6 +4198,13 @@ largehearted
     (<productname>PostgreSQL</productname>'s standard stopword lists are also
     provided by the Snowball project.)
     For example, there is a built-in definition equivalent to
+-->
+<application>Snowball</application>辞書テンプレートは、有名な「英語用のポーターの語幹アルゴリズム」を発明したMartin Porterのプロジェクトに基づいています。
+Snowballは今では多くの言語用の語幹アルゴリズムを提供しています(詳細は<ulink url="https://snowballstem.org/">Snowballのサイト</ulink>を参照してください)。
+各々のアルゴリズムにより、その言語において単語の共通部分を取りだし、基本部もしくは語幹の綴りに縮退させることができます。
+Snowball辞書には、どの語幹処理を使うかを識別する<literal>言語</literal>パラメータが必須で、加えて、オプションで無視すべき単語のリストを保持する<literal>ストップワード</literal>ファイルを指定することもできます。
+(<productname>PostgreSQL</productname>の標準的なストップワードファイルもまたSnowball projectから提供されています。)
+たとえば、以下と同じ組み込みの定義があります。
 
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY english_stem (
@@ -3125,15 +4214,21 @@ CREATE TEXT SEARCH DICTIONARY english_stem (
 );
 </programlisting>
 
+<!--
     The stopword file format is the same as already explained.
+-->
+ストップワードファイルの形式はすでに説明されているものと同じです。
    </para>
 
    <para>
+<!--
     A <application>Snowball</application> dictionary recognizes everything, whether
     or not it is able to simplify the word, so it should be placed
     at the end of the dictionary list. It is useless to have it
     before any other dictionary because a token will never pass through it to
     the next dictionary.
+-->
+<application>Snowball</application>辞書は、単純化できるかどうかに関係なく、すべての単語を認識するので、辞書リストの最後に置く必要があります。他の辞書の前に置くのは意味がありません。<application>Snowball</application>辞書は決してトークンを次の辞書に渡さないからです。
    </para>
 
   </sect2>
@@ -3141,9 +4236,13 @@ CREATE TEXT SEARCH DICTIONARY english_stem (
  </sect1>
 
  <sect1 id="textsearch-configuration">
+<!--
   <title>Configuration Example</title>
+-->
+  <title>設定例</title>
 
    <para>
+<!--
     A text search configuration specifies all options necessary to transform a
     document into a <type>tsvector</type>: the parser to use to break text
     into tokens, and the dictionaries to use to transform each token into a
@@ -3157,20 +4256,28 @@ CREATE TEXT SEARCH DICTIONARY english_stem (
     parameter is omitted.
     It can be set in <filename>postgresql.conf</filename>, or set for an
     individual session using the <command>SET</command> command.
+-->
+テキスト検索設定は、文書を<type>tsvector</type>に変換する必要なすべてのオプションを指定します。すなわち、テキストをトークンに分解するパーサ、そしてトークンを語彙素に変換する辞書です。<function>to_tsvector</function>または<function>to_tsquery</function>を呼び出すたびに、処理を進めるためにテキスト検索設定が必要になります。設定パラメータの<xref linkend="guc-default-text-search-config"/>は、デフォルトの設定を指定します。これは、明示的な設定が省略されたときにテキスト検索関数が使用します。<filename>postgresql.conf</filename>に設定するか、個々のセッションで<command>SET</command>コマンドを使って設定できます。
    </para>
 
    <para>
+<!--
     Several predefined text search configurations are available, and
     you can create custom configurations easily.  To facilitate management
     of text search objects, a set of <acronym>SQL</acronym> commands
     is available, and there are several <application>psql</application> commands that display information
     about text search objects (<xref linkend="textsearch-psql"/>).
+-->
+既定のテキスト検索設定がいくつか利用できます。また、カスタム設定を作るのも容易です。テキスト検索オブジェクトを管理する機能を実現するために、<acronym>SQL</acronym>コマンドが一通り用意されています。テキスト検索オブジェクトに関する情報を表示する<application>psql</application>コマンドもいくつか用意されています(<xref linkend="textsearch-psql"/>)。
    </para>
 
    <para>
+<!--
     As an example we will create a configuration
     <literal>pg</literal>, starting by duplicating the built-in
     <literal>english</literal> configuration:
+-->
+例として、組み込みの<literal>english</literal>設定のコピーを用いて、新しい<literal>pg</literal>設定を作ります。
 
 <programlisting>
 CREATE TEXT SEARCH CONFIGURATION public.pg ( COPY = pg_catalog.english );
@@ -3178,9 +4285,12 @@ CREATE TEXT SEARCH CONFIGURATION public.pg ( COPY = pg_catalog.english );
    </para>
 
    <para>
+<!--
     We will use a PostgreSQL-specific synonym list
     and store it in <filename>$SHAREDIR/tsearch_data/pg_dict.syn</filename>.
     The file contents look like:
+-->
+PostgreSQL固有の同義語リストを使い、それを<filename>$SHAREDIR/tsearch_data/pg_dict.syn</filename>に格納します。ファイルの内容は以下のようになります。
 
 <programlisting>
 postgres    pg
@@ -3188,7 +4298,10 @@ pgsql       pg
 postgresql  pg
 </programlisting>
 
+<!--
     We define the synonym dictionary like this:
+-->
+同義語辞書を次のように定義します。
 
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY pg_dict (
@@ -3197,8 +4310,11 @@ CREATE TEXT SEARCH DICTIONARY pg_dict (
 );
 </programlisting>
 
+<!--
     Next we register the <productname>Ispell</productname> dictionary
     <literal>english_ispell</literal>, which has its own configuration files:
+-->
+次に、<productname>Ispell</productname>辞書の<literal>english_ispell</literal>を登録します。これにはそれ自身の設定があります。
 
 <programlisting>
 CREATE TEXT SEARCH DICTIONARY english_ispell (
@@ -3209,8 +4325,11 @@ CREATE TEXT SEARCH DICTIONARY english_ispell (
 );
 </programlisting>
 
+<!--
     Now we can set up the mappings for words in configuration
     <literal>pg</literal>:
+-->
+ここで、<literal>pg</literal>設定に単語用のマッピングを設定します。
 
 <programlisting>
 ALTER TEXT SEARCH CONFIGURATION pg
@@ -3219,8 +4338,11 @@ ALTER TEXT SEARCH CONFIGURATION pg
     WITH pg_dict, english_ispell, english_stem;
 </programlisting>
 
+<!--
     We choose not to index or search some token types that the built-in
     configuration does handle:
+-->
+組み込み設定が扱っているいくつかのトークンに関しては、インデックス付けと検索に扱わないことにします。
 
 <programlisting>
 ALTER TEXT SEARCH CONFIGURATION pg
@@ -3229,7 +4351,10 @@ ALTER TEXT SEARCH CONFIGURATION pg
    </para>
 
    <para>
+<!--
     Now we can test our configuration:
+-->
+これでここまで作った設定を試すことができます。
 
 <programlisting>
 SELECT * FROM ts_debug('public.pg', '
@@ -3241,8 +4366,11 @@ version of our software.
    </para>
 
    <para>
+<!--
     The next step is to set the session to use the new configuration, which was
     created in the <literal>public</literal> schema:
+-->
+次に、セッションの中で新しい設定を使うようにします。この設定は、<literal>public</literal>スキーマの中に作られています。
 
 <screen>
 =&gt; \dF
@@ -3264,21 +4392,35 @@ SHOW default_text_search_config;
  </sect1>
 
  <sect1 id="textsearch-debugging">
+<!--
   <title>Testing and Debugging Text Search</title>
+-->
+  <title>テキスト検索のテストとデバッグ</title>
 
   <para>
+<!--
    The behavior of a custom text search configuration can easily become
    confusing.  The functions described
    in this section are useful for testing text search objects.  You can
    test a complete configuration, or test parsers and dictionaries separately.
+-->
+カスタムテキスト検索設定の挙動は複雑になりがちで、結果として混乱を招くことになります。
+この節では、テキスト検索オブジェクトのテストの際に役に立つ関数を説明します。
+完全な設定でテストすることも、パーサと辞書を別々にテストすることも可能です。
   </para>
 
   <sect2 id="textsearch-configuration-testing">
+<!--
    <title>Configuration Testing</title>
+-->
+   <title>設定のテスト</title>
 
   <para>
+<!--
    The function <function>ts_debug</function> allows easy testing of a
    text search configuration.
+-->
+<function>ts_debug</function>関数により、テキスト検索設定の容易なテストができます。
   </para>
 
   <indexterm>
@@ -3297,6 +4439,7 @@ ts_debug(<optional> <replaceable class="parameter">config</replaceable> <type>re
 </synopsis>
 
   <para>
+<!--
    <function>ts_debug</function> displays information about every token of
    <replaceable class="parameter">document</replaceable> as produced by the
    parser and processed by the configured dictionaries.  It uses the
@@ -3304,54 +4447,81 @@ ts_debug(<optional> <replaceable class="parameter">config</replaceable> <type>re
    class="parameter">config</replaceable>,
    or <varname>default_text_search_config</varname> if that argument is
    omitted.
+-->
+<function>ts_debug</function>は、パーサが生成し、設定された辞書が処理した<replaceable class="parameter">document</replaceable>のすべてのトークンの情報を表示します。その際、<replaceable class="parameter">config</replaceable>で指定した設定が使われます。引数が省略されると<varname>default_text_search_config</varname>が使われます。
   </para>
 
   <para>
+<!--
    <function>ts_debug</function> returns one row for each token identified in the text
    by the parser.  The columns returned are
+-->
+<function>ts_debug</function>は、パーサが認識したテキスト中のトークンを1行につき一つ返します。
+返却される列は以下です。
 
     <itemizedlist  spacing="compact" mark="bullet">
      <listitem>
       <para>
+<!--
        <replaceable>alias</replaceable> <type>text</type> &mdash; short name of the token type
+-->
+       <replaceable>alias</replaceable> <type>text</type> &mdash; トークン型の短縮名
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <replaceable>description</replaceable> <type>text</type> &mdash; description of the
        token type
+-->
+       <replaceable>description</replaceable> <type>text</type> &mdash; トークン型の説明
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <replaceable>token</replaceable> <type>text</type> &mdash; text of the token
+-->
+       <replaceable>token</replaceable> <type>text</type> &mdash; トークンテキスト
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <replaceable>dictionaries</replaceable> <type>regdictionary[]</type> &mdash; the
        dictionaries selected by the configuration for this token type
+-->
+       <replaceable>dictionaries</replaceable> <type>regdictionary[]</type> &mdash; 設定によってこのトークン型用に選択された辞書
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <replaceable>dictionary</replaceable> <type>regdictionary</type> &mdash; the dictionary
        that recognized the token, or <literal>NULL</literal> if none did
+-->
+       <replaceable>dictionary</replaceable> <type>regdictionary</type> &mdash; トークンを認識した辞書。もし認識した辞書がなければ <literal>NULL</literal>
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        <replaceable>lexemes</replaceable> <type>text[]</type> &mdash; the lexeme(s) produced
        by the dictionary that recognized the token, or <literal>NULL</literal> if
        none did; an empty array (<literal>{}</literal>) means it was recognized as a
        stop word
+-->
+       <replaceable>lexemes</replaceable> <type>text[]</type> &mdash; トークンを認識した辞書が生成した語彙素。もしどの辞書も認識しなければ<literal>NULL</literal>。空の配列(<literal>{}</literal>)が返った場合は、ストップワードとして認識されたことを示す
       </para>
      </listitem>
     </itemizedlist>
   </para>
 
   <para>
+<!--
    Here is a simple example:
+-->
+簡単な例を示します。
 
 <screen>
 SELECT * FROM ts_debug('english', 'a fat  cat sat on a mat - it ate a fat rats');
@@ -3385,9 +4555,12 @@ SELECT * FROM ts_debug('english', 'a fat  cat sat on a mat - it ate a fat rats')
   </para>
 
   <para>
+<!--
    For a more extensive demonstration, we
    first create a <literal>public.english</literal> configuration and
    Ispell dictionary for the English language:
+-->
+もう少し高度なデモをお見せするために、まず英語用の<literal>public.english</literal>設定と、Ispell辞書を作ります。
   </para>
 
 <programlisting>
@@ -3416,6 +4589,7 @@ SELECT * FROM ts_debug('public.english', 'The Brightest supernovaes');
 </screen>
 
   <para>
+<!--
    In this example, the word <literal>Brightest</literal> was recognized by the
    parser as an <literal>ASCII word</literal> (alias <literal>asciiword</literal>).
    For this token type the dictionary list is
@@ -3428,19 +4602,28 @@ SELECT * FROM ts_debug('public.english', 'The Brightest supernovaes');
    fact, <literal>english_stem</literal> is a Snowball dictionary which
    recognizes everything; that is why it was placed at the end of the
    dictionary list).
+-->
+この例では、単語<literal>Brightest</literal>は、<literal>ASCII word</literal> (別名は<literal>asciiword</literal>)として認識されています。
+このトークン型のための辞書リストは<literal>english_ispell</literal> と<literal>english_stem</literal>です。この単語は<literal>english_ispell</literal>に認識され、名詞<literal>bright</literal>へと縮退されています。単語<literal>supernovaes</literal>は<literal>english_ispell</literal>辞書には認識されず、次の辞書に渡され、幸い認識されました(実際には、<literal>english_stem</literal>はSnowball辞書で、何でも認識します。それで、この辞書は辞書リストの最後に置かれているわけです)。
   </para>
 
   <para>
+<!--
    The word <literal>The</literal> was recognized by the
    <literal>english_ispell</literal> dictionary as a stop word (<xref
    linkend="textsearch-stopwords"/>) and will not be indexed.
    The spaces are discarded too, since the configuration provides no
    dictionaries at all for them.
+-->
+単語<literal>The</literal>は、<literal>english_ispell</literal>辞書によってストップワード(<xref linkend="textsearch-stopwords"/>)として認識されており、インデックス付けされません。空白も捨てられます。この設定では空白に関する辞書が提供されていないからです。
   </para>
 
   <para>
+<!--
    You can reduce the width of the output by explicitly specifying which columns
    you want to see:
+-->
+明示的に見たい列を指定することにより、出力の幅を減らすことができます。
 
 <screen>
 SELECT alias, token, dictionary, lexemes
@@ -3458,10 +4641,16 @@ FROM ts_debug('public.english', 'The Brightest supernovaes');
   </sect2>
 
   <sect2 id="textsearch-parser-testing">
+<!--
    <title>Parser Testing</title>
+-->
+   <title>パーサのテスト</title>
 
   <para>
+<!--
    The following functions allow direct testing of a text search parser.
+-->
+次にあげた関数により、テキスト検索パーサを直接テストすることができます。
   </para>
 
   <indexterm>
@@ -3476,11 +4665,15 @@ ts_parse(<replaceable class="parameter">parser_oid</replaceable> <type>oid</type
 </synopsis>
 
   <para>
+<!--
    <function>ts_parse</function> parses the given <replaceable>document</replaceable>
    and returns a series of records, one for each token produced by
    parsing. Each record includes a <varname>tokid</varname> showing the
    assigned token type and a <varname>token</varname> which is the text of the
    token.  For example:
+-->
+<function>ts_parse</function>は与えられた<replaceable>document</replaceable>をパースし、パーサが生成したトークンを1行に1個もつ一連のレコードを返します。それぞれのレコードには、割り当てられたトークン型を示す<varname>tokid</varname>と、テキストのトークンである<varname>token</varname>が含まれます。
+例を示します。
 
 <screen>
 SELECT * FROM ts_parse('default', '123 - a number');
@@ -3507,12 +4700,16 @@ ts_token_type(<replaceable class="parameter">parser_oid</replaceable> <type>oid<
 </synopsis>
 
   <para>
+<!--
    <function>ts_token_type</function> returns a table which describes each type of
    token the specified parser can recognize.  For each token type, the table
    gives the integer <varname>tokid</varname> that the parser uses to label a
    token of that type, the <varname>alias</varname> that names the token type
    in configuration commands, and a short <varname>description</varname>.  For
    example:
+-->
+<function>ts_token_type</function>は、指定したパーサが認識できるトークン型を記述したテーブルを返します。各々のトークン型に対し、パーサがトークン型をラベル付けするのに使用する整数<varname>tokid</varname>、設定コマンド中のトークンの名前である<varname>alias</varname>、簡単な説明である<varname>description</varname>が含まれます。
+例を示します。
 
 <screen>
 SELECT * FROM ts_token_type('default');
@@ -3547,10 +4744,16 @@ SELECT * FROM ts_token_type('default');
   </sect2>
 
   <sect2 id="textsearch-dictionary-testing">
+<!--
    <title>Dictionary Testing</title>
+-->
+   <title>辞書のテスト</title>
 
    <para>
+<!--
     The <function>ts_lexize</function> function facilitates dictionary testing.
+-->
+<function>ts_lexize</function>関数は辞書のテストを支援します。
    </para>
 
    <indexterm>
@@ -3562,15 +4765,21 @@ ts_lexize(<replaceable class="parameter">dict</replaceable> <type>regdictionary<
 </synopsis>
 
    <para>
+<!--
     <function>ts_lexize</function> returns an array of lexemes if the input
     <replaceable>token</replaceable> is known to the dictionary,
     or an empty array if the token
     is known to the dictionary but it is a stop word, or
     <literal>NULL</literal> if it is an unknown word.
+-->
+<function>ts_lexize</function>は、入力<replaceable>token</replaceable>が辞書に認識されれば語彙素の配列を返します。辞書に認識され、それがストップワードである場合には空の配列を返します。認識されなければ<literal>NULL</literal>を返します。
    </para>
 
    <para>
+<!--
     Examples:
+-->
+例:
 
 <screen>
 SELECT ts_lexize('english_stem', 'stars');
@@ -3587,9 +4796,12 @@ SELECT ts_lexize('english_stem', 'a');
 
    <note>
     <para>
+<!--
      The <function>ts_lexize</function> function expects a single
      <emphasis>token</emphasis>, not text. Here is a case
      where this can be confusing:
+-->
+<function>ts_lexize</function>関数には、テキストではなく単一の<emphasis>トークン</emphasis>を与えます。これを間違えると次のようになります。
 
 <screen>
 SELECT ts_lexize('thesaurus_astro', 'supernovae stars') is null;
@@ -3598,11 +4810,14 @@ SELECT ts_lexize('thesaurus_astro', 'supernovae stars') is null;
  t
 </screen>
 
+<!--
      The thesaurus dictionary <literal>thesaurus_astro</literal> does know the
      phrase <literal>supernovae stars</literal>, but <function>ts_lexize</function>
      fails since it does not parse the input text but treats it as a single
      token. Use <function>plainto_tsquery</function> or <function>to_tsvector</function> to
      test thesaurus dictionaries, for example:
+-->
+類語辞書<literal>thesaurus_astro</literal>は語句<literal>supernovae stars</literal>を認識しますが、<function>ts_lexize</function>はしません。なぜなら、入力をテキストではなく、単一のトークンとして扱うからです。類語辞書をテストするには、<function>plainto_tsquery</function>または<function>to_tsvector</function>を使ってください。例を示します。
 
 <screen>
 SELECT plainto_tsquery('supernovae stars');
@@ -3618,19 +4833,29 @@ SELECT plainto_tsquery('supernovae stars');
  </sect1>
 
  <sect1 id="textsearch-indexes">
+<!--
   <title>GIN and GiST Index Types</title>
+-->
+  <title>GINおよびGiSTインデックス種類</title>
 
   <indexterm zone="textsearch-indexes">
+<!--
    <primary>text search</primary>
    <secondary>indexes</secondary>
+-->
+   <primary>全文検索</primary>
+   <secondary>インデックス</secondary>
   </indexterm>
 
   <para>
+<!--
    There are two kinds of indexes that can be used to speed up full text
    searches.
    Note that indexes are not mandatory for full text searching, but in
    cases where a column is searched on a regular basis, an index is
    usually desirable.
+-->
+全文検索を高速化するために、2種類のインデックスが使えます。全文検索のためにインデックスが必須だと言うわけではないことを言っておかなければなりませんが、日常的に検索される列には、インデックスを使った方が良いでしょう。
 
    <variablelist>
 
@@ -3638,9 +4863,15 @@ SELECT plainto_tsquery('supernovae stars');
 
      <term>
      <indexterm zone="textsearch-indexes">
+<!--
       <primary>index</primary>
+-->
+      <primary>インデックス</primary>
       <secondary>GIN</secondary>
+<!--
       <tertiary>text search</tertiary>
+-->
+      <tertiary>全文検索</tertiary>
      </indexterm>
 
       <literal>CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> USING GIN (<replaceable>column</replaceable>);</literal>
@@ -3648,8 +4879,12 @@ SELECT plainto_tsquery('supernovae stars');
 
      <listitem>
       <para>
+<!--
        Creates a GIN (Generalized Inverted Index)-based index.
        The <replaceable>column</replaceable> must be of <type>tsvector</type> type.
+-->
+GIN (Generalized Inverted Index)インデックスを作ります。
+<replaceable>column</replaceable>は<type>tsvector</type>型でなければなりません。
       </para>
      </listitem>
     </varlistentry>
@@ -3658,9 +4893,15 @@ SELECT plainto_tsquery('supernovae stars');
 
      <term>
      <indexterm zone="textsearch-indexes">
+<!--
       <primary>index</primary>
+-->
+      <primary>インデックス</primary>
       <secondary>GiST</secondary>
+<!--
       <tertiary>text search</tertiary>
+-->
+      <tertiary>全文検索</tertiary>
      </indexterm>
 
       <literal>CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> USING GIST (<replaceable>column</replaceable> [ { DEFAULT | tsvector_ops } (siglen = <replaceable>number</replaceable>) ] );</literal>
@@ -3668,11 +4909,15 @@ SELECT plainto_tsquery('supernovae stars');
 
      <listitem>
       <para>
+<!--
        Creates a GiST (Generalized Search Tree)-based index.
        The <replaceable>column</replaceable> can be of <type>tsvector</type> or
        <type>tsquery</type> type.
        Optional integer parameter <literal>siglen</literal> determines
        signature length in bytes (see below for details).
+-->
+GiST (Generalized Search Tree)インデックスを作ります。<replaceable>column</replaceable>は <type>tsvector</type> または<type>tsquery</type> 型です。
+オプションの整数パラメータ<literal>siglen</literal>は署名の長さをバイト単位で決定します(詳細は以下を参照してください)。
       </para>
      </listitem>
     </varlistentry>
@@ -3681,6 +4926,7 @@ SELECT plainto_tsquery('supernovae stars');
   </para>
 
   <para>
+<!--
    GIN indexes are the preferred text search index type.  As inverted
    indexes, they contain an index entry for each word (lexeme), with a
    compressed list of matching locations.  Multi-word searches can find
@@ -3688,9 +4934,16 @@ SELECT plainto_tsquery('supernovae stars');
    additional words.  GIN indexes store only the words (lexemes) of
    <type>tsvector</type> values, and not their weight labels.  Thus a table
    row recheck is needed when using a query that involves weights.
+-->
+GINインデックスの方がより好ましいテキスト検索インデックス形式です。
+転置インデックスなので、マッチした位置の圧縮されたリストと合わせて各単語(語彙素)へのインデックスエントリを含みます。
+複数単語での検索は最初のマッチを見つけることができ、その後、追加の単語がない行を削除するのにインデックスを使えます。
+GINインデックスは<type>tsvector</type>値の単語(語彙素)のみを格納しており、重み付けラベルは格納していません。
+そのため、重みを含む問い合わせを使う場合には、テーブル行の再検査が必要です。
   </para>
 
   <para>
+<!--
    A GiST index is <firstterm>lossy</firstterm>, meaning that the index
    might produce false matches, and it is necessary
    to check the actual table row to eliminate such false matches.
@@ -3707,31 +4960,55 @@ SELECT plainto_tsquery('supernovae stars');
    retrieved to see if the match is correct.  Longer signatures lead to a more
    precise search (scanning a smaller fraction of the index and fewer heap
    pages), at the cost of a larger index.
+-->
+GiSTインデックスは、<firstterm>非可逆</firstterm>です。つまり、インデックスは間違った結果を返すかも知れないので、間違った結果を排除するために、テーブルの行をチェックすることが必要です。
+(<productname>PostgreSQL</productname>はこの処理が必要とされた時に自動的に行います。)
+GiSTインデックスが非可逆なのは、インデックス中の各文書が固定長の署名によって表現されているからです。
+署名のバイト単位の長さはオプションの整数のパラメータ<literal>siglen</literal>の値で決まります。
+(<literal>siglen</literal>が指定されない場合)デフォルトの署名の長さは124バイトで、最大の署名の長さは2024バイトです。
+署名は、各々の単語をハッシュして単一なビットにして、これらのビットをnビットの文書署名にORし、nビットの列中のビットにすることで実現されています。
+2つの単語が同じビット位置を生成すると、間違った一致が起こります。
+問い合わせ対象のすべての単語が照合すると(それが正しいか間違っているかは別として)、その照合が正しいものかどうかテーブルの行を取得して調べなければなりません。
+長い署名では、インデックスはより大きくなってしまいますが、(インデックスのより小さな部分とより少ないヒープページを走査することで)検索がより正確になります。
   </para>
 
   <para>
+<!--
    A GiST index can be covering, i.e., use the <literal>INCLUDE</literal>
    clause.  Included columns can have data types without any GiST operator
    class.  Included attributes will be stored uncompressed.
+-->
+GiSTインデックスはカバリングにできます、すなわち<literal>INCLUDE</literal>句を使えます。
+列には、GiST演算子クラスを持たないデータ型をINCLUDEで含めることができます。
+含まれる属性は圧縮されずに格納されます。
   </para>
 
   <para>
+<!--
    Lossiness causes performance degradation due to unnecessary fetches of table
    records that turn out to be false matches.  Since random access to table
    records is slow, this limits the usefulness of GiST indexes.  The
    likelihood of false matches depends on several factors, in particular the
    number of unique words, so using dictionaries to reduce this number is
    recommended.
+-->
+非可逆性は、間違った照合によるテーブルからの不必要なデータ取得のため、性能を劣化させます。
+テーブルへのランダムアクセスは遅いので、GiSTインデックスの有用性は制限されています。
+誤った照合がどの位あるかという可能性はいくつか要因によりますが、とりわけユニークな単語の数に依存します。ですから、辞書を使ってユニークな単語の数を減らすことをお勧めします。
   </para>
 
   <para>
+<!--
    Note that <acronym>GIN</acronym> index build time can often be improved
    by increasing <xref linkend="guc-maintenance-work-mem"/>, while
    <acronym>GiST</acronym> index build time is not sensitive to that
    parameter.
+-->
+<acronym>GIN</acronym>インデックスの構築時間は<xref linkend="guc-maintenance-work-mem"/>を増やすことによってしばしば改善することができることに注意してください。一方<acronym>GiST</acronym>インデックスの構築時間にはあまりそのパラメータは効きません。
   </para>
 
   <para>
+<!--
    Partitioning of big collections and the proper use of GIN and GiST indexes
    allows the implementation of very fast searches with online update.
    Partitioning can be done at the database level using table inheritance,
@@ -3740,29 +5017,49 @@ SELECT plainto_tsquery('supernovae stars');
    linkend="ddl-foreign-data">Foreign Data</link> access.
    The latter is possible because ranking functions use
    only local information.
+-->
+大きなデータをパーティショニングし、GIN、GiSTインデックスを適切に使うことによってオンラインの更新を伴いながら、非常に高速な検索を実現することができます。
+パーティショニングは、以下のどちらかの方法でデータベースレベルで実現できます。(1)テーブルの継承を使う。(2)文書を複数のサーバに分散させ、外部の検索結果を集約する。たとえば<link linkend="ddl-foreign-data">外部データ</link>アクセスを使います。
+2の方法は、ランキング関数がローカルな情報しか使わないため可能です。
   </para>
 
  </sect1>
 
  <sect1 id="textsearch-psql">
+<!--
   <title><application>psql</application> Support</title>
+-->
+  <title><application>psql</application>サポート</title>
 
   <para>
+<!--
    Information about text search configuration objects can be obtained
    in <application>psql</application> using a set of commands:
+-->
+<application>psql</application>でテキスト検索設定オブジェクトに関する情報は、コマンドの集まりを使って取得できます。
 <synopsis>
 \dF{d,p,t}<optional>+</optional> <optional>PATTERN</optional>
 </synopsis>
+<!--
    An optional <literal>+</literal> produces more details.
+-->
+オプションの<literal>+</literal>により、より詳細な情報を生成します。
   </para>
 
   <para>
+<!--
    The optional parameter <replaceable>PATTERN</replaceable> can be the name of
    a text search object, optionally schema-qualified.  If
    <replaceable>PATTERN</replaceable> is omitted then information about all
    visible objects will be displayed.  <replaceable>PATTERN</replaceable> can be a
    regular expression and can provide <emphasis>separate</emphasis> patterns
    for the schema and object names.  The following examples illustrate this:
+-->
+オプションパラメータの<replaceable>PATTERN</replaceable>はテキスト検索オブジェクトの名前にすることができます。
+オプションとしてスキーマ修飾することができます。
+<replaceable>PATTERN</replaceable>が省略されると、すべての可視的なオブジェクトが表示されます。
+<replaceable>PATTERN</replaceable>は正規表現を与えることができ、さらにスキーマとオブジェクト名に対して<emphasis>別々の</emphasis>パターンを与えることができます。
+次の例はこれを説明するものです。
 
 <screen>
 =&gt; \dF *fulltext*
@@ -3781,7 +5078,10 @@ SELECT plainto_tsquery('supernovae stars');
  public   | fulltext_cfg |
 </screen>
 
+<!--
    The available commands are:
+-->
+以下のコマンドが利用できます。
   </para>
 
   <variablelist>
@@ -3789,7 +5089,10 @@ SELECT plainto_tsquery('supernovae stars');
     <term><literal>\dF<optional>+</optional> <optional>PATTERN</optional></literal></term>
     <listitem>
      <para>
+<!--
       List text search configurations (add <literal>+</literal> for more detail).
+-->
+テキスト検索設定を表示します(<literal>+</literal>追加で詳細表示)。
 <screen>
 =&gt; \dF russian
             List of text search configurations
@@ -3830,7 +5133,10 @@ Parser: "pg_catalog.default"
     <term><literal>\dFd<optional>+</optional> <optional>PATTERN</optional></literal></term>
     <listitem>
      <para>
+<!--
       List text search dictionaries (add <literal>+</literal> for more detail).
+-->
+テキスト検索辞書を表示します(<literal>+</literal>追加で詳細表示)。
 <screen>
 =&gt; \dFd
                              List of text search dictionaries
@@ -3874,7 +5180,10 @@ Parser: "pg_catalog.default"
    <term><literal>\dFp<optional>+</optional> <optional>PATTERN</optional></literal></term>
     <listitem>
      <para>
+<!--
       List text search parsers (add <literal>+</literal> for more detail).
+-->
+テキスト検索パーサを表示します(<literal>+</literal>追加で詳細表示)。
 <screen>
 =&gt; \dFp
         List of text search parsers
@@ -3927,7 +5236,10 @@ Parser: "pg_catalog.default"
    <term><literal>\dFt<optional>+</optional> <optional>PATTERN</optional></literal></term>
     <listitem>
      <para>
+<!--
       List text search templates (add <literal>+</literal> for more detail).
+-->
+テキスト検索テンプレートを表示します(<literal>+</literal>追加で詳細表示)。
 <screen>
 =&gt; \dFt
                            List of text search templates
@@ -3947,55 +5259,88 @@ Parser: "pg_catalog.default"
  </sect1>
 
  <sect1 id="textsearch-limitations">
+<!--
   <title>Limitations</title>
+-->
+  <title>制限事項</title>
 
   <para>
+<!--
    The current limitations of <productname>PostgreSQL</productname>'s
    text search features are:
+-->
+<productname>PostgreSQL</productname>のテキスト検索機能の制限事項は以下です。
    <itemizedlist  spacing="compact" mark="bullet">
     <listitem>
+<!--
      <para>The length of each lexeme must be less than 2 kilobytes</para>
+-->
+     <para>各々の語彙素の長さは2キロバイト未満でなければなりません</para>
     </listitem>
     <listitem>
+<!--
      <para>The length of a <type>tsvector</type> (lexemes + positions) must be
      less than 1 megabyte</para>
+-->
+     <para><type>tsvector</type>の長さ (語彙素 + 位置)は1Mバイト未満でなければなりません</para>
     </listitem>
     <listitem>
-     <!-- TODO: number of lexemes in what?  This is unclear -->
+     <!-- 原文コメント TODO: number of lexemes in what?  This is unclear -->
+<!--
      <para>The number of lexemes must be less than
      2<superscript>64</superscript></para>
+-->
+     <para>語彙素の数は2<superscript>64</superscript>未満でなければなりません</para>
     </listitem>
     <listitem>
+<!--
      <para>Position values in <type>tsvector</type> must be greater than 0 and
      no more than 16,383</para>
+-->
+     <para><type>tsvector</type>の位置量は、0より大きくかつ16,383以下でなければなりません</para>
     </listitem>
     <listitem>
+<!--
      <para>The match distance in a <literal>&lt;<replaceable>N</replaceable>&gt;</literal>
      (FOLLOWED BY) <type>tsquery</type> operator cannot be more than
      16,384</para>
+-->
+    <para><type>tsquery</type>演算子<literal>&lt;<replaceable>N</replaceable>&gt;</literal>におけるマッチの距離は16,384より大きくすることはできません</para>
     </listitem>
     <listitem>
+<!--
      <para>No more than 256 positions per lexeme</para>
+-->
+     <para>語彙素の位置情報は256以下でなければなりません</para>
     </listitem>
     <listitem>
+<!--
      <para>The number of nodes (lexemes + operators) in a <type>tsquery</type>
      must be less than 32,768</para>
+-->
+     <para><type>tsquery</type>中のノードの数(語彙素 + 演算子)は32,768未満でなければなりません</para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    For comparison, the <productname>PostgreSQL</productname> 8.1 documentation
    contained 10,441 unique words, a total of 335,420 words, and the most
    frequent word <quote>postgresql</quote> was mentioned 6,127 times in 655
    documents.
+-->
+比較対象として述べておくと、<productname>PostgreSQL</productname>8.1 のドキュメントは10,441のユニークな単語を含み、全部の単語数は335,420で、最頻出の単語<quote>postgresql</quote>は655の文書中に6,127回出現しました。
   </para>
 
-   <!-- TODO we need to put a date on these numbers? -->
+   <!-- 原文コメント TODO we need to put a date on these numbers? -->
   <para>
+<!--
    Another example &mdash; the <productname>PostgreSQL</productname> mailing
    list archives contained 910,989 unique words with 57,491,343 lexemes in
    461,020 messages.
+-->
+別の例です &mdash; <productname>PostgreSQL</productname>メーリングリストのアーカイブは910,989のユニークな単語を含み、461,020のメッセージ中に57,491,343の語彙素がありました。
   </para>
 
  </sect1>

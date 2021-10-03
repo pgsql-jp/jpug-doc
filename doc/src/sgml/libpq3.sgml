@@ -1,0 +1,2110 @@
+<!-- 警告：このファイルは直接編集しないでください！
+1. libpq.sgmlを編集したら、split-libpq.shを起動します。
+2. するとlibpq[0-3].sgmlが生成されます。
+3. libpq.sgmlとともにlibpq[0-3].sgmlのうち変更されたファイルをcommit/pushしてpull requestを作成してください。
+4. レビューはlibpq[0-3].sgmlに対して行います。
+5. 指摘された点があればlibpq.sgmlに反映し、1に戻ります。
+6. libpq.sgmlの変更がなければ、pull requestをマージして終了です。お疲れ様でした！
+-->
+<!-- split-libpq3-start -->
+
+ <sect1 id="libpq-pgpass">
+<!--
+  <title>The Password File</title>
+-->
+  <title>パスワードファイル</title>
+
+  <indexterm zone="libpq-pgpass">
+<!--
+   <primary>password file</primary>
+-->
+   <primary>パスワードファイル</primary>
+  </indexterm>
+  <indexterm zone="libpq-pgpass">
+   <primary>.pgpass</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The file <filename>.pgpass</filename> in a user's home directory can
+   contain passwords to
+   be used if the connection requires a password (and no password has been
+   specified  otherwise). On Microsoft Windows the file is named
+   <filename>%APPDATA%\postgresql\pgpass.conf</filename> (where
+   <filename>%APPDATA%</filename> refers to the Application Data subdirectory in
+   the user's profile).
+   Alternatively, a password file can be specified
+   using the connection parameter <xref linkend="libpq-connect-passfile"/>
+   or the environment variable <envar>PGPASSFILE</envar>.
+-->
+ユーザのホームディレクトリの<filename>.pgpass</filename>は、接続にパスワードが必要な場合(かつ、他に指定されたパスワードが無かった場合)に使用するパスワードを格納するファイルです。
+Microsoft Windowsでは、このファイルの名前は<filename>%APPDATA%\postgresql\pgpass.conf</filename>(ここで<filename>%APPDATA%</filename>はユーザのプロファイル内のアプリケーションデータディレクトリ)です。
+他に、接続パラメータ<xref linkend="libpq-connect-passfile"/>を利用するか、環境変数<envar>PGPASSFILE</envar>で、パスワードファイルを指定できます。
+  </para>
+
+  <para>
+<!--
+   This file should contain lines of the following format:
+-->
+このファイル内の行の書式は次の通りです。
+<synopsis>
+<replaceable>hostname</replaceable>:<replaceable>port</replaceable>:<replaceable>database</replaceable>:<replaceable>username</replaceable>:<replaceable>password</replaceable>
+</synopsis>
+<!--
+   (You can add a reminder comment to the file by copying the line above and
+   preceding it with <literal>#</literal>.)
+   Each of the first four fields can be a literal value, or
+   <literal>*</literal>, which matches anything.  The password field from
+   the first line that matches the current connection parameters will be
+   used.  (Therefore, put more-specific entries first when you are using
+   wildcards.) If an entry needs to contain <literal>:</literal> or
+   <literal>\</literal>, escape this character with <literal>\</literal>.
+   The host name field is matched to the <literal>host</literal> connection
+   parameter if that is specified, otherwise to
+   the <literal>hostaddr</literal> parameter if that is specified; if neither
+   are given then the host name <literal>localhost</literal> is searched for.
+   The host name <literal>localhost</literal> is also searched for when
+   the connection is a Unix-domain socket connection and
+   the <literal>host</literal> parameter
+   matches <application>libpq</application>'s default socket directory path.
+   In a standby server, a database field of <literal>replication</literal>
+   matches streaming replication connections made to the master server.
+   The database field is of limited usefulness otherwise, because users have
+   the same password for all databases in the same cluster.
+-->
+（このファイルでは、上のような行をコピーし、その先頭に<literal>#</literal>をつけて忘れないようにコメントとして残すことができます。）
+先頭の4フィールドはそれぞれリテラル値にすることも、あるいはすべてに一致する<literal>*</literal>を使用することもできます。
+最初に現在の接続パラメータと一致した行のパスワードフィールドが使用されます。
+(従って、ワイルドカードを使用する場合は、始めの方により具体的な項目を入力してください。)
+項目内に<literal>:</literal>または<literal>\</literal>を含める必要があれば、<literal>\</literal>でこれらの文字をエスケープする必要があります。
+ホスト名フィールドは、<literal>host</literal>接続パラメータか、もし指定されていれば、<literal>hostaddr</literal>パラメータと一致します。
+どちらも指定されていなければ、ホスト名<literal>localhost</literal>が検索されます。
+接続がUnixドメインソケット接続で、<literal>host</literal>パラメータが<application>libpq</application>のデフォルトソケットディレクトリパスに一致した場合も、ホスト名<literal>localhost</literal>が検索されます。
+スタンバイサーバでは、<literal>replication</literal>という名称のデータベースは、マスタサーバとの間でなされるストリーミングレプリケーション用の接続に一致します。
+同一のクラスタ内のすべてのデータベースに対するパスワードは同じものですので、データベースフィールドの有用性は限定的なものです。
+  </para>
+
+  <para>
+<!--
+   On Unix systems, the permissions on a password file must
+   disallow any access to world or group; achieve this by a command such as
+   <command>chmod 0600 ~/.pgpass</command>.  If the permissions are less
+   strict than this, the file will be ignored.  On Microsoft Windows, it
+   is assumed that the file is stored in a directory that is secure, so
+   no special permissions check is made.
+-->
+Unixシステムにおいて、パスワードファイルの権限はグループ、他者へのアクセスをすべて拒否しなければなりません。
+これは<command>chmod 0600 ~/.pgpass</command>といったコマンドによって行います。
+権限をこれよりも緩くすると、このファイルは無視されます。
+Microsoft Windowsにおいては、このファイルが安全なディレクトリに格納されていることを前提としていますので、特別に行われる権限の検査はありません。
+  </para>
+ </sect1>
+
+
+ <sect1 id="libpq-pgservice">
+<!--
+  <title>The Connection Service File</title>
+-->
+  <title>接続サービスファイル</title>
+
+  <indexterm zone="libpq-pgservice">
+<!--
+   <primary>connection service file</primary>
+-->
+   <primary>接続サービスファイル</primary>
+  </indexterm>
+  <indexterm zone="libpq-pgservice">
+   <primary>pg_service.conf</primary>
+  </indexterm>
+  <indexterm zone="libpq-pgservice">
+   <primary>.pg_service.conf</primary>
+  </indexterm>
+
+  <para>
+<!--
+   The connection service file allows libpq connection parameters to be
+   associated with a single service name. That service name can then be
+   specified by a libpq connection, and the associated settings will be
+   used. This allows connection parameters to be modified without requiring
+   a recompile of the libpq application. The service name can also be
+   specified using the <envar>PGSERVICE</envar> environment variable.
+-->
+接続サービスファイルにより、libpq接続パラメータをひとつのサービス名に関連付けることができます。
+サービス名は、libpq接続によって指定され、関連付けられた設定が利用されます。
+これは、接続パラメータをlibpqアプリケーションの再コンパイルをせずに修正できるというものです。
+サービス名は<envar>PGSERVICE</envar>環境変数を利用することで使用できます。
+  </para>
+
+  <para>
+<!--
+   The connection service file can be a per-user service file
+   at <filename>~/.pg_service.conf</filename> or the location
+   specified by the environment variable <envar>PGSERVICEFILE</envar>,
+   or it can be a system-wide file
+   at <filename>`pg_config &#045;-sysconfdir`/pg_service.conf</filename> or in the directory
+   specified by the environment variable
+   <envar>PGSYSCONFDIR</envar>.  If service definitions with the same
+   name exist in the user and the system file, the user file takes
+   precedence.
+-->
+この接続サービスファイルは、ユーザごとに<filename>~/.pg_service.conf</filename>というサービスファイルとすること、または、<envar>PGSERVICEFILE</envar>環境変数で指定される場所にすることができます。
+また、システム全体についてのファイルとして<filename>`pg_config --sysconfdir`/pg_service.conf</filename>とすること、<envar>PGSYSCONFDIR</envar>環境変数で指定されたディレクトリに置くことができます。
+ユーザ用、システム用のファイルで同名のサービス定義が存在する場合、ユーザ用のものが優先されます。
+  </para>
+
+  <para>
+<!--
+   The file uses an <quote>INI file</quote> format where the section
+   name is the service name and the parameters are connection
+   parameters; see <xref linkend="libpq-paramkeywords"/> for a list.  For
+   example:
+-->
+このファイルは<quote>INIファイル</quote>書式を使用します。
+セクション名がサービス名となり、パラメータが接続パラメータです。
+<xref linkend="libpq-paramkeywords"/>のリストを参照してください。
+以下に例を示します。
+<programlisting>
+# comment
+[mydb]
+host=somehost
+port=5433
+user=admin
+</programlisting>
+<!--
+   An example file is provided at
+   <filename>share/pg_service.conf.sample</filename>.
+-->
+例となるファイルが<filename>share/pg_service.conf.sample</filename>にあります。
+  </para>
+ </sect1>
+
+
+ <sect1 id="libpq-ldap">
+<!--
+  <title>LDAP Lookup of Connection Parameters</title>
+-->
+  <title>接続パラメータのLDAP検索</title>
+
+  <indexterm zone="libpq-ldap">
+<!--
+   <primary>LDAP connection parameter lookup</primary>
+-->
+   <primary>LDAPによる接続パラメータ検索</primary>
+  </indexterm>
+
+  <para>
+<!--
+   If <application>libpq</application> has been compiled with LDAP support (option
+   <literal><option>&#045;-with-ldap</option></literal> for <command>configure</command>)
+   it is possible to retrieve connection options like <literal>host</literal>
+   or <literal>dbname</literal> via LDAP from a central server.
+   The advantage is that if the connection parameters for a database change,
+   the connection information doesn't have to be updated on all client machines.
+-->
+<application>libpq</application>がLDAPサポート（<command>configure</command>時の<literal><option>--with-ldap</option></literal>オプション）付きでコンパイルされている場合、中央サーバからLDAPを通して<literal>host</literal>や<literal>dbname</literal>などの接続オプションを取り出すことができます。
+この利点は、データベースの接続パラメータが変わった場合に、すべてのクライアントマシンで接続情報を更新しなくても済む点です。
+  </para>
+
+  <para>
+<!--
+   LDAP connection parameter lookup uses the connection service file
+   <filename>pg_service.conf</filename> (see <xref
+   linkend="libpq-pgservice"/>).  A line in a
+   <filename>pg_service.conf</filename> stanza that starts with
+   <literal>ldap://</literal> will be recognized as an LDAP URL and an
+   LDAP query will be performed. The result must be a list of
+   <literal>keyword = value</literal> pairs which will be used to set
+   connection options.  The URL must conform to RFC 1959 and be of the
+   form
+<synopsis>
+ldap://[<replaceable>hostname</replaceable>[:<replaceable>port</replaceable>]]/<replaceable>search_base</replaceable>?<replaceable>attribute</replaceable>?<replaceable>search_scope</replaceable>?<replaceable>filter</replaceable>
+</synopsis>
+   where <replaceable>hostname</replaceable> defaults to
+   <literal>localhost</literal> and <replaceable>port</replaceable>
+   defaults to 389.
+-->
+LDAP接続パラメータ検索は、<filename>pg_service.conf</filename>という接続サービスファイル（<xref linkend="libpq-pgservice"/>を参照）を使用します。
+<filename>pg_service.conf</filename>内の<literal>ldap://</literal>から始まる行は、LDAP URLとして認識され、LDAP問い合わせが実行されることを示します。
+その結果は、<literal>keyword = value</literal>という組み合わせのリストでなければなりません。
+これらが接続用オプションの設定に使用されます。
+このURLはRFC 1959に従ったもので、以下のような形式でなければなりません。
+<synopsis>
+ldap://[<replaceable>hostname</replaceable>[:<replaceable>port</replaceable>]]/<replaceable>search_base</replaceable>?<replaceable>attribute</replaceable>?<replaceable>search_scope</replaceable>?<replaceable>filter</replaceable>
+</synopsis>
+ここで、<replaceable>hostname</replaceable>のデフォルトは<literal>localhost</literal>、<replaceable>port</replaceable>のデフォルトは389です。
+  </para>
+
+  <para>
+<!--
+   Processing of <filename>pg_service.conf</filename> is terminated after
+   a successful LDAP lookup, but is continued if the LDAP server cannot
+   be contacted.  This is to provide a fallback with further LDAP URL
+   lines that point to different LDAP servers, classical <literal>keyword
+   = value</literal> pairs, or default connection options.  If you would
+   rather get an error message in this case, add a syntactically incorrect
+   line after the LDAP URL.
+-->
+<filename>pg_service.conf</filename>の処理はLDAP検索が成功した時に終わります。
+しかし、もしLDAPサーバへのアクセスができなかった場合は継続します。
+これはアクセスに失敗した時に、異なるLDAPサーバを指し示す他のLDAP行や以前からの<literal>keyword = value</literal>の組み合わせ、デフォルトの接続オプションを参照する予備機能を提供します。
+この場合にエラーメッセージを受け取りたい場合は、LDAP URL行の後に文法的に不正な行を記載してください。
+  </para>
+
+  <para>
+<!--
+   A sample LDAP entry that has been created with the LDIF file
+-->
+LDIFファイルとして作成されたLDAP項目の例を以下に示します。
+<programlisting>
+version:1
+dn:cn=mydatabase,dc=mycompany,dc=com
+changetype:add
+objectclass:top
+objectclass:device
+cn:mydatabase
+description:host=dbserver.mycompany.com
+description:port=5439
+description:dbname=mydb
+description:user=mydb_user
+description:sslmode=require
+</programlisting>
+<!--
+   might be queried with the following LDAP URL:
+-->
+これは、以下のようなLDAP URLから得られます。
+<programlisting>
+ldap://ldap.mycompany.com/dc=mycompany,dc=com?description?one?(cn=mydatabase)
+</programlisting>
+  </para>
+
+  <para>
+<!--
+   You can also mix regular service file entries with LDAP lookups.
+   A complete example for a stanza in <filename>pg_service.conf</filename>
+   would be:
+-->
+また、LDAP検索と通常のサービスファイル項目とを混在させることもできます。
+<filename>pg_service.conf</filename>の一節について完全な例を以下に示します。
+<programlisting>
+# only host and port are stored in LDAP, specify dbname and user explicitly
+[customerdb]
+dbname=customer
+user=appuser
+ldap://ldap.acme.com/cn=dbserver,cn=hosts?pgconnectinfo?base?(objectclass=*)
+</programlisting>
+  </para>
+
+ </sect1>
+
+
+ <sect1 id="libpq-ssl">
+<!--
+  <title>SSL Support</title>
+-->
+  <title>SSLサポート</title>
+
+  <indexterm zone="libpq-ssl">
+   <primary>SSL</primary>
+  </indexterm>
+
+  <para>
+<!--
+   <productname>PostgreSQL</productname> has native support for using <acronym>SSL</acronym>
+   connections to encrypt client/server communications for increased
+   security. See <xref linkend="ssl-tcp"/> for details about the server-side
+   <acronym>SSL</acronym> functionality.
+-->
+<productname>PostgreSQL</productname>は、セキュリティを高めるためにクライアントサーバ間の通信を暗号化する<acronym>SSL</acronym>接続の使用を元来サポートしています。
+サーバ側の<acronym>SSL</acronym>機能についての詳細は<xref linkend="ssl-tcp"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   <application>libpq</application> reads the system-wide
+   <productname>OpenSSL</productname> configuration file. By default, this
+   file is named <filename>openssl.cnf</filename> and is located in the
+   directory reported by <literal>openssl version -d</literal>.  This default
+   can be overridden by setting environment variable
+   <envar>OPENSSL_CONF</envar> to the name of the desired configuration
+   file.
+-->
+<application>libpq</application>はシステム全体に対する<productname>OpenSSL</productname>設定ファイルを読み込みます。
+デフォルトでは、ファイル名は<filename>openssl.cnf</filename>で、<literal>openssl version -d</literal>で報告されるディレクトリに格納されています。
+このデフォルトは<envar>OPENSSL_CONF</envar>環境変数に希望する設定ファイル名を設定することで変更することができます。
+  </para>
+
+ <sect2 id="libq-ssl-certificates">
+<!--
+  <title>Client Verification of Server Certificates</title>
+-->
+  <title>サーバ証明書のクライアント検証</title>
+
+  <para>
+<!--
+   By default, <productname>PostgreSQL</productname> will not perform any verification of
+   the server certificate. This means that it is possible to spoof the server
+   identity (for example by modifying a DNS record or by taking over the server
+   IP address) without the client knowing. In order to prevent spoofing,
+   the client must be able to verify the server's identity via a chain of
+   trust.  A chain of trust is established by placing a root (self-signed)
+   certificate authority (<acronym>CA</acronym>) certificate on one
+   computer and a leaf certificate <emphasis>signed</emphasis> by the
+   root certificate on another computer.  It is also possible to use an
+   <quote>intermediate</quote> certificate which is signed by the root
+   certificate and signs leaf certificates.
+-->
+デフォルトでは<productname>PostgreSQL</productname>はサーバ証明書の検証をまったく行いません。
+これは、（例えば、DNSレコードを変更したり、もしくはサーバのIPアドレスを乗っ取ったりして）クライアントに知られずにサーバの身元をなりすませることを意味します。
+なりすましを防止するには、クライアントは、トラストチェーン(chain of trust)を通じて、サーバの身元を検証できなければなりません。
+トラストチェーンは、ルート（自己署名）認証局（<acronym>CA</acronym>）証明書をあるコンピュータに設置し、そのルート証明書によって<emphasis>署名された</emphasis>リーフ証明書を他のコンピュータに設置することによって確立されます。
+また、ルート証明書によって署名された<quote>中間</quote>証明書を使って、リーフ証明書に署名することによっても可能です。
+  </para>
+
+  <para>
+<!--
+   To allow the client to verify the identity of the server, place a root
+   certificate on the client and a leaf certificate signed by the root
+   certificate on the server.  To allow the server to verify the identity
+   of the client, place a root certificate on the server and a leaf
+   certificate signed by the root certificate on the client.  One or more
+   intermediate certificates (usually stored with the leaf certificate)
+   can also be used to link the leaf certificate to the root certificate.
+-->
+クライアントがサーバの身元を検証するためには、ルート証明書をクライアントに設置し、そのルート証明書によって署名されたリーフ証明書をサーバに設置します。
+サーバがクライアントの身元を検証するためには、ルート証明書をサーバに設置し、そのルート証明書によって署名されたリーフ証明書をクライアントに設置します。
+一つ以上の中間証明書（通常リーフ証明書とともに格納されます）を使って、リーフ証明書をルート証明書につなげることもできます。
+  </para>
+
+  <para>
+<!--
+   Once a chain of trust has been established, there are two ways for
+   the client to validate the leaf certificate sent by the server.
+   If the parameter <literal>sslmode</literal> is set to <literal>verify-ca</literal>,
+   libpq will verify that the server is trustworthy by checking the
+   certificate chain up to the root certificate stored on the client.
+   If <literal>sslmode</literal> is set to <literal>verify-full</literal>,
+   libpq will <emphasis>also</emphasis> verify that the server host
+   name matches the name stored in the server certificate. The
+   SSL connection will fail if the server certificate cannot be
+   verified. <literal>verify-full</literal> is recommended in most
+   security-sensitive environments.
+-->
+トラストチェーンがひとたび確立されれば、クライアントがサーバから送信されたリーフ証明書を検証する二つの方法があります。
+パラメータ<literal>sslmode</literal>が<literal>verify-ca</literal>に設定されている場合、libpqはクライアントに格納されたルート証明書までの証明書連鎖を検査することで、サーバが信用に足るかを検証します。
+<literal>sslmode</literal>が<literal>verify-full</literal>に設定されていると、libpqは<emphasis>同時に</emphasis>サーバホスト名が証明書のそれと一致するかを検証します。
+SSL接続はサーバ証明書が検証されない場合失敗します。
+安全性に慎重を期するほとんどのサーバ環境では<literal>verify-full</literal>を推奨します。
+  </para>
+
+  <para>
+<!--
+   In <literal>verify-full</literal> mode, the host name is matched against the
+   certificate's Subject Alternative Name attribute(s), or against the
+   Common Name attribute if no Subject Alternative Name of type <literal>dNSName</literal> is
+   present.  If the certificate's name attribute starts with an asterisk
+   (<literal>*</literal>), the asterisk will be treated as
+   a wildcard, which will match all characters <emphasis>except</emphasis> a dot
+   (<literal>.</literal>). This means the certificate will not match subdomains.
+   If the connection is made using an IP address instead of a host name, the
+   IP address will be matched (without doing any DNS lookups).
+-->
+<literal>verify-full</literal>モードでは、ホスト名を証明書のサブジェクト別名(Subject Alternative Name)属性と、あるいは<literal>dNSName</literal>タイプのサブジェクト別名がないときはコモンネーム属性とマッチさせます。
+証明書の名前属性がアスタリスク（<literal>*</literal>）で始まると、それはワイルドカードとして取り扱われ、ドット（<literal>.</literal>）を<emphasis>除く</emphasis>すべての文字とマッチします。
+これは、証明書がサブドメインとマッチしないことを意味します。
+もし接続がホスト名ではなくIPアドレスを使用するのであれば、（いかなるDNS検索もせず）IPアドレスがマッチさせられます。
+  </para>
+
+  <para>
+<!--
+   To allow server certificate verification, one or more root certificates
+   must be placed in the file <filename>~/.postgresql/root.crt</filename>
+   in the user's home directory.  (On Microsoft Windows the file is named
+   <filename>%APPDATA%\postgresql\root.crt</filename>.)  Intermediate
+   certificates should also be added to the file if they are needed to link
+   the certificate chain sent by the server to the root certificates
+   stored on the client.
+-->
+サーバ証明書の検証を可能にするには、1つ以上のルート証明書を、ユーザのホームディレクトリの<filename>~/.postgresql/root.crt</filename>ファイルに置かなければなりません。
+（Microsoft Windowsの場合、このファイルの名前は<filename>%APPDATA%\postgresql\root.crt</filename>です。）
+サーバより送信された証明書連鎖から、クライアントに格納されたルート証明書にリンクするために（中間証明書が）必要なら、中間証明書もそのファイルに追加する必要があります。
+  </para>
+
+  <para>
+<!--
+   Certificate Revocation List (CRL) entries are also checked
+   if the file <filename>~/.postgresql/root.crl</filename> exists
+   (<filename>%APPDATA%\postgresql\root.crl</filename> on Microsoft
+   Windows).
+-->
+<filename>~/.postgresql/root.crl</filename>ファイル（Microsoft Windowsでは<filename>%APPDATA%\postgresql\root.crl</filename>）が存在する場合、証明書失効リスト（CRL）の項目もまた検査されます。
+  </para>
+
+  <para>
+<!--
+   The location of the root certificate file and the CRL can be changed by
+   setting
+   the connection parameters <literal>sslrootcert</literal> and <literal>sslcrl</literal>
+   or the environment variables <envar>PGSSLROOTCERT</envar> and <envar>PGSSLCRL</envar>.
+-->
+ルート証明書ファイルとCRLの格納場所を接続パラメータ<literal>sslrootcert</literal>と<literal>sslcrl</literal>、もしくは環境変数<envar>PGSSLROOTCERT</envar>と<envar>PGSSLCRL</envar>で変更することができます。
+  </para>
+
+  <note>
+   <para>
+<!--
+    For backwards compatibility with earlier versions of PostgreSQL, if a
+    root CA file exists, the behavior of
+    <literal>sslmode</literal>=<literal>require</literal> will be the same
+    as that of <literal>verify-ca</literal>, meaning the server certificate
+    is validated against the CA. Relying on this behavior is discouraged,
+    and applications that need certificate validation should always use
+    <literal>verify-ca</literal> or <literal>verify-full</literal>.
+-->
+より古いバージョンのPostgreSQLとの後方互換性のために、ルートCAファイルが存在する場合、<literal>sslmode</literal>=<literal>require</literal>の動作は<literal>verify-ca</literal>の場合と同じになっています。
+つまり、サーバ証明書がCAに対して検証されます。
+この動作に依存することは勧めません。
+また証明書の検証を必要とするアプリケーションは常に<literal>verify-ca</literal>または<literal>verify-full</literal>を使用すべきです。
+   </para>
+  </note>
+ </sect2>
+
+ <sect2 id="libpq-ssl-clientcert">
+<!--
+  <title>Client Certificates</title>
+-->
+  <title>クライアント証明書</title>
+
+  <para>
+<!--
+   If the server attempts to verify the identity of the
+   client by requesting the client's leaf certificate,
+   <application>libpq</application> will send the certificates stored in
+   file <filename>~/.postgresql/postgresql.crt</filename> in the user's home
+   directory.  The certificates must chain to the root certificate trusted
+   by the server.  A matching
+   private key file <filename>~/.postgresql/postgresql.key</filename> must also
+   be present. The private
+   key file must not allow any access to world or group; achieve this by the
+   command <command>chmod 0600 ~/.postgresql/postgresql.key</command>.
+   On Microsoft Windows these files are named
+   <filename>%APPDATA%\postgresql\postgresql.crt</filename> and
+   <filename>%APPDATA%\postgresql\postgresql.key</filename>, and there
+   is no special permissions check since the directory is presumed secure.
+   The location of the certificate and key files can be overridden by the
+   connection parameters <literal>sslcert</literal> and <literal>sslkey</literal> or the
+   environment variables <envar>PGSSLCERT</envar> and <envar>PGSSLKEY</envar>.
+-->
+サーバが、クライアントのリーフ証明書を要求することによってクライアントの身元を検証しようとする場合、<application>libpq</application>はユーザのホームディレクトリにある<filename>~/.postgresql/postgresql.crt</filename>ファイルに格納された証明書を送信します。
+証明書は、サーバが信頼するルート証明書につながらなければなりません。
+対応する<filename>~/.postgresql/postgresql.key</filename>秘密キーファイルも存在しなければなりません。
+秘密キーファイルは他者やグループからのアクセスを許可してはいけません。
+<command>chmod 0600 ~/.postgresql/postgresql.key</command>コマンドでこれを実現してください。
+Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%APPDATA%\postgresql\postgresql.crt</filename>と<filename>%APPDATA%\postgresql\postgresql.key</filename>であり、このディレクトリは安全であると想定されますので、特別な権限検査は行われません。
+証明書とキーファイルの格納場所は<literal>sslcert</literal>および<literal>sslkey</literal>接続パラメータ、または<envar>PGSSLCERT</envar>および<envar>PGSSLKEY</envar>環境変数で上書きされます。
+  </para>
+
+  <para>
+<!--
+   The first certificate in <filename>postgresql.crt</filename> must be the
+   client's certificate because it must match the client's private key.
+   <quote>Intermediate</quote> certificates can be optionally appended
+   to the file &mdash; doing so avoids requiring storage of intermediate
+   certificates on the server (<xref linkend="guc-ssl-ca-file"/>).
+-->
+<filename>postgresql.crt</filename>中の最初の証明書は、クライアント証明書でなければなりません。
+クライアントの秘密鍵と一致していなければならないからです。
+オプションで、ファイルに<quote>中間</quote>証明書を追加することができます。
+そうすることによって、サーバ上に中間証明書（<xref linkend="guc-ssl-ca-file"/>）の格納が不要になります。
+  </para>
+
+  <para>
+<!--
+   The certificate and key may be in PEM or ASN.1 DER format.
+-->
+証明書とキーはPEMまたはASN.1 DER形式です。
+  </para>
+
+  <para>
+<!--
+   The key may be
+   stored in cleartext or encrypted with a passphrase using any algorithm supported
+   by OpenSSL, like AES-128. If the key is stored encrypted, then the passphrase
+   may be provided in the <xref linkend="libpq-connect-sslpassword"/> connection
+   option. If an encrypted key is supplied and the <literal>sslpassword</literal>
+   option is absent or blank, a password will be prompted for interactively by
+   OpenSSL with a <literal>Enter PEM pass phrase:</literal>
+   prompt if a TTY is available. Applications can override the client certificate
+   prompt and the handling of the <literal>sslpassword</literal> parameter by supplying
+   their own key password callback; see
+   <xref linkend="libpq-pqsetsslkeypasshook-openssl"/>.
+-->
+キーは平文テキストで、あるいは、OpenSSLで対応しているAES-128など任意のアルゴリズムを使ってパスフレーズで暗号化して、格納できます。
+キーが暗号化されて格納された場合、パスフレーズは<xref linkend="libpq-connect-sslpassword"/>接続オプションで供給してもよいです。
+暗号化されたキーが供給されて、かつ、<literal>sslpassword</literal>が無いか空欄の場合、TTYが利用可能であればパスワードはOpenSSLにより<literal>Enter PEM pass phrase:</literal>プロンプトで対話的に入力が要求されます。
+アプリケーションはクライアント証明書のプロンプトと<literal>sslpassword</literal>パラメータの操作を、自身のキーパスワードコールバックを供給することで置き換えできます。
+<xref linkend="libpq-pqsetsslkeypasshook-openssl"/>を参照してください。
+  </para>
+
+  <para>
+<!--
+   For instructions on creating certificates, see <xref
+   linkend="ssl-certificate-creation"/>.
+-->
+証明書の作成手順については、<xref linkend="ssl-certificate-creation"/>をご覧ください。
+  </para>
+ </sect2>
+
+ <sect2 id="libpq-ssl-protection">
+<!--
+  <title>Protection Provided in Different Modes</title>
+-->
+  <title>異なるモードで提供される保護</title>
+
+  <para>
+<!--
+   The different values for the <literal>sslmode</literal> parameter provide different
+   levels of protection. SSL can provide
+   protection against three types of attacks:
+-->
+<literal>sslmode</literal>パラメータ値を変更することで、異なったレベルの保護を提供します。
+SSLは以下の３種類の攻撃に対する保護を提供することができます。
+
+   <variablelist>
+    <varlistentry>
+<!--
+     <term>Eavesdropping</term>
+-->
+     <term>盗聴</term>
+     <listitem>
+<!--
+      <para>If a third party can examine the network traffic between the
+       client and the server, it can read both connection information (including
+       the user name and password) and the data that is passed. <acronym>SSL</acronym>
+       uses encryption to prevent this.
+-->
+<para>クライアント・サーバ間のネットワークトラフィックを第三者が監視することができれば、（ユーザ名とパスワードを含め）双方の接続情報と通過するデータを読み取ることができます。
+<acronym>SSL</acronym>はこれを防止するために暗号を使用します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+<!--
+     <term>Man in the middle (<acronym>MITM</acronym>)</term>
+-->
+     <term>中間者攻撃（<acronym>MITM</acronym>）</term>
+     <listitem>
+<!--
+      <para>If a third party can modify the data while passing between the
+       client and server, it can pretend to be the server and therefore see and
+       modify data <emphasis>even if it is encrypted</emphasis>. The third party can then
+       forward the connection information and data to the original server,
+       making it impossible to detect this attack. Common vectors to do this
+       include DNS poisoning and address hijacking, whereby the client is directed
+       to a different server than intended. There are also several other
+       attack methods that can accomplish this. <acronym>SSL</acronym> uses certificate
+       verification to prevent this, by authenticating the server to the client.
+-->
+<para>データがクライアント・サーバ間で渡されている時に、第三者がそのデータを変更できれば、サーバを装うことができ、従って<emphasis>たとえ暗号化されていても</emphasis>データを理解し変更することができます。
+第三者はそこで、この攻撃を検出不可能にする接続情報とデータを元のサーバに送ることができます。
+これを行う共通した媒介はDNSポイズニングとアドレス乗っ取りを含み、それに従ってクライアントは意図したサーバではなく異なったサーバに誘導されます。
+同時に、このことを成し遂げるいくつかの異なった攻撃も存在します。
+<acronym>SSL</acronym>はクライアントに対しサーバを認証することで、この防止に証明書検証を使用します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+<!--
+     <term>Impersonation</term>
+-->
+     <term>なりすまし</term>
+     <listitem>
+<!--
+      <para>If a third party can pretend to be an authorized client, it can
+       simply access data it should not have access to. Typically this can
+       happen through insecure password management. <acronym>SSL</acronym> uses
+       client certificates to prevent this, by making sure that only holders
+       of valid certificates can access the server.
+-->
+<para>第三者が認定されたクライアントを装うことができれば、それはアクセスしてはならないデータに簡単にアクセス可能になります。
+典型的にこれは心もとないパスワード管理から生じます。
+<acronym>SSL</acronym>は有効な証明書の所持者のみサーバにアクセスできることを確実にすることで、この防止策としてクライアント証明書を使用します。
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </para>
+
+  <para>
+<!--
+   For a connection to be known SSL-secured, SSL usage must be configured
+   on <emphasis>both the client and the server</emphasis> before the connection
+   is made. If it is only configured on the server, the client may end up
+   sending sensitive information (e.g., passwords) before
+   it knows that the server requires high security. In libpq, secure
+   connections can be ensured
+   by setting the <literal>sslmode</literal> parameter to <literal>verify-full</literal> or
+   <literal>verify-ca</literal>, and providing the system with a root certificate to
+   verify against. This is analogous to using an <literal>https</literal>
+   <acronym>URL</acronym> for encrypted web browsing.
+-->
+SSLで信頼できるとされる接続では、SSLの使用を接続確立前に<emphasis>クライアントとサーバの双方において</emphasis>設定されなければなりません。
+サーバのみに構成されると、クライアントはサーバが高度なセキュリティを必要とすることが判る以前に、（例えばパスワードのような）機密事項を扱う情報を結局送ることになります。
+libpqにおいて、<literal>sslmode</literal>パラメータを<literal>verify-full</literal>または<literal>verify-ca</literal>に設定し、そして対象を検証するためルート証明書をシステムに提供することで、安全な接続を確実に行うことができます。
+これは暗号化されたweb閲覧に対する<literal>https</literal> <acronym>URL</acronym>の使用とよく似ています。
+  </para>
+
+  <para>
+<!--
+   Once the server has been authenticated, the client can pass sensitive data.
+   This means that up until this point, the client does not need to know if
+   certificates will be used for authentication, making it safe to specify that
+   only in the server configuration.
+-->
+一度サーバが認証されると、クライアントは機密事項を扱うデータを送ることができます。
+この意味は、これまでクライアントは認証に証明書が使われているかどうかを知る必要がなく、サーバ構成においてのみこのことを指定しても安全だと言うことです。
+  </para>
+
+  <para>
+<!--
+   All <acronym>SSL</acronym> options carry overhead in the form of encryption and
+   key-exchange, so there is a trade-off that has to be made between performance
+   and security. <xref linkend="libpq-ssl-sslmode-statements"/>
+   illustrates the risks the different <literal>sslmode</literal> values
+   protect against, and what statement they make about security and overhead.
+-->
+すべての<acronym>SSL</acronym>オプションでは暗号化の形式と鍵交換といったオーバヘッドがかかります。
+このため性能と安全性との間で決定されるべきトレードオフがあります。
+<xref linkend="libpq-ssl-sslmode-statements"/>は異なる<literal>sslmode</literal>値が防御する危険性と、安全性とオーバヘッドに対する声明を示したものです。
+  </para>
+
+  <table id="libpq-ssl-sslmode-statements">
+<!--
+   <title>SSL Mode Descriptions</title>
+-->
+   <title>SSLモードの説明</title>
+   <tgroup cols="4">
+    <colspec colname="col1" colwidth="1*"/>
+    <colspec colname="col2" colwidth="1*"/>
+    <colspec colname="col3" colwidth="1*"/>
+    <colspec colname="col4" colwidth="2*"/>
+    <thead>
+     <row>
+      <entry><literal>sslmode</literal></entry>
+<!--
+      <entry>Eavesdropping protection</entry>
+      <entry><acronym>MITM</acronym> protection</entry>
+      <entry>Statement</entry>
+-->
+      <entry>盗聴防止</entry>
+      <entry><acronym>MITM</acronym>防止</entry>
+      <entry>声明</entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry><literal>disable</literal></entry>
+<!--
+      <entry>No</entry>
+      <entry>No</entry>
+      <entry>I don't care about security, and I don't want to pay the overhead
+       of encryption.
+      </entry>
+-->
+      <entry>いいえ</entry>
+      <entry>いいえ</entry>
+      <entry>セキュリティはどうでもよく、暗号化の負荷を払いたくない
+      </entry>
+     </row>
+
+     <row>
+      <entry><literal>allow</literal></entry>
+<!--
+      <entry>Maybe</entry>
+      <entry>No</entry>
+      <entry>I don't care about security, but I will pay the overhead of
+       encryption if the server insists on it.
+      </entry>
+-->
+      <entry>たぶん</entry>
+      <entry>いいえ</entry>
+      <entry>セキュリティはどうでもよいが、サーバがそれを強く要求するのであれば暗号化のオーバヘッドを払ってもよい
+      </entry>
+     </row>
+
+     <row>
+      <entry><literal>prefer</literal></entry>
+<!--
+      <entry>Maybe</entry>
+      <entry>No</entry>
+      <entry>I don't care about encryption, but I wish to pay the overhead of
+       encryption if the server supports it.
+      </entry>
+-->
+      <entry>たぶん</entry>
+      <entry>いいえ</entry>
+      <entry>セキュリティはどうでもよいが、サーバがそれをサポートするのであれば暗号化のオーバヘッドを払ってもよい
+      </entry>
+     </row>
+
+     <row>
+      <entry><literal>require</literal></entry>
+<!--
+      <entry>Yes</entry>
+      <entry>No</entry>
+      <entry>I want my data to be encrypted, and I accept the overhead. I trust
+       that the network will make sure I always connect to the server I want.
+      </entry>
+-->
+      <entry>はい</entry>
+      <entry>いいえ</entry>
+      <entry>データを暗号化して欲しい。そしてオーバヘッドも受け入れる。意図したサーバに常に接続することをネットワークが確実にしてくれると信用する
+      </entry>
+     </row>
+
+     <row>
+      <entry><literal>verify-ca</literal></entry>
+<!--
+      <entry>Yes</entry>
+      <entry>Depends on CA policy</entry>
+      <entry>I want my data encrypted, and I accept the overhead. I want to be
+       sure that I connect to a server that I trust.
+      </entry>
+-->
+      <entry>はい</entry>
+      <entry>CAの方針に依存</entry>
+      <entry>データを暗号化して欲しい。そしてオーバヘッドも受け入れる。信頼するサーバに確実に接続したい
+      </entry>
+     </row>
+
+     <row>
+      <entry><literal>verify-full</literal></entry>
+<!--
+       <entry>Yes</entry>
+       <entry>Yes</entry>
+       <entry>I want my data encrypted, and I accept the overhead. I want to be
+        sure that I connect to a server I trust, and that it's the one I
+        specify.
+       </entry>
+-->
+       <entry>はい</entry>
+       <entry>はい</entry>
+       <entry>データを暗号化して欲しい。そしてオーバヘッドも受け入れる。信頼するサーバに接続すること、そのサーバが指定したものであることを確実にしたい
+       </entry>
+      </row>
+
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+<!--
+   The difference between <literal>verify-ca</literal> and <literal>verify-full</literal>
+   depends on the policy of the root <acronym>CA</acronym>. If a public
+   <acronym>CA</acronym> is used, <literal>verify-ca</literal> allows connections to a server
+   that <emphasis>somebody else</emphasis> may have registered with the <acronym>CA</acronym>.
+   In this case, <literal>verify-full</literal> should always be used. If
+   a local <acronym>CA</acronym> is used, or even a self-signed certificate, using
+   <literal>verify-ca</literal> often provides enough protection.
+-->
+<literal>verify-ca</literal>と<literal>verify-full</literal>の差異はルート<acronym>CA</acronym>の規定に依存します。
+公的な<acronym>CA</acronym>が使用されるとき、<literal>verify-ca</literal>はその<acronym>CA</acronym>で<emphasis>他の誰か</emphasis>が登録したかもしれないサーバへの接続を許可します。
+この場合、<literal>verify-full</literal>が常に使用されなければなりません。
+独自<acronym>CA</acronym>が使用されるとき、または自己署名証明書であったとしても<literal>verify-ca</literal>は十分な防御策を提供します。
+  </para>
+
+  <para>
+<!--
+   The default value for <literal>sslmode</literal> is <literal>prefer</literal>. As is shown
+   in the table, this makes no sense from a security point of view, and it only
+   promises performance overhead if possible. It is only provided as the default
+   for backward compatibility, and is not recommended in secure deployments.
+-->
+<literal>sslmode</literal>のデフォルト値は<literal>prefer</literal>です。
+表で示したように、これはセキュリティの視点では意味がなく、可能であれば性能上のオーバヘッドを保証するだけです。
+これは後方互換性を提供するためのみにデフォルトとなっているもので、安全性確保の観点からは推奨されません。
+  </para>
+
+ </sect2>
+
+ <sect2 id="libpq-ssl-fileusage">
+<!--
+  <title>SSL Client File Usage</title>
+-->
+  <title>SSLクライアントファイル使用方法</title>
+
+  <para>
+<!--
+   <xref linkend="libpq-ssl-file-usage"/> summarizes the files that are
+   relevant to the SSL setup on the client.
+-->
+<xref linkend="libpq-ssl-file-usage"/>にクライアントにおけるSSL設定に関連するファイルをまとめます。
+  </para>
+
+  <table id="libpq-ssl-file-usage">
+<!--
+   <title>Libpq/Client SSL File Usage</title>
+-->
+   <title>libpq/クライアントにおけるSSLファイルの使用方法</title>
+   <tgroup cols="3">
+    <thead>
+     <row>
+<!--
+      <entry>File</entry>
+      <entry>Contents</entry>
+      <entry>Effect</entry>
+-->
+      <entry>ファイル</entry>
+      <entry>内容</entry>
+      <entry>効果</entry>
+     </row>
+    </thead>
+
+    <tbody>
+
+     <row>
+      <entry><filename>~/.postgresql/postgresql.crt</filename></entry>
+<!--
+      <entry>client certificate</entry>
+      <entry>sent to server</entry>
+-->
+      <entry>クライアント証明書</entry>
+      <entry>サーバにより要求されます</entry>
+     </row>
+
+     <row>
+      <entry><filename>~/.postgresql/postgresql.key</filename></entry>
+<!--
+      <entry>client private key</entry>
+      <entry>proves client certificate sent by owner; does not indicate
+      certificate owner is trustworthy</entry>
+-->
+      <entry>クライアントの秘密キー</entry>
+      <entry>所有者により送信されるクライアント証明書を証明します。証明書の所有者が信頼できることを意味していません。</entry>
+     </row>
+
+     <row>
+      <entry><filename>~/.postgresql/root.crt</filename></entry>
+<!--
+      <entry>trusted certificate authorities</entry>
+      <entry>checks that server certificate is signed by a trusted certificate
+      authority</entry>
+-->
+      <entry>信頼できる認証局</entry>
+      <entry>サーバ証明書が信頼できる認証局により署名されたか検査します。</entry>
+     </row>
+
+     <row>
+      <entry><filename>~/.postgresql/root.crl</filename></entry>
+<!--
+      <entry>certificates revoked by certificate authorities</entry>
+      <entry>server certificate must not be on this list</entry>
+-->
+      <entry>認証局により失効された証明書</entry>
+      <entry>サーバ証明書はこのリストにあってはいけません</entry>
+     </row>
+
+    </tbody>
+   </tgroup>
+  </table>
+ </sect2>
+
+ <sect2 id="libpq-ssl-initialize">
+<!--
+  <title>SSL Library Initialization</title>
+-->
+  <title>SSLライブラリの初期化</title>
+
+  <para>
+<!--
+   If your application initializes <literal>libssl</literal> and/or
+   <literal>libcrypto</literal> libraries and <application>libpq</application>
+   is built with <acronym>SSL</acronym> support, you should call
+   <xref linkend="libpq-PQinitOpenSSL"/> to tell <application>libpq</application>
+   that the <literal>libssl</literal> and/or <literal>libcrypto</literal> libraries
+   have been initialized by your application, so that
+   <application>libpq</application> will not also initialize those libraries.
+-->
+使用するアプリケーションが<literal>libssl</literal>と<literal>libcrypto</literal>の両方またはいずれか一方のライブラリを初期化し、<application>libpq</application>が<acronym>SSL</acronym>サポート付きで構築された場合、<literal>libssl</literal>と<literal>libcrypto</literal>の両方またはいずれか一方のライブラリはアプリケーションによって初期化されたことを<application>libpq</application>に伝えるため<xref linkend="libpq-PQinitOpenSSL"/>を呼び出さなければなりません。
+これにより、<application>libpq</application>はこれらのライブラリを初期化しなくなります。
+  </para>
+
+  <para>
+   <variablelist>
+    <varlistentry id="libpq-PQinitOpenSSL">
+     <term><function>PQinitOpenSSL</function><indexterm><primary>PQinitOpenSSL</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Allows applications to select which security libraries to initialize.
+-->
+アプリケーションがどのセキュリティライブラリを初期化するか選択することができます。
+<synopsis>
+void PQinitOpenSSL(int do_ssl, int do_crypto);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       When <parameter>do_ssl</parameter> is non-zero, <application>libpq</application>
+       will initialize the <application>OpenSSL</application> library before first
+       opening a database connection.  When <parameter>do_crypto</parameter> is
+       non-zero, the <literal>libcrypto</literal> library will be initialized.  By
+       default (if <xref linkend="libpq-PQinitOpenSSL"/> is not called), both libraries
+       are initialized.  When SSL support is not compiled in, this function is
+       present but does nothing.
+-->
+<parameter>do_ssl</parameter>が非ゼロの時、<application>libpq</application>は最初のデータベース接続を開始する以前に<application>OpenSSL</application>ライブラリを初期化します。
+<parameter>do_crypto</parameter>が非ゼロの時、<literal>libcrypto</literal>ライブラリが初期化されます。
+デフォルトでは（<xref linkend="libpq-PQinitOpenSSL"/>が呼ばれない場合）、両方のライブラリが初期化されます。
+SSLサポートがコンパイルされていない場合、この関数は存在しますが何もしません。
+      </para>
+
+      <para>
+<!--
+       If your application uses and initializes either <application>OpenSSL</application>
+       or its underlying <literal>libcrypto</literal> library, you <emphasis>must</emphasis>
+       call this function with zeroes for the appropriate parameter(s)
+       before first opening a database connection.  Also be sure that you
+       have done that initialization before opening a database connection.
+-->
+使用するアプリケーションが<application>OpenSSL</application>またはその基礎をなす<literal>libcrypto</literal>ライブラリのいずれかを使用し、そして初期化するのであれば、最初のデータベース接続開始以前に、適切なパラメータをゼロにしてこの関数を呼び出さなければ<emphasis>なりません</emphasis>。
+同時に、データベース接続開始前に初期化を行ったことの確認をしてください。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQinitSSL">
+     <term><function>PQinitSSL</function><indexterm><primary>PQinitSSL</primary></indexterm></term><listitem>
+      <para>
+<!--
+       Allows applications to select which security libraries to initialize.
+-->
+アプリケーションがどのセキュリティライブラリを初期化するか選択することができます。
+<synopsis>
+void PQinitSSL(int do_ssl);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function is equivalent to
+       <literal>PQinitOpenSSL(do_ssl, do_ssl)</literal>.
+       It is sufficient for applications that initialize both or neither
+       of <application>OpenSSL</application> and <literal>libcrypto</literal>.
+-->
+この関数は<literal>PQinitOpenSSL(do_ssl, do_ssl)</literal>と等価です。
+<application>OpenSSL</application>および<literal>libcrypto</literal>の両方を初期化する、もしくは両方ともしないアプリケーションにとっては（この関数で）十分です。
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQinitSSL"/> has been present since
+       <productname>PostgreSQL</productname> 8.0, while <xref linkend="libpq-PQinitOpenSSL"/>
+       was added in <productname>PostgreSQL</productname> 8.4, so <xref linkend="libpq-PQinitSSL"/>
+       might be preferable for applications that need to work with older
+       versions of <application>libpq</application>.
+-->
+<productname>PostgreSQL</productname> 8.0以降、<xref linkend="libpq-PQinitSSL"/>は含まれていますが、<xref linkend="libpq-PQinitOpenSSL"/>は<productname>PostgreSQL</productname> 8.4で追加されました。
+従って、旧バージョンの<application>libpq</application>で動かす必要があるアプリケーションでは<xref linkend="libpq-PQinitSSL"/>の方が好ましいかもしれません。
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </para>
+ </sect2>
+
+ </sect1>
+
+
+ <sect1 id="libpq-threading">
+<!--
+  <title>Behavior in Threaded Programs</title>
+-->
+  <title>スレッド化プログラムの振舞い</title>
+
+  <indexterm zone="libpq-threading">
+<!--
+   <primary>threads</primary>
+   <secondary>with libpq</secondary>
+-->
+   <primary>スレッド</primary>
+   <secondary>libpqにおける</secondary>
+  </indexterm>
+
+  <para>
+<!--
+   <application>libpq</application> is reentrant and thread-safe by default.
+   You might need to use special compiler command-line
+   options when you compile your application code.  Refer to your
+   system's documentation for information about how to build
+   thread-enabled applications, or look in
+   <filename>src/Makefile.global</filename> for <literal>PTHREAD_CFLAGS</literal>
+   and <literal>PTHREAD_LIBS</literal>.  This function allows the querying of
+   <application>libpq</application>'s thread-safe status:
+-->
+デフォルトで<application>libpq</application>は再入可能、かつ、スレッドセーフです。
+アプリケーションコードをコンパイルする時にコンパイラの特殊なコマンドラインオプションを使う必要があるかもしれません。
+スレッドを有効にしたアプリケーションの構築方法についての情報は、使用するシステムの文書を参照してください。
+また、<literal>PTHREAD_CFLAGS</literal>と<literal>PTHREAD_LIBS</literal>に関して<filename>src/Makefile.global</filename>も一読してください。
+以下の関数により、<application>libpq</application>のスレッドセーフ状態を確認することができます。
+  </para>
+
+  <variablelist>
+   <varlistentry id="libpq-PQisthreadsafe">
+    <term><function>PQisthreadsafe</function><indexterm><primary>PQisthreadsafe</primary></indexterm></term>
+
+    <listitem>
+     <para>
+<!--
+      Returns the thread safety status of the
+      <application>libpq</application> library.
+-->
+<application>libpq</application>ライブラリのスレッドセーフ状態を返します。
+<synopsis>
+int PQisthreadsafe();
+</synopsis>
+     </para>
+
+     <para>
+<!--
+      Returns 1 if the <application>libpq</application> is thread-safe
+      and 0 if it is not.
+-->
+<application>libpq</application>がスレッドセーフの場合1が、さもなくば0が返ります。
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+<!--
+   One thread restriction is that no two threads attempt to manipulate
+   the same <structname>PGconn</structname> object at the same time. In particular,
+   you cannot issue concurrent commands from different threads through
+   the same connection object. (If you need to run concurrent commands,
+   use multiple connections.)
+-->
+スレッドに関する1つの制限として、異なるスレッドから同時に同一の<structname>PGconn</structname>オブジェクトを操作することはできません。
+具体的には、異なるスレッドから同一接続オブジェクトを介してコマンドを同時に発行することができません。
+(コマンドの同時実行が必要な場合、接続を複数使用してください。)
+  </para>
+
+  <para>
+<!--
+   <structname>PGresult</structname> objects are normally read-only after creation,
+   and so can be passed around freely between threads.  However, if you use
+   any of the <structname>PGresult</structname>-modifying functions described in
+   <xref linkend="libpq-misc"/> or <xref linkend="libpq-events"/>, it's up
+   to you to avoid concurrent operations on the same <structname>PGresult</structname>,
+   too.
+-->
+<structname>PGresult</structname>オブジェクトは生成後、読み込み専用であり、そのためスレッド間で自由に渡すことができます。
+しかし<xref linkend="libpq-misc"/>や<xref linkend="libpq-events"/>で説明する<structname>PGresult</structname>を変更する関数のいずれかを使用している場合、同一の<structname>PGresult</structname>に対する同時操作を防ぐことも、作成者の責任です。
+  </para>
+
+  <para>
+<!--
+   The deprecated functions <xref linkend="libpq-PQrequestCancel"/> and
+   <xref linkend="libpq-PQoidStatus"/> are not thread-safe and should not be
+   used in multithread programs.  <xref linkend="libpq-PQrequestCancel"/>
+   can be replaced by <xref linkend="libpq-PQcancel"/>.
+   <xref linkend="libpq-PQoidStatus"/> can be replaced by
+   <xref linkend="libpq-PQoidValue"/>.
+-->
+非推奨の関数、<xref linkend="libpq-PQrequestCancel"/>や<xref linkend="libpq-PQoidStatus"/>はスレッドセーフではありませんので、マルチスレッドプログラムでは使用してはなりません。
+<xref linkend="libpq-PQrequestCancel"/>は<xref linkend="libpq-PQcancel"/>に、<xref linkend="libpq-PQoidStatus"/>は<xref linkend="libpq-PQoidValue"/>に置き換えることができます。
+  </para>
+
+  <para>
+<!--
+   If you are using Kerberos inside your application (in addition to inside
+   <application>libpq</application>), you will need to do locking around
+   Kerberos calls because Kerberos functions are not thread-safe.  See
+   function <function>PQregisterThreadLock</function> in the
+   <application>libpq</application> source code for a way to do cooperative
+   locking between <application>libpq</application> and your application.
+-->
+(<application>libpq</application>の内部に加えて)アプリケーション中でKerberosを利用している場合、Kerberos関数はスレッドセーフではありませんのでKerberos呼び出しの前後をロックする必要があるでしょう。
+<application>libpq</application>とアプリケーション間のロック処理を協調させる方法として<application>libpq</application>のソースコードの<function>PQregisterThreadLock</function>関数を参照してください。
+  </para>
+ </sect1>
+
+
+ <sect1 id="libpq-build">
+<!--
+  <title>Building <application>libpq</application> Programs</title>
+-->
+  <title><application>libpq</application>プログラムの構築</title>
+
+  <indexterm zone="libpq-build">
+<!--
+   <primary>compiling</primary>
+   <secondary>libpq applications</secondary>
+-->
+   <primary>コンパイル</primary>
+   <secondary>libpq アプリケーション</secondary>
+  </indexterm>
+
+  <para>
+<!--
+   To build (i.e., compile and link) a program using
+   <application>libpq</application> you need to do all of the following
+   things:
+-->
+<application>libpq</application>を使用するプログラムの構築(つまり、コンパイルとリンク)を行うためには、以下をすべて実施する必要があります。
+
+   <itemizedlist>
+    <listitem>
+     <para>
+<!--
+      Include the <filename>libpq-fe.h</filename> header file:
+-->
+<filename>libpq-fe.h</filename>ヘッダファイルをインクルードします。
+<programlisting>
+#include &lt;libpq-fe.h&gt;
+</programlisting>
+<!--
+      If you failed to do that then you will normally get error messages
+      from your compiler similar to:
+-->
+これを忘れると、通常コンパイラから以下のようなエラーメッセージが発生します。
+<screen>
+foo.c: In function `main':
+foo.c:34: `PGconn' undeclared (first use in this function)
+foo.c:35: `PGresult' undeclared (first use in this function)
+foo.c:54: `CONNECTION_BAD' undeclared (first use in this function)
+foo.c:68: `PGRES_COMMAND_OK' undeclared (first use in this function)
+foo.c:95: `PGRES_TUPLES_OK' undeclared (first use in this function)
+</screen>
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+<!--
+      Point your compiler to the directory where the <productname>PostgreSQL</productname> header
+      files were installed, by supplying the
+      <literal>-I<replaceable>directory</replaceable></literal> option
+      to your compiler.  (In some cases the compiler will look into
+      the directory in question by default, so you can omit this
+      option.)  For instance, your compile command line could look
+      like:
+-->
+コンパイラに<literal>-I<replaceable>directory</replaceable></literal>オプションを付与することで、コンパイラに<productname>PostgreSQL</productname>ヘッダファイルをインストールしたディレクトリを通知します。
+（デフォルトでこのディレクトリを検索するコンパイラもあります。
+その場合はこのオプションを省くことができます。）
+例えば、以下のようなコンパイルコマンドになります。
+<programlisting>
+cc -c -I/usr/local/pgsql/include testprog.c
+</programlisting>
+<!--
+      If you are using makefiles then add the option to the
+      <varname>CPPFLAGS</varname> variable:
+-->
+Makefileを使用しているのであれば、<varname>CPPFLAGS</varname>変数にこのオプションを追加してください。
+<programlisting>
+CPPFLAGS += -I/usr/local/pgsql/include
+</programlisting>
+     </para>
+
+     <para>
+<!--
+      If there is any chance that your program might be compiled by
+      other users then you should not hardcode the directory location
+      like that.  Instead, you can run the utility
+      <command>pg_config</command><indexterm><primary>pg_config</primary><secondary
+      sortas="libpq">with libpq</secondary></indexterm> to find out where the header
+      files are on the local system:
+-->
+他のユーザがそのプログラムをコンパイルする可能性がある場合は、上のようにディレクトリの場所を直接書き込むべきではありません。
+その代わりに<command>pg_config</command><indexterm><primary>pg_config</primary><secondary sortas="libpq">libpqにおける</secondary></indexterm>ユーティリティを実行して、各システムにおけるヘッダファイルの在処を検索させることができます。
+<screen>
+<prompt>$</prompt> pg_config --includedir
+<computeroutput>/usr/local/include</computeroutput>
+</screen>
+     </para>
+
+     <para>
+<!--
+      If you
+      have <command>pkg-config</command><indexterm><primary>pkg-config</primary><secondary sortas="libpq">with
+      libpq</secondary></indexterm> installed, you can run instead:
+-->
+もしも、<command>pkg-config</command>がインストールされている場合、代わりとして以下を実行します。<indexterm><primary>pkg-config</primary><secondary sortas="libpq">libpqにおける</secondary></indexterm>
+<screen>
+<prompt>$</prompt> pkg-config --cflags libpq
+<computeroutput>-I/usr/local/include</computeroutput>
+</screen>
+<!--
+      Note that this will already include the <option>-I</option> in front of
+      the path.
+-->
+これは既にパスの最前部で<option>-I</option>が含まれていることに注意してください。
+     </para>
+
+     <para>
+<!--
+      Failure to specify the correct option to the compiler will
+      result in an error message such as:
+-->
+正確なオプションを指定できなかった結果、コンパイラは以下のようなエラーメッセージを生成します。
+<screen>
+testlibpq.c:8:22: libpq-fe.h: No such file or directory
+</screen>
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+<!--
+      When linking the final program, specify the option
+      <literal>-lpq</literal> so that the <application>libpq</application>
+      library gets pulled in, as well as the option
+      <literal>-L<replaceable>directory</replaceable></literal> to point
+      the compiler to the directory where the
+      <application>libpq</application> library resides.  (Again, the
+      compiler will search some directories by default.)  For maximum
+      portability, put the <option>-L</option> option before the
+      <option>-lpq</option> option.  For example:
+-->
+最終的なプログラムのリンク時、<literal>-lpq</literal>オプションを指定して、<application>libpq</application>ライブラリを組み込んでください。
+同時に<literal>-L<replaceable>directory</replaceable></literal>オプションを指定して、コンパイラに<application>libpq</application>ライブラリの在処を通知してください。
+（繰り返しますが、コンパイラはデフォルトでいくつかのディレクトリを検索します。）
+移植性を最大にするために、<option>-lpq</option>オプションの前に<option>-L</option>を記述してください。
+以下に例を示します。
+<programlisting>
+cc -o testprog testprog1.o testprog2.o -L/usr/local/pgsql/lib -lpq
+</programlisting>
+     </para>
+
+     <para>
+<!--
+      You can find out the library directory using
+      <command>pg_config</command> as well:
+-->
+同様に<command>pg_config</command>を使用してライブラリのあるディレクトリを見つけることもできます。
+<screen>
+<prompt>$</prompt> pg_config --libdir
+<computeroutput>/usr/local/pgsql/lib</computeroutput>
+</screen>
+     </para>
+
+     <para>
+<!--
+      Or again use <command>pkg-config</command>:
+-->
+さもなくば、この場合もやはり<command>pkg-config</command>を使用します。
+<screen>
+<prompt>$</prompt> pkg-config --libs libpq
+<computeroutput>-L/usr/local/pgsql/lib -lpq</computeroutput>
+</screen>
+<!--
+      Note again that this prints the full options, not only the path.
+-->
+重ねて、これはパスのみならず全てのオプションを表示することに注意してください。
+     </para>
+
+     <para>
+<!--
+      Error messages that point to problems in this area could look like
+      the following:
+-->
+この部分で問題があった場合のエラーメッセージは以下のようなものになります。
+<screen>
+testlibpq.o: In function `main':
+testlibpq.o(.text+0x60): undefined reference to `PQsetdbLogin'
+testlibpq.o(.text+0x71): undefined reference to `PQstatus'
+testlibpq.o(.text+0xa4): undefined reference to `PQerrorMessage'
+</screen>
+<!--
+      This means you forgot <option>-lpq</option>.
+-->
+これは<option>-lpq</option>の付け忘れを示します。
+<screen>
+/usr/bin/ld: cannot find -lpq
+</screen>
+<!--
+      This means you forgot the <option>-L</option> option or did not
+      specify the right directory.
+-->
+これは<option>-L</option>の付け忘れ、あるいは、ディレクトリ指定の間違いを示します。
+     </para>
+    </listitem>
+   </itemizedlist>
+  </para>
+
+ </sect1>
+
+
+ <sect1 id="libpq-example">
+<!--
+  <title>Example Programs</title>
+-->
+  <title>サンプルプログラム</title>
+
+  <para>
+<!--
+   These examples and others can be found in the
+   directory <filename>src/test/examples</filename> in the source code
+   distribution.
+-->
+以下を含むサンプルプログラムが、ソースコード配布物内の<filename>src/test/examples</filename>ディレクトリにあります。
+  </para>
+
+  <example id="libpq-example-1">
+<!--
+   <title><application>libpq</application> Example Program 1</title>
+-->
+   <title><application>libpq</application> サンプルプログラム 1</title>
+
+<programlisting>
+<![CDATA[
+/*
+ * src/test/examples/testlibpq.c
+ *
+ *
+ * testlibpq.c
+ *
+]]><!--
+ *      Test the C version of libpq, the PostgreSQL frontend library.
+--><![CDATA[
+ *              C言語PostgreSQLフロントエンドライブラリlibpqの試験
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include "libpq-fe.h"
+
+static void
+exit_nicely(PGconn *conn)
+{
+    PQfinish(conn);
+    exit(1);
+}
+
+int
+main(int argc, char **argv)
+{
+    const char *conninfo;
+    PGconn     *conn;
+    PGresult   *res;
+    int         nFields;
+    int         i,
+                j;
+
+    /*
+]]><!--
+     * If the user supplies a parameter on the command line, use it as the
+     * conninfo string; otherwise default to setting dbname=postgres and using
+     * environment variables or defaults for all other connection parameters.
+--><![CDATA[
+     * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
+     * 提供されない場合はデフォルトでdbname=postgresを使用する。
+     * その他の接続パラメータについては環境変数やデフォルトを使用する。
+     */
+    if (argc > 1)
+        conninfo = argv[1];
+    else
+        conninfo = "dbname = postgres";
+
+]]><!--
+    /* Make a connection to the database */
+--><![CDATA[
+    /* データベースとの接続を確立する */
+    conn = PQconnectdb(conninfo);
+
+]]><!--
+    /* Check to see that the backend connection was successfully made */
+--><![CDATA[
+    /* バックエンドとの接続確立に成功したかを確認する */
+    if (PQstatus(conn) != CONNECTION_OK)
+    {
+        fprintf(stderr, "Connection to database failed: %s",
+                PQerrorMessage(conn));
+        exit_nicely(conn);
+    }
+
+]]><!--
+    /* Set always-secure search path, so malicious users can't take control. */
+--><![CDATA[
+    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */
+    res = PQexec(conn,
+                 "SELECT pg_catalog.set_config('search_path', '', false)");
+    if (PQresultStatus(res) != PGRES_TUPLES_OK)
+    {
+        fprintf(stderr, "SET failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+
+    /*
+]]><!--
+     * Should PQclear PGresult whenever it is no longer needed to avoid memory
+     * leaks
+--><![CDATA[
+     * メモリリークを避けるため、必要なくなったときにはいつでもPGresultを 
+     * PQclearすべき
+     */
+    PQclear(res);
+
+    /*
+]]><!--
+     * Our test case here involves using a cursor, for which we must be inside
+     * a transaction block.  We could do the whole thing with a single
+     * PQexec() of "select * from pg_database", but that's too trivial to make
+     * a good example.
+--><![CDATA[
+     * この試験ケースではカーソルを使用する。
+     * そのため、トランザクションブロック内で実行する必要がある。
+     * すべてを単一の"select * from pg_database"というPQexec()で行うこと
+     * も可能だが、例としては簡単過ぎる。
+     */
+
+]]><!--
+    /* Start a transaction block */
+--><![CDATA[
+    /* トランザクションブロックを開始する。 */
+    res = PQexec(conn, "BEGIN");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+    {
+        fprintf(stderr, "BEGIN command failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+    PQclear(res);
+
+    /*
+]]><!--
+     * Fetch rows from pg_database, the system catalog of databases
+--><![CDATA[
+     * データベースのシステムカタログpg_databaseから行を取り出す。
+     */
+    res = PQexec(conn, "DECLARE myportal CURSOR FOR select * from pg_database");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+    {
+        fprintf(stderr, "DECLARE CURSOR failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+    PQclear(res);
+
+    res = PQexec(conn, "FETCH ALL in myportal");
+    if (PQresultStatus(res) != PGRES_TUPLES_OK)
+    {
+        fprintf(stderr, "FETCH ALL failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+
+]]><!--
+    /* first, print out the attribute names */
+--><![CDATA[
+    /* まず属性名を表示する。 */
+    nFields = PQnfields(res);
+    for (i = 0; i < nFields; i++)
+        printf("%-15s", PQfname(res, i));
+    printf("\n\n");
+
+]]><!--
+    /* next, print out the rows */
+--><![CDATA[
+    /* そして行を表示する。 */
+    for (i = 0; i < PQntuples(res); i++)
+    {
+        for (j = 0; j < nFields; j++)
+            printf("%-15s", PQgetvalue(res, i, j));
+        printf("\n");
+    }
+
+    PQclear(res);
+
+]]><!--
+    /* close the portal ... we don't bother to check for errors ... */
+--><![CDATA[
+    /* ポータルを閉ざす。ここではエラーチェックは省略した… */
+    res = PQexec(conn, "CLOSE myportal");
+    PQclear(res);
+
+]]><!--
+    /* end the transaction */
+--><![CDATA[
+    /* トランザクションを終了する */
+    res = PQexec(conn, "END");
+    PQclear(res);
+
+]]><!--
+    /* close the connection to the database and cleanup */
+--><![CDATA[
+    /* データベースとの接続を閉じ、後始末を行う。 */
+    PQfinish(conn);
+
+    return 0;
+}
+]]>
+</programlisting>
+  </example>
+
+  <example id="libpq-example-2">
+<!--
+   <title><application>libpq</application> Example Program 2</title>
+-->
+   <title><application>libpq</application> サンプルプログラム 2</title>
+
+<programlisting>
+<![CDATA[
+/*
+ * src/test/examples/testlibpq2.c
+ *
+ *
+ * testlibpq2.c
+]]><!--
+ *      Test of the asynchronous notification interface
+--><![CDATA[
+ *              非同期通知インタフェースの試験
+ *
+]]><!--
+ * Start this program, then from psql in another window do
+ *   NOTIFY TBL2;
+ * Repeat four times to get this program to exit.
+--><![CDATA[
+ * このプログラムを起動し、別ウィンドウからpsqlを使用して以下を実行してください。
+ *   NOTIFY TBL2;
+ * 4回繰り返すとこのプログラムは終了します。
+ *
+]]><!--
+ * Or, if you want to get fancy, try this:
+ * populate a database with the following commands
+ * (provided in src/test/examples/testlibpq2.sql):
+--><![CDATA[
+ * もう少し凝りたければ、以下を実施してください。
+ * 以下のコマンド(src/test/examples/testlibpq2.sqlで提供)でデータベースを作成します。
+ *
+ *   CREATE SCHEMA TESTLIBPQ2;
+ *   SET search_path = TESTLIBPQ2;
+ *   CREATE TABLE TBL1 (i int4);
+ *   CREATE TABLE TBL2 (i int4);
+ *   CREATE RULE r1 AS ON INSERT TO TBL1 DO
+ *     (INSERT INTO TBL2 VALUES (new.i); NOTIFY TBL2);
+ *
+ * Start this program, then from psql do this four times:
+ *
+ *   INSERT INTO TESTLIBPQ2.TBL1 VALUES (10);
+ */
+
+#ifdef WIN32
+#include <windows.h>
+#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
+
+#include "libpq-fe.h"
+
+static void
+exit_nicely(PGconn *conn)
+{
+    PQfinish(conn);
+    exit(1);
+}
+
+int
+main(int argc, char **argv)
+{
+    const char *conninfo;
+    PGconn     *conn;
+    PGresult   *res;
+    PGnotify   *notify;
+    int         nnotifies;
+
+    /*
+]]><!--
+     * If the user supplies a parameter on the command line, use it as the
+     * conninfo string; otherwise default to setting dbname=postgres and using
+     * environment variables or defaults for all other connection parameters.
+--><![CDATA[
+     * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
+     * 提供されない場合はデフォルトでdbname=postgresを使用する。
+     * その他の接続パラメータについては環境変数やデフォルトを使用する。
+     */
+    if (argc > 1)
+        conninfo = argv[1];
+    else
+        conninfo = "dbname = postgres";
+
+]]><!--
+    /* Make a connection to the database */
+--><![CDATA[
+    /* データベースとの接続を確立する。 */
+    conn = PQconnectdb(conninfo);
+
+]]><!--
+    /* Check to see that the backend connection was successfully made */
+--><![CDATA[
+    /* バックエンドとの接続確立に成功したかを確認する */
+    if (PQstatus(conn) != CONNECTION_OK)
+    {
+        fprintf(stderr, "Connection to database failed: %s",
+                PQerrorMessage(conn));
+        exit_nicely(conn);
+    }
+
+]]><!--
+    /* Set always-secure search path, so malicious users can't take control. */
+--><![CDATA[
+    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */
+    res = PQexec(conn,
+                 "SELECT pg_catalog.set_config('search_path', '', false)");
+    if (PQresultStatus(res) != PGRES_TUPLES_OK)
+    {
+        fprintf(stderr, "SET failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+
+    /*
+     * Should PQclear PGresult whenever it is no longer needed to avoid memory
+     * leaks
+     */
+    PQclear(res);
+
+    /*
+]]><!--
+     * Issue LISTEN command to enable notifications from the rule's NOTIFY.
+--><![CDATA[
+     * LISTENコマンドを発行して、INSERTルールによる通知を有効にする。
+     */
+    res = PQexec(conn, "LISTEN TBL2");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+    {
+        fprintf(stderr, "LISTEN command failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+    PQclear(res);
+
+]]><!--
+    /* Quit after four notifies are received. */
+--><![CDATA[
+    /* 4回通知を受けたら終了する。 */
+    nnotifies = 0;
+    while (nnotifies < 4)
+    {
+        /*
+]]><!--
+         * Sleep until something happens on the connection.  We use select(2)
+         * to wait for input, but you could also use poll() or similar
+         * facilities.
+--><![CDATA[
+         * その接続で何かが起こるまで待機する。ここでは入力待ちのために
+         * select(2)を使用する。poll()や類似機能を使用することも可能
+         * である。
+         */
+        int         sock;
+        fd_set      input_mask;
+
+        sock = PQsocket(conn);
+
+        if (sock < 0)
+]]><!--
+            break;              /* shouldn't happen */
+--><![CDATA[
+            break;              /* 発生してはならない。 */
+
+        FD_ZERO(&input_mask);
+        FD_SET(sock, &input_mask);
+
+        if (select(sock + 1, &input_mask, NULL, NULL, NULL) < 0)
+        {
+            fprintf(stderr, "select() failed: %s\n", strerror(errno));
+            exit_nicely(conn);
+        }
+
+]]><!--
+        /* Now check for input */
+--><![CDATA[
+        /* ここで入力を確認する。 */
+        PQconsumeInput(conn);
+        while ((notify = PQnotifies(conn)) != NULL)
+        {
+            fprintf(stderr,
+                    "ASYNC NOTIFY of '%s' received from backend PID %d\n",
+                    notify->relname, notify->be_pid);
+            PQfreemem(notify);
+            nnotifies++;
+            PQconsumeInput(conn);
+        }
+    }
+
+    fprintf(stderr, "Done.\n");
+
+]]><!--
+    /* close the connection to the database and cleanup */
+--><![CDATA[
+    /* データベースとの接続を閉じ、後始末を行う。 */
+    PQfinish(conn);
+
+    return 0;
+}
+]]>
+</programlisting>
+  </example>
+
+  <example id="libpq-example-3">
+<!--
+   <title><application>libpq</application> Example Program 3</title>
+-->
+   <title><application>libpq</application> サンプルプログラム 3</title>
+
+<programlisting>
+<![CDATA[
+/*
+ * src/test/examples/testlibpq3.c
+ *
+ *
+ * testlibpq3.c
+]]><!--
+ *      Test out-of-line parameters and binary I/O.
+--><![CDATA[
+ *      行以外のパラメータとバイナリI/Oの試験。
+ *
+]]><!--
+ * Before running this, populate a database with the following commands
+ * (provided in src/test/examples/testlibpq3.sql):
+--><![CDATA[
+ * 実行前に、以下のコマンド(src/test/examples/testlibpq3.sqlで提供)を使用して
+ * データベースを作成してください。
+ *
+ * CREATE SCHEMA testlibpq3;
+ * SET search_path = testlibpq3;
+ * SET standard_conforming_strings = ON;
+ * CREATE TABLE test1 (i int4, t text, b bytea);
+ * INSERT INTO test1 values (1, 'joe''s place', '\000\001\002\003\004');
+ * INSERT INTO test1 values (2, 'ho there', '\004\003\002\001\000');
+ *
+]]><!--
+ * The expected output is:
+--><![CDATA[
+ * 以下の出力が想定されます。
+ *
+ * tuple 0: got
+ *  i = (4 bytes) 1
+ *  t = (11 bytes) 'joe's place'
+ *  b = (5 bytes) \000\001\002\003\004
+ *
+ * tuple 0: got
+ *  i = (4 bytes) 2
+ *  t = (8 bytes) 'ho there'
+ *  b = (5 bytes) \004\003\002\001\000
+ */
+
+#ifdef WIN32
+#include <windows.h>
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/types.h>
+#include "libpq-fe.h"
+
+]]><!--
+/* for ntohl/htonl */
+--><![CDATA[
+/* ntohl/htonl用 */
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
+static void
+exit_nicely(PGconn *conn)
+{
+    PQfinish(conn);
+    exit(1);
+}
+
+/*
+]]><!--
+ * This function prints a query result that is a binary-format fetch from
+ * a table defined as in the comment above.  We split it out because the
+ * main() function uses it twice.
+--><![CDATA[
+ * この関数は上のコメントで定義したテーブルからバイナリフォーマットでフェッチした
+ * クエリ結果を表示します。
+ * main() 関数が2度使うので、結果を分割します。
+ */
+static void
+show_binary_results(PGresult *res)
+{
+    int         i,
+                j;
+    int         i_fnum,
+                t_fnum,
+                b_fnum;
+
+]]><!--
+    /* Use PQfnumber to avoid assumptions about field order in result */
+--><![CDATA[
+    /* 結果中の列オーダーの仮定を嫌うので PQfnumber を利用する */
+    /* PQfnumber  */
+    i_fnum = PQfnumber(res, "i");
+    t_fnum = PQfnumber(res, "t");
+    b_fnum = PQfnumber(res, "b");
+
+    for (i = 0; i < PQntuples(res); i++)
+    {
+        char       *iptr;
+        char       *tptr;
+        char       *bptr;
+        int         blen;
+        int         ival;
+
+]]><!--
+        /* Get the field values (we ignore possibility they are null!) */
+--><![CDATA[
+        /* 列の値を取得(NULLを出来る限り無視) */
+        iptr = PQgetvalue(res, i, i_fnum);
+        tptr = PQgetvalue(res, i, t_fnum);
+        bptr = PQgetvalue(res, i, b_fnum);
+
+        /*
+]]><!--
+         * The binary representation of INT4 is in network byte order, which
+         * we'd better coerce to the local byte order.
+--><![CDATA[
+         * INT4のバイナリ表現はネットワークバイトオーダーによる。
+         * よって、ローカルバイトオーダーに合わせた方が良い。
+         */
+        ival = ntohl(*((uint32_t *) iptr));
+
+        /*
+]]><!--
+         * The binary representation of TEXT is, well, text, and since libpq
+         * was nice enough to append a zero byte to it, it'll work just fine
+         * as a C string.
+--><![CDATA[
+         * TEXT型のバイナリ表現も同様にテキスト。
+         * 更にlibpqはその最後にゼロバイトを付与するので、
+         * C言語の文字列として単純に扱うことができる。
+         *
+]]><!--
+         * The binary representation of BYTEA is a bunch of bytes, which could
+         * include embedded nulls so we have to pay attention to field length.
+--><![CDATA[
+         * BYTEA のバイト表現はバイトの集まりである。
+         * null 埋め込みを含むのでフィールド長に注意を払わなければいけない。
+         */
+        blen = PQgetlength(res, i, b_fnum);
+
+        printf("tuple %d: got\n", i);
+        printf(" i = (%d bytes) %d\n",
+               PQgetlength(res, i, i_fnum), ival);
+        printf(" t = (%d bytes) '%s'\n",
+               PQgetlength(res, i, t_fnum), tptr);
+        printf(" b = (%d bytes) ", blen);
+        for (j = 0; j < blen; j++)
+            printf("\\%03o", bptr[j]);
+        printf("\n\n");
+    }
+}
+
+int
+main(int argc, char **argv)
+{
+    const char *conninfo;
+    PGconn     *conn;
+    PGresult   *res;
+    const char *paramValues[1];
+    int         paramLengths[1];
+    int         paramFormats[1];
+    uint32_t    binaryIntVal;
+
+    /*
+]]><!--
+     * If the user supplies a parameter on the command line, use it as the
+     * conninfo string; otherwise default to setting dbname=postgres and using
+     * environment variables or defaults for all other connection parameters.
+--><![CDATA[
+     * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
+     * 提供されない場合はデフォルトでdbname=postgresを使用する。
+     * その他の接続パラメータについては環境変数やデフォルトを使用する。
+     */
+    if (argc > 1)
+        conninfo = argv[1];
+    else
+        conninfo = "dbname = postgres";
+
+]]><!--
+    /* Make a connection to the database */
+--><![CDATA[
+    /* データベースとの接続を確立する */
+    conn = PQconnectdb(conninfo);
+
+]]><!--
+    /* Check to see that the backend connection was successfully made */
+--><![CDATA[
+    /* バックエンドとの接続確立に成功したかを確認する */
+    if (PQstatus(conn) != CONNECTION_OK)
+    {
+        fprintf(stderr, "Connection to database failed: %s",
+                PQerrorMessage(conn));
+        exit_nicely(conn);
+    }
+
+]]><!--
+    /* Set always-secure search path, so malicious users can't take control. */
+--><![CDATA[
+    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */
+    res = PQexec(conn, "SET search_path = testlibpq3");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+    {
+        fprintf(stderr, "SET failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+    PQclear(res);
+
+    /*
+]]><!--
+     * The point of this program is to illustrate use of PQexecParams() with
+     * out-of-line parameters, as well as binary transmission of data.
+--><![CDATA[
+     * このプログラムのポイントは、行外パラメータを持つPQexecParams()の使用方法、
+     * および、データのバイナリ転送を示すことである。
+     *
+]]><!--
+     * This first example transmits the parameters as text, but receives the
+     * results in binary format.  By using out-of-line parameters we can avoid
+     * a lot of tedious mucking about with quoting and escaping, even though
+     * the data is text.  Notice how we don't have to do anything special with
+     * the quote mark in the parameter value.
+--><![CDATA[
+     * この最初の例はパラメータをテキストとして渡す。
+     * しかし結果はバイナリフォーマットで受ける。
+     * 行外パラメータを使うことで、データがテキストであっても引用符付けや
+     * エスケープ処理といった多くの長たらしいゴミをなくすことができる。
+     * パラメータ値内部の引用符に対して特殊な処理を行う必要がないことに注目して
+     * ほしい。
+     */
+
+]]><!--
+    /* Here is our out-of-line parameter value */
+--><![CDATA[
+    /* 以下が行外パラメータの値である。 */
+    paramValues[0] = "joe's place";
+
+    res = PQexecParams(conn,
+                       "SELECT * FROM test1 WHERE t = $1",
+]]><!--
+                       1,       /* one param */
+                       NULL,    /* let the backend deduce param type */
+                       paramValues,
+                       NULL,    /* don't need param lengths since text */
+                       NULL,    /* default to all text params */
+                       1);      /* ask for binary results */
+--><![CDATA[
+                       1,           /* パラメータは1つ。 */
+                       NULL,        /* バックエンドにパラメータの型を推測させる。 */
+                       paramValues,
+                       NULL,        /* テキストのため、パラメータ長は不要。 */
+                       NULL,        /* デフォルトですべてのパラメータはテキスト。 */
+                       1);          /* バイナリ結果を要求。 */
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK)
+    {
+        fprintf(stderr, "SELECT failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+
+    show_binary_results(res);
+
+    PQclear(res);
+
+    /*
+]]><!--
+     * In this second example we transmit an integer parameter in binary form,
+     * and again retrieve the results in binary form.
+--><![CDATA[
+     * 2つ目の例は、バイナリフォームの中で整数値パラメータを渡す。
+     * そして再びバイナリフォームで結果を受け取る。
+     *
+]]><!--
+     * Although we tell PQexecParams we are letting the backend deduce
+     * parameter type, we really force the decision by casting the parameter
+     * symbol in the query text.  This is a good safety measure when sending
+     * binary parameters.
+--><![CDATA[
+     * バックエンドにパラメータタイプを推測させていると PQexecParams に伝えるが、
+     * クエリテキストの中にパラメータシンボルを入れることによって 強制的に決定する。
+     * これはバイナリパラメータに送るときに安全で良い大きさである。
+     */
+
+]]><!--
+    /* Convert integer value "2" to network byte order */
+--><![CDATA[
+    /* 整数値 "2" をネットワークバイトオーダーに変換 */
+    binaryIntVal = htonl((uint32_t) 2);
+
+]]><!--
+    /* Set up parameter arrays for PQexecParams */
+--><![CDATA[
+    /* PQexecParams 用にパラメータ配列をセットする */
+    paramValues[0] = (char *) &binaryIntVal;
+    paramLengths[0] = sizeof(binaryIntVal);
+]]><!--
+    paramFormats[0] = 1;        /* binary */
+--><![CDATA[
+    paramFormats[0] = 1;        /* バイナリ */
+
+    res = PQexecParams(conn,
+                       "SELECT * FROM test1 WHERE i = $1::int4",
+]]><!--
+                       1,       /* one param */
+                       NULL,    /* let the backend deduce param type */
+--><![CDATA[
+                       1,       /* パラメータは1つ */
+                       NULL,    /* バックエンドにパラメータの型を推測させる。 */
+                       paramValues,
+                       paramLengths,
+                       paramFormats,
+]]><!--
+                       1);      /* ask for binary results */
+--><![CDATA[
+                       1);      /* バイナリ結果を要求。 */
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK)
+    {
+        fprintf(stderr, "SELECT failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        exit_nicely(conn);
+    }
+
+    show_binary_results(res);
+
+    PQclear(res);
+
+]]><!--
+    /* close the connection to the database and cleanup */
+--><![CDATA[
+    /* データベースとの接続を閉じ、後始末を行う。 */
+    PQfinish(conn);
+
+    return 0;
+}
+]]>
+</programlisting>
+  </example>
+
+ </sect1>
+</chapter>
+<!-- split-libpq3-end -->

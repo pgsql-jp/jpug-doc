@@ -1,14 +1,22 @@
 <!-- doc/src/sgml/plhandler.sgml -->
 
  <chapter id="plhandler">
+<!--
    <title>Writing a Procedural Language Handler</title>
+-->
+   <title>手続き言語ハンドラの作成</title>
 
    <indexterm zone="plhandler">
+<!--
     <primary>procedural language</primary>
     <secondary>handler for</secondary>
+-->
+    <primary>手続き言語</primary>
+    <secondary>の作成</secondary>
    </indexterm>
 
    <para>
+<!--
     All calls to functions that are written in a language other than
     the current <quote>version 1</quote> interface for compiled
     languages (this includes functions in user-defined procedural languages
@@ -17,9 +25,15 @@
     the call handler to execute the function in a meaningful way, such
     as by interpreting the supplied source text.  This chapter outlines
     how a new procedural language's call handler can be written.
+-->
+現在のコンパイル言語用<quote>Version-1</quote>インタフェース以外のある言語で作成された関数の呼び出しはすべて、特定の言語用の<firstterm>呼び出しハンドラ</firstterm>を経由します
+（これには、ユーザ定義手続き言語で作成された関数、SQLで作成された関数が含まれます）。
+提供されたソーステキストを解釈するなどによって、関数の実行を意味のある方法で行うことは、呼び出しハンドラの責任です。
+本章では、どのように新しい手続き言語の呼び出しハンドラを作成できるかについて概要を示します。
    </para>
 
    <para>
+<!--
     The call handler for a procedural language is a
     <quote>normal</quote> function that must be written in a compiled
     language such as C, using the version-1 interface, and registered
@@ -29,9 +43,14 @@
     prevents it from being called directly in SQL commands.
     For more details on C language calling conventions and dynamic loading,
     see <xref linkend="xfunc-c"/>.
+-->
+手続き言語用の呼び出しハンドラは<quote>通常</quote>の関数で、Cなどのコンパイル言語で作成し、Version-1インタフェースを使用し、引数を取らずに<type>language_handler</type>を返すものとして<productname>PostgreSQL</productname>に登録しなければなりません。
+この特殊な仮想型は、その関数を呼び出しハンドラとして識別し、SQLコマンド内で直接その関数が呼び出されることを防止します。
+C言語の呼び出し規約と動的ロードについては<xref linkend="xfunc-c"/>を参照してください。
    </para>
 
    <para>
+<!--
     The call handler is called in the same way as any other function:
     It receives a pointer to a
     <structname>FunctionCallInfoBaseData</structname> <type>struct</type> containing
@@ -48,9 +67,16 @@
     which function to execute.  Also, the passed argument list has
     been set up according to the declaration of the target function,
     not of the call handler.
+-->
+呼び出しハンドラは、他の関数と同じ方法で呼び出されます。
+引数値と呼び出された関数についての情報を含む<structname>FunctionCallInfoBaseData</structname> <type>struct</type>のポインタを受け取り、<type>Datum</type>型の結果を返すもの（そして、SQLのNULLという結果を返そうとする場合に、<structname>FunctionCallInfoBaseData</structname>構造体の<structfield>isnull</structfield>フィールドを設定するかもしれないもの）と想定されています。
+呼び出しハンドラと通常の呼び出される関数との違いは、<structname>FunctionCallInfoBaseData</structname>構造体の<structfield>flinfo-&gt;fn_oid</structfield>に、呼び出しハンドラ自身ではなく、実際に呼び出される関数のOIDが含まれるという点です。
+呼び出しハンドラはこのフィールドを使用して、どの関数を呼び出すのかを決定しなければなりません。
+また、渡された引数リストは、呼び出しハンドラの宣言ではなく、目的とする関数の宣言に従うよう設定されています。
    </para>
 
    <para>
+<!--
     It's up to the call handler to fetch the entry of the function from the
     <classname>pg_proc</classname> system catalog and to analyze the argument
     and return types of the called function. The <literal>AS</literal> clause from the
@@ -60,9 +86,14 @@
     text in the procedural language, but in theory it could be something else,
     such as a path name to a file, or anything else that tells the call handler
     what to do in detail.
+-->
+<classname>pg_proc</classname>システムカタログから関数のエントリを取り出し、呼び出される関数の引数と戻り値の型を解析するまでを呼び出しハンドラが行います。
+関数の<command>CREATE FUNCTION</command>コマンドの<literal>AS</literal>句は、<classname>pg_proc</classname>の行の<literal>prosrc</literal>列にあります。
+これは通常、手続き言語自体で作成されたソーステキストですが、理論上はファイルへのパス名や、何らかの呼び出しハンドラに詳細に何をすべきかを通知するものとすることもできます。
    </para>
 
    <para>
+<!--
     Often, the same function is called many times per SQL statement.
     A call handler can avoid repeated lookups of information about the
     called function by using the
@@ -82,9 +113,21 @@
     <structname>FmgrInfo</structname> itself.  But the handler could
     also choose to use a longer-lived memory context so that it can cache
     function definition information across queries.
+-->
+1つのSQL文で同じ関数が何回も呼び出されることがよくあります。
+呼び出しハンドラは、<structfield>flinfo-&gt;fn_extra</structfield>フィールドを使用して、呼び出す関数に関する情報を繰り返し検索することを防ぐことができます。
+これは初期状態では<symbol>NULL</symbol>ですが、呼び出しハンドラによって呼び出す関数の情報を指すように設定することもできます。
+その後の呼び出しでは、<structfield>flinfo-&gt;fn_extra</structfield>が非<symbol>NULL</symbol>であれば、それを使用して、情報検索の段階を省略することができます。
+呼び出しハンドラは<structfield>flinfo-&gt;fn_extra</structfield>が少なくとも現在の問い合わせの終了まで有効なメモリを指しているかどうかを確認しなければなりません。
+<structname>FmgrInfo</structname>データ構造体は長く保持される可能性があるからです。
+この方法の1つとして、<structfield>flinfo-&gt;fn_mcxt</structfield>で指定されたメモリコンテキスト内に余分なデータを割り当てることです。
+このデータは通常<structname>FmgrInfo</structname>自身と同期間有効です。
+しかし、ハンドラはまた、長時間メモリコンテキストにあるものを使用するかどうかを選ぶこともできます。
+これにより関数定義情報を、問い合わせをまたいでキャッシュすることができます。
    </para>
 
    <para>
+<!--
     When a procedural-language function is invoked as a trigger, no arguments
     are passed in the usual way, but the
     <structname>FunctionCallInfoBaseData</structname>'s
@@ -93,6 +136,9 @@
     as it is in a plain function call.  A language handler should
     provide mechanisms for procedural-language functions to get at the trigger
     information.
+-->
+手続き言語関数がトリガとして呼び出された場合、引数は通常の方法では渡されず、<structname>FunctionCallInfoBaseData</structname>の<structfield>context</structfield>フィールドが、普通の関数呼び出しのように<symbol>NULL</symbol>にはならずに、<structname>TriggerData</structname>構造体を指しています。
+呼び出しハンドラは、手続き言語に対しトリガ情報を取り出す機構を提供しなければなりません。
    </para>
 
    <para>
@@ -103,6 +149,7 @@
    </para>
 
    <para>
+<!--
     Although providing a call handler is sufficient to create a minimal
     procedural language, there are two other functions that can optionally
     be provided to make the language more convenient to use.  These
@@ -112,9 +159,15 @@
     <xref linkend="sql-createfunction"/>.
     An inline handler can be provided to allow the language to support
     anonymous code blocks executed via the <xref linkend="sql-do"/> command.
+-->
+最低限の手続き言語を作成する場合には呼び出しハンドラを提供するだけで十分ですが、他にも省略可能ですが、その言語の利用をより簡便にするために提供できる2つの関数があります。
+これらは<firstterm>有効性検証関数</firstterm>と<firstterm>インラインハンドラ</firstterm>です。
+有効性検証関数を提供して、<xref linkend="sql-createfunction"/>時に言語固有の検査を行うことができます。
+インラインハンドラを提供して、言語に<xref linkend="sql-do"/>コマンド経由の匿名コードブロック実行をサポートさせることができます。
    </para>
 
    <para>
+<!--
     If a validator is provided by a procedural language, it
     must be declared as a function taking a single parameter of type
     <type>oid</type>.  The validator's result is ignored, so it is customarily
@@ -134,9 +187,22 @@
     via the normal <function>ereport()</function> error reporting mechanism.
     Throwing an error will force a transaction rollback and thus prevent
     the incorrect function definition from being committed.
+-->
+有効性検証関数が手続き言語により提供される場合、<type>oid</type>型の単一パラメータを取る関数として宣言しなければなりません。
+有効性検証関数の結果は無視されます。
+そのためよく<type>void</type>を返すものと宣言されます。
+有効性検証関数はその手続き言語で関数を作成または置換する<command>CREATE FUNCTION</command>の最後に呼び出されます。
+渡されるOIDは関数の<classname>pg_proc</classname>行のOIDです。
+有効性検証関数は通常の方法でこの行を取り出さなければならず、そして適切な検査を実行します。
+まずユーザが<command>CREATE FUNCTION</command>で到達できない有効性検証関数への明示的な呼び出しを診断するため、<function>CheckFunctionValidatorAccess()</function>を呼び出します。
+典型的な検査として、さらに関数引数および結果の型がその言語でサポートされているかや関数本体がその言語において文法的に正しいかどうかを検証することが挙げられます。
+有効性検証関数がその関数に問題がないことを判定したら、単に戻ります。
+エラーがあることを判定したら、通常の<function>ereport()</function>エラー報告機構を使用して報告しなければなりません。
+エラーを返すことで、強制的にトランザクションはロールバックされ、不正な関数定義がコミットされることを防ぎます。
    </para>
 
    <para>
+<!--
     Validator functions should typically honor the <xref
     linkend="guc-check-function-bodies"/> parameter: if it is turned off then
     any expensive or context-sensitive checking should be skipped.  If the
@@ -157,9 +223,19 @@
     Therefore, checks whose results might be affected by GUC parameters
     definitely should be skipped when <varname>check_function_bodies</varname> is
     off, to avoid false failures when reloading a dump.
+-->
+有効性検証関数は通常<xref linkend="guc-check-function-bodies"/>パラメータを遵守しなければなりません。
+これが無効な場合、高価な、または文脈次第の検査を飛ばさなければなりません。
+言語がコンパイル時のコード実行を提供するのであれば、有効性検証関数はそのような実行を引き起こす検査を抑制しなければなりません。
+特にこのパラメータは、副作用や関数本体の他のデータベースオブジェクトへの依存を心配することなく手続き言語関数をロードできるように、<application>pg_dump</application>により無効にされます。
+(この仕様のため呼び出しハンドラは有効性検証関数が完全にその関数を検査したことを前提としてはいけません。
+有効性検証関数を持つ目的は、呼び出しハンドラが検査を省略できることではなく、明確なエラーが<command>CREATE FUNCTION</command>コマンド内に存在する場合、それを即座にユーザに通知することです。)
+厳密に何を検査すべきかの選択は主として有効性検査関数の裁量に委ねられていますが、<varname>check_function_bodies</varname>が有効な場合には<command>CREATE FUNCTION</command>の中心となるコードは関数に関連づけられた<literal>SET</literal>句を実行するだけですので注意して下さい。
+そのため、その結果がGUCパラメータの影響を受ける検査は、ダンプをリロードする時の偽の失敗を避けるために、<varname>check_function_bodies</varname>が無効な場合には確実に飛ばさなければなりません。
    </para>
 
    <para>
+<!--
     If an inline handler is provided by a procedural language, it
     must be declared as a function taking a single parameter of type
     <type>internal</type>.  The inline handler's result is ignored, so it is
@@ -170,23 +246,40 @@
     about the <command>DO</command> statement's parameters, in particular the
     text of the anonymous code block to be executed.  The inline handler
     should execute this code and return.
+-->
+インラインハンドラが手続き言語により提供される場合、その関数は<type>internal</type>型の単一パラメータを取るものとして宣言されなければなりません。
+インラインハンドラの結果は無視されます。
+そのためよく<type>void</type>を返すものと宣言されます。
+インラインハンドラは特定の手続き言語で<command>DO</command>文が実行された時に呼び出されます。
+実際に渡されるパラメータは<structname>InlineCodeBlock</structname>構造体のポインタです。
+ここには<command>DO</command>文のパラメータ、具体的には実行される匿名コードブロックのテキスト、に関する情報が含まれています。
+インラインハンドラはこのコードを実行し、戻らなければなりません。
    </para>
 
    <para>
+<!--
     It's recommended that you wrap all these function declarations,
     as well as the <command>CREATE LANGUAGE</command> command itself, into
     an <firstterm>extension</firstterm> so that a simple <command>CREATE EXTENSION</command>
     command is sufficient to install the language.  See
     <xref linkend="extend-extensions"/> for information about writing
     extensions.
+-->
+簡単な<command>CREATE EXTENSION</command>コマンドで言語をインストールすることが十分にできるように、これらの関数宣言と<command>CREATE LANGUAGE</command>コマンド自身を<firstterm>拡張</firstterm>としてまとめることを勧めます。
+拡張の作成方法については<xref linkend="extend-extensions"/>を参照してください。
    </para>
 
    <para>
+<!--
     The procedural languages included in the standard distribution
     are good references when trying to write your own language handler.
     Look into the <filename>src/pl</filename> subdirectory of the source tree.
     The <xref linkend="sql-createlanguage"/>
     reference page also has some useful details.
+-->
+独自の言語ハンドラを作成する際、標準配布物に含まれる手続き言語は優れたリファレンスです。
+ソースツリーの<filename>src/pl</filename>サブディレクトリを調べてください。
+<xref linkend="sql-createlanguage"/>マニュアルページもまた有用な情報を含みます。
    </para>
 
  </chapter>

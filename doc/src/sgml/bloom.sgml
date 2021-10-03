@@ -8,18 +8,26 @@
  </indexterm>
 
  <para>
+<!--
   <literal>bloom</literal> provides an index access method based on
   <ulink url="https://en.wikipedia.org/wiki/Bloom_filter">Bloom filters</ulink>.
+-->
+  <literal>bloom</literal>は、<ulink url="https://en.wikipedia.org/wiki/Bloom_filter">ブルームフィルター</ulink>によるインデックスのアクセスメソッドを提供します。
  </para>
 
  <para>
+<!--
   A Bloom filter is a space-efficient data structure that is used to test
   whether an element is a member of a set.  In the case of an index access
   method, it allows fast exclusion of non-matching tuples via signatures
   whose size is determined at index creation.
+-->
+ブルームフィルターは、空間効率の良いデータ構造で、ある要素が集合のメンバーかどうかをテストするのに用いられます。
+インデックスのアクセスメソッドとして使用する場合、インデックス作成時に大きさが決まるシグネチャーを使って、条件を満たさないタプルを高速に除外することができます。
  </para>
 
  <para>
+<!--
   A signature is a lossy representation of the indexed attribute(s), and as
   such is prone to reporting false positives; that is, it may be reported
   that an element is in the set, when it is not.  So index search results
@@ -27,23 +35,40 @@
   entry.  Larger signatures reduce the odds of a false positive and thus
   reduce the number of useless heap visits, but of course also make the index
   larger and hence slower to scan.
+-->
+シグネチャーはインデックス化された属性を非可逆的に表現するもので、その性質上、偽陽性の結果を出すことがあります。
+すなわち、集合の中にない要素が、集合の中にあると報告するかもしれません。
+ですから、インデックスの検索結果は、ヒープエントリ中の実際の属性値を使って、必ず再検査しなければなりません。
+シグネチャーが大きくなれば偽陽性の可能性が下がるので不必要なヒープの検索は減りますが、もちろんそうなるとインデックスが大きくなるので、スキャンが遅くなります。
  </para>
 
  <para>
+<!--
   This type of index is most useful when a table has many attributes and
   queries test arbitrary combinations of them.  A traditional btree index is
   faster than a bloom index, but it can require many btree indexes to support
   all possible queries where one needs only a single bloom index.  Note
   however that bloom indexes only support equality queries, whereas btree
   indexes can also perform inequality and range searches.
+-->
+この種のインデックスは、テーブルに多数の属性があり、その任意の組み合わせを検索する問い合わせを実行するときにもっとも有効です。
+伝統的なbtreeインデックスはブルームインデックスよりも高速ですが、可能なすべての問い合わせをサポートするためには多数のbtreeインデックスが必要なのに対し、ブルームインデックスでは、たった一つのブルームインデックスだけで事足ります。
+しかし、ブルームインデックスでは等価検索だけをサポートすることに注意してください。
+btreeインデックスでは、等価だけでなく、範囲検索も実行できます。
  </para>
 
  <sect2>
+<!--
   <title>Parameters</title>
+-->
+  <title>パラメータ</title>
 
   <para>
+<!--
    A <literal>bloom</literal> index accepts the following parameters in its
    <literal>WITH</literal> clause:
+-->
+<literal>bloom</literal>インデックスは、<literal>WITH</literal>句中の以下のパラメータを受け付けます。
   </para>
 
    <variablelist>
@@ -51,9 +76,14 @@
     <term><literal>length</literal></term>
     <listitem>
      <para>
+<!--
       Length of each signature (index entry) in bits. It is rounded up to the
       nearest multiple of <literal>16</literal>. The default is
       <literal>80</literal> bits and the maximum is <literal>4096</literal>.
+-->
+ビット単位の個々のシグネチャー（インデックスエントリー）の長さ。
+<literal>16</literal>の倍数に近い値に丸められます。
+デフォルトは<literal>80</literal>ビットで、最大値は<literal>4096</literal>です。
      </para>
     </listitem>
    </varlistentry>
@@ -63,10 +93,16 @@
     <term><literal>col1 &mdash; col32</literal></term>
     <listitem>
      <para>
+<!--
       Number of bits generated for each index column. Each parameter's name
       refers to the number of the index column that it controls.  The default
       is <literal>2</literal> bits and the maximum is <literal>4095</literal>.
       Parameters for index columns not actually used are ignored.
+-->
+各インデックスカラムに対して生成するビット数。
+各々のパラメータ名は、管理対象のインデックスカラムの番号です。
+デフォルトは<literal>2</literal>ビットで、最大値は<literal>4095</literal>です。
+実際には使用されないインデックスカラムについてのパラメータは無視されます。
      </para>
     </listitem>
    </varlistentry>
@@ -77,7 +113,10 @@
   <title>Examples</title>
 
   <para>
+<!--
    This is an example of creating a bloom index:
+-->
+ブルームインデックスの作成例です。
   </para>
 
 <programlisting>
@@ -86,16 +125,25 @@ CREATE INDEX bloomidx ON tbloom USING bloom (i1,i2,i3)
 </programlisting>
 
   <para>
+<!--
    The index is created with a signature length of 80 bits, with attributes
    i1 and i2 mapped to 2 bits, and attribute i3 mapped to 4 bits.  We could
    have omitted the <literal>length</literal>, <literal>col1</literal>,
    and <literal>col2</literal> specifications since those have the default values.
+-->
+このインデックスは80ビット長のシグネチャーで作成され、属性i1とi2は2ビットに、i3は4ビットにマップされます。
+<literal>length</literal>、<literal>col1</literal>、<literal>col2</literal>指定はデフォルト値を使っているので、省略しても構いません。
   </para>
 
   <para>
+<!--
    Here is a more complete example of bloom index definition and usage, as
    well as a comparison with equivalent btree indexes.  The bloom index is
    considerably smaller than the btree index, and can perform better.
+-->
+より完全なブルームインデックスの定義と使用法を示します。
+比較のために、これと同等のbtreeインデックスも併せて示します。
+ブルームインデックスはbtreeインデックスよりもかなり小さく、また、より良い性能を発揮できるかもしれません。
   </para>
 
 <programlisting>
@@ -113,7 +161,10 @@ SELECT 10000000
 </programlisting>
 
   <para>
+<!--
    A sequential scan over this large table takes a long time:
+-->
+これだけ大きなテーブルに対するシーケンシャルスキャンは長い時間がかかります。
 <programlisting>
 =# EXPLAIN ANALYZE SELECT * FROM tbloom WHERE i2 = 898732 AND i5 = 123451;
                                               QUERY PLAN                                              
@@ -128,8 +179,11 @@ SELECT 10000000
   </para>
 
   <para>
+<!--
    Even with the btree index defined the result will still be a
    sequential scan:
+-->
+たとえbtreeインデックスが定義されていたとしても、結果はまだシーケンシャルスキャンです。
 <programlisting>
 =# CREATE INDEX btreeidx ON tbloom (i1, i2, i3, i4, i5, i6);
 CREATE INDEX
@@ -151,8 +205,11 @@ CREATE INDEX
   </para>
 
   <para>
+<!--
    Having the bloom index defined on the table is better than btree in
    handling this type of search:
+-->
+そのテーブルにブルームインデックスが定義されていれば、btreeよりもこの種の検索をうまく扱います。
 <programlisting>
 =# CREATE INDEX bloomidx ON tbloom USING bloom (i1, i2, i3, i4, i5, i6);
 CREATE INDEX
@@ -177,10 +234,15 @@ CREATE INDEX
   </para>
 
   <para>
+<!--
    Now, the main problem with the btree search is that btree is inefficient
    when the search conditions do not constrain the leading index column(s).
    A better strategy for btree is to create a separate index on each column.
    Then the planner will choose something like this:
+-->
+btree検索の主要な問題は、検索条件が、先頭（そしてそれに続く）インデックスカラムを使用しないときに、効率が悪くなってしまうことです。
+btreeでは各々のカラムに対して別々のインデックスを作るのが良い戦略です。
+するとプランはこのような選択をします。
 <programlisting>
 =# CREATE INDEX btreeidx1 ON tbloom (i1);
 CREATE INDEX
@@ -208,20 +270,31 @@ CREATE INDEX
  Execution Time: 0.055 ms
 (9 rows)
 </programlisting>
+<!--
    Although this query runs much faster than with either of the single
    indexes, we pay a penalty in index size.  Each of the single-column
    btree indexes occupies 2 MB, so the total space needed is 12 MB,
    eight times the space used by the bloom index.
+-->
+個別のインデックスのどれかを使うよりもこの問い合わせはずっと高速に実行できますが、インデックスのサイズにペナルティーを払わなければなりません。
+各々の単一カラムのbtreeインデックスは、2MBになります。ですから、全体で必要なスペースは12MBです。ブルームインデックスで使用するスペースの8倍以上です。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Operator Class Interface</title>
+-->
+  <title>演算子クラスインタフェース</title>
 
   <para>
+<!--
    An operator class for bloom indexes requires only a hash function for the
    indexed data type and an equality operator for searching. This example
    shows the operator class definition for the <type>text</type> data type:
+-->
+ブルームインデックスの演算子クラスには、インデックス対象のデータ型に対するハッシュ関数と、検索のための等価演算子だけが必要です。
+この例では、<type>text</type>データ型に対する演算子クラスの定義を示します。
   </para>
 
 <programlisting>
@@ -233,35 +306,51 @@ DEFAULT FOR TYPE text USING bloom AS
  </sect2>
 
  <sect2>
+<!--
   <title>Limitations</title>
+-->
+  <title>制限事項</title>
   <para>
    <itemizedlist>
     <listitem>
      <para>
+<!--
       Only operator classes for <type>int4</type> and <type>text</type> are
       included with the module.
+-->
+このモジュールには、<type>int4</type>と<type>text</type>に対する演算子クラスだけが含まれています。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Only the <literal>=</literal> operator is supported for search.  But
       it is possible to add support for arrays with union and intersection
       operations in the future.
+-->
+<literal>=</literal>演算子だけが検索ではサポートされています。
+しかし、配列の和、積演算のサポートを将来追加することは可能です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
        <literal>bloom</literal> access method doesn't support
        <literal>UNIQUE</literal> indexes.
+-->
+<literal>bloom</literal>アクセスメソッドは<literal>UNIQUE</literal>をサポートしていません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
        <literal>bloom</literal> access method doesn't support searching for
        <literal>NULL</literal> values.
+-->
+<literal>bloom</literal>アクセスメソッドは<literal>NULL</literal>値の検索をサポートしていません。
      </para>
     </listitem>
    </itemizedlist>
@@ -269,7 +358,10 @@ DEFAULT FOR TYPE text USING bloom AS
  </sect2>
 
  <sect2>
+<!--
   <title>Authors</title>
+-->
+  <title>作者</title>
 
   <para>
    Teodor Sigaev <email>teodor@postgrespro.ru</email>,

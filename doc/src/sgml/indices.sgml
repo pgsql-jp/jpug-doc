@@ -1,36 +1,57 @@
 <!-- doc/src/sgml/indices.sgml -->
 
 <chapter id="indexes">
+<!--
  <title>Indexes</title>
+-->
+ <title>インデックス</title>
 
  <indexterm zone="indexes">
+<!--
   <primary>index</primary>
+-->
+  <primary>インデックス</primary>
  </indexterm>
 
  <para>
+<!--
   Indexes are a common way to enhance database performance.  An index
   allows the database server to find and retrieve specific rows much
   faster than it could do without an index.  But indexes also add
   overhead to the database system as a whole, so they should be used
   sensibly.
+-->
+インデックスは、データベースの性能を向上させるための一般的な方法です。
+データベースサーバでインデックスを使用すると、インデックスを使用しない場合に比べてかなり速く、特定の行を検出し抽出することができます。
+しかし、インデックスを使用すると、データベースシステム全体にオーバーヘッドを追加することにもなるため、注意して使用する必要があります。
  </para>
 
 
  <sect1 id="indexes-intro">
+<!--
   <title>Introduction</title>
+-->
+  <title>序文</title>
 
   <para>
+<!--
    Suppose we have a table similar to this:
+-->
+次のようなテーブルを考えてみましょう。
 <programlisting>
 CREATE TABLE test1 (
     id integer,
     content varchar
 );
 </programlisting>
+<!--
    and the application issues many queries of the form:
+-->
+アプリケーションはこの形式の多くの問い合わせを発行します。
 <programlisting>
 SELECT content FROM test1 WHERE id = <replaceable>constant</replaceable>;
 </programlisting>
+<!--
    With no advance preparation, the system would have to scan the entire
    <structname>test1</structname> table, row by row, to find all
    matching entries.  If there are many rows in
@@ -40,9 +61,15 @@ SELECT content FROM test1 WHERE id = <replaceable>constant</replaceable>;
    index on the <structfield>id</structfield> column, it can use a more
    efficient method for locating matching rows.  For instance, it
    might only have to walk a few levels deep into a search tree.
+-->
+事前に準備を行っていなければ、システムで一致する項目を全て検出するためには、<structname>test1</structname>テーブル全体を1行ごとにスキャンする必要があります。
+<structname>test1</structname>に数多くの行があり、その問い合わせで返されるのが数行（おそらく0行か1行）しかない場合、これは明らかに効率が悪い方法と言えます。
+システムがインデックスを<structfield>id</structfield>列上で維持するように指示されていれば、一致する行を検出するのにより効率の良い方法を使うことができます。
+例えば、検索ツリーを数層分検索するだけで済む可能性もあります。
   </para>
 
   <para>
+<!--
    A similar approach is used in most non-fiction books:  terms and
    concepts that are frequently looked up by readers are collected in
    an alphabetic index at the end of the book.  The interested reader
@@ -52,25 +79,41 @@ SELECT content FROM test1 WHERE id = <replaceable>constant</replaceable>;
    anticipate the items that readers are likely to look up,
    it is the task of the database programmer to foresee which indexes
    will be useful.
+-->
+ほとんどのノンフィクションの本で、同じような手法が使われています。
+読者が頻繁に調べる用語および概念は、その本の最後にアルファベット順に索引としてまとめられています。
+その本に興味を持った読者は、索引（インデックス）を調べ、比較的速く簡単に該当するページを開くことができるため、見たい場所を探すために本全部を読む必要はありません。
+読者がよく調べそうな項目を予想するのが著者の仕事であるように、どのインデックスが実用的であるかを予測するのはデータベースプログラマの仕事です。
   </para>
 
   <para>
+<!--
    The following command can be used to create an index on the
    <structfield>id</structfield> column, as discussed:
+-->
+上述のように<structfield>id</structfield>列にインデックスを作成する場合は、以下のようなコマンドが使用できます。
 <programlisting>
 CREATE INDEX test1_id_index ON test1 (id);
 </programlisting>
+<!--
    The name <structname>test1_id_index</structname> can be chosen
    freely, but you should pick something that enables you to remember
    later what the index was for.
+-->
+<structname>test1_id_index</structname>というインデックス名には、何を選んでも構いませんが、そのインデックスを何のために作成したかを後で思い出せるような名前を選ぶべきです。
   </para>
 
   <para>
+<!--
    To remove an index, use the <command>DROP INDEX</command> command.
    Indexes can be added to and removed from tables at any time.
+-->
+インデックスを削除するには、<command>DROP INDEX</command>コマンドを使用します。
+テーブルのインデックスは、いつでも追加および削除できます。
   </para>
 
   <para>
+<!--
    Once an index is created, no further intervention is required: the
    system will update the index when the table is modified, and it will
    use the index in queries when it thinks doing so would be more efficient
@@ -80,17 +123,28 @@ CREATE INDEX test1_id_index ON test1 (id);
    See <xref linkend="performance-tips"/> for information about
    how to find out whether an index is used and when and why the
    planner might choose <emphasis>not</emphasis> to use an index.
+-->
+いったんインデックスを作成すれば、それ以上の処理は必要はありません。
+システムは、テーブルが変更される時インデックスを更新し、シーケンシャルスキャンよりもインデックススキャンを行うことがより効率的と判断した場合、問い合わせでインデックスを使用します。
+しかし、問い合わせプランナで情報に基づいた判断をするためには、定期的に<command>ANALYZE</command>コマンドを実行し、統計情報を更新する必要があるかもしれません。
+インデックスが使われているかどうか、およびプランナがインデックスを<emphasis>使わない</emphasis>と判断した状況および理由を調べる方法については、<xref linkend="performance-tips"/>を参照してください。
   </para>
 
   <para>
+<!--
    Indexes can also benefit <command>UPDATE</command> and
    <command>DELETE</command> commands with search conditions.
    Indexes can moreover be used in join searches.  Thus,
    an index defined on a column that is part of a join condition can
    also significantly speed up queries with joins.
+-->
+インデックスは、<command>UPDATE</command>や<command>DELETE</command>コマンドの検索条件でも使用できます。
+さらに、インデックスは結合問い合わせでも使用されます。
+したがって、結合条件で記述されている列にインデックスを定義すれば、結合を伴った問い合わせにかかる時間もかなり短縮できます。
   </para>
 
   <para>
+<!--
    Creating an index on a large table can take a long time.  By default,
    <productname>PostgreSQL</productname> allows reads (<command>SELECT</command> statements) to occur
    on the table in parallel with index creation, but writes (<command>INSERT</command>,
@@ -99,21 +153,36 @@ CREATE INDEX test1_id_index ON test1 (id);
    It is possible to allow writes to occur in parallel with index
    creation, but there are several caveats to be aware of &mdash;
    for more information see <xref linkend="sql-createindex-concurrently"/>.
+-->
+大規模テーブルに対するインデックス作成が長時間にわたる可能性があります。
+デフォルトで<productname>PostgreSQL</productname>はインデックス作成と並行してテーブルを読み取る（<command>SELECT</command>文）ことができますが、書き込み（<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>）はインデックス作成が終わるまでブロックされます。
+これは多くの運用環境では受け入れられません。
+インデックス作成中でも並行して書き込みできるようにすることができますが、いくつか注意しなければならないことがあります。
+<xref linkend="sql-createindex-concurrently"/>の情報を参照してください。
   </para>
 
   <para>
+<!--
    After an index is created, the system has to keep it synchronized with the
    table.  This adds overhead to data manipulation operations.
    Therefore indexes that are seldom or never used in queries
    should be removed.
+-->
+インデックスが作成された後、システムでは、テーブルとインデックスとの間で常に同期を取っておく必要があります。
+これにより、データ操作の処理にオーバーヘッドが加わります。
+したがって、めったに使用されないインデックスや、まったく使用されなくなったインデックスは、削除しておいた方が良いでしょう。
   </para>
  </sect1>
 
 
  <sect1 id="indexes-types">
+<!--
   <title>Index Types</title>
+-->
+  <title>インデックスの種類</title>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> provides several index types:
    B-tree, Hash, GiST, SP-GiST, GIN and BRIN.
    Each index type uses a different
@@ -124,6 +193,10 @@ CREATE INDEX test1_id_index ON test1 (id);
    The other index types are selected by writing the keyword
    <literal>USING</literal> followed by the index type name.
    For example, to create a Hash index:
+-->
+<productname>PostgreSQL</productname>では、B-tree、Hash、GiST、SP-GiST、GIN、BRINといった複数の種類のインデックスを使用可能です。
+インデックスの各種類は、異なる種類の問い合わせに最も適した、異なるアルゴリズムを使用します。
+デフォルトで<command>CREATE INDEX</command>コマンドは、B-treeインデックスを作成し、それは最も一般的な状況に適合します。
 <programlisting>
 CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> USING HASH (<replaceable>column</replaceable>);
 </programlisting>
@@ -133,32 +206,47 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    <title>B-Tree</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>B-Tree</secondary>
    </indexterm>
    <indexterm>
     <primary>B-Tree</primary>
+<!--
     <see>index</see>
+-->
+    <see>インデックス</see>
    </indexterm>
 
   <para>
+<!--
    B-trees can handle equality and range queries on data that can be sorted
    into some ordering.
    In particular, the <productname>PostgreSQL</productname> query planner
    will consider using a B-tree index whenever an indexed column is
    involved in a comparison using one of these operators:
+-->
+B-treeインデックスは、ある順番でソート可能なデータに対する等価性や範囲を問い合わせることを扱うことができます。
+具体的には、<productname>PostgreSQL</productname>の問い合わせプランナは、インデックスの付いた列を次の演算子を使用して比較する場合に、B-treeインデックスの使用を検討します。
 
 <synopsis>
 &lt; &nbsp; &lt;= &nbsp; = &nbsp; &gt;= &nbsp; &gt;
 </synopsis>
 
+<!--
    Constructs equivalent to combinations of these operators, such as
    <literal>BETWEEN</literal> and <literal>IN</literal>, can also be implemented with
    a B-tree index search.  Also, an <literal>IS NULL</literal> or <literal>IS NOT
    NULL</literal> condition on an index column can be used with a B-tree index.
+-->
+また、<literal>BETWEEN</literal>や<literal>IN</literal>などのこれらの演算子の組み合わせと等価な式もB-treeインデックス検索で実装することができます。
+インデックスの付いた列に対する<literal>IS NULL</literal>や<literal>IS NOT NULL</literal>でもB-treeインデックスを使用することができます。
   </para>
 
   <para>
+<!--
    The optimizer can also use a B-tree index for queries involving the
    pattern matching operators <literal>LIKE</literal> and <literal>~</literal>
    <emphasis>if</emphasis> the pattern is a constant and is anchored to
@@ -172,12 +260,22 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    <literal>~*</literal>, but only if the pattern starts with
    non-alphabetic characters, i.e., characters that are not affected by
    upper/lower case conversion.
+-->
+オプティマイザは、パターンマッチ演算子<literal>LIKE</literal>、<literal>~</literal>を含む問い合わせでも、そのパターンが定数であり、先頭文字列を指定している<emphasis>のであれば</emphasis>B-treeインデックスを使用することができます。
+例えば、<literal>col LIKE 'foo%'</literal>または<literal>col ~ '^foo'</literal>では使用されますが、<literal>col LIKE '%bar'</literal>では使用されません。
+しかし、データベースがCロケールを使用していない場合、パターンマッチ問い合わせのインデックス付けをサポートする特別な演算子クラスでインデックスを作成しなければなりません。
+後述の<xref linkend="indexes-opclass"/>を参照してください。
+なお、<literal>ILIKE</literal>と<literal>~*</literal>でもB-treeインデックスを使用することができますが、パターンが英字以外の文字、つまり、大文字小文字の違いの影響がない文字で始まる場合のみです。
   </para>
 
   <para>
+<!--
    B-tree indexes can also be used to retrieve data in sorted order.
    This is not always faster than a simple scan and sort, but it is
    often helpful.
+-->
+B-treeインデックスをソートされた順序でデータを受けとるために使用することもできます。
+これは常に単純なスキャンとソート処理より高速になるものではありませんが、よく役に立つことがあります。
   </para>
   </sect2>
 
@@ -185,15 +283,24 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    <title>Hash</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
     <secondary>hash</secondary>
+-->
+    <primary>インデックス</primary>
+    <secondary>ハッシュ</secondary>
    </indexterm>
    <indexterm>
+<!--
     <primary>hash</primary>
     <see>index</see>
+-->
+    <primary>ハッシュ</primary>
+    <see>インデックス</see>
    </indexterm>
 
   <para>
+<!--
    Hash indexes store a 32-bit hash code derived from the
    value of the indexed column. Hence,
    such indexes can only handle simple equality comparisons.
@@ -201,6 +308,10 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    indexed column is involved in a comparison using the
    equal operator:
 
+-->
+ハッシュインデックスは単純な等価性比較のみを扱うことができます。
+問い合わせプランナでは、インデックスの付いた列を<literal>=</literal>演算子を使用して比較する場合に、ハッシュインデックスの使用を検討します。
+ハッシュインデックスを作成するには、以下のようなコマンドを使用してください。
 <synopsis>
 =
 </synopsis>
@@ -211,15 +322,22 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    <title>GiST</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>GiST</secondary>
    </indexterm>
    <indexterm>
     <primary>GiST</primary>
+<!--
     <see>index</see>
+-->
+    <see>インデックス</see>
    </indexterm>
 
   <para>
+<!--
    GiST indexes are not a single kind of index, but rather an infrastructure
    within which many different indexing strategies can be implemented.
    Accordingly, the particular operators with which a GiST index can be
@@ -228,11 +346,16 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    <productname>PostgreSQL</productname> includes GiST operator classes
    for several two-dimensional geometric data types, which support indexed
    queries using these operators:
+-->
+GiSTインデックスは単一種類のインデックスではなく、多くの異なるインデックス戦略を実装することができる基盤です。
+したがって、具体的なGiSTインデックスで使用できる演算子はインデックス戦略（<firstterm>演算子クラス</firstterm>）によって異なります。
+例えば、<productname>PostgreSQL</productname>の標準配布物には、複数の二次元幾何データ型用のGiST演算子クラスが含まれており、以下の演算子を使用してインデックス付けされた問い合わせをサポートします。
 
 <synopsis>
 &lt;&lt; &nbsp; &amp;&lt; &nbsp; &amp;&gt; &nbsp; &gt;&gt; &nbsp; &lt;&lt;| &nbsp; &amp;&lt;| &nbsp; |&amp;&gt; &nbsp; |&gt;&gt; &nbsp; @&gt; &nbsp; &lt;@ &nbsp; ~= &nbsp; &amp;&amp;
 </synopsis>
 
+<!--
    (See <xref linkend="functions-geometry"/> for the meaning of
    these operators.)
    The GiST operator classes included in the standard distribution are
@@ -240,19 +363,32 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    Many other GiST operator
    classes are available in the <literal>contrib</literal> collection or as separate
    projects.  For more information see <xref linkend="gist"/>.
+-->
+（これらの演算子の意味については<xref linkend="functions-geometry"/>を参照してください。）
+標準配布物に含まれるGiST演算子クラスは<xref linkend="gist-builtin-opclasses-table"/>に記載されています。
+他の多くのGiST演算子クラスが<literal>contrib</literal>群や別のプロジェクトとして利用可能です。
+詳細は<xref linkend="gist"/>を参照してください。
   </para>
 
   <para>
+<!--
    GiST indexes are also capable of optimizing <quote>nearest-neighbor</quote>
    searches, such as
+-->
+GiSTインデックスは以下のような<quote>最近傍</quote>検索を最適化する機能も持ちます。
 <programlisting><![CDATA[
 SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
 ]]>
 </programlisting>
+<!--
    which finds the ten places closest to a given target point.  The ability
    to do this is again dependent on the particular operator class being used.
    In <xref linkend="gist-builtin-opclasses-table"/>, operators that can be
    used in this way are listed in the column <quote>Ordering Operators</quote>.
+-->
+これは指定された対象地点に最も近い１０箇所を見つけ出します。
+この場合も、これができるかどうかは使用される特定の演算子クラスに依存します。
+このように利用できる演算子は<xref linkend="gist-builtin-opclasses-table"/>の<quote>順序付け演算子</quote>列に表示されています。
   </para>
   </sect2>
 
@@ -260,15 +396,22 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    <title>SP-GiST</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>SP-GiST</secondary>
    </indexterm>
    <indexterm>
     <primary>SP-GiST</primary>
+<!--
     <see>index</see>
+-->
+    <see>インデックス</see>
    </indexterm>
 
   <para>
+<!--
    SP-GiST indexes, like GiST indexes, offer an infrastructure that supports
    various kinds of searches.  SP-GiST permits implementation of a wide range
    of different non-balanced disk-based data structures, such as quadtrees,
@@ -276,23 +419,36 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    <productname>PostgreSQL</productname> includes SP-GiST operator classes
    for two-dimensional points, which support indexed
    queries using these operators:
+-->
+SP-GiSTインデックスは、GiSTインデックスと同様に様々な種類の検索を支援する基盤を提供します。
+SP-GiSTインデックスは広域な異なる不均衡でディスクベースのデータ構造、つまり、四分木,kd木、基数木のような実装を認めます。
+例えば、<productname>PostgreSQL</productname>標準配布物には、以下の演算子を使用する問い合わせに対するインデックスをサポートする2次元の点用のSP-GiST用の演算子クラスが含まれています。
 
 <synopsis>
 &lt;&lt; &nbsp; &gt;&gt; &nbsp; ~= &nbsp; &lt;@ &nbsp; &lt;&lt;| &nbsp; |&gt;&gt;
 </synopsis>
 
+<!--
    (See <xref linkend="functions-geometry"/> for the meaning of
    these operators.)
    The SP-GiST operator classes included in the standard distribution are
    documented in <xref linkend="spgist-builtin-opclasses-table"/>.
    For more information see <xref linkend="spgist"/>.
+-->
+(演算子の意味は以下を参照してください<xref linkend="functions-geometry"/> )
+標準配布物に含まれるSP-GiSTクラスは<xref linkend="spgist-builtin-opclasses-table"/>に記載されています。
+詳細は <xref linkend="spgist"/>を参照してください。
   </para>
 
   <para>
+<!--
    Like GiST, SP-GiST supports <quote>nearest-neighbor</quote> searches.
    For SP-GiST operator classes that support distance ordering, the
    corresponding operator is listed in the <quote>Ordering Operators</quote>
    column in <xref linkend="spgist-builtin-opclasses-table"/>.
+-->
+GiSTと同様に、SP-GiSTは<quote>最近傍</quote>検索をサポートします。
+距離の順序付けをサポートするSP-GiST演算子クラスの場合、対応する演算子は<xref linkend="spgist-builtin-opclasses-table"/>の<quote>順序付け演算子</quote>列に指定されます。
   </para>
   </sect2>
 
@@ -300,23 +456,34 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    <title>GIN</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>GIN</secondary>
    </indexterm>
    <indexterm>
     <primary>GIN</primary>
+<!--
     <see>index</see>
+-->
+    <see>インデックス</see>
    </indexterm>
 
   <para>
+<!--
    GIN indexes are <quote>inverted indexes</quote> which are appropriate for
    data values that contain multiple component values, such as arrays.  An
    inverted index contains a separate entry for each component value, and
    can efficiently handle queries that test for the presence of specific
    component values.
+-->
+GINは<quote>転置インデックス</quote>であり、配列などのように複数の要素を持つデータ値に適しています。
+転置インデックスは各要素値に対して別々のエントリを持っており、特定の要素値の存在について検査する問い合わせを効率的に処理できます。
   </para>
 
   <para>
+<!--
    Like GiST and SP-GiST, GIN can support
    many different user-defined indexing strategies, and the particular
    operators with which a GIN index can be used vary depending on the
@@ -324,11 +491,15 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    As an example, the standard distribution of
    <productname>PostgreSQL</productname> includes a GIN operator class
    for arrays, which supports indexed queries using these operators:
+-->
+GiSTやSP-GiST同様、GINも多くの異なるユーザ定義のインデックス戦略を持つことができ、GINが使用できる具体的な演算子はインデックス戦略によって変化します。
+例えば、<productname>PostgreSQL</productname>標準配布物には、配列用のGIN演算子クラスが含まれており、これらは、以下の演算子を使用するインデックスによる問い合わせをサポートします。
 
 <synopsis>
 &lt;@ &nbsp; @&gt; &nbsp; = &nbsp; &amp;&amp;
 </synopsis>
 
+<!--
    (See <xref linkend="functions-array"/> for the meaning of
    these operators.)
    The GIN operator classes included in the standard distribution are
@@ -336,6 +507,11 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    Many other GIN operator
    classes are available in the <literal>contrib</literal> collection or as separate
    projects.  For more information see <xref linkend="gin"/>.
+-->
+（これらの演算子の意味については<xref linkend="functions-array"/>を参照してください。）
+標準配布物に含まれるGIN演算子クラスは<xref linkend="gin-builtin-opclasses-table"/>に記載されています。
+他の多くのGIN演算子クラスは<literal>contrib</literal>群または別のプロジェクトで利用可能です。
+詳細は<xref linkend="gin"/>を参照してください。
   </para>
   </sect2>
 
@@ -343,15 +519,22 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    <title>BRIN</title>
 
    <indexterm>
+<!--
     <primary>index</primary>
+-->
+    <primary>インデックス</primary>
     <secondary>BRIN</secondary>
    </indexterm>
    <indexterm>
     <primary>BRIN</primary>
+<!--
     <see>index</see>
+-->
+    <see>インデックス</see>
    </indexterm>
 
   <para>
+<!--
    BRIN indexes (a shorthand for Block Range INdexes) store summaries about
    the values stored in consecutive physical block ranges of a table.
    Thus, they are most effective for columns whose values are well-correlated
@@ -364,30 +547,50 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    corresponds to the minimum and maximum values of the
    values in the column for each block range.  This supports indexed queries
    using these operators:
+-->
+BRINインデックス(ブロックレンジインデックス(Block Range INdex)を縮めたものです)はテーブルの連続的な物理ブロックの範囲に格納された値についての要約を格納します。
+GiST、SP-GiST、GINと同じように、BRINは多くの異なるインデックス戦略をサポートし、BRINインデックスが使用できる具体的な演算子はインデックス戦略によって変化します。
+線形のソート順を持つデータ型では、インデックス付けされたデータは各ブロックレンジの列の中の値の最小値と最大値に対応しています。
+これは以下の演算子を使用したインデックスによる問い合わせをサポートします。
 
 <synopsis>
 &lt; &nbsp; &lt;= &nbsp; = &nbsp; &gt;= &nbsp; &gt;
 </synopsis>
 
+<!--
    The BRIN operator classes included in the standard distribution are
    documented in <xref linkend="brin-builtin-opclasses-table"/>.
    For more information see <xref linkend="brin"/>.
+-->
+標準配布物に含まれるBRIN演算子クラスは<xref linkend="brin-builtin-opclasses-table"/>.に記載されています。
+詳細は<xref linkend="brin"/>を参照してください。
   </para>
   </sect2>
  </sect1>
 
 
  <sect1 id="indexes-multicolumn">
+<!--
   <title>Multicolumn Indexes</title>
+-->
+  <title>複数列インデックス</title>
 
   <indexterm zone="indexes-multicolumn">
+<!--
    <primary>index</primary>
    <secondary>multicolumn</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>複数列</secondary>
   </indexterm>
 
   <para>
+<!--
    An index can be defined on more than one column of a table.  For example, if
    you have a table of this form:
+-->
+インデックスは、テーブルの2つ以上の列に定義することができます。
+例えば、以下のようなテーブルがあるとします。
 <programlisting>
 CREATE TABLE test2 (
   major int,
@@ -395,20 +598,27 @@ CREATE TABLE test2 (
   name varchar
 );
 </programlisting>
+<!--
    (say, you keep your <filename class="directory">/dev</filename>
    directory in a database...) and you frequently issue queries like:
+-->
+（例えば、<filename class="directory">/dev</filename>ディレクトリの内容をデータベースに保持していて）頻繁に下記のような問い合わせを発行するとします。
 <programlisting>
 SELECT name FROM test2 WHERE major = <replaceable>constant</replaceable> AND minor = <replaceable>constant</replaceable>;
 </programlisting>
+<!--
    then it might be appropriate to define an index on the columns
    <structfield>major</structfield> and
    <structfield>minor</structfield> together, e.g.:
+-->
+このような場合、<structfield>major</structfield>および<structfield>minor</structfield>という２つの列に1つのインデックスを定義する方が適切かもしれません。
 <programlisting>
 CREATE INDEX test2_mm_idx ON test2 (major, minor);
 </programlisting>
   </para>
 
   <para>
+<!--
    Currently, only the B-tree, GiST, GIN, and BRIN index types support
    multiple-key-column indexes.  Whether there can be multiple key
    columns is independent of whether <literal>INCLUDE</literal> columns
@@ -416,9 +626,15 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    including <literal>INCLUDE</literal> columns.  (This limit can be
    altered when building <productname>PostgreSQL</productname>; see the
    file <filename>pg_config_manual.h</filename>.)
+-->
+現在、B-tree、GiST、GINおよびBRINインデックス型でのみ、複数列インデックスをサポートしています。
+最高32列まで指定可能です。
+（この上限は、<productname>PostgreSQL</productname>を構築する際に変更可能です。
+<filename>pg_config_manual.h</filename>ファイルを参照してください。）
   </para>
 
   <para>
+<!--
    A multicolumn B-tree index can be used with query conditions that
    involve any subset of the index's columns, but the index is most
    efficient when there are constraints on the leading (leftmost) columns.
@@ -438,9 +654,21 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    on <literal>b</literal> and/or <literal>c</literal> with no constraint on <literal>a</literal>
    &mdash; but the entire index would have to be scanned, so in most cases
    the planner would prefer a sequential table scan over using the index.
+-->
+複数列に対するB-treeインデックスをインデックス対象列の任意の部分集合を含む問い合わせ条件で使用することができます。
+しかし、先頭側の（左側）列に制約がある場合に、このインデックスはもっとも効率的になります。
+正確な規則は、先頭側の列への等価制約、および、等価制約を持たない先頭列への不等号制約がスキャン対象のインデックス範囲を制限するために使用されます。
+これらの列の右側の列に対する制約は、このインデックス内から検査されます。
+ですので、テーブルアクセスを適切に抑えますが、スキャンされるインデックスの範囲を減らしません。
+例えば、<literal>(a, b, c)</literal>に対するインデックスがあり、<literal>WHERE a = 5 AND b &gt;= 42 AND c &lt; 77</literal>という問い合わせ条件があったとすると、
+<literal>a</literal> = 5かつ<literal>b</literal> = 42を持つ項目を先頭に、<literal>a</literal> = 5となる最後の項目までのインデックスをスキャンしなければなりません。
+<literal>c</literal> &gt;= 77を持つインデックス項目は飛ばされますが、スキャンを行わなければなりません。
+このインデックスは原理上、 <literal>a</literal>に対する制約を持たず、<literal>b</literal>あるいは<literal>c</literal>に制約に持つ問い合わせでも使用することができます。
+しかし、インデックス全体がスキャンされますので、ほとんどの場合、プランナはインデックスの使用よりもシーケンシャルテーブルスキャンを選択します。
   </para>
 
   <para>
+<!--
    A multicolumn GiST index can be used with query conditions that
    involve any subset of the index's columns. Conditions on additional
    columns restrict the entries returned by the index, but the condition on
@@ -448,30 +676,49 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    the index needs to be scanned.  A GiST index will be relatively
    ineffective if its first column has only a few distinct values, even if
    there are many distinct values in additional columns.
+-->
+複数列GiSTインデックスは、インデックス対象列の任意の部分集合を含む問い合わせ条件で使用することができます。
+他の列に対する条件は、インデックスで返される項目を制限します。
+しかし、先頭列に対する条件が、インデックスのスキャン量を決定するもっとも重要なものです。
+先頭列の個別値がわずかな場合、他の列が多くの個別値を持っていたとしても、相対的にGiSTインデックスは非効率的になります。
   </para>
 
   <para>
+<!--
    A multicolumn GIN index can be used with query conditions that
    involve any subset of the index's columns. Unlike B-tree or GiST,
    index search effectiveness is the same regardless of which index column(s)
    the query conditions use.
+-->
+複数列GINインデックスは、インデックス対象列の任意の部分集合を含む問い合わせ条件で使用することができます。
+B-treeやGiSTと異なり、インデックス検索の効果はどのインデックス列が問い合わせ条件で使用されているかに関係なく同じです。
   </para>
 
   <para>
+<!--
    A multicolumn BRIN index can be used with query conditions that
    involve any subset of the index's columns. Like GIN and unlike B-tree or
    GiST, index search effectiveness is the same regardless of which index
    column(s) the query conditions use. The only reason to have multiple BRIN
    indexes instead of one multicolumn BRIN index on a single table is to have
    a different <literal>pages_per_range</literal> storage parameter.
+-->
+複数列BRINインデックスは、インデックス対象列の任意の部分集合を含む問い合わせ条件で使用することができます。
+GINと同様に、またB-treeやGiSTとは異なり、インデックス検索の効果はどのインデックス列が問い合わせ条件で使用されているかに関係なく同じです。
+一つのテーブルに対して複数列BRINインデックスを一つ持つ代わりに複数のBRINインデックスを持つ唯一の理由は、異なる<literal>pages_per_range</literal>ストレージパラメータを持つためです。
   </para>
 
   <para>
+<!--
    Of course, each column must be used with operators appropriate to the index
    type; clauses that involve other operators will not be considered.
+-->
+当然ながら、インデックス種類に対して適切な演算子を各列に使用しなければなりません。
+他の演算子を含む句は考慮されません。
   </para>
 
   <para>
+<!--
    Multicolumn indexes should be used sparingly.  In most situations,
    an index on a single column is sufficient and saves space and time.
    Indexes with more than three columns are unlikely to be helpful
@@ -479,19 +726,32 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    <xref linkend="indexes-bitmap-scans"/> and
    <xref linkend="indexes-index-only-scans"/> for some discussion of the
    merits of different index configurations.
+-->
+複数列インデックスは慎重に使用する必要があります。
+多くの場合、単一列のインデックスで十分であり、また、その方がディスク領域と時間を節約できます。
+テーブルの使用方法が極端に様式化されていない限り、4つ以上の列を使用しているインデックスは、不適切である可能性が高いでしょう。
+異なるインデックス構成の利点に関するこの他の説明について<xref linkend="indexes-bitmap-scans"/>および<xref linkend="indexes-index-only-scans"/>も参照してください。
   </para>
  </sect1>
 
 
  <sect1 id="indexes-ordering">
+<!--
   <title>Indexes and <literal>ORDER BY</literal></title>
+-->
+  <title>インデックスと<literal>ORDER BY</literal></title>
 
   <indexterm zone="indexes-ordering">
+<!--
    <primary>index</primary>
    <secondary>and <literal>ORDER BY</literal></secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>と<literal>ORDER BY</literal></secondary>
   </indexterm>
 
   <para>
+<!--
    In addition to simply finding the rows to be returned by a query,
    an index may be able to deliver them in a specific sorted order.
    This allows a query's <literal>ORDER BY</literal> specification to be honored
@@ -499,9 +759,15 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    supported by <productname>PostgreSQL</productname>, only B-tree
    can produce sorted output &mdash; the other index types return
    matching rows in an unspecified, implementation-dependent order.
+-->
+単に問い合わせによって返される行を見つけ出すだけではなく、インデックスは、その行を指定した順番で取り出すことができます。
+これにより、別途ソート処理を行うことなく、問い合わせの<literal>ORDER BY</literal>指定に従うことが可能です。
+<productname>PostgreSQL</productname>が現在サポートするインデックスの種類の中で、B-treeのみがソート出力を行うことができます。
+他の種類のインデックスでは指定なし、または、実装固有の順序でマッチした行を返します。
   </para>
 
   <para>
+<!--
    The planner will consider satisfying an <literal>ORDER BY</literal> specification
    either by scanning an available index that matches the specification,
    or by scanning the table in physical order and doing an explicit
@@ -515,9 +781,17 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    all the data to identify the first <replaceable>n</replaceable> rows, but if there is
    an index matching the <literal>ORDER BY</literal>, the first <replaceable>n</replaceable>
    rows can be retrieved directly, without scanning the remainder at all.
+-->
+プランナは、<literal>ORDER BY</literal>指定を満足させるために、指定に一致し利用可能なインデックスでスキャンするか、または、テーブルを物理的な順番でスキャンし明示的なソートを行うかを考慮します。
+テーブルの大部分のスキャンが必要な問い合わせでは、後に発生するシーケンシャルなアクセスパターンのために要求されるディスクI/Oが少ないため、インデックスを使用するよりも、明示的なソートの方が高速です。
+数行を取り出す必要がある場合のみ、インデックスの方が有用になります。
+<literal>ORDER BY</literal>と<literal>LIMIT</literal> <replaceable>n</replaceable>が組み合わされた場合が、重要かつ特別です。
+先頭の<replaceable>n</replaceable>行を識別するために、明示的なソートを全データに対して行う必要があります。
+しかし、もし<literal>ORDER BY</literal>に合うインデックスが存在すれば、残りの部分をスキャンすることなく、先頭の<replaceable>n</replaceable>行の取り出しを直接行うことができます。
   </para>
 
   <para>
+<!--
    By default, B-tree indexes store their entries in ascending order
    with nulls last (table TID is treated as a tiebreaker column among
    otherwise equal entries).  This means that a forward scan of an
@@ -527,23 +801,35 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    <literal>ORDER BY x DESC</literal>
    (or more verbosely, <literal>ORDER BY x DESC NULLS FIRST</literal>, since
    <literal>NULLS FIRST</literal> is the default for <literal>ORDER BY DESC</literal>).
+-->
+デフォルトでは、B-treeインデックスは項目を昇順で格納し、NULLを最後に格納します。
+（テーブルTIDはそれ以外が等しいエントリの中で勝ちを決める列として扱われます）。
+これは、<literal>x</literal>列に対するインデックスの前方方向のスキャンで<literal>ORDER BY x</literal>（より冗長にいえば<literal>ORDER BY x ASC NULLS LAST</literal>）を満たす出力を生成することを意味します。
+また、インデックスを後方方向にスキャンすることもでき、この場合、<literal>ORDER BY x DESC</literal>（より冗長にいえば<literal>ORDER BY x DESC NULLS FIRST</literal>。<literal>NULLS FIRST</literal>が<literal>ORDER BY DESC</literal>のデフォルトだからです。）を満たす出力を生成します。
   </para>
 
   <para>
+<!--
    You can adjust the ordering of a B-tree index by including the
    options <literal>ASC</literal>, <literal>DESC</literal>, <literal>NULLS FIRST</literal>,
    and/or <literal>NULLS LAST</literal> when creating the index; for example:
+-->
+インデックスを作成する時に、以下のように<literal>ASC</literal>、<literal>DESC</literal>、<literal>NULLS FIRST</literal>、<literal>NULLS LAST</literal>オプションを組み合わせて指定することにより、B-treeインデックスの順序を調整することができます。
 <programlisting>
 CREATE INDEX test2_info_nulls_low ON test2 (info NULLS FIRST);
 CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
 </programlisting>
+<!--
    An index stored in ascending order with nulls first can satisfy
    either <literal>ORDER BY x ASC NULLS FIRST</literal> or
    <literal>ORDER BY x DESC NULLS LAST</literal> depending on which direction
    it is scanned in.
+-->
+昇順かつNULL先頭という順で格納されたインデックスは、スキャンされる方向に依存して<literal>ORDER BY x ASC NULLS FIRST</literal>または<literal>ORDER BY x DESC NULLS LAST</literal>を満たすことができます。
   </para>
 
   <para>
+<!--
    You might wonder why bother providing all four options, when two
    options together with the possibility of backward scan would cover
    all the variants of <literal>ORDER BY</literal>.  In single-column indexes
@@ -555,40 +841,69 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
    <literal>ORDER BY x ASC, y DESC</literal>.  There is no way to get that
    ordering from a plain index, but it is possible if the index is defined
    as <literal>(x ASC, y DESC)</literal> or <literal>(x DESC, y ASC)</literal>.
+-->
+4つの全方向を提供する理由が何か、後方方向へのスキャンの可能性があることを考慮した2方向で、すべての種類の<literal>ORDER BY</literal>を網羅できるのではないかと疑問を持つかもしれません。
+単一列に対するインデックスでは、このオプションは実際冗長ですが、複数列に対するインデックスでは有用になります。
+<literal>(x, y)</literal>という2つの列に対するインデックスを仮定します。
+これを前方方向にスキャンすれば<literal>ORDER BY x, y</literal>を満たし、後方方向にスキャンすれば<literal>ORDER BY x DESC, y DESC</literal>を満たします。
+しかし、<literal>ORDER BY x ASC, y DESC</literal>をよく使用しなければならないアプリケーションが存在する可能性があります。
+簡素なインデックスからこの順序を取り出す方法がありません。
+しかし、インデックスが<literal>(x ASC, y DESC)</literal>または<literal>(x DESC, y ASC)</literal>として定義されていれば、取り出すことができます。
   </para>
 
   <para>
+<!--
    Obviously, indexes with non-default sort orderings are a fairly
    specialized feature, but sometimes they can produce tremendous
    speedups for certain queries.  Whether it's worth maintaining such an
    index depends on how often you use queries that require a special
    sort ordering.
+-->
+明確なことですが、デフォルト以外のソート順を持つインデックスはかなり特殊な機能です。
+しかし、特定の問い合わせにおいては恐ろしいほどの速度を向上させることがあります。
+こうしたインデックスを維持する価値があるかどうかは、特殊なソート順を要求する問い合わせを使用する頻度に依存します。
   </para>
  </sect1>
 
 
  <sect1 id="indexes-bitmap-scans">
+<!--
   <title>Combining Multiple Indexes</title>
+-->
+  <title>複数のインデックスの組み合わせ</title>
 
   <indexterm zone="indexes-bitmap-scans">
+<!--
    <primary>index</primary>
    <secondary>combining multiple indexes</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>複数のインデックスの組み合わせ</secondary>
   </indexterm>
 
   <indexterm zone="indexes-bitmap-scans">
+<!--
    <primary>bitmap scan</primary>
+-->
+   <primary>ビットマップスキャン</primary>
   </indexterm>
 
   <para>
+<!--
    A single index scan can only use query clauses that use the index's
    columns with operators of its operator class and are joined with
    <literal>AND</literal>.  For example, given an index on <literal>(a, b)</literal>
    a query condition like <literal>WHERE a = 5 AND b = 6</literal> could
    use the index, but a query like <literal>WHERE a = 5 OR b = 6</literal> could not
    directly use the index.
+-->
+単一のインデックススキャンは、インデックスの列をその演算子クラスの演算子で使用する問い合わせ句と、それを<literal>AND</literal>結合したものでのみ使用されます。
+例えば、<literal>(a, b)</literal>というインデックスと<literal>WHERE a = 5 AND b = 6</literal>という問い合わせでは、インデックスが使用されます。
+しかし、<literal>WHERE a = 5 OR b = 6</literal>のような問い合わせではインデックスは直接使用されません。
   </para>
 
   <para>
+<!--
    Fortunately,
    <productname>PostgreSQL</productname> has the ability to combine multiple indexes
    (including multiple uses of the same index) to handle cases that cannot
@@ -602,9 +917,18 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
    implementation of a query like <literal>WHERE x = 5 AND y = 6</literal> is to
    use each index with the appropriate query clause and then AND together
    the index results to identify the result rows.
+-->
+幸いにも、<productname>PostgreSQL</productname>は、単一のインデックススキャンでは実装できない場合を扱うために、複数のインデックス（同じインデックスの複数回使用を含む）を組み合わせる機能を持ちます。
+システムは複数のインデックススキャンを跨がる、<literal>AND</literal>条件および<literal>OR</literal>条件を形成できます。
+例えば、
+<literal>WHERE x = 42 OR x = 47 OR x = 53 OR x = 99</literal>という問い合わせは、問い合わせ句の1つを使用して<literal>x</literal>上のインデックスをスキャンする4つのスキャンに分割することができます。
+その後、これらのスキャンの結果はOR演算でまとめられ、結果を生成します。
+他の例として<literal>x</literal>と<literal>y</literal>に別個のインデックスがある場合を考えます。
+<literal>WHERE x = 5 AND y = 6</literal>のような問い合わせに対して取り得る実装は、適切な問い合わせ句で各インデックスを使用し、インデックスの結果をANDでまとめ、結果行を識別することです。
   </para>
 
   <para>
+<!--
    To combine multiple indexes, the system scans each needed index and
    prepares a <firstterm>bitmap</firstterm> in memory giving the locations of
    table rows that are reported as matching that index's conditions.
@@ -617,9 +941,19 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
    adds extra time, the planner will sometimes choose to use a simple index
    scan even though additional indexes are available that could have been
    used as well.
+-->
+複数のインデックスを組み合わせるために、システムは必要なインデックスそれぞれをスキャンし、インデックス条件に適合するものと報告されたテーブル行の位置を与えるためにメモリ上に<firstterm>ビットマップ</firstterm>を準備します。
+その後、このビットマップは問い合わせで必要とされたように、ANDまたはOR演算されます。
+最後に、実際のテーブル行がアクセスされ、返されます。
+テーブル行は物理的な順番でアクセスされます。
+ビットマップにこの順番で格納されているからです。
+これは、元のインデックスの順序が失われていることを意味します。
+そのため、もし問い合わせが<literal>ORDER BY</literal>句を持つ場合、この他のソート手続きが必要となります。
+この理由、および、追加のインデックススキャンそれぞれのために余計な時間が加わることから、プランナは追加のインデックスが同様に使用できる場合であっても、単純なインデックススキャンを選択することがあります。
   </para>
 
   <para>
+<!--
    In all but the simplest applications, there are various combinations of
    indexes that might be useful, and the database developer must make
    trade-offs to decide which indexes to provide.  Sometimes multicolumn
@@ -644,109 +978,182 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
    common.  If one of the types of query is much less common than the
    others, you'd probably settle for creating just the two indexes that
    best match the common types.
+-->
+もっとも単純なアプリケーション以外のほとんどすべてのアプリケーションでは、インデックスの有用な組み合わせはいろいろあります。
+このため、データベース開発者は妥協点を探してどのようなインデックスを提供するかを決定しなければなりません。
+複数列インデックスが最善な場合がありますし、別々のインデックスを作成し、インデックスの組み合わせ機能に依存する方が優れている場合もあります。
+例えば、作業に<literal>x</literal>列のみを含む場合と<literal>y</literal>列のみを含む場合、両方の列を含む場合が混在する問い合わせが含まれる場合、<literal>x</literal>と<literal>y</literal>に対し、別個に2つのインデックスを作成し、両方の列を使用する問い合わせを処理する時にインデックスの組み合わせに依存することを選ぶことができます。
+また、<literal>(x, y)</literal>に対する複数列インデックスを作成することもできます。
+両方の列を含む問い合わせでは、通常このインデックスの方がインデックスの組み合わせよりも効率的です。
+しかし、<xref linkend="indexes-multicolumn"/>で説明した通り、<literal>y</literal>のみを含む問い合わせではほとんど意味がありません。
+従って、このインデックスのみとすることはできません。
+複数列インデックスと<literal>y</literal>に対する別のインデックスの組み合わせがかなりよく役に立ちます。
+<literal>x</literal>のみを含む問い合わせでは、複数列インデックスを使用することができます。
+しかし、これはより大きくなりますので、<literal>x</literal> のみインデックスよりも低速になります。
+最後の別方法は、3つのインデックスすべてを作成することです。
+しかしこれはおそらく、テーブルの検索頻度が更新頻度よりもかなり高く、3種類の問い合わせすべてが良く使用される場合のみ合理的です。
+問い合わせの中の1つの頻度が他よりも少なければ、おそらく良く使用される種類にもっとも合うように2つだけインデックスを作成した方がよいでしょう。
   </para>
 
  </sect1>
 
 
  <sect1 id="indexes-unique">
+<!--
   <title>Unique Indexes</title>
+-->
+  <title>一意インデックス</title>
 
   <indexterm zone="indexes-unique">
+<!--
    <primary>index</primary>
    <secondary>unique</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>一意</secondary>
   </indexterm>
 
   <para>
+<!--
    Indexes can also be used to enforce uniqueness of a column's value,
    or the uniqueness of the combined values of more than one column.
+-->
+インデックスは、列値の一意性や、複数列を組み合わせた値の一意性を強制するためにも使用できます。
 <synopsis>
 CREATE UNIQUE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> (<replaceable>column</replaceable> <optional>, ...</optional>);
 </synopsis>
+<!--
    Currently, only B-tree indexes can be declared unique.
+-->
+現在、一意インデックスとして宣言できるのはB-treeインデックスのみです。
   </para>
 
   <para>
+<!--
    When an index is declared unique, multiple table rows with equal
    indexed values are not allowed.  Null values are not considered
    equal.  A multicolumn unique index will only reject cases where all
    indexed columns are equal in multiple rows.
+-->
+一意インデックスが宣言された場合、同じインデックス値を有する複数のテーブル行は許されなくなります。
+NULL 値は同じ値とはみなされません。
+複数列の一意インデックスは、インデックス列の全てが複数の行で同一の場合のみ拒絶されます。
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> automatically creates a unique
    index when a unique constraint or primary key is defined for a table.
    The index covers the columns that make up the primary key or unique
    constraint (a multicolumn index, if appropriate), and is the mechanism
    that enforces the constraint.
+-->
+<productname>PostgreSQL</productname>では、テーブルに一意性制約または主キーが定義されると、自動的に一意インデックスを作成します。
+このインデックスが、主キーや一意性制約（適切ならば複数列のインデックスで）となる列に対して作成され、この制約を強制する機構となります。
   </para>
 
   <note>
    <para>
+<!--
     There's no need to manually
     create indexes on unique columns; doing so would just duplicate
     the automatically-created index.
+-->
+手作業で一意列に対しインデックスを作成する必要はありません。
+これは、単に自動作成されるインデックスを二重にするだけです。
    </para>
   </note>
  </sect1>
 
 
  <sect1 id="indexes-expressional">
+<!--
   <title>Indexes on Expressions</title>
+-->
+  <title>式に対するインデックス</title>
 
   <indexterm zone="indexes-expressional">
+<!--
    <primary>index</primary>
    <secondary sortas="expressions">on expressions</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary sortas="expressions">式に対する</secondary>
   </indexterm>
 
   <para>
+<!--
    An index column need not be just a column of the underlying table,
    but can be a function or scalar expression computed from one or
    more columns of the table.  This feature is useful to obtain fast
    access to tables based on the results of computations.
+-->
+インデックス列は、基礎をなすテーブルにある列である必要はなく、そのテーブルの１つ以上の列から計算される関数やスカラ式とすることもできます。
+この機能は、ある演算結果に基づいた高速テーブルアクセスを行う時に有用です。
   </para>
 
   <para>
+<!--
    For example, a common way to do case-insensitive comparisons is to
    use the <function>lower</function> function:
+-->
+例えば、大文字小文字を区別せずに比較するための一般的な方法である、<function>lower</function>関数での使用例を以下に示します。
 <programlisting>
 SELECT * FROM test1 WHERE lower(col1) = 'value';
 </programlisting>
+<!--
    This query can use an index if one has been
    defined on the result of the <literal>lower(col1)</literal>
    function:
+-->
+<literal>lower(column)</literal>関数の結果にインデックスが定義されていれば、この問い合わせでインデックスを使用することができます。
 <programlisting>
 CREATE INDEX test1_lower_col1_idx ON test1 (lower(col1));
 </programlisting>
   </para>
 
   <para>
+<!--
    If we were to declare this index <literal>UNIQUE</literal>, it would prevent
    creation of rows whose <literal>col1</literal> values differ only in case,
    as well as rows whose <literal>col1</literal> values are actually identical.
    Thus, indexes on expressions can be used to enforce constraints that
    are not definable as simple unique constraints.
+-->
+このインデックスを<literal>UNIQUE</literal>と宣言したとすると、<literal>col1</literal>の値が同一となる行だけでなく、<literal>col1</literal>の大文字小文字だけが違う行の生成を防ぐことになります。
+したがって、式に対するインデックスを使用して、単なる一意性制約では定義できないような制約を強制することができます。
   </para>
 
   <para>
+<!--
    As another example, if one often does queries like:
+-->
+別の例として、以下のような問い合わせが頻繁に行われる場合を考えます。
 <programlisting>
 SELECT * FROM people WHERE (first_name || ' ' || last_name) = 'John Smith';
 </programlisting>
+<!--
    then it might be worth creating an index like this:
+-->
+この場合、以下のようなインデックスを作成する価値があるでしょう。
 <programlisting>
 CREATE INDEX people_names ON people ((first_name || ' ' || last_name));
 </programlisting>
   </para>
 
   <para>
+<!--
    The syntax of the <command>CREATE INDEX</command> command normally requires
    writing parentheses around index expressions, as shown in the second
    example.  The parentheses can be omitted when the expression is just
    a function call, as in the first example.
+-->
+２番目の例に示すように<command>CREATE INDEX</command>コマンドの構文は通常、インデックス式を括弧で括る必要があります。
+最初の例のように、式が単なる関数呼び出しの場合には括弧を省略することができます。
   </para>
 
   <para>
+<!--
    Index expressions are relatively expensive to maintain, because the
    derived expression(s) must be computed for each row upon insertion
    and whenever it is updated.  However, the index expressions are
@@ -756,28 +1163,48 @@ CREATE INDEX people_names ON people ((first_name || ' ' || last_name));
    and so the speed of the search is equivalent to any other simple index
    query.  Thus, indexes on expressions are useful when retrieval speed
    is more important than insertion and update speed.
+-->
+派生した式が、行が挿入、更新される度に実行されなければなりませんので、インデックス式は相対的に見て維持が高価です。
+しかし、インデックス式はインデックス内にすでに格納されているため、インデックスを使用する検索の間は再計算<emphasis>されません</emphasis>。
+上の両方の例では、システムは問い合わせを単なる<literal>WHERE indexedcolumn = 'constant'</literal>と理解しますので、この検索速度は他の単純なインデックス問い合わせと同じです。
+したがって、式に対するインデックスは取り出し速度が挿入、更新速度より重要な場合に有用です。
   </para>
  </sect1>
 
 
  <sect1 id="indexes-partial">
+<!--
   <title>Partial Indexes</title>
+-->
+  <title>部分インデックス</title>
 
   <indexterm zone="indexes-partial">
+<!--
    <primary>index</primary>
    <secondary>partial</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>部分</secondary>
   </indexterm>
 
   <para>
+<!--
    A <firstterm>partial index</firstterm> is an index built over a
    subset of a table; the subset is defined by a conditional
    expression (called the <firstterm>predicate</firstterm> of the
    partial index).  The index contains entries only for those table
    rows that satisfy the predicate.  Partial indexes are a specialized
    feature, but there are several situations in which they are useful.
+-->
+<firstterm>部分インデックス</firstterm>とは、テーブルの部分集合に構築されるインデックスです。
+部分集合は、（部分インデックスの<firstterm>述語</firstterm>と呼ばれる）条件式で定義されます。
+部分インデックスには、その述語を満たすテーブル行のみに対するエントリが含まれます。
+部分インデックスは特別な機能です。
+しかし、これらが有用となる状況が複数あります。
   </para>
 
   <para>
+<!--
    One major reason for using a partial index is to avoid indexing common
    values.  Since a query searching for a common value (one that
    accounts for more than a few percent of all the table rows) will not
@@ -787,22 +1214,40 @@ CREATE INDEX people_names ON people ((first_name || ' ' || last_name));
    update operations because the index does not need to be
    updated in all cases.  <xref linkend="indexes-partial-ex1"/> shows a
    possible application of this idea.
+-->
+部分インデックスを利用する主な目的は、頻出値に対してインデックスを作成しないようにすることです。
+（テーブル全体の行のうち、数パーセント以上を占める）頻出値を検索する問い合わせでは、いかなる場合でもインデックスを使用しないため、インデックスにそれらの行を持ち続けることは全く意味がありません。
+これによりインデックスのサイズが小さくなりますので、インデックスを使用する問い合わせが速くなります。
+また、インデックスを更新する必要のないケースも生じるため、テーブルを更新する作業の多くも速くなります。
+<xref linkend="indexes-partial-ex1"/>にこの概念に基づいた用例を示します。
   </para>
 
   <example id="indexes-partial-ex1">
+<!--
    <title>Setting up a Partial Index to Exclude Common Values</title>
+-->
+   <title>頻出値を除外するための部分インデックスの作成</title>
 
    <para>
+<!--
     Suppose you are storing web server access logs in a database.
     Most accesses originate from the IP address range of your organization but
     some are from elsewhere (say, employees on dial-up connections).
     If your searches by IP are primarily for outside accesses,
     you probably do not need to index the IP range that corresponds to your
     organization's subnet.
+-->
+ウェブサーバのアクセスログをデータベースに格納しているとします。
+多くのアクセスは、社内のIPアドレスの範囲内から発信されています。
+しかし、範囲外のアドレス（例えば、社員がダイアルアップ接続している場所）からの発信もあります。
+主に範囲外からのアクセスをIPアドレスで検索する場合、社内のサブネットに該当するIPアドレスの範囲にインデックスを作成する必要はないでしょう。
    </para>
 
    <para>
+<!--
     Assume a table like this:
+-->
+以下のようなテーブルがあると想定します。
 <programlisting>
 CREATE TABLE access_log (
     url varchar,
@@ -813,8 +1258,11 @@ CREATE TABLE access_log (
    </para>
 
    <para>
+<!--
     To create a partial index that suits our example, use a command
     such as this:
+-->
+この例に適する部分インデックスを作成するには、以下のようなコマンドを使用します。
 <programlisting>
 CREATE INDEX access_log_client_ip_ix ON access_log (client_ip)
 WHERE NOT (client_ip &gt; inet '192.168.100.0' AND
@@ -823,15 +1271,22 @@ WHERE NOT (client_ip &gt; inet '192.168.100.0' AND
    </para>
 
    <para>
+<!--
     A typical query that can use this index would be:
+-->
+このインデックスを使用できる問い合わせの典型的な例は、以下のようなものです。
 <programlisting>
 SELECT *
 FROM access_log
 WHERE url = '/index.html' AND client_ip = inet '212.78.10.32';
 </programlisting>
+<!--
     Here the query's IP address is covered by the partial index.  The
     following query cannot use the partial index, as it uses an IP address
     that is excluded from the index:
+-->
+この問い合わせのIPアドレスは部分インデックスでカバーされています。
+以下の問い合わせは、インデックスから除外されているIPアドレスを使用しているので、部分インデックスを使用できません。
 <programlisting>
 SELECT *
 FROM access_log
@@ -840,15 +1295,21 @@ WHERE url = '/index.html' AND client_ip = inet '192.168.100.23';
    </para>
 
    <para>
+<!--
     Observe that this kind of partial index requires that the common
     values be predetermined, so such partial indexes are best used for
     data distributions that do not change.  Such indexes can be recreated
     occasionally to adjust for new data distributions, but this adds
     maintenance effort.
+-->
+このような部分インデックスを使用するには、あらかじめ頻出値が何であるかを知っている必要があることに注意してください。
+値の分布が変わらない場合に、このような部分インデックスが最善です。
+データの分布が新しくなった場合はインデックスの再作成によって調整できますが、これはメンテナンス作業を増やしてしまいます。
    </para>
   </example>
 
   <para>
+<!--
    Another possible use for a partial index is to exclude values from the
    index that the
    typical query workload is not interested in; this is shown in <xref
@@ -858,17 +1319,32 @@ WHERE url = '/index.html' AND client_ip = inet '192.168.100.23';
    index, even if an index scan might be profitable in that
    case.  Obviously, setting up partial indexes for this kind of
    scenario will require a lot of care and experimentation.
+-->
+部分インデックスを使用する有効な他の方法としては、一般的な問い合わせに必要のない値をインデックスから取り除くことです。
+<xref linkend="indexes-partial-ex2"/>を参照してください。
+この方法の利点は上で示したものと同じです。
+ただ、この方法を使用すると、インデックススキャンが適している場合でも、<quote>必要のない</quote>値へのインデックスを介したアクセスが防止されてしまいます。
+以上のことから明白なように、このようなケースで部分インデックスを作成する際は、細心の注意を払い、十分な検証を行う必要があります。
   </para>
 
   <example id="indexes-partial-ex2">
+<!--
    <title>Setting up a Partial Index to Exclude Uninteresting Values</title>
+-->
+   <title>必要のない値を除外するための部分インデックスの作成</title>
 
    <para>
+<!--
     If you have a table that contains both billed and unbilled orders,
     where the unbilled orders take up a small fraction of the total
     table and yet those are the most-accessed rows, you can improve
     performance by creating an index on just the unbilled rows.  The
     command to create the index would look like this:
+-->
+請求済み注文書および未請求注文書からなる、１つのテーブルがあるとします。
+そして、未請求注文書の方がテーブル全体に対する割合が小さく、かつその部分へのアクセス数が最も多かったとします。
+このような場合、未請求の行のみにインデックスを作成することにより、性能を向上させることができます。
+インデックスの作成には、以下のようなコマンドを使用します。
 <programlisting>
 CREATE INDEX orders_unbilled_index ON orders (order_nr)
     WHERE billed is not true;
@@ -876,33 +1352,51 @@ CREATE INDEX orders_unbilled_index ON orders (order_nr)
    </para>
 
    <para>
+<!--
     A possible query to use this index would be:
+-->
+このインデックスを使用する問い合わせの例としては、次のものが考えられます。
 <programlisting>
 SELECT * FROM orders WHERE billed is not true AND order_nr &lt; 10000;
 </programlisting>
+<!--
     However, the index can also be used in queries that do not involve
     <structfield>order_nr</structfield> at all, e.g.:
+-->
+しかし、このインデックスは、<structfield>order_nr</structfield>をまったく使用しない問い合わせでも使用することができます。
+以下は、その例です。
 <programlisting>
 SELECT * FROM orders WHERE billed is not true AND amount &gt; 5000.00;
 </programlisting>
+<!--
     This is not as efficient as a partial index on the
     <structfield>amount</structfield> column would be, since the system has to
     scan the entire index.  Yet, if there are relatively few unbilled
     orders, using this partial index just to find the unbilled orders
     could be a win.
+-->
+この問い合わせでは、システムがインデックス全体を検索する必要があるため、<structfield>amount</structfield>列に部分インデックスを作成した場合ほど効率は良くありません。
+しかし、未請求注文書データが比較的少ない場合は、この部分インデックスを未請求注文書を検出するためだけに使用した方が効率が良い可能性があります。
    </para>
 
    <para>
+<!--
     Note that this query cannot use this index:
+-->
+以下の問い合わせでは、このインデックスを使用できないことに注意してください。
 <programlisting>
 SELECT * FROM orders WHERE order_nr = 3501;
 </programlisting>
+<!--
     The order 3501 might be among the billed or unbilled
     orders.
+-->
+注文番号3501は請求済みかもしれませんし、未請求かもしれないからです。
    </para>
   </example>
 
   <para>
+<!--
    <xref linkend="indexes-partial-ex2"/> also illustrates that the
    indexed column and the column used in the predicate do not need to
    match.  <productname>PostgreSQL</productname> supports partial
@@ -928,25 +1422,53 @@ SELECT * FROM orders WHERE order_nr = 3501;
    example a prepared query with a parameter might specify
    <quote>x &lt; ?</quote> which will never imply
    <quote>x &lt; 2</quote> for all possible values of the parameter.
+-->
+<xref linkend="indexes-partial-ex2"/>でもわかるように、インデックスが付けられた列名と、述語で使用されている列名は、一致している必要はありません。
+<productname>PostgreSQL</productname>では、インデックス付けされるテーブルの列だけが含まれているのなら、任意の述語で部分インデックスを使用できます。
+しかし、この述語は、インデックスを使用させたい問い合わせの条件と一致する必要があることに留意してください。
+正確に言うと、部分インデックスを問い合わせで使用できるのは、インデックスの述語が問い合わせの<literal>WHERE</literal>条件に数学的に当てはまるとシステムが判断できる場合のみです。
+<productname>PostgreSQL</productname>には、異なった形式で記述された述語が数学的に同等のものであると判断できるような、洗練された定理証明機能はありません。
+（そのような汎用的な定理証明機能の作成は、非常に困難であるだけではなく、おそらく実際の利用にはあまりにも実行速度が遅過ぎるでしょう。）
+システムでは、例えば<quote>x &lt; 1</quote>は<quote>x &lt; 2</quote>を意味するというような、単純な比較演算子の意味は認識可能です。
+しかし、それ以外の場合は、述語条件は問い合わせの<literal>WHERE</literal>条件と完全に一致している必要があります。
+一致していない場合は、インデックスは使用可能と認識されません。
+一致するかどうかは、実行時ではなく、問い合わせ計画作成時に判定されます。
+したがって、パラメータ付きの問い合わせでは部分インデックスは動作しません。
+たとえば、<quote>x &lt; ?</quote>と指定されたパラメータを持つ、プリペアド問い合わせでは、どのようなパラメータ値であっても<quote>x &lt; 2</quote>を表しません。
   </para>
 
   <para>
+<!--
    A third possible use for partial indexes does not require the
    index to be used in queries at all.  The idea here is to create
    a unique index over a subset of a table, as in <xref
    linkend="indexes-partial-ex3"/>.  This enforces uniqueness
    among the rows that satisfy the index predicate, without constraining
    those that do not.
+-->
+部分インデックスの考えられる３つ目の用法では、問い合わせでインデックスをまったく使用しません。
+この考え方は、テーブルの部分集合に一意インデックスを作成するというものです。
+<xref linkend="indexes-partial-ex3"/>を参照してください。
+これにより、インデックスの述語を満たさない行を制約することなく、その述語を満たす行での一意性を強制します。
   </para>
 
   <example id="indexes-partial-ex3">
+<!--
    <title>Setting up a Partial Unique Index</title>
+-->
+   <title>一意な部分インデックスの作成</title>
 
    <para>
+<!--
     Suppose that we have a table describing test outcomes.  We wish
     to ensure that there is only one <quote>successful</quote> entry for
     a given subject and target combination, but there might be any number of
     <quote>unsuccessful</quote> entries.  Here is one way to do it:
+-->
+テストの結果が格納されているテーブルがあるとします。
+与えられた件名（subject）および対象（target）の組み合わせに対して、<quote>成功</quote>のエントリが確実に1つしかないようにします。
+<quote>失敗</quote>のエントリは、複数あっても構いません。
+以下に、これを実行する一例を示します。
 <programlisting>
 CREATE TABLE tests (
     subject text,
@@ -958,15 +1480,20 @@ CREATE TABLE tests (
 CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
     WHERE success;
 </programlisting>
+<!--
     This is a particularly efficient approach when there are few
     successful tests and many unsuccessful ones.  It is also possible to
     allow only one null in a column by creating a unique partial index
     with an <literal>IS NULL</literal> restriction.
+-->
+これは、成功するテストが少なく、失敗するテストが多い場合に特に有効な手法です。
+また、<literal>IS NULL</literal>制限を使用して一意の部分インデックスを作成することにより、ひとつの列にNULL値をひとつのみ許可できます。
    </para>
 
   </example>
 
   <para>
+<!--
    Finally, a partial index can also be used to override the system's
    query plan choices.  Also, data sets with peculiar
    distributions might cause the system to use an index when it really
@@ -977,9 +1504,16 @@ CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
    earlier example really only saves index size, it is not required to
    avoid index usage), and grossly incorrect plan choices are cause
    for a bug report.
+-->
+最後に、部分インデックスは、システムの問い合わせ計画の選択を変更するためにも使用できます。
+特殊なデータ分布を持つデータ集合では、システムが実際には使用すべきでないインデックスを使用してしまうことがあります。
+このような場合、特定の問い合わせでは使用することができないインデックスを設定することができます。
+通常、<productname>PostgreSQL</productname>はインデックスの使用について適切な選択を行います（例えば、頻出値の検索にはインデックスを使用しませんので、前述の例はインデックスのサイズを実際に小さくするだけのもので、インデックスの使用を制限するためには必要はありません）。
+まったく不適切な計画を選択するようであれば、バグとして報告してください。
   </para>
 
   <para>
+<!--
    Keep in mind that setting up a partial index indicates that you
    know at least as much as the query planner knows, in particular you
    know when an index might be profitable.  Forming this knowledge
@@ -988,14 +1522,25 @@ CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
    advantage of a partial index over a regular index will be minimal.
    There are cases where they are quite counterproductive, as in <xref
    linkend="indexes-partial-ex4"/>.
+-->
+部分インデックスを作成するには、少なくとも問い合わせプランナと同等の知識を持っていること、特に、インデックスが有益となる状況を理解している必要があることに留意してください。
+このような知識を得るためには、<productname>PostgreSQL</productname>でインデックスがどのように機能するかを理解し、経験を積むことが必要です。
+ほとんどの場合、通常のインデックスと比べて、部分インデックスを使用する利点は微細です。
+<xref linkend="indexes-partial-ex4"/>のように、かなり逆効果な場合があります。
   </para>
 
   <example id="indexes-partial-ex4">
+<!--
    <title>Do Not Use Partial Indexes as a Substitute for Partitioning</title>
+-->
+   <title>パーティショニングの代わりに部分インデックスを使用しない</title>
 
    <para>
+<!--
     You might be tempted to create a large set of non-overlapping partial
     indexes, for example
+-->
+例えば、重複しない部分インデックスの大きなセットを作りたいと思うかもしれません。
 
 <programlisting>
 CREATE INDEX mytable_cat_1 ON mytable (data) WHERE category = 1;
@@ -1005,13 +1550,17 @@ CREATE INDEX mytable_cat_3 ON mytable (data) WHERE category = 3;
 CREATE INDEX mytable_cat_<replaceable>N</replaceable> ON mytable (data) WHERE category = <replaceable>N</replaceable>;
 </programlisting>
 
+<!--
     This is a bad idea!  Almost certainly, you'll be better off with a
     single non-partial index, declared like
+-->
+これは良くないアイディアです！ほとんどの場合、以下のように宣言された、部分的でない単一のインデックスを使用する方が良いでしょう。
 
 <programlisting>
 CREATE INDEX mytable_cat_data ON mytable (category, data);
 </programlisting>
 
+<!--
     (Put the category column first, for the reasons described in
     <xref linkend="indexes-multicolumn"/>.)  While a search in this larger
     index might have to descend through a couple more tree levels than a
@@ -1021,44 +1570,73 @@ CREATE INDEX mytable_cat_data ON mytable (category, data);
     understand the relationship among the partial indexes, and will
     laboriously test each one to see if it's applicable to the current
     query.
+-->
+（<xref linkend="indexes-multicolumn"/>で説明されている理由から、最初にcategory列を指定します。)
+この大きなインデックスでの検索は、小さなインデックスでの検索よりも2,3ツリーレベルを下に移動する必要がありますが、部分インデックスの適切な1つを選択するためにプランナがおこなう作業よりも、ほぼ確実にコストが削減できます。
+この問題の核心は、システムが部分インデックス間の関係を理解していないことと、現在の問い合わせに適用出来るかどうかそれぞれ苦労してテストすることです。
    </para>
 
    <para>
+<!--
     If your table is large enough that a single index really is a bad idea,
     you should look into using partitioning instead (see
     <xref linkend="ddl-partitioning"/>).  With that mechanism, the system
     does understand that the tables and indexes are non-overlapping, so
     far better performance is possible.
+-->
+テーブルが非常に大きくて、単一のインデックスが本当に悪いアイデアである場合は、代わりにパーティショニングを使用する必要があります(<xref linkend="ddl-partitioning"/>を参照してください）。
+このメカニズムにより、テーブルとインデックスが重複していないことが、システムで認識されるため、パフォーマンスが大幅に向上します。
    </para>
   </example>
 
   <para>
+<!--
    More information about partial indexes can be found in <xref
    linkend="ston89b"/>, <xref linkend="olson93"/>, and <xref
    linkend="seshadri95"/>.
+-->
+部分インデックスの詳細については、<xref linkend="ston89b"/>、<xref linkend="olson93"/>、および<xref linkend="seshadri95"/>を参照してください。
   </para>
  </sect1>
 
 
  <sect1 id="indexes-index-only-scans">
+<!--
   <title>Index-Only Scans and Covering Indexes</title>
+-->
+  <title>インデックスオンリースキャンとカバリングインデックス</title>
 
   <indexterm zone="indexes-index-only-scans">
+<!--
    <primary>index</primary>
    <secondary>index-only scans</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>インデックスオンリースキャン</secondary>
   </indexterm>
   <indexterm zone="indexes-index-only-scans">
+<!--
    <primary>index-only scan</primary>
+-->
+   <primary>インデックスオンリースキャン</primary>
   </indexterm>
   <indexterm zone="indexes-index-only-scans">
+<!--
    <primary>index</primary>
    <secondary>covering</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>カバリング</secondary>
   </indexterm>
   <indexterm zone="indexes-index-only-scans">
+<!--
    <primary>covering index</primary>
+-->
+   <primary>カバリングインデックス</primary>
   </indexterm>
 
   <para>
+<!--
    All indexes in <productname>PostgreSQL</productname>
    are <firstterm>secondary</firstterm> indexes, meaning that each index is
    stored separately from the table's main data area (which is called the
@@ -1074,19 +1652,32 @@ CREATE INDEX mytable_cat_data ON mytable (category, data);
    <xref linkend="indexes-bitmap-scans"/>, bitmap scans try to alleviate
    this cost by doing the heap accesses in sorted order, but that only goes
    so far.)
+-->
+<productname>PostgreSQL</productname>におけるすべてのインデックスは<firstterm>二次的な</firstterm>インデックス、つまり各インデックスはテーブルの主要なデータ領域（<productname>PostgreSQL</productname>の用語ではテーブルの<firstterm>ヒープ</firstterm>と呼ばれます）とは別に格納されています。
+このことは、通常のインデックススキャンにおいて、各行の検索にはインデックスとヒープの両方からデータを取得する必要があることを意味します。
+さらに、指定のインデックス可能な<literal>WHERE</literal>条件に適合するインデックスのエントリは、通常、インデックス内の近い位置にあるのに対し、そこから参照されるテーブルの行はヒープ内のあらゆるところにあるかもしれません。
+このため、インデックススキャンにおけるヒープアクセスの部分では、ヒープに対する多くのランダムアクセスがありますが、これは遅い可能性があり、特に伝統的な回転型メディアでは遅くなります。
+（<xref linkend="indexes-bitmap-scans"/>で説明したように、ビットマップインデックスはヒープアクセスをソートした順で行うことでこのコストを緩和しようとするものですが、それはある程度までしかできません。）
   </para>
 
   <para>
+<!--
    To solve this performance problem, <productname>PostgreSQL</productname>
    supports <firstterm>index-only scans</firstterm>, which can answer
    queries from an index alone without any heap access.  The basic idea is
    to return values directly out of each index entry instead of consulting
    the associated heap entry.  There are two fundamental restrictions on
    when this method can be used:
+-->
+このパフォーマンス問題を解決するため、<productname>PostgreSQL</productname>は<firstterm>インデックスオンリースキャン</firstterm>をサポートします。
+これは、問い合わせに対してヒープアクセスをせずにインデックスのみで回答できるものです。
+基本的な考え方は、関連するヒープのエントリを参照せずに、各インデックスエントリから直接に値を返すというものです。
+この方法が使用できるためには2つの基本的な制限があります。
 
    <orderedlist>
     <listitem>
      <para>
+<!--
       The index type must support index-only scans.  B-tree indexes always
       do.  GiST and SP-GiST indexes support index-only scans for some
       operator classes but not others.  Other index types have no support.
@@ -1095,32 +1686,50 @@ CREATE INDEX mytable_cat_data ON mytable (category, data);
       entry.  As a counterexample, GIN indexes cannot support index-only
       scans because each index entry typically holds only part of the
       original data value.
+-->
+インデックスの種類がインデックスオンリースキャンをサポートしている必要があります。
+B-treeインデックスはいつでもインデックスオンリースキャンをサポートしています。
+GiSTとSP-GiSTは一部の演算子クラスでインデックスオンリースキャンをサポートしていますが、サポートしない演算子クラスもあります。
+他のインデックスの種類はインデックスオンリースキャンをサポートしていません。
+根本的な必要条件は、インデックスが各インデックスのエントリに対応する元のデータ値を物理的に格納していなければならない、あるいはそれを再構築できる必要がある、ということです。
+その反例として、GINインデックスでは、各インデックスエントリが通常は元のデータ値の一部しか保持していないため、インデックスオンリースキャンをサポートすることができません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       The query must reference only columns stored in the index.  For
       example, given an index on columns <literal>x</literal>
       and <literal>y</literal> of a table that also has a
       column <literal>z</literal>, these queries could use index-only scans:
+-->
+問い合わせはインデックスに格納されている列だけを参照しなければなりません。
+例えばテーブルの列<literal>x</literal>と<literal>y</literal>にインデックスがあり、そのテーブルにはさらに列<literal>z</literal>がある場合、次の問い合わせはインデックスオンリースキャンを使用できます。
 <programlisting>
 SELECT x, y FROM tab WHERE x = 'key';
 SELECT x FROM tab WHERE x = 'key' AND y &lt; 42;
 </programlisting>
+<!--
       but these queries could not:
+-->
+しかし、以下の問い合わせはインデックスオンリースキャンを使用できません。
 <programlisting>
 SELECT x, z FROM tab WHERE x = 'key';
 SELECT x FROM tab WHERE x = 'key' AND z &lt; 42;
 </programlisting>
+<!--
       (Expression indexes and partial indexes complicate this rule,
       as discussed below.)
+-->
+（以下で説明するように、式インデックスや部分インデックスは、この規則を複雑にします。）
      </para>
     </listitem>
    </orderedlist>
   </para>
 
   <para>
+<!--
    If these two fundamental requirements are met, then all the data values
    required by the query are available from the index, so an index-only scan
    is physically possible.  But there is an additional requirement for any
@@ -1145,21 +1754,45 @@ SELECT x FROM tab WHERE x = 'key' AND z &lt; 42;
    of magnitude smaller than the heap it describes, far less physical I/O is
    needed to access it.  In most situations the visibility map remains
    cached in memory all the time.
+-->
+この2つの基本的な要件が満たされるなら、問い合わせで要求されるすべてのデータ値はインデックスから利用できるので、インデックスオンリースキャンが物理的に可能になります。
+しかし、<productname>PostgreSQL</productname>のすべてのテーブルスキャンにおいて、さらなる必要条件があります。
+それは、<xref linkend="mvcc"/>で説明するように、検索された各行が問い合わせのMVCCスナップショットに対して<quote>可視</quote>であることを確認しなければならない、ということです。
+可視性の情報はインデックスのエントリには格納されず、ヒープのエントリにのみあります。
+そのため、一見すると、すべての行検索はいずれにせよヒープアクセスが必要なように思われます。
+そして、テーブルの行が最近に更新された場合は、まさにその通りなのです。
+しかし、あまり更新されないデータについてはこの問題を回避する方法があります。
+<productname>PostgreSQL</productname>ではテーブルのヒープの各ページについて、そのページに格納されているすべての行が、十分に古く、すべての現在および将来のトランザクションに対して可視であるかどうかを追跡しています。
+この情報はテーブルの<firstterm>可視性マップ</firstterm>のビットに格納されます。
+インデックスオンリースキャンでは、候補となるインデックスのエントリを見つけた後、対応するヒープページの可視性マップのビットを検査します。
+それがセットされていれば、行が可視であることがわかるので、それ以上の作業をすることなく、データを返すことができます。
+セットされていない場合は、それが可視かどうかを調べるためにヒープエントリにアクセスする必要があり、そのため標準的なインデックススキャンに対するパフォーマンス上の利点はありません。
+うまくいく場合であっても、この方法はヒープアクセスと引き換えに可視性マップにアクセスします。
+しかし、可視性マップはヒープに比べ、4桁の規模で小さいため、アクセスに必要な物理的I/Oははるかに少ないです。
+ほとんどの状況では、可視性マップは常にメモリ内にキャッシュされて残っています。
   </para>
 
   <para>
+<!--
    In short, while an index-only scan is possible given the two fundamental
    requirements, it will be a win only if a significant fraction of the
    table's heap pages have their all-visible map bits set.  But tables in
    which a large fraction of the rows are unchanging are common enough to
    make this type of scan very useful in practice.
+-->
+要するに、2つの基本的条件が満たされていればインデックスオンリースキャンが可能ですが、テーブルのヒープページのかなりの部分に対し、その全可視のビットがセットされている場合にのみ、性能が向上します。
+しかし大部分の行が変化しないテーブルは一般的であり、現実にはこの種のスキャンは非常に有効です。
   </para>
 
   <para>
    <indexterm>
     <primary><literal>INCLUDE</literal></primary>
+<!--
     <secondary>in index definitions</secondary>
+-->
+    <secondary>インデックス定義内</secondary>
    </indexterm>
+<!--
    To make effective use of the index-only scan feature, you might choose to
    create a <firstterm>covering index</firstterm>, which is an index
    specifically designed to include the columns needed by a particular
@@ -1170,36 +1803,60 @@ SELECT x FROM tab WHERE x = 'key' AND z &lt; 42;
    of the search key.  This is done by adding an <literal>INCLUDE</literal>
    clause listing the extra columns.  For example, if you commonly run
    queries like
+-->
+インデックスオンリースキャンの機能を有効に利用するため、<firstterm>カバリングインデックス</firstterm>の作成を選択できます。
+これは、頻繁に実行する特定の種類の問い合わせに必要な列を含めるように特別に設計されたインデックスです。
+問い合わせは通常、検索対象の列よりも多くの列を取得する必要があるため、<productname>PostgreSQL</productname>はいくつかの列を単に<quote>ペイロード</quote>として検索キーの一部ではないインデックスを作成できます。
+これは追加の列リストを<literal>INCLUDE</literal>句に加えることで実行出来ます。
+例えば、次のような問い合わせをよく実行する場合を考えます。
 <programlisting>
 SELECT y FROM tab WHERE x = 'key';
 </programlisting>
+<!--
    the traditional approach to speeding up such queries would be to create
    an index on <literal>x</literal> only.  However, an index defined as
+-->
+このような問い合わせを高速化する伝統的な手法は、<literal>x</literal>のみにインデックスを作成することです。
+しかし、次のようなインデックス定義では、
 <programlisting>
 CREATE INDEX tab_x_y ON tab(x) INCLUDE (y);
 </programlisting>
+<!--
    could handle these queries as index-only scans,
    because <literal>y</literal> can be obtained from the index without
    visiting the heap.
+-->
+<literal>y</literal>はヒープにアクセスしなくてもインデックスから取得できるため、この問い合わせをインデックスオンリースキャンとして処理できます。
   </para>
 
   <para>
+<!--
    Because column <literal>y</literal> is not part of the index's search
    key, it does not have to be of a data type that the index can handle;
    it's merely stored in the index and is not interpreted by the index
    machinery.  Also, if the index is a unique index, that is
+-->
+<literal>y</literal>列はインデックスの検索キーの一部ではないため、インデックスが処理できるデータ型である必要はありません。
+単にインデックスに格納されているだけで、インデックス機構によって解釈されることはありません。
+また、インデックスが一意インデックスの場合は、
 <programlisting>
 CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
 </programlisting>
+<!--
    the uniqueness condition applies to just column <literal>x</literal>,
    not to the combination of <literal>x</literal> and <literal>y</literal>.
    (An <literal>INCLUDE</literal> clause can also be written
    in <literal>UNIQUE</literal> and <literal>PRIMARY KEY</literal>
    constraints, providing alternative syntax for setting up an index like
    this.)
+-->
+<literal>x</literal>列のみに一意性条件が適用されます。
+<literal>x</literal>と<literal>y</literal>の組み合わせではありません。
+（<literal>INCLUDE</literal>句は、インデックスを設定するための代替構文を提供する<literal>UNIQUE</literal>や<literal>PRIMARY KEY</literal>の制約として書くことも出来ます。)
   </para>
 
   <para>
+<!--
    It's wise to be conservative about adding non-key payload columns to an
    index, especially wide columns.  If an index tuple exceeds the
    maximum size allowed for the index type, data insertion will fail.
@@ -1212,25 +1869,42 @@ CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
    Other restrictions are that expressions are not currently supported as
    included columns, and that only B-tree, GiST and SP-GiST indexes currently
    support included columns.
+-->
+キー以外のペイロード列、特に幅の広い列をインデックスに追加することについては慎重になることが賢明です。
+インデックス型の最大サイズを超えるタプルをインサートしようとすると失敗します。
+いかなる場合でもキー以外の列が重複データだったり、インデックスサイズが膨張すると、検索が遅くなる可能性があります。
+それから、覚えておくべきもう一つの小さなポイントは、インデックスオンリースキャンがヒープへのアクセスが必要がないほどテーブルがゆっくり変化しない限り、インデックスにペイロード列を含めることにほとんど意味が無いことです。
+とにかくヒープタプルを訪れなければならなくなった場合は、そこから列値を取得するためにそれ以上のコストはかかりません。
+他の制限は、式を列に含めることは、現在のところサポートされていません。また、列を含めるサポートは現在のところB-treeとGiSTインデックスのみサポートされています。
   </para>
 
   <para>
+<!--
    Before <productname>PostgreSQL</productname> had
    the <literal>INCLUDE</literal> feature, people sometimes made covering
    indexes by writing the payload columns as ordinary index columns,
    that is writing
+-->
+<literal>INCLUDE</literal>機能がない以前の<productname>PostgreSQL</productname>では、ペイロード列を通常のインデックス列としてカバリングインデックスを作成することがありました。
 <programlisting>
 CREATE INDEX tab_x_y ON tab(x, y);
 </programlisting>
+<!--
    even though they had no intention of ever using <literal>y</literal> as
    part of a <literal>WHERE</literal> clause.  This works fine as long as
    the extra columns are trailing columns; making them be leading columns is
    unwise for the reasons explained in <xref linkend="indexes-multicolumn"/>.
    However, this method doesn't support the case where you want the index to
    enforce uniqueness on the key column(s).
+-->
+これは、<literal>y</literal>を<literal>WHERE</literal>句の一部で使用するつもりがなかったとしても書いています。
+余分な列が末尾の列である限り、これはうまく機能します。
+それらを先頭側の列にすることは、<xref linkend="indexes-multicolumn"/>で説明されている理由から賢明ではありません。
+しかし、この方法では、キー列に一意性を強制するインデックスがサポートされません。
   </para>
 
   <para>
+<!--
    <firstterm>Suffix truncation</firstterm> always removes non-key
    columns from upper B-Tree levels.  As payload columns, they are
    never used to guide index scans.  The truncation process also
@@ -1242,16 +1916,27 @@ CREATE INDEX tab_x_y ON tab(x, y);
    explicitly defining payload columns as non-key columns
    <emphasis>reliably</emphasis> keeps the tuples in upper levels
    small.
+-->
+<firstterm>末尾消去</firstterm>は、常に上位のB-treeレベルから非キーの列を削除します。
+ペイロード列として、それらはインデックススキャンを導くためには使われません。
+また、この消去プロセスは、キー列の残りのプレフィックスが、最下位のB-treeレベルのタプルを記述するのに十分である場合、１つ以上の後続キー列も削除します。
+実際上、<literal>INCLUDE</literal>句を使用しないカバリングインデックスは、実質的に上位レベルにペイロードが含まれるカラムの格納を避けられます。
+ただし、ペイロード列を非キー列として明示的に定義すると<emphasis>確実に</emphasis>上位レベルのタプルが小さくなります。
   </para>
 
   <para>
+<!--
    In principle, index-only scans can be used with expression indexes.
    For example, given an index on <literal>f(x)</literal>
    where <literal>x</literal> is a table column, it should be possible to
    execute
+-->
+原則として、インデックスオンリースキャンは式インデックスでも使うことができます。
+例えば、<literal>x</literal>がテーブルの列で、<literal>f(x)</literal>上にインデックスがある場合、次の問い合わせをインデックスオンリースキャンとして実行できるはずです。
 <programlisting>
 SELECT f(x) FROM tab WHERE f(x) &lt; 1;
 </programlisting>
+<!--
    as an index-only scan; and this is very attractive
    if <literal>f()</literal> is an expensive-to-compute function.
    However, <productname>PostgreSQL</productname>'s planner is currently not
@@ -1263,9 +1948,17 @@ SELECT f(x) FROM tab WHERE f(x) &lt; 1;
    concludes that an index-only scan is not possible.  If an index-only scan
    seems sufficiently worthwhile, this can be worked around by
    adding <literal>x</literal> as an included column, for example
+-->
+そして、関数<literal>f()</literal>の計算が高価なら、この方法は非常に魅力的です。
+しかし<productname>PostgreSQL</productname>のプランナは現在のところ、このような場合についてあまり賢くありません。
+プランナは、問い合わせで必要となるすべての<emphasis>列</emphasis>がインデックスから利用可能な場合にのみ、その問い合わせが潜在的にインデックスオンリースキャンで実行可能と考えます。
+この例では、<literal>f(x)</literal>という文脈でしか<literal>x</literal>は必要になりませんが、プランナはそのことに気付かないため、インデックスオンリースキャンは不可能であると結論します。
+インデックスオンリースキャンは十分に価値があると思われるなら、含める列として<literal>x</literal>を追加することで回避できます。
+例をあげます。
 <programlisting>
 CREATE INDEX tab_f_x ON tab (f(x)) INCLUDE (x);
 </programlisting>
+<!--
    An additional caveat, if the goal is to avoid
    recalculating <literal>f(x)</literal>, is that the planner won't
    necessarily match uses of <literal>f(x)</literal> that aren't in
@@ -1273,20 +1966,32 @@ CREATE INDEX tab_f_x ON tab (f(x)) INCLUDE (x);
    usually get this right in simple queries such as shown above, but not in
    queries that involve joins.  These deficiencies may be remedied in future
    versions of <productname>PostgreSQL</productname>.
+-->
+目的が<literal>f(x)</literal>の再計算を避けることの場合、さらなる注意として、プランナはインデックス可能な<literal>WHERE</literal>句にない<literal>f(x)</literal>の使用を必ずしもインデックス列とマッチしないという事があります。
+上記のような単純な問い合わせの場合は通常は正しく処理できるでしょうが、結合を含む問い合わせでは駄目でしょう。
+これらの欠点は<productname>PostgreSQL</productname>の将来のバージョンで解決されるかもしれません。
   </para>
 
   <para>
+<!--
    Partial indexes also have interesting interactions with index-only scans.
    Consider the partial index shown in <xref linkend="indexes-partial-ex3"/>:
+-->
+部分インデックスもインデックスオンリースキャンとの間に興味深い関係があります。
+<xref linkend="indexes-partial-ex3"/>に示す部分インデックスを考えます。
 <programlisting>
 CREATE UNIQUE INDEX tests_success_constraint ON tests (subject, target)
     WHERE success;
 </programlisting>
+<!--
    In principle, we could do an index-only scan on this index to satisfy a
    query like
+-->
+原則として、次のような問い合わせに対して、このインデックスを使ったインデックスオンリースキャンが可能です。
 <programlisting>
 SELECT target FROM tests WHERE subject = 'some-subject' AND success;
 </programlisting>
+<!--
    But there's a problem: the <literal>WHERE</literal> clause refers
    to <literal>success</literal> which is not available as a result column
    of the index.  Nonetheless, an index-only scan is possible because the
@@ -1296,27 +2001,45 @@ SELECT target FROM tests WHERE subject = 'some-subject' AND success;
    checked in the plan.  <productname>PostgreSQL</productname> versions 9.6
    and later will recognize such cases and allow index-only scans to be
    generated, but older versions will not.
+-->
+しかし、<literal>WHERE</literal>句で参照される<literal>success</literal>がインデックスの結果列として利用できないという問題があります。
+それにも関わらず、インデックスオンリースキャンが可能です。
+なぜなら、このプランでは<literal>WHERE</literal>句のその部分を実行時に再検査する必要がない、つまりインデックス内にあるすべてのエントリは必ず<literal>success = true</literal>なので、プラン内でこれを明示的に検査する必要がないからです。
+<productname>PostgreSQL</productname>のバージョン9.6およびそれ以降ではこのような場合を認識し、インデックスオンリースキャンを生成可能ですが、それより古いバージョンではできません。
   </para>
  </sect1>
 
 
  <sect1 id="indexes-opclass">
+<!--
   <title>Operator Classes and Operator Families</title>
+-->
+  <title>演算子クラスと演算子族</title>
 
   <indexterm zone="indexes-opclass">
+<!--
    <primary>operator class</primary>
+-->
+   <primary>演算子クラス</primary>
   </indexterm>
 
   <indexterm zone="indexes-opclass">
+<!--
    <primary>operator family</primary>
+-->
+   <primary>演算子族</primary>
   </indexterm>
 
   <para>
+<!--
    An index definition can specify an <firstterm>operator
    class</firstterm> for each column of an index.
+-->
+インデックス定義では、インデックスの各列に<firstterm>演算子クラス</firstterm>を指定することができます。
 <synopsis>
 CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> (<replaceable>column</replaceable> <replaceable>opclass</replaceable> [ ( <replaceable>opclass_options</replaceable> ) ] <optional><replaceable>sort options</replaceable></optional> <optional>, ...</optional>);
 </synopsis>
+<!--
    The operator class identifies the operators to be used by the index
    for that column.  For example, a B-tree index on the type <type>int4</type>
    would use the <literal>int4_ops</literal> class; this operator
@@ -1332,14 +2055,28 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
    <literal>COLLATE</literal>,
    <literal>ASC</literal>/<literal>DESC</literal> and/or
    <literal>NULLS FIRST</literal>/<literal>NULLS LAST</literal>).
+-->
+演算子クラスにより、その列のインデックスで使用される演算子が特定されます。
+例えば、<type>int4</type>型に対するB-treeインデックスには、<literal>int4_ops</literal>クラスを使用します。
+この演算子クラスには、<type>int4</type>型の値用の比較関数が含まれています。
+実際には、通常、列のデータ型のデフォルト演算子クラスで十分です。
+演算子クラスを持つ主な理由は、いくつかのデータ型では、複数の有意義なインデックスの振舞いがあり得るということです。
+例えば、複素数データ型を、絶対値でソートしたいかもしれませんし、実数部でソートしたいかもしれません。
+この処理は、そのデータ型の2つの演算子クラスを定義した上で、インデックスを作成する際に適切なクラスを選択することで、実行可能です。
+演算子クラスは基本的なソート順を決定します。
+（これはソートオプション<literal>COLLATE</literal>、<literal>ASC</literal>/<literal>DESC</literal>、<literal>NULLS FIRST</literal>/<literal>NULLS LAST</literal>を付けることで変更できます。）
   </para>
 
   <para>
+<!--
    There are also some built-in operator classes besides the default ones:
+-->
+以下のように、デフォルトの演算子クラスとは別に、組み込み演算子クラスがいくつかあります。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       The operator classes <literal>text_pattern_ops</literal>,
       <literal>varchar_pattern_ops</literal>, and
       <literal>bpchar_pattern_ops</literal> support B-tree indexes on
@@ -1353,9 +2090,15 @@ CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable>
       regular expressions) when the database does not use the standard
       <quote>C</quote> locale.  As an example, you might index a
       <type>varchar</type> column like this:
+-->
+<literal>text_pattern_ops</literal>、<literal>varchar_pattern_ops</literal>、<literal>bpchar_pattern_ops</literal>演算子クラスは、それぞれ、<type>text</type>、<type>varchar</type>、<type>char</type>型上のB-treeインデックスをサポートします。
+デフォルトの演算子クラスとの違いは、ロケール特有の照合規則に従わずに、文字同士を厳密に比較する点です。
+これらの演算子クラスを、標準<quote>C</quote>ロケールを使用しないデータベースにおける、パターンマッチ式（<literal>LIKE</literal>やPOSIX正規表現）を含む問い合わせでの使用に適したものにします。
+例えば、以下のように<type>varchar</type>のインデックスを作成できます。
 <programlisting>
 CREATE INDEX test_index ON test_table (col varchar_pattern_ops);
 </programlisting>
+<!--
       Note that you should also create an index with the default operator
       class if you want queries involving ordinary <literal>&lt;</literal>,
       <literal>&lt;=</literal>, <literal>&gt;</literal>, or <literal>&gt;=</literal> comparisons
@@ -1368,13 +2111,22 @@ CREATE INDEX test_index ON test_table (col varchar_pattern_ops);
       <literal><replaceable>xxx</replaceable>_pattern_ops</literal>
       operator classes, because an index with the default operator class
       is usable for pattern-matching queries in the C locale.
+-->
+また、通常の<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>&gt;</literal>、または<literal>&gt;=</literal>比較を含む問い合わせでインデックスを使いたい場合も、デフォルトの演算子クラスでインデックスを作成しなければならないことに注意してください。
+こうした問い合わせでは<literal><replaceable>xxx</replaceable>_pattern_ops</literal>演算子クラスを使用することができません。（しかし、通常の等価比較はこれらの演算子クラスを使用することができます。）
+同じ列に対して異なる演算子クラスを使用して複数のインデックスを作成することができます。
+Cロケールを使用する場合は、<literal><replaceable>xxx</replaceable>_pattern_ops</literal>演算子クラスは必要ありません。
+Cロケールでのパターンマッチ問い合わせでは、デフォルト演算子クラスを使用したインデックスが使用できるためです。
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
     The following query shows all defined operator classes:
+-->
+以下の問い合わせは、定義済みの演算子クラスを全て返します。
 
 <programlisting>
 SELECT am.amname AS index_method,
@@ -1388,6 +2140,7 @@ SELECT am.amname AS index_method,
   </para>
 
   <para>
+<!--
    An operator class is actually just a subset of a larger structure called an
    <firstterm>operator family</firstterm>.  In cases where several data types have
    similar behaviors, it is frequently useful to define cross-data-type
@@ -1395,11 +2148,19 @@ SELECT am.amname AS index_method,
    classes for each of the types must be grouped into the same operator
    family.  The cross-type operators are members of the family, but are not
    associated with any single class within the family.
+-->
+実際のところ演算子クラスは、<firstterm>演算子族</firstterm>と呼ばれる、より大きな構造の一部でしかありません。
+複数のデータ型が似たような動作を行う場合、データ型を跨る演算子を定義し、インデックスで使用可能とすることが有用な場合がよくあります。
+このためには、各型に対する演算子クラスが同一の演算子族にまとめられている必要があります。
+データ型を跨る演算子は演算子族の要素です。演算子族内の1つの演算子クラスに結びついているわけではありません。
   </para>
 
   <para>
+<!--
     This expanded version of the previous query shows the operator family
     each operator class belongs to:
+-->
+以下は前述の問い合わせを拡張したバージョンで、各演算子クラスが属する演算子族を示します。
 <programlisting>
 SELECT am.amname AS index_method,
        opc.opcname AS opclass_name,
@@ -1414,8 +2175,11 @@ SELECT am.amname AS index_method,
   </para>
 
   <para>
+<!--
     This query shows all defined operator families and all
     the operators included in each family:
+-->
+以下の問い合わせは、定義済みの演算子族と各演算子族に含まれる演算子をすべて表示します。
 <programlisting>
 SELECT am.amname AS index_method,
        opf.opfname AS opfamily_name,
@@ -1429,25 +2193,38 @@ SELECT am.amname AS index_method,
 
   <tip>
    <para>
+<!--
     <xref linkend="app-psql"/> has
     commands <command>\dAc</command>, <command>\dAf</command>,
     and <command>\dAo</command>, which provide slightly more sophisticated
     versions of these queries.
+-->
+<xref linkend="app-psql"/>には<command>\dAc</command>、<command>\dAf</command>、<command>\dAo</command>コマンドがあり、これらのクエリのもう少し洗練されたバージョンを提供します。
    </para>
   </tip>
  </sect1>
 
 
  <sect1 id="indexes-collations">
+<!--
   <title>Indexes and Collations</title>
+-->
+  <title>インデックスと照合順序</title>
 
   <para>
+<!--
    An index can support only one collation per index column.
    If multiple collations are of interest, multiple indexes may be needed.
+-->
+インデックスはインデックス列当たり１つの照合順序のみをサポートすることができます。
+複数の照合順序を考慮しなければならない場合、複数のインデックスが必要になるかもしれません。
   </para>
 
   <para>
+<!--
    Consider these statements:
+-->
+以下の文を考えてみます。
 <programlisting>
 CREATE TABLE test1c (
     id integer,
@@ -1456,19 +2233,30 @@ CREATE TABLE test1c (
 
 CREATE INDEX test1c_content_index ON test1c (content);
 </programlisting>
+<!--
    The index automatically uses the collation of the
    underlying column.  So a query of the form
+-->
+このインデックスは自動的に背後にある列の照合順序を使用することになり、
 <programlisting>
 SELECT * FROM test1c WHERE content &gt; <replaceable>constant</replaceable>;
 </programlisting>
+<!--
    could use the index, because the comparison will by default use the
    collation of the column.  However, this index cannot accelerate queries
    that involve some other collation.  So if queries of the form, say,
+-->
+という形式の問い合わせでは、この比較はデフォルトで列の照合順序を使用しますので、このインデックスを使用することになります。
+しかし、このインデックスは何らかの他の照合順序を含む問い合わせを高速化することはできません。
+このため
 <programlisting>
 SELECT * FROM test1c WHERE content &gt; <replaceable>constant</replaceable> COLLATE "y";
 </programlisting>
+<!--
    are also of interest, an additional index could be created that supports
    the <literal>"y"</literal> collation, like this:
+-->
+という形式の問い合わせも考慮しなければならない場合は、以下のように<literal>"y"</literal>照合順序をサポートする追加のインデックスを作成することになります。
 <programlisting>
 CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
 </programlisting>
@@ -1477,14 +2265,22 @@ CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
 
 
  <sect1 id="indexes-examine">
+<!--
   <title>Examining Index Usage</title>
+-->
+  <title>インデックス使用状況の検証</title>
 
   <indexterm zone="indexes-examine">
+<!--
    <primary>index</primary>
    <secondary>examining usage</secondary>
+-->
+   <primary>インデックス</primary>
+   <secondary>の使用状況の検証</secondary>
   </indexterm>
 
   <para>
+<!--
    Although indexes in <productname>PostgreSQL</productname> do not need
    maintenance or tuning, it is still important to check
    which indexes are actually used by the real-life query workload.
@@ -1494,19 +2290,31 @@ CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
    illustrated in <xref linkend="using-explain"/>.
    It is also possible to gather overall statistics about index usage
    in a running server, as described in <xref linkend="monitoring-stats"/>.
+-->
+<productname>PostgreSQL</productname>では、インデックスのメンテナンスやチューニングは必要ありませんが、どのインデックスが実際の問い合わせで使われているかを確認することは、やはり重要です。
+個々のコマンドでのインデックスの使用状況は、<xref linkend="sql-explain"/>コマンドで検証できます。
+この目的のための用例を<xref linkend="using-explain"/>に示します。
+また、<xref linkend="monitoring-stats"/>に示す通り、稼働中のサーバにおけるインデックス使用状況の全体的な統計情報を取り出すこともできます。
   </para>
 
   <para>
+<!--
    It is difficult to formulate a general procedure for determining
    which indexes to create.  There are a number of typical cases that
    have been shown in the examples throughout the previous sections.
    A good deal of experimentation is often necessary.
    The rest of this section gives some tips for that:
+-->
+どのインデックスを作成すべきかを判断するための一般的な手順を定めることは困難です。
+これまでの節では、例として典型的なケースをいくつか記述してきました。
+十分な検証がしばしば必要です。
+本節の残りで、検証のためのヒントをいくつか説明しておきます。
   </para>
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      Always run <xref linkend="sql-analyze"/>
      first.  This command
      collects statistics about the distribution of the values in the
@@ -1519,35 +2327,57 @@ CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
      therefore a lost cause.
      See <xref linkend="vacuum-for-statistics"/>
      and <xref linkend="autovacuum"/> for more information.
+-->
+まず、必ず<xref linkend="sql-analyze"/>コマンドを実行してください。
+このコマンドにより、テーブル内の値の分布に関する統計情報を収集します。
+この情報は、問い合わせにより返される行数を推測する際に必要となります。
+推測された行数は、可能な各問い合わせ計画に実際のコストを割り当てるために、プランナで必要となります。
+実際の統計情報が欠如している場合、何らかのデフォルト値が仮定されますが、このデフォルト値は、ほぼ間違いなく不正確です。
+したがって、<command>ANALYZE</command>コマンドを実行せずに、アプリケーションのインデックス使用状況を検証しても、あまり意味がありません。
+より詳細な情報は<xref linkend="vacuum-for-statistics"/>と<xref linkend="autovacuum"/>を参照してください。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Use real data for experimentation.  Using test data for setting
      up indexes will tell you what indexes you need for the test data,
      but that is all.
+-->
+検証には、実際に使用するデータを使ってください。
+テストデータを使ってインデックスを作成した場合、テストデータに必要なインデックスはわかりますが、それ以上はわかりません。
     </para>
 
     <para>
+<!--
      It is especially fatal to use very small test data sets.
      While selecting 1000 out of 100000 rows could be a candidate for
      an index, selecting 1 out of 100 rows will hardly be, because the
      100 rows probably fit within a single disk page, and there
      is no plan that can beat sequentially fetching 1 disk page.
+-->
+非常に小さなテストデータを使用することも、結果に特に致命的な影響を与えます。
+100,000行から1,000行を選択する場合は、インデックスが使用される可能性がありますが、100行から1行を選択する場合はインデックスはまず使用されません。
+なぜなら、100行はおそらく1つのディスクページに収まるため、1ページを逐次読み取るよりも高速な計画は存在しないからです。
     </para>
 
     <para>
+<!--
      Also be careful when making up test data, which is often
      unavoidable when the application is not yet in production.
      Values that are very similar, completely random, or inserted in
      sorted order will skew the statistics away from the distribution
      that real data would have.
+-->
+また、アプリケーションがまだ実動していない場合、テストデータを作成しなければならないことがよくありますが、その際にも注意が必要です。
+非常に類似した値や、完全にランダムな値、またはソートされた順序で値が挿入されている場合は、その統計情報は、実際のデータの分布とかけ離れたものになってしまいます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      When indexes are not used, it can be useful for testing to force
      their use.  There are run-time parameters that can turn off
      various plan types (see <xref linkend="runtime-config-query-enable"/>).
@@ -1560,22 +2390,37 @@ CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
      used; for example, the query condition does not match the index.
      (What kind of query can use what kind of index is explained in
      the previous sections.)
+-->
+インデックスが使用されていない場合、テストのためにインデックスを強制的に使用するようにすると便利です。
+様々な計画の種類を無効にすることを設定できる実行時パラメータがあります
+（<xref linkend="runtime-config-query-enable"/>を参照してください）。
+例えば、最も基本的な計画であるシーケンシャルスキャン（<varname>enable_seqscan</varname>）およびネステッドループ結合（<varname>enable_nestloop</varname>）を無効に設定すると、システムは別の計画を使用するように強制されます。
+そのような設定を行っても、システムがシーケンシャルスキャンやネステッドループ結合を選択する場合は、インデックスを使用しない理由としておそらくもっと根本的な理由があるということになります。
+例えば、問い合わせの条件がインデックスに適合しない、などが考えられます。
+（どのような問い合わせで、どのようなインデックスを使用できるかは、前節までで説明済みです。）
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      If forcing index usage does use the index, then there are two
      possibilities: Either the system is right and using the index is
      indeed not appropriate, or the cost estimates of the query plans
      are not reflecting reality.  So you should time your query with
      and without indexes.  The <command>EXPLAIN ANALYZE</command>
      command can be useful here.
+-->
+強制的にインデックスを使うように設定することで、インデックスを使用するようになった場合は、次の2つの可能性が考えられます。
+システムの判断が正しく、インデックスの使用が実際には適切ではないという可能性と、問い合わせ計画のコスト推定が実情を反映していない可能性です。
+したがって、インデックスを使った問い合わせの実行時間と、使わない場合の実行時間を計測する必要があります。
+この場合、<command>EXPLAIN ANALYZE</command>コマンドが便利です。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      If it turns out that the cost estimates are wrong, there are,
      again, two possibilities.  The total cost is computed from the
      per-row costs of each plan node times the selectivity estimate of
@@ -1586,13 +2431,25 @@ CREATE INDEX test1c_content_y_index ON test1c (content COLLATE "y");
      insufficient statistics.  It might be possible to improve this by
      tuning the statistics-gathering parameters (see
      <xref linkend="sql-altertable"/>).
+-->
+コスト推定が間違っていると判明した場合、やはり2つの可能性が考えられます。
+総コストは、各計画ノードの行単位のコストに、計画ノードの推定選択度を掛けることで算出されます。
+計画ノードのコスト推定は、実行時パラメータによって設定することができます
+（<xref linkend="runtime-config-query-constants"/>を参照してください）。
+推定選択度が不正確であるのは、統計情報が不十分であるのが原因です。
+統計情報収集用のパラメータを調節することによって、この状況を改善することができるかもしれません。
+（<xref linkend="sql-altertable"/>を参照してください）。
     </para>
 
     <para>
+<!--
      If you do not succeed in adjusting the costs to be more
      appropriate, then you might have to resort to forcing index usage
      explicitly.  You might also want to contact the
      <productname>PostgreSQL</productname> developers to examine the issue.
+-->
+コストを適切に調節できない場合は、明示的にインデックスの使用を強制する必要が考えられます。
+あるいは、<productname>PostgreSQL</productname>開発者に問題の調査を依頼することになるかもしれません。
     </para>
    </listitem>
   </itemizedlist>

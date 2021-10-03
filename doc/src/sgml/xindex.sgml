@@ -1,14 +1,22 @@
 <!-- doc/src/sgml/xindex.sgml -->
 
 <sect1 id="xindex">
+<!--
  <title>Interfacing Extensions to Indexes</title>
+-->
+ <title>インデックス拡張機能へのインタフェース</title>
 
  <indexterm zone="xindex">
+<!--
   <primary>index</primary>
   <secondary>for user-defined data type</secondary>
+-->
+  <primary>インデックス</primary>
+  <secondary>ユーザ定義データ型用の</secondary>
  </indexterm>
 
   <para>
+<!--
    The procedures described thus far let you define new types, new
    functions, and new operators. However, we cannot yet define an
    index on a column of a new data type.  To do this, we must define an
@@ -16,19 +24,33 @@
    section, we will illustrate this concept in an example: a new
    operator class for the B-tree index method that stores and sorts
    complex numbers in ascending absolute value order.
+-->
+これまでのところでは、新しい型や新しい関数、および新しい演算子をどの様に定義するかについて説明してきました。
+しかしながら、新しい型の列に対するインデックスをまだ作成することができません。
+このためには、新しいデータ型に対する<firstterm>演算子クラス</firstterm>を定義する必要があります。
+本節では、複素数を値の絶対値の昇順にソートし格納するB-treeインデックスメソッドを使った新しい演算子クラスについての実行例を用いて、演算子クラスの概念を説明します。
   </para>
 
   <para>
+<!--
    Operator classes can be grouped into <firstterm>operator families</firstterm>
    to show the relationships between semantically compatible classes.
    When only a single data type is involved, an operator class is sufficient,
    so we'll focus on that case first and then return to operator families.
+-->
+演算子クラスを<firstterm>演算子族</firstterm>にまとめ、意味的に互換性を持つクラス間の関係を表すことができます。
+1つのデータ型のみが含まれる場合、演算子クラスで十分です。
+そこでまずこうした状況に注目し、その後で演算子族に戻ります。
   </para>
 
  <sect2 id="xindex-opclass">
+<!--
   <title>Index Methods and Operator Classes</title>
+-->
+  <title>インデックスメソッドと演算子クラス</title>
 
   <para>
+<!--
    The <classname>pg_am</classname> table contains one row for every
    index method (internally known as access method).  Support for
    regular access to tables is built into
@@ -37,9 +59,15 @@
    new index access method by writing the necessary code and
    then creating an entry in <classname>pg_am</classname> &mdash; but that is
    beyond the scope of this chapter (see <xref linkend="indexam"/>).
+-->
+<classname>pg_am</classname>テーブルには各インデックスメソッド（内部ではアクセスメソッドとして知られています）に対して1つの行が含まれています。
+テーブルへの通常のアクセスのサポートは<productname>PostgreSQL</productname>に組み込まれていますが、すべてのインデックスメソッドは、<classname>pg_am</classname>で記述されています。
+必要なコードを書いた後、<classname>pg_am</classname>にエントリを作成することによって、新しいインデックスアクセスメソッドを追加することができます。
+しかし、この方法についての説明は本章での範囲を超えています（<xref linkend="indexam"/>を参照してください）。
   </para>
 
   <para>
+<!--
    The routines for an index method do not directly know anything
    about the data types that the index method will operate on.
    Instead, an <firstterm>operator
@@ -53,9 +81,16 @@
    function</firstterm> that are needed by the internal operations of the
    index method, but do not directly correspond to any
    <literal>WHERE</literal>-clause operator that can be used with the index.
+-->
+インデックスメソッドのルーチンには、直接的にインデックスメソッドが演算するデータ型の情報は何も与えられていません。
+代わりに、<firstterm>演算子クラス</firstterm>が、特定のデータ型の操作においてインデックスメソッドを使用する必要がある演算の集合を識別します。
+<indexterm><primary>演算子クラス</primary></indexterm>
+演算子クラスという名前の由来は、それらが指定するものの1つにインデックスで使用できる（つまり、インデックススキャン条件に変換できる）<literal>WHERE</literal>句演算子の集合があるからです。
+また、演算子クラスは、インデックスメソッドの内部演算で必要な、しかしインデックスで使用できる<literal>WHERE</literal>句演算子には直接的には対応しない、<firstterm>サポート関数</firstterm>をいくつか指定することができます。
   </para>
 
   <para>
+<!--
    It is possible to define multiple operator classes for the same
    data type and index method.  By doing this, multiple
    sets of indexing semantics can be defined for a single data type.
@@ -67,21 +102,35 @@
    Typically, one of the operator classes will be deemed most commonly
    useful and will be marked as the default operator class for that
    data type and index method.
+-->
+同じ入力データ型およびインデックスメソッドに対して複数の演算子クラスを定義することが可能です。
+これにより、1つのデータ型に対して、複数のインデックス付けセマンティクスの集合を定義することができます。
+例えば、B-treeインデックスでは、処理するデータ型ごとにソート順を定義する必要があります。
+複素数データ型では、複素数の絶対値によりデータをソートするB-tree演算子クラスと、実部の数値によりソートするB-tree演算子クラスを持つといった方法は、有用かもしれません。
+通常は演算子クラスの1つが一般的に最も有用であると判断され、そのデータ型およびインデックスメソッドに対するデフォルトの演算子クラスとして設定されます。
   </para>
 
   <para>
+<!--
    The same operator class name
    can be used for several different index methods (for example, both B-tree
    and hash index methods have operator classes named
    <literal>int4_ops</literal>), but each such class is an independent
    entity and must be defined separately.
+-->
+複数の異なるインデックスメソッドに、同一の演算子クラス名を使用することができます（例えば、B-treeとハッシュインデックスメソッドは、両方とも<literal>int4_ops</literal>という名前の演算子クラスを持つことができます）。
+ただし、そのような各クラスは独立した実体であり、別々に定義される必要があります。
   </para>
  </sect2>
 
  <sect2 id="xindex-strategies">
+<!--
   <title>Index Method Strategies</title>
+-->
+<title>インデックスメソッドのストラテジ</title>
 
   <para>
+<!--
    The operators associated with an operator class are identified by
    <quote>strategy numbers</quote>, which serve to identify the semantics of
    each operator within the context of its operator class.
@@ -97,41 +146,75 @@
    Each operator class specifies which actual operator corresponds to each
    strategy for a particular data type and interpretation of the index
    semantics.
+-->
+演算子クラスに関連付けられている演算子は、<quote>ストラテジ番号</quote>により識別されます。
+<quote>ストラテジ番号</quote>は、演算子クラスのコンテキスト内における各演算子のセマンティクスを識別するためのものです。
+例えば、B-treeの場合、キーが小さい方から大きい方へ厳密に並んでいなければなりません。
+したがって、B-treeに関しては、<quote>より小さい</quote>および<quote>以上</quote>のような演算子は興味深いと言えます。
+<productname>PostgreSQL</productname>ではユーザが演算子を定義できるため、<productname>PostgreSQL</productname>は演算子の名前（例えば<literal>&lt;</literal>や<literal>&gt;=</literal>）を見つけても、その演算子がどのような比較を行うかを判断することはできません。
+その代わり、インデックスメソッドは<quote>ストラテジ</quote>の集合を定義します。
+<quote>ストラテジ</quote>は汎用演算子と考えることができます。
+各演算子クラスは、特定のデータ型およびインデックスセマンティクスの解釈において、実際のどの演算子が各ストラテジに対応しているかを指定します。
   </para>
 
   <para>
+<!--
    The B-tree index method defines five strategies, shown in <xref
    linkend="xindex-btree-strat-table"/>.
+-->
+<xref linkend="xindex-btree-strat-table"/>に示すように、B-treeインデックスメソッドではストラテジを5つ定義します。
   </para>
 
    <table tocentry="1" id="xindex-btree-strat-table">
+<!--
     <title>B-Tree Strategies</title>
+-->
+<title>B-treeストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
+<!--
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
+-->
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
+<!--
        <entry>less than</entry>
+-->
+       <entry>小なり</entry>
        <entry>1</entry>
       </row>
       <row>
+<!--
        <entry>less than or equal</entry>
+-->
+       <entry>以下</entry>
        <entry>2</entry>
       </row>
       <row>
+<!--
        <entry>equal</entry>
+-->
+       <entry>等しい</entry>
        <entry>3</entry>
       </row>
       <row>
+<!--
        <entry>greater than or equal</entry>
+-->
+       <entry>以上</entry>
        <entry>4</entry>
       </row>
       <row>
+<!--
        <entry>greater than</entry>
+-->
+       <entry>大なり</entry>
        <entry>5</entry>
       </row>
      </tbody>
@@ -139,22 +222,36 @@
    </table>
 
   <para>
+<!--
    Hash indexes support only equality comparisons, and so they use only one
    strategy, shown in <xref linkend="xindex-hash-strat-table"/>.
+-->
+ハッシュインデックスは等価性のみをサポートします。
+したがって、<xref linkend="xindex-hash-strat-table"/>に示すように、ストラテジを1つのみ定義します。
   </para>
 
    <table tocentry="1" id="xindex-hash-strat-table">
+<!--
     <title>Hash Strategies</title>
+-->
+    <title>ハッシュストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
+<!--
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
+-->
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
+<!--
        <entry>equal</entry>
+-->
+       <entry>等しい</entry>
        <entry>1</entry>
       </row>
      </tbody>
@@ -162,6 +259,7 @@
    </table>
 
   <para>
+<!--
    GiST indexes are more flexible: they do not have a fixed set of
    strategies at all.  Instead, the <quote>consistency</quote> support routine
    of each particular GiST operator class interprets the strategy numbers
@@ -172,64 +270,115 @@
    two-dimensional tests (overlaps, same, contains, contained by);
    four of them consider only the X direction; and the other four
    provide the same tests in the Y direction.
+-->
+GiSTインデックスはより柔軟です。
+固定のストラテジの集合をまったく持ちません。
+代わりに、特定のGiST演算子クラスの<quote>consistent</quote>サポートルーチンが、ストラテジ番号が何を意味するかを解釈します。
+<!-- 訳注:consistencyは意図的に関数名consistentに変更 -->
+例として、2次元幾何オブジェクトをインデックス付けし、<quote>R-tree</quote>ストラテジを提供する組み込みのGiSTインデックス演算子クラスのいくつかを<xref linkend="xindex-rtree-strat-table"/>に示します。
+この内4個は2次元に対する（重複、合同、包含、被包含）試験です。
+残りの内4個はX方向のみに対する、残り4個はY方向のみに対する同一の試験を提供します。
   </para>
 
    <table tocentry="1" id="xindex-rtree-strat-table">
+<!--
     <title>GiST Two-Dimensional <quote>R-tree</quote> Strategies</title>
+-->
+    <title>GiSTによる2次元の<quote>R-tree</quote>ストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
+<!--
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
+-->
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
+<!--
        <entry>strictly left of</entry>
+-->
+       <entry>完全に左側</entry>
        <entry>1</entry>
       </row>
       <row>
+<!--
        <entry>does not extend to right of</entry>
+-->
+       <entry>右側にはみ出さない</entry>
        <entry>2</entry>
       </row>
       <row>
+<!--
        <entry>overlaps</entry>
+-->
+       <entry>重なる</entry>
        <entry>3</entry>
       </row>
       <row>
+<!--
        <entry>does not extend to left of</entry>
+-->
+       <entry>左側にはみ出さない</entry>
        <entry>4</entry>
       </row>
       <row>
+<!--
        <entry>strictly right of</entry>
+-->
+       <entry>完全に右側</entry>
        <entry>5</entry>
       </row>
       <row>
+<!--
        <entry>same</entry>
+-->
+       <entry>同じ</entry>
        <entry>6</entry>
       </row>
       <row>
+<!--
        <entry>contains</entry>
+-->
+       <entry>含む</entry>
        <entry>7</entry>
       </row>
       <row>
+<!--
        <entry>contained by</entry>
+-->
+       <entry>含まれる</entry>
        <entry>8</entry>
       </row>
       <row>
+<!--
        <entry>does not extend above</entry>
+-->
+       <entry>上側にはみ出さない</entry>
        <entry>9</entry>
       </row>
       <row>
+<!--
        <entry>strictly below</entry>
+-->
+       <entry>完全に下側</entry>
        <entry>10</entry>
       </row>
       <row>
+<!--
        <entry>strictly above</entry>
+-->
+       <entry>完全に上側</entry>
        <entry>11</entry>
       </row>
       <row>
+<!--
        <entry>does not extend below</entry>
+-->
+       <entry>下側にはみ出さない</entry>
        <entry>12</entry>
       </row>
      </tbody>
@@ -237,46 +386,76 @@
    </table>
 
   <para>
+<!--
    SP-GiST indexes are similar to GiST indexes in flexibility: they don't have
    a fixed set of strategies. Instead the support routines of each operator
    class interpret the strategy numbers according to the operator class's
    definition. As an example, the strategy numbers used by the built-in
    operator classes for points are shown in <xref
    linkend="xindex-spgist-point-strat-table"/>.
+-->
+SP-GiSTインデックスは柔軟性という点でGiSTと似ており、固定のストラテジ群を持ちません。
+その代わりに、各演算子クラスのサポートルーチンが演算子クラスの定義に従ってストラテジ番号を解釈します。
+例として、点に対する組み込みの演算子クラスで使用されるストラテジ番号を<xref linkend="xindex-spgist-point-strat-table"/>に示します。
   </para>
 
    <table tocentry="1" id="xindex-spgist-point-strat-table">
+<!--
     <title>SP-GiST Point Strategies</title>
+-->
+    <title>SP-GiSTの点に関するストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
+<!--
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
+-->
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
+<!--
        <entry>strictly left of</entry>
+-->
+       <entry>厳密に左側</entry>
        <entry>1</entry>
       </row>
       <row>
+<!--
        <entry>strictly right of</entry>
+-->
+       <entry>厳密に右側</entry>
        <entry>5</entry>
       </row>
       <row>
+<!--
        <entry>same</entry>
+-->
+       <entry>同一</entry>
        <entry>6</entry>
       </row>
       <row>
+<!--
        <entry>contained by</entry>
+-->
+       <entry>包含される</entry>
        <entry>8</entry>
       </row>
       <row>
+<!--
        <entry>strictly below</entry>
+-->
+       <entry>厳密に下</entry>
        <entry>10</entry>
       </row>
       <row>
+<!--
        <entry>strictly above</entry>
+-->
+       <entry>厳密に上</entry>
        <entry>11</entry>
       </row>
      </tbody>
@@ -284,38 +463,62 @@
    </table>
 
   <para>
+<!--
    GIN indexes are similar to GiST and SP-GiST indexes, in that they don't
    have a fixed set of strategies either. Instead the support routines of
    each operator class interpret the strategy numbers according to the
    operator class's definition. As an example, the strategy numbers used by
    the built-in operator class for arrays are shown in
    <xref linkend="xindex-gin-array-strat-table"/>.
+-->
+GINインデックスは、いずれも固定のストラテジ群を持たないという点で、GiSTおよびSP-GiSTインデックスと似ています。
+その代わりに、各演算子クラスのサポートルーチンが演算子クラスの定義に従ってストラテジ番号を解釈します。
+例として、配列に対する組み込みの演算子クラスで使用されるストラテジ番号を<xref linkend="xindex-gin-array-strat-table"/>に示します。
   </para>
 
    <table tocentry="1" id="xindex-gin-array-strat-table">
+<!--
     <title>GIN Array Strategies</title>
+-->
+    <title>GIN 配列のストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
+<!--
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
+-->
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
+<!--
        <entry>overlap</entry>
+-->
+       <entry>重複</entry>
        <entry>1</entry>
       </row>
       <row>
+<!--
        <entry>contains</entry>
+-->
+       <entry>包含</entry>
        <entry>2</entry>
       </row>
       <row>
+<!--
        <entry>is contained by</entry>
+-->
+       <entry>包含される</entry>
        <entry>3</entry>
       </row>
       <row>
+<!--
        <entry>equal</entry>
+-->
+       <entry>等しい</entry>
        <entry>4</entry>
       </row>
      </tbody>
@@ -323,42 +526,69 @@
    </table>
 
   <para>
+<!--
    BRIN indexes are similar to GiST, SP-GiST and GIN indexes in that they
    don't have a fixed set of strategies either.  Instead the support routines
    of each operator class interpret the strategy numbers according to the
    operator class's definition. As an example, the strategy numbers used by
    the built-in <literal>Minmax</literal> operator classes are shown in
    <xref linkend="xindex-brin-minmax-strat-table"/>.
+-->
+BRINインデックスは、いずれも固定のストラテジ群を持たないという点で、GiST、SP-GiSTおよびGINインデックスと似ています。
+その代わりに、各演算子クラスのサポートルーチンが演算子クラスの定義に従ってストラテジ番号を解釈します。
+例として、組み込みの<literal>Minmax</literal>演算子クラスで使用されるストラテジ番号を<xref linkend="xindex-brin-minmax-strat-table"/>に示します。
   </para>
 
    <table tocentry="1" id="xindex-brin-minmax-strat-table">
+<!--
     <title>BRIN Minmax Strategies</title>
+-->
+    <title>BRIN Minmaxストラテジ</title>
     <tgroup cols="2">
      <thead>
       <row>
+<!--
        <entry>Operation</entry>
        <entry>Strategy Number</entry>
+-->
+       <entry>演算</entry>
+       <entry>ストラテジ番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
+<!--
        <entry>less than</entry>
+-->
+       <entry>小なり</entry>
        <entry>1</entry>
       </row>
       <row>
+<!--
        <entry>less than or equal</entry>
+-->
+       <entry>以下</entry>
        <entry>2</entry>
       </row>
       <row>
+<!--
        <entry>equal</entry>
+-->
+       <entry>等しい</entry>
        <entry>3</entry>
       </row>
       <row>
+<!--
        <entry>greater than or equal</entry>
+-->
+       <entry>以上</entry>
        <entry>4</entry>
       </row>
       <row>
+<!--
        <entry>greater than</entry>
+-->
+       <entry>大なり</entry>
        <entry>5</entry>
       </row>
      </tbody>
@@ -366,6 +596,7 @@
    </table>
 
   <para>
+<!--
    Notice that all the operators listed above return Boolean values.  In
    practice, all operators defined as index method search operators must
    return type <type>boolean</type>, since they must appear at the top
@@ -373,13 +604,22 @@
    (Some index access methods also support <firstterm>ordering operators</firstterm>,
    which typically don't return Boolean values; that feature is discussed
    in <xref linkend="xindex-ordering-ops"/>.)
+-->
+上記の演算子はすべて論理値を返すことに注意してください。
+実際、インデックスで使用されるために<literal>WHERE</literal>の最上位レベルで現れなければなりませんので、インデックスメソッド検索演算子として定義された、すべての演算子の戻り値の型は<type>boolean</type>でなければなりません。
+（一部のインデックスアクセスメソッドは、通常論理型の値を返さない<firstterm>順序付け演算子</firstterm>もサポートします。
+この機能については<xref linkend="xindex-ordering-ops"/>で説明します。）
   </para>
  </sect2>
 
  <sect2 id="xindex-support">
+<!--
   <title>Index Method Support Routines</title>
+-->
+  <title>インデックスメソッドのサポートルーチン</title>
 
   <para>
+<!--
    Strategies aren't usually enough information for the system to figure
    out how to use an index.  In practice, the index methods require
    additional support routines in order to work. For example, the B-tree
@@ -389,78 +629,119 @@
    These operations do not correspond to operators used in qualifications in
    SQL commands;  they are administrative routines used by
    the index methods, internally.
+-->
+ストラテジは通常、システムがインデックスを使う方法を判断するために十分な情報ではありません。
+実際には、インデックスメソッドが動作するためには、さらにサポートルーチンを必要とします。
+例えばB-treeインデックスメソッドは、2つのキーを比較し、より大きいのか、等しいのか、より小さいのかを決定できなければなりません。
+同様に、ハッシュインデックスは、キー値のハッシュコードを計算できなければなりません。
+これらの操作はSQLコマンドの条件内で使用される演算子とは対応しません。
+これらはインデックスメソッドで内部的に使用される管理用ルーチンです。
   </para>
 
   <para>
+<!--
    Just as with strategies, the operator class identifies which specific
    functions should play each of these roles for a given data type and
    semantic interpretation.  The index method defines the set
    of functions it needs, and the operator class identifies the correct
    functions to use by assigning them to the <quote>support function numbers</quote>
    specified by the index method.
+-->
+ストラテジと同じように、演算子クラスにより、与えられたデータ型およびセマンティクス解釈に対して、どの特定の関数がこれらの各役割を果たすべきであるかが識別されます。
+インデックスメソッドは必要な関数の集合を定義し、演算子クラスは、これらをインデックスメソッドで指定された<quote>サポート関数番号</quote>に代入することによって、使用すべき正しい関数を識別します。
   </para>
 
   <para>
+<!--
    Additionally, some opclasses allow users to specify parameters which
    control their behavior.  Each builtin index access method has an optional
    <function>options</function> support function, which defines a set of
    opclass-specific parameters.
+-->
+さらに、演算子クラスの中には、ユーザがその振る舞いを制御するパラメータを指定できるものもあります。
+各組み込みインデックスアクセスメソッドには省略可能な<function>options</function>サポート関数があり、演算子クラスに固有のパラメータの集合を定義しています。
   </para>
 
   <para>
+<!--
    B-trees require a comparison support function,
    and allow four additional support functions to be
    supplied at the operator class author's option, as shown in <xref
    linkend="xindex-btree-support-table"/>.
    The requirements for these support functions are explained further in
    <xref linkend="btree-support-funcs"/>.
+-->
+<xref linkend="xindex-btree-support-table"/>に示すように、B-treeは比較サポート関数を必須とし、演算子クラスの作者が望めば4つの追加サポート関数を与えることができます。
+これらのサポート関数の要件は<xref linkend="btree-support-funcs"/>でさらに詳しく解説されています。
   </para>
 
    <table tocentry="1" id="xindex-btree-support-table">
+<!--
     <title>B-Tree Support Functions</title>
+-->
+    <title>B-treeサポート関数</title>
     <tgroup cols="2">
      <colspec colname="col1" colwidth="3*"/>
      <colspec colname="col2" colwidth="1*"/>
      <thead>
       <row>
+<!--
        <entry>Function</entry>
        <entry>Support Number</entry>
+-->
+       <entry>関数</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
        <entry>
+<!--
         Compare two keys and return an integer less than zero, zero, or
         greater than zero, indicating whether the first key is less than,
         equal to, or greater than the second
+-->
+2つのキーを比較し、最初のキーが2番目のキーより小さいか、等しいか、大きいかを示す、0未満、0、もしくは0より大きい整数を返します。
        </entry>
        <entry>1</entry>
       </row>
       <row>
        <entry>
+<!--
         Return the addresses of C-callable sort support function(s)
         (optional)
+-->
+C言語から呼び出し可能なソートサポート関数のアドレスを返します(省略可能)。
        </entry>
        <entry>2</entry>
       </row>
       <row>
        <entry>
+<!--
         Compare a test value to a base value plus/minus an offset, and return
         true or false according to the comparison result (optional)
+-->
+テスト値をベース値にオフセットを加減算したものと比較して、比較結果に従って真または偽を返します(省略可能)。
        </entry>
        <entry>3</entry>
       </row>
       <row>
        <entry>
+<!--
         Determine if it is safe for indexes that use the operator
         class to apply the btree deduplication optimization (optional)
+-->
+演算子クラスを使うインデックスがB-tree重複排除最適化を安全に適用できるかどうかを決定します(省略可能)。
        </entry>
        <entry>4</entry>
       </row>
       <row>
        <entry>
+<!--
         Defines a set of options that are specific to this operator class
         (optional)
+-->
+この演算子クラスに固有のオプションの集合を定義します(省略可能)。
        </entry>
        <entry>5</entry>
       </row>
@@ -469,40 +750,60 @@
    </table>
 
   <para>
+<!--
    Hash indexes require one support function, and allow two additional ones to
    be supplied at the operator class author's option, as shown in <xref
    linkend="xindex-hash-support-table"/>.
+-->
+<xref linkend="xindex-hash-support-table"/>に示すようにハッシュインデックスでは一つのサポート関数が必須で、演算子クラス作者が望むなら、さらに2つのサポート関数を与えることができます。
   </para>
 
    <table tocentry="1" id="xindex-hash-support-table">
+<!--
     <title>Hash Support Functions</title>
+-->
+    <title>ハッシュサポート関数</title>
     <tgroup cols="2">
      <colspec colname="col1" colwidth="3*"/>
      <colspec colname="col2" colwidth="1*"/>
      <thead>
       <row>
+<!--
        <entry>Function</entry>
        <entry>Support Number</entry>
+-->
+       <entry>関数</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
+<!--
        <entry>Compute the 32-bit hash value for a key</entry>
+-->
+       <entry>キーの32ビットハッシュ値を計算</entry>
        <entry>1</entry>
       </row>
       <row>
        <entry>
+<!--
          Compute the 64-bit hash value for a key given a 64-bit salt; if
          the salt is 0, the low 32 bits of the result must match the value
          that would have been computed by function 1
          (optional)
+-->
+64bitソルトが与えられたキーに対する64ビットハッシュ値を計算します。
+ソルトが0なら結果の下位32ビットは関数1で計算された値と一致しなければなりません。(省略可能)
        </entry>
        <entry>2</entry>
       </row>
       <row>
        <entry>
+<!--
         Defines a set of options that are specific to this operator class
         (optional)
+-->
+この演算子クラスに固有のオプションの集合を定義します(省略可能)。
        </entry>
        <entry>3</entry>
       </row>
@@ -511,81 +812,127 @@
    </table>
 
   <para>
+<!--
    GiST indexes have ten support functions, three of which are optional,
    as shown in <xref linkend="xindex-gist-support-table"/>.
    (For more information see <xref linkend="gist"/>.)
+-->
+<xref linkend="xindex-gist-support-table"/>に示すように、GiSTインデックスには10のサポート関数があり、また、そのうち3つは省略可能です。
+(詳細については<xref linkend="gist"/>を参照してください。)
   </para>
 
    <table tocentry="1" id="xindex-gist-support-table">
+<!--
     <title>GiST Support Functions</title>
+-->
+    <title>GiSTサポート関数</title>
     <tgroup cols="3">
      <colspec colname="col1" colwidth="2*"/>
      <colspec colname="col2" colwidth="3*"/>
      <colspec colname="col3" colwidth="1*"/>
      <thead>
       <row>
+<!--
        <entry>Function</entry>
        <entry>Description</entry>
        <entry>Support Number</entry>
+-->
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
        <entry><function>consistent</function></entry>
+<!--
        <entry>determine whether key satisfies the
         query qualifier</entry>
+-->
+       <entry>キーが問い合わせ条件を満たすかどうかを決定します。</entry>
        <entry>1</entry>
       </row>
       <row>
        <entry><function>union</function></entry>
+<!--
        <entry>compute union of a set of keys</entry>
+-->
+       <entry>キー集合の和集合を計算します。</entry>
        <entry>2</entry>
       </row>
       <row>
        <entry><function>compress</function></entry>
+<!--
        <entry>compute a compressed representation of a key or value
         to be indexed</entry>
+-->
+       <entry>キーまたはインデックス付けされる値の圧縮表現を計算します。</entry>
        <entry>3</entry>
       </row>
       <row>
        <entry><function>decompress</function></entry>
+<!--
        <entry>compute a decompressed representation of a
         compressed key</entry>
+-->
+       <entry>圧縮されたキーを伸張した表現を計算します。</entry>
        <entry>4</entry>
       </row>
       <row>
        <entry><function>penalty</function></entry>
+<!--
        <entry>compute penalty for inserting new key into subtree
        with given subtree's key</entry>
+-->
+       <entry>指定された副ツリーキーを持つ副ツリーに新しいキーを挿入する時のペナルティを計算します。</entry>
        <entry>5</entry>
       </row>
       <row>
        <entry><function>picksplit</function></entry>
+<!--
        <entry>determine which entries of a page are to be moved
        to the new page and compute the union keys for resulting pages</entry>
+-->
+       <entry>ページのどのエントリを新しいページに移動させるかを決定し、結果ページ用の統合キーを計算します。</entry>
        <entry>6</entry>
       </row>
       <row>
        <entry><function>equal</function></entry>
+<!--
        <entry>compare two keys and return true if they are equal</entry>
+-->
+       <entry>2つのキーを比較し、等しければ真を返します。</entry>
        <entry>7</entry>
       </row>
       <row>
        <entry><function>distance</function></entry>
+<!--
        <entry>determine distance from key to query value (optional)</entry>
+-->
+       <entry>
+キーと問い合わせ値との間の距離を決定します（省略可能）。
+       </entry>
        <entry>8</entry>
       </row>
       <row>
        <entry><function>fetch</function></entry>
+<!--
        <entry>compute original representation of a compressed key for
        index-only scans (optional)</entry>
+-->
+       <entry>
+インデックスオンリースキャンのために圧縮されたキーの元の表現を計算します（省略可能）。
+       </entry>
        <entry>9</entry>
       </row>
       <row>
        <entry><function>options</function></entry>
        <entry>
+<!--
         Defines a set of options that are specific to this operator class
         (optional)
+-->
+この演算子クラスに固有のオプションの集合を定義します(省略可能)。
        </entry>
        <entry>10</entry>
       </row>
@@ -594,57 +941,87 @@
    </table>
 
   <para>
+<!--
    SP-GiST indexes have six support functions, one of which is optional, as
    shown in <xref linkend="xindex-spgist-support-table"/>.
    (For more information see <xref linkend="spgist"/>.)
+-->
+<xref linkend="xindex-spgist-support-table"/>に示すように、SP-GiSTインデックスでは6つのサポート関数があり、また、そのうち1つは省略可能です。
+(詳細については<xref linkend="spgist"/>を参照してください。)
   </para>
 
    <table tocentry="1" id="xindex-spgist-support-table">
+<!--
     <title>SP-GiST Support Functions</title>
+-->
+    <title>SP-GiSTサポート関数</title>
     <tgroup cols="3">
      <colspec colname="col1" colwidth="2*"/>
      <colspec colname="col2" colwidth="3*"/>
      <colspec colname="col3" colwidth="1*"/>
      <thead>
       <row>
+<!--
        <entry>Function</entry>
        <entry>Description</entry>
        <entry>Support Number</entry>
+-->
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
        <entry><function>config</function></entry>
+<!--
        <entry>provide basic information about the operator class</entry>
+-->
+       <entry>演算子クラスに関する基本情報を提供します。</entry>
        <entry>1</entry>
       </row>
       <row>
        <entry><function>choose</function></entry>
+<!--
        <entry>determine how to insert a new value into an inner tuple</entry>
+-->
+       <entry>新しい値を内部タプルに挿入する方法を決定します。</entry>
        <entry>2</entry>
       </row>
       <row>
        <entry><function>picksplit</function></entry>
+<!--
        <entry>determine how to partition a set of values</entry>
+-->
+       <entry>値集合を分割する方法を決定します。</entry>
        <entry>3</entry>
       </row>
       <row>
        <entry><function>inner_consistent</function></entry>
+<!--
        <entry>determine which sub-partitions need to be searched for a
         query</entry>
+-->
+       <entry>ある問い合わせでサブパーティションの検索が必要かどうか決定します。</entry>
        <entry>4</entry>
       </row>
       <row>
        <entry><function>leaf_consistent</function></entry>
+<!--
        <entry>determine whether key satisfies the
         query qualifier</entry>
+-->
+       <entry>キーが問い合わせ修飾子を満たすかどうか決定します。</entry>
        <entry>5</entry>
       </row>
       <row>
        <entry><function>options</function></entry>
        <entry>
+<!--
         Defines a set of options that are specific to this operator class
         (optional)
+-->
+この演算子クラスに固有のオプションの集合を定義します(省略可能)。
        </entry>
        <entry>6</entry>
       </row>
@@ -653,75 +1030,111 @@
    </table>
 
   <para>
+<!--
    GIN indexes have seven support functions, four of which are optional,
    as shown in <xref linkend="xindex-gin-support-table"/>.
    (For more information see <xref linkend="gin"/>.)
+-->
+<xref linkend="xindex-gin-support-table"/>に示すように、GINインデックスには、7つのサポート関数があり、また、そのうち4つは省略可能です。
+(詳細については<xref linkend="gin"/>を参照してください。)
   </para>
 
    <table tocentry="1" id="xindex-gin-support-table">
+<!--
     <title>GIN Support Functions</title>
+-->
+    <title>GINサポート関数</title>
     <tgroup cols="3">
      <colspec colname="col1" colwidth="2*"/>
      <colspec colname="col2" colwidth="3*"/>
      <colspec colname="col3" colwidth="1*"/>
      <thead>
       <row>
+<!--
        <entry>Function</entry>
        <entry>Description</entry>
        <entry>Support Number</entry>
+-->
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
        <entry><function>compare</function></entry>
        <entry>
+<!--
         compare two keys and return an integer less than zero, zero,
         or greater than zero, indicating whether the first key is less than,
         equal to, or greater than the second
+-->
+2つのキーを比較し、0未満、0、0より大きな整数を返します。
+それぞれ最初のキーの方が大きい、等しい、小さいを示します。
        </entry>
        <entry>1</entry>
       </row>
       <row>
        <entry><function>extractValue</function></entry>
+<!--
        <entry>extract keys from a value to be indexed</entry>
+-->
+       <entry>インデックス付けされる値からキーを抽出します。</entry>
        <entry>2</entry>
       </row>
       <row>
        <entry><function>extractQuery</function></entry>
+<!--
        <entry>extract keys from a query condition</entry>
+-->
+       <entry>問い合わせ条件からキーを抽出します。</entry>
        <entry>3</entry>
       </row>
       <row>
        <entry><function>consistent</function></entry>
        <entry>
+<!--
         determine whether value matches query condition (Boolean variant)
         (optional if support function 6 is present)
+-->
+問い合わせ条件に一致する値かどうかを決定します(2値の亜種)。
+(サポート関数6があれば、省略可能)
        </entry>
        <entry>4</entry>
       </row>
       <row>
        <entry><function>comparePartial</function></entry>
        <entry>
+<!--
         compare partial key from
         query and key from index, and return an integer less than zero, zero,
         or greater than zero, indicating whether GIN should ignore this index
         entry, treat the entry as a match, or stop the index scan (optional)
+-->
+問い合わせからの部分キーとインデックスからのキーを比較し、それぞれ、GINがこのインデックス項目を無視しなければならないか、一致する項目として扱わなければならないか、インデックススキャンを中止しなければならないかを示す、ゼロより小さい、ゼロ、ゼロより大きい整数値のいずれかを返します(省略可能)。
        </entry>
        <entry>5</entry>
       </row>
       <row>
        <entry><function>triConsistent</function></entry>
        <entry>
+<!--
         determine whether value matches query condition (ternary variant)
         (optional if support function 4 is present)
+-->
+問い合わせ条件に一致する値かどうかを決定します(3値の亜種)。
+(サポート関数4があれば、省略可能)
        </entry>
        <entry>6</entry>
       </row>
       <row>
        <entry><function>options</function></entry>
        <entry>
+<!--
         Defines a set of options that are specific to this operator class
         (optional)
+-->
+この演算子クラスに固有のオプションの集合を定義します(省略可能)。
        </entry>
        <entry>7</entry>
       </row>
@@ -730,56 +1143,84 @@
    </table>
 
   <para>
+<!--
    BRIN indexes have five basic support functions, one of which is optional,
    as shown in <xref linkend="xindex-brin-support-table"/>.  Some versions of
    the basic functions require additional support functions to be provided.
    (For more information see <xref linkend="brin-extensibility"/>.)
+-->
+<xref linkend="xindex-brin-support-table"/>に示すようにBRINインデックスには、5つの基本サポート関数があり、また、そのうち1つは省略可能です。
+基本関数の版には追加のサポート関数の提供を要求するものもあります。
+(詳細については<xref linkend="brin-extensibility"/>を参照してください。)
   </para>
 
    <table tocentry="1" id="xindex-brin-support-table">
+<!--
     <title>BRIN Support Functions</title>
+-->
+    <title>BRINサポート関数</title>
     <tgroup cols="3">
      <colspec colname="col1" colwidth="2*"/>
      <colspec colname="col2" colwidth="3*"/>
      <colspec colname="col3" colwidth="1*"/>
      <thead>
       <row>
+<!--
        <entry>Function</entry>
        <entry>Description</entry>
        <entry>Support Number</entry>
+-->
+       <entry>関数</entry>
+       <entry>説明</entry>
+       <entry>サポート番号</entry>
       </row>
      </thead>
      <tbody>
       <row>
        <entry><function>opcInfo</function></entry>
        <entry>
+<!--
         return internal information describing the indexed columns'
         summary data
+-->
+インデックスが貼られた列の要約データを記述する内部情報を返します
        </entry>
        <entry>1</entry>
       </row>
       <row>
        <entry><function>add_value</function></entry>
+<!--
        <entry>add a new value to an existing summary index tuple</entry>
+-->
+       <entry>既存のサマリーインデックスタプルに新しい値を足します</entry>
        <entry>2</entry>
       </row>
       <row>
        <entry><function>consistent</function></entry>
+<!--
        <entry>determine whether value matches query condition</entry>
+-->
+       <entry>値が問い合わせ条件に一致するかどうかを決めます</entry>
        <entry>3</entry>
       </row>
       <row>
        <entry><function>union</function></entry>
        <entry>
+<!--
         compute union of two summary tuples
+-->
+2つのサマリータプルの結合を計算します
        </entry>
        <entry>4</entry>
       </row>
       <row>
        <entry><function>options</function></entry>
        <entry>
+<!--
         Defines a set of options that are specific to this operator class
         (optional)
+-->
+この演算子クラスに固有のオプションの集合を定義します(省略可能)。
        </entry>
        <entry>5</entry>
       </row>
@@ -788,6 +1229,7 @@
    </table>
 
   <para>
+<!--
    Unlike search operators, support functions return whichever data
    type the particular index method expects; for example in the case
    of the comparison function for B-trees, a signed integer.  The number
@@ -796,13 +1238,21 @@
    hashing support functions take the same input data types as do the
    operators included in the operator class, but this is not the case for
    most GiST, SP-GiST, GIN, and BRIN support functions.
+-->
+検索演算子と異なり、サポート関数は特定のインデックスメソッドが想定するデータ型、例えばB-tree用の比較関数の場合、符号付き整数を返します。
+同様に各サポート関数に渡す引数の数と型はインデックスメソッドに依存します。
+B-treeとハッシュでは、比較関数とハッシュ処理サポート関数はその演算子クラスに含まれる演算子と同じ入力データ型を取りますが、GIN、SP-GiST、GiST、およびBRINサポート関数のほとんどはそうではありません。
   </para>
  </sect2>
 
  <sect2 id="xindex-example">
+<!--
   <title>An Example</title>
+-->
+  <title>例</title>
 
   <para>
+<!--
    Now that we have seen the ideas, here is the promised example of
    creating a new operator class.
    (You can find a working copy of this example in
@@ -815,22 +1265,43 @@
    a set of operators.  The procedure for defining operators was
    discussed in <xref linkend="xoper"/>.  For an operator class on
    B-trees, the operators we require are:
+-->
+ここまでで概念について説明してきました。
+ここで、新しい演算子クラスを作成する有用な例を紹介します。
+（この例を作業できるように、ソース配布物内の<filename>src/tutorial/complex.c</filename>と<filename>src/tutorial/complex.sql</filename>にコピーがあります。）
+この演算子クラスは、複素数をその絶対値による順番でソートする演算子をカプセル化します。
+ですので、その名前に<literal>complex_abs_ops</literal>を選びました。
+最初に演算子の集合が必要になります。
+演算子を定義する処理は<xref linkend="xoper"/>で説明しました。
+B-tree上の演算子クラスでは、以下の演算子が必要です。
 
    <itemizedlist spacing="compact">
+<!--
     <listitem><simpara>absolute-value less-than (strategy 1)</simpara></listitem>
     <listitem><simpara>absolute-value less-than-or-equal (strategy 2)</simpara></listitem>
     <listitem><simpara>absolute-value equal (strategy 3)</simpara></listitem>
     <listitem><simpara>absolute-value greater-than-or-equal (strategy 4)</simpara></listitem>
     <listitem><simpara>absolute-value greater-than (strategy 5)</simpara></listitem>
+-->
+    <listitem><simpara>絶対値による、小なり（ストラテジ1）</simpara></listitem>
+    <listitem><simpara>絶対値による、以下（ストラテジ2）</simpara></listitem>
+    <listitem><simpara>絶対値による、等しい（ストラテジ3）</simpara></listitem>
+    <listitem><simpara>絶対値による、以上（ストラテジ4）</simpara></listitem>
+    <listitem><simpara>絶対値による、大なり（ストラテジ5）</simpara></listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    The least error-prone way to define a related set of comparison operators
    is to write the B-tree comparison support function first, and then write the
    other functions as one-line wrappers around the support function.  This
    reduces the odds of getting inconsistent results for corner cases.
    Following this approach, we first write:
+-->
+比較演算子の関連する集合を定義する時にエラーの発生を最小にする方法は、まず、B-tree比較サポート関数を作成し、その後に、他の関数をサポート関数に対する1行のラッパとして作成することです。
+これにより、境界となる条件で一貫性のない結果を得る確率が減少します。
+この手法に従って、まず以下を作成します。
 
 <programlisting><![CDATA[
 #define Mag(c)  ((c)->x*(c)->x + (c)->y*(c)->y)
@@ -850,7 +1321,10 @@ complex_abs_cmp_internal(Complex *a, Complex *b)
 ]]>
 </programlisting>
 
+<!--
    Now the less-than function looks like:
+-->
+これで、小なり関数は以下のようになります。
 
 <programlisting><![CDATA[
 PG_FUNCTION_INFO_V1(complex_abs_lt);
@@ -866,13 +1340,19 @@ complex_abs_lt(PG_FUNCTION_ARGS)
 ]]>
 </programlisting>
 
+<!--
    The other four functions differ only in how they compare the internal
    function's result to zero.
+-->
+他の4関数での違いは、内部関数の結果とゼロとをどのように比べるかだけです。
   </para>
 
   <para>
+<!--
    Next we declare the functions and the operators based on the functions
    to SQL:
+-->
+次に、関数と、この関数に基づく演算子をSQLで宣言します。
 
 <programlisting>
 CREATE FUNCTION complex_abs_lt(complex, complex) RETURNS bool
@@ -885,18 +1365,25 @@ CREATE OPERATOR &lt; (
    restrict = scalarltsel, join = scalarltjoinsel
 );
 </programlisting>
+<!--
    It is important to specify the correct commutator and negator operators,
    as well as suitable restriction and join selectivity
    functions, otherwise the optimizer will be unable to make effective
    use of the index.
+-->
+正しく交代演算子と否定演算子を指定する他、適切な制限選択性関数と結合関数を指定することが重要です。さもないと、オプティマイザはインデックスを効率的に使用することができません。
   </para>
 
   <para>
+<!--
    Other things worth noting are happening here:
+-->
+他にも注意すべきことがここで発生します。
 
   <itemizedlist>
    <listitem>
     <para>
+<!--
      There can only be one operator named, say, <literal>=</literal>
      and taking type <type>complex</type> for both operands.  In this
      case we don't have any other operator <literal>=</literal> for
@@ -905,11 +1392,17 @@ CREATE OPERATOR &lt; (
      equality operation for complex numbers (and not the equality of
      the absolute values).  In that case, we'd need to use some other
      operator name for <function>complex_abs_eq</function>.
+-->
+例えば、<type>complex</type>型を両オペランドに取る<literal>=</literal>という名前の演算子を1つしか作成できません。
+この場合、<type>complex</type>用の他の<literal>=</literal>演算子を持てません。
+しかし、実際にデータ型を作成しているとしたら、おそらく、複素数の（絶対値の等価性ではない）通常の等価性演算を行う<literal>=</literal>を欲するでしょう。
+この場合、<function>complex_abs_eq</function>用の演算子名に別の名前を使用しなければなりません。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Although <productname>PostgreSQL</productname> can cope with
      functions having the same SQL name as long as they have different
      argument data types, C can only cope with one global function
@@ -917,27 +1410,40 @@ CREATE OPERATOR &lt; (
      something simple like <filename>abs_eq</filename>.  Usually it's
      a good practice to include the data type name in the C function
      name, so as not to conflict with functions for other data types.
+-->
+<productname>PostgreSQL</productname>では異なる引数のデータ型であれば同じSQL名の演算子を使うことができますが、Cでは1つの名前で1つのグローバル関数が使えるだけです。
+ですから、C関数は<filename>abs_eq</filename>のような単純な名前にするべきではありません。
+通常は、他のデータ型の関数と衝突しないように、C関数名にデータ型名を入れておくことを勧めます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      We could have made the SQL name
      of the function <filename>abs_eq</filename>, relying on
      <productname>PostgreSQL</productname> to distinguish it by
      argument data types from any other SQL function of the same name.
      To keep the example simple, we make the function have the same
      names at the C level and SQL level.
+-->
+<filename>abs_eq</filename>関数のSQL名は、<productname>PostgreSQL</productname>が引数のデータ型によって同じ名前を持つ他のSQL関数から区別してくれることを期待して作ることができます。
+ここでは例を簡単にするために、関数にCレベルとSQLレベルで同じ名前を与えています。
     </para>
    </listitem>
   </itemizedlist>
   </para>
 
   <para>
+<!--
    The next step is the registration of the support routine required
    by B-trees.  The example C code that implements this is in the same
    file that contains the operator functions.  This is how we declare
    the function:
+-->
+次のステップは、B-treeに必要なサポートルーチンの登録です。
+これを実装するCコードは、演算子関数と同じファイルに入っています。
+以下は、関数をどのように宣言するかを示します。
 
 <programlisting>
 CREATE FUNCTION complex_abs_cmp(complex, complex)
@@ -948,8 +1454,12 @@ CREATE FUNCTION complex_abs_cmp(complex, complex)
   </para>
 
   <para>
+<!--
    Now that we have the required operators and support routine,
    we can finally create the operator class:
+-->
+これまでで、必要な演算子およびサポートルーチンを持つようになりました。
+最後に演算子クラスを作成することができます。
 
 <programlisting><![CDATA[
 CREATE OPERATOR CLASS complex_abs_ops
@@ -965,30 +1475,48 @@ CREATE OPERATOR CLASS complex_abs_ops
   </para>
 
   <para>
+<!--
    And we're done!  It should now be possible to create
    and use B-tree indexes on <type>complex</type> columns.
+-->
+これで終わりです！
+これで<type>complex</type>列にB-treeインデックスを作って使用することが可能になったはずです。
   </para>
 
   <para>
+<!--
    We could have written the operator entries more verbosely, as in:
+-->
+以下のように、演算子エントリをより冗長に記述することができます。
 <programlisting>
         OPERATOR        1       &lt; (complex, complex) ,
 </programlisting>
+<!--
    but there is no need to do so when the operators take the same data type
    we are defining the operator class for.
+-->
+しかし、演算子が、演算子クラスの定義と同一のデータ型を取る場合、このような記述をする必要はありません。
   </para>
 
   <para>
+<!--
    The above example assumes that you want to make this new operator class the
    default B-tree operator class for the <type>complex</type> data type.
    If you don't, just leave out the word <literal>DEFAULT</literal>.
+-->
+上記の例は、ユーザがこの新しい演算子クラスを<type>complex</type>データ型のデフォルトのB-tree演算子クラスにしようとしていると仮定しています。
+このようにしない場合、<literal>DEFAULT</literal>という単語を取り除いてください。
   </para>
  </sect2>
 
  <sect2 id="xindex-opfamily">
+<!--
   <title>Operator Classes and Operator Families</title>
+-->
+  <title>演算子クラスと演算子族</title>
 
   <para>
+<!--
    So far we have implicitly assumed that an operator class deals with
    only one data type.  While there certainly can be only one data type in
    a particular index column, it is often useful to index operations that
@@ -999,9 +1527,15 @@ CREATE OPERATOR CLASS complex_abs_ops
    between related classes explicit, because this can aid the planner in
    optimizing SQL queries (particularly for B-tree operator classes, since
    the planner contains a great deal of knowledge about how to work with them).
+-->
+これまでは暗黙的に、演算子クラスは1つのデータ型のみを扱うものと仮定してきました。
+確かに特定のインデックス列にはたった1つのデータ型しかあり得ませんが、異なるデータ型の値とインデックス列の比較を行うインデックス操作はよく役に立ちます。
+また、演算子クラスと関連したデータ型を跨る演算子を使用できる場合、他のデータ型は独自の関連した演算子クラスを持つことがよくあります。
+SQL問い合わせを最適化する際にプランナを補助することができますので、関連したクラスを明示的に関連付けることは（どのように動作するかに関する知識をプランナは多く持ちますので、特にB-tree演算子クラスで）有用です。
   </para>
 
   <para>
+<!--
    To handle these needs, <productname>PostgreSQL</productname>
    uses the concept of an <firstterm>operator
    family</firstterm><indexterm><primary>operator family</primary></indexterm>.
@@ -1012,9 +1546,16 @@ CREATE OPERATOR CLASS complex_abs_ops
    within the family, as opposed to being bound into a specific class.
    Typically each operator class contains single-data-type operators
    while cross-data-type operators are loose in the family.
+-->
+こうした要望に応えるために<productname>PostgreSQL</productname>は<firstterm>演算子族</firstterm>という概念を使用します。<indexterm><primary>演算子族</primary></indexterm>
+演算子族は1つ以上の演算子クラスから構成されます。
+また、演算子族全体に属するが、演算子族内の個々のクラスには属さないインデックス可能演算子や対応するサポート関数を含めることもできます。
+こうした演算子や関数を、特定のクラスに束縛されていないことから、演算子族内で<quote>自由</quote>であると呼びます。
+通常、各演算子クラスは1つのデータ型演算子を持ちますが、データ型を跨る演算子は演算子族内で自由になります。
   </para>
 
   <para>
+<!--
    All the operators and functions in an operator family must have compatible
    semantics, where the compatibility requirements are set by the index
    method.  You might therefore wonder why bother to single out particular
@@ -1030,9 +1571,20 @@ CREATE OPERATOR CLASS complex_abs_ops
    to work with an index on a specific data type, and then related but
    non-essential operators can be added as loose members of the operator
    family.
+-->
+演算子族内の演算子と関数はすべて、意味的な互換性を持たなければなりません。
+この互換性についての必要条件はインデックスメソッドによって設定されます。
+このため、演算子族の特定の部分集合を演算子クラスとして選び出す方法に疑問を持つかもしれません。
+実際多くの目的では、クラスの分類は不適切で、演算子族が唯一の興味深いグループ化です。
+演算子クラスを定義する理由は、どれだけ多くの演算子族が何らかのインデックスをサポートするために必要かを指定することです。
+ある演算子クラスを使用するインデックスが存在する場合、演算子クラスはそのインデックスを削除しない限り削除することができません。
+しかし、演算子族の他の部分、すなわち、他の演算子クラスや自由な演算子を削除することができます。
+したがって、演算子クラスは、特定のデータ型に対するインデックスを操作する上で理論上必要となる最少の演算子と関数の集合を含むように指定すべきです。
+そして、関連するが基本的なものではない演算子を演算子族の自由なメンバとして追加することができます。
   </para>
 
   <para>
+<!--
    As an example, <productname>PostgreSQL</productname> has a built-in
    B-tree operator family <literal>integer_ops</literal>, which includes operator
    classes <literal>int8_ops</literal>, <literal>int4_ops</literal>, and
@@ -1042,13 +1594,22 @@ CREATE OPERATOR CLASS complex_abs_ops
    operators allowing any two of these types to be compared, so that an index
    on one of these types can be searched using a comparison value of another
    type.  The family could be duplicated by these definitions:
+-->
+例えば<productname>PostgreSQL</productname>には<literal>integer_ops</literal>という組み込みのB-tree演算子族があります。
+ここには<type>bigint</type> (<type>int8</type>)、<type>integer</type> (<type>int4</type>)、<type>smallint</type> (<type>int2</type>)型の列上へのインデックスにそれぞれ対応した<literal>int8_ops</literal>、<literal>int4_ops</literal>、<literal>int2_ops</literal>という演算子クラスが含まれています。
+また、上記の型の内任意の2つの型を比較できるように、この演算子族にはデータ型を跨る比較演算子も含まれます。
+このため、上記の型のいずれかに対するインデックスを他の型の値との比較の際に使用することができます。
+この演算子族は以下の定義により多重化されています。
 
 <programlisting><![CDATA[
 CREATE OPERATOR FAMILY integer_ops USING btree;
 
 CREATE OPERATOR CLASS int8_ops
 DEFAULT FOR TYPE int8 USING btree FAMILY integer_ops AS
-  -- standard int8 comparisons
+]]><!--
+  &#045;- standard int8 comparisons
+--><![CDATA[
+  -- 標準int8比較
   OPERATOR 1 < ,
   OPERATOR 2 <= ,
   OPERATOR 3 = ,
@@ -1061,7 +1622,10 @@ DEFAULT FOR TYPE int8 USING btree FAMILY integer_ops AS
 
 CREATE OPERATOR CLASS int4_ops
 DEFAULT FOR TYPE int4 USING btree FAMILY integer_ops AS
-  -- standard int4 comparisons
+]]><!--
+  &#045;- standard int4 comparisons
+--><![CDATA[
+  -- 標準int4比較
   OPERATOR 1 < ,
   OPERATOR 2 <= ,
   OPERATOR 3 = ,
@@ -1074,7 +1638,10 @@ DEFAULT FOR TYPE int4 USING btree FAMILY integer_ops AS
 
 CREATE OPERATOR CLASS int2_ops
 DEFAULT FOR TYPE int2 USING btree FAMILY integer_ops AS
-  -- standard int2 comparisons
+]]><!--
+  &#045;- standard int2 comparisons
+--><![CDATA[
+  -- 標準int2比較
   OPERATOR 1 < ,
   OPERATOR 2 <= ,
   OPERATOR 3 = ,
@@ -1086,7 +1653,10 @@ DEFAULT FOR TYPE int2 USING btree FAMILY integer_ops AS
   FUNCTION 4 btequalimage(oid) ;
 
 ALTER OPERATOR FAMILY integer_ops USING btree ADD
-  -- cross-type comparisons int8 vs int2
+]]><!--
+  &#045;- cross-type comparisons int8 vs int2
+--><![CDATA[
+  -- 型を跨ぐ比較 int8対int2
   OPERATOR 1 < (int8, int2) ,
   OPERATOR 2 <= (int8, int2) ,
   OPERATOR 3 = (int8, int2) ,
@@ -1094,7 +1664,10 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
   OPERATOR 5 > (int8, int2) ,
   FUNCTION 1 btint82cmp(int8, int2) ,
 
-  -- cross-type comparisons int8 vs int4
+]]><!--
+  &#045;- cross-type comparisons int8 vs int4
+--><![CDATA[
+  -- 型を跨ぐ比較 int8対int4
   OPERATOR 1 < (int8, int4) ,
   OPERATOR 2 <= (int8, int4) ,
   OPERATOR 3 = (int8, int4) ,
@@ -1102,7 +1675,10 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
   OPERATOR 5 > (int8, int4) ,
   FUNCTION 1 btint84cmp(int8, int4) ,
 
-  -- cross-type comparisons int4 vs int2
+]]><!--
+  &#045;- cross-type comparisons int4 vs int2
+--><![CDATA[
+  -- 型を跨ぐ比較 int4対int2
   OPERATOR 1 < (int4, int2) ,
   OPERATOR 2 <= (int4, int2) ,
   OPERATOR 3 = (int4, int2) ,
@@ -1110,7 +1686,10 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
   OPERATOR 5 > (int4, int2) ,
   FUNCTION 1 btint42cmp(int4, int2) ,
 
-  -- cross-type comparisons int4 vs int8
+]]><!--
+  &#045;- cross-type comparisons int4 vs int8
+--><![CDATA[
+  -- 型を跨ぐ比較 int4対int8
   OPERATOR 1 < (int4, int8) ,
   OPERATOR 2 <= (int4, int8) ,
   OPERATOR 3 = (int4, int8) ,
@@ -1118,7 +1697,10 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
   OPERATOR 5 > (int4, int8) ,
   FUNCTION 1 btint48cmp(int4, int8) ,
 
-  -- cross-type comparisons int2 vs int8
+]]><!--
+  &#045;- cross-type comparisons int2 vs int8
+--><![CDATA[
+  -- 型を跨ぐ比較 int2対int8
   OPERATOR 1 < (int2, int8) ,
   OPERATOR 2 <= (int2, int8) ,
   OPERATOR 3 = (int2, int8) ,
@@ -1126,7 +1708,10 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
   OPERATOR 5 > (int2, int8) ,
   FUNCTION 1 btint28cmp(int2, int8) ,
 
-  -- cross-type comparisons int2 vs int4
+]]><!--
+  &#045;- cross-type comparisons int2 vs int4
+--><![CDATA[
+  -- 型を跨ぐ比較 int2対int4
   OPERATOR 1 < (int2, int4) ,
   OPERATOR 2 <= (int2, int4) ,
   OPERATOR 3 = (int2, int4) ,
@@ -1142,6 +1727,7 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
 ]]>
 </programlisting>
 
+<!--
    Notice that this definition <quote>overloads</quote> the operator strategy and
    support function numbers: each number occurs multiple times within the
    family.  This is allowed so long as each instance of a
@@ -1150,9 +1736,15 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
    primary operators and support functions for that operator class,
    and in most cases should be declared as part of the operator class rather
    than as loose members of the family.
+-->
+ この定義は演算子ストラテジ関数番号とサポート関数番号を<quote>上書き</quote>していることに注意してください。
+各番号は演算子族内で複数回現れます。
+特定番号のインスタンスがそれぞれ異なる入力データ型を持つ限り、これは許されます。
+入力型の両方が演算子クラスの入力型と同じインスタンスは、演算子クラスの主演算子および主サポート関数であり、ほとんどの場合、演算子族の自由メンバではなく演算子クラスの一部として宣言しなければなりません。
   </para>
 
   <para>
+<!--
    In a B-tree operator family, all the operators in the family must sort
    compatibly, as is specified in detail in <xref linkend="btree-behavior"/>.
    For each
@@ -1161,9 +1753,15 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
    complete, i.e., for each combination of data types, all operators are
    included.  Each operator class should include just the non-cross-type
    operators and support function for its data type.
+-->
+詳細が<xref linkend="btree-behavior"/>で示されている通り、B-tree演算子族では演算子族内のすべての演算子は互換性をもってソートしなければなりません。
+演算子族内の各演算子では、演算子と同じデータ型の2つのデータ型を取るサポート関数が存在しなければなりません。
+演算子族を完結させること、つまり、データ型の組み合わせそれぞれに対する演算子をすべて含めることを推奨します。
+各演算子クラスは、自身のデータ型に対してデータ型を跨らない演算子とサポート関数だけを含めなければなりません。
   </para>
 
   <para>
+<!--
    To build a multiple-data-type hash operator family, compatible hash
    support functions must be created for each data type supported by the
    family.  Here compatibility means that the functions are guaranteed to
@@ -1179,25 +1777,43 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
    provide an equality operator for each combination of data types.
    Each operator class should include just the non-cross-type equality
    operator and the support function for its data type.
+-->
+複数データ型のハッシュ演算子族を構築するには、演算子族でサポートされるデータ型それぞれに対する互換性を持つハッシュサポート関数を作成しなければなりません。
+ここで、互換性とは、関数がその演算子族の等価性演算子で等価であるとみなされる任意の2つの値では同一のハッシュコードが生成されることを保証することを意味します。
+通常、型が異なる物理表現を持つ場合、これを実現することは困難ですが、実現可能な場合もあります。
+さらに、暗黙的またはバイナリ変換により、ある演算子族で表現されるデータ型から同じ演算子族で表現されるデータ型に値をキャストしても、計算されたハッシュ値を変更してはいけません。
+データ型1つに対してサポート関数が1つしか存在しないことに注意してください。
+等価性演算子ごとに１つではありません。
+演算子族を完結させること、つまり、データ型の組み合わせそれぞれに対する等価性演算子をすべて含めることを推奨します。
+各演算子クラスは、自身のデータ型に対してデータ型を跨らない演算子とサポート関数だけを含めなければなりません。
   </para>
 
   <para>
+<!--
    GiST, SP-GiST, and GIN indexes do not have any explicit notion of
    cross-data-type operations.  The set of operators supported is just
    whatever the primary support functions for a given operator class can
    handle.
+-->
+GiST、SP-GiST、GINインデックスではデータ型を跨る操作についての明示的な記法はありません。
+サポートされる演算子群は単に指定演算子クラスの主サポート関数が扱うことができるものです。
   </para>
 
   <para>
+<!--
    In BRIN, the requirements depends on the framework that provides the
    operator classes.  For operator classes based on <literal>minmax</literal>,
    the behavior required is the same as for B-tree operator families:
    all the operators in the family must sort compatibly, and casts must
    not change the associated sort ordering.
+-->
+BRINでは、要求は演算子クラスを提供するフレームワークに依存します。
+<literal>minmax</literal>に基づく演算子クラスに対しては、求められる振る舞いはB-tree演算子クラスに対するものと同じです。族内のすべての演算子はソート互換でなければならず、キャストは関連するソート順序を変更してはいけません。
   </para>
 
   <note>
    <para>
+<!--
     Prior to <productname>PostgreSQL</productname> 8.3, there was no concept
     of operator families, and so any cross-data-type operators intended to be
     used with an index had to be bound directly into the index's operator
@@ -1205,25 +1821,40 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
     makes an index's dependencies too broad, and because the planner can
     handle cross-data-type comparisons more effectively when both data types
     have operators in the same operator family.
+-->
+<productname>PostgreSQL</productname>8.3より前のバージョンでは演算子族という概念はありませんでした。
+そのため、インデックスで使用する予定のデータ型を跨る演算子はすべて、インデックスの演算子クラスに結びつけなければなりませんでした。
+この手法もまだ使用できますが、インデックスの依存性を広げる点、および、両データ型が同一演算子族内で演算子を持つ場合、プランナがデータ型を跨った比較をより効率的に扱うことができる点より、廃止予定です。
    </para>
   </note>
  </sect2>
 
  <sect2 id="xindex-opclass-dependencies">
+<!--
   <title>System Dependencies on Operator Classes</title>
+-->
+  <title>システムの演算子クラスに対する依存性</title>
 
    <indexterm>
+<!--
     <primary>ordering operator</primary>
+-->
+    <primary>順序付け演算子</primary>
    </indexterm>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> uses operator classes to infer the
    properties of operators in more ways than just whether they can be used
    with indexes.  Therefore, you might want to create operator classes
    even if you have no intention of indexing any columns of your data type.
+-->
+<productname>PostgreSQL</productname>は演算子クラスを、単にインデックスで使用できるかどうかだけではなく、多くの方式で演算子の性質を推定するために使用します。
+したがって、データ型の列をインデックス付けするつもりがなくても、演算子クラスを作成した方が良い可能性があります。
   </para>
 
   <para>
+<!--
    In particular, there are SQL features such as <literal>ORDER BY</literal> and
    <literal>DISTINCT</literal> that require comparison and sorting of values.
    To implement these features on a user-defined data type,
@@ -1233,59 +1864,90 @@ ALTER OPERATOR FAMILY integer_ops USING btree ADD
    <literal>GROUP BY</literal> and <literal>DISTINCT</literal>, and the sort ordering
    imposed by the operator class defines the default <literal>ORDER BY</literal>
    ordering.
+-->
+具体的には、<literal>ORDER BY</literal>や<literal>DISTINCT</literal>など、値の比較とソートを必要とするSQL機能があります。
+ユーザ定義のデータ型に対してこの機能を実装するために、<productname>PostgreSQL</productname>はそのデータ型用のデフォルトのB-tree演算子クラスを検索します。
+この演算子クラスの<quote>等価判定</quote>メンバが、<literal>GROUP BY</literal>や<literal>DISTINCT</literal>用の値の等価性についてのシステムの意向を定義し、この演算子クラスによって強制されるソート順序が、デフォルトの<literal>ORDER BY</literal>順序を定義します。
   </para>
 
   <para>
+<!--
    If there is no default B-tree operator class for a data type, the system
    will look for a default hash operator class.  But since that kind of
    operator class only provides equality, it is only able to support grouping
    not sorting.
+-->
+データ型用のデフォルトのB-tree演算子クラスが存在しないと、システムはデフォルトのハッシュ演算子クラスを検索します。
+しかし、この種類の演算子クラスは等価性のみを提供しますので、ソートではなくグループ化のみサポートできます。
   </para>
 
   <para>
+<!--
    When there is no default operator class for a data type, you will get
    errors like <quote>could not identify an ordering operator</quote> if you
    try to use these SQL features with the data type.
+-->
+データ型用のデフォルトの演算子クラスが存在しない場合に、こうしたSQL機能をデータ型に使用しようとすると、<quote>順序付け演算子を識別できなかった</quote>といったエラーとなります。
   </para>
 
    <note>
     <para>
+<!--
      In <productname>PostgreSQL</productname> versions before 7.4,
      sorting and grouping operations would implicitly use operators named
      <literal>=</literal>, <literal>&lt;</literal>, and <literal>&gt;</literal>.  The new
      behavior of relying on default operator classes avoids having to make
      any assumption about the behavior of operators with particular names.
+-->
+<productname>PostgreSQL</productname>バージョン7.4より前まででは、ソートやグループ化演算は暗黙的に<literal>=</literal>、<literal>&lt;</literal>、<literal>&gt;</literal>という名前の演算子を使用していました。
+この新しい、デフォルトの演算子クラスに依存する振舞いによって、特定の名前を持つ演算子の振舞いについて何らかの仮定を立てることを防止しています。
     </para>
    </note>
 
   <para>
+<!--
    Sorting by a non-default B-tree operator class is possible by specifying
    the class's less-than operator in a <literal>USING</literal> option,
    for example
+-->
+演算子クラスの小なり演算子を<literal>USING</literal>オプションに指定することで、デフォルトでないB-tree演算子クラスによるソートが可能です。
+以下に例を示します。
 <programlisting>
 SELECT * FROM mytable ORDER BY somecol USING ~&lt;~;
 </programlisting>
+<!--
    Alternatively, specifying the class's greater-than operator
    in <literal>USING</literal> selects a descending-order sort.
+-->
+代わりに<literal>USING</literal>で演算子クラスの大なり演算子を指定すると降順ソートが行われます。
   </para>
 
   <para>
+<!--
    Comparison of arrays of a user-defined type also relies on the semantics
    defined by the type's default B-tree operator class.  If there is no
    default B-tree operator class, but there is a default hash operator class,
    then array equality is supported, but not ordering comparisons.
+-->
+ユーザ定義型の配列の比較も型のデフォルトB-tree演算子クラスで定義された意味に依存します。
+デフォルトのB-tree演算子クラスが無く、しかしデフォルトのハッシュ演算子クラスがある場合、配列の順比較ではなく同等比較がサポートされます。
   </para>
 
   <para>
+<!--
    Another SQL feature that requires even more data-type-specific knowledge
    is the <literal>RANGE</literal> <replaceable>offset</replaceable>
    <literal>PRECEDING</literal>/<literal>FOLLOWING</literal> framing option
    for window functions (see <xref linkend="syntax-window-functions"/>).
    For a query such as
+-->
+データ型特有の知識をさらに必要とする他のSQL仕様としては、ウィンドウ関数（<xref linkend="syntax-window-functions"/>を参照してください）の<literal>RANGE</literal> <replaceable>offset</replaceable> <literal>PRECEDING</literal>/<literal>FOLLOWING</literal>フレームオプションがあります。
+下記のような問い合わせに対して、
 <programlisting>
 SELECT sum(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING)
   FROM mytable;
 </programlisting>
+<!--
    it is not sufficient to know how to order by <literal>x</literal>;
    the database must also understand how to <quote>subtract 5</quote> or
    <quote>add 10</quote> to the current row's value of <literal>x</literal>
@@ -1307,20 +1969,37 @@ SELECT sum(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING)
    the <literal>RANGE</literal> <replaceable>offset</replaceable>
    <literal>PRECEDING</literal>/<literal>FOLLOWING</literal>
    option is not supported.
+-->
+これはどのように<literal>x</literal>で整列するかを知るのに十分ではありません。
+データベースは現在のウィンドウフレームの境界を識別するためにどのように現在行の<literal>x</literal>の値に<quote>5を減算</quote>や<quote>10を加算</quote>を行うかを理解する必要もあります。
+<literal>ORDER BY</literal>整列を定義するB-tree演算子クラスで提供される比較演算子を使って結果として生じる他の行の<literal>x</literal>値への範囲を比較することは可能です。
+しかし、加算、減算演算子は演算子クラスの一部ではありません。では、どの演算子が使われるべきでしょうか。
+異なるソート順序（異なるB-tree演算子クラス）では異なる振る舞いを要するかもしれないため、選択を決め打ちすることは望ましくありません。
+そのため、B-tree演算子クラスはそのソート順に意味がある加算と減算の振る舞いをカプセル化する<firstterm>in_range</firstterm>サポート関数を指定することができます。
+<literal>RANGE</literal>句のオフセットとして使う意味のある複数のデータ型がある場合にむけて、複数のin_rangeサポート関数を提供することもできます。
+ウィンドウの<literal>ORDER BY</literal>句と関連しているB-tree演算子クラスが、一致するin_rangeサポート関数を持たない場合、<literal>PRECEDING</literal>/<literal>FOLLOWING</literal>オプションはサポートされません。
   </para>
 
   <para>
+<!--
    Another important point is that an equality operator that
    appears in a hash operator family is a candidate for hash joins,
    hash aggregation, and related optimizations.  The hash operator family
    is essential here since it identifies the hash function(s) to use.
+-->
+他の重要な点として、ハッシュ演算子族内に現れる等価性演算子がハッシュ結合、ハッシュ集約、関連する最適化の候補となることがあります。
+使用するハッシュ関数を識別するため、ここでのハッシュ演算子族は基本的なものです。
   </para>
  </sect2>
 
  <sect2 id="xindex-ordering-ops">
+<!--
   <title>Ordering Operators</title>
+-->
+  <title>順序付け演算子</title>
 
   <para>
+<!--
    Some index access methods (currently, only GiST and SP-GiST) support the concept of
    <firstterm>ordering operators</firstterm>.  What we have been discussing so far
    are <firstterm>search operators</firstterm>.  A search operator is one for which
@@ -1341,16 +2020,30 @@ SELECT sum(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING)
    The reason for defining ordering operators that way is that it supports
    nearest-neighbor searches, if the operator is one that measures distance.
    For example, a query like
+-->
+一部のインデックスアクセスメソッド（現時点ではGiSTとSP-GiSTのみ）は<firstterm>順序付け演算子</firstterm>という概念をサポートします。
+これまで説明してきたものは<firstterm>検索演算子</firstterm>でした。
+検索演算子は、<literal>WHERE</literal> <replaceable>indexed_column</replaceable> <replaceable>operator</replaceable> <replaceable>constant</replaceable>を満たすすべての行を見つけるために、インデックスを検索可能にするためのものです。
+一致した行がどの順序で返されるかについては保証がないことに注意してください。
+反対に、順序付け演算子は返すことができる行集合を限定しませんが、その順序を決定します。
+順序付け演算子は、<literal>ORDER BY</literal> <replaceable>indexed_column</replaceable> <replaceable>operator</replaceable> <replaceable>constant</replaceable>で表される順序で行を返すために、インデックスをスキャン可能にするためのものです。
+このように順序付け演算子を定義する理由は、その演算子が距離を測るものであれば最近傍検索をサポートすることです。
+例えば以下のような問い合わせを考えます。
 <programlisting><![CDATA[
 SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
 ]]>
 </programlisting>
+<!--
    finds the ten places closest to a given target point.  A GiST index
    on the location column can do this efficiently because
    <literal>&lt;-&gt;</literal> is an ordering operator.
+-->
+これは指定した対象地点に最も近い10地点を見つけ出します。
+<literal>&lt;-&gt;</literal>は順序付け演算子ですので、location列上のGiSTインデックスは、これを効率的に行うことができます。
   </para>
 
   <para>
+<!--
    While search operators have to return Boolean results, ordering operators
    usually return some other type, such as float or numeric for distances.
    This type is normally not the same as the data type being indexed.
@@ -1362,33 +2055,56 @@ SELECT * FROM places ORDER BY location <-> point '(101,456)' LIMIT 10;
    this is a natural representation.  Since the point <literal>&lt;-&gt;</literal>
    operator returns <type>float8</type>, it could be specified in an operator
    class creation command like this:
+-->
+検索演算子が論理値結果を返さなければなりませんが、順序付け演算子は普通、距離を表す浮動小数点や数値型など、何らかの他の型を返します。
+この型は通常、インデックス対象のデータ型と同じにはなりません。
+異なるデータ型の動作についての固定化された前提を防ぐために、順序付け演算子の定義では、結果データ型のソート順序を指定するB-tree演算子族の名前を必要とします。
+前節で述べたように、B-tree演算子族は<productname>PostgreSQL</productname>の順序付け記法を定義します。
+ですのでこれは自然な表現です。
+pointに対する<literal>&lt;-&gt;</literal>演算子は<type>float8</type>を返しますので、演算子クラスを作成するコマンド内で以下のように指定します。
 <programlisting><![CDATA[
 OPERATOR 15    <-> (point, point) FOR ORDER BY float_ops
 ]]>
 </programlisting>
+<!--
    where <literal>float_ops</literal> is the built-in operator family that includes
    operations on <type>float8</type>.  This declaration states that the index
    is able to return rows in order of increasing values of the
    <literal>&lt;-&gt;</literal> operator.
+-->
+ここで<literal>float_ops</literal>は、<type>float8</type>に対する操作を含んだ組み込みの演算子族です。
+この宣言は、インデックスが<literal>&lt;-&gt;</literal>演算子の値が増加する方向で行を返すことができることを表しています。
   </para>
  </sect2>
 
  <sect2 id="xindex-opclass-features">
+<!--
   <title>Special Features of Operator Classes</title>
+-->
+  <title>演算子クラスの特殊な機能</title>
 
   <para>
+<!--
    There are two special features of operator classes that we have
    not discussed yet, mainly because they are not useful
    with the most commonly used index methods.
+-->
+演算子クラスには、まだ説明していない2つの特殊な機能があります。
+説明していない主な理由は、最もよく使用するインデックスメソッドでは、これらがあまり有用ではないためです。
   </para>
 
   <para>
+<!--
    Normally, declaring an operator as a member of an operator class
    (or family) means that the index method can retrieve exactly the set of rows
    that satisfy a <literal>WHERE</literal> condition using the operator.  For example:
+-->
+通常、演算子を演算子クラス（または演算子族）のメンバとして宣言すると、インデックスメソッドでその演算子を使用して、<literal>WHERE</literal>条件を満たす行の集合を正確に抽出することができます。
+以下に例を示します。
 <programlisting>
 SELECT * FROM table WHERE integer_column &lt; 4;
 </programlisting>
+<!--
    can be satisfied exactly by a B-tree index on the integer column.
    But there are cases where an index is useful as an inexact guide to
    the matching rows.  For example, if a GiST index stores only bounding boxes
@@ -1409,15 +2125,34 @@ SELECT * FROM table WHERE integer_column &lt; 4;
    (currently, GiST, SP-GiST and GIN) allow the support functions of individual
    operator classes to set the recheck flag, and so this is essentially an
    operator-class feature.
+-->
+この式は、整数列にB-treeインデックスを使用することにより、正確に満たすことができます。
+しかし、一致する行へ厳密ではなくとも導く手段としてインデックスが有用である場合があります。
+例えば、GiSTインデックスで、幾何オブジェクトの外接矩形のみを格納したとします。
+その結果、多角形のような長方形でないオブジェクトとの重なりをテストするWHERE条件は正確に満たすことができません。
+もっとも、このインデックスを使用して、対象オブジェクトの外接矩形に重なる外接矩形を持つオブジェクトを検索し、さらに、検索されたオブジェクトのみに対して正確に重なるかどうかをテストすることはできます。
+この筋書きを適用する場合、インデックスは演算子に対して<quote>非可逆</quote>と言われます。
+非可逆インデックス検索は、ある行が問い合わせ条件を実際に満足するかしないかの時に<firstterm>recheck</firstterm>フラグを返すインデックスメソッドを持つことで実装されます。
+コアシステムは、そこで有効なマッチとして行が返されるか否かを確認するために、抽出された行に対して元の問い合わせ条件を検査します。
+この手法はインデックスがすべての必要な行を返すことが保証された上で、元の演算子呼び出しを実行することによって除外することができる、いくつか余分な行を返す可能性がある場合に動作します。
+非可逆検索を提供するインデックス方式（現時点ではGiST、SP-GiSTおよびGIN）は個々の演算子クラスのサポート関数がrecheckフラグを設定することを許可します。
+このためこれは原則的に演算子クラスの機能です。
   </para>
 
   <para>
+<!--
    Consider again the situation where we are storing in the index only
    the bounding box of a complex object such as a polygon.  In this
    case there's not much value in storing the whole polygon in the index
    entry &mdash; we might as well store just a simpler object of type
    <type>box</type>.  This situation is expressed by the <literal>STORAGE</literal>
    option in <command>CREATE OPERATOR CLASS</command>: we'd write something like:
+-->
+再度、多角形のような複雑なオブジェクトの外接矩形のみをインデックスに格納している状況を考えてみてください。
+この場合、インデックスエントリに多角形全体を格納するのは、それほど有用なことではありません。
+単に、より単純な<type>box</type>型のオブジェクトを格納した方が良いかもしれません。
+このような状況は、<command>CREATE OPERATOR CLASS</command>の<literal>STORAGE</literal>オプションによって表現することができます。
+例えば、以下のように記述します。
 
 <programlisting>
 CREATE OPERATOR CLASS polygon_ops
@@ -1426,6 +2161,7 @@ CREATE OPERATOR CLASS polygon_ops
         STORAGE box;
 </programlisting>
 
+<!--
    At present, only the GiST, SP-GiST, GIN and BRIN index methods support a
    <literal>STORAGE</literal> type that's different from the column data type.
    The GiST <function>compress</function> and <function>decompress</function> support
@@ -1444,6 +2180,14 @@ CREATE OPERATOR CLASS polygon_ops
    type of the stored summary values, and operator classes' support
    procedures are responsible for interpreting the summary values
    correctly.
+-->
+現時点では、GiST、GINおよびBRINインデックスメソッドが、列のデータ型と異なる<literal>STORAGE</literal>型をサポートしています。
+<literal>STORAGE</literal>が使用された場合、GiSTの<function>compress</function>および<function>decompress</function>サポートルーチンは、データ型を変換する必要があります。
+GINでは、<literal>STORAGE</literal>型は<quote>キー</quote>の値の型を識別します。
+通常これはインデックス付けされる列の型とは異なります。
+例えば、整数配列の列用の演算子クラスは単なる整数をキーとして持つかもしれません。
+GINの<literal>extractValue</literal>および<literal>extractQuery</literal>サポートルーチンが、インデックス付けされた値からキーを取り出す責任を負います。
+BRINはGINと同様です。<literal>STORAGE</literal>型は格納された要約値の型を識別し、演算子クラスのサポートプロシージャは要約値を正しく解釈する責任を負います。
   </para>
  </sect2>
 
