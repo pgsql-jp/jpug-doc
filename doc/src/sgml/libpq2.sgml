@@ -24,7 +24,7 @@
 
   <para>
 <!--
-   Ordinarily, <application>libpq</application> collects a SQL command's
+   Ordinarily, <application>libpq</application> collects an SQL command's
    entire result and returns it to the application as a single
    <structname>PGresult</structname>.  This can be unworkable for commands
    that return a large number of rows.  For such cases, applications can use
@@ -69,6 +69,13 @@
 （しかしヌルが返るまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければならないことに注意してください。）
 <structname>PGresult</structname>オブジェクトのすべては、その問い合わせに対する通常の<structname>PGresult</structname>と同一の行説明データ（列名、型など）を持ちます。
 各オブジェクトは通常通り<xref linkend="libpq-PQclear"/>で解放しなければなりません。
+  </para>
+
+  <para>
+   When using pipeline mode, single-row mode needs to be activated for each
+   query in the pipeline before retrieving results for that query
+   with <function>PQgetResult</function>.
+   See <xref linkend="libpq-pipeline-mode"/> for more information.
   </para>
 
   <para>
@@ -435,7 +442,10 @@ typedef struct
   <para>
 <!--
    <function>PQfn</function> always returns a valid
-   <structname>PGresult</structname> pointer. The result status should be
+   <structname>PGresult</structname> pointer, with
+   status <literal>PGRES_COMMAND_OK</literal> for success
+   or <literal>PGRES_FATAL_ERROR</literal> if some problem was encountered.
+   The result status should be
    checked before the result is used.   The caller is responsible for
    freeing  the  <structname>PGresult</structname>  with
    <xref linkend="libpq-PQclear"/> when it is no longer needed.
@@ -446,9 +456,23 @@ typedef struct
   </para>
 
   <para>
+   To pass a NULL argument to the function, set
+   the <parameter>len</parameter> field of that parameter structure
+   to <literal>-1</literal>; the <parameter>isint</parameter>
+   and <parameter>u</parameter> fields are then irrelevant.
+  </para>
+
+  <para>
+   If the function returns NULL, <parameter>*result_len</parameter> is set
+   to <literal>-1</literal>, and <parameter>*result_buf</parameter> is not
+   modified.
+  </para>
+
+  <para>
 <!--
-   Note that it is not possible to handle null arguments, null results,
-   nor set-valued results when using this interface.
+   Note that it is not possible to handle set-valued results when using
+   this interface.  Also, the function must be a plain function, not an
+   aggregate, window function, or procedure.
 -->
 このインタフェースを使用した場合、NULL引数やNULL結果、セット値の結果を扱うことができないことに注意してください。
   </para>
@@ -744,17 +768,6 @@ typedef struct pgNotify
    </variablelist>
   </para>
 
-  <note>
-   <para>
-<!--
-    These additional data values are only available when using protocol
-    3.0.  When using protocol 2.0, all these functions will return 0.
--->
-これらの追加データ値はプロトコル3.0を使用した場合にのみ利用可能です。
-プロトコル2.0を使用する場合は、これらの関数はすべて0を返します。
-   </para>
-  </note>
-
   <sect2 id="libpq-copy-send">
 <!--
    <title>Functions for Sending <command>COPY</command> Data</title>
@@ -848,9 +861,7 @@ int PQputCopyEnd(PGconn *conn,
        <parameter>errormsg</parameter> used as the error message.  (One should not
        assume that this exact error message will come back from the server,
        however, as the server might have already failed the
-       <command>COPY</command> for its own reasons.  Also note that the option
-       to force failure does not work when using pre-3.0-protocol
-       connections.)
+       <command>COPY</command> for its own reasons.)
 -->
 <parameter>errormsg</parameter>が<symbol>NULL</symbol>の場合は、<literal>COPY_IN</literal>操作の終了に成功しました。
 <parameter>errormsg</parameter>が<symbol>NULL</symbol>でない場合は、<command>COPY</command>は強制的に失敗させられました。
@@ -1510,12 +1521,27 @@ PGContextVisibility PQsetErrorContextVisibility(PGconn *conn, PGContextVisibilit
     <listitem>
      <para>
 <!--
-      Enables  tracing of the client/server communication to a debugging file stream.
+      Enables tracing of the client/server communication to a debugging file
+      stream.
 -->
 クライアント／サーバ間の通信トレースを有効にし、デバッグ用のファイルストリームに書き出します。
 <synopsis>
 void PQtrace(PGconn *conn, FILE *stream);
 </synopsis>
+     </para>
+
+     <para>
+      Each line consists of: an optional timestamp, a direction indicator
+      (<literal>F</literal> for messages from client to server
+      or <literal>B</literal> for messages from server to client),
+      message length, message type, and message contents.
+      Non-message contents fields (timestamp, direction, length and message type)
+      are separated by a tab. Message contents are separated by a space.
+      Protocol strings are enclosed in double quotes, while strings used as data
+      values are enclosed in single quotes.  Non-printable chars are printed as
+      hexadecimal escapes.
+      Further message-type-specific detail can be found in
+      <xref linkend="protocol-message-formats"/>.
      </para>
 
      <note>
@@ -1532,6 +1558,31 @@ Windowsにおいて、<application>libpq</application>ライブラリとアプ�
 特に、このライブラリを使用するアプリケーションでは、マルチスレッド/シングルスレッド、リリース/デバッグ、静的リンク/動的リンクに関して、ライブラリと同じフラグを使わなければなりません。
       </para>
      </note>
+
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="libpq-PQsetTraceFlags">
+    <term><function>PQsetTraceFlags</function><indexterm><primary>PQsetTraceFlags</primary></indexterm></term>
+
+    <listitem>
+     <para>
+      Controls the tracing behavior of client/server communication.
+<synopsis>
+void PQsetTraceFlags(PGconn *conn, int flags);
+</synopsis>
+     </para>
+
+     <para>
+      <literal>flags</literal> contains flag bits describing the operating mode
+      of tracing.
+      If <literal>flags</literal> contains <literal>PQTRACE_SUPPRESS_TIMESTAMPS</literal>,
+      then the timestamp is not included when printing each message.
+      If <literal>flags</literal> contains <literal>PQTRACE_REGRESS_MODE</literal>,
+      then some fields are redacted when printing each message, such as object
+      OIDs, to make the output more convenient to use in testing frameworks.
+      This function must be called after calling <function>PQtrace</function>.
+     </para>
 
     </listitem>
    </varlistentry>
@@ -2276,9 +2327,9 @@ defaultNoticeProcessor(void *arg, const char *message)
 <!--
    Each registered event handler is associated with two pieces of data,
    known to <application>libpq</application> only as opaque <literal>void *</literal>
-   pointers.  There is a <firstterm>passthrough</firstterm> pointer that is provided
+   pointers.  There is a <firstterm>pass-through</firstterm> pointer that is provided
    by the application when the event handler is registered with a
-   <structname>PGconn</structname>.  The passthrough pointer never changes for the
+   <structname>PGconn</structname>.  The pass-through pointer never changes for the
    life of the <structname>PGconn</structname> and all <structname>PGresult</structname>s
    generated from it; so if used, it must point to long-lived data.
    In addition there is an <firstterm>instance data</firstterm> pointer, which starts
@@ -2288,9 +2339,9 @@ defaultNoticeProcessor(void *arg, const char *message)
    <xref linkend="libpq-PQsetInstanceData"/>,
    <xref linkend="libpq-PQresultInstanceData"/> and
    <function>PQsetResultInstanceData</function> functions.  Note that
-   unlike the passthrough pointer, instance data of a <structname>PGconn</structname>
+   unlike the pass-through pointer, instance data of a <structname>PGconn</structname>
    is not automatically inherited by <structname>PGresult</structname>s created from
-   it.  <application>libpq</application> does not know what passthrough
+   it.  <application>libpq</application> does not know what pass-through
    and instance data pointers point to (if anything) and will never attempt
    to free them &mdash; that is the responsibility of the event handler.
 -->
@@ -2861,8 +2912,8 @@ main(void)
 
     if (PQstatus(conn) != CONNECTION_OK)
     {
-        fprintf(stderr, "Connection to database failed: %s",
-                PQerrorMessage(conn));
+        /* PQerrorMessage's result includes a trailing newline */
+        fprintf(stderr, "%s", PQerrorMessage(conn));
         PQfinish(conn);
         return 1;
     }
@@ -2968,7 +3019,7 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
 ]]><!--
             /* free instance data because the conn is being destroyed */
 --><![CDATA[
-            /* connが破棄されたのでインスタンスデータを開放 */
+            /* connが破棄されたのでインスタンスデータを解放 */
             if (data)
               free_mydata(data);
             break;
@@ -3010,7 +3061,7 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
 ]]><!--
             /* free instance data because the result is being destroyed */
 --><![CDATA[
-            /* 結果が破棄されたためインスタンスデータを開放 */
+            /* 結果が破棄されたためインスタンスデータを解放 */
             if (data)
               free_mydata(data);
             break;
@@ -3330,6 +3381,26 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
     <listitem>
      <para>
       <indexterm>
+       <primary><envar>PGSSLCRLDIR</envar></primary>
+      </indexterm>
+      <envar>PGSSLCRLDIR</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslcrldir"/> connection parameter.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      <indexterm>
+       <primary><envar>PGSSLSNI</envar></primary>
+      </indexterm>
+      <envar>PGSSLSNI</envar>  behaves the same as the <xref
+      linkend="libpq-connect-sslsni"/> connection parameter.
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      <indexterm>
        <primary><envar>PGREQUIREPEER</envar></primary>
       </indexterm>
 <!--
@@ -3360,7 +3431,7 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
       </indexterm>
 <!--
       <envar>PGSSLMAXPROTOCOLVERSION</envar> behaves the same as the <xref
-      linkend="libpq-connect-ssl-min-protocol-version"/> connection parameter.
+      linkend="libpq-connect-ssl-max-protocol-version"/> connection parameter.
 -->
 <envar>PGSSLMAXPROTOCOLVERSION</envar>は<xref linkend="libpq-connect-ssl-min-protocol-version"/>接続パラメータと同様に動作します。
      </para>

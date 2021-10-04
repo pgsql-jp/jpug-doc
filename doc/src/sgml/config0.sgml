@@ -87,7 +87,7 @@
        In general, enclose the value in single quotes, doubling any single
        quotes within the value.  Quotes can usually be omitted if the value
        is a simple number or identifier, however.
-       (Values that match a SQL keyword require quoting in some contexts.)
+       (Values that match an SQL keyword require quoting in some contexts.)
 -->
 <emphasis>文字列型:</emphasis>
 一般に、単一引用符の中に値を入れます。
@@ -301,7 +301,7 @@ shared_buffers = 128MB
      <filename>postgresql.auto.conf</filename><indexterm><primary>postgresql.auto.conf</primary></indexterm>,
      which has the same format as <filename>postgresql.conf</filename> but
      is intended to be edited automatically, not manually.  This file holds
-     settings provided through the <xref linkend="sql-altersystem"/> command.
+     settings provided through the <link linkend="sql-altersystem"><command>ALTER SYSTEM</command></link> command.
      This file is read whenever <filename>postgresql.conf</filename> is,
      and its settings take effect in the same way.  Settings
      in <filename>postgresql.auto.conf</filename> override those
@@ -351,8 +351,8 @@ shared_buffers = 128MB
 <!--
       <productname>PostgreSQL</productname> provides three SQL
       commands to establish configuration defaults.
-      The already-mentioned <xref linkend="sql-altersystem"/> command
-      provides a SQL-accessible means of changing global defaults; it is
+      The already-mentioned <command>ALTER SYSTEM</command> command
+      provides an SQL-accessible means of changing global defaults; it is
       functionally equivalent to editing <filename>postgresql.conf</filename>.
       In addition, there are two commands that allow setting of defaults
       on a per-database or per-role basis:
@@ -365,7 +365,7 @@ shared_buffers = 128MB
      <listitem>
       <para>
 <!--
-       The <xref linkend="sql-alterdatabase"/> command allows global
+       The <link linkend="sql-alterdatabase"><command>ALTER DATABASE</command></link> command allows global
        settings to be overridden on a per-database basis.
 -->
       <xref linkend="sql-alterdatabase"/>コマンドはデータベース単位でグローバルな設定値を上書きします。
@@ -375,7 +375,7 @@ shared_buffers = 128MB
      <listitem>
       <para>
 <!--
-       The <xref linkend="sql-alterrole"/> command allows both global and
+       The <link linkend="sql-alterrole"><command>ALTER ROLE</command></link> command allows both global and
        per-database settings to be overridden with user-specific values.
 -->
       <xref linkend="sql-alterrole"/>コマンドはグローバルと、データベース単位の両方をユーザ固有の設定値で上書きします。
@@ -409,9 +409,10 @@ shared_buffers = 128MB
      <listitem>
      <para>
 <!--
-      The <xref linkend="sql-show"/> command allows inspection of the
-      current value of all parameters.  The corresponding function is
-      <function>current_setting(setting_name text)</function>.
+      The <link linkend="sql-show"><command>SHOW</command></link> command allows inspection of the
+      current value of any parameter.  The corresponding SQL function is
+      <function>current_setting(setting_name text)</function>
+      (see <xref linkend="functions-admin-set"/>).
 -->
      <xref linkend="sql-show"/>コマンドを使ってすべてのパラメータの現在の値を調べることができます。
 対応する関数は<function>current_setting(setting_name text)</function>です。
@@ -421,11 +422,12 @@ shared_buffers = 128MB
      <listitem>
       <para>
 <!--
-       The <xref linkend="sql-set"/> command allows modification of the
+       The <link linkend="sql-set"><command>SET</command></link> command allows modification of the
        current value of those parameters that can be set locally to a
        session; it has no effect on other sessions.
-       The corresponding function is
-       <function>set_config(setting_name, new_value, is_local)</function>.
+       The corresponding SQL function is
+       <function>set_config(setting_name, new_value, is_local)</function>
+       (see <xref linkend="functions-admin-set"/>).
 -->
       <xref linkend="sql-set"/>でセッション内でローカルに変更できるパラメータの値を変更することができます。対応する関数は<function>set_config(setting_name, new_value, is_local)</function>です。
       </para>
@@ -457,7 +459,7 @@ shared_buffers = 128MB
      <listitem>
       <para>
 <!--
-       Using <xref linkend="sql-update"/> on this view, specifically
+       Using <command>UPDATE</command> on this view, specifically
        updating the <structname>setting</structname> column, is the equivalent
        of issuing <command>SET</command> commands.  For example, the equivalent of
 -->
@@ -1073,7 +1075,7 @@ include_dir 'conf.d'
        <para>
        <!--
         When running a standby server, you must set this parameter to the
-        same or higher value than on the master server. Otherwise, queries
+        same or higher value than on the primary server. Otherwise, queries
         will not be allowed in the standby server.
        -->
        スタンバイサーバを運用している場合、このパラメータはマスターサーバでの設定と同じ、もしくはより高い値に設定しなければなりません。そうしないと問い合わせがスタンバイサーバ内で受け入れられません。
@@ -1144,6 +1146,21 @@ include_dir 'conf.d'
         An empty value
         specifies not listening on any Unix-domain sockets, in which case
         only TCP/IP sockets can be used to connect to the server.
+       </para>
+
+       <para>
+        A value that starts with <literal>@</literal> specifies that a
+        Unix-domain socket in the abstract namespace should be created
+        (currently supported on Linux and Windows).  In that case, this value
+        does not specify a <quote>directory</quote> but a prefix from which
+        the actual socket name is computed in the same manner as for the
+        file-system namespace.  While the abstract socket name prefix can be
+        chosen freely, since it is not a file-system location, the convention
+        is to nonetheless use file-system-like values such as
+        <literal>@/tmp</literal>.
+       </para>
+
+       <para>
         The default value is normally
         <filename>/tmp</filename>, but that can be changed at build time.
         On Windows, the default is empty, which means no Unix-domain socket is
@@ -1162,14 +1179,15 @@ Windowsではデフォルトは空文字で、これはつまりUnixドメイン
        </para>
 
        <para>
-       <!--
+<!--
         In addition to the socket file itself, which is named
         <literal>.s.PGSQL.<replaceable>nnnn</replaceable></literal> where
         <replaceable>nnnn</replaceable> is the server's port number, an ordinary file
         named <literal>.s.PGSQL.<replaceable>nnnn</replaceable>.lock</literal> will be
         created in each of the <varname>unix_socket_directories</varname> directories.
         Neither file should ever be removed manually.
-       -->
+        For sockets in the abstract namespace, no lock file is created.
+-->
 <literal>.s.PGSQL.<replaceable>nnnn</replaceable></literal>という名前のソケットファイル（<replaceable>nnnn</replaceable>はポート番号）のほかに、<literal>.s.PGSQL.<replaceable>nnnn</replaceable>.lock</literal>という通常ファイルがそれぞれの<varname>unix_socket_directories</varname>ディレクトリの中に作成されます。
 いずれのファイルも手作業で削除してはいけません。
        </para>
@@ -1204,10 +1222,11 @@ Unixドメインソケット（複数も）を所有するグループを設定�
        </para>
 
        <para>
-       <!--
+<!--
         This parameter is not supported on Windows.  Any setting will be
-        ignored.
-       -->
+        ignored.  Also, sockets in the abstract namespace have no file owner,
+        so this setting is also ignored in that case.
+-->
 このパラメータはWindowsではサポートされていません。
 すべての設定は無視されます。
        </para>
@@ -1279,6 +1298,11 @@ Unixドメインソケットは通常のUnixファイルシステムパーミッ
        -->
 このパラメータはSolaris 10の時点でのSolarisなど、ソケットのパーミッションを完全に無視するシステムでは無関係です。
 こうしたシステムでは、許可したいユーザだけが検索パーミッションを持つディレクトリを<varname>unix_socket_directories</varname>で指すようにすることによって同じような効果を得ることができます。
+       </para>
+
+       <para>
+        Sockets in the abstract namespace have no file permissions, so this
+        setting is also ignored in that case.
        </para>
       </listitem>
      </varlistentry>
@@ -1489,6 +1513,43 @@ UNIXドメインソケットで接続しているセッションではこのパ�
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-client-connection-check-interval" xreflabel="client_connection_check_interval">
+      <term><varname>client_connection_check_interval</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>client_connection_check_interval</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Sets the time interval between optional checks that the client is still
+        connected, while running queries.  The check is performed by polling
+        the socket, and allows long running queries to be aborted sooner if
+        the kernel reports that the connection is closed.
+       </para>
+       <para>
+        This option is currently available only on systems that support the
+        non-standard <symbol>POLLRDHUP</symbol> extension to the
+        <symbol>poll</symbol> system call, including Linux.
+       </para>
+       <para>
+        If the value is specified without units, it is taken as milliseconds.
+        The default value is <literal>0</literal>, which disables connection
+        checks.  Without connection checks, the server will detect the loss of
+        the connection only at the next interaction with the socket, when it
+        waits for, receives or sends data.
+       </para>
+       <para>
+        For the kernel itself to detect lost TCP connections reliably and within
+        a known timeframe in all scenarios including network failure, it may
+        also be necessary to adjust the TCP keepalive settings of the operating
+        system, or the <xref linkend="guc-tcp-keepalives-idle"/>,
+        <xref linkend="guc-tcp-keepalives-interval"/> and
+        <xref linkend="guc-tcp-keepalives-count"/> settings of
+        <productname>PostgreSQL</productname>.
+       </para>
+      </listitem>
+     </varlistentry>
+
      </variablelist>
      </sect2>
 
@@ -1552,11 +1613,11 @@ UNIXドメインソケットで接続しているセッションではこのパ�
        <para>
 <!--
         When a password is specified in <xref linkend="sql-createrole"/> or
-        <xref linkend="sql-alterrole"/>, this parameter determines the algorithm
-        to use to encrypt the password. The default value is <literal>md5</literal>,
-        which stores the password as an MD5 hash (<literal>on</literal> is also
-        accepted, as alias for <literal>md5</literal>). Setting this parameter to
-        <literal>scram-sha-256</literal> will encrypt the password with SCRAM-SHA-256.
+        <xref linkend="sql-alterrole"/>, this parameter determines the
+        algorithm to use to encrypt the password.  Possible values are
+        <literal>scram-sha-256</literal>, which will encrypt the password with
+        SCRAM-SHA-256, and <literal>md5</literal>, which stores the password
+        as an MD5 hash.  The default is <literal>scram-sha-256</literal>.
 -->
 <xref linkend="sql-createrole"/>あるいは<xref linkend="sql-alterrole"/>でパスワードを設定する際に、このパラメータはパスワードを暗号化するアルゴリズムを指定します。
 デフォルト値は<literal>md5</literal>で、パスワードをMD5ハッシュとして格納します（<literal>on</literal>も<literal>md5</literal>の別名として受付けます）。
@@ -1586,10 +1647,16 @@ UNIXドメインソケットで接続しているセッションではこのパ�
       <listitem>
        <para>
 <!--
-        Sets the location of the Kerberos server key file. See
-        <xref linkend="gssapi-auth"/>
-        for details. This parameter can only be set in the
+        Sets the location of the server's Kerberos key file.  The default is
+        <filename>FILE:/usr/local/pgsql/etc/krb5.keytab</filename>
+        (where the directory part is whatever was specified
+        as <varname>sysconfdir</varname> at build time; use
+        <literal>pg_config &#45;&#45;sysconfdir</literal> to determine that).
+        If this parameter is set to an empty string, it is ignored and a
+        system-dependent default is used.
+        This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
+        See <xref linkend="gssapi-auth"/> for more information.
 -->
 Kerberosサーバーキーファイルの場所を設定します。
 詳細は<xref linkend="gssapi-auth"/>をご覧ください。
@@ -1809,12 +1876,47 @@ SSLサーバ証明書が入っているファイル名を設定します。
         Relative paths are relative to the data directory.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
-        The default is empty, meaning no CRL file is loaded.
+        The default is empty, meaning no CRL file is loaded (unless
+        <xref linkend="guc-ssl-crl-dir"/> is set).
 -->
 SSLサーバ証明書失効リスト（CRL）が入っているファイル名を設定します。
 相対パスの場合は、データディレクトリからの相対パスになります。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
 デフォルトは空で、この場合CRLファイルは読み込まれません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-ssl-crl-dir" xreflabel="ssl_crl_dir">
+      <term><varname>ssl_crl_dir</varname> (<type>string</type>)
+      <indexterm>
+       <primary><varname>ssl_crl_dir</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the name of the directory containing the SSL server
+        certificate revocation list (CRL).  Relative paths are relative to the
+        data directory.  This parameter can only be set in
+        the <filename>postgresql.conf</filename> file or on the server command
+        line.  The default is empty, meaning no CRLs are used (unless
+        <xref linkend="guc-ssl-crl-file"/> is set).
+       </para>
+
+       <para>
+        The directory needs to be prepared with the
+        <productname>OpenSSL</productname> command
+        <literal>openssl rehash</literal> or <literal>c_rehash</literal>.  See
+        its documentation for details.
+       </para>
+
+       <para>
+        When using this setting, CRLs in the specified directory are loaded
+        on-demand at connection time.  New CRLs can be added to the directory
+        and will be used immediately.  This is unlike <xref
+        linkend="guc-ssl-crl-file"/>, which causes the CRL in the file to be
+        loaded at server start time or when the configuration is reloaded.
+        Both settings can be used together.
        </para>
       </listitem>
      </varlistentry>
@@ -1860,7 +1962,7 @@ SSLサーバの秘密鍵が入っているファイル名を設定します。
         Specifies a list of <acronym>SSL</acronym> cipher suites that are
         allowed to be used by SSL connections.  See the
         <citerefentry><refentrytitle>ciphers</refentrytitle></citerefentry>
-        manual page in the <application>OpenSSL</application> package for the
+        manual page in the <productname>OpenSSL</productname> package for the
         syntax of this setting and a list of supported values.  Only
         connections using TLS version 1.2 and lower are affected.  There is
         currently no setting that controls the cipher choices used by TLS
@@ -1875,6 +1977,12 @@ TLSバージョン1.2あるいはそれ以下のバージョンを使用する�
 今の所、TLSバージョン1.3接続で使用される暗号の選択を制御する設定はありません。
 デフォルト値は<literal>HIGH:MEDIUM:+3DES:!aNULL</literal>です。
 特別なセキュリティ要件でなければ通常これが適当です。
+       </para>
+
+       <para>
+        This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command
+        line.
        </para>
 
        <para>
@@ -1923,10 +2031,11 @@ TLSバージョン1.2あるいはそれ以下のバージョンを使用する�
           <listitem>
            <para>
 <!--
-            The OpenSSL default order for <literal>HIGH</literal> is problematic
-            because it orders 3DES higher than AES128.  This is wrong because
-            3DES offers less security than AES128, and it is also much
-            slower.  <literal>+3DES</literal> reorders it after all other
+            The <productname>OpenSSL</productname> default order for
+            <literal>HIGH</literal> is problematic because it orders 3DES
+            higher than AES128.  This is wrong because 3DES offers less
+            security than AES128, and it is also much slower.
+            <literal>+3DES</literal> reorders it after all other
             <literal>HIGH</literal> and <literal>MEDIUM</literal> ciphers.
 -->
 OpenSSLの<literal>HIGH</literal>に対するデフォルトの並び順には問題があります。
@@ -1943,7 +2052,7 @@ OpenSSLの<literal>HIGH</literal>に対するデフォルトの並び順には�
            <para>
 <!--
             Disables anonymous cipher suites that do no authentication.  Such
-            cipher suites are vulnerable to man-in-the-middle attacks and
+            cipher suites are vulnerable to <acronym>MITM</acronym> attacks and
             therefore should not be used.
 -->
 認証を行わない無名暗号スイートを無効にします。
@@ -1956,12 +2065,12 @@ OpenSSLの<literal>HIGH</literal>に対するデフォルトの並び順には�
 
        <para>
 <!--
-        Available cipher suite details will vary across OpenSSL versions.  Use
-        the command
+        Available cipher suite details will vary across
+        <productname>OpenSSL</productname> versions.  Use the command
         <literal>openssl ciphers -v 'HIGH:MEDIUM:+3DES:!aNULL'</literal> to
-        see actual details for the currently installed <application>OpenSSL</application>
-        version.  Note that this list is filtered at run time based on the
-        server key type.
+        see actual details for the currently installed
+        <productname>OpenSSL</productname> version.  Note that this list is
+        filtered at run time based on the server key type.
 -->
 OpenSSLのバージョンにより、利用可能な暗号スイートの詳細は異なります。
 <literal>openssl ciphers -v 'HIGH:MEDIUM:+3DES:!aNULL'</literal>
@@ -2038,7 +2147,8 @@ OpenSSLのバージョンにより、利用可能な暗号スイートの詳細�
 
        <para>
 <!--
-        OpenSSL names for the most common curves are:
+        <productname>OpenSSL</productname> names for the most common curves
+        are:
 -->
         OpenSSLはよく使われる曲線に名前を付けています。
         <literal>prime256v1</literal> (NIST P-256),
@@ -2088,6 +2198,11 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
 -->
 デフォルトは<literal>TLSv1.2</literal>で、本稿執筆時点では業界のベストプラクティスを満たしています。
        </para>
+
+       <para>
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -2114,6 +2229,11 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
 使用できる値は<xref linkend="guc-ssl-min-protocol-version"/>と、すべてのプロトコルバージョンを許可する空文字です。
 デフォルトはすべてのプロトコルバージョンを許可する設定です。
 最大プロトコルバージョンの設定は主にテスト、あるいは新しいプロトコルを使った時にコンポーネントのどこかに問題がある時に有用です。
+       </para>
+
+       <para>
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line.
        </para>
       </listitem>
      </varlistentry>
@@ -2383,14 +2503,14 @@ huge pageを使うと、ページテーブルが小さくなり、メモリ管�
        <para>
 <!--
         Huge pages are known as large pages on Windows.  To use them, you need to
-        assign the user right Lock Pages in Memory to the Windows user account
+        assign the user right <quote>Lock pages in memory</quote> to the Windows user account
         that runs <productname>PostgreSQL</productname>.
         You can use Windows Group Policy tool (gpedit.msc) to assign the user right
-        Lock Pages in Memory.
+        <quote>Lock pages in memory</quote>.
         To start the database server on the command prompt as a standalone process,
         not as a Windows service, the command prompt must be run as an administrator or
         User Access Control (UAC) must be disabled. When the UAC is enabled, the normal
-        command prompt revokes the user right Lock Pages in Memory when started.
+        command prompt revokes the user right <quote>Lock pages in memory</quote> when started.
 -->
 huge pageはWindowsではlarge pageとして知られています。
 それを使用するには、<productname>PostgreSQL</productname>を実行するWindowsユーザアカウントにメモリ中のロックページ権限を与える必要があります。
@@ -2419,6 +2539,33 @@ Linux、FreeBSD、Illumosのようなオペレーティングシステムでは�
 Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>transparent huge pages</primary></indexterm> (THP)と呼ばれています。
 この機能は、あるLinuxバージョンのあるユーザにおいて<productname>PostgreSQL</productname>の性能低下をもたらすことが知られています。
 ですから、この機能の利用は（<varname>huge_pages</varname>の明示的な利用と違って）今の所推奨されていません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-huge-page-size" xreflabel="huge_page_size">
+      <term><varname>huge_page_size</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>huge_page_size</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Controls the size of huge pages, when they are enabled with
+        <xref linkend="guc-huge-pages"/>.
+        The default is zero (<literal>0</literal>).
+        When set to <literal>0</literal>, the default huge page size on the
+        system will be used. This parameter can only be set at server start.
+       </para>
+       <para>
+        Some commonly available page sizes on modern 64 bit server architectures include:
+        <literal>2MB</literal> and <literal>1GB</literal> (Intel and AMD), <literal>16MB</literal> and
+        <literal>16GB</literal> (IBM POWER), and <literal>64kB</literal>, <literal>2MB</literal>,
+        <literal>32MB</literal> and <literal>1GB</literal> (ARM). For more information
+        about usage and support, see <xref linkend="linux-huge-pages"/>.
+       </para>
+       <para>
+        Non-default settings are currently supported only on Linux.
        </para>
       </listitem>
      </varlistentry>
@@ -2513,7 +2660,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
        <para>
        <!--
         When running a standby server, you must set this parameter to the
-        same or higher value than on the master server. Otherwise, queries
+        same or higher value than on the primary server. Otherwise, queries
         will not be allowed in the standby server.
        -->
        スタンバイサーバを運用している場合、このパラメータはマスターサーバ上の設定よりも同等かもしくはより高水準に設定しなければなりません。そうしないと問い合わせがスタンバイサーバ内で受け入れられません。
@@ -2547,8 +2694,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         fact in mind when choosing the value.  Sort operations are used
         for <literal>ORDER BY</literal>, <literal>DISTINCT</literal>,
         and merge joins.
-        Hash tables are used in hash joins, hash-based aggregation, and
-        hash-based processing of <literal>IN</literal> subqueries.
+        Hash tables are used in hash joins, hash-based aggregation, result
+        cache nodes and hash-based processing of <literal>IN</literal>
+        subqueries.
        -->
 一時ディスクファイルに書き込むようになる前に、問い合わせ操作（たとえば並べ替えとハッシュテーブル操作）が使用する基本的な最大のメモリ容量を指定します。
 この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
@@ -2663,6 +2811,11 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 自動バキュームが稼動すると、最大でこのメモリの<xref linkend="guc-autovacuum-max-workers"/>倍が配分されるので、デフォルトの値をあまり高く設定しないよう注意してください。
 別の設定項目<xref linkend="guc-autovacuum-work-mem"/>で制御するのが良いかもしれません。
        </para>
+       <para>
+        Note that for the collection of dead tuple identifiers,
+        <command>VACUUM</command> is only able to utilize up to a maximum of
+        <literal>1GB</literal> of memory.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -2685,11 +2838,21 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         the value of <xref linkend="guc-maintenance-work-mem"/> should
         be used instead.  The setting has no effect on the behavior of
         <command>VACUUM</command> when run in other contexts.
+        This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command
+        line.
        -->
 個々の自動バキュームワーカプロセスが使用する最大のメモリ量を指定します。
 この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
 デフォルトは-1で、<xref linkend="guc-maintenance-work-mem"/>が代わりに使われる設定になります。
 別の文脈で実行される<command>VACUUM</command>にはこの設定は影響しません。
+       </para>
+       <para>
+        For the collection of dead tuple identifiers, autovacuum is only able
+        to utilize up to a maximum of <literal>1GB</literal> of memory, so
+        setting <varname>autovacuum_work_mem</varname> to a value higher than
+        that has no effect on the number of dead tuples that autovacuum can
+        collect while scanning a table.
        </para>
       </listitem>
      </varlistentry>
@@ -2845,6 +3008,31 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 そのプラットフォームでの推奨実装がデフォルトになります。
 どのプラットフォームでもデフォルトになっていない<literal>mmap</literal>は、オペレーティングシステムが変更されたページをディスクに継続的に書き込み、I/O負荷を増加させるので一般的には利用が推奨されていません。
 しかし、デバッグ目的のために<literal>pg_dynshmem</literal>ディレクトリがRAMディスク上にある場合や、他の共有メモリ機能が使えない場合は有用かもしれません。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-min-dynamic-shared-memory" xreflabel="min_dynamic_shared_memory">
+      <term><varname>min_dynamic_shared_memory</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>min_dynamic_shared_memory</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the amount of memory that should be allocated at server
+        startup for use by parallel queries.  When this memory region is
+        insufficient or exhausted by concurrent queries, new parallel queries
+        try to allocate extra shared memory temporarily from the operating
+        system using the method configured with
+        <varname>dynamic_shared_memory_type</varname>, which may be slower due
+        to memory management overheads.  Memory that is allocated at startup
+        with <varname>min_dynamic_shared_memory</varname> is affected by
+        the <varname>huge_pages</varname> setting on operating systems where
+        that is supported, and may be more likely to benefit from larger pages
+        on operating systems where that is managed automatically.
+        The default value is <literal>0</literal> (none). This parameter can
+        only be set at server start.
        </para>
       </listitem>
      </varlistentry>
@@ -3080,7 +3268,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
          The estimated cost for vacuuming a buffer that has to be read from
          disk.  This represents the effort to lock the buffer pool,
          lookup the shared hash table, read the desired block in from
-         the disk and scan its content. The default value is 10.
+         the disk and scan its content. The default value is 2.
         -->
 ディスクから読み込まれなければならないバッファにvacuumを掛ける予測コストです。これが示すものは、バッファプールロックの試み、共有ハッシュテーブルの参照、ディスクから目的ブロックの読み込み、そしてその内容走査です。デフォルトの値は10です。
         </para>
@@ -3164,8 +3352,11 @@ vacuumを掛けるプロセスをスリープさせることになる累計さ�
       There is a separate server
       process called the <firstterm>background writer</firstterm>, whose function
       is to issue writes of <quote>dirty</quote> (new or modified) shared
-      buffers.  It writes shared buffers so server processes handling
-      user queries seldom or never need to wait for a write to occur.
+      buffers.  When the number of clean shared buffers appears to be
+      insufficient, the background writer writes some dirty buffers to the
+      file system and marks them as clean.  This reduces the likelihood
+      that server processes handling user queries will be unable to find
+      clean buffers and have to write dirty buffers themselves.
       However, the background writer does cause a net overall
       increase in I/O load, because while a repeatedly-dirtied page might
       otherwise be written only once per checkpoint interval, the
@@ -3361,6 +3552,36 @@ vacuumを掛けるプロセスをスリープさせることになる累計さ�
      <title>非同期動作</title>
 
      <variablelist>
+      <varlistentry id="guc-backend-flush-after" xreflabel="backend_flush_after">
+       <term><varname>backend_flush_after</varname> (<type>integer</type>)
+       <indexterm>
+        <primary><varname>backend_flush_after</varname> configuration parameter</primary>
+       </indexterm>
+       </term>
+       <listitem>
+        <para>
+         Whenever more than this amount of data has
+         been written by a single backend, attempt to force the OS to issue
+         these writes to the underlying storage.  Doing so will limit the
+         amount of dirty data in the kernel's page cache, reducing the
+         likelihood of stalls when an <function>fsync</function> is issued at the end of a
+         checkpoint, or when the OS writes data back in larger batches in the
+         background.  Often that will result in greatly reduced transaction
+         latency, but there also are some cases, especially with workloads
+         that are bigger than <xref linkend="guc-shared-buffers"/>, but smaller
+         than the OS's page cache, where performance might degrade.  This
+         setting may have no effect on some platforms.
+         If this value is specified without units, it is taken as blocks,
+         that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
+         The valid range is
+         between <literal>0</literal>, which disables forced writeback,
+         and <literal>2MB</literal>.  The default is <literal>0</literal>, i.e., no
+         forced writeback.  (If <symbol>BLCKSZ</symbol> is not 8kB,
+         the maximum value scales proportionally to it.)
+        </para>
+       </listitem>
+      </varlistentry>
+
       <varlistentry id="guc-effective-io-concurrency" xreflabel="effective_io_concurrency">
        <term><varname>effective_io_concurrency</varname> (<type>integer</type>)
        <indexterm>
@@ -3488,7 +3709,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
         <para>
 <!--
          When running a standby server, you must set this parameter to the
-         same or higher value than on the master server. Otherwise, queries
+         same or higher value than on the primary server. Otherwise, queries
          will not be allowed in the standby server.
 -->
          スタンバイサーバを起動しているときは、このパラメータを、マスタサーバの設定値と同じかそれ以上にしなければなりません。さもなければ、スタンバイサーバで問い合わせの実行ができなくなります。
@@ -3498,7 +3719,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
 <!--
          When changing this value, consider also adjusting
          <xref linkend="guc-max-parallel-workers"/>,
-         <xref linkend="guc-max-parallel-workers-maintenance"/>, and
+         <xref linkend="guc-max-parallel-maintenance-workers"/>, and
          <xref linkend="guc-max-parallel-workers-per-gather"/>.
 -->
 この値を変更する際は、<xref linkend="guc-max-parallel-workers"/>と<xref linkend="guc-max-parallel-workers-per-gather"/>を変更することも考慮してください。
@@ -3571,7 +3792,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
        </listitem>
       </varlistentry>
 
-      <varlistentry id="guc-max-parallel-workers-maintenance" xreflabel="max_parallel_maintenance_workers">
+      <varlistentry id="guc-max-parallel-maintenance-workers" xreflabel="max_parallel_maintenance_workers">
        <term><varname>max_parallel_maintenance_workers</varname> (<type>integer</type>)
        <indexterm>
 <!--
@@ -3642,7 +3863,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
          Sets the maximum number of workers that the system can support for
          parallel operations.  The default value is 8.  When increasing or
          decreasing this value, consider also adjusting
-         <xref linkend="guc-max-parallel-workers-maintenance"/> and
+         <xref linkend="guc-max-parallel-maintenance-workers"/> and
          <xref linkend="guc-max-parallel-workers-per-gather"/>.
          Also, note that a setting for this value which is higher than
          <xref linkend="guc-max-worker-processes"/> will have no effect,
@@ -3651,52 +3872,35 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
 -->
 パラレルクエリ操作用にシステムがサポートできる最大のワーカー数を設定します。
 デフォルト値は8です。
-この値を増減するときは、<xref linkend="guc-max-parallel-workers-maintenance"/>と<xref linkend="guc-max-parallel-workers-per-gather"/>を調整することを考慮してください。
+この値を増減するときは、<xref linkend="guc-max-parallel-maintenance-workers"/>と<xref linkend="guc-max-parallel-workers-per-gather"/>を調整することを考慮してください。
 また、この設定値を<xref linkend="guc-max-worker-processes"/>よりも高い値にしても効果がないことに注意してください。
 <xref linkend="guc-max-worker-processes"/>で決まるワーカープロセスのプールから、パラレルワーカーが使われるからです。
         </para>
        </listitem>
       </varlistentry>
 
-      <varlistentry id="guc-backend-flush-after" xreflabel="backend_flush_after">
-       <term><varname>backend_flush_after</varname> (<type>integer</type>)
+      <varlistentry id="guc-parallel-leader-participation" xreflabel="parallel_leader_participation">
+       <term>
+       <varname>parallel_leader_participation</varname> (<type>boolean</type>)
        <indexterm>
 <!--
-        <primary><varname>backend_flush_after</varname> configuration parameter</primary>
+        <primary><varname>parallel_leader_participation</varname> configuration parameter</primary>
 -->
         <primary><varname>backend_flush_after</varname> 設定パラメータ</primary>
        </indexterm>
        </term>
        <listitem>
         <para>
-<!--
-         Whenever more than this amount of data has
-         been written by a single backend, attempt to force the OS to issue
-         these writes to the underlying storage.  Doing so will limit the
-         amount of dirty data in the kernel's page cache, reducing the
-         likelihood of stalls when an <function>fsync</function> is issued at the end of a
-         checkpoint, or when the OS writes data back in larger batches in the
-         background.  Often that will result in greatly reduced transaction
-         latency, but there also are some cases, especially with workloads
-         that are bigger than <xref linkend="guc-shared-buffers"/>, but smaller
-         than the OS's page cache, where performance might degrade.  This
-         setting may have no effect on some platforms.
-         If this value is specified without units, it is taken as blocks,
-         that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
-         The valid range is
-         between <literal>0</literal>, which disables forced writeback,
-         and <literal>2MB</literal>.  The default is <literal>0</literal>, i.e., no
-         forced writeback.  (If <symbol>BLCKSZ</symbol> is not 8kB,
-         the maximum value scales proportionally to it.)
--->
-この量を超えるデータが単一のバックエンドによって書き込まれたときはいつでも、OSが記憶装置に書き込むことを強制します。
-このことにより、カーネルのページキャッシュが持つダーティデータの量を一定量に制限し、チェックポイントの最後に<function>fsync</function>が実行される際、あるいはバックグラウンドで実行される大きなバッチの中でOSがデータを書き出す際に性能の急激な低下を招く可能性を減らします。
-多くの場合これによってトランザクションの遅延が大幅に少なくなりますが、あるケース、特にワークロードが<xref linkend="guc-shared-buffers"/>よりも大きく、OSのページキャッシュよりも小さい時には性能が低下するかもしれません。
-この設定が無効なプラットフォームがあります。
-この値が単位なしで指定された場合は、ブロック単位であるとみなします。すなわち、<symbol>BLCKSZ</symbol>バイト、一般的には8kBです。
-有効な設定値は、この強制書き込み機能が無効になる<literal>0</literal>から、<literal>2MB</literal>までです。
-デフォルト値は<literal>0</literal>です(すなわち書き出し制御を行いません)。
-(<symbol>BLCKSZ</symbol>が8kbでなければ、最大値が<symbol>BLCKSZ</symbol>に比例して変更されます。)
+         Allows the leader process to execute the query plan under
+         <literal>Gather</literal> and <literal>Gather Merge</literal> nodes
+         instead of waiting for worker processes.  The default is
+         <literal>on</literal>.  Setting this value to <literal>off</literal>
+         reduces the likelihood that workers will become blocked because the
+         leader is not reading tuples fast enough, but requires the leader
+         process to wait for worker processes to start up before the first
+         tuples can be produced.  The degree to which the leader can help or
+         hinder performance depends on the plan type, number of workers and
+         query duration.
         </para>
        </listitem>
       </varlistentry>

@@ -606,9 +606,10 @@
    <function>sum</function>, <function>count</function>, and
    <function>max</function>.  Each entry in
    <structname>pg_aggregate</structname> is an extension of an entry
-   in <structname>pg_proc</structname>.  The <structname>pg_proc</structname>
-   entry carries the aggregate's name, input and output data types, and
-   other information that is similar to ordinary functions.
+   in <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.
+   The <structname>pg_proc</structname> entry carries the aggregate's name,
+   input and output data types, and other information that is similar to
+   ordinary functions.
 -->
 <structname>pg_aggregate</structname>カタログには集約関数の情報が格納されています。
 集約関数とは、値の集合（多くの場合は問い合わせ条件に該当する各行の1つの列）にある操作を行い、それらすべての値の演算の結果得られる単一の値を返します。
@@ -954,8 +955,8 @@
 
   <para>
 <!--
-   New aggregate functions are registered with the <xref
-   linkend="sql-createaggregate"/>
+   New aggregate functions are registered with the <link
+   linkend="sql-createaggregate"><command>CREATE AGGREGATE</command></link>
    command.  See <xref linkend="xaggr"/> for more information about
    writing aggregate functions and the meaning of the transition
    functions, etc.
@@ -1307,12 +1308,12 @@
   <para>
 <!--
    An entry's <structfield>amopmethod</structfield> must match the
-   <structname>opfmethod</structname> of its containing operator family (including
+   <structfield>opfmethod</structfield> of its containing operator family (including
    <structfield>amopmethod</structfield> here is an intentional denormalization of the
    catalog structure for performance reasons).  Also,
    <structfield>amoplefttype</structfield> and <structfield>amoprighttype</structfield> must match
    the <structfield>oprleft</structfield> and <structfield>oprright</structfield> fields of the
-   referenced <structname>pg_operator</structname> entry.
+   referenced <link linkend="catalog-pg-operator"><structname>pg_operator</structname></link> entry.
 -->
 項目の<structfield>amopmethod</structfield>は、項目を含む演算子族の<structname>opfmethod</structname>に一致しなくてはいけません。
 （ここでの<structfield>amopmethod</structfield>は、性能上の理由からカタログ構造を意図的に非正規化したものも含みます。）
@@ -1579,7 +1580,8 @@
    table columns.  There will be exactly one
    <structname>pg_attribute</structname> row for every column in every
    table in the database.  (There will also be attribute entries for
-   indexes, and indeed all objects that have <structname>pg_class</structname>
+   indexes, and indeed all objects that have
+   <link linkend="catalog-pg-class"><structname>pg_class</structname></link>
    entries.)
 -->
 <structname>pg_attribute</structname>カタログにはテーブルの列情報が格納されます。
@@ -1651,7 +1653,7 @@
       </para>
       <para>
 <!--
-       The data type of this column
+       The data type of this column (zero for a dropped column)
 -->
 この列のデータ型
       </para></entry>
@@ -1665,7 +1667,7 @@
 <!--
        <structfield>attstattarget</structfield> controls the level of detail
        of statistics accumulated for this column by
-       <xref linkend="sql-analyze"/>.
+       <link linkend="sql-analyze"><command>ANALYZE</command></link>.
        A zero value indicates that no statistics should be collected.
        A negative value says to use the system default statistics target.
        The exact meaning of positive values is data type-dependent.
@@ -1771,6 +1773,15 @@
 
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>attalign</structfield> <type>char</type>
+      </para>
+      <para>
+       A copy of <literal>pg_type.typalign</literal> of this column's type
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
        <structfield>attstorage</structfield> <type>char</type>
       </para>
       <para>
@@ -1786,13 +1797,17 @@ TOAST可能なデータ型では、格納ポリシーを制御するために列
 
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
-       <structfield>attalign</structfield> <type>char</type>
+       <structfield>attcompression</structfield> <type>char</type>
       </para>
       <para>
-<!--
-       A copy of <literal>pg_type.typalign</literal> of this column's type
--->
-この列の型の<literal>pg_type.typalign</literal>のコピー
+       The current compression method of the column.  Typically this is
+       <literal>'\0'</literal> to specify use of the current default setting
+       (see <xref linkend="guc-default-toast-compression"/>).  Otherwise,
+       <literal>'p'</literal> selects pglz compression, while
+       <literal>'l'</literal> selects <productname>LZ4</productname>
+       compression.  However, this field is ignored
+       whenever <structfield>attstorage</structfield> does not allow
+       compression.
       </para></entry>
      </row>
 
@@ -1816,7 +1831,7 @@ TOAST可能なデータ型では、格納ポリシーを制御するために列
 <!--
        This column has a default expression or generation expression, in which
        case there will be a corresponding entry in the
-       <structname>pg_attrdef</structname> catalog that actually defines the
+       <link linkend="catalog-pg-attrdef"><structname>pg_attrdef</structname></link> catalog that actually defines the
        expression.  (Check <structfield>attgenerated</structfield> to
        determine whether this is a default or a generation expression.)
 -->
@@ -1926,7 +1941,7 @@ IDENTITY列では、GENERATED ALWAYSなら<literal>a</literal>、GENERATED BY DE
       <para>
 <!--
        The defined collation of the column, or zero if the column is
-       not of a collatable data type.
+       not of a collatable data type
 -->
 列で定義された照合順序。列が照合順序の設定ができないデータ型の場合はゼロ
       </para></entry>
@@ -1997,7 +2012,7 @@ IDENTITY列では、GENERATED ALWAYSなら<literal>a</literal>、GENERATED BY DE
    In a dropped column's <structname>pg_attribute</structname> entry,
    <structfield>atttypid</structfield> is reset to zero, but
    <structfield>attlen</structfield> and the other fields copied from
-   <structname>pg_type</structname> are still valid.  This arrangement is needed
+   <link linkend="catalog-pg-type"><structname>pg_type</structname></link> are still valid.  This arrangement is needed
    to cope with the situation where the dropped column's data type was
    later dropped, and so there is no <structname>pg_type</structname> row anymore.
    <structfield>attlen</structfield> and the other fields can be used
@@ -2195,7 +2210,7 @@ IDENTITY列では、GENERATED ALWAYSなら<literal>a</literal>、GENERATED BY DE
       </para>
       <para>
 <!--
-       Role bypasses every row level security policy, see
+       Role bypasses every row-level security policy, see
        <xref linkend="ddl-rowsecurity"/> for more information.
 -->
 すべての行単位セキュリティポリシーを無視するロール。詳しくは<xref linkend="ddl-rowsecurity"/>を参照してください。
@@ -2272,7 +2287,7 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
 <!--
    where <replaceable>salt</replaceable>, <replaceable>StoredKey</replaceable> and
    <replaceable>ServerKey</replaceable> are in Base64 encoded format. This format is
-   the same as that specified by RFC 5803.
+   the same as that specified by <ulink url="https://tools.ietf.org/html/rfc5803">RFC 5803</ulink>.
 -->
 ここで、<replaceable>salt</replaceable>、<replaceable>StoredKey</replaceable>、<replaceable>ServerKey</replaceable>はBase64の符号化書式に従います。
 この書式はRFC 5803で指定されているものと同じです。
@@ -2613,13 +2628,15 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
 <!--
    The catalog <structname>pg_class</structname> catalogs tables and most
    everything else that has columns or is otherwise similar to a
-   table.  This includes indexes (but see also
-   <structname>pg_index</structname>), sequences (but see also
-   <structname>pg_sequence</structname>), views, materialized
-   views, composite types, and TOAST tables; see <structfield>relkind</structfield>.
-   Below, when we mean all of these
-   kinds of objects we speak of <quote>relations</quote>.  Not all
-   columns are meaningful for all relation types.
+   table.  This includes indexes (but see also <link
+   linkend="catalog-pg-index"><structname>pg_index</structname></link>),
+   sequences (but see also <link
+   linkend="catalog-pg-sequence"><structname>pg_sequence</structname></link>),
+   views, materialized views, composite types, and TOAST tables;
+   see <structfield>relkind</structfield>.
+   Below, when we mean all of these kinds of objects we speak of
+   <quote>relations</quote>.  Not all columns are meaningful for all relation
+   types.
 -->
 <structname>pg_class</structname>カタログはテーブルと、その他に列を持つもの、あるいはテーブルに似た全てのものを目録にしています。
 その中にはインデックス（<structname>pg_index</structname>も参照）、シーケンス（<structname>pg_sequence</structname>も参照）、ビュー、マテリアライズドビュー、複合型およびTOASTテーブルが含まれます。
@@ -2697,7 +2714,8 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
       <para>
 <!--
        The OID of the data type that corresponds to this table's row type,
-       if any (zero for indexes, which have no <structname>pg_type</structname> entry)
+       if any; zero for indexes, sequences, and toast tables, which have
+       no <structname>pg_type</structname> entry
 -->
 もし何らかの（<structname>pg_type</structname>項目を持たないインデックスではゼロ）が存在した場合このテーブルの行の型に対応するデータ型のOID
       </para></entry>
@@ -2710,7 +2728,7 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
       </para>
       <para>
 <!--
-       For typed tables, the OID of the underlying composite type,
+       For typed tables, the OID of the underlying composite type;
        zero for all other relations
 -->
 型付けされたテーブルでは背後にある複合型のOID。
@@ -2739,7 +2757,8 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
       <para>
 <!--
        If this is a table or an index, the access method used (heap,
-       B-tree, hash, etc.)
+       B-tree, hash, etc.); otherwise zero (zero occurs for sequences,
+       as well as relations without storage, such as views)
 -->
 これがテーブルあるいはインデックスの場合は、それに使われている（ヒープ、B-tree、ハッシュなどの）アクセスメソッド
       </para></entry>
@@ -2785,9 +2804,9 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
 <!--
        Size of the on-disk representation of this table in pages (of size
        <symbol>BLCKSZ</symbol>).  This is only an estimate used by the
-       planner.  It is updated by <command>VACUUM</command>,
-       <command>ANALYZE</command>, and a few DDL commands such as
-       <command>CREATE INDEX</command>.
+       planner.  It is updated by <link linkend="sql-vacuum"><command>VACUUM</command></link>,
+       <link linkend="sql-analyze"><command>ANALYZE</command></link>, and a few DDL commands such as
+       <link linkend="sql-createindex"><command>CREATE INDEX</command></link>.
 -->
 このテーブルのディスク上におけるページ単位（<symbol>BLCKSZ</symbol>）の表現サイズ。
 これはプランナで使用される単なる推測値です。
@@ -2802,9 +2821,13 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
       <para>
 <!--
        Number of live rows in the table.  This is only an estimate used by
-       the planner.  It is updated by <command>VACUUM</command>,
-       <command>ANALYZE</command>, and a few DDL commands such as
-       <command>CREATE INDEX</command>.
+       the planner.  It is updated by <link linkend="sql-vacuum"><command>VACUUM</command></link>,
+       <link linkend="sql-analyze"><command>ANALYZE</command></link>, and a few DDL commands such as
+       <link linkend="sql-createindex"><command>CREATE INDEX</command></link>.
+       If the table has never yet been vacuumed or
+       analyzed, <structfield>reltuples</structfield>
+       contains <literal>-1</literal> indicating that the row count is
+       unknown.
 -->
 テーブル内の生きている行数。
 これはプランナで使用される単なる推測値です。
@@ -2820,9 +2843,9 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
 <!--
        Number of pages that are marked all-visible in the table's
        visibility map.  This is only an estimate used by the
-       planner.  It is updated by <command>VACUUM</command>,
-       <command>ANALYZE</command>, and a few DDL commands such as
-       <command>CREATE INDEX</command>.
+       planner.  It is updated by <link linkend="sql-vacuum"><command>VACUUM</command></link>,
+       <link linkend="sql-analyze"><command>ANALYZE</command></link>, and a few DDL commands such as
+       <link linkend="sql-createindex"><command>CREATE INDEX</command></link>.
 -->
 テーブル内の可視マップ内で全て可視とマークされているページ数。
 これはプランナで使用される単なる見積です。
@@ -2837,7 +2860,7 @@ SCRAM-SHA-256$<replaceable>&lt;iteration count&gt;</replaceable>:<replaceable>&l
       </para>
       <para>
 <!--
-       OID of the TOAST table associated with this table, 0 if none.  The
+       OID of the TOAST table associated with this table, zero if none.  The
        TOAST table stores large attributes <quote>out of line</quote> in a
        secondary table.
 -->
@@ -2866,7 +2889,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       <para>
 <!--
        True if this table is shared across all databases in the cluster.  Only
-       certain system catalogs (such as <structname>pg_database</structname>)
+       certain system catalogs (such as <link linkend="catalog-pg-database"><structname>pg_database</structname></link>)
        are shared.
 -->
 クラスタ内の全てのデータベースにわたってこのテーブルが共有されている場合は真。
@@ -2916,8 +2939,8 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
 <!--
        Number of user columns in the relation (system columns not
        counted).  There must be this many corresponding entries in
-       <structname>pg_attribute</structname>.  See also
-       <literal>pg_attribute.attnum</literal>.
+       <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.  See also
+       <structname>pg_attribute</structname>.<structfield>attnum</structfield>.
 -->
 リレーションにあるユーザ列数（システム列は含みません）。
 <structname>pg_attribute</structname>にこれに対応する数多くの項目があるはずです。
@@ -2985,7 +3008,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       </para>
       <para>
 <!--
-       True if table has row level security enabled; see
+       True if table has row-level security enabled; see
        <link linkend="catalog-pg-policy"><structname>pg_policy</structname></link> catalog
 -->
 行単位セキュリティが有効なテーブルでは真。
@@ -2999,7 +3022,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       </para>
       <para>
 <!--
-       True if row level security (when enabled) will also apply to table owner; see
+       True if row-level security (when enabled) will also apply to table owner; see
        <link linkend="catalog-pg-policy"><structname>pg_policy</structname></link> catalog
 -->
 行単位セキュリティが（有効にされているとして）テーブルの所有者にも適用されるなら真。
@@ -3063,8 +3086,8 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
 <!--
        For new relations being written during a DDL operation that requires a
        table rewrite, this contains the OID of the original relation;
-       otherwise 0.  That state is only visible internally; this field should
-       never contain anything other than 0 for a user-visible relation.
+       otherwise zero.  That state is only visible internally; this field should
+       never contain anything other than zero for a user-visible relation.
 -->
 テーブルの書き換えが必要なDDL操作中に書き込みが行われる新しいリレーションでは、これは元のリレーションのOIDを持ちます。
 この状態は内部的にのみ可視です。
@@ -3155,8 +3178,8 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
    lazily: they are guaranteed to be true if that's the correct state, but
    may not be reset to false immediately when the condition is no longer
    true.  For example, <structfield>relhasindex</structfield> is set by
-   <command>CREATE INDEX</command>, but it is never cleared by
-   <command>DROP INDEX</command>.  Instead, <command>VACUUM</command> clears
+   <link linkend="sql-createindex"><command>CREATE INDEX</command></link>, but it is never cleared by
+   <link linkend="sql-dropindex"><command>DROP INDEX</command></link>.  Instead, <link linkend="sql-vacuum"><command>VACUUM</command></link> clears
    <structfield>relhasindex</structfield> if it finds the table has no indexes.  This
    arrangement avoids race conditions and improves concurrency.
 -->
@@ -3390,7 +3413,8 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
    key, unique, foreign key, and exclusion constraints on tables.
    (Column constraints are not treated specially.  Every column constraint is
    equivalent to some table constraint.)
-   Not-null constraints are represented in the <structname>pg_attribute</structname>
+   Not-null constraints are represented in the
+   <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>
    catalog, not here.
 -->
 <structname>pg_constraint</structname>カタログはテーブル上の検査制約、主キー制約、一意性制約、外部キー制約、排他制約を格納します
@@ -3401,8 +3425,8 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
 
   <para>
 <!--
-   User-defined constraint triggers (created with <command>CREATE CONSTRAINT
-   TRIGGER</command>) also give rise to an entry in this table.
+   User-defined constraint triggers (created with <link linkend="sql-createtrigger">
+   <command>CREATE CONSTRAINT TRIGGER</command></link>) also give rise to an entry in this table.
 -->
 (<command>CREATE CONSTRAINT TRIGGER</command>で作成される)ユーザ定義の制約トリガもこのテーブルの項目の元になります。
   </para>
@@ -3528,7 +3552,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       <para>
 <!--
        Has the constraint been validated?
-       Currently, can only be false for foreign keys and CHECK constraints
+       Currently, can be false only for foreign keys and CHECK constraints
 -->
 制約が検証されているか？現時点では外部キーとチェック制約の場合のみ偽になる可能性があります。
       </para></entry>
@@ -3541,7 +3565,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       </para>
       <para>
 <!--
-       The table this constraint is on; 0 if not a table constraint
+       The table this constraint is on; zero if not a table constraint
 -->
 この制約が存在しているテーブルです。テーブル制約でなければ0です。
       </para></entry>
@@ -3554,7 +3578,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       </para>
       <para>
 <!--
-       The domain this constraint is on; 0 if not a domain constraint
+       The domain this constraint is on; zero if not a domain constraint
 -->
 この制約が存在しているドメインです。ドメイン制約でなければ0です。
       </para></entry>
@@ -3568,7 +3592,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       <para>
 <!--
        The index supporting this constraint, if it's a unique, primary
-       key, foreign key, or exclusion constraint; else 0
+       key, foreign key, or exclusion constraint; else zero
 -->
 一意性制約、主キー制約、外部キー制約、排他制約の場合、この制約をサポートするインデックス。
 さもなくばゼロ。
@@ -3582,8 +3606,8 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       </para>
       <para>
 <!--
-       The corresponding constraint in the parent partitioned table,
-       if this is a constraint in a partition; else 0
+       The corresponding constraint of the parent partitioned table,
+       if this is a constraint on a partition; else zero
 -->
 パーティション内の制約なら、親パーティションテーブルの該当制約、そうでなければ0。
       </para></entry>
@@ -3596,7 +3620,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
       </para>
       <para>
 <!--
-       If a foreign key, the referenced table; else 0
+       If a foreign key, the referenced table; else zero
 -->
 外部キーであれば、参照されるテーブルです。そうでなければ0です。
       </para></entry>
@@ -3809,7 +3833,7 @@ TOASTテーブルは<quote>行に収まらない</quote>大きい属性を副テ
    For other cases, a zero appears in <structfield>conkey</structfield>
    and the associated index must be consulted to discover the expression
    that is constrained.  (<structfield>conkey</structfield> thus has the
-   same contents as <structname>pg_index</structname>.<structfield>indkey</structfield> for the
+   same contents as <link linkend="catalog-pg-index"><structname>pg_index</structname></link>.<structfield>indkey</structfield> for the
    index.)
 -->
 排他制約の場合、単純な列参照である制約要素でのみ<structfield>conkey</structfield>が有用です。

@@ -31,7 +31,7 @@
    <structname>pg_prepared_statements</structname> contains one row
    for each prepared statement. Rows are added to the view when a new
    prepared statement is created and removed when a prepared statement
-   is released (for example, via the <xref linkend="sql-deallocate"/> command).
+   is released (for example, via the <link linkend="sql-deallocate"><command>DEALLOCATE</command></link> command).
 -->
 <structname>pg_prepared_statements</structname>には、1つの準備済み文に対して一行が存在します。
 新しい準備済み文が作成されると行が追加され、準備済み文が解放される（例えば<xref linkend="sql-deallocate"/>を使用）と行が削除されます。
@@ -134,13 +134,31 @@ SQL経由で作成された準備済み文では、これはクライアント�
 準備済み文が<command>PREPARE</command> SQLコマンド経由で作成された場合は<literal>true</literal>、フロントエンド/バックエンドプロトコル経由で文が準備された場合は<literal>false</literal>
       </para></entry>
      </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>generic_plans</structfield> <type>int8</type>
+      </para>
+      <para>
+       Number of times generic plan was chosen
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>custom_plans</structfield> <type>int8</type>
+      </para>
+      <para>
+       Number of times custom plan was chosen
+      </para></entry>
+     </row>
     </tbody>
    </tgroup>
   </table>
 
   <para>
 <!--
-   The <structname>pg_prepared_statements</structname> view is read only.
+   The <structname>pg_prepared_statements</structname> view is read-only.
 -->
 <structname>pg_prepared_statements</structname>ビューは読み取り専用です。
   </para>
@@ -290,8 +308,9 @@ SQL経由で作成された準備済み文では、これはクライアント�
 <!--
    The view <structname>pg_publication_tables</structname> provides
    information about the mapping between publications and the tables they
-   contain.  Unlike the underlying
-   catalog <structname>pg_publication_rel</structname>, this view expands
+   contain.  Unlike the underlying catalog
+   <link linkend="catalog-pg-publication-rel"><structname>pg_publication_rel</structname></link>,
+   this view expands
    publications defined as <literal>FOR ALL TABLES</literal>, so for such
    publications there will be a row for each eligible table.
 -->
@@ -702,25 +721,18 @@ SQL経由で作成された準備済み文では、これはクライアント�
 <para><literal>reserved</literal>なら、報告されたファイルは<varname>max_wal_size</varname>内であることを意味します。</para>
         </listitem>
         <listitem>
-<!--
          <para><literal>extended</literal> means
           that <varname>max_wal_size</varname> is exceeded but the files are
           still retained, either by the replication slot or
           by <varname>wal_keep_size</varname>.
--->
-<para><literal>extended</literal>なら、報告されたファイルは<varname>max_wal_size</varname>を越えているものの、レプリケーションスロットあるいは<varname>wal_keep_size</varname>によって、まだ保存されていることを意味します。
          </para>
         </listitem>
         <listitem>
          <para>
-<!--
           <literal>unreserved</literal> means that the slot no longer
           retains the required WAL files and some of them are to be removed at
           the next checkpoint.  This state can return
           to <literal>reserved</literal> or <literal>extended</literal>.
--->
-<literal>unreserved</literal>は、スロットはもはや必要なWALファイルを保存しておらず、その一部は次のチェックポイントで削除予定であることを意味します。
-この状態は<literal>reserved</literal>あるいは<literal>extended</literal>を返すことがあります。
          </para>
         </listitem>
         <listitem>
@@ -757,6 +769,16 @@ SQL経由で作成された準備済み文では、これはクライアント�
 -->
 「ロスト」状態に陥る危険性のないスロットにおいて、WALに書き込むことのできるバイト数です。
 失われたスロットに対して、あるいは<varname>max_slot_wal_keep_size</varname>が<literal>-1</literal>ならNULLです。
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>two_phase</structfield> <type>bool</type>
+      </para>
+      <para>
+       True if the slot is enabled for decoding prepared transactions.  Always
+       false for physical slots.
       </para></entry>
      </row>
     </tbody>
@@ -941,7 +963,7 @@ NULLの場合には満了時間はありません。
       </para>
       <para>
 <!--
-       Role bypasses every row level security policy, see
+       Role bypasses every row-level security policy, see
        <xref linkend="ddl-rowsecurity"/> for more information.
 -->
 すべての行単位セキュリティポリシーを無視するロール。詳しくは<xref linkend="ddl-rowsecurity"/>を参照してください。
@@ -1075,7 +1097,7 @@ NULLの場合には満了時間はありません。
 <!--
    The <structname>pg_rules</structname> view excludes the <literal>ON SELECT</literal> rules
    of views and materialized views; those can be seen in
-   <structname>pg_views</structname> and <structname>pg_matviews</structname>.
+   <link linkend="view-pg-views"><structname>pg_views</structname></link> and <link linkend="view-pg-matviews"><structname>pg_matviews</structname></link>.
 -->
 <structname>pg_rules</structname>ビューは、ビューおよびマテリアライズドビューに対する<literal>ON SELECT</literal>ルールを除外します。
 これらは<structname>pg_views</structname>および<structname>pg_matviews</structname>にあります。
@@ -1432,10 +1454,10 @@ NULLの場合には満了時間はありません。
 <!--
    The view <structname>pg_settings</structname> provides access to
    run-time parameters of the server.  It is essentially an alternative
-   interface to the <xref linkend="sql-show"/>
-   and <xref linkend="sql-set"/> commands.
+   interface to the <link linkend="sql-show"><command>SHOW</command></link>
+   and <link linkend="sql-set"><command>SET</command></link> commands.
    It also provides access to some facts about each parameter that are
-   not directly available from <command>SHOW</command>, such as minimum and
+   not directly available from <link linkend="sql-show"><command>SHOW</command></link>, such as minimum and
    maximum values.
 -->
 <structname>pg_settings</structname>ビューはサーバの実行時パラメータへのアクセスを提供します。
@@ -1634,7 +1656,7 @@ NULLの場合には満了時間はありません。
       </para>
       <para>
 <!--
-       Value that <command>RESET</command> would reset the parameter to
+       Value that <link linkend="sql-reset"><command>RESET</command></link> would reset the parameter to
        in the current session
 -->
 現状のセッションにおいて<command>RESET</command>によって戻されるパラメータの値
@@ -1709,7 +1731,7 @@ NULLの場合には満了時間はありません。
       These settings cannot be changed directly; they reflect internally
       determined values.  Some of them may be adjustable by rebuilding the
       server with different configuration options, or by changing options
-      supplied to <command>initdb</command>.
+      supplied to <application>initdb</application>.
 -->
 これらの設定は直接変更できません。
 これらは内部で決定された値を反映するものです。
@@ -1855,11 +1877,15 @@ NULLの場合には満了時間はありません。
   </para>
 
   <para>
+   This view does not display <link linkend="runtime-config-custom">customized options</link>
+   until the extension module that defines them has been loaded.
+  </para>
+
+  <para>
 <!--
-   The <structname>pg_settings</structname> view cannot be inserted into or
-   deleted from, but it can be updated.  An <command>UPDATE</command> applied
-   to a row of <structname>pg_settings</structname> is equivalent to executing
-   the <xref linkend="sql-set"/> command on that named
+   This view cannot be inserted into or deleted from, but it can be updated.  An
+   <command>UPDATE</command> applied to a row of <structname>pg_settings</structname>
+   is equivalent to executing the <command>SET</command> command on that named
    parameter. The change only affects the value used by the current
    session. If an <command>UPDATE</command> is issued within a transaction
    that is later aborted, the effects of the <command>UPDATE</command> command
@@ -2003,7 +2029,7 @@ NULLの場合には満了時間はありません。
       </para>
       <para>
 <!--
-       User bypasses every row level security policy, see
+       User bypasses every row-level security policy, see
        <xref linkend="ddl-rowsecurity"/> for more information.
 -->
 ユーザはすべての行単位セキュリティポリシーを無視します。
@@ -2129,7 +2155,7 @@ NULLなら未使用のメモリで、無名の獲得なら<literal>&lt;anonymous
       <para>
 <!--
        The offset at which the allocation starts. NULL for anonymous
-       allocations and unused memory.
+       allocations, since details related to them are not known.
 -->
 この獲得が開始する位置です。
 NULLなら無名の獲得あるいは未使用のメモリです。
@@ -2201,7 +2227,7 @@ NULLなら無名の獲得あるいは未使用のメモリです。
    the information stored in the <link
    linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>
    catalog.  This view allows access only to rows of
-   <structname>pg_statistic</structname> that correspond to tables the
+   <link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link> that correspond to tables the
    user has permission to read, and therefore it is safe to allow public
    read access to this view.
 -->
@@ -2215,7 +2241,7 @@ NULLなら無名の獲得あるいは未使用のメモリです。
    <structname>pg_stats</structname> is also designed to present the
    information in a more readable format than the underlying catalog
    &mdash; at the cost that its schema must be extended whenever new slot types
-   are defined for <structname>pg_statistic</structname>.
+   are defined for <link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>.
 -->
 <structname>pg_stats</structname>も、その基礎となっているカタログよりも、より読みやすい書式で情報を提供するように設計されています。
 しかし、これは、もし<structname>pg_statistic</structname>に対して新しいスロット型が定義されるたびに、スキーマが拡張されなくてはならない、という犠牲を払っています。
@@ -2278,7 +2304,7 @@ NULLなら無名の獲得あるいは未使用のメモリです。
       </para>
       <para>
 <!--
-       Name of the column described by this row
+       Name of column described by this row
 -->
 この行が記述する列名
       </para></entry>
@@ -2464,7 +2490,8 @@ NULLとなっている列項目の割合
   <para>
 <!--
    The maximum number of entries in the array fields can be controlled on a
-   column-by-column basis using the <command>ALTER TABLE SET STATISTICS</command>
+   column-by-column basis using the <link linkend="sql-altertable"><command>ALTER
+   TABLE SET STATISTICS</command></link>
    command, or globally by setting the
    <xref linkend="guc-default-statistics-target"/> run-time parameter.
 -->
@@ -2483,11 +2510,12 @@ NULLとなっている列項目の割合
   <para>
 <!--
    The view <structname>pg_stats_ext</structname> provides access to
-   the information stored in the <link
+   information about each extended statistics object in the database,
+   combining information stored in the <link
    linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>
    and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
    catalogs.  This view allows access only to rows of
-   <structname>pg_statistic_ext</structname> and <structname>pg_statistic_ext_data</structname>
+   <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link> and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
    that correspond to tables the user has permission to read, and therefore
    it is safe to allow public read access to this view.
 -->
@@ -2501,7 +2529,7 @@ NULLとなっている列項目の割合
    <structname>pg_stats_ext</structname> is also designed to present the
    information in a more readable format than the underlying catalogs
    &mdash; at the cost that its schema must be extended whenever new types
-   of extended statistics are added to <structname>pg_statistic_ext</structname>.
+   of extended statistics are added to <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.
 -->
 <structname>pg_stats_ext</structname>も、その基礎となっているカタログよりも、より読みやすい書式で情報を提供するように設計されています。
 しかし、これは<structname>pg_statistic_ext</structname>に対して新しいスロット型が定義されるたびに、スキーマが拡張されなくてはならない、という犠牲を払っています。
@@ -2564,7 +2592,7 @@ NULLとなっている列項目の割合
       </para>
       <para>
 <!--
-       Name of schema containing extended statistic
+       Name of schema containing extended statistics object
 -->
 拡張統計情報を含むスキーマの名前
       </para></entry>
@@ -2577,7 +2605,7 @@ NULLとなっている列項目の割合
       </para>
       <para>
 <!--
-       Name of extended statistics
+       Name of extended statistics object
 -->
 拡張統計情報の名前
       </para></entry>
@@ -2590,7 +2618,7 @@ NULLとなっている列項目の割合
       </para>
       <para>
 <!--
-       Owner of the extended statistics
+       Owner of the extended statistics object
 -->
 拡張統計情報所有者
       </para></entry>
@@ -2603,7 +2631,7 @@ NULLとなっている列項目の割合
       </para>
       <para>
 <!--
-       Names of the columns the extended statistics is defined on
+       Names of the columns included in the extended statistics object
 -->
 拡張統計情報が定義された列名
       </para></entry>
@@ -2611,11 +2639,20 @@ NULLとなっている列項目の割合
 
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>exprs</structfield> <type>text[]</type>
+      </para>
+      <para>
+       Expressions included in the extended statistics object
+      </para></entry>
+      </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
        <structfield>kinds</structfield> <type>char[]</type>
       </para>
       <para>
 <!--
-       Types of extended statistics enabled for this record
+       Types of extended statistics object enabled for this record
 -->
 このレコードに対して有効になった拡張統計情報の型
       </para></entry>
@@ -2720,10 +2757,240 @@ NULLとなっている列項目の割合
   </table>
 
   <para>
-<!--
    The maximum number of entries in the array fields can be controlled on a
-   column-by-column basis using the <command>ALTER TABLE SET STATISTICS</command>
-   command, or globally by setting the
+   column-by-column basis using the <link linkend="sql-altertable"><command>ALTER
+   TABLE SET STATISTICS</command></link> command, or globally by setting the
+   <xref linkend="guc-default-statistics-target"/> run-time parameter.
+  </para>
+
+ </sect1>
+
+ <sect1 id="view-pg-stats-ext-exprs">
+  <title><structname>pg_stats_ext_exprs</structname></title>
+
+  <indexterm zone="view-pg-stats-ext-exprs">
+   <primary>pg_stats_ext_exprs</primary>
+  </indexterm>
+
+  <para>
+   The view <structname>pg_stats_ext_exprs</structname> provides access to
+   information about all expressions included in extended statistics objects,
+   combining information stored in the <link
+   linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>
+   and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
+   catalogs.  This view allows access only to rows of
+   <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link> and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
+   that correspond to tables the user has permission to read, and therefore
+   it is safe to allow public read access to this view.
+  </para>
+
+  <para>
+   <structname>pg_stats_ext_exprs</structname> is also designed to present
+   the information in a more readable format than the underlying catalogs
+   &mdash; at the cost that its schema must be extended whenever the structure
+   of statistics in <link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link> changes.
+  </para>
+
+  <table>
+   <title><structname>pg_stats_ext_exprs</structname> Columns</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       Column Type
+      </para>
+      <para>
+       Description
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>schemaname</structfield> <type>name</type>
+       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)
+      </para>
+      <para>
+       Name of schema containing table
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>tablename</structfield> <type>name</type>
+       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)
+      </para>
+      <para>
+       Name of table the statistics object is defined on
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>statistics_schemaname</structfield> <type>name</type>
+       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)
+      </para>
+      <para>
+       Name of schema containing extended statistics object
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>statistics_name</structfield> <type>name</type>
+       (references <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.<structfield>stxname</structfield>)
+      </para>
+      <para>
+       Name of extended statistics object
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>statistics_owner</structfield> <type>name</type>
+       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)
+      </para>
+      <para>
+       Owner of the extended statistics object
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>expr</structfield> <type>text</type>
+      </para>
+      <para>
+       Expression included in the extended statistics object
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>null_frac</structfield> <type>float4</type>
+      </para>
+      <para>
+       Fraction of expression entries that are null
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>avg_width</structfield> <type>int4</type>
+      </para>
+      <para>
+       Average width in bytes of expression's entries
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>n_distinct</structfield> <type>float4</type>
+      </para>
+      <para>
+       If greater than zero, the estimated number of distinct values in the
+       expression.  If less than zero, the negative of the number of distinct
+       values divided by the number of rows.  (The negated form is used when
+       <command>ANALYZE</command> believes that the number of distinct values is
+       likely to increase as the table grows; the positive form is used when
+       the expression seems to have a fixed number of possible values.)  For
+       example, -1 indicates a unique expression in which the number of distinct
+       values is the same as the number of rows.
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>most_common_vals</structfield> <type>anyarray</type>
+      </para>
+      <para>
+       A list of the most common values in the expression. (Null if
+       no values seem to be more common than any others.)
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>most_common_freqs</structfield> <type>float4[]</type>
+      </para>
+      <para>
+       A list of the frequencies of the most common values,
+       i.e., number of occurrences of each divided by total number of rows.
+       (Null when <structfield>most_common_vals</structfield> is.)
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>histogram_bounds</structfield> <type>anyarray</type>
+      </para>
+      <para>
+       A list of values that divide the expression's values into groups of
+       approximately equal population.  The values in
+       <structfield>most_common_vals</structfield>, if present, are omitted from this
+       histogram calculation.  (This expression is null if the expression data type
+       does not have a <literal>&lt;</literal> operator or if the
+       <structfield>most_common_vals</structfield> list accounts for the entire
+       population.)
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>correlation</structfield> <type>float4</type>
+      </para>
+      <para>
+       Statistical correlation between physical row ordering and
+       logical ordering of the expression values.  This ranges from -1 to +1.
+       When the value is near -1 or +1, an index scan on the expression will
+       be estimated to be cheaper than when it is near zero, due to reduction
+       of random access to the disk.  (This expression is null if the expression's
+       data type does not have a <literal>&lt;</literal> operator.)
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>most_common_elems</structfield> <type>anyarray</type>
+      </para>
+      <para>
+       A list of non-null element values most often appearing within values of
+       the expression. (Null for scalar types.)
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>most_common_elem_freqs</structfield> <type>float4[]</type>
+      </para>
+      <para>
+       A list of the frequencies of the most common element values, i.e., the
+       fraction of rows containing at least one instance of the given value.
+       Two or three additional values follow the per-element frequencies;
+       these are the minimum and maximum of the preceding per-element
+       frequencies, and optionally the frequency of null elements.
+       (Null when <structfield>most_common_elems</structfield> is.)
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>elem_count_histogram</structfield> <type>float4[]</type>
+      </para>
+      <para>
+       A histogram of the counts of distinct non-null element values within the
+       values of the expression, followed by the average number of distinct
+       non-null elements.  (Null for scalar types.)
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   The maximum number of entries in the array fields can be controlled on a
+   column-by-column basis using the <link linkend="sql-altertable"><command>ALTER
+   TABLE SET STATISTICS</command></link> command, or globally by setting the
    <xref linkend="guc-default-statistics-target"/> run-time parameter.
 -->
 <command>ALTER TABLE SET STATISTICS</command>コマンドを使って配列フィールドの最大のエントリ数を列単位に制御できます。
@@ -3190,7 +3457,7 @@ UTCからのオフセット(正はグリニッジより西側を意味する)
       </para>
       <para>
 <!--
-       User bypasses every row level security policy, see
+       User bypasses every row-level security policy, see
        <xref linkend="ddl-rowsecurity"/> for more information.
 -->
 ユーザはすべての行単位セキュリティポリシーを無視します。
@@ -3329,7 +3596,7 @@ UTCからのオフセット(正はグリニッジより西側を意味する)
       </para>
       <para>
 <!--
-       OID of the local role being mapped, 0 if the user mapping is public
+       OID of the local role being mapped, or zero if the user mapping is public
 -->
 マッピングされているローカルのロールのOID。
 ユーザマッピングが公開されている場合は0になります。
@@ -3486,7 +3753,7 @@ UTCからのオフセット(正はグリニッジより西側を意味する)
       </para>
       <para>
 <!--
-       View definition (a reconstructed <command>SELECT</command> query)
+       View definition (a reconstructed <xref linkend="sql-select"/> query)
 -->
 ビュー定義（再構築された<command>SELECT</command>問い合わせ）
       </para></entry>

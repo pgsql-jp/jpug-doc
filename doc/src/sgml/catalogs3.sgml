@@ -65,7 +65,7 @@
       </para>
       <para>
 <!--
-       The OID of the <structname>pg_ts_config</structname> entry owning this map entry
+       The OID of the <link linkend="catalog-pg-ts-config"><structname>pg_ts_config</structname></link> entry owning this map entry
 -->
 このマップ項目を所有する<structname>pg_ts_config</structname>項目のOID
       </para></entry>
@@ -387,7 +387,7 @@
       </para>
       <para>
 <!--
-       OID of the parser's headline function
+       OID of the parser's headline function (zero if none)
 -->
 パーサの見出し関数のOID
       </para></entry>
@@ -507,7 +507,7 @@
       </para>
       <para>
 <!--
-       OID of the template's initialization function
+       OID of the template's initialization function (zero if none)
 -->
 テンプレートの初期化関数のOID
       </para></entry>
@@ -542,9 +542,9 @@
 <!--
    The catalog <structname>pg_type</structname> stores information about data
    types.  Base types and enum types (scalar types) are created with
-   <xref linkend="sql-createtype"/>, and
+   <link linkend="sql-createtype"><command>CREATE TYPE</command></link>, and
    domains with
-   <xref linkend="sql-createdomain"/>.
+   <link linkend="sql-createdomain"><command>CREATE DOMAIN</command></link>.
    A composite type is automatically created for each table in the database, to
    represent the row structure of the table.  It is also possible to create
    composite types with <command>CREATE TYPE AS</command>.
@@ -680,8 +680,9 @@
        <literal>c</literal> for a composite type (e.g., a table's row type),
        <literal>d</literal> for a domain,
        <literal>e</literal> for an enum type,
-       <literal>p</literal> for a pseudo-type, or
-       <literal>r</literal> for a range type.
+       <literal>p</literal> for a pseudo-type,
+       <literal>r</literal> for a range type, or
+       <literal>m</literal> for a multirange type.
        See also <structfield>typrelid</structfield> and
        <structfield>typbasetype</structfield>.
 -->
@@ -759,11 +760,11 @@
 <!--
        If this is a composite type (see
        <structfield>typtype</structfield>), then this column points to
-       the <structname>pg_class</structname> entry that defines the
+       the <link linkend="catalog-pg-class"><structname>pg_class</structname></link> entry that defines the
        corresponding table.  (For a free-standing composite type, the
-       <structname>pg_class</structname> entry doesn't really represent
+       <link linkend="catalog-pg-class"><structname>pg_class</structname></link> entry doesn't really represent
        a table, but it is needed anyway for the type's
-       <structname>pg_attribute</structname> entries to link to.)
+       <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link> entries to link to.)
        Zero for non-composite types.
 -->
 もしこれが複合型（<structname>typtype</structname>を参照）であれば、この列は関連するテーブルを定義する<structfield>pg_class</structfield>項目を指します。
@@ -774,25 +775,37 @@
 
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>typsubscript</structfield> <type>regproc</type>
+       (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
+      </para>
+      <para>
+       Subscripting handler function's OID, or zero if this type doesn't
+       support subscripting.  Types that are <quote>true</quote> array
+       types have <structfield>typsubscript</structfield>
+       = <function>array_subscript_handler</function>, but other types may
+       have other handler functions to implement specialized subscripting
+       behavior.
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
        <structfield>typelem</structfield> <type>oid</type>
        (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)
       </para>
       <para>
 <!--
-       If <structfield>typelem</structfield> is not 0 then it
-       identifies another row in <structname>pg_type</structname>.
-       The current type can then be subscripted like an array yielding
-       values of type <structfield>typelem</structfield>.  A
-       <quote>true</quote> array type is variable length
-       (<structfield>typlen</structfield> = -1),
-       but some fixed-length (<structfield>typlen</structfield> &gt; 0) types
-       also have nonzero <structfield>typelem</structfield>, for example
-       <type>name</type> and <type>point</type>.
-       If a fixed-length type has a <structfield>typelem</structfield> then
-       its internal representation must be some number of values of the
-       <structfield>typelem</structfield> data type with no other data.
-       Variable-length array types have a header defined by the array
-       subroutines.
+       If <structfield>typelem</structfield> is not zero then it
+       identifies another row in <structname>pg_type</structname>,
+       defining the type yielded by subscripting.  This should be zero
+       if <structfield>typsubscript</structfield> is zero.  However, it can
+       be zero when <structfield>typsubscript</structfield> isn't zero, if the
+       handler doesn't need <structfield>typelem</structfield> to
+       determine the subscripting result type.
+       Note that a <structfield>typelem</structfield> dependency is
+       considered to imply physical containment of the element type in
+       this type; so DDL changes on the element type might be restricted
+       by the presence of this type.
 -->
 <structfield>typelem</structfield>がゼロでない場合、これは<structname>pg_type</structname>の別の列を特定します。
 現在の型は、<structfield>typelem</structfield>型の値を生成する配列のように、配列要素を持てるようになります。
@@ -809,7 +822,7 @@
       </para>
       <para>
 <!--
-       If <structfield>typarray</structfield> is not 0 then it
+       If <structfield>typarray</structfield> is not zero then it
        identifies another row in <structname>pg_type</structname>, which
        is the <quote>true</quote> array type having this type as element
 -->
@@ -851,7 +864,7 @@
       </para>
       <para>
 <!--
-       Input conversion function (binary format), or 0 if none
+       Input conversion function (binary format), or zero if none
 -->
 入力変換関数（バイナリ形式）、なければゼロ
       </para></entry>
@@ -864,7 +877,7 @@
       </para>
       <para>
 <!--
-       Output conversion function (binary format), or 0 if none
+       Output conversion function (binary format), or zero if none
 -->
 出力変換関数（バイナリ形式）、なければゼロ
       </para></entry>
@@ -877,7 +890,7 @@
       </para>
       <para>
 <!--
-       Type modifier input function, or 0 if type does not support modifiers
+       Type modifier input function, or zero if type does not support modifiers
 -->
 型修飾子の入力関数。型が修飾子をサポートしていない場合はゼロ
       </para></entry>
@@ -890,7 +903,7 @@
       </para>
       <para>
 <!--
-       Type modifier output function, or 0 to use the standard format
+       Type modifier output function, or zero to use the standard format
 -->
 型修飾子の出力関数。標準書式を使用する場合はゼロ
       </para></entry>
@@ -903,7 +916,8 @@
       </para>
       <para>
 <!--
-       Custom <command>ANALYZE</command> function, or 0 to use the standard function
+       Custom <xref linkend="sql-analyze"/> function,
+       or zero to use the standard function
 -->
 独自の<command>ANALYZE</command>関数。標準関数を使用する場合はゼロ
       </para></entry>
@@ -1380,7 +1394,7 @@
       </para>
       <para>
 <!--
-       OID of the local role being mapped, 0 if the user mapping is public
+       OID of the local role being mapped, or zero if the user mapping is public
 -->
 マッピングされているローカルのロールのOID。
 ユーザマッピングが公開されている場合は0になります。
@@ -1502,6 +1516,11 @@
       <entry>available versions of extensions</entry>
 -->
       <entry>利用可能な拡張のバージョン</entry>
+     </row>
+
+     <row>
+      <entry><link linkend="view-pg-backend-memory-contexts"><structname>pg_backend_memory_contexts</structname></link></entry>
+      <entry>backend memory contexts</entry>
      </row>
 
      <row>
@@ -1686,6 +1705,11 @@
      </row>
 
      <row>
+      <entry><link linkend="view-pg-stats-ext-exprs"><structname>pg_stats_ext_exprs</structname></link></entry>
+      <entry>extended planner statistics for expressions</entry>
+     </row>
+
+     <row>
       <entry><link linkend="view-pg-tables"><structname>pg_tables</structname></link></entry>
 <!--
       <entry>tables</entry>
@@ -1836,7 +1860,7 @@
 
   <para>
 <!--
-   The <structname>pg_available_extensions</structname> view is read only.
+   The <structname>pg_available_extensions</structname> view is read-only.
 -->
 <structname>pg_available_extensions</structname>ビューは読み取り専用です。
   </para>
@@ -2004,10 +2028,131 @@
 
   <para>
 <!--
-   The <structname>pg_available_extension_versions</structname> view is read
-   only.
+   The <structname>pg_available_extension_versions</structname> view is
+   read-only.
 -->
 <structname>pg_available_extension_versions</structname>ビューは読み取り専用です。
+  </para>
+ </sect1>
+
+ <sect1 id="view-pg-backend-memory-contexts">
+  <title><structname>pg_backend_memory_contexts</structname></title>
+
+  <indexterm zone="view-pg-backend-memory-contexts">
+   <primary>pg_backend_memory_contexts</primary>
+  </indexterm>
+
+  <para>
+   The view <structname>pg_backend_memory_contexts</structname> displays all
+   the memory contexts of the server process attached to the current session.
+  </para>
+  <para>
+   <structname>pg_backend_memory_contexts</structname> contains one row
+   for each memory context.
+  </para>
+
+  <table>
+   <title><structname>pg_backend_memory_contexts</structname> Columns</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       Column Type
+      </para>
+      <para>
+       Description
+      </para></entry>
+     </row>
+    </thead>
+
+    <tbody>
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>name</structfield> <type>text</type>
+      </para>
+      <para>
+       Name of the memory context
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>ident</structfield> <type>text</type>
+      </para>
+      <para>
+       Identification information of the memory context. This field is truncated at 1024 bytes
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>parent</structfield> <type>text</type>
+      </para>
+      <para>
+       Name of the parent of this memory context
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>level</structfield> <type>int4</type>
+      </para>
+      <para>
+       Distance from TopMemoryContext in context tree
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>total_bytes</structfield> <type>int8</type>
+      </para>
+      <para>
+       Total bytes allocated for this memory context
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>total_nblocks</structfield> <type>int8</type>
+      </para>
+      <para>
+       Total number of blocks allocated for this memory context
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>free_bytes</structfield> <type>int8</type>
+      </para>
+      <para>
+       Free space in bytes
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>free_chunks</structfield> <type>int8</type>
+      </para>
+      <para>
+       Total number of free chunks
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>used_bytes</structfield> <type>int8</type>
+      </para>
+      <para>
+       Used space in bytes
+      </para></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <para>
+   By default, the <structname>pg_backend_memory_contexts</structname> view can be
+   read only by superusers.
   </para>
  </sect1>
 
@@ -2113,7 +2258,7 @@
     <listitem>
      <para>
 <!--
-      via the <xref linkend="sql-declare"/>
+      via the <link linkend="sql-declare"><command>DECLARE</command></link>
       statement in SQL
 -->
 SQLから<xref linkend="sql-declare"/>文経由。
@@ -2275,7 +2420,7 @@ SQLから<xref linkend="sql-declare"/>文経由。
 
   <para>
 <!--
-   The <structname>pg_cursors</structname> view is read only.
+   The <structname>pg_cursors</structname> view is read-only.
 -->
 <structname>pg_cursors</structname>ビューは読み取り専用です。
   </para>
@@ -2478,6 +2623,9 @@ NULLでないときは、このエントリが適用できない理由につい�
    <primary>pg_group</primary>
   </indexterm>
 
+  <!-- Unlike information_schema.applicable_roles, this shows no members for
+       pg_database_owner.  The v8.1 catalog would have shown no members if
+       that role had existed at the time. -->
   <para>
 <!--
    The view <structname>pg_group</structname> exists for backwards
@@ -2571,8 +2719,9 @@ NULLでないときは、このエントリが適用できない理由につい�
   <para>
 <!--
    The view <structname>pg_hba_file_rules</structname> provides a summary of
-   the contents of the client authentication configuration
-   file, <filename>pg_hba.conf</filename>.  A row appears in this view for each
+   the contents of the client authentication configuration file,
+   <link linkend="auth-pg-hba-conf"><filename>pg_hba.conf</filename></link>.
+   A row appears in this view for each
    non-empty, non-comment line in the file, with annotations indicating
    whether the rule could be applied successfully.
 -->
@@ -2851,7 +3000,7 @@ NULLでないなら、この行がなぜ処理できなかったかを示すエ�
       </para>
       <para>
 <!--
-       Index definition (a reconstructed <command>CREATE INDEX</command>
+       Index definition (a reconstructed <xref linkend="sql-createindex"/>
        command)
 -->
 インデックス定義（再作成用<command>CREATE INDEX</command>コマンド）
@@ -2902,8 +3051,8 @@ NULLでないなら、この行がなぜ処理できなかったかを示すエ�
    individual tuples of relations,
    transaction IDs (both virtual and permanent IDs),
    and general database objects (identified by class OID and object OID,
-   in the same way as in <structname>pg_description</structname> or
-   <structname>pg_depend</structname>).  Also, the right to extend a
+   in the same way as in <link linkend="catalog-pg-description"><structname>pg_description</structname></link> or
+   <link linkend="catalog-pg-depend"><structname>pg_depend</structname></link>).  Also, the right to extend a
    relation is represented as a separate lockable object, as is the right to
    update <structname>pg_database</structname>.<structfield>datfrozenxid</structfield>.
    Also, <quote>advisory</quote> locks can be taken on numbers that have
@@ -3153,6 +3302,19 @@ NULLでないなら、この行がなぜ処理できなかったかを示すエ�
 ファストパス経由でロックが獲得されている場合は真、メインロックテーブル経由で獲得されている場合は偽。
       </para></entry>
      </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>waitstart</structfield> <type>timestamptz</type>
+      </para>
+      <para>
+       Time when the server process started waiting for this lock,
+       or null if the lock is held.
+       Note that this can be null for a very short period of time after
+       the wait started even though <structfield>granted</structfield>
+       is <literal>false</literal>.
+      </para></entry>
+     </row>
     </tbody>
    </tgroup>
   </table>
@@ -3238,7 +3400,7 @@ NULLでないなら、この行がなぜ処理できなかったかを示すエ�
    <structname>pg_locks</structname> provides a global view of all locks
    in the database cluster, not only those relevant to the current database.
    Although its <structfield>relation</structfield> column can be joined
-   against <structname>pg_class</structname>.<structfield>oid</structfield> to identify locked
+   against <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield> to identify locked
    relations, this will only work correctly for relations in the current
    database (those for which the <structfield>database</structfield> column
    is either the current database's OID or zero).
@@ -3479,7 +3641,7 @@ SELECT * FROM pg_locks pl LEFT JOIN pg_prepared_xacts ppx
       </para>
       <para>
 <!--
-       Materialized view definition (a reconstructed <command>SELECT</command> query)
+       Materialized view definition (a reconstructed <xref linkend="sql-select"/> query)
 -->
 マテリアライズドビューの定義（再構成された<command>SELECT</command>問い合わせ）
       </para></entry>

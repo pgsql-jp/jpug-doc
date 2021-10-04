@@ -101,6 +101,66 @@
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-transaction-isolation" xreflabel="transaction_isolation">
+      <term><varname>transaction_isolation</varname> (<type>enum</type>)
+      <indexterm>
+       <primary>transaction isolation level</primary>
+      </indexterm>
+      <indexterm>
+       <primary><varname>transaction_isolation</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter reflects the current transaction's isolation level.
+        At the beginning of each transaction, it is set to the current value
+        of <xref linkend="guc-default-transaction-isolation"/>.
+        Any subsequent attempt to change it is equivalent to a <xref
+        linkend="sql-set-transaction"/> command.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-transaction-read-only" xreflabel="transaction_read_only">
+      <term><varname>transaction_read_only</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary>read-only transaction</primary>
+      </indexterm>
+      <indexterm>
+       <primary><varname>transaction_read_only</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter reflects the current transaction's read-only status.
+        At the beginning of each transaction, it is set to the current value
+        of <xref linkend="guc-default-transaction-read-only"/>.
+        Any subsequent attempt to change it is equivalent to a <xref
+        linkend="sql-set-transaction"/> command.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-transaction-deferrable" xreflabel="transaction_deferrable">
+      <term><varname>transaction_deferrable</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary>deferrable transaction</primary>
+      </indexterm>
+      <indexterm>
+       <primary><varname>transaction_deferrable</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        This parameter reflects the current transaction's deferrability status.
+        At the beginning of each transaction, it is set to the current value
+        of <xref linkend="guc-default-transaction-deferrable"/>.
+        Any subsequent attempt to change it is equivalent to a <xref
+        linkend="sql-set-transaction"/> command.
+       </para>
+      </listitem>
+     </varlistentry>
+
 
      <varlistentry id="guc-session-replication-role" xreflabel="session_replication_role">
       <term><varname>session_replication_role</varname> (<type>enum</type>)
@@ -131,7 +191,7 @@
         set it to <literal>replica</literal> when they are applying replicated
         changes.  The effect of that will be that triggers and rules (that
         have not been altered from their default configuration) will not fire
-        on the replica.  See the <xref linkend="sql-altertable"/> clauses
+        on the replica.  See the <link linkend="sql-altertable"><command>ALTER TABLE</command></link> clauses
         <literal>ENABLE TRIGGER</literal> and <literal>ENABLE RULE</literal>
         for more information.
 -->
@@ -285,24 +345,57 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
       <listitem>
        <para>
 <!--
-       Terminate any session with an open transaction that has been idle for
-       longer than the specified amount of time. This allows any
-       locks held by that session to be released and the connection slot to be reused;
-       it also allows tuples visible only to this transaction to be vacuumed.  See
-       <xref linkend="routine-vacuuming"/> for more details about this.
+        Terminate any session that has been idle (that is, waiting for a
+        client query) within an open transaction for longer than the
+        specified amount of time.
+        If this value is specified without units, it is taken as milliseconds.
+        A value of zero (the default) disables the timeout.
 -->
 開いているトランザクションが、指定された時間を超えてアイドルだった場合に、セッションを終了します。
 これにより、そのセッションが獲得したロックを解放し、コネクションスロットを再利用できるようになります。
 また、このトランザクションからのみ見えるタプルがVACUUMできるようになります。
 更なる詳細は<xref linkend="routine-vacuuming"/>を見てください。
        </para>
+
        <para>
-<!--
-       If this value is specified without units, it is taken as milliseconds.
-       A value of zero (the default) disables the timeout.
--->
-この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
-値がゼロ（デフォルト）の場合、この機能は無効になります。
+        This option can be used to ensure that idle sessions do not hold
+        locks for an unreasonable amount of time.  Even when no significant
+        locks are held, an open transaction prevents vacuuming away
+        recently-dead tuples that may be visible only to this transaction;
+        so remaining idle for a long time can contribute to table bloat.
+        See <xref linkend="routine-vacuuming"/> for more details.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-idle-session-timeout" xreflabel="idle_session_timeout">
+      <term><varname>idle_session_timeout</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>idle_session_timeout</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Terminate any session that has been idle (that is, waiting for a
+        client query), but not within an open transaction, for longer than
+        the specified amount of time.
+        If this value is specified without units, it is taken as milliseconds.
+        A value of zero (the default) disables the timeout.
+       </para>
+
+       <para>
+        Unlike the case with an open transaction, an idle session without a
+        transaction imposes no large costs on the server, so there is less
+        need to enable this timeout
+        than <varname>idle_in_transaction_session_timeout</varname>.
+       </para>
+
+       <para>
+        Be wary of enforcing this timeout on connections made through
+        connection-pooling software or other middleware, as such a layer
+        may not react well to unexpected connection closure.  It may be
+        helpful to enable this timeout only for interactive sessions,
+        perhaps by applying it only to particular users.
        </para>
       </listitem>
      </varlistentry>
@@ -374,6 +467,39 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-vacuum-failsafe-age" xreflabel="vacuum_failsafe_age">
+      <term><varname>vacuum_failsafe_age</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>vacuum_failsafe_age</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Specifies the maximum age (in transactions) that a table's
+        <structname>pg_class</structname>.<structfield>relfrozenxid</structfield>
+        field can attain before <command>VACUUM</command> takes
+        extraordinary measures to avoid system-wide transaction ID
+        wraparound failure.  This is <command>VACUUM</command>'s
+        strategy of last resort.  The failsafe typically triggers
+        when an autovacuum to prevent transaction ID wraparound has
+        already been running for some time, though it's possible for
+        the failsafe to trigger during any <command>VACUUM</command>.
+       </para>
+       <para>
+        When the failsafe is triggered, any cost-based delay that is
+        in effect will no longer be applied, and further non-essential
+        maintenance tasks (such as index vacuuming) are bypassed.
+       </para>
+       <para>
+        The default is 1.6 billion transactions.  Although users can
+        set this value anywhere from zero to 2.1 billion,
+        <command>VACUUM</command> will silently adjust the effective
+        value to no less than 105% of <xref
+         linkend="guc-autovacuum-freeze-max-age"/>.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-vacuum-multixact-freeze-table-age" xreflabel="vacuum_multixact_freeze_table_age">
       <term><varname>vacuum_multixact_freeze_table_age</varname> (<type>integer</type>)
       <indexterm>
@@ -439,64 +565,36 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
       </listitem>
      </varlistentry>
 
-     <varlistentry id="guc-vacuum-cleanup-index-scale-factor" xreflabel="vacuum_cleanup_index_scale_factor">
-      <term><varname>vacuum_cleanup_index_scale_factor</varname> (<type>floating point</type>)
+     <varlistentry id="guc-multixact-failsafe-age" xreflabel="vacuum_multixact_failsafe_age">
+      <term><varname>vacuum_multixact_failsafe_age</varname> (<type>integer</type>)
       <indexterm>
-       <primary><varname>vacuum_cleanup_index_scale_factor</varname></primary>
-<!--
-       <secondary>configuration parameter</secondary>
--->
-       <secondary>設定パラメータ</secondary>
+       <primary><varname>vacuum_multixact_failsafe_age</varname> configuration parameter</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
-<!--
-        Specifies the fraction of the total number of heap tuples counted in
-        the previous statistics collection that can be inserted without
-        incurring an index scan at the <command>VACUUM</command> cleanup stage.
-        This setting currently applies to B-tree indexes only.
--->
-<command>VACUUM</command>クリーンアップステージで、前回の収集統計情報中でカウントされ、インデックススキャンせずに統計情報を挿入できる合計ヒープタプル数の割合を指定します。
-この設定は今の所B-treeインデックスのみに適用されます。
+        Specifies the maximum age (in multixacts) that a table's
+        <structname>pg_class</structname>.<structfield>relminmxid</structfield>
+        field can attain before <command>VACUUM</command> takes
+        extraordinary measures to avoid system-wide multixact ID
+        wraparound failure.  This is <command>VACUUM</command>'s
+        strategy of last resort.  The failsafe typically triggers when
+        an autovacuum to prevent transaction ID wraparound has already
+        been running for some time, though it's possible for the
+        failsafe to trigger during any <command>VACUUM</command>.
        </para>
-
        <para>
-<!--
-        If no tuples were deleted from the heap, B-tree indexes are still
-        scanned at the <command>VACUUM</command> cleanup stage when at least one
-        of the following conditions is met: the index statistics are stale, or
-        the index contains deleted pages that can be recycled during cleanup.
-        Index statistics are considered to be stale if the number of newly
-        inserted tuples exceeds the <varname>vacuum_cleanup_index_scale_factor</varname>
-        fraction of the total number of heap tuples detected by the previous
-        statistics collection. The total number of heap tuples is stored in
-        the index meta-page. Note that the meta-page does not include this data
-        until <command>VACUUM</command> finds no dead tuples, so B-tree index
-        scan at the cleanup stage can only be skipped if the second and
-        subsequent <command>VACUUM</command> cycles detect no dead tuples.
--->
-ヒープから削除されたタプルがない場合、次の条件のうち一つでも当てはまればB-treeインデックスはスキャンされます。
-インデックスの統計情報が古い、あるいはインデックスに削除されたページが含まれていてクリーンアップ中に再利用できる場合です。
-新しく挿入されたタプル数の、以前の統計情報収集によって検出されたヒープタプルの合計に対する割合が、<varname>vacuum_cleanup_index_scale_factor</varname>で指定された値よりも多いときにインデックスの統計情報は古いと見なされます。
-ヒープタプルの合計数はインデックスのメタページに格納されています。
-<command>VACUUM</command>が不要タプルがないことを確認するまでメタデータページはこのデータを含まないことに留意してください。
-ですから、2番目あるいはそれ以降の<command>VACUUM</command>サイクルが不要タプルがないことを確認できるまで、クリーンアップステージでのB-treeインデックスのスキャンは単にスキップされるだけです。
+        When the failsafe is triggered, any cost-based delay that is
+        in effect will no longer be applied, and further non-essential
+        maintenance tasks (such as index vacuuming) are bypassed.
        </para>
-
        <para>
-<!--
-        The value can range from <literal>0</literal> to
-        <literal>10000000000</literal>.
-        When <varname>vacuum_cleanup_index_scale_factor</varname> is set to
-        <literal>0</literal>, index scans are never skipped during
-        <command>VACUUM</command> cleanup. The default value is <literal>0.1</literal>.
--->
-この値は<literal>0</literal>から<literal>10000000000</literal>までの値を取ることができます。
-<varname>vacuum_cleanup_index_scale_factor</varname>が<literal>0</literal>に設定されると、インデックススキャンは決して<command>VACUUM</command>クリーンアップ中にスキップされません。
-デフォルト値は<literal>0.1</literal>です。
+        The default is 1.6 billion multixacts.  Although users can set
+        this value anywhere from zero to 2.1 billion,
+        <command>VACUUM</command> will silently adjust the effective
+        value to no less than 105% of <xref
+         linkend="guc-autovacuum-multixact-freeze-max-age"/>.
        </para>
-
       </listitem>
      </varlistentry>
 
@@ -1163,7 +1261,7 @@ SET XML OPTION { DOCUMENT | CONTENT };
         This variable specifies one or more shared libraries that are to be
         preloaded at connection start.
         It contains a comma-separated list of library names, where each name
-        is interpreted as for the <xref linkend="sql-load"/> command.
+        is interpreted as for the <link linkend="sql-load"><command>LOAD</command></link> command.
         Whitespace between entries is ignored; surround a library name with
         double quotes if you need to include whitespace or commas in the name.
         The parameter value only takes effect at the start of the connection.
@@ -1241,7 +1339,7 @@ SET XML OPTION { DOCUMENT | CONTENT };
         This variable specifies one or more shared libraries that are to be
         preloaded at connection start.
         It contains a comma-separated list of library names, where each name
-        is interpreted as for the <xref linkend="sql-load"/> command.
+        is interpreted as for the <link linkend="sql-load"><command>LOAD</command></link> command.
         Whitespace between entries is ignored; surround a library name with
         double quotes if you need to include whitespace or commas in the name.
         The parameter value only takes effect at the start of the connection.
@@ -1305,7 +1403,7 @@ SET XML OPTION { DOCUMENT | CONTENT };
         This variable specifies one or more shared libraries to be preloaded at
         server start.
         It contains a comma-separated list of library names, where each name
-        is interpreted as for the <xref linkend="sql-load"/> command.
+        is interpreted as for the <link linkend="sql-load"><command>LOAD</command></link> command.
         Whitespace between entries is ignored; surround a library name with
         double quotes if you need to include whitespace or commas in the name.
         This parameter can only be set at server start.  If a specified
@@ -1645,7 +1743,7 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
        <para>
        <!--
         When running a standby server, you must set this parameter to the
-        same or higher value than on the master server. Otherwise, queries
+        same or higher value than on the primary server. Otherwise, queries
         will not be allowed in the standby server.
        -->
        スタンバイサーバを稼動するとき、このパラメータをマスターサーバと同じか、より高い値に設定しなければなりません。
@@ -1826,7 +1924,7 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
         <literal>\'</literal>. However, use of <literal>\'</literal> creates security risks
         because in some client character set encodings, there are multibyte
         characters in which the last byte is numerically equivalent to ASCII
-        <literal>\</literal>.  If client-side code does escaping incorrectly then a
+        <literal>\</literal>.  If client-side code does escaping incorrectly then an
         SQL-injection attack is possible.  This risk can be prevented by
         making the server reject queries in which a quote mark appears to be
         escaped by a backslash.
@@ -1931,42 +2029,6 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
 -->
 この変数を設定しても、ラージオブジェクトに関連した全ての安全性チェックを無効にする訳ではありません。
 <productname>PostgreSQL</productname> 9.0で変更されたデフォルトの動きに対してのみです。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-operator-precedence-warning" xreflabel="operator_precedence_warning">
-      <term><varname>operator_precedence_warning</varname> (<type>boolean</type>)
-      <indexterm>
-<!--
-       <primary><varname>operator_precedence_warning</varname> configuration parameter</primary>
--->
-       <primary><varname>operator_precedence_warning</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        When on, the parser will emit a warning for any construct that might
-        have changed meanings since <productname>PostgreSQL</productname> 9.4 as a result
-        of changes in operator precedence.  This is useful for auditing
-        applications to see if precedence changes have broken anything; but it
-        is not meant to be kept turned on in production, since it will warn
-        about some perfectly valid, standard-compliant SQL code.
-        The default is <literal>off</literal>.
--->
-onの場合、演算子の優先順位の変更の結果、<productname>PostgreSQL</productname> 9.4以降で意味が変わる可能性のある構文に対して、パーサは警告を出力します。
-これは、優先順位の変更によりアプリケーションに何か不具合が起きないか監視するのに役立ちます。
-しかし、これはプロダクション環境でオンにしたままにしておくためのものではありません。
-なぜなら、完全に正しいSQL標準準拠コードに対しても警告を発するからです。
-デフォルトは<literal>off</literal>です。
-       </para>
-
-       <para>
-<!--
-        See <xref linkend="sql-precedence"/> for more information.
--->
-詳細は<xref linkend="sql-precedence"/>を見てください。
        </para>
       </listitem>
      </varlistentry>
@@ -2206,6 +2268,11 @@ onなら、全てのエラーは現在のセッションを中止させます。
 この値を真のままにしておくことが、通常データベースの可用性を最大化する最適の方法です。
 しかし、 <productname>PostgreSQL</productname>がクラスタウェアにより起動された時のような状況では、クラスタウェアが制御を獲得して、適切とみなすいかなる振る舞いをも行えるように再起動を無効にすることが有益かもしれません。
        </para>
+
+       <para>
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -2258,6 +2325,45 @@ onに設定すると、代わりに<productname>PostgreSQL</productname>はエ�
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-recovery-init-sync-method" xreflabel="recovery_init_sync_method">
+      <term><varname>recovery_init_sync_method</varname> (<type>enum</type>)
+       <indexterm>
+        <primary><varname>recovery_init_sync_method</varname> configuration parameter</primary>
+       </indexterm>
+      </term>
+      <listitem>
+       <para>
+        When set to <literal>fsync</literal>, which is the default,
+        <productname>PostgreSQL</productname> will recursively open and
+        synchronize all files in the data directory before crash recovery
+        begins.  The search for files will follow symbolic links for the WAL
+        directory and each configured tablespace (but not any other symbolic
+        links).  This is intended to make sure that all WAL and data files are
+        durably stored on disk before replaying changes.  This applies whenever
+        starting a database cluster that did not shut down cleanly, including
+        copies created with <application>pg_basebackup</application>.
+       </para>
+       <para>
+        On Linux, <literal>syncfs</literal> may be used instead, to ask the
+        operating system to synchronize the whole file systems that contain the
+        data directory, the WAL files and each tablespace (but not any other
+        file systems that may be reachable through symbolic links).  This may
+        be a lot faster than the <literal>fsync</literal> setting, because it
+        doesn't need to open each file one by one.  On the other hand, it may
+        be slower if a file system is shared by other applications that
+        modify a lot of files, since those files will also be written to disk.
+        Furthermore, on versions of Linux before 5.8, I/O errors encountered
+        while writing data to disk may not be reported to
+        <productname>PostgreSQL</productname>, and relevant error messages may
+        appear only in kernel logs.
+       </para>
+       <para>
+        This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command line.
+       </para>
+      </listitem>
+     </varlistentry>
+
     </variablelist>
 
    </sect1>
@@ -2270,13 +2376,14 @@ onに設定すると、代わりに<productname>PostgreSQL</productname>はエ�
 
     <para>
     <!--
-     The following <quote>parameters</quote> are read-only, and are determined
-     when <productname>PostgreSQL</productname> is compiled or when it is
-     installed. As such, they have been excluded from the sample
+     The following <quote>parameters</quote> are read-only.
+     As such, they have been excluded from the sample
      <filename>postgresql.conf</filename> file.  These options report
      various aspects of <productname>PostgreSQL</productname> behavior
      that might be of interest to certain applications, particularly
      administrative front-ends.
+     Most of them are determined when <productname>PostgreSQL</productname>
+     is compiled or when it is installed.
      -->
      以下の<quote>パラメータ</quote>は読み取り専用で、<productname>PostgreSQL</productname>のコンパイル時、もしくはインストール時に決定されます。
 そのため、これらは<filename>postgresql.conf</filename>のサンプルから除かれています。
@@ -2346,10 +2453,11 @@ onに設定すると、代わりに<productname>PostgreSQL</productname>はエ�
       <listitem>
        <para>
 <!--
-        On Unix systems this parameter reports the permissions of the data
-        directory defined by (<xref linkend="guc-data-directory"/>) at startup.
+        On Unix systems this parameter reports the permissions the data
+        directory (defined by <xref linkend="guc-data-directory"/>)
+        had at server startup.
         (On Microsoft Windows this parameter will always display
-        <literal>0700</literal>). See
+        <literal>0700</literal>.) See
         <xref linkend="app-initdb-allow-group-access"/> for more information.
 -->
 このパラメータは、Unixシステムでは(<xref linkend="guc-data-directory"/>)により定義されたデータディレクトリのパーミッションを起動時に報告します。
@@ -2405,6 +2513,23 @@ onに設定すると、代わりに<productname>PostgreSQL</productname>はエ�
 -->
 <productname>PostgreSQL</productname>が64ビット整数による日付と時刻のサポート付きで構築されたかどうかを報告します。
 <productname>PostgreSQL</productname> 10では、これは常に<literal>on</literal>です。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-in-hot-standby" xreflabel="in_hot_standby">
+      <term><varname>in_hot_standby</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>in_hot_standby</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Reports whether the server is currently in hot standby mode.  When
+        this is <literal>on</literal>, all transactions are forced to be
+        read-only.  Within a session, this can change only if the server is
+        promoted to be primary.  See <xref linkend="hot-standby"/> for more
+        information.
        </para>
       </listitem>
      </varlistentry>
@@ -2742,11 +2867,10 @@ WALディスクブロックの容量を報告します。
 
     <para>
     <!--
-     The following parameters are intended for work on the
-     <productname>PostgreSQL</productname> source code, and in some cases
-     to assist with recovery of severely damaged databases.  There
-     should be no reason to use them on a production database.
-     As such, they have been excluded from the sample
+     The following parameters are intended for developer testing, and
+     should never be used on a production database.  However, some of
+     them can be used to assist with the recovery of severely damaged
+     databases.  As such, they have been excluded from the sample
      <filename>postgresql.conf</filename> file.  Note that many of these
      parameters require special source compilation flags to work at all.
      -->
@@ -2820,6 +2944,89 @@ WALディスクブロックの容量を報告します。
         This parameter can only be set by superusers.
 -->
 スーパーユーザだけがこのパラメータを設定できます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-debug-discard-caches" xreflabel="debug_discard_caches">
+      <term><varname>debug_discard_caches</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>debug_discard_caches</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        When set to <literal>1</literal>, each system catalog cache entry is
+        invalidated at the first possible opportunity, whether or not
+        anything that would render it invalid really occurred.  Caching of
+        system catalogs is effectively disabled as a result, so the server
+        will run extremely slowly.  Higher values run the cache invalidation
+        recursively, which is even slower and only useful for testing
+        the caching logic itself.  The default value of <literal>0</literal>
+        selects normal catalog caching behavior.
+       </para>
+
+       <para>
+        This parameter can be very helpful when trying to trigger
+        hard-to-reproduce bugs involving concurrent catalog changes, but it
+        is otherwise rarely needed.  See the source code files
+        <filename>inval.c</filename> and
+        <filename>pg_config_manual.h</filename> for details.
+       </para>
+
+       <para>
+        This parameter is supported when
+        <symbol>DISCARD_CACHES_ENABLED</symbol> was defined at compile time
+        (which happens automatically when using the
+        <application>configure</application> option
+        <option>--enable-cassert</option>).  In production builds, its value
+        will always be <literal>0</literal> and attempts to set it to another
+        value will raise an error.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-force-parallel-mode" xreflabel="force_parallel_mode">
+      <term><varname>force_parallel_mode</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>force_parallel_mode</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Allows the use of parallel queries for testing purposes even in cases
+        where no performance benefit is expected.
+        The allowed values of <varname>force_parallel_mode</varname> are
+        <literal>off</literal> (use parallel mode only when it is expected to improve
+        performance), <literal>on</literal> (force parallel query for all queries
+        for which it is thought to be safe), and <literal>regress</literal> (like
+        <literal>on</literal>, but with additional behavior changes as explained
+        below).
+       </para>
+
+       <para>
+        More specifically, setting this value to <literal>on</literal> will add
+        a <literal>Gather</literal> node to the top of any query plan for which this
+        appears to be safe, so that the query runs inside of a parallel worker.
+        Even when a parallel worker is not available or cannot be used,
+        operations such as starting a subtransaction that would be prohibited
+        in a parallel query context will be prohibited unless the planner
+        believes that this will cause the query to fail.  If failures or
+        unexpected results occur when this option is set, some functions used
+        by the query may need to be marked <literal>PARALLEL UNSAFE</literal>
+        (or, possibly, <literal>PARALLEL RESTRICTED</literal>).
+       </para>
+
+       <para>
+        Setting this value to <literal>regress</literal> has all of the same effects
+        as setting it to <literal>on</literal> plus some additional effects that are
+        intended to facilitate automated regression testing.  Normally,
+        messages from a parallel worker include a context line indicating that,
+        but a setting of <literal>regress</literal> suppresses this line so that the
+        output is the same as in non-parallel execution.  Also,
+        the <literal>Gather</literal> nodes added to plans by this setting are hidden
+        in <literal>EXPLAIN</literal> output so that the output matches what
+        would be obtained if this setting were turned <literal>off</literal>.
        </para>
       </listitem>
      </varlistentry>
@@ -3125,10 +3332,10 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
       </term>
       <listitem>
        <para>
-       <!--
+<!--
         If set, do not trace locks for tables below this OID (used to avoid
         output on system tables).
-       -->
+-->
        設定すると、このOID未満のテーブルに関するロックの追跡を行いません。
        （システムテーブルに関する出力を抑えるために使用します。）
        </para>
@@ -3500,7 +3707,7 @@ JITコンパイルが有効な時に式がJITコンパイルされるかどう�
 <!--
         If LLVM has the required functionality, emit the data needed to allow
         <productname>perf</productname> to profile functions generated by JIT.
-        This writes out files to <filename>$HOME/.debug/jit/</filename>; the
+        This writes out files to <filename>~/.debug/jit/</filename>; the
         user is responsible for performing cleanup when desired.
         The default setting is <literal>off</literal>.
         This parameter can only be set at server start.
@@ -3532,6 +3739,25 @@ LLVMに要求された機能がある場合は、JITが生成した関数を<pro
 JITコンパイルが有効な時にタプルデフォーミングがJITコンパイルされるかどうかを決定します。
 （<xref linkend="jit-decision"/>参照。）
 デフォルトは<literal>on</literal>です。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-remove-temp-files-after-crash" xreflabel="remove_temp_files_after_crash">
+      <term><varname>remove_temp_files_after_crash</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>remove_temp_files_after_crash</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        When set to <literal>on</literal>, which is the default,
+        <productname>PostgreSQL</productname> will automatically remove
+        temporary files after a backend crash. If disabled, the files will be
+        retained and may be used for debugging, for example. Repeated crashes
+        may however result in accumulation of useless files. This parameter
+        can only be set in the <filename>postgresql.conf</filename> file or on
+        the server command line.
        </para>
       </listitem>
      </varlistentry>

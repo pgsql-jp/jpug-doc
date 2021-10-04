@@ -3045,6 +3045,38 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>pg_get_catalog_foreign_keys</primary>
+        </indexterm>
+        <function>pg_get_catalog_foreign_keys</function> ()
+        <returnvalue>setof record</returnvalue>
+        ( <parameter>fktable</parameter> <type>regclass</type>,
+          <parameter>fkcols</parameter> <type>text[]</type>,
+          <parameter>pktable</parameter> <type>regclass</type>,
+          <parameter>pkcols</parameter> <type>text[]</type>,
+          <parameter>is_array</parameter> <type>boolean</type>,
+          <parameter>is_opt</parameter> <type>boolean</type> )
+       </para>
+       <para>
+        Returns a set of records describing the foreign key relationships
+        that exist within the <productname>PostgreSQL</productname> system
+        catalogs.
+        The <parameter>fktable</parameter> column contains the name of the
+        referencing catalog, and the <parameter>fkcols</parameter> column
+        contains the name(s) of the referencing column(s).  Similarly,
+        the <parameter>pktable</parameter> column contains the name of the
+        referenced catalog, and the <parameter>pkcols</parameter> column
+        contains the name(s) of the referenced column(s).
+        If <parameter>is_array</parameter> is true, the last referencing
+        column is an array, each of whose elements should match some entry
+        in the referenced catalog.
+        If <parameter>is_opt</parameter> is true, the referencing column(s)
+        are allowed to contain zeroes instead of a valid reference.
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>pg_get_constraintdef</primary>
         </indexterm>
         <function>pg_get_constraintdef</function> ( <parameter>constraint</parameter> <type>oid</type> <optional>, <parameter>pretty</parameter> <type>boolean</type> </optional> )
@@ -3190,7 +3222,9 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
         <returnvalue>setof record</returnvalue>
         ( <parameter>word</parameter> <type>text</type>,
         <parameter>catcode</parameter> <type>"char"</type>,
-        <parameter>catdesc</parameter> <type>text</type> )
+        <parameter>barelabel</parameter> <type>boolean</type>,
+        <parameter>catdesc</parameter> <type>text</type>,
+        <parameter>baredesc</parameter> <type>text</type> )
        </para>
        <para>
 <!--
@@ -3201,8 +3235,15 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
         keyword, <literal>C</literal> for a keyword that can be a column
         name, <literal>T</literal> for a keyword that can be a type or
         function name, or <literal>R</literal> for a fully reserved keyword.
+        The <parameter>barelabel</parameter> column
+        contains <literal>true</literal> if the keyword can be used as
+        a <quote>bare</quote> column label in <command>SELECT</command> lists,
+        or <literal>false</literal> if it can only be used
+        after <literal>AS</literal>.
         The <parameter>catdesc</parameter> column contains a
-        possibly-localized string describing the category.
+        possibly-localized string describing the keyword's category.
+        The <parameter>baredesc</parameter> column contains a
+        possibly-localized string describing the keyword's column label status.
 -->
 サーバが認識するSQLキーワードを記述するレコードの集合を返します。
 <parameter>word</parameter>列にはキーワードが含まれます。
@@ -4100,7 +4141,8 @@ SELECT collation for ('foo' COLLATE "de_DE");
         object).  This description is intended to be human-readable, and might
         be translated, depending on server configuration.  This is especially
         useful to determine the identity of an object referenced in the
-        <structname>pg_depend</structname> catalog.
+        <structname>pg_depend</structname> catalog. This function returns
+        <literal>NULL</literal> values for undefined objects.
 -->
 カタログOID、オブジェクトOID、もしくはサブオブジェクトOID（たとえばテーブル中の列番号。オブジェクト全体を参照している場合は0）で指定されたデータベースオブジェクトのテキストによる説明を返します。
 この説明はサーバの設定に依存しますが、人が読んでわかる、そして翻訳も可能になることを目的としたのもです。
@@ -4137,7 +4179,8 @@ SELECT collation for ('foo' COLLATE "de_DE");
         otherwise <literal>NULL</literal>;
         <parameter>identity</parameter> is the complete object identity, with
         the precise format depending on object type, and each name within the
-        format being schema-qualified and quoted as necessary.
+        format being schema-qualified and quoted as necessary. Undefined
+        objects are identified with <literal>NULL</literal> values.
 -->
 カタログOID、オブジェクトOID、そしてサブオブジェクトIDにより指定されるデータベースオブジェクトを一意に特定するために十分な情報を含む行を返します。
 この情報は機械による読み取りを目的としており、決して翻訳されません。
@@ -4211,6 +4254,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
         <parameter>objsubid</parameter> is the sub-object ID, or zero if none.
         This function is the inverse
         of <function>pg_identify_object_as_address</function>.
+        Undefined objects are identified with <literal>NULL</literal> values.
 -->
 型、オブジェクト名および引数の配列で指定されたデータベースオブジェクトを一意に特定するために十分な情報を含む行を返します。
 返される値は、<structname>pg_depend</structname>などのシステムカタログで使用されるもので、<function>pg_identify_object</function>や<function>pg_describe_object</function>など他のシステム関数に渡すことができます。
@@ -4861,17 +4905,33 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>pg_xact_commit_timestamp_origin</primary>
+        </indexterm>
+        <function>pg_xact_commit_timestamp_origin</function> ( <type>xid</type> )
+        <returnvalue>record</returnvalue>
+        ( <parameter>timestamp</parameter> <type>timestamp with time zone</type>,
+         <parameter>roident</parameter> <type>oid</type>)
+       </para>
+       <para>
+         Returns the commit timestamp and replication origin of a transaction.
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>pg_last_committed_xact</primary>
         </indexterm>
         <function>pg_last_committed_xact</function> ()
         <returnvalue>record</returnvalue>
         ( <parameter>xid</parameter> <type>xid</type>,
-        <parameter>timestamp</parameter> <type>timestamp with time zone</type> )
+        <parameter>timestamp</parameter> <type>timestamp with time zone</type>,
+        <parameter>roident</parameter> <type>oid</type> )
        </para>
        <para>
 <!--
-        Returns the transaction ID and commit timestamp of the latest
-        committed transaction.
+        Returns the transaction ID, commit timestamp and replication origin
+        of the latest committed transaction.
 -->
 直近にコミットしたトランザクションのトランザクションIDとコミットタイムスタンプを返します。
        </para></entry>
@@ -5358,8 +5418,9 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         setting <parameter>setting_name</parameter>.  If there is no such
         setting, <function>current_setting</function> throws an error
         unless <parameter>missing_ok</parameter> is supplied and
-        is <literal>true</literal>.  This function corresponds to
-        the <acronym>SQL</acronym> command <command>SHOW</command>.
+        is <literal>true</literal> (in which case NULL is returned).
+        This function corresponds to
+        the <acronym>SQL</acronym> command <xref linkend="sql-show"/>.
 -->
 現在の<parameter>setting_name</parameter>の設定値を返します。
 そのような設定がなければ、<parameter>missing_ok</parameter>が渡され、それが<literal>true</literal>でない限り<function>current_setting</function>はエラーを引き起こします。
@@ -5387,10 +5448,10 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         Sets the parameter <parameter>setting_name</parameter>
         to <parameter>new_value</parameter>, and returns that value.
         If <parameter>is_local</parameter> is <literal>true</literal>, the new
-        value will only apply for the current transaction. If you want the new
-        value to apply for the current session, use <literal>false</literal>
-        instead. This function corresponds to the SQL
-        command <command>SET</command>.
+        value will only apply during the current transaction. If you want the
+        new value to apply for the rest of the current session,
+        use <literal>false</literal> instead. This function corresponds to
+        the SQL command <xref linkend="sql-set"/>.
 -->
 <parameter>setting_name</parameter>パラメータに<parameter>new_value</parameter>を設定し、その値を返します。
 <parameter>is_local</parameter>が渡され、それが<literal>true</literal>なら新しい値は現在のトランザクションにのみ適用されます。
@@ -5438,7 +5499,8 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
    <para>
 <!--
     Each of these functions returns <literal>true</literal> if
-    successful and <literal>false</literal> otherwise.
+    the signal was successfully sent and <literal>false</literal>
+    if sending the signal failed.
 -->
 これらのそれぞれの関数は成功の場合<literal>true</literal>（真）を返し、そうでない場合は<literal>false</literal>（偽）を返します。
    </para>
@@ -5492,6 +5554,26 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>pg_log_backend_memory_contexts</primary>
+        </indexterm>
+        <function>pg_log_backend_memory_contexts</function> ( <parameter>pid</parameter> <type>integer</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Requests to log the memory contexts of the backend with the
+        specified process ID.  These memory contexts will be logged at
+        <literal>LOG</literal> message level. They will appear in
+        the server log based on the log configuration set
+        (See <xref linkend="runtime-config-logging"/> for more information),
+        but will not be sent to the client regardless of
+        <xref linkend="guc-client-min-messages"/>.
+        Only superusers can request to log the memory contexts.
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>pg_reload_conf</primary>
         </indexterm>
         <function>pg_reload_conf</function> ()
@@ -5503,7 +5585,10 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         server to reload their configuration files.  (This is initiated by
         sending a <systemitem>SIGHUP</systemitem> signal to the postmaster
         process, which in turn sends <systemitem>SIGHUP</systemitem> to each
-        of its children.)
+        of its children.) You can use the
+        <link linkend="view-pg-file-settings"><structname>pg_file_settings</structname></link> and
+        <link linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link> views
+        to check the configuration files for possible errors, before reloading.
 -->
 <productname>PostgreSQL</productname>のすべてのサーバプロセスに構成ファイルの再読み込みをさせます。
 （これは<systemitem>SIGHUP</systemitem>シグナルをpostmasterプロセスに送ることによって始まり、postmasterは続いて<systemitem>SIGHUP</systemitem>を子に送ります。）
@@ -5534,7 +5619,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         <indexterm>
          <primary>pg_terminate_backend</primary>
         </indexterm>
-        <function>pg_terminate_backend</function> ( <parameter>pid</parameter> <type>integer</type> )
+        <function>pg_terminate_backend</function> ( <parameter>pid</parameter> <type>integer</type>, <parameter>timeout</parameter> <type>bigint</type> <literal>DEFAULT</literal> <literal>0</literal> )
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
@@ -5548,6 +5633,17 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
 バックエンドが指定したプロセスIDを持つセッションを終了させます。
 呼び出し側のロールが終了されるバックエンドのロールのメンバーであるか、<literal>pg_signal_backend</literal>の権限を与えられている場合に実行できます。
 ただし、スーパーユーザのバックエンドはスーパーユーザのみが終了できます。
+       </para>
+       <para>
+        If <parameter>timeout</parameter> is not specified or zero, this
+        function returns <literal>true</literal> whether the process actually
+        terminates or not, indicating only that the sending of the signal was
+        successful.  If the <parameter>timeout</parameter> is specified (in
+        milliseconds) and greater than zero, the function waits until the
+        process is actually terminated or until the given time has passed. If
+        the process is terminated, the function
+        returns <literal>true</literal>.  On timeout, a warning is emitted and
+        <literal>false</literal> is returned.
        </para></entry>
       </row>
      </tbody>
@@ -5572,6 +5668,38 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
 <function>pg_cancel_backend</function>と<function>pg_terminate_backend</function>は（それぞれ、<systemitem>SIGINT</systemitem>または<systemitem>SIGTERM</systemitem>）シグナルをプロセス識別子で特定されたバックエンドプロセスに送ります。
 使用中のバックエンドのプロセス識別子は<structname>pg_stat_activity</structname>ビューの<structfield>pid</structfield>列から、もしくは、（Unixでは<application>ps</application>、<productname>Windows</productname>では<application>Task Manager</application>により）サーバ上の<command>postgres</command>プロセスをリストすることで見つけられます。
 実行中のバックエンドのロールは<structname>pg_stat_activity</structname>の<structfield>usename</structfield>列から確認することができます。
+   </para>
+
+   <para>
+    <function>pg_log_backend_memory_contexts</function> can be used
+    to log the memory contexts of a backend process. For example:
+<programlisting>
+postgres=# SELECT pg_log_backend_memory_contexts(pg_backend_pid());
+ pg_log_backend_memory_contexts 
+--------------------------------
+ t
+(1 row)
+</programlisting>
+One message for each memory context will be logged. For example:
+<screen>
+LOG:  logging memory contexts of PID 10377
+STATEMENT:  SELECT pg_log_backend_memory_contexts(pg_backend_pid());
+LOG:  level: 0; TopMemoryContext: 80800 total in 6 blocks; 14432 free (5 chunks); 66368 used
+LOG:  level: 1; pgstat TabStatusArray lookup hash table: 8192 total in 1 blocks; 1408 free (0 chunks); 6784 used
+LOG:  level: 1; TopTransactionContext: 8192 total in 1 blocks; 7720 free (1 chunks); 472 used
+LOG:  level: 1; RowDescriptionContext: 8192 total in 1 blocks; 6880 free (0 chunks); 1312 used
+LOG:  level: 1; MessageContext: 16384 total in 2 blocks; 5152 free (0 chunks); 11232 used
+LOG:  level: 1; Operator class cache: 8192 total in 1 blocks; 512 free (0 chunks); 7680 used
+LOG:  level: 1; smgr relation table: 16384 total in 2 blocks; 4544 free (3 chunks); 11840 used
+LOG:  level: 1; TransactionAbortContext: 32768 total in 1 blocks; 32504 free (0 chunks); 264 used
+...
+LOG:  level: 1; ErrorContext: 8192 total in 1 blocks; 7928 free (3 chunks); 264 used
+LOG:  Grand total: 1651920 bytes in 201 blocks; 622360 free (88 chunks); 1029560 used
+</screen>
+    If there are more than 100 child contexts under the same parent, the first
+    100 child contexts are logged, along with a summary of the remaining contexts.
+    Note that frequent calls to this function could incur significant overhead,
+    because it may generate a large number of log messages.
    </para>
 
   </sect2>
@@ -5996,12 +6124,12 @@ falseの場合、<function>pg_stop_backup</function>はバックアップの完�
         <indexterm>
          <primary>pg_wal_lsn_diff</primary>
         </indexterm>
-        <function>pg_wal_lsn_diff</function> ( <parameter>lsn</parameter> <type>pg_lsn</type>, <parameter>lsn</parameter> <type>pg_lsn</type> )
+        <function>pg_wal_lsn_diff</function> ( <parameter>lsn1</parameter> <type>pg_lsn</type>, <parameter>lsn2</parameter> <type>pg_lsn</type> )
         <returnvalue>numeric</returnvalue>
        </para>
        <para>
 <!--
-        Calculates the difference in bytes between two write-ahead log
+        Calculates the difference in bytes (<parameter>lsn1</parameter> - <parameter>lsn2</parameter>) between two write-ahead log
         locations.  This can be used
         with <structname>pg_stat_replication</structname> or some of the
         functions shown in <xref linkend="functions-admin-backup-table"/> to
@@ -6255,9 +6383,26 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
        </para>
        <para>
 <!--
-        Returns true if recovery is paused.
+        Returns true if recovery pause is requested.
 -->
 リカバリが中断中なら真を返します。
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>pg_get_wal_replay_pause_state</primary>
+        </indexterm>
+        <function>pg_get_wal_replay_pause_state</function> ()
+        <returnvalue>text</returnvalue>
+       </para>
+       <para>
+        Returns recovery pause state.  The return values are <literal>
+        not paused</literal> if pause is not requested, <literal>
+        pause requested</literal> if pause is requested but recovery is
+        not yet paused, and <literal>paused</literal> if the recovery is
+        actually paused.
        </para></entry>
       </row>
 
@@ -6305,10 +6450,15 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
        </para>
        <para>
 <!--
-        Pauses recovery.  While recovery is paused, no further database
-        changes are applied.  If hot standby is active, all new queries will
-        see the same consistent snapshot of the database, and no further query
-        conflicts will be generated until recovery is resumed.
+        Request to pause recovery.  A request doesn't mean that recovery stops
+        right away.  If you want a guarantee that recovery is actually paused,
+        you need to check for the recovery pause state returned by
+        <function>pg_get_wal_replay_pause_state()</function>.  Note that
+        <function>pg_is_wal_replay_paused()</function> returns whether a request
+        is made.  While recovery is paused, no further database changes are applied.
+        If hot standby is active, all new queries will see the same consistent
+        snapshot of the database, and no further query conflicts will be generated
+        until recovery is resumed.
 -->
 リカバリを中断します。
 リカバリが中断している間、データベースへの変更は適用されません。
@@ -6504,7 +6654,9 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
     <xref linkend="streaming-replication-slots"/>, and
     <xref linkend="replication-origins"/>
     for information about the underlying features.
-    Use of functions for replication origin is restricted to superusers.
+    Use of functions for replication origin is only allowed to the
+    superuser by default, but may be allowed to other users by using the
+    <literal>GRANT</literal> command.
     Use of functions for replication slots is restricted to superusers
     and users having <literal>REPLICATION</literal> privilege.
 -->
@@ -6621,7 +6773,7 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         <indexterm>
          <primary>pg_create_logical_replication_slot</primary>
         </indexterm>
-        <function>pg_create_logical_replication_slot</function> ( <parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type> <optional>, <parameter>temporary</parameter> <type>boolean</type> </optional> )
+        <function>pg_create_logical_replication_slot</function> ( <parameter>slot_name</parameter> <type>name</type>, <parameter>plugin</parameter> <type>name</type> <optional>, <parameter>temporary</parameter> <type>boolean</type>, <parameter>two_phase</parameter> <type>boolean</type> </optional> )
         <returnvalue>record</returnvalue>
         ( <parameter>slot_name</parameter> <type>name</type>,
         <parameter>lsn</parameter> <type>pg_lsn</type> )
@@ -6634,9 +6786,11 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         parameter, <parameter>temporary</parameter>, when set to true, specifies that
         the slot should not be permanently stored to disk and is only meant
         for use by the current session. Temporary slots are also
-        released upon any error. A call to this function has the same
-        effect as the replication protocol command
-        <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
+        released upon any error. The optional fourth parameter,
+        <parameter>two_phase</parameter>, when set to true, specifies
+        that the decoding of prepared transactions is enabled for this
+        slot. A call to this function has the same effect as the replication
+        protocol command <literal>CREATE_REPLICATION_SLOT ... LOGICAL</literal>.
 -->
 出力プラグイン<parameter>plugin</parameter>を使って<parameter>slot_name</parameter>という名前の新しい論理（デコーディング）レプリケーションスロットを作ります。
 3番目のオプションパラメータ<parameter>temporary</parameter>をtrueに設定すると、このスロットを永続的にディスクに保存するべきではなく、現在のセッションでのみ使われることを意図します。
@@ -7078,8 +7232,8 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
 <!--
     The functions shown in <xref linkend="functions-admin-dbsize"/> calculate
     the disk space usage of database objects, or assist in presentation
-    of usage results.
-    All these functions return sizes measured in bytes.  If an OID that does
+    or understanding of usage results.  <literal>bigint</literal> results
+    are measured in bytes.  If an OID that does
     not represent an existing object is passed to one of these
     functions, <literal>NULL</literal> is returned.
 -->
@@ -7128,6 +7282,21 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
 -->
 個々のデータ値を格納するのに使用されるバイト数を表示します。
 テーブルの列の値に直接適用すると、圧縮が行われていればそれを反映します。
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>pg_column_compression</primary>
+        </indexterm>
+        <function>pg_column_compression</function> ( <type>"any"</type> )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para>
+        Shows the compression algorithm that was used to compress
+        an individual variable-length value. Returns <literal>NULL</literal>
+        if the value is not compressed.
        </para></entry>
       </row>
 
@@ -7350,11 +7519,8 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
     <type>regclass</type> argument, which is simply the OID of the table or index
     in the <structname>pg_class</structname> system catalog.  You do not have to look up
     the OID by hand, however, since the <type>regclass</type> data type's input
-    converter will do the work for you.  Just write the table name enclosed in
-    single quotes so that it looks like a literal constant.  For compatibility
-    with the handling of ordinary <acronym>SQL</acronym> names, the string
-    will be converted to lower case unless it contains double quotes around
-    the table name.
+    converter will do the work for you.  See <xref linkend="datatype-oid"/>
+    for details.
 -->
 上記の関数において、テーブルやインデックスを<type>regclass</type>引数として受け取って処理するものがありますが、この引数は単に<structname>pg_class</structname>システムカタログにあるテーブルやインデックスのOIDです。
 ただし、<type>regclass</type>データ型が自動で入力変換を行うため、ユーザが手動で該当するOIDを調べる必要はありません。リテラル定数のようにシングルクオートで囲んだテーブル名を記述するだけです。
@@ -7545,6 +7711,7 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         be <literal>pg_catalog</literal>, but that is not a requirement; the
         collations could be installed into some other schema as well.  The
         function returns the number of new collation objects it created.
+        Use of this function is restricted to superusers.
 -->
 オペレーティングシステム上にあるすべてのロケールに基づき、システムカタログ<structname>pg_collation</structname>に照合順序を追加します。
 これは<command>initdb</command>が使用しているもので、より詳細については<xref linkend="collation-managing"/>を参照してください。

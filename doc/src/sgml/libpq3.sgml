@@ -68,7 +68,7 @@ Microsoft Windowsでは、このファイルの名前は<filename>%APPDATA%\post
    the <literal>host</literal> parameter
    matches <application>libpq</application>'s default socket directory path.
    In a standby server, a database field of <literal>replication</literal>
-   matches streaming replication connections made to the master server.
+   matches streaming replication connections made to the primary server.
    The database field is of limited usefulness otherwise, because users have
    the same password for all databases in the same cluster.
 -->
@@ -124,9 +124,9 @@ Microsoft Windowsにおいては、このファイルが安全なディレクト
 <!--
    The connection service file allows libpq connection parameters to be
    associated with a single service name. That service name can then be
-   specified by a libpq connection, and the associated settings will be
+   specified in a libpq connection string, and the associated settings will be
    used. This allows connection parameters to be modified without requiring
-   a recompile of the libpq application. The service name can also be
+   a recompile of the libpq-using application. The service name can also be
    specified using the <envar>PGSERVICE</envar> environment variable.
 -->
 接続サービスファイルにより、libpq接続パラメータをひとつのサービス名に関連付けることができます。
@@ -136,25 +136,24 @@ Microsoft Windowsにおいては、このファイルが安全なディレクト
   </para>
 
   <para>
-<!--
-   The connection service file can be a per-user service file
-   at <filename>~/.pg_service.conf</filename> or the location
-   specified by the environment variable <envar>PGSERVICEFILE</envar>,
-   or it can be a system-wide file
-   at <filename>`pg_config &#045;-sysconfdir`/pg_service.conf</filename> or in the directory
-   specified by the environment variable
-   <envar>PGSYSCONFDIR</envar>.  If service definitions with the same
-   name exist in the user and the system file, the user file takes
-   precedence.
--->
-この接続サービスファイルは、ユーザごとに<filename>~/.pg_service.conf</filename>というサービスファイルとすること、または、<envar>PGSERVICEFILE</envar>環境変数で指定される場所にすることができます。
-また、システム全体についてのファイルとして<filename>`pg_config --sysconfdir`/pg_service.conf</filename>とすること、<envar>PGSYSCONFDIR</envar>環境変数で指定されたディレクトリに置くことができます。
-ユーザ用、システム用のファイルで同名のサービス定義が存在する場合、ユーザ用のものが優先されます。
+   Service names can be defined in either a per-user service file or a
+   system-wide file.  If the same service name exists in both the user
+   and the system file, the user file takes precedence.
+   By default, the per-user service file is located
+   at <filename>~/.pg_service.conf</filename>; this can be overridden by
+   setting the environment variable <envar>PGSERVICEFILE</envar>.
+   The system-wide file is named <filename>pg_service.conf</filename>.
+   By default it is sought in the <filename>etc</filename> directory
+   of the <productname>PostgreSQL</productname> installation
+   (use <literal>pg_config --sysconfdir</literal> to identify this
+   directory precisely).  Another directory, but not a different file
+   name, can be specified by setting the environment variable
+   <envar>PGSYSCONFDIR</envar>.
   </para>
 
   <para>
 <!--
-   The file uses an <quote>INI file</quote> format where the section
+   Either service file uses an <quote>INI file</quote> format where the section
    name is the service name and the parameters are connection
    parameters; see <xref linkend="libpq-paramkeywords"/> for a list.  For
    example:
@@ -171,10 +170,23 @@ port=5433
 user=admin
 </programlisting>
 <!--
-   An example file is provided at
+   An example file is provided in
+   the <productname>PostgreSQL</productname> installation at
    <filename>share/pg_service.conf.sample</filename>.
 -->
 例となるファイルが<filename>share/pg_service.conf.sample</filename>にあります。
+  </para>
+
+  <para>
+   Connection parameters obtained from a service file are combined with
+   parameters obtained from other sources.  A service file setting
+   overrides the corresponding environment variable, and in turn can be
+   overridden by a value given directly in the connection string.
+   For example, using the above service file, a connection string
+   <literal>service=mydb port=5434</literal> will use
+   host <literal>somehost</literal>, port <literal>5434</literal>,
+   user <literal>admin</literal>, and other parameters as set by
+   environment variables or built-in defaults.
   </para>
  </sect1>
 
@@ -214,8 +226,9 @@ user=admin
    <literal>ldap://</literal> will be recognized as an LDAP URL and an
    LDAP query will be performed. The result must be a list of
    <literal>keyword = value</literal> pairs which will be used to set
-   connection options.  The URL must conform to RFC 1959 and be of the
-   form
+   connection options.  The URL must conform to
+   <ulink url="https://tools.ietf.org/html/rfc1959">RFC 1959</ulink>
+   and be of the form
 <synopsis>
 ldap://[<replaceable>hostname</replaceable>[:<replaceable>port</replaceable>]]/<replaceable>search_base</replaceable>?<replaceable>attribute</replaceable>?<replaceable>search_scope</replaceable>?<replaceable>filter</replaceable>
 </synopsis>
@@ -527,15 +540,17 @@ Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%A
   <para>
 <!--
    The key may be
-   stored in cleartext or encrypted with a passphrase using any algorithm supported
-   by OpenSSL, like AES-128. If the key is stored encrypted, then the passphrase
-   may be provided in the <xref linkend="libpq-connect-sslpassword"/> connection
-   option. If an encrypted key is supplied and the <literal>sslpassword</literal>
-   option is absent or blank, a password will be prompted for interactively by
-   OpenSSL with a <literal>Enter PEM pass phrase:</literal>
-   prompt if a TTY is available. Applications can override the client certificate
-   prompt and the handling of the <literal>sslpassword</literal> parameter by supplying
-   their own key password callback; see
+   stored in cleartext or encrypted with a passphrase using any algorithm
+   supported by <productname>OpenSSL</productname>, like AES-128. If the key
+   is stored encrypted, then the passphrase may be provided in the
+   <xref linkend="libpq-connect-sslpassword"/> connection option. If an
+   encrypted key is supplied and the <literal>sslpassword</literal> option
+   is absent or blank, a password will be prompted for interactively by
+   <productname>OpenSSL</productname> with a
+   <literal>Enter PEM pass phrase:</literal> prompt if a TTY is available.
+   Applications can override the client certificate prompt and the handling
+   of the <literal>sslpassword</literal> parameter by supplying their own
+   key password callback; see
    <xref linkend="libpq-pqsetsslkeypasshook-openssl"/>.
 -->
 キーは平文テキストで、あるいは、OpenSSLで対応しているAES-128など任意のアルゴリズムを使ってパスフレーズで暗号化して、格納できます。
@@ -590,7 +605,7 @@ SSLは以下の３種類の攻撃に対する保護を提供することがで�
 
     <varlistentry>
 <!--
-     <term>Man in the middle (<acronym>MITM</acronym>)</term>
+     <term>Man-in-the-middle (<acronym>MITM</acronym>)</term>
 -->
      <term>中間者攻撃（<acronym>MITM</acronym>）</term>
      <listitem>
@@ -950,7 +965,7 @@ void PQinitOpenSSL(int do_ssl, int do_crypto);
       <para>
 <!--
        When <parameter>do_ssl</parameter> is non-zero, <application>libpq</application>
-       will initialize the <application>OpenSSL</application> library before first
+       will initialize the <productname>OpenSSL</productname> library before first
        opening a database connection.  When <parameter>do_crypto</parameter> is
        non-zero, the <literal>libcrypto</literal> library will be initialized.  By
        default (if <xref linkend="libpq-PQinitOpenSSL"/> is not called), both libraries
@@ -965,7 +980,7 @@ SSLサポートがコンパイルされていない場合、この関数は存�
 
       <para>
 <!--
-       If your application uses and initializes either <application>OpenSSL</application>
+       If your application uses and initializes either <productname>OpenSSL</productname>
        or its underlying <literal>libcrypto</literal> library, you <emphasis>must</emphasis>
        call this function with zeroes for the appropriate parameter(s)
        before first opening a database connection.  Also be sure that you
@@ -994,7 +1009,7 @@ void PQinitSSL(int do_ssl);
        This function is equivalent to
        <literal>PQinitOpenSSL(do_ssl, do_ssl)</literal>.
        It is sufficient for applications that initialize both or neither
-       of <application>OpenSSL</application> and <literal>libcrypto</literal>.
+       of <productname>OpenSSL</productname> and <literal>libcrypto</literal>.
 -->
 この関数は<literal>PQinitOpenSSL(do_ssl, do_ssl)</literal>と等価です。
 <application>OpenSSL</application>および<literal>libcrypto</literal>の両方を初期化する、もしくは両方ともしないアプリケーションにとっては（この関数で）十分です。
@@ -1422,8 +1437,7 @@ main(int argc, char **argv)
     /* バックエンドとの接続確立に成功したかを確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
-        fprintf(stderr, "Connection to database failed: %s",
-                PQerrorMessage(conn));
+        fprintf(stderr, "%s", PQerrorMessage(conn));
         exit_nicely(conn);
     }
 
@@ -1652,8 +1666,7 @@ main(int argc, char **argv)
     /* バックエンドとの接続確立に成功したかを確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
-        fprintf(stderr, "Connection to database failed: %s",
-                PQerrorMessage(conn));
+        fprintf(stderr, "%s", PQerrorMessage(conn));
         exit_nicely(conn);
     }
 
@@ -1955,8 +1968,7 @@ main(int argc, char **argv)
     /* バックエンドとの接続確立に成功したかを確認する */
     if (PQstatus(conn) != CONNECTION_OK)
     {
-        fprintf(stderr, "Connection to database failed: %s",
-                PQerrorMessage(conn));
+        fprintf(stderr, "%s", PQerrorMessage(conn));
         exit_nicely(conn);
     }
 

@@ -185,55 +185,53 @@ PGconn *PQconnectdbParams(const char * const *keywords,
       </para>
 
       <para>
-<!--
-       When <literal>expand_dbname</literal> is non-zero, the
-       <parameter>dbname</parameter> key word value is allowed to be recognized
-       as a connection string. Only the first occurrence of
-       <parameter>dbname</parameter> is expanded this way, any subsequent
-       <parameter>dbname</parameter> value is processed as plain database name. More
-       details on the possible connection string formats appear in
-       <xref linkend="libpq-connstring"/>.
--->
-<literal>expand_dbname</literal>が非ゼロの場合、<parameter>dbname</parameter>キーワードの値を接続文字列として認識させることができます。
-最初に出現した<parameter>dbname</parameter>だけがこのように展開され、後続の<parameter>dbname</parameter>値は通常のデータベース名として処理されます。
-接続文字列の取り得る書式に関する詳細については<xref linkend="libpq-connstring"/>を参照してください。
-      </para>
-
-      <para>
-<!--
        The passed arrays can be empty to use all default parameters, or can
-       contain one or more parameter settings. They should be matched in length.
-       Processing will stop at the first <symbol>NULL</symbol> element
+       contain one or more parameter settings. They must be matched in length.
+       Processing will stop at the first <symbol>NULL</symbol> entry
        in the <literal>keywords</literal> array.
--->
-空の配列を渡してすべてデフォルトパラメータを使用することができます。
-また渡される配列に1つ以上のパラメータ設定を持たせることもできます。
-これらの長さは一致しなければなりません。
-<literal>keywords</literal>配列の最初の<symbol>NULL</symbol>要素で処理は停止します。
+       Also, if the <literal>values</literal> entry associated with a
+       non-<symbol>NULL</symbol> <literal>keywords</literal> entry is
+       <symbol>NULL</symbol> or an empty string, that entry is ignored and
+       processing continues with the next pair of array entries.
       </para>
 
       <para>
-<!--
-       If  any  parameter is <symbol>NULL</symbol> or an empty string, the corresponding
-       environment variable (see <xref linkend="libpq-envars"/>) is checked.
-       If the  environment  variable is not set either, then the indicated
-       built-in defaults are used.
--->
-パラメータが<symbol>NULL</symbol>や空文字列の場合には、対応する環境変数（<xref linkend="libpq-envars"/>参照）が検査されます。
-環境変数も設定されていない場合は、組み込みのデフォルト値が使用されます。
+       When <literal>expand_dbname</literal> is non-zero, the value for
+       the first <parameter>dbname</parameter> key word is checked to see
+       if it is a <firstterm>connection string</firstterm>.  If so, it
+       is <quote>expanded</quote> into the individual connection
+       parameters extracted from the string.  The value is considered to
+       be a connection string, rather than just a database name, if it
+       contains an equal sign (<literal>=</literal>) or it begins with a
+       URI scheme designator.  (More details on connection string formats
+       appear in <xref linkend="libpq-connstring"/>.)  Only the first
+       occurrence of <parameter>dbname</parameter> is treated in this way;
+       any subsequent <parameter>dbname</parameter> parameter is processed
+       as a plain database name.
       </para>
 
       <para>
-<!--
-       In general key words are processed from the beginning of these arrays in index
-       order. The effect of this is that when key words are repeated, the last processed
-       value is retained. Therefore, through careful placement of the
-       <parameter>dbname</parameter> key word, it is possible to determine what may
-       be overridden by a <parameter>conninfo</parameter> string, and what may not.
--->
-一般的にキーワードはこれらの配列の先頭からインデックス順で処理されます。
-この影響はキーワードが繰り返された場合で、最後に処理された値が残ることになります。
-このため、<parameter>dbname</parameter>キーワードの記述場所に注意することで、<parameter>conninfo</parameter>文字列により何が上書きされるか、何が上書きされないかを決定することができます。
+       In general the parameter arrays are processed from start to end.
+       If any key word is repeated, the last value (that is
+       not <symbol>NULL</symbol> or empty) is used.  This rule applies in
+       particular when a key word found in a connection string conflicts
+       with one appearing in the <literal>keywords</literal> array.  Thus,
+       the programmer may determine whether array entries can override or
+       be overridden by values taken from a connection string.  Array
+       entries appearing before an expanded <parameter>dbname</parameter>
+       entry can be overridden by fields of the connection string, and in
+       turn those fields are overridden by array entries appearing
+       after <parameter>dbname</parameter> (but, again, only if those
+       entries supply non-empty values).
+      </para>
+
+      <para>
+       After processing all the array entries and any expanded connection
+       string, any connection parameters that remain unset are filled with
+       default values.  If an unset parameter's corresponding environment
+       variable (see <xref linkend="libpq-envars"/>) is set, its value is
+       used.  If the environment variable is not set either, then the
+       parameter's built-in default value is used.
       </para>
 
      </listitem>
@@ -319,6 +317,11 @@ PGconn *PQsetdbLogin(const char *pghost,
 -->
 <parameter>dbName</parameter>内に<symbol>=</symbol>記号が含まれる場合、または有効な接続<acronym>URI</acronym>接頭辞を持つ場合、<xref linkend="libpq-PQconnectdb"/>に渡された場合とまったく同じ扱いで<parameter>conninfo</parameter>文字列として扱われます。
 その後残りのパラメータが<xref linkend="libpq-PQconnectdbParams"/>の指定のように適用されます。
+      </para>
+
+      <para>
+        <literal>pgtty</literal> is no longer used and any value passed will
+        be ignored.
       </para>
      </listitem>
     </varlistentry>
@@ -906,8 +909,8 @@ void PQreset(PGconn *conn);
       <para>
 <!--
        This function will close the connection
-       to the server and attempt to  reestablish  a  new
-       connection to the same server, using all the same
+       to the server and attempt to establish a new
+       connection, using all the same
        parameters previously used.  This might be useful for
        error recovery if a working connection is lost.
 -->
@@ -937,7 +940,7 @@ PostgresPollingStatusType PQresetPoll(PGconn *conn);
       <para>
 <!--
        These functions will close the connection to the server and attempt to
-       reestablish a new connection to the same server, using all the same
+       establish a new connection, using all the same
        parameters previously used. This can be useful for error recovery if a
        working connection is lost. They differ from <xref linkend="libpq-PQreset"/> (above) in that they
        act in a nonblocking manner. These functions suffer from the same
@@ -1139,7 +1142,8 @@ int callback_fn(char *buf, int size, PGconn *conn);
        its path will be in <literal>conn->sslkey</literal> when the callback
        is invoked. This will be empty if the default key path is being used.
        For keys that are engine specifiers, it is up to engine implementations
-       whether they use the OpenSSL password callback or define their own handling.
+       whether they use the <productname>OpenSSL</productname> password
+       callback or define their own handling.
 -->
 ユーザが明示的なキー位置を指定した場合、コールバックが実行されたときにそのパスが<literal>conn->sslkey</literal>に含まれます。
 デフォルトのキーパスが使われている場合、これは空になります。
@@ -1207,7 +1211,7 @@ PQsslKeyPassHook_OpenSSL_type PQgetSSLKeyPassHook_OpenSSL(void);
 <!--
     Several <application>libpq</application> functions parse a user-specified string to obtain
     connection parameters.  There are two accepted formats for these strings:
-    plain <literal>keyword = value</literal> strings
+    plain keyword/value strings
     and URIs.  URIs generally follow
     <ulink url="https://tools.ietf.org/html/rfc3986">RFC
     3986</ulink>, except that multi-host connection strings are allowed
@@ -1226,12 +1230,14 @@ URIは通常<ulink url="https://tools.ietf.org/html/rfc3986">RFC3986</ulink>に�
 
    <para>
 <!--
-    In the first format, each parameter setting is in the form
-    <literal>keyword = value</literal>.  Spaces around the equal sign are
+    In the keyword/value format, each parameter setting is in the form
+    <replaceable>keyword</replaceable> <literal>=</literal>
+    <replaceable>value</replaceable>, with space(s) between settings.
+    Spaces around a setting's equal sign are
     optional. To write an empty value, or a value containing spaces, surround it
-    with single quotes, e.g., <literal>keyword = 'a value'</literal>. Single
-    quotes and backslashes within
-    the value must be escaped with a backslash, i.e., <literal>\'</literal> and
+    with single quotes, for example <literal>keyword = 'a value'</literal>.
+    Single quotes and backslashes within
+    a value must be escaped with a backslash, i.e., <literal>\'</literal> and
     <literal>\\</literal>.
 -->
 最初の書式では、各パラメータ設定は<literal>keyword = value</literal>という形式です。
@@ -1272,7 +1278,19 @@ host=localhost port=5432 dbname=mydb connect_timeout=10
 -->
 接続<acronym>URI</acronym>の一般的な形式を以下に示します。
 <synopsis>
-postgresql://[user[:password]@][netloc][:port][,...][/dbname][?param1=value1&amp;...]
+postgresql://<optional><replaceable>userspec</replaceable>@</optional><optional><replaceable>hostspec</replaceable></optional><optional>/<replaceable>dbname</replaceable></optional><optional>?<replaceable>paramspec</replaceable></optional>
+
+<phrase>where <replaceable>userspec</replaceable> is:</phrase>
+
+<replaceable>user</replaceable><optional>:<replaceable>password</replaceable></optional>
+
+<phrase>and <replaceable>hostspec</replaceable> is:</phrase>
+
+<optional><replaceable>host</replaceable></optional><optional>:<replaceable>port</replaceable></optional><optional>,...</optional>
+
+<phrase>and <replaceable>paramspec</replaceable> is:</phrase>
+
+<replaceable>name</replaceable>=<replaceable>value</replaceable><optional>&amp;...</optional>
 </synopsis>
    </para>
 
@@ -1280,8 +1298,8 @@ postgresql://[user[:password]@][netloc][:port][,...][/dbname][?param1=value1&amp
 <!--
     The <acronym>URI</acronym> scheme designator can be either
     <literal>postgresql://</literal> or <literal>postgres://</literal>.  Each
-    of the <acronym>URI</acronym> parts is optional.  The following examples
-    illustrate valid <acronym>URI</acronym> syntax uses:
+    of the remaining <acronym>URI</acronym> parts is optional.  The
+    following examples illustrate valid <acronym>URI</acronym> syntax:
 -->
 <acronym>URI</acronym>スキーム指示子は<literal>postgresql://</literal>または<literal>postgres://</literal>のいずれかを取ることができます。
 個々の<acronym>URI</acronym>部品は省略可能です。
@@ -1296,15 +1314,17 @@ postgresql://user:secret@localhost
 postgresql://other@localhost/otherdb?connect_timeout=10&amp;application_name=myapp
 postgresql://host1:123,host2:456/somedb?target_session_attrs=any&amp;application_name=myapp
 </programlisting>
-<!--
-    Components of the hierarchical part of the <acronym>URI</acronym> can also
-    be given as parameters.  For example:
--->
-<acronym>URI</acronym>の階層部品の要素をパラメータとして与えることができます。
-以下に例を示します。
+    Values that would normally appear in the hierarchical part of
+    the <acronym>URI</acronym> can alternatively be given as named
+    parameters.  For example:
 <programlisting>
 postgresql:///mydb?host=localhost&amp;port=5433
 </programlisting>
+    All named parameters must match key words listed in
+    <xref linkend="libpq-paramkeywords"/>, except that for compatibility
+    with JDBC connection <acronym>URI</acronym>s, instances
+    of <literal>ssl=true</literal> are translated into
+    <literal>sslmode=require</literal>.
    </para>
 
    <para>
@@ -1324,30 +1344,8 @@ postgresql://user@localhost:5433/mydb?options=-c%20synchronous_commit%3Doff
    </para>
 
    <para>
-<!--
-    Any connection parameters not corresponding to key words listed in <xref
-    linkend="libpq-paramkeywords"/> are ignored and a warning message about them
-    is sent to <filename>stderr</filename>.
--->
-<xref linkend="libpq-paramkeywords"/>に示されたキーワードに対応しない接続パラメータは無視され、これに関する警告メッセージが<filename>stderr</filename>に書き出されます。
-   </para>
-
-   <para>
-<!--
-    For improved compatibility with JDBC connection <acronym>URI</acronym>s,
-    instances of parameter <literal>ssl=true</literal> are translated into
-    <literal>sslmode=require</literal>.
--->
-JDBCの接続<acronym>URI</acronym>構文との互換性を高めるために、<literal>ssl=true</literal>パラメータインスタンスは<literal>sslmode=require</literal>に変換されます。
-   </para>
-
-   <para>
-<!--
-    The host part may be either host name or an IP address.  To specify an
-    IPv6 host address, enclose it in square brackets:
--->
-ホスト部分にはホスト名またはIPアドレスを書くことができます。
-IPv6ホストアドレスを指定するためには角括弧で括ります。
+    The host part may be either a host name or an IP address.  To specify an
+    IPv6 address, enclose it in square brackets:
 <synopsis>
 postgresql://[2001:db8::1234]/database
 </synopsis>
@@ -1355,15 +1353,15 @@ postgresql://[2001:db8::1234]/database
 
    <para>
 <!--
-    The host component is interpreted as described for the parameter <xref
+    The host part is interpreted as described for the parameter <xref
     linkend="libpq-connect-host"/>.  In particular, a Unix-domain socket
     connection is chosen if the host part is either empty or looks like an
     absolute path name,
     otherwise a TCP/IP connection is initiated.  Note, however, that the
     slash is a reserved character in the hierarchical part of the URI.  So, to
     specify a non-standard Unix-domain socket directory, either omit the host
-    specification in the URI and specify the host as a parameter, or
-    percent-encode the path in the host component of the URI:
+    part of the URI and specify the host as a named parameter, or
+    percent-encode the path in the host part of the URI:
 -->
 ホスト要素はパラメータ<xref linkend="libpq-connect-host"/>で説明したように解釈されます。
 具体的には、ホスト部が空または絶対パス名のように見える場合、Unixドメインソケット接続が選択され、さもなければTCP/IP接続で初期化されます。
@@ -1381,7 +1379,8 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
     port component, in a single URI.  A URI of the form
     <literal>postgresql://host1:port1,host2:port2,host3:port3/</literal>
     is equivalent to a connection string of the form
-    <literal>host=host1,host2,host3 port=port1,port2,port3</literal>.  Each
+    <literal>host=host1,host2,host3 port=port1,port2,port3</literal>.
+    As further described below, each
     host will be tried in turn until a connection is successfully established.
 -->
 単一のURIの中に、オプションのポート要素を伴う複数のホスト要素を指定することができます。
@@ -1400,8 +1399,8 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
 <!--
        It is possible to specify multiple hosts to connect to, so that they are
        tried in the given order. In the Keyword/Value format, the <literal>host</literal>,
-       <literal>hostaddr</literal>, and <literal>port</literal> options accept a comma-separated
-       list of values. The same number of elements must be given in each
+       <literal>hostaddr</literal>, and <literal>port</literal> options accept comma-separated
+       lists of values. The same number of elements must be given in each
        option that is specified, such
        that e.g., the first <literal>hostaddr</literal> corresponds to the first host name,
        the second <literal>hostaddr</literal> corresponds to the second host name, and so
@@ -1418,7 +1417,7 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
      <para>
 <!--
        In the connection URI format, you can list multiple <literal>host:port</literal> pairs
-       separated by commas, in the <literal>host</literal> component of the URI.
+       separated by commas in the <literal>host</literal> component of the URI.
 -->
 接続URI形式では、<literal>host</literal>要素中にカンマで区切って複数の<literal>host:port</literal>ペアを指定できます。
      </para>
@@ -1484,7 +1483,10 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
         communication; the value is the name of the directory in which the
         socket file is stored.  (On Unix, an absolute path name begins with a
         slash.  On Windows, paths starting with drive letters are also
-        recognized.)  The default behavior when <literal>host</literal> is not
+        recognized.)  If the host name starts with <literal>@</literal>, it is
+        taken as a Unix-domain socket in the abstract namespace (currently
+        supported on Linux and Windows).
+        The default behavior when <literal>host</literal> is not
         specified, or is empty, is to connect to a Unix-domain
         socket<indexterm><primary>Unix domain socket</primary></indexterm> in
         <filename>/tmp</filename> (or whatever socket directory was specified
@@ -2249,6 +2251,16 @@ SSLサポートなしで<productname>PostgreSQL</productname>がコンパイル�
 一方、<literal>allow</literal>と<literal>prefer</literal>は使用できますが、実際に<application>libpq</application>は<acronym>SSL</acronym>接続を受け付けません。
 <indexterm><primary>SSL</primary><secondary sortas="libpq">libpqでの</secondary></indexterm>
        </para>
+
+       <para>
+        Note that if <acronym>GSSAPI</acronym> encryption is possible,
+        that will be used in preference to <acronym>SSL</acronym>
+        encryption, regardless of the value of <literal>sslmode</literal>.
+        To force use of <acronym>SSL</acronym> encryption in an
+        environment that has working <acronym>GSSAPI</acronym>
+        infrastructure (such as a Kerberos server), also
+        set <literal>gssencmode</literal> to <literal>disable</literal>.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -2307,6 +2319,8 @@ SSLサポート付きで<productname>PostgreSQL</productname>をコンパイル�
         compression by default, and many operating system distributions
         disable it in prior versions as well, so setting this parameter to on
         will not have any effect if the server does not accept compression.
+        <productname>PostgreSQL</productname> 14 disables compression
+        completely in the backend.
 -->
 SSL圧縮は今日では安全ではないと考えられていて、もはや使用は推奨されません。
 <productname>OpenSSL</productname> 1.1.0はデフォルトでは圧縮を無効にしており、多くのOSディストリビューションでもこれまでのバージョンで無効化しています。そのため、サーバが圧縮を受け付けない場合、本パラメータをonに設定しても効果がありません。
@@ -2381,16 +2395,18 @@ SSL接続が確立していない場合このパラメータは無視されま�
 <!--
         Specifying this parameter with any non-empty value suppresses the
         <literal>Enter PEM pass phrase:</literal>
-        prompt that OpenSSL will emit by default when an encrypted client
-        certificate key is provided to <literal>libpq</literal>.
+        prompt that <productname>OpenSSL</productname> will emit by default
+        when an encrypted client certificate key is provided to
+        <literal>libpq</literal>.
 -->
 空でない値でこのパラメータを指定することで、暗号化されたクライアント証明書キーが<literal>libpq</literal>に供給されるときにOpenSSLがデフォルトで出す<literal>Enter PEM pass phrase:</literal>プロンプトを抑止します。
        </para>
        <para>
 <!--
-        If the key is not encrypted this parameter is ignored. The parameter has no
-        effect on keys specified by OpenSSL engines unless the engine uses the
-        OpenSSL password callback mechanism for prompts.
+        If the key is not encrypted this parameter is ignored. The parameter
+        has no effect on keys specified by <productname>OpenSSL</productname>
+        engines unless the engine uses the <productname>OpenSSL</productname>
+        password callback mechanism for prompts.
 -->
 キーが暗号化されていない場合、このパラメータは無視されます。
 OpenSSLエンジンがプロンプトにOpenSSLパスワードコールバックの仕組みを使わない限り、このパラメータはエンジンで指定されたキーに影響しません。
@@ -2400,7 +2416,7 @@ OpenSSLエンジンがプロンプトにOpenSSLパスワードコールバック
         There is no environment variable equivalent to this option, and no
         facility for looking it up in <filename>.pgpass</filename>. It can be
         used in a service file connection definition. Users with
-        more sophisticated uses should consider using openssl engines and
+        more sophisticated uses should consider using <productname>OpenSSL</productname> engines and
         tools like PKCS#11 or USB crypto offload devices.
 -->
 このオプションと同等の環境変数、および、パスワードを<filename>.pgpass</filename>から探す機能はありません。
@@ -2436,12 +2452,59 @@ OpenSSLエンジンがプロンプトにOpenSSLパスワードコールバック
         This parameter specifies the file name of the SSL certificate
         revocation list (CRL).  Certificates listed in this file, if it
         exists, will be rejected while attempting to authenticate the
-        server's certificate.  The default is
+        server's certificate.  If neither
+        <xref linkend='libpq-connect-sslcrl'/> nor
+        <xref linkend='libpq-connect-sslcrldir'/> is set, this setting is
+        taken as
         <filename>~/.postgresql/root.crl</filename>.
 -->
 このパラメータはSSL証明書失効リスト（CRL）のファイル名を指定します。
 このファイルに列挙された証明書が存在した場合、それはサーバ証明書を承認しようとする時に拒絶されます。
 デフォルトは<filename>~/.postgresql/root.crl</filename>です。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-connect-sslcrldir" xreflabel="sslcrldir">
+      <term><literal>sslcrldir</literal></term>
+      <listitem>
+       <para>
+        This parameter specifies the directory name of the SSL certificate
+        revocation list (CRL).  Certificates listed in the files in this
+        directory, if it exists, will be rejected while attempting to
+        authenticate the server's certificate.
+       </para>
+
+       <para>
+        The directory needs to be prepared with the
+        <productname>OpenSSL</productname> command
+        <literal>openssl rehash</literal> or <literal>c_rehash</literal>.  See
+        its documentation for details.
+       </para>
+
+       <para>
+        Both <literal>sslcrl</literal> and <literal>sslcrldir</literal> can be
+        specified together.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="libpq-connect-sslsni" xreflabel="sslsni">
+      <term><literal>sslsni</literal><indexterm><primary>Server Name Indication</primary></indexterm></term>
+      <listitem>
+       <para>
+        If set to 1 (default), libpq sets the TLS extension <quote>Server Name
+        Indication</quote> (<acronym>SNI</acronym>) on SSL-enabled connections.
+        By setting this parameter to 0, this is turned off.
+       </para>
+
+       <para>
+        The Server Name Indication can be used by SSL-aware proxies to route
+        connections without having to decrypt the SSL stream.  (Note that this
+        requires a proxy that is aware of the PostgreSQL protocol handshake,
+        not just any SSL proxy.)  However, <acronym>SNI</acronym> makes the
+        destination host name appear in cleartext in the network traffic, so
+        it might be undesirable in some cases.
        </para>
       </listitem>
      </varlistentry>
@@ -2534,6 +2597,15 @@ Unixドメインソケット接続を確立する時に、このパラメータ�
         This must match the service name specified in the server
         configuration for Kerberos authentication to succeed. (See also
         <xref linkend="gssapi-auth"/>.)
+        The default value is normally <literal>postgres</literal>,
+        but that can be changed when
+        building <productname>PostgreSQL</productname> via
+        the <option>&#45;&#45;with-krb-srvnam</option> option
+        of <application>configure</application>.
+        In most environments, this parameter never needs to be changed.
+        Some Kerberos implementations might require a different service name,
+        such as Microsoft Active Directory which requires the service name
+        to be in upper case (<literal>POSTGRES</literal>).
 -->
 GSSAPIの認証時に使われるKerberosサービス名です。
 成功するためには、これはサーバのKerberos認証設定のサービス名と一致していなければなりません。
@@ -2582,24 +2654,75 @@ GSSAPI認証で使用されるGSSライブラリです。
       <term><literal>target_session_attrs</literal></term>
       <listitem>
        <para>
-<!--
-        If this parameter is set to <literal>read-write</literal>, only a
-        connection in which read-write transactions are accepted by default
-        is considered acceptable.  The query
-        <literal>SHOW transaction_read_only</literal> will be sent upon any
-        successful connection; if it returns <literal>on</literal>, the connection
-        will be closed.  If multiple hosts were specified in the connection
-        string, any remaining servers will be tried just as if the connection
-        attempt had failed.  The default value of this parameter,
-        <literal>any</literal>, regards all connections as acceptable.
--->
-このパラメータが<literal>read-write</literal>なら、読み書きトランザクションがデフォルトで許容される接続だけが受付可能になります。
-接続に成功すると、問合せ<literal>SHOW transaction_read_only</literal>が送られ、<literal>on</literal>が返ると接続は閉じられます。
-接続文字列で複数のホストが指定されている場合は、あたかも接続の試みが失敗したかのように、残りのサーバが試されます。
-このパラメータのデフォルト値は<literal>any</literal>で、すべての接続が受付可能であると見なされます。
-      </para>
+        This option determines whether the session must have certain
+        properties to be acceptable.  It's typically used in combination
+        with multiple host names to select the first acceptable alternative
+        among several hosts.  There are six modes:
+
+        <variablelist>
+         <varlistentry>
+          <term><literal>any</literal> (default)</term>
+          <listitem>
+           <para>
+            any successful connection is acceptable
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><literal>read-write</literal></term>
+          <listitem>
+           <para>
+            session must accept read-write transactions by default (that
+            is, the server must not be in hot standby mode and
+            the <varname>default_transaction_read_only</varname> parameter
+            must be <literal>off</literal>)
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><literal>read-only</literal></term>
+          <listitem>
+           <para>
+            session must not accept read-write transactions by default (the
+            converse)
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><literal>primary</literal></term>
+          <listitem>
+           <para>
+            server must not be in hot standby mode
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><literal>standby</literal></term>
+          <listitem>
+           <para>
+            server must be in hot standby mode
+           </para>
+          </listitem>
+         </varlistentry>
+
+         <varlistentry>
+          <term><literal>prefer-standby</literal></term>
+          <listitem>
+           <para>
+            first try to find a standby server, but if none of the listed
+            hosts is a standby server, try again in <literal>any</literal>
+            mode
+           </para>
+          </listitem>
+         </varlistentry>
+        </variablelist>
+       </para>
       </listitem>
-    </varlistentry>
+     </varlistentry>
     </variablelist>
    </para>
   </sect2>
@@ -2863,15 +2986,10 @@ char *PQport(const PGconn *conn);
 
      <listitem>
       <para>
-<!--
-       Returns the debug <acronym>TTY</acronym> of the connection.
-       (This is obsolete, since the server no longer pays attention
-       to the <acronym>TTY</acronym> setting, but the function remains
-       for backward compatibility.)
--->
-接続のデバッグ用<acronym>TTY</acronym>を返します。
-(これは廃れたものです。サーバはもはや<acronym>TTY</acronym>設定を参照しません。
-後方互換性のためにこの関数が残っています。)
+       This function no longer does anything, but it remains for backwards
+       compatibility.  The function always return an empty string, or
+       <symbol>NULL</symbol> if the <parameter>conn</parameter> argument is
+       <symbol>NULL</symbol>.
 
 <synopsis>
 char *PQtty(const PGconn *conn);
@@ -3017,6 +3135,8 @@ const char *PQparameterStatus(const PGconn *conn, const char *paramName);
        <varname>server_encoding</varname>,
        <varname>client_encoding</varname>,
        <varname>application_name</varname>,
+       <varname>default_transaction_read_only</varname>,
+       <varname>in_hot_standby</varname>,
        <varname>is_superuser</varname>,
        <varname>session_authorization</varname>,
        <varname>DateStyle</varname>,
@@ -3029,7 +3149,11 @@ const char *PQparameterStatus(const PGconn *conn, const char *paramName);
        <varname>standard_conforming_strings</varname> was not reported by releases
        before 8.1;
        <varname>IntervalStyle</varname> was not reported by releases before 8.4;
-       <varname>application_name</varname> was not reported by releases before 9.0.)
+       <varname>application_name</varname> was not reported by releases before
+       9.0;
+       <varname>default_transaction_read_only</varname> and
+       <varname>in_hot_standby</varname> were not reported by releases before
+       14.)
        Note that
        <varname>server_version</varname>,
        <varname>server_encoding</varname> and
@@ -3039,27 +3163,6 @@ const char *PQparameterStatus(const PGconn *conn, const char *paramName);
 現在のリリースで報告されるパラメータには、<varname>server_version</varname>、<varname>server_encoding</varname>、<varname>client_encoding</varname>、<varname>application_name</varname>、<varname>is_superuser</varname>、<varname>session_authorization</varname>、<varname>DateStyle</varname>、<varname>IntervalStyle</varname>、<varname>TimeZone</varname>、<varname>integer_datetimes</varname>および<varname>standard_conforming_strings</varname>があります。
 （8.0より前では<varname>server_encoding</varname>、<varname>TimeZone</varname>および<varname>integer_datetimes</varname>が、8.1より前では<varname>standard_conforming_strings</varname>が、そして8.4より前では<varname>IntervalStyle</varname>が、9.0より前では<varname>application_name</varname>が報告されませんでした。 ）
 <varname>server_version</varname>、<varname>server_encoding</varname>および<varname>integer_datetimes</varname>は起動後変更できないことに注意してください。
-      </para>
-
-      <para>
-<!--
-       Pre-3.0-protocol servers do not report parameter settings, but
-       <application>libpq</application> includes logic to obtain values for
-       <varname>server_version</varname> and <varname>client_encoding</varname> anyway.
-       Applications are encouraged to use <xref linkend="libpq-PQparameterStatus"/>
-       rather than <foreignphrase>ad hoc</foreignphrase> code to determine these values.
-       (Beware however that on a pre-3.0 connection, changing
-       <varname>client_encoding</varname> via <command>SET</command> after connection
-       startup will not be reflected by <xref linkend="libpq-PQparameterStatus"/>.)
-       For <varname>server_version</varname>, see also
-       <xref linkend="libpq-PQserverVersion"/>, which returns the information in a
-       numeric form that is much easier to compare against.
--->
-プロトコル3.0より前のサーバはパラメータ設定を報告しません。
-しかし、<application>libpq</application>には<varname>server_version</varname>と<varname>client_encoding</varname>の値を取り出す仕組みがとりあえずあります。
-アプリケーションは、<foreignphrase>付け焼き刃な</foreignphrase>コードでこれらの値を決定するのではなく、<xref linkend="libpq-PQparameterStatus"/>を使用することが求められています。
-(しかし、3.0より前の接続では、接続開始後に<command>SET</command>による<varname>client_encoding</varname>の変更は<xref linkend="libpq-PQparameterStatus"/>に反映されないことに注意してください。)
-<varname>server_version</varname>については、この情報をより比較し易い数値形式で返す<xref linkend="libpq-PQserverVersion"/>も参照してください。
       </para>
 
       <para>
@@ -3101,15 +3204,12 @@ int PQprotocolVersion(const PGconn *conn);
 </synopsis>
 <!--
        Applications might wish to use this function to determine whether certain
-       features are supported.  Currently, the possible values are 2 (2.0
-       protocol), 3 (3.0 protocol), or zero (connection bad).  The
-       protocol version will
+       features are supported.  Currently, the possible values are 3
+       (3.0 protocol), or zero (connection bad).  The protocol version will
        not change after connection startup is complete, but it could
-       theoretically change during a connection reset.  The 3.0 protocol
-       will normally be used when communicating with
-       <productname>PostgreSQL</productname> 7.4 or later servers; pre-7.4 servers
-       support only protocol 2.0.  (Protocol 1.0 is obsolete and not
-       supported by <application>libpq</application>.)
+       theoretically change during a connection reset.  The 3.0 protocol is
+       supported by <productname>PostgreSQL</productname> server versions 7.4
+       and above.
 -->
 ある機能がサポートされているかどうかを決定するために、アプリケーションはこの関数を使用することができます。
 現在、取り得る値は2(2.0プロトコル)、3(3.0プロトコル)、あるいは0(接続不良)です。
@@ -3498,8 +3598,9 @@ void *PQsslStruct(const PGconn *conn, const char *struct_name);
       <para>
 <!--
        The struct(s) available depend on the SSL implementation in use.
-       For OpenSSL, there is one struct, available under the name "OpenSSL",
-       and it returns a pointer to the OpenSSL <literal>SSL</literal> struct.
+       For <productname>OpenSSL</productname>, there is one struct,
+       available under the name "OpenSSL", and it returns a pointer to the
+       <productname>OpenSSL</productname> <literal>SSL</literal> struct.
        To use this function, code along the following lines could be used:
 -->
 利用可能な構造体は、使用されるSSLの実装に依存します。
@@ -3559,8 +3660,9 @@ void *PQgetssl(const PGconn *conn);
 <!--
        This function is equivalent to <literal>PQsslStruct(conn, "OpenSSL")</literal>. It should
        not be used in new applications, because the returned struct is
-       specific to OpenSSL and will not be available if another SSL
-       implementation is used. To check if a connection uses SSL, call
+       specific to <productname>OpenSSL</productname> and will not be
+       available if another <acronym>SSL</acronym> implementation is used.
+       To check if a connection uses SSL, call
        <xref linkend="libpq-PQsslInUse"/> instead, and for more details about the
        connection, use <xref linkend="libpq-PQsslAttribute"/>.
 -->

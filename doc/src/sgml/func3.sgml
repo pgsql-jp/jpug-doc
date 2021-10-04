@@ -404,8 +404,12 @@ JSON入力が要求と一致する正しい構造をしていなければ、フ�
        <para>
 <!--
         Concatenates two <type>jsonb</type> values.
-        Concatenating two objects generates an object with the union of their
+        Concatenating two arrays generates an array containing all the
+        elements of each input.  Concatenating two objects generates an
+        object containing the union of their
         keys, taking the second object's value when there are duplicate keys.
+        All other cases are treated by converting a non-array input into a
+        single-element array, and then proceeding as for two arrays.
         Does not operate recursively: only the top-level array or object
         structure is merged.
 -->
@@ -420,6 +424,22 @@ JSON入力が要求と一致する正しい構造をしていなければ、フ�
        <para>
         <literal>'{"a": "b"}'::jsonb || '{"c": "d"}'::jsonb</literal>
         <returnvalue>{"a": "b", "c": "d"}</returnvalue>
+       </para>
+       <para>
+        <literal>'[1, 2]'::jsonb || '3'::jsonb</literal>
+        <returnvalue>[1, 2, 3]</returnvalue>
+       </para>
+       <para>
+        <literal>'{"a": "b"}'::jsonb || '42'::jsonb</literal>
+        <returnvalue>[{"a": "b"}, 42]</returnvalue>
+       </para>
+       <para>
+        To append an array to another array as a single entry, wrap it
+        in an additional layer of array, for example:
+       </para>
+       <para>
+        <literal>'[1, 2]'::jsonb || jsonb_build_array('[3, 4]'::jsonb)</literal>
+        <returnvalue>[1, 2, [3, 4]]</returnvalue>
        </para></entry>
       </row>
 
@@ -662,7 +682,7 @@ SQL値を<type>json</type>あるいは<type>jsonb</type>に変換します。
        </para>
        <para>
 <!--
-        Converts a SQL array to a JSON array.  The behavior is the same
+        Converts an SQL array to a JSON array.  The behavior is the same
         as <function>to_json</function> except that line feeds will be added
         between top-level array elements if the optional boolean parameter is
         true.
@@ -686,7 +706,7 @@ SQL配列をJSON配列に変換します。
        </para>
        <para>
 <!--
-        Converts a SQL composite value to a JSON object.  The behavior is the
+        Converts an SQL composite value to a JSON object.  The behavior is the
         same as <function>to_json</function> except that line feeds will be
         added between top-level elements if the optional boolean parameter is
         true.
@@ -1174,7 +1194,7 @@ JSON値を出力列のSQL型に変換する際に以下のルールが順に適�
          <listitem>
           <para>
 <!--
-           A JSON null value is converted to a SQL null in all cases.
+           A JSON null value is converted to an SQL null in all cases.
 -->
 すべての場合にJSONのNULL値はSQLのNULLに変換されます。
           </para>
@@ -1249,6 +1269,10 @@ JSON値を出力列のSQL型に変換する際に以下のルールが順に適�
         <literal>create type myrowtype as (a int, b text[], c subrowtype);</literal>
        </para>
        <para>
+        <literal>create type subrowtype as (d int, e text);</literal>
+        <literal>create type myrowtype as (a int, b text[], c subrowtype);</literal>
+       </para>
+       <para>
         <literal>select * from json_populate_record(null::myrowtype,
          '{"a": 1, "b": ["2", "a b"], "c": {"d": 4, "e": "a  b c"}, "x": "foo"}')</literal>
         <returnvalue></returnvalue>
@@ -1284,6 +1308,9 @@ JSON値を出力列のSQL型に変換する際に以下のルールが順に適�
 -->
 トップレベルのJSONオブジェクトを<parameter>base</parameter>引数である複合型を持つ行の集合に展開します。
 JSON配列の個々の要素は上の<function>json[b]_populate_record</function>で説明したように処理されます。
+       </para>
+       <para>
+        <literal>create type twoints as (a int, b int);</literal>
        </para>
        <para>
         <literal>create type twoints as (a int, b int);</literal>
@@ -1330,6 +1357,9 @@ JSON配列の個々の要素は上の<function>json[b]_populate_record</function
 （<type>record</type>を返すすべての関数では、呼び出す問い合わせは明示的に<literal>AS</literal>句でレコードの構造を定義しなければなりません。）
 上の<function>json[b]_populate_record</function>で説明した方法で、出力レコードはJSONオブジェクトのフィールドで満たされます。
 入力レコード値がないので、一致しない列は常にNULLで満たされます。
+       </para>
+       <para>
+        <literal>create type myrowtype as (a int, b text);</literal>
        </para>
        <para>
         <literal>create type myrowtype as (a int, b text);</literal>
@@ -1793,7 +1823,7 @@ JSON値に対するJSONパスによって返される最初のJSON項目を返�
         <literal>string</literal>, <literal>number</literal>,
         <literal>boolean</literal>, and <literal>null</literal>.
         (The <literal>null</literal> result should not be confused
-        with a SQL NULL; see the examples.)
+        with an SQL NULL; see the examples.)
 -->
 トップレベルのJSON値の型をテキスト文字列として返します。
 可能な型は次のとおりです。
@@ -2250,6 +2280,24 @@ lax $.track.segments.location
 非厳密モードと同じ結果を得るためには、<literal>segments</literal>配列を明示的に展開する必要があります。
 <programlisting>
 strict $.track.segments[*].location
+</programlisting>
+   </para>
+
+   <para>
+    The <literal>.**</literal> accessor can lead to surprising results
+    when using the lax mode. For instance, the following query selects every
+    <literal>HR</literal> value twice:
+<programlisting>
+lax $.**.HR
+</programlisting>
+    This happens because the <literal>.**</literal> accessor selects both
+    the <literal>segments</literal> array and each of its elements, while
+    the <literal>.HR</literal> accessor automatically unwraps arrays when
+    using the lax mode. To avoid surprising results, we recommend using
+    the <literal>.**</literal> accessor only in the strict mode. The
+    following query selects each <literal>HR</literal> value just once:
+<programlisting>
+strict $.**.HR
 </programlisting>
    </para>
 
@@ -3072,13 +3120,14 @@ PostgreSQLは今の所<literal>LIKE_REGEX</literal>演算子をサポートし�
      is a JSON path string literal, written according to the rules given in
      <xref linkend="datatype-jsonpath"/>.  This means in particular that any
      backslashes you want to use in the regular expression must be doubled.
-     For example, to match strings that contain only digits:
+     For example, to match string values of the root document that contain
+     only digits:
 -->
 <literal>like_regex</literal>のパターン引数は<xref linkend="datatype-jsonpath"/>で説明されているルールにしたがって書かれたJSONパス文字列リテラルであることに注意してください。
 これは、正規表現で使用するすべてのバックスラッシュを二重に書かなければならないことを意味します。
 たとえば、数字のみを含む文字列にマッチさせるには以下のようにします。
 <programlisting>
-$ ? (@ like_regex "^\\d+$")
+$.* ? (@ like_regex "^\\d+$")
 </programlisting>
     </para>
    </sect3>
@@ -3341,110 +3390,15 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
    a <type>regclass</type> argument, which is simply the OID of the sequence in the
    <structname>pg_class</structname> system catalog.  You do not have to look up the
    OID by hand, however, since the <type>regclass</type> data type's input
-   converter will do the work for you.  Just write the sequence name enclosed
-   in single quotes so that it looks like a literal constant.  For
-   compatibility with the handling of ordinary
-   <acronym>SQL</acronym> names, the string will be converted to lower case
-   unless it contains double quotes around the sequence name.  Thus:
+   converter will do the work for you.  See <xref linkend="datatype-oid"/>
+   for details.
 -->
 シーケンス関数により操作されるシーケンスは<type>regclass</type>引数で指定されますが、それは<structname>pg_class</structname>システムカタログ内にある、そのシーケンスの単なるOIDです。
 しかしながら、手作業でOIDを検索する必要はなく、<type>regclass</type>データ型の入力変換器が代わってその作業を行ってくれます。
 単一引用符で括られたシーケンス名を記述するだけで良いので、リテラル定数のように見えます。
 通常の<acronym>SQL</acronym>の名称での操作との互換のため、文字列はシーケンス名が二重引用符で括られていなければ、小文字に変換されます。
 よって、以下のようになります。
-<!--
-<programlisting>
-nextval('foo')      <lineannotation>operates on sequence <literal>foo</literal></lineannotation>
-nextval('FOO')      <lineannotation>operates on sequence <literal>foo</literal></lineannotation>
-nextval('"Foo"')    <lineannotation>operates on sequence <literal>Foo</literal></lineannotation>
--->
-<programlisting>
-nextval('foo')      <lineannotation>シーケンス<literal>foo</literal>の操作</lineannotation>
-nextval('FOO')      <lineannotation>シーケンス<literal>foo</literal>の操作</lineannotation>
-nextval('"Foo"')    <lineannotation>シーケンス<literal>Foo</literal>の操作</lineannotation>
-</programlisting>
-<!--
-   The sequence name can be schema-qualified if necessary:
--->
-必要であれば、以下のようにシーケンス名をスキーマで修飾することができます。
-<!--
-<programlisting>
-nextval('myschema.foo')     <lineannotation>operates on <literal>myschema.foo</literal></lineannotation>
-nextval('"myschema".foo')   <lineannotation>same as above</lineannotation>
-nextval('foo')              <lineannotation>searches search path for <literal>foo</literal></lineannotation>
-</programlisting>
--->
-<programlisting>
-nextval('myschema.foo')     <lineannotation><literal>myschema.foo</literal>の操作</lineannotation>
-nextval('"myschema".foo')   <lineannotation>上と同じ</lineannotation>
-nextval('foo')              <lineannotation><literal>foo</literal>を検索パスで探す</lineannotation>
-</programlisting>
-<!--
-   See <xref linkend="datatype-oid"/> for more information about
-   <type>regclass</type>.
--->
-<type>regclass</type>に関してのより詳細な情報は<xref linkend="datatype-oid"/>を参照してください。
   </para>
-
-  <note>
-   <para>
-<!--
-    Before <productname>PostgreSQL</productname> 8.1, the arguments of the
-    sequence functions were of type <type>text</type>, not <type>regclass</type>, and
-    the above-described conversion from a text string to an OID value would
-    happen at run time during each call.  For backward compatibility, this
-    facility still exists, but internally it is now handled as an implicit
-    coercion from <type>text</type> to <type>regclass</type> before the function is
-    invoked.
--->
-<productname>PostgreSQL</productname>の8.1より前においては、シーケンス関数の引数は<type>regclass</type>型ではなく、<type>text</type>型で、そして上記のテキスト文字列からOID値への変換はそれぞれの呼び出し実行時に起こりました。
-後方互換性のため、この仕組みはまだ存在しますが、内部的には関数が実行される前に<type>text</type>から<type>regclass</type>への暗黙的強制型変換として現在処理されています。
-   </para>
-
-   <para>
-<!--
-    When you write the argument of a sequence function as an unadorned
-    literal string, it becomes a constant of type <type>regclass</type>.
-    Since this is really just an OID, it will track the originally
-    identified sequence despite later renaming, schema reassignment,
-    etc.  This <quote>early binding</quote> behavior is usually desirable for
-    sequence references in column defaults and views.  But sometimes you might
-    want <quote>late binding</quote> where the sequence reference is resolved
-    at run time.  To get late-binding behavior, force the constant to be
-    stored as a <type>text</type> constant instead of <type>regclass</type>:
--->
-ありのままのリテラル文字列としてシーケンス関数の引数を記述すると、<type>regclass</type>データ型の定数になります。
-これは単なるOIDなので、後で名前付けが再び行われたとか、スキーマの再割り振りとかに関わらず、最初に特定されたシーケンスを引き継ぎます。
-この<quote>初期束縛</quote>の動作は、列のデフォルトやビューからシーケンスを参照する場合は望ましいことが多いでしょう。
-しかし、実行時にシーケンス参照が解決されるような<quote>動的束縛</quote>が望まれる場合もあります。
-動的束縛の動作を得るには、その定数を<type>regclass</type>ではなく<type>text</type>定数として保存させます。
-<!--
-<programlisting>
-nextval('foo'::text)      <lineannotation><literal>foo</literal> is looked up at runtime</lineannotation>
-</programlisting>
--->
-<programlisting>
-nextval('foo'::text)      <lineannotation><literal>foo</literal>は実行時に検索される</lineannotation>
-</programlisting>
-<!--
-    Note that late binding was the only behavior supported in
-    <productname>PostgreSQL</productname> releases before 8.1, so you
-    might need to do this to preserve the semantics of old applications.
--->
-<productname>PostgreSQL</productname>のリリース8.1より前では動的束縛のみがサポートされる動作だったので、旧来のアプリケーションのセマンティクスを保ちたい場合このようにする必要があるかもしれません。
-   </para>
-
-   <para>
-<!--
-    Of course, the argument of a sequence function can be an expression
-    as well as a constant.  If it is a text expression then the implicit
-    coercion will result in a run-time lookup.
--->
-もちろん、シーケンス関数の引数は定数だけでなく、評価式とすることも可能です。
-テキスト式の場合は暗黙的型変換により、実行時検索が行われます。
-   </para>
-  </note>
-
  </sect1>
 
 
@@ -3782,6 +3736,25 @@ SELECT NULLIF(value, '(none)') ...
 たとえば<literal>NULLIF(1, 2.2)</literal>は<type>numeric</type>を出力します。なぜなら<type>integer</type> <literal>=</literal> <type>numeric</type>演算子はなく、<type>numeric</type> <literal>=</literal> <type>numeric</type>があるだけだからです。
   </para>
 
+  <para>
+   The two arguments must be of comparable types.
+   To be specific, they are compared exactly as if you had
+   written <literal><replaceable>value1</replaceable>
+   = <replaceable>value2</replaceable></literal>, so there must be a
+   suitable <literal>=</literal> operator available.
+  </para>
+
+  <para>
+   The result has the same type as the first argument &mdash; but there is
+   a subtlety.  What is actually returned is the first argument of the
+   implied <literal>=</literal> operator, and in some cases that will have
+   been promoted to match the second argument's type.  For
+   example, <literal>NULLIF(1, 2.2)</literal> yields <type>numeric</type>,
+   because there is no <type>integer</type> <literal>=</literal>
+   <type>numeric</type> operator,
+   only <type>numeric</type> <literal>=</literal> <type>numeric</type>.
+  </para>
+
   </sect2>
 
   <sect2 id="functions-greatest-least">
@@ -3852,10 +3825,7 @@ SELECT NULLIF(value, '(none)') ...
    (last subscript varies most rapidly).
    If the contents of two arrays are equal but the dimensionality is
    different, the first difference in the dimensionality information
-   determines the sort order.  (This is a change from versions of
-   <productname>PostgreSQL</productname> prior to 8.2: older versions would claim
-   that two arrays with the same contents were equal, even if the
-   number of dimensions or subscript ranges were different.)
+   determines the sort order.
 -->
 <xref linkend="array-operators-table"/>に、配列型専用に利用可能な演算子を示します。
 これらに加えて<xref linkend="functions-comparison-op-table"/>で示す通常の比較演算子が配列で利用できます。
@@ -3953,8 +3923,8 @@ SELECT NULLIF(value, '(none)') ...
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-        <type>anyarray</type> <literal>||</literal> <type>anyarray</type>
-        <returnvalue>anyarray</returnvalue>
+        <type>anycompatiblearray</type> <literal>||</literal> <type>anycompatiblearray</type>
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
@@ -3962,6 +3932,8 @@ SELECT NULLIF(value, '(none)') ...
         no-op; otherwise the arrays must have the same number of dimensions
         (as illustrated by the first example) or differ in number of
         dimensions by one (as illustrated by the second).
+        If the arrays are not of identical element types, they will be coerced
+        to a common type (see <xref linkend="typeconv-union-case"/>).
 -->
 2つの配列を結合します。
 nullあるいは空の配列の結合は無処理です。そうでない場合は、配列は同じ次元数を持っていなければなりません。
@@ -3972,15 +3944,15 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>{1,2,3,4,5,6,7}</returnvalue>
        </para>
        <para>
-        <literal>ARRAY[1,2,3] || ARRAY[[4,5,6],[7,8,9]]</literal>
-        <returnvalue>{{1,2,3},{4,5,6},{7,8,9}}</returnvalue>
+        <literal>ARRAY[1,2,3] || ARRAY[[4,5,6],[7,8,9.9]]</literal>
+        <returnvalue>{{1,2,3},{4,5,6},{7,8,9.9}}</returnvalue>
        </para></entry>
       </row>
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-        <type>anyelement</type> <literal>||</literal> <type>anyarray</type>
-        <returnvalue>anyarray</returnvalue>
+        <type>anycompatible</type> <literal>||</literal> <type>anycompatiblearray</type>
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
@@ -3997,8 +3969,8 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-        <type>anyarray</type> <literal>||</literal> <type>anyelement</type>
-        <returnvalue>anyarray</returnvalue>
+        <type>anycompatiblearray</type> <literal>||</literal> <type>anycompatible</type>
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
@@ -4071,13 +4043,13 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>array_append</primary>
         </indexterm>
-        <function>array_append</function> ( <type>anyarray</type>, <type>anyelement</type> )
-        <returnvalue>anyarray</returnvalue>
+        <function>array_append</function> ( <type>anycompatiblearray</type>, <type>anycompatible</type> )
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
         Appends an element to the end of an array (same as
-        the <type>anyarray</type> <literal>||</literal> <type>anyelement</type>
+        the <type>anycompatiblearray</type> <literal>||</literal> <type>anycompatible</type>
         operator).
 -->
 配列の最後に要素を追加します。（<type>anyarray</type> <literal>||</literal> <type>anyelement</type>演算子と同じです。）
@@ -4093,13 +4065,13 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>array_cat</primary>
         </indexterm>
-        <function>array_cat</function> ( <type>anyarray</type>, <type>anyarray</type> )
-        <returnvalue>anyarray</returnvalue>
+        <function>array_cat</function> ( <type>anycompatiblearray</type>, <type>anycompatiblearray</type> )
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
         Concatenates two arrays (same as
-        the <type>anyarray</type> <literal>||</literal> <type>anyarray</type>
+        the <type>anycompatiblearray</type> <literal>||</literal> <type>anycompatiblearray</type>
         operator).
 -->
 2つの配列を結合します。（<type>anyarray</type> <literal>||</literal> <type>anyarray</type>演算子と同じです。）
@@ -4224,7 +4196,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>array_position</primary>
         </indexterm>
-        <function>array_position</function> ( <type>anyarray</type>, <type>anyelement</type> <optional>, <type>integer</type> </optional> )
+        <function>array_position</function> ( <type>anycompatiblearray</type>, <type>anycompatible</type> <optional>, <type>integer</type> </optional> )
         <returnvalue>integer</returnvalue>
        </para>
        <para>
@@ -4252,7 +4224,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>array_positions</primary>
         </indexterm>
-        <function>array_positions</function> ( <type>anyarray</type>, <type>anyelement</type> )
+        <function>array_positions</function> ( <type>anycompatiblearray</type>, <type>anycompatible</type> )
         <returnvalue>integer[]</returnvalue>
        </para>
        <para>
@@ -4284,13 +4256,13 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>array_prepend</primary>
         </indexterm>
-        <function>array_prepend</function> ( <type>anyelement</type>, <type>anyarray</type> )
-        <returnvalue>anyarray</returnvalue>
+        <function>array_prepend</function> ( <type>anycompatible</type>, <type>anycompatiblearray</type> )
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
         Prepends an element to the beginning of an array (same as
-        the <type>anyelement</type> <literal>||</literal> <type>anyarray</type>
+        the <type>anycompatible</type> <literal>||</literal> <type>anycompatiblearray</type>
         operator).
 -->
 配列の先頭に要素を追加します。（<type>anyelement</type> <literal>||</literal> <type>anyarray</type>演算子と同じです。）
@@ -4306,8 +4278,8 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>array_remove</primary>
         </indexterm>
-        <function>array_remove</function> ( <type>anyarray</type>, <type>anyelement</type> )
-        <returnvalue>anyarray</returnvalue>
+        <function>array_remove</function> ( <type>anycompatiblearray</type>, <type>anycompatible</type> )
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
@@ -4331,8 +4303,8 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>array_replace</primary>
         </indexterm>
-        <function>array_replace</function> ( <type>anyarray</type>, <type>anyelement</type>, <type>anyelement</type> )
-        <returnvalue>anyarray</returnvalue>
+        <function>array_replace</function> ( <type>anycompatiblearray</type>, <type>anycompatible</type>, <type>anycompatible</type> )
+        <returnvalue>anycompatiblearray</returnvalue>
        </para>
        <para>
 <!--
@@ -4417,33 +4389,18 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
-         <primary>string_to_array</primary>
+         <primary>trim_array</primary>
         </indexterm>
-        <function>string_to_array</function> ( <parameter>string</parameter> <type>text</type>, <parameter>delimiter</parameter> <type>text</type> <optional>, <parameter>null_string</parameter> <type>text</type> </optional> )
-        <returnvalue>text[]</returnvalue>
+        <function>trim_array</function> ( <parameter>array</parameter> <type>anyarray</type>, <parameter>n</parameter> <type>integer</type> )
+        <returnvalue>anyarray</returnvalue>
        </para>
        <para>
-<!--
-        Splits the <parameter>string</parameter> at occurrences
-        of <parameter>delimiter</parameter> and forms the remaining data
-        into a <type>text</type> array.
-        If <parameter>delimiter</parameter> is <literal>NULL</literal>,
-        each character in the <parameter>string</parameter> will become a
-        separate element in the array.
-        If <parameter>delimiter</parameter> is an empty string, then
-        the <parameter>string</parameter> is treated as a single field.
-        If <parameter>null_string</parameter> is supplied and is
-        not <literal>NULL</literal>, fields matching that string are converted
-        to <literal>NULL</literal> entries.
--->
-<parameter>string</parameter>を<parameter>delimiter</parameter>が現れるところで分割し、残りのデータを<type>text</type>配列にします。
-<parameter>delimiter</parameter>が<literal>NULL</literal>なら、<parameter>string</parameter>中の文字は配列中の別個の要素になります。
-<parameter>delimiter</parameter>が空文字列なら、<parameter>string</parameter>は単一のフィールドとして扱われます。
-<parameter>null_string</parameter>が提供されて<literal>NULL</literal>でなければ、その文字列とマッチするフィールドは<literal>NULL</literal>のエントリーに変換されます。
+        Trims an array by removing the last <parameter>n</parameter> elements.
+        If the array is multidimensional, only the first dimension is trimmed.
        </para>
        <para>
-        <literal>string_to_array('xx~~yy~~zz', '~~', 'yy')</literal>
-        <returnvalue>{xx,NULL,zz}</returnvalue>
+        <literal>trim_array(ARRAY[1,2,3,4,5,6], 2)</literal>
+        <returnvalue>{1,2,3,4}</returnvalue>
        </para></entry>
       </row>
 
@@ -4457,7 +4414,8 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
        </para>
        <para>
 <!--
-        Expands an array to a set of rows.
+        Expands an array into a set of rows.
+        The array's elements are read out in storage order.
 -->
 配列を行の集合に展開します。
        </para>
@@ -4467,6 +4425,16 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <programlisting>
  1
  2
+</programlisting>
+       </para>
+       <para>
+        <literal>unnest(ARRAY[['foo','bar'],['baz','quux']])</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ foo
+ bar
+ baz
+ quux
 </programlisting>
        </para></entry>
       </row>
@@ -4478,10 +4446,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
        </para>
        <para>
 <!--
-        Expands multiple arrays (possibly of different data types) to a set of
+        Expands multiple arrays (possibly of different data types) into a set of
         rows.  If the arrays are not all the same length then the shorter ones
-        are padded with <literal>NULL</literal>s.  This is only allowed in a
-        query's FROM clause; see <xref linkend="queries-tablefunctions"/>.
+        are padded with <literal>NULL</literal>s.  This form is only allowed
+        in a query's FROM clause; see <xref linkend="queries-tablefunctions"/>.
 -->
 複数の配列（異なるデータ型の可能性があります）を行の集合に展開します。
 配列の長さが同じでなければ、短い配列には<literal>NULL</literal>が詰められます。
@@ -4531,7 +4499,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 
  <sect1 id="functions-range">
 <!--
-  <title>Range Functions and Operators</title>
+  <title>Range/Multirange Functions and Operators</title>
 -->
   <title>範囲関数と演算子</title>
 
@@ -4546,12 +4514,15 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
    <xref linkend="range-operators-table"/> shows the specialized operators
    available for range types.
+   <xref linkend="multirange-operators-table"/> shows the specialized operators
+   available for multirange types.
    In addition to those, the usual comparison operators shown in
    <xref linkend="functions-comparison-op-table"/> are available for range
-   types.  The comparison operators order first by the range lower bounds, and
-   only if those are equal do they compare the upper bounds.  This does not
-   usually result in a useful overall ordering, but the operators are provided
-   to allow unique indexes to be constructed on ranges.
+   and multirange types.  The comparison operators order first by the range lower
+   bounds, and only if those are equal do they compare the upper bounds.  The
+   multirange operators compare each range until one is unequal. This
+   does not usually result in a useful overall ordering, but the operators are
+   provided to allow unique indexes to be constructed on ranges.
 -->
 <xref linkend="range-operators-table"/>に、範囲型専用に利用可能な演算子を示します。
 これらに加えて<xref linkend="functions-comparison-op-table"/>で示す通常の比較演算子が配列で利用できます。
@@ -4697,10 +4668,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
-<!--
         Is the first range strictly right of the second?
--->
-最初の範囲は厳密に2番目の右か？
        </para>
        <para>
         <literal>int8range(50,60) &gt;&gt; int8range(20,30)</literal>
@@ -4714,10 +4682,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
-<!--
         Does the first range not extend to the right of the second?
--->
-最初の範囲は2番目の右を被覆していないか？
        </para>
        <para>
         <literal>int8range(1,20) &amp;&lt; int8range(18,20)</literal>
@@ -4731,10 +4696,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
-<!--
         Does the first range not extend to the left of the second?
--->
-最初の範囲は2番目の左を被覆していないか？
        </para>
        <para>
         <literal>int8range(7,20) &amp;&gt; int8range(5,10)</literal>
@@ -4748,10 +4710,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
-<!--
         Are the ranges adjacent?
--->
-範囲は隣接しているか？
        </para>
        <para>
         <literal>numrange(1.1,2.2) -|- numrange(2.2,3.3)</literal>
@@ -4765,12 +4724,9 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
-<!--
         Computes the union of the ranges.  The ranges must overlap or be
         adjacent, so that the union is a single range (but
         see <function>range_merge()</function>).
--->
-範囲の和を計算します。範囲は和の結果が単一の範囲になるように、重なり合っているか、隣接していなければなりません。（ただし<function>range_merge()</function>を参照してください。）
        </para>
        <para>
         <literal>numrange(5,15) + numrange(10,20)</literal>
@@ -4784,10 +4740,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
-<!--
         Computes the intersection of the ranges.
--->
-範囲の共通部分を計算します。
        </para>
        <para>
         <literal>int8range(5,15) * int8range(10,20)</literal>
@@ -4801,13 +4754,9 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
-<!--
         Computes the difference of the ranges.  The second range must not be
         contained in the first in such a way that the difference would not be
         a single range.
--->
-範囲の差を計算します。
-差が単一の範囲にならないように、2番目の範囲は最初の範囲に含まれていてはいけません。
        </para>
        <para>
         <literal>int8range(5,15) - int8range(10,20)</literal>
@@ -4818,28 +4767,626 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
     </tgroup>
    </table>
 
+   <table id="multirange-operators-table">
+    <title>Multirange Operators</title>
+    <tgroup cols="1">
+     <thead>
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        Operator
+       </para>
+       <para>
+        Description
+       </para>
+       <para>
+        Example(s)
+       </para></entry>
+      </row>
+     </thead>
+
+     <tbody>
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>@&gt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the first multirange contain the second?
+       </para>
+       <para>
+        <literal>'{[2,4)}'::int4multirange @&gt; '{[2,3)}'::int4multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>@&gt;</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the multirange contain the range?
+       </para>
+       <para>
+        <literal>'{[2,4)}'::int4multirange @&gt; int4range(2,3)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>@&gt;</literal> <type>anyelement</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the multirange contain the element?
+       </para>
+       <para>
+        <literal>'{[2011-01-01,2011-03-01)}'::tsmultirange @&gt; '2011-01-10'::timestamp</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>@&gt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the range contain the multirange?
+       </para>
+       <para>
+        <literal>'[2,4)'::int4range @&gt; '{[2,3)}'::int4multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&lt;@</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the first multirange contained by the second?
+       </para>
+       <para>
+        <literal>'{[2,4)}'::int4multirange &lt;@ '{[1,7)}'::int4multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&lt;@</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the multirange contained by the range?
+       </para>
+       <para>
+        <literal>'{[2,4)}'::int4multirange &lt;@ int4range(1,7)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>&lt;@</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range contained by the multirange?
+       </para>
+       <para>
+        <literal>int4range(2,4) &lt;@ '{[1,7)}'::int4multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyelement</type> <literal>&lt;@</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the element contained by the multirange?
+       </para>
+       <para>
+        <literal>42 &lt;@ '{[1,7)}'::int4multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&amp;&amp;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Do the multiranges overlap, that is, have any elements in common?
+       </para>
+       <para>
+        <literal>'{[3,7)}'::int8multirange &amp;&amp; '{[4,12)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&amp;&amp;</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the multirange overlap the range?
+       </para>
+       <para>
+        <literal>'{[3,7)}'::int8multirange &amp;&amp; int8range(4,12)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>&amp;&amp;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the range overlap the multirange?
+       </para>
+       <para>
+        <literal>int8range(3,7) &amp;&amp; '{[4,12)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&lt;&lt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the first multirange strictly left of the second?
+       </para>
+       <para>
+        <literal>'{[1,10)}'::int8multirange &lt;&lt; '{[100,110)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&lt;&lt;</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the multirange strictly left of the range?
+       </para>
+       <para>
+        <literal>'{[1,10)}'::int8multirange &lt;&lt; int8range(100,110)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>&lt;&lt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range strictly left of the multirange?
+       </para>
+       <para>
+        <literal>int8range(1,10) &lt;&lt; '{[100,110)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&gt;&gt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the first multirange strictly right of the second?
+       </para>
+       <para>
+        <literal>'{[50,60)}'::int8multirange &gt;&gt; '{[20,30)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&gt;&gt;</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the multirange strictly right of the range?
+       </para>
+       <para>
+        <literal>'{[50,60)}'::int8multirange &gt;&gt; int8range(20,30)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>&gt;&gt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range strictly right of the multirange?
+       </para>
+       <para>
+        <literal>int8range(50,60) &gt;&gt; '{[20,30)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&amp;&lt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the first multirange not extend to the right of the second?
+       </para>
+       <para>
+        <literal>'{[1,20)}'::int8multirange &amp;&lt; '{[18,20)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&amp;&lt;</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the multirange not extend to the right of the range?
+       </para>
+       <para>
+        <literal>'{[1,20)}'::int8multirange &amp;&lt; int8range(18,20)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>&amp;&lt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the range not extend to the right of the multirange?
+       </para>
+       <para>
+        <literal>int8range(1,20) &amp;&lt; '{[18,20)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&amp;&gt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the first multirange not extend to the left of the second?
+       </para>
+       <para>
+        <literal>'{[7,20)}'::int8multirange &amp;&gt; '{[5,10)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>&amp;&gt;</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the multirange not extend to the left of the range?
+       </para>
+       <para>
+        <literal>'{[7,20)}'::int8multirange &amp;&gt; int8range(5,10)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>&amp;&gt;</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Does the range not extend to the left of the multirange?
+       </para>
+       <para>
+        <literal>int8range(7,20) &amp;&gt; '{[5,10)}'::int8multirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>-|-</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Are the multiranges adjacent?
+       </para>
+       <para>
+        <literal>'{[1.1,2.2)}'::nummultirange -|- '{[2.2,3.3)}'::nummultirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>-|-</literal> <type>anyrange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the multirange adjacent to the range?
+       </para>
+       <para>
+        <literal>'{[1.1,2.2)}'::nummultirange -|- numrange(2.2,3.3)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anyrange</type> <literal>-|-</literal> <type>anymultirange</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range adjacent to the multirange?
+       </para>
+       <para>
+        <literal>numrange(1.1,2.2) -|- '{[2.2,3.3)}'::nummultirange</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>+</literal> <type>anymultirange</type>
+        <returnvalue>anymultirange</returnvalue>
+       </para>
+       <para>
+        Computes the union of the multiranges.  The multiranges need not overlap
+        or be adjacent.
+       </para>
+       <para>
+        <literal>'{[5,10)}'::nummultirange + '{[15,20)}'::nummultirange</literal>
+        <returnvalue>{[5,10), [15,20)}</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>*</literal> <type>anymultirange</type>
+        <returnvalue>anymultirange</returnvalue>
+       </para>
+       <para>
+        Computes the intersection of the multiranges.
+       </para>
+       <para>
+        <literal>'{[5,15)}'::int8multirange * '{[10,20)}'::int8multirange</literal>
+        <returnvalue>{[10,15)}</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <type>anymultirange</type> <literal>-</literal> <type>anymultirange</type>
+        <returnvalue>anymultirange</returnvalue>
+       </para>
+       <para>
+        Computes the difference of the multiranges.
+       </para>
+       <para>
+        <literal>'{[5,20)}'::int8multirange - '{[10,15)}'::int8multirange</literal>
+        <returnvalue>{[5,10), [15,20)}</returnvalue>
+       </para></entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
   <para>
-<!--
    The left-of/right-of/adjacent operators always return false when an empty
-   range is involved; that is, an empty range is not considered to be either
-   before or after any other range.
--->
-空の範囲が含まれる場合、「左」「右」「隣接」演算子は常に偽を返します。つまり、空の範囲は他の範囲の前でも後ろでもないと見なされます。
+   range or multirange is involved; that is, an empty range is not considered to
+   be either before or after any other range.
   </para>
 
   <para>
-<!--
+   Elsewhere empty ranges and multiranges are treated as the additive identity:
+   anything unioned with an empty value is itself. Anything minus an empty
+   value is itself. An empty multirange has exactly the same points as an empty
+   range. Every range contains the empty range. Every multirange contains as many
+   empty ranges as you like.
+  </para>
+
+  <para>
+   The range union and difference operators will fail if the resulting range would
+   need to contain two disjoint sub-ranges, as such a range cannot be
+   represented. There are separate operators for union and difference that take
+   multirange parameters and return a multirange, and they do not fail even if
+   their arguments are disjoint. So if you need a union or difference operation
+   for ranges that may be disjoint, you can avoid errors by first casting your
+   ranges to multiranges.
+  </para>
+
+  <para>
    <xref linkend="range-functions-table"/> shows the functions
    available for use with range types.
--->
-<xref linkend="range-functions-table"/>に範囲型で利用可能な関数を示します。
+   <xref linkend="multirange-functions-table"/> shows the functions
+   available for use with multirange types.
   </para>
 
    <table id="range-functions-table">
-<!--
     <title>Range Functions</title>
--->
-    <title>範囲関数</title>
+    <tgroup cols="1">
+     <thead>
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        Function
+       </para>
+       <para>
+        Description
+       </para>
+       <para>
+        Example(s)
+       </para></entry>
+      </row>
+     </thead>
+
+     <tbody>
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>lower</primary>
+        </indexterm>
+        <function>lower</function> ( <type>anyrange</type> )
+        <returnvalue>anyelement</returnvalue>
+       </para>
+       <para>
+        Extracts the lower bound of the range (<literal>NULL</literal> if the
+        range is empty or the lower bound is infinite).
+       </para>
+       <para>
+        <literal>lower(numrange(1.1,2.2))</literal>
+        <returnvalue>1.1</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>upper</primary>
+        </indexterm>
+        <function>upper</function> ( <type>anyrange</type> )
+        <returnvalue>anyelement</returnvalue>
+       </para>
+       <para>
+        Extracts the upper bound of the range (<literal>NULL</literal> if the
+        range is empty or the upper bound is infinite).
+       </para>
+       <para>
+        <literal>upper(numrange(1.1,2.2))</literal>
+        <returnvalue>2.2</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>isempty</primary>
+        </indexterm>
+        <function>isempty</function> ( <type>anyrange</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range empty?
+       </para>
+       <para>
+        <literal>isempty(numrange(1.1,2.2))</literal>
+        <returnvalue>f</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>lower_inc</primary>
+        </indexterm>
+        <function>lower_inc</function> ( <type>anyrange</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range's lower bound inclusive?
+       </para>
+       <para>
+        <literal>lower_inc(numrange(1.1,2.2))</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>upper_inc</primary>
+        </indexterm>
+        <function>upper_inc</function> ( <type>anyrange</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range's upper bound inclusive?
+       </para>
+       <para>
+        <literal>upper_inc(numrange(1.1,2.2))</literal>
+        <returnvalue>f</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>lower_inf</primary>
+        </indexterm>
+        <function>lower_inf</function> ( <type>anyrange</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range's lower bound infinite?
+       </para>
+       <para>
+        <literal>lower_inf('(,)'::daterange)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>upper_inf</primary>
+        </indexterm>
+        <function>upper_inf</function> ( <type>anyrange</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Is the range's upper bound infinite?
+       </para>
+       <para>
+        <literal>upper_inf('(,)'::daterange)</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>range_merge</primary>
+        </indexterm>
+        <function>range_merge</function> ( <type>anyrange</type>, <type>anyrange</type> )
+        <returnvalue>anyrange</returnvalue>
+       </para>
+       <para>
+        Computes the smallest range that includes both of the given ranges.
+       </para>
+       <para>
+        <literal>range_merge('[1,2)'::int4range, '[3,4)'::int4range)</literal>
+        <returnvalue>[1,4)</returnvalue>
+       </para></entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+
+   <table id="multirange-functions-table">
+    <title>Multirange Functions</title>
     <tgroup cols="1">
      <thead>
       <row>
@@ -4863,25 +5410,24 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
        </para></entry>
       </row>
      </thead>
-
      <tbody>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
          <primary>lower</primary>
         </indexterm>
-        <function>lower</function> ( <type>anyrange</type> )
+        <function>lower</function> ( <type>anymultirange</type> )
         <returnvalue>anyelement</returnvalue>
        </para>
        <para>
 <!--
-        Extracts the lower bound of the range (<literal>NULL</literal> if the
-        range is empty or the lower bound is infinite).
+        Extracts the lower bound of the multirange (<literal>NULL</literal> if the
+        multirange is empty or the lower bound is infinite).
 -->
 範囲の下限を取り出します。（範囲が空か下限が無限ならば<literal>NULL</literal>となります。）
        </para>
        <para>
-        <literal>lower(numrange(1.1,2.2))</literal>
+        <literal>lower('{[1.1,2.2)}'::nummultirange)</literal>
         <returnvalue>1.1</returnvalue>
        </para></entry>
       </row>
@@ -4891,18 +5437,18 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>upper</primary>
         </indexterm>
-        <function>upper</function> ( <type>anyrange</type> )
+        <function>upper</function> ( <type>anymultirange</type> )
         <returnvalue>anyelement</returnvalue>
        </para>
        <para>
 <!--
-        Extracts the upper bound of the range (<literal>NULL</literal> if the
-        range is empty or the upper bound is infinite).
+        Extracts the upper bound of the multirange (<literal>NULL</literal> if the
+        multirange is empty or the upper bound is infinite).
 -->
 範囲の上限を取り出します。（範囲が空か上限が無限ならば<literal>NULL</literal>となります。）
        </para>
        <para>
-        <literal>upper(numrange(1.1,2.2))</literal>
+        <literal>upper('{[1.1,2.2)}'::nummultirange)</literal>
         <returnvalue>2.2</returnvalue>
        </para></entry>
       </row>
@@ -4912,17 +5458,17 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>isempty</primary>
         </indexterm>
-        <function>isempty</function> ( <type>anyrange</type> )
+        <function>isempty</function> ( <type>anymultirange</type> )
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
 <!--
-        Is the range empty?
+        Is the multirange empty?
 -->
 範囲は空か？
        </para>
        <para>
-        <literal>isempty(numrange(1.1,2.2))</literal>
+        <literal>isempty('{[1.1,2.2)}'::nummultirange)</literal>
         <returnvalue>f</returnvalue>
        </para></entry>
       </row>
@@ -4932,17 +5478,17 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>lower_inc</primary>
         </indexterm>
-        <function>lower_inc</function> ( <type>anyrange</type> )
+        <function>lower_inc</function> ( <type>anymultirange</type> )
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
 <!--
-        Is the range's lower bound inclusive?
+        Is the multirange's lower bound inclusive?
 -->
 範囲の下限は境界を含むか？
        </para>
        <para>
-        <literal>lower_inc(numrange(1.1,2.2))</literal>
+        <literal>lower_inc('{[1.1,2.2)}'::nummultirange)</literal>
         <returnvalue>t</returnvalue>
        </para></entry>
       </row>
@@ -4952,17 +5498,17 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>upper_inc</primary>
         </indexterm>
-        <function>upper_inc</function> ( <type>anyrange</type> )
+        <function>upper_inc</function> ( <type>anymultirange</type> )
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
 <!--
-        Is the range's upper bound inclusive?
+        Is the multirange's upper bound inclusive?
 -->
 範囲の上限は境界を含むか？
        </para>
        <para>
-        <literal>upper_inc(numrange(1.1,2.2))</literal>
+        <literal>upper_inc('{[1.1,2.2)}'::nummultirange)</literal>
         <returnvalue>f</returnvalue>
        </para></entry>
       </row>
@@ -4972,17 +5518,17 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>lower_inf</primary>
         </indexterm>
-        <function>lower_inf</function> ( <type>anyrange</type> )
+        <function>lower_inf</function> ( <type>anymultirange</type> )
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
 <!--
-        Is the range's lower bound infinite?
+        Is the multirange's lower bound infinite?
 -->
 範囲の下限は無限か？
        </para>
        <para>
-        <literal>lower_inf('(,)'::daterange)</literal>
+        <literal>lower_inf('{(,)}'::datemultirange)</literal>
         <returnvalue>t</returnvalue>
        </para></entry>
       </row>
@@ -4992,17 +5538,17 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>upper_inf</primary>
         </indexterm>
-        <function>upper_inf</function> ( <type>anyrange</type> )
+        <function>upper_inf</function> ( <type>anymultirange</type> )
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
 <!--
-        Is the range's upper bound infinite?
+        Is the multirange's upper bound infinite?
 -->
 範囲の上限は無限か？
        </para>
        <para>
-        <literal>upper_inf('(,)'::daterange)</literal>
+        <literal>upper_inf('{(,)}'::datemultirange)</literal>
         <returnvalue>t</returnvalue>
        </para></entry>
       </row>
@@ -5012,18 +5558,58 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <indexterm>
          <primary>range_merge</primary>
         </indexterm>
-        <function>range_merge</function> ( <type>anyrange</type>, <type>anyrange</type> )
+        <function>range_merge</function> ( <type>anymultirange</type> )
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
 <!--
-        Computes the smallest range that includes both of the given ranges.
+        Computes the smallest range that includes the entire multirange.
 -->
 与えられた両方の範囲を含む最小の範囲を計算します。
        </para>
        <para>
-        <literal>range_merge('[1,2)'::int4range, '[3,4)'::int4range)</literal>
+        <literal>range_merge('{[1,2), [3,4)}'::int4multirange)</literal>
         <returnvalue>[1,4)</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>multirange (function)</primary>
+        </indexterm>
+        <function>multirange</function> ( <type>anyrange</type> )
+        <returnvalue>anymultirange</returnvalue>
+       </para>
+       <para>
+        Returns a multirange containing just the given range.
+       </para>
+       <para>
+        <literal>multirange('[1,2)'::int4range)</literal>
+        <returnvalue>{[1,2)}</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>unnest</primary>
+         <secondary>for multirange</secondary>
+        </indexterm>
+        <function>unnest</function> ( <type>anymultirange</type> )
+        <returnvalue>setof anyrange</returnvalue>
+       </para>
+       <para>
+        Expands a multirange into a set of ranges.
+        The ranges are read out in storage order (ascending).
+       </para>
+       <para>
+        <literal>unnest('{[1,2), [3,4)}'::int4multirange)</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ [1,2)
+ [3,4)
+</programlisting>
        </para></entry>
       </row>
      </tbody>
@@ -5034,7 +5620,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
    The <function>lower_inc</function>, <function>upper_inc</function>,
    <function>lower_inf</function>, and <function>upper_inf</function>
-   functions all return false for an empty range.
+   functions all return false for an empty range or multirange.
 -->
 <function>lower_inc</function>、<function>upper_inc</function>、<function>lower_inf</function>、<function>upper_inf</function>はすべて空の範囲に対して偽を返します。
   </para>
@@ -5257,6 +5843,33 @@ NULLも含めてすべての入力値を収集して配列に格納します。
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>bit_xor</primary>
+        </indexterm>
+        <function>bit_xor</function> ( <type>smallint</type> )
+        <returnvalue>smallint</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>bit_xor</function> ( <type>integer</type> )
+        <returnvalue>integer</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>bit_xor</function> ( <type>bigint</type> )
+        <returnvalue>bigint</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>bit_xor</function> ( <type>bit</type> )
+        <returnvalue>bit</returnvalue>
+       </para>
+       <para>
+        Computes the bitwise exclusive OR of all non-null input values.
+        Can be useful as a checksum for an unordered set of values.
+       </para></entry>
+       <entry>Yes</entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>bool_and</primary>
         </indexterm>
         <function>bool_and</function> ( <type>boolean</type> )
@@ -5441,6 +6054,36 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
 数値、文字列、日時、列挙型および<type>inet</type>、<type>interval</type>、<type>money</type>、<type>oid</type>、<type>pg_lsn</type>、<type>tid</type>、およびこれらすべての配列でも同様に利用できます。
        </para></entry>
        <entry>Yes</entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>range_agg</primary>
+        </indexterm>
+        <function>range_agg</function> ( <parameter>value</parameter>
+         <type>anyrange</type> )
+        <returnvalue>anymultirange</returnvalue>
+       </para>
+       <para>
+        Computes the union of the non-null input values.
+       </para></entry>
+       <entry>No</entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>range_intersect_agg</primary>
+        </indexterm>
+        <function>range_intersect_agg</function> ( <parameter>value</parameter>
+         <type>anyrange</type> )
+        <returnvalue>anymultirange</returnvalue>
+       </para>
+       <para>
+        Computes the intersection of the non-null input values.
+       </para></entry>
+       <entry>No</entry>
       </row>
 
       <row>
@@ -6822,10 +7465,10 @@ NULL値は<literal>ORDER BY</literal>節で指定されるルールに従って�
         <indexterm>
          <primary>lag</primary>
         </indexterm>
-        <function>lag</function> ( <parameter>value</parameter> <type>anyelement</type>
+        <function>lag</function> ( <parameter>value</parameter> <type>anycompatible</type>
           <optional>, <parameter>offset</parameter> <type>integer</type>
-          <optional>, <parameter>default</parameter> <type>anyelement</type> </optional></optional> )
-        <returnvalue>anyelement</returnvalue>
+          <optional>, <parameter>default</parameter> <type>anycompatible</type> </optional></optional> )
+        <returnvalue>anycompatible</returnvalue>
        </para>
        <para>
 <!--
@@ -6833,7 +7476,7 @@ NULL値は<literal>ORDER BY</literal>節で指定されるルールに従って�
         the row that is <parameter>offset</parameter>
         rows before the current row within the partition; if there is no such
         row, instead returns <parameter>default</parameter>
-        (which must be of the same type as
+        (which must be of a type compatible with
         <parameter>value</parameter>).
         Both <parameter>offset</parameter> and
         <parameter>default</parameter> are evaluated
@@ -6853,10 +7496,10 @@ NULL値は<literal>ORDER BY</literal>節で指定されるルールに従って�
         <indexterm>
          <primary>lead</primary>
         </indexterm>
-        <function>lead</function> ( <parameter>value</parameter> <type>anyelement</type>
+        <function>lead</function> ( <parameter>value</parameter> <type>anycompatible</type>
           <optional>, <parameter>offset</parameter> <type>integer</type>
-          <optional>, <parameter>default</parameter> <type>anyelement</type> </optional></optional> )
-        <returnvalue>anyelement</returnvalue>
+          <optional>, <parameter>default</parameter> <type>anycompatible</type> </optional></optional> )
+        <returnvalue>anycompatible</returnvalue>
        </para>
        <para>
 <!--
@@ -6864,7 +7507,7 @@ NULL値は<literal>ORDER BY</literal>節で指定されるルールに従って�
         the row that is <parameter>offset</parameter>
         rows after the current row within the partition; if there is no such
         row, instead returns <parameter>default</parameter>
-        (which must be of the same type as
+        (which must be of a type compatible with
         <parameter>value</parameter>).
         Both <parameter>offset</parameter> and
         <parameter>default</parameter> are evaluated

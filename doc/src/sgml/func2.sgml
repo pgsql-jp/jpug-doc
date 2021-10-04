@@ -624,7 +624,8 @@
        <row>
         <entry><literal>J</literal></entry>
 <!--
-        <entry>Julian Day (integer days since November 24, 4714 BC at midnight UTC)</entry>
+        <entry>Julian Date (integer days since November 24, 4714 BC at local
+        midnight; see <xref linkend="datetime-julian-dates"/>)</entry>
 -->
         <entry>ユリウス日（UTC紀元前4714年11月24日午前零時からの整数による通算経過日）</entry>
        </row>
@@ -1013,6 +1014,15 @@
      <listitem>
       <para>
 <!--
+       In <function>to_timestamp</function> and <function>to_date</function>,
+       negative years are treated as signifying BC.  If you write both a
+       negative year and an explicit <literal>BC</literal> field, you get AD
+       again.  An input of year zero is treated as 1 BC.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
        In <function>to_timestamp</function> and <function>to_date</function>,
        the <literal>YYYY</literal> conversion has a restriction when
        processing years with more than 4 digits. You must
@@ -1760,14 +1770,30 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
   </para>
 
   <para>
+   In addition, the usual comparison operators shown in
+   <xref linkend="functions-comparison-op-table"/> are available for the
+   date/time types.  Dates and timestamps (with or without time zone) are
+   all comparable, while times (with or without time zone) and intervals
+   can only be compared to other values of the same data type.  When
+   comparing a timestamp without time zone to a timestamp with time zone,
+   the former value is assumed to be given in the time zone specified by
+   the <xref linkend="guc-timezone"/> configuration parameter, and is
+   rotated to UTC for comparison to the latter value (which is already
+   in UTC internally).  Similarly, a date value is assumed to represent
+   midnight in the <varname>TimeZone</varname> zone when comparing it
+   to a timestamp.
+  </para>
+
+  <para>
 <!--
    All the functions and operators described below that take <type>time</type> or <type>timestamp</type>
    inputs actually come in two variants: one that takes <type>time with time zone</type> or <type>timestamp
    with time zone</type>, and one that takes <type>time without time zone</type> or <type>timestamp without time zone</type>.
    For brevity, these variants are not shown separately.  Also, the
    <literal>+</literal> and <literal>*</literal> operators come in commutative pairs (for
-   example both date + integer and integer + date); we show only one of each
-   such pair.
+   example both <type>date</type> <literal>+</literal> <type>integer</type>
+   and <type>integer</type> <literal>+</literal> <type>date</type>); we show
+   only one of each such pair.
 -->
 以下の<type>time</type>もしくは<type>timestamp</type>型の入力を受け取る関数および演算子は全て、実際には2つの種類があります。1つは<type>time with time zone</type>型または<type>timestamp with time zone</type>型を取るもので、もう1つは<type>time without time zone</type>型もしくは<type>timestamp without time zone</type>型を取るものです。
 簡略化のため、これらの種類の違いは個別に示していません。
@@ -2294,6 +2320,20 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
 
        <row>
         <entry role="func_table_entry"><para role="func_signature">
+         <function>date_bin</function> ( <type>interval</type>, <type>timestamp</type>, <type>timestamp</type> )
+         <returnvalue>timestamp</returnvalue>
+        </para>
+        <para>
+         Bin input into specified interval aligned with specified origin; see <xref linkend="functions-datetime-bin"/>
+        </para>
+        <para>
+         <literal>date_bin('15 minutes', timestamp '2001-02-16 20:38:40', timestamp '2001-02-16 20:05:00')</literal>
+         <returnvalue>2001-02-16 20:35:00</returnvalue>
+        </para></entry>
+       </row>
+
+       <row>
+        <entry role="func_table_entry"><para role="func_signature">
          <indexterm>
           <primary>date_part</primary>
          </indexterm>
@@ -2393,7 +2433,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
           <primary>extract</primary>
          </indexterm>
          <function>extract</function> ( <parameter>field</parameter> <literal>from</literal> <type>timestamp</type> )
-         <returnvalue>double precision</returnvalue>
+         <returnvalue>numeric</returnvalue>
         </para>
         <para>
 <!--
@@ -2410,7 +2450,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
        <row>
         <entry role="func_table_entry"><para role="func_signature">
          <function>extract</function> ( <parameter>field</parameter> <literal>from</literal> <type>interval</type> )
-         <returnvalue>double precision</returnvalue>
+         <returnvalue>numeric</returnvalue>
         </para>
         <para>
 <!--
@@ -2632,6 +2672,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         <para>
 <!--
          Create date from year, month and day fields
+         (negative years signify BC)
 -->
 年、月、日フィールドから日付を作成
         </para>
@@ -2706,6 +2747,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         <para>
 <!--
          Create timestamp from year, month, day, hour, minute and seconds fields
+         (negative years signify BC)
 -->
 年、月、日、時、分、秒フィールドから時刻を作成
         </para>
@@ -2732,14 +2774,20 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         <para>
 <!--
          Create timestamp with time zone from year, month, day, hour, minute
-         and seconds fields; if <parameter>timezone</parameter> is not
-         specified, the current time zone is used
+         and seconds fields (negative years signify BC).
+         If <parameter>timezone</parameter> is not
+         specified, the current time zone is used; the examples assume the
+         session time zone is <literal>Europe/London</literal>
 -->
 年、月、日、時、分、秒フィールドから時間帯付きの時刻を作成。<parameter>timezone</parameter>が指定されていなければ、現在の時間帯が使われる。
         </para>
         <para>
          <literal>make_timestamptz(2013, 7, 15, 8, 15, 23.5)</literal>
          <returnvalue>2013-07-15 08:15:23.5+01</returnvalue>
+        </para>
+        <para>
+         <literal>make_timestamptz(2013, 7, 15, 8, 15, 23.5, 'America/New_York')</literal>
+         <returnvalue>2013-07-15 13:15:23.5+01</returnvalue>
         </para></entry>
        </row>
 
@@ -3029,7 +3077,7 @@ EXTRACT(<replaceable>field</replaceable> FROM <replaceable>source</replaceable>)
     well.)  <replaceable>field</replaceable> is an identifier or
     string that selects what field to extract from the source value.
     The <function>extract</function> function returns values of type
-    <type>double precision</type>.
+    <type>numeric</type>.
     The following are valid field names:
 -->
 <function>extract</function>関数は、日付/時刻の値から年や時などの部分フィールドを抽出します。
@@ -3164,9 +3212,11 @@ SELECT EXTRACT(DOY FROM TIMESTAMP '2001-02-16 20:38:40');
        <para>
 <!--
         For <type>timestamp with time zone</type> values, the
-        number of seconds since 1970-01-01 00:00:00 UTC (can be negative);
+        number of seconds since 1970-01-01 00:00:00 UTC (negative for
+        timestamps before that);
         for <type>date</type> and <type>timestamp</type> values, the
-        number of seconds since 1970-01-01 00:00:00 local time;
+        nominal number of seconds since 1970-01-01 00:00:00,
+        without regard to timezone or daylight-savings rules;
         for <type>interval</type> values, the total number
         of seconds in the interval
 -->
@@ -3177,13 +3227,16 @@ SELECT EXTRACT(DOY FROM TIMESTAMP '2001-02-16 20:38:40');
 SELECT EXTRACT(EPOCH FROM TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40.12-08');
 <lineannotation>Result: </lineannotation><computeroutput>982384720.12</computeroutput>
 
+SELECT EXTRACT(EPOCH FROM TIMESTAMP '2001-02-16 20:38:40.12');
+<lineannotation>Result: </lineannotation><computeroutput>982355920.12</computeroutput>
+
 SELECT EXTRACT(EPOCH FROM INTERVAL '5 days 3 hours');
 <lineannotation>Result: </lineannotation><computeroutput>442800</computeroutput>
 </screen>
 
        <para>
 <!--
-        You can convert an epoch value back to a time stamp
+        You can convert an epoch value back to a <type>timestamp with time zone</type>
         with <function>to_timestamp</function>:
 -->
 <function>to_timestamp</function>で経過秒数をタイムスタンプ値に変換することができます。
@@ -3192,6 +3245,14 @@ SELECT EXTRACT(EPOCH FROM INTERVAL '5 days 3 hours');
 SELECT to_timestamp(982384720.12);
 <lineannotation>Result: </lineannotation><computeroutput>2001-02-17 04:38:40.12+00</computeroutput>
 </screen>
+
+       <para>
+        Beware that applying <function>to_timestamp</function> to an epoch
+        extracted from a <type>date</type> or <type>timestamp</type> value
+        could produce a misleading result: the result will effectively
+        assume that the original value had been given in UTC, which might
+        not be the case.
+       </para>
       </listitem>
      </varlistentry>
 
@@ -3274,6 +3335,25 @@ SELECT EXTRACT(ISOYEAR FROM DATE '2006-01-02');
 -->
 このフィールドは8.3より前のPostgreSQLリリースでは有効でありません。
        </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><literal>julian</literal></term>
+      <listitem>
+       <para>
+        The <firstterm>Julian Date</firstterm> corresponding to the
+        date or timestamp (not applicable to intervals).  Timestamps
+        that are not local midnight result in a fractional value.  See
+        <xref linkend="datetime-julian-dates"/> for more information.
+       </para>
+
+<screen>
+SELECT EXTRACT(JULIAN FROM DATE '2006-01-01');
+<lineannotation>Result: </lineannotation><computeroutput>2453737</computeroutput>
+SELECT EXTRACT(JULIAN FROM TIMESTAMP '2006-01-01 12:00');
+<lineannotation>Result: </lineannotation><computeroutput>2453737.50000000000000000000</computeroutput>
+</screen>
       </listitem>
      </varlistentry>
 
@@ -3556,6 +3636,10 @@ date_part('<replaceable>field</replaceable>', <replaceable>source</replaceable>)
     be a string value, not a name.  The valid field names for
     <function>date_part</function> are the same as for
     <function>extract</function>.
+    For historical reasons, the <function>date_part</function> function
+    returns values of type <type>double precision</type>.  This can result in
+    a loss of precision in certain uses.  Using <function>extract</function>
+    is recommended instead.
 -->
 ここで<replaceable>field</replaceable>パラメータが名前ではなく文字列値である必要があることに注意してください。
 <function>date_part</function>で有効なフィールド名は<function>extract</function>と同じです。
@@ -3682,16 +3766,62 @@ SELECT date_trunc('hour', INTERVAL '3 days 02:47:33');
    </para>
   </sect2>
 
+  <sect2 id="functions-datetime-bin">
+   <title><function>date_bin</function></title>
+
+   <indexterm>
+    <primary>date_bin</primary>
+   </indexterm>
+
+   <para>
+    The function <function>date_bin</function> <quote>bins</quote> the input
+    timestamp into the specified interval (the <firstterm>stride</firstterm>)
+    aligned with a specified origin.
+   </para>
+
+   <para>
+<synopsis>
+date_bin(<replaceable>stride</replaceable>, <replaceable>source</replaceable>, <replaceable>origin</replaceable>)
+</synopsis>
+    <replaceable>source</replaceable> is a value expression of type
+    <type>timestamp</type> or <type>timestamp with time zone</type>.  (Values
+    of type <type>date</type> are cast automatically to
+    <type>timestamp</type>.)  <replaceable>stride</replaceable> is a value
+    expression of type <type>interval</type>.  The return value is likewise
+    of type <type>timestamp</type> or <type>timestamp with time zone</type>,
+    and it marks the beginning of the bin into which the
+    <replaceable>source</replaceable> is placed.
+   </para>
+
+   <para>
+    Examples:
+<screen>
+SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-01-01');
+<lineannotation>Result: </lineannotation><computeroutput>2020-02-11 15:30:00</computeroutput>
+
+SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-01-01 00:02:30');
+<lineannotation>Result: </lineannotation><computeroutput>2020-02-11 15:32:30</computeroutput>
+</screen>
+   </para>
+
+   <para>
+    In the case of full units (1 minute, 1 hour, etc.), it gives the same result as
+    the analogous <function>date_trunc</function> call, but the difference is
+    that <function>date_bin</function> can truncate to an arbitrary interval.
+   </para>
+
+   <para>
+    The <parameter>stride</parameter> interval must be greater than zero and
+    cannot contain units of month or larger.
+   </para>
+  </sect2>
+
   <sect2 id="functions-datetime-zoneconvert">
    <title><literal>AT TIME ZONE</literal></title>
 
    <indexterm>
-<!--
     <primary>time zone</primary>
     <secondary>conversion</secondary>
--->
-    <primary>時間帯</primary>
-    <secondary>変換</secondary>
    </indexterm>
 
    <indexterm>
@@ -4832,7 +4962,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <para>
 <!--
         Is first object strictly below second?
-        Available for <type>box</type>, <type>polygon</type>,
+        Available for <type>point</type>, <type>box</type>, <type>polygon</type>,
         <type>circle</type>.
 -->
 最初のオブジェクトは完全に2番目のオブジェクトの下にあるか？
@@ -4852,7 +4982,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        <para>
 <!--
         Is first object strictly above second?
-        Available for <type>box</type>, <type>polygon</type>,
+        Available for <type>point</type>, <type>box</type>, <type>polygon</type>,
         <type>circle</type>.
 -->
 最初のオブジェクトは完全に2番目のオブジェクトの上にあるか？
@@ -4924,25 +5054,6 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-        <type>point</type> <literal>&lt;^</literal> <type>point</type>
-        <returnvalue>boolean</returnvalue>
-       </para>
-       <para>
-<!--
-        Is first object strictly below second?
-        (This operator is misnamed; it should be <literal>&lt;&lt;|</literal>.)
--->
-最初のオブジェクトは完全に2番目のオブジェクトの下か？
-（この演算子名は不適切です。<literal>&lt;&lt;|</literal>であるべきです。)
-       </para>
-       <para>
-        <literal>point '(1,0)' &lt;^ point '(1,1)'</literal>
-        <returnvalue>t</returnvalue>
-       </para></entry>
-      </row>
-
-      <row>
-       <entry role="func_table_entry"><para role="func_signature">
         <type>box</type> <literal>&gt;^</literal> <type>box</type>
         <returnvalue>boolean</returnvalue>
        </para>
@@ -4955,25 +5066,6 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
        </para>
        <para>
         <literal>box '((2,2),(1,1))' &gt;^ box '((1,1),(0,0))'</literal>
-        <returnvalue>t</returnvalue>
-       </para></entry>
-      </row>
-
-      <row>
-       <entry role="func_table_entry"><para role="func_signature">
-        <type>point</type> <literal>&gt;^</literal> <type>point</type>
-        <returnvalue>boolean</returnvalue>
-       </para>
-       <para>
-<!--
-        Is first object strictly above second?
-        (This operator is misnamed; it should be <literal>|&gt;&gt;</literal>.)
--->
-最初のオブジェクトは完全に2番目のオブジェクトの上か？
-（この演算子名は不適切です。<literal>|&gt;&gt;</literal>であるべきです。）
-       </para>
-       <para>
-        <literal>point '(1,1)' &gt;^ point '(1,0)'</literal>
         <returnvalue>t</returnvalue>
        </para></entry>
       </row>
@@ -5172,10 +5264,13 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
    <note>
     <para>
 <!--
-     Before <productname>PostgreSQL</productname> 8.2, the containment
-     operators <literal>@&gt;</literal> and <literal>&lt;@</literal> were respectively
-     called <literal>~</literal> and <literal>@</literal>.  These names are still
-     available, but are deprecated and will eventually be removed.
+     Before <productname>PostgreSQL</productname> 14, the point
+     is strictly below/above comparison operators <type>point</type>
+     <literal>&lt;&lt;|</literal> <type>point</type> and <type>point</type>
+     <literal>|&gt;&gt;</literal> <type>point</type> were respectively
+     called <literal>&lt;^</literal> and <literal>&gt;^</literal>.  These
+     names are still available, but are deprecated and will eventually be
+     removed.
 -->
 <productname>PostgreSQL</productname>の8.2より前では、包含演算子<literal>@&gt;</literal>および<literal>&lt;@</literal>はそれぞれ<literal>~</literal>および<literal>@</literal>という名前でした。
 これらの名前はまだ利用できますが、削除予定であり最終的にはなくなるでしょう。
@@ -8102,7 +8197,7 @@ SQLデータからXML内容を生成するために関数と擬似関数式の�
      The function <function>xmlcomment</function> creates an XML value
      containing an XML comment with the specified text as content.
      The text cannot contain <quote><literal>&#045;&#045;</literal></quote> or end with a
-     <quote><literal>&#045;</literal></quote>, otherwise the resulting construct
+     <quote><literal>-</literal></quote>, otherwise the resulting construct
      would not be a valid XML comment.
      If the argument is null, the result is null.
 -->
@@ -9344,8 +9439,9 @@ SELECT xmltable.*
     <function>table_to_xml</function> maps the content of the named
     table, passed as parameter <parameter>table</parameter>.  The
     <type>regclass</type> type accepts strings identifying tables using the
-    usual notation, including optional schema qualifications and
-    double quotes.  <function>query_to_xml</function> executes the
+    usual notation, including optional schema qualification and
+    double quotes (see <xref linkend="datatype-oid"/> for details).
+    <function>query_to_xml</function> executes the
     query whose text is passed as parameter
     <parameter>query</parameter> and maps the result set.
     <function>cursor_to_xml</function> fetches the indicated number of

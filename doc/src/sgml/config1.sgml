@@ -176,6 +176,10 @@
         data from a base backup and the WAL logs, so <literal>replica</literal> or
         higher must be used to enable WAL archiving
         (<xref linkend="guc-archive-mode"/>) and streaming replication.
+        Note that changing <varname>wal_level</varname> to
+        <literal>minimal</literal> makes any base backups taken before
+        unavailable for archive recovery and standby server, which may
+        lead to data loss.
 -->
 しかしminimal WALはベースバックアップとWALログからデータを再構築するための充分な情報を持ち合わせていません。
 したがって、WALアーカイビング（<xref linkend="guc-archive-mode"/>）とストリーミングレプリケーションを有効にするには、<literal>replica</literal>以上を使用しなければなりません。
@@ -570,7 +574,7 @@ WALのリプレイを待つので、今までの設定に比べるとこの設�
         Not all of these choices are available on all platforms.
         The default is the first method in the above list that is supported
         by the platform, except that <literal>fdatasync</literal> is the default on
-        Linux.  The default is not necessarily ideal; it might be
+        Linux and FreeBSD.  The default is not necessarily ideal; it might be
         necessary to change this setting or other aspects of your system
         configuration in order to create a crash-safe configuration or
         achieve optimal performance.
@@ -713,7 +717,7 @@ WALのリプレイを待つので、今までの設定に比べるとこの設�
        <para>
 <!--
         When this parameter is <literal>on</literal>, the <productname>PostgreSQL</productname>
-        server compresses a full page image written to WAL when
+        server compresses full page images written to WAL when
         <xref linkend="guc-full-page-writes"/> is on or during a base backup.
         A compressed page image will be decompressed during WAL replay.
         The default value is <literal>off</literal>.
@@ -1080,9 +1084,15 @@ WALライタがWALを吐き出す頻度を量で指定します。
        <para>
        <!--
         Specifies the target of checkpoint completion, as a fraction of
-        total time between checkpoints. The default is 0.5.
-        This parameter can only be set in the <filename>postgresql.conf</filename>
-        file or on the server command line.
+        total time between checkpoints. The default is 0.9, which spreads the
+        checkpoint across almost all of the available interval, providing fairly
+        consistent I/O load while also leaving some time for checkpoint
+        completion overhead.  Reducing this parameter is not recommended because
+        it causes the checkpoint to complete faster.  This results in a higher
+        rate of I/O during the checkpoint followed by a period of less I/O between
+        the checkpoint completion and the next scheduled checkpoint.  This
+        parameter can only be set in the <filename>postgresql.conf</filename> file
+        or on the server command line.
        -->
        チェックポイントの完了目標をチェックポイント間の総時間の割合として指定します。
 デフォルトは0.5です。
@@ -1373,7 +1383,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         <varname>archive_timeout</varname> &mdash; it will bloat your archive
         storage.  <varname>archive_timeout</varname> settings of a minute or so are
         usually reasonable.  You should consider using streaming replication,
-        instead of archiving, if you want data to be copied off the master
+        instead of archiving, if you want data to be copied off the primary
         server more quickly than that.
         If this value is specified without units, it is taken as seconds.
         This parameter can only be set in the
@@ -1536,7 +1546,8 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 
        <para>
 <!--
-        This parameter can only be set at server start.
+        This parameter can only be set in the <filename>postgresql.conf</filename>
+        file or on the server command line.
 -->
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
@@ -2012,12 +2023,12 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      These settings control the behavior of the built-in
      <firstterm>streaming replication</firstterm> feature (see
      <xref linkend="streaming-replication"/>).  Servers will be either a
-     master or a standby server.  Masters can send data, while standbys
+     primary or a standby server.  Primaries can send data, while standbys
      are always receivers of replicated data.  When cascading replication
      (see <xref linkend="cascading-replication"/>) is used, standby servers
      can also be senders, as well as receivers.
      Parameters are mainly for sending and standby servers, though some
-     parameters have meaning only on the master server.  Settings may vary
+     parameters have meaning only on the primary server.  Settings may vary
      across the cluster without problems if that is required.
 -->
 これらの設定は組み込みの<firstterm>ストリーミングレプリケーション</firstterm>機能の動作を制御します（<xref linkend="streaming-replication"/>を参照ください）。
@@ -2036,10 +2047,10 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      <!--
       These parameters can be set on any server that is
       to send replication data to one or more standby servers.
-      The master is always a sending server, so these parameters must
-      always be set on the master.
+      The primary is always a sending server, so these parameters must
+      always be set on the primary.
       The role and meaning of these parameters does not change after a
-      standby becomes the master.
+      standby becomes the primary.
       -->
       これらのパラメータはレプリケーションデータを１つ、またはそれ以上複数のスタンバイサーバに送るいかなるサーバ上で設定することができます。マスターは常に送出サーバであるため、パラメータは常にマスター上に設定されなければなりません。これらのパラメータの役割と意味はスタンバイが後にマスターに昇格しても変わりません。
      </para>
@@ -2082,7 +2093,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        <para>
 <!--
          When running a standby server, you must set this parameter to the
-         same or higher value than on the master server. Otherwise, queries
+         same or higher value than on the primary server. Otherwise, queries
          will not be allowed in the standby server.
 -->
 スタンバイサーバを実行する際は、このパラメータをマスタサーバと同じか高い値にしなければなりません。
@@ -2118,6 +2129,17 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 このパラメータはサーバ起動時のみ設定可能です。
 現在存在しているレプリケーションスロットの数よりも少ない値を設定すると、サーバは起動しません。
 また、レプリケーションスロットが使用できるためには、<varname>wal_level</varname>を<literal>replica</literal>以上に設定しなければなりません。
+        </para>
+
+        <para>
+         On the subscriber side, specifies how many replication origins (see
+         <xref linkend="replication-origins"/>) can be tracked simultaneously,
+         effectively limiting how many logical replication subscriptions can
+         be created on the server. Setting it to a lower value than the current
+         number of tracked replication origins (reflected in
+         <link linkend="view-pg-replication-origin-status">pg_replication_origin_status</link>,
+         not <link linkend="catalog-pg-replication-origin">pg_replication_origin</link>)
+         will prevent the server from starting.
         </para>
        </listitem>
       </varlistentry>
@@ -2276,23 +2298,20 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      </variablelist>
     </sect2>
 
-    <sect2 id="runtime-config-replication-master">
-     <!--
-     <title>Master Server</title>
-     -->
-     <title>マスターサーバ</title>
+    <sect2 id="runtime-config-replication-primary">
+     <title>Primary Server</title>
 
      <para>
       <!--
-      These parameters can be set on the master/primary server that is
+      These parameters can be set on the primary server that is
       to send replication data to one or more standby servers.
       Note that in addition to these parameters,
-      <xref linkend="guc-wal-level"/> must be set appropriately on the master
+      <xref linkend="guc-wal-level"/> must be set appropriately on the primary
       server, and optionally WAL archiving can be enabled as
       well (see <xref linkend="runtime-config-wal-archiving"/>).
       The values of these parameters on standby servers are irrelevant,
       although you may wish to set them there in preparation for the
-      possibility of a standby becoming the master.
+      possibility of a standby becoming the primary.
       -->
       これらのパラメータはレプリケーションデータを１つ、またはそれ以上複数のスタンバイサーバに送るマスター/プライマリサーバ上で設定することができます。
       これらパラメータに加え、<xref linkend="guc-wal-level"/>はマスターサーバ上で適切に設定される必要があり、オプションとしてWALアーカイブを有効にしてもかまいません（<xref linkend="runtime-config-wal-archiving"/>を参照してください）。
@@ -2557,8 +2576,10 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
 
      <para>
      <!--
-      These settings control the behavior of a standby server that is
-      to receive replication data.  Their values on the master server
+      These settings control the behavior of a
+      <link linkend="standby-server-operation">standby server</link>
+      that is
+      to receive replication data.  Their values on the primary server
       are irrelevant.
       -->
       これらの設定はレプリケーションデータを受け取るスタンバイサーバの動作を管理します。
@@ -2857,15 +2878,16 @@ WAL受信プロセスが実行中にこのパラメータが変更されると�
        view.  The standby will report
        the last write-ahead log location it has written, the last position it
        has flushed to disk, and the last position it has applied.
-       This parameter's
-       value is the maximum amount of time between reports.  Updates are
-       sent each time the write or flush positions change, or at least as
-       often as specified by this parameter.  Thus, the apply position may
-       lag slightly behind the true position.
+       This parameter's value is the maximum amount of time between reports.
+       Updates are sent each time the write or flush positions change, or as
+       often as specified by this parameter if set to a non-zero value.
+       There are additional cases where updates are sent while ignoring this
+       parameter; for example, when processing of the existing WAL completes
+       or when <varname>synchronous_commit</varname> is set to
+       <literal>remote_apply</literal>.
+       Thus, the apply position may lag slightly behind the true position.
        If this value is specified without units, it is taken as seconds.
-       The default value is 10 seconds.
-       Setting this parameter to zero disables status updates completely.
-       This parameter can only be set in
+       The default value is 10 seconds. This parameter can only be set in
        the <filename>postgresql.conf</filename> file or on the server
        command line.
        -->
@@ -3039,7 +3061,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         of time.  For example, if
         you set this parameter to <literal>5min</literal>, the standby will
         replay each transaction commit only when the system time on the standby
-        is at least five minutes past the commit time reported by the master.
+        is at least five minutes past the commit time reported by the primary.
         If this value is specified without units, it is taken as milliseconds.
         The default is zero, adding no delay.
 -->
@@ -3055,10 +3077,10 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         It is possible that the replication delay between servers exceeds the
         value of this parameter, in which case no delay is added.
         Note that the delay is calculated between the WAL time stamp as written
-        on master and the current time on the standby. Delays in transfer
+        on primary and the current time on the standby. Delays in transfer
         because of network lag or cascading replication configurations
         may reduce the actual wait time significantly. If the system
-        clocks on master and standby are not synchronized, this may lead to
+        clocks on primary and standby are not synchronized, this may lead to
         recovery applying records earlier than expected; but that is not a
         major issue because useful settings of this parameter are much larger
         than typical time deviations between servers.
@@ -3096,7 +3118,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         except crash recovery.
 
         <varname>hot_standby_feedback</varname> will be delayed by use of this feature
-        which could lead to bloat on the master; use both together with care.
+        which could lead to bloat on the primary; use both together with care.
 -->
 このパラメータはストリーミングレプリケーション配信で使われることを目的としていますが、パラメータが指定されていると、クラッシュリカバリを除くすべてのケースで使用されます。
 この機能を使うことによって<varname>hot_standby_feedback</varname>が遅延され、マスタサーバの肥大化に繋がる可能性があります。両方同時に使う場合には注意して使ってください。
@@ -3179,7 +3201,8 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
        </para>
        <para>
 <!--
-        The default value is 4.
+        The default value is 4. This parameter can only be set at server
+        start.
 -->
 デフォルト値は4です。
        </para>
@@ -3220,7 +3243,9 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
        </para>
        <para>
 <!--
-        The default value is 2.
+        The default value is 2. This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command
+        line.
 -->
 デフォルト値は2です。
        </para>
@@ -3255,7 +3280,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
        Better ways to improve the quality of the
        plans chosen by the optimizer include adjusting the planner cost
        constants (see <xref linkend="runtime-config-query-constants"/>),
-       running <xref linkend="sql-analyze"/> manually, increasing
+       running <link linkend="sql-analyze"><command>ANALYZE</command></link> manually, increasing
        the value of the <xref
        linkend="guc-default-statistics-target"/> configuration parameter,
        and increasing the amount of statistics collected for
@@ -3268,6 +3293,20 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
       </para>
 
      <variablelist>
+     <varlistentry id="guc-enable-async-append" xreflabel="enable_async_append">
+      <term><varname>enable_async_append</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>enable_async_append</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Enables or disables the query planner's use of async-aware
+        append plan types. The default is <literal>on</literal>.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-enable-bitmapscan" xreflabel="enable_bitmapscan">
       <term><varname>enable_bitmapscan</varname> (<type>boolean</type>)
       <indexterm>
@@ -3446,6 +3485,25 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
        -->
        問い合わせプランナの具体化の使用を有効、または無効にします。
        全体にわたって具体化を差し止めることはできませんが、この値をoffにすることにより、正確性が要求される場合を除いて、具体化ノードをプランナが挿入することを防止します。デフォルトは<literal>on</literal>です。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-enable-memoize" xreflabel="enable_memoize">
+      <term><varname>enable_memoize</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>enable_memoize</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Enables or disables the query planner's use of memoize plans for
+        caching results from parameterized scans inside nested-loop joins.
+        This plan type allows scans to the underlying plans to be skipped when
+        the results for the current parameters are already in the cache.  Less
+        commonly looked up results may be evicted from the cache when more
+        space is required for new entries. The default is
+        <literal>on</literal>.
        </para>
       </listitem>
      </varlistentry>
