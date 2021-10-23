@@ -73,6 +73,7 @@
       </term>
       <listitem>
        <para>
+<!--
         Prepared statements (either explicitly prepared or implicitly
         generated, for example by PL/pgSQL) can be executed using custom or
         generic plans.  Custom plans are made afresh for each execution
@@ -89,6 +90,15 @@
         This setting is considered when a cached plan is to be executed,
         not when it is prepared.
         For more information see <xref linkend="sql-prepare"/>.
+-->
+準備された文（明示的に準備されたものあるいはPL/pgSQLのように暗黙的に生成されたもののどちらにおいても）は、カスタムあるいは汎用(generic)プランで実行することができます。
+カスタムプランは実行ごとに指定されたパラメータ値の集合で新たに作られます。
+一方汎用プランはパラメータ値に依存せず、複数の実行にまたがって再利用できます。
+したがって、汎用プランはプランニングに要する時間を節約できますが、理想的なプランがパラメータ値に強く依存している場合は、汎用プランは非効率かも知れません。
+通常この両者の選択は自動的に行われますが、<varname>plan_cache_mode</varname>で上書きできます。
+可能な値は<literal>auto</literal>（デフォルト）、<literal>force_custom_plan</literal>、<literal>force_generic_plan</literal>です。
+この設定は、準備するときではなく、キャッシュされたプランを実行する際に考慮されます。
+詳細は<xref linkend="sql-prepare"/>をご覧ください。
        </para>
       </listitem>
      </varlistentry>
@@ -1311,11 +1321,15 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
       <term><varname>log_autovacuum_min_duration</varname> (<type>integer</type>)
       <indexterm>
        <primary><varname>log_autovacuum_min_duration</varname></primary>
+<!--
        <secondary>configuration parameter</secondary>
+-->
+       <secondary>設定パラメータ</secondary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Causes each action executed by autovacuum to be logged if it ran for at
         least the specified amount of time.  Setting this to zero logs
         all autovacuum actions. <literal>-1</literal> (the default) disables
@@ -1331,6 +1345,16 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
         the <filename>postgresql.conf</filename> file or on the server command line;
         but the setting can be overridden for individual tables by
         changing table storage parameters.
+-->
+少なくとも指定時間実行した場合、autovacuumで実行される各活動がログに残るようになります。
+これをゼロに設定すると、すべてのautovacuumの活動がログに残ります。
+<literal>-1</literal>（デフォルト）はautovacuum活動のログを無効にします。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+例えば、これを<literal>250ms</literal>に設定すると、250ms以上かかって実行されたautovacuumや解析はすべてログに残ります。
+さらに、<literal>-1</literal>以外の値にこのパラメータが設定された場合、競合するロックや並行して削除されたリレーションによりautovacuum動作が省略されるとメッセージはログに記録されます。
+このパラメータを有効にすることは、autovacuum活動の追跡に役に立ちます。
+このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定されます。
+ただし、この設定はテーブルストレージパラメータの変更により、それぞれのテーブルに対して上書きすることができます。
        </para>
       </listitem>
      </varlistentry>
@@ -1380,7 +1404,7 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
         and it cannot be changed at all within a session.
         The default is <literal>off</literal>.
        -->
-       これにより、クライアント認証の成功終了などのサーバへの接続試行がログに残ります。
+サーバへの接続試行とともに、クライアント認証の成功終了と（必要ならば）承認をログに残します。
 スーパーユーザだけがセッション開始時にこのパラメータを変更でき、セッションが開始された後は変更できません。
 デフォルトは<literal>off</literal>です。
        </para>
@@ -1656,9 +1680,12 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
             </row>
             <row>
              <entry><literal>%P</literal></entry>
+<!--
              <entry>Process ID of the parallel group leader, if this process
               is a parallel query worker</entry>
-             <entry>no</entry>
+-->
+<entry>このプロセスがパラレルクエリワーカである場合に、パラレルグループリーダのプロセス識別子</entry>
+             <entry><!--no-->×</entry>
             </row>
             <row>
              <entry><literal>%t</literal></entry>
@@ -1754,12 +1781,16 @@ linkend="guc-log-timezone"/>で指定された時間帯で計算が行われま�
             </row>
             <row>
              <entry><literal>%Q</literal></entry>
+<!--
              <entry>Query identifier of the current query.  Query
              identifiers are not computed by default, so this field
              will be zero unless <xref linkend="guc-compute-query-id"/>
              parameter is enabled or a third-party module that computes
              query identifiers is configured.</entry>
-             <entry>yes</entry>
+-->
+             <entry>現在の問い合わせの問い合わせ識別子。
+               問い合わせ識別子はデフォルトでは計算されません。ですから<xref linkend="guc-compute-query-id"/>パラメータが有効であるか、あるいは問い合わせ識別子を計算するサードパーティのモジュールが設定されていないければゼロとなります。</entry>
+             <entry><!--yes-->○</entry>
             </row>
             <row>
              <entry><literal>%%</literal></entry>
@@ -1847,11 +1878,14 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
 
        <note>
         <para>
+<!--
          The <literal>%Q</literal> escape always reports a zero identifier
          for lines output by <xref linkend="guc-log-statement"/> because
          <varname>log_statement</varname> generates output before an
          identifier can be calculated, including invalid statements for
          which an identifier cannot be calculated.
+-->
+識別子が計算できない不正な文も含め、<varname>log_statement</varname>は識別子が計算可能になる前に出力を生成するため、<literal>%Q</literal>エスケープは、<xref linkend="guc-log-statement"/>が生成する行では常にゼロの識別子を報告します。
         </para>
        </note>
       </listitem>
@@ -1886,21 +1920,32 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
      <varlistentry id="guc-log-recovery-conflict-waits" xreflabel="log_recovery_conflict_waits">
       <term><varname>log_recovery_conflict_waits</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>log_recovery_conflict_waits</varname> configuration parameter</primary>
+-->
+       <primary><varname>log_recovery_conflict_waits</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Controls whether a log message is produced when the startup process
         waits longer than <varname>deadlock_timeout</varname>
         for recovery conflicts.  This is useful in determining if recovery
         conflicts prevent the recovery from applying WAL.
+-->
+スタートアッププロセスが<varname>deadlock_timeout</varname>よりも長くリカバリコンフリクトを待つ場合にログメッセージを出力するかどうかを制御します。
+リカバリコンフリクトによってリカバリがWALを適用するのを妨げられているかどうかを決定するのに有用です。
        </para>
 
        <para>
+<!--
         The default is <literal>off</literal>.  This parameter can only be set
         in the <filename>postgresql.conf</filename> file or on the server
         command line.
+-->
+デフォルトは<literal>off</literal>です。
+このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインのみで設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -2210,7 +2255,7 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
         内部問い合わせにおけるエラー位置の文字数、
         エラーの文脈、
         PostgreSQLソースコード上のエラー発生場所（<varname>log_error_verbosity</varname>が<literal>verbose</literal>に設定されているならば）
-        アプリケーション名とバックエンドタイプ。
+        アプリケーション名、バックエンドタイプ、パラレルグループリーダのプロセスID、問い合わせID。
 以下にcsvlog出力を格納するためのテーブル定義のサンプルを示します。
 
 <programlisting>
@@ -2472,7 +2517,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         security risk.
         Only superusers can change this setting.
        -->
-       各セッションで実行中のコマンドに関する情報とそのコマンドの実行開始時刻の収集を有効にします。
+各セッションで実行中のコマンドに関する情報と、そのコマンドの識別子および実行開始時刻の収集を有効にします。
 このパラメータはデフォルトで有効です。
 有効な場合であっても、すべてのユーザがこの情報を見ることができず、スーパーユーザと報告されたセッションの所有者のみから可視である点に注意してください。
 このためセキュリティ上の危険性はありません。
@@ -2525,7 +2570,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         daemon needs the collected information.
         Only superusers can change this setting.
        -->
-       データベースの活動についての統計情報の収集を有効にします。
+データベースの活動についての統計情報の収集を有効にします。
 収集される情報を自動バキュームデーモンが必要とするため、このオプションはデフォルトで有効です。
 スーパーユーザのみがこの設定を変更することができます。
        </para>
@@ -2543,6 +2588,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       </term>
       <listitem>
        <para>
+<!--
         Enables timing of database I/O calls.  This parameter is off by
         default, as it will repeatedly query the operating system for
         the current time, which may cause significant overhead on some
@@ -2556,6 +2602,13 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         <xref linkend="guc-log-autovacuum-min-duration"/> is set and by
         <xref linkend="pgstatstatements"/>.  Only superusers can change this
         setting.
+-->
+データベースによるI/O呼び出しの記録を有効にします。
+このパラメータはデフォルトで無効になっています。その理由は、現時点の時刻をオペレーティングシステムに繰り返し問い合わせるので、プラットフォームによっては深刻な負荷の原因になるからです。
+使用しているシステムにおける負荷のタイミングを計測するため<xref linkend="pgtesttiming"/>ツールが使用できます。
+I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><structname>pg_stat_database</structname></link>に表示されます。
+<literal>BUFFERS</literal>オプションが設定されている時は<xref linkend="sql-explain"/> の出力として、また<xref linkend="guc-log-autovacuum-min-duration"/>が設定されている時は<xref linkend="pgstatstatements"/>により表示されます。
+スーパーユーザのみこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -2568,6 +2621,7 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
       </term>
       <listitem>
        <para>
+<!--
         Enables timing of WAL I/O calls. This parameter is off by default,
         as it will repeatedly query the operating system for the current time,
         which may cause significant overhead on some platforms.
@@ -2578,11 +2632,10 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         <structname>pg_stat_wal</structname></link>.  Only superusers can
         change this setting.
 -->
-データベースによるI/O呼び出しの記録を有効にします。
-このパラメータはデフォルトで無効になっています。その理由は、現時点の時刻をオペレーティングシステムに繰り返し問い合わせるので、プラットフォームによっては深刻な負荷の原因になるからｄす。
+データベースによるWAL I/O呼び出しの記録を有効にします。
+このパラメータはデフォルトで無効になっています。その理由は、現時点の時刻をオペレーティングシステムに繰り返し問い合わせるので、プラットフォームによっては深刻な負荷の原因になるからです。
 使用しているシステムにおける負荷のタイミングを計測するため<xref linkend="pgtesttiming"/>ツールが使用できます。
-I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><structname>pg_stat_database</structname></link>に表示されます。
-<literal>BUFFERS</literal>オプションが設定されている時は<xref linkend="sql-explain"/> の出力として、また<xref linkend="pgstatstatements"/>により表示されます。
+I/O呼び出し情報は、<link linkend="monitoring-pg-stat-wal-view"><structname>pg_stat_wal</structname></link>に表示されます。
 スーパーユーザのみこの設定を変更できます。
        </para>
       </listitem>
@@ -2668,11 +2721,15 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
      <varlistentry id="guc-compute-query-id" xreflabel="compute_query_id">
       <term><varname>compute_query_id</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>compute_query_id</varname> configuration parameter</primary>
+-->
+       <primary><varname>compute_query_id</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables in-core computation of a query identifier.
         Query identifiers can be displayed in the <link
         linkend="monitoring-pg-stat-activity-view"><structname>pg_stat_activity</structname></link>
@@ -2688,12 +2745,23 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         which lets modules such as <xref linkend="pgstatstatements"/>
         automatically enable it.
         The default is <literal>auto</literal>.
+-->
+組み込みの問い合わせ識別子の計算を有効にします。
+問い合わせ識別子は、<link linkend="monitoring-pg-stat-activity-view"><structname>pg_stat_activity</structname></link>ビュー、<command>EXPLAIN</command>、あるいは<xref linkend="guc-log-line-prefix"/>パラメータが設定されていればログに出力されます。
+<xref linkend="pgstatstatements"/>拡張も問い合わせ識別子の計算が必要です。
+組み込みの計算が許容できなければ、外部モジュールを代わりに利用することができることに注意してください。
+この場合、組み込みの計算は常に無効にしなければなりません。
+有効な値は、<literal>off</literal>（常に無効）、<literal>on</literal>（常に有効）、<xref linkend="pgstatstatements"/>のようなモジュールによって自動的に有効になる<literal>auto</literal>です。
+デフォルトは<literal>auto</literal>です。
        </para>
        <note>
         <para>
+<!--
          To ensure that only one query identifier is calculated and
          displayed, extensions that calculate query identifiers should
          throw an error if a query identifier has already been computed.
+-->
+一つの問い合わせ識別子のみが計算されて表示されることを確実にするために、問い合わせ識別子を計算する拡張は、問い合わせ識別子がすでに計算済みのときにエラーを生じるようにすべきです。
         </para>
        </note>
       </listitem>
@@ -3495,8 +3563,7 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         objects (tables and indexes) when a <command>CREATE</command> command does
         not explicitly specify a tablespace.
        -->
-       この変数は、<command>CREATE</command>コマンドで明示的にテーブル空間を指定していない場合にオブジェクトの作成先となるデフォルトのテーブル空間を指定します。
-また、パーティション化されたリレーションが将来パーティションを格納するテーブルスペースを決定します。
+この変数は、<command>CREATE</command>コマンドで明示的にテーブル空間を指定していない場合にオブジェクトの作成先となるデフォルトのテーブル空間を指定します。
        </para>
 
        <para>
@@ -3520,7 +3587,7 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         This variable is not used for temporary tables; for them,
         <xref linkend="guc-temp-tablespaces"/> is consulted instead.
        -->
-       この変数は一時テーブル向けには使用されません。
+この変数は一時テーブル向けには使用されません。
 一時テーブル向けには代わりに<xref linkend="guc-temp-tablespaces"/>が考慮されます。
        </para>
 
@@ -3530,15 +3597,19 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         By default, a new database inherits its tablespace setting from
         the template database it is copied from.
        -->
-       同時に、この変数はデータベース作成時には使用されません。
+また、この変数はデータベース作成時には使用されません。
+デフォルトでは、新しいデータベースはコピー元のテンプレートデータベースからテーブル空間の設定を引き継ぎます。
        </para>
 
        <para>
+<!--
         If this parameter is set to a value other than the empty string
         when a partitioned table is created, the partitioned table's
         tablespace will be set to that value, which will be used as
         the default tablespace for partitions created in the future,
         even if <varname>default_tablespace</varname> has changed since then.
+-->
+パーティションテーブルが作られたときにこのパラメータが空文字以外に設定されていると、<varname>default_tablespace</varname>がその後変更されたとしても、パーティションテーブルのテープル空間はその値になり、今後作られるパーティションのデフォルトテーブル空間として使われます。
        </para>
 
        <para>
@@ -3554,11 +3625,15 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
      <varlistentry id="guc-default-toast-compression" xreflabel="default_toast_compression">
       <term><varname>default_toast_compression</varname> (<type>enum</type>)
       <indexterm>
+<!--
        <primary><varname>default_toast_compression</varname> configuration parameter</primary>
+-->
+       <primary><varname>default_toast_compression</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         This variable sets the default
         <link linkend="storage-toast">TOAST</link>
         compression method for values of compressible columns.
@@ -3568,8 +3643,13 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         <command>ALTER TABLE</command>.)
         The supported compression methods are <literal>pglz</literal> and
         (if <productname>PostgreSQL</productname> was compiled with
-        <option>--with-lz4</option>) <literal>lz4</literal>.
+        <option>#045;&#045;with-lz4</option>) <literal>lz4</literal>.
         The default is <literal>pglz</literal>.
+-->
+この変数は圧縮可能な列の値のデフォルト<link linkend="storage-toast">TOAST</link>圧縮方式を設定します。
+（これは<command>CREATE TABLE</command>あるいは<command>ALTER TABLE</command>の<literal>COMPRESSION</literal>列オプションを設定することにより、置き換えることができます。）
+サポートされている圧縮方式は、<literal>pglz</literal>と<literal>lz4</literal>（<productname>PostgreSQL</productname>が<option>--with-lz4</option>でコンパイルされている場合）です。
+デフォルトは<literal>pglz</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -3596,7 +3676,7 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         Temporary files for purposes such as sorting large data sets
         are also created in these tablespaces.
        -->
-       この変数は、<command>CREATE</command>コマンドで明示的にテーブル空間が指定されない場合に、生成する一時オブジェクト（一時テーブルと一時テーブル上のインデックス）を格納するテーブル空間（複数可）を指定します。
+この変数は、<command>CREATE</command>コマンドで明示的にテーブル空間が指定されない場合に、生成する一時オブジェクト（一時テーブルと一時テーブル上のインデックス）を格納するテーブル空間（複数可）を指定します。
 大規模データ集合のソートなどを目的とした一時ファイルもまた、このテーブル空間（複数可）に作成されます。
        </para>
 
@@ -3611,7 +3691,7 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         <productname>PostgreSQL</productname> will automatically use the default
         tablespace of the current database instead.
        -->
-       この値はテーブル空間名のリストです。
+この値はテーブル空間名のリストです。
 リストに複数の名前が存在する場合、一時オブジェクトが作成される度に<productname>PostgreSQL</productname>は無作為にリストから要素を選択します。
 トランザクションの内側は例外で、連続して作成される一時オブジェクトはそのリストで連続するテーブル空間に格納されます。
 リスト内の選択された要素が空文字列だった場合、<productname>PostgreSQL</productname>は自動的に現在のデータベースのデフォルトのテーブル空間を代わりに使用します。
@@ -3627,7 +3707,7 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         <literal>CREATE</literal> privilege.  In particular, this rule applies when
         using a value set in <filename>postgresql.conf</filename>.
        -->
-       <varname>temp_tablespaces</varname>を対話式に設定する場合、存在しないテーブル空間を指定するとエラーになります。
+<varname>temp_tablespaces</varname>を対話式に設定する場合、存在しないテーブル空間を指定するとエラーになります。
 ユーザが<literal>CREATE</literal>権限を持たないテーブル空間を指定した場合も同様です。
 しかし事前に設定された値を使用する場合、存在しないテーブル空間は無視されます。
 ユーザが<literal>CREATE</literal>権限を持たないテーブル空間も同様です。
@@ -3640,7 +3720,7 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         objects being created in the default tablespace of the current
         database.
        -->
-       デフォルト値は空文字列です。
+デフォルト値は空文字列です。
 この結果、すべての一時オブジェクトは現在のデータベースのデフォルトのテーブル空間内に作成されます。
        </para>
 
@@ -3676,7 +3756,7 @@ I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><str
         users; <application>pg_dump</application> does so automatically.
 -->
 このパラメータは通常オンです。
-<literal>off</literal>に設定すると、<xref linkend="sql-createfunction"/>の間で関数本体文字列の妥当性検証を無効にします。
+<literal>off</literal>に設定すると、<xref linkend="sql-createfunction"/>と<xref linkend="sql-createprocedure"/>の実行中の関数本体文字列の妥当性検証を無効にします。
 妥当性検証を無効にするとその妥当性検証処理の副作用を避け、前方参照による問題から起こる偽陽性(false positive)を避けることができます。
 関数をロードする前にこのパラメータを他のユーザとして<literal>off</literal>にします。
 <application>pg_dump</application>はこれを自動的に行います。

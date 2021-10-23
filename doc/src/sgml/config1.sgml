@@ -183,6 +183,7 @@
 -->
 しかしminimal WALはベースバックアップとWALログからデータを再構築するための充分な情報を持ち合わせていません。
 したがって、WALアーカイビング（<xref linkend="guc-archive-mode"/>）とストリーミングレプリケーションを有効にするには、<literal>replica</literal>以上を使用しなければなりません。
+<varname>wal_level</varname>を<literal>minimal</literal>にすると、以前取得したバックアップがアーカイブリカバリおよびスタンバイサーバに使えなくなり、データロスにつながるかもしれないことに注意してください。
        </para>
        <para>
 <!--
@@ -585,7 +586,7 @@ WALのリプレイを待つので、今までの設定に比べるとこの設�
 可能なら<literal>open_</literal>*オプションも<literal>O_DIRECT</literal>を使用します。
 全てのプラットフォームでこれら全ての選択肢が使えるわけではありません。
 デフォルトは、上のリストのプラットフォームでサポートされるものの最初に列挙されているものです。
-ただしLinuxでは<literal>fdatasync</literal>がデフォルトです。
+ただしLinuxとFreeBSDでは<literal>fdatasync</literal>がデフォルトです。
 デフォルトは必ずしも理想的なものではありません。
 クラッシュに適応した構成にする、あるいはアーカイブの最適性能を導くためには、この設定あるいはシステム構成の他の部分を変更することが必要かもしれません。
 これらの側面は <xref linkend="wal-reliability"/>で解説されます。
@@ -1094,8 +1095,10 @@ WALライタがWALを吐き出す頻度を量で指定します。
         parameter can only be set in the <filename>postgresql.conf</filename> file
         or on the server command line.
        -->
-       チェックポイントの完了目標をチェックポイント間の総時間の割合として指定します。
-デフォルトは0.5です。
+チェックポイントの完了目標をチェックポイント間の総時間の割合として指定します。
+デフォルトは0.9で、可能な限りの間隔のほとんどにチェックポイントを拡散し、かなり一定のI/O負荷をもたらしますが、チェックポイントが完了するにあたってオーバヘッドをもたらします。
+チェックポイントの完了を早くするので、このパラメータを小さくするのはお勧めできません。
+これにより、チェックポイント中はI/Oの割合が大きくなり、チェックポイントから次のチェックポイントまでの間はより少ないI/Oとなります。
 このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
@@ -1397,7 +1400,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
 強制切り替えにより早期にクローズされたアーカイブ済みファイルは、完全に完了したファイルと同じ大きさを持つことに注意してください。
 そのため、非常に小さな<varname>archive_timeout</varname>を使用することは賢明ではなく、格納領域を膨張させてしまいます。
 １分程度の<varname>archive_timeout</varname>設定が通常は妥当です。
-もしそれより高速にデータをマスターサーバからコピーをしてしまいたいのであれば、アーカイブするよりストリーミングレプリケーションの選択を検討すべきです。
+もしそれより高速にデータをプライマリサーバからコピーをしてしまいたいのであれば、アーカイブするよりストリーミングレプリケーションの選択を検討すべきです。
 この値が単位なしで指定された場合は、秒単位であるとみなします。
 このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
        </para>
@@ -2032,8 +2035,8 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      across the cluster without problems if that is required.
 -->
 これらの設定は組み込みの<firstterm>ストリーミングレプリケーション</firstterm>機能の動作を制御します（<xref linkend="streaming-replication"/>を参照ください）。
-サーバ群のサーバはマスターかスタンバイのいずれかです。マスターはデータを送出する一方、複数のスタンバイは複製されたデータを常に受け取ります。カスケードレプリケーション（<xref linkend="cascading-replication"/>を参照）が使用されている場合、スタンバイサーバ群は受け取り手でもあり、送り手でもあります。
-パラメータは主として送出サーバとスタンバイサーバ用ですが、いくつかのパラメータはマスターサーバのみに効力を発します。
+サーバ群のサーバはプライマリかスタンバイのいずれかです。プライマリはデータを送出する一方、複数のスタンバイは複製されたデータを常に受け取ります。カスケードレプリケーション（<xref linkend="cascading-replication"/>を参照）が使用されている場合、スタンバイサーバ群は受け取り手でもあり、送り手でもあります。
+パラメータは主として送出サーバとスタンバイサーバ用ですが、いくつかのパラメータはプライマリサーバのみに効力を発します。
 必要とあればクラスタに渡って問題なく設定を変化させることができます。
     </para>
 
@@ -2052,7 +2055,9 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
       The role and meaning of these parameters does not change after a
       standby becomes the primary.
       -->
-      これらのパラメータはレプリケーションデータを１つ、またはそれ以上複数のスタンバイサーバに送るいかなるサーバ上で設定することができます。マスターは常に送出サーバであるため、パラメータは常にマスター上に設定されなければなりません。これらのパラメータの役割と意味はスタンバイが後にマスターに昇格しても変わりません。
+これらのパラメータはレプリケーションデータを１つ、またはそれ以上複数のスタンバイサーバに送るすべてのサーバ上で設定することができます。
+プライマリは常に送出サーバであるため、パラメータは常にプライマリ上に設定されなければなりません。
+これらのパラメータの役割と意味はスタンバイが後にプライマリに昇格しても変わりません。
      </para>
 
      <variablelist>
@@ -2096,7 +2101,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
          same or higher value than on the primary server. Otherwise, queries
          will not be allowed in the standby server.
 -->
-スタンバイサーバを実行する際は、このパラメータをマスタサーバと同じか高い値にしなければなりません。
+スタンバイサーバを実行する際は、このパラメータをプライマリサーバと同じか高い値にしなければなりません。
 さもなければ、スタンバイサーバでクエリを実行できなくなります。
         </para>
        </listitem>
@@ -2132,6 +2137,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         </para>
 
         <para>
+<!--
          On the subscriber side, specifies how many replication origins (see
          <xref linkend="replication-origins"/>) can be tracked simultaneously,
          effectively limiting how many logical replication subscriptions can
@@ -2140,6 +2146,10 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
          <link linkend="view-pg-replication-origin-status">pg_replication_origin_status</link>,
          not <link linkend="catalog-pg-replication-origin">pg_replication_origin</link>)
          will prevent the server from starting.
+-->
+サブスクライバ側ではレプリケーション原点(origin)（<xref linkend="replication-origins"/>）をいくつ並行して追跡できるかを指定します。
+これは実質的に論理レプリケーションのサブスクリプションをサーバ上にいくつ作ることができるかを制限します。
+現在追跡しているレプリケーション原点の数（<link linkend="catalog-pg-replication-origin">pg_replication_origin</link>ではなく、<link linkend="view-pg-replication-origin-status">pg_replication_origin_status</link>に反映されます )よりも小さい値を設定すると、サーバが起動しなくなります。
         </para>
        </listitem>
       </varlistentry>
@@ -2313,9 +2323,9 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
       although you may wish to set them there in preparation for the
       possibility of a standby becoming the primary.
       -->
-      これらのパラメータはレプリケーションデータを１つ、またはそれ以上複数のスタンバイサーバに送るマスター/プライマリサーバ上で設定することができます。
-      これらパラメータに加え、<xref linkend="guc-wal-level"/>はマスターサーバ上で適切に設定される必要があり、オプションとしてWALアーカイブを有効にしてもかまいません（<xref linkend="runtime-config-wal-archiving"/>を参照してください）。
-      スタンバイサーバがマスターサーバになるかもしれない状況に備え、それらのパラメータをスタンバイサーバで設定したいと考えたとしても、スタンバイサーバ上でのパラメータの値は意味をなしません。
+これらのパラメータはレプリケーションデータを１つ、またはそれ以上複数のスタンバイサーバに送るプライマリサーバ上で設定することができます。
+これらパラメータに加え、<xref linkend="guc-wal-level"/>はプライマリサーバ上で適切に設定される必要があり、オプションとしてWALアーカイブを有効にしてもかまいません（<xref linkend="runtime-config-wal-archiving"/>を参照してください）。
+スタンバイサーバがプライマリサーバになるかもしれない状況に備え、それらのパラメータをスタンバイサーバで設定したいと考えたとしても、スタンバイサーバ上でのパラメータの値は意味をなしません。
      </para>
 
     <variablelist>
@@ -2582,8 +2592,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
       to receive replication data.  Their values on the primary server
       are irrelevant.
       -->
-      これらの設定はレプリケーションデータを受け取るスタンバイサーバの動作を管理します。
-      マスターサーバ上のこれらの値は無意味です。
+これらの設定はレプリケーションデータを受け取る<link linkend="standby-server-operation">スタンバイサーバ</link>の動作を管理します。
+プライマリサーバ上のこれらの値は無意味です。
      </para>
 
     <variablelist>
@@ -2895,11 +2905,12 @@ WAL受信プロセスが実行中にこのパラメータが変更されると�
 送信された進捗情報は<link linkend="monitoring-pg-stat-replication-view"><structname>pg_stat_replication</structname></link>ビューにより確認することが可能です。
 スタンバイサーバは書き込みがされた直近の先行書き込みログ位置、ディスクにフラッシュされた直近のログ位置、およびリカバリ適用された直近のログ位置を報告します。
 このパラメータの値がそれぞれの報告間における最大の時間間隔です。
-書き込み、またはフラッシュ位置が変更される毎、あるいは最低でもこのパラメータで設定された頻度で更新情報が送信されます。
+書き込み、またはフラッシュ位置が変更される毎、あるいはこのパラメータがゼロ以外なら、最低でもこのパラメータで設定された頻度で更新情報が送信されます。
+他にもこのパラメータを無視して更新情報が送信される場合があります。
+たとえば、既存のWALの処理が完了するか、<varname>synchronous_commit</varname>が<literal>remote_apply</literal>に設定されている場合です。
 従って、適用位置は真の位置よりも少し後ろにずれることがあります。
 この値が単位なしで指定された場合は、秒単位であるとみなします。
 デフォルトの値は10秒です。
-このパラメータをゼロに設定すると、ステータスの更新を完全に無効化します。
 このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
       </para>
       </listitem>
@@ -3068,7 +3079,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
 デフォルトでは、スタンバイサーバは可能な限り早くプライマリからWALレコードをリストアします。
 時間遅れのデータのコピーを持つことで、データ損失エラーを修正する機会を提供するのは有用かもしれません。
 このパラメータを使う事で、決まった時間だけリカバリを遅らせることができます。
-例えば、パラメータに<literal>5min</literal>と指定した場合、各トランザクションについて、スタンバイのシステム時刻が、マスターから報告されたコミット時刻より5分以上経過している場合のみ、スタンバイサーバはコミットを再生します。
+例えば、パラメータに<literal>5min</literal>と指定した場合、各トランザクションについて、スタンバイのシステム時刻が、プライマリから報告されたコミット時刻より5分以上経過している場合のみ、スタンバイサーバはコミットを再生します。
 単位を指定しない場合、ミリ秒として扱われます。
 デフォルトは0で、遅延を与えません。
        </para>
@@ -3086,9 +3097,9 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         than typical time deviations between servers.
 -->
 サーバ間のレプリケーション遅延はパラメータの値を上回る可能性があり、その場合には遅延は追加されません。
-遅延は、マスタサーバで書かれたWALのタイムスタンプと、スタンバイサーバの現在時刻を使って計算されていることに注意してください。
+遅延は、プライマリサーバで書かれたWALのタイムスタンプと、スタンバイサーバの現在時刻を使って計算されていることに注意してください。
 ネットワークの遅延やカスケーディングレプリケーション構成によるデータ転送の遅延は、実際の待ち時間を大幅に減らすかもしれません。
-もし、マスタサーバとスタンバイサーバのシステムクロックが同期されていない場合、期待値よりも早くレコードのリカバリを始めるかもしれません。
+もし、プライマリサーバとスタンバイサーバのシステムクロックが同期されていない場合、期待値よりも早くレコードのリカバリを始めるかもしれません。
 しかし、このパラメータの有用な設定値は典型的なサーバ間の時間のずれよりもずっと大きいので、それらは大きな問題ではありません。
        </para>
        <para>
@@ -3121,7 +3132,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         which could lead to bloat on the primary; use both together with care.
 -->
 このパラメータはストリーミングレプリケーション配信で使われることを目的としていますが、パラメータが指定されていると、クラッシュリカバリを除くすべてのケースで使用されます。
-この機能を使うことによって<varname>hot_standby_feedback</varname>が遅延され、マスタサーバの肥大化に繋がる可能性があります。両方同時に使う場合には注意して使ってください。
+この機能を使うことによって<varname>hot_standby_feedback</varname>が遅延され、プライマリサーバの肥大化に繋がる可能性があります。両方同時に使う場合には注意して使ってください。
 
         <warning>
          <para>
@@ -3205,6 +3216,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         start.
 -->
 デフォルト値は4です。
+このパラメータはサーバ起動時にのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -3248,6 +3260,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         line.
 -->
 デフォルト値は2です。
+このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -3289,20 +3302,27 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
        -->
 以下の設定パラメータは、問い合わせオプティマイザが選択する問い合わせ計画に影響する大雑把な手法を提供します。
 ある問い合わせに対してオプティマイザが選択したデフォルト計画が最適でない場合、<emphasis>暫定的な</emphasis>解決策は、これらの設定パラメータの1つを使用し、オプティマイザに異なる計画を選択するように仕向けることです。
-オプティマイザが選択する計画の品質を改善するためのより良い方法には、プランナコスト定数を調節する（<xref linkend="runtime-config-query-constants"/>を参照）、<xref linkend="sql-analyze"/>を手作業で実行する、<xref linkend="guc-default-statistics-target"/>設定パラメータの値を大きくする、<command>ALTER TABLE SET STATISTICS</command>を使用して、特定の列に対して収集される統計情報を増やす、などがあります。
+オプティマイザが選択する計画の品質を改善するためのより良い方法には、プランナコスト定数を調節する（<xref linkend="runtime-config-query-constants"/>を参照）、<link linkend="sql-analyze"><command>ANALYZE</command></link>を手作業で実行する、<xref linkend="guc-default-statistics-target"/>設定パラメータの値を大きくする、<command>ALTER TABLE SET STATISTICS</command>を使用して、特定の列に対して収集される統計情報を増やす、などがあります。
       </para>
 
      <variablelist>
      <varlistentry id="guc-enable-async-append" xreflabel="enable_async_append">
       <term><varname>enable_async_append</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>enable_async_append</varname> configuration parameter</primary>
+-->
+       <primary><varname>enable_async_append</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's use of async-aware
         append plan types. The default is <literal>on</literal>.
+-->
+問い合わせプランナが非同期を意識したアペンド計画型を使うのを可能あるいは不可能にします。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -3492,11 +3512,15 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <varlistentry id="guc-enable-memoize" xreflabel="enable_memoize">
       <term><varname>enable_memoize</varname> (<type>boolean</type>)
       <indexterm>
+<!--
        <primary><varname>enable_memoize</varname> configuration parameter</primary>
+-->
+       <primary><varname>enable_memoize</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables the query planner's use of memoize plans for
         caching results from parameterized scans inside nested-loop joins.
         This plan type allows scans to the underlying plans to be skipped when
@@ -3504,6 +3528,11 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         commonly looked up results may be evicted from the cache when more
         space is required for new entries. The default is
         <literal>on</literal>.
+-->
+問い合わせプランナが、ネステッドループ結合の中のパラメータ付き走査の結果をキャッシュするメモ化計画を使用するのを有効あるいは無効にします。
+このプラン型は、キャッシュ中に現在のパラメータに対応する結果があれば、配下の計画をスキップすることを可能にします。
+新しい項目のためにより多くのスペースが必要な場合は、あまり参照されていない結果は削除されるかもしれません。
+デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
