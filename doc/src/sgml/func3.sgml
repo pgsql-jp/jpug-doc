@@ -414,7 +414,9 @@ JSON入力が要求と一致する正しい構造をしていなければ、フ�
         structure is merged.
 -->
 2つの<type>jsonb</type>値を結合します。
-2つのオブジェクトを結合するとそれらのキーの和を持つオブジェクトを生成します。キーが重複している場合は2番目のオブジェクトの値が使用されます。
+2つの配列を結合するとそれらのキーの和を持つ配列を生成します。
+キーが重複している場合は2番目のオブジェクトの値が使用されます。
+それ以外の場合には非配列入力を単一の要素を持つ配列に変換し、次に2つの配列として取り扱います。
 再帰操作は行いません。トップレベルの配列あるいはオブジェクト構造だけがマージされます。
        </para>
        <para>
@@ -434,8 +436,11 @@ JSON入力が要求と一致する正しい構造をしていなければ、フ�
         <returnvalue>[{"a": "b"}, 42]</returnvalue>
        </para>
        <para>
+<!--
         To append an array to another array as a single entry, wrap it
         in an additional layer of array, for example:
+-->
+一つの要素を持つとして配列を他の配列に追加するには、例のように配列の追加のレイヤー中に含めてください。
        </para>
        <para>
         <literal>'[1, 2]'::jsonb || jsonb_build_array('[3, 4]'::jsonb)</literal>
@@ -2284,18 +2289,28 @@ strict $.track.segments[*].location
    </para>
 
    <para>
+<!--
     The <literal>.**</literal> accessor can lead to surprising results
     when using the lax mode. For instance, the following query selects every
     <literal>HR</literal> value twice:
+-->
+<literal>.**</literal>アクセサを非厳密モードで使うと驚くべき結果をもたらすことがあります。
+たとえば、次の問い合わせはすべての<literal>HR</literal>値を2回検索します。
 <programlisting>
 lax $.**.HR
 </programlisting>
+<!--
     This happens because the <literal>.**</literal> accessor selects both
     the <literal>segments</literal> array and each of its elements, while
     the <literal>.HR</literal> accessor automatically unwraps arrays when
     using the lax mode. To avoid surprising results, we recommend using
     the <literal>.**</literal> accessor only in the strict mode. The
     following query selects each <literal>HR</literal> value just once:
+-->
+これは<literal>.**</literal>アクセサが<literal>segments</literal>とその各々の要素の両方を検索するからです。
+一方、<literal>.HR</literal>アクセサは非厳密モードでは自動的に配列を展開します。
+予期しない結果を避けるには、<literal>.**</literal>アクセサを厳密モードでのみ使うことをお勧めします。
+次の問い合わせは<literal>HR</literal>の各値を一度だけ検索します。
 <programlisting>
 strict $.**.HR
 </programlisting>
@@ -3125,7 +3140,7 @@ PostgreSQLは今の所<literal>LIKE_REGEX</literal>演算子をサポートし�
 -->
 <literal>like_regex</literal>のパターン引数は<xref linkend="datatype-jsonpath"/>で説明されているルールにしたがって書かれたJSONパス文字列リテラルであることに注意してください。
 これは、正規表現で使用するすべてのバックスラッシュを二重に書かなければならないことを意味します。
-たとえば、数字のみを含む文字列にマッチさせるには以下のようにします。
+たとえば、数字のみを含むroot文書の文字列値にマッチさせるには以下のようにします。
 <programlisting>
 $.* ? (@ like_regex "^\\d+$")
 </programlisting>
@@ -3395,9 +3410,7 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
 -->
 シーケンス関数により操作されるシーケンスは<type>regclass</type>引数で指定されますが、それは<structname>pg_class</structname>システムカタログ内にある、そのシーケンスの単なるOIDです。
 しかしながら、手作業でOIDを検索する必要はなく、<type>regclass</type>データ型の入力変換器が代わってその作業を行ってくれます。
-単一引用符で括られたシーケンス名を記述するだけで良いので、リテラル定数のように見えます。
-通常の<acronym>SQL</acronym>の名称での操作との互換のため、文字列はシーケンス名が二重引用符で括られていなければ、小文字に変換されます。
-よって、以下のようになります。
+詳細は<xref linkend="datatype-oid"/>を見てください。
   </para>
  </sect1>
 
@@ -3832,7 +3845,6 @@ SELECT NULLIF(value, '(none)') ...
 比較演算子は配列の内容をその要素のデータ型用のデフォルトのB-tree比較関数を要素単位で比較し、最初にどの要素に違いがあったかに基づいてソートします。
 多次元配列では配列の要素は行優先順にアクセスされます。（最後の添字が最初に変化します。）
 2つの配列の内容が同じで次元数が異なる場合は、どの次元で最初に違いがあったかによってソート順が決まります。
-（これは<productname>PostgreSQL</productname>の8.2より前のバージョンでは異なります。古いバージョンでは、次元数や添字の範囲が異なっても、2つの配列の内容が同じなら、同じ配列であるとしていました。）
   </para>
 
    <table id="array-operators-table">
@@ -3938,6 +3950,7 @@ SELECT NULLIF(value, '(none)') ...
 2つの配列を結合します。
 nullあるいは空の配列の結合は無処理です。そうでない場合は、配列は同じ次元数を持っていなければなりません。
 （最初の例にあるように）。さもなければ次元数でひとつ違わなければなりません（2番目の例にあるように）。
+配列の要素型が異なる場合は、共通の型へと置き換えられます（<xref linkend="typeconv-union-case"/>参照）。
        </para>
        <para>
         <literal>ARRAY[1,2,3] || ARRAY[4,5,6,7]</literal>
@@ -4395,8 +4408,12 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyarray</returnvalue>
        </para>
        <para>
+<!--
         Trims an array by removing the last <parameter>n</parameter> elements.
         If the array is multidimensional, only the first dimension is trimmed.
+-->
+最後の<parameter>n</parameter>要素を削除して配列を短縮します。
+配列が複数次元なら、最初の次元だけが短縮されます。
        </para>
        <para>
         <literal>trim_array(ARRAY[1,2,3,4,5,6], 2)</literal>
@@ -4418,6 +4435,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         The array's elements are read out in storage order.
 -->
 配列を行の集合に展開します。
+排列要素は格納順に読み出されます。
        </para>
        <para>
         <literal>unnest(ARRAY[1,2])</literal>
@@ -4453,7 +4471,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 -->
 複数の配列（異なるデータ型の可能性があります）を行の集合に展開します。
 配列の長さが同じでなければ、短い配列には<literal>NULL</literal>が詰められます。
-これはFROM句でのみ許されます。<xref linkend="queries-tablefunctions"/>を参照してください。
+これは問い合わせのFROM句でのみ許されます。<xref linkend="queries-tablefunctions"/>を参照してください。
        </para>
        <para>
         <literal>select * from unnest(ARRAY[1,2], ARRAY['foo','bar','baz']) as x(a,b)</literal>
@@ -4501,7 +4519,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
   <title>Range/Multirange Functions and Operators</title>
 -->
-  <title>範囲関数と演算子</title>
+  <title>範囲／多重範囲関数と演算子</title>
 
   <para>
 <!--
@@ -4525,8 +4543,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
    provided to allow unique indexes to be constructed on ranges.
 -->
 <xref linkend="range-operators-table"/>に、範囲型専用に利用可能な演算子を示します。
-これらに加えて<xref linkend="functions-comparison-op-table"/>で示す通常の比較演算子が配列で利用できます。
+<xref linkend="multirange-operators-table"/>に、多重範囲(multirange)型専用に利用可能な演算子を示します。
+これらに加えて<xref linkend="functions-comparison-op-table"/>で示す通常の比較演算子が範囲型と多重範囲型で利用できます。
 この比較演算子は最初に範囲の下限で順序付けし、それが等しい場合にのみ上限を比較します。
+多重範囲型の演算子は各範囲を、等しくならなくなるまで比較します。
 これは通常有用な全順序付けにはなりませんが、範囲に対して一意インデックスを構成することができる演算子が提供されます。
   </para>
 
@@ -4668,7 +4688,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the first range strictly right of the second?
+-->
+最初の範囲は厳密に2番目の右か？
        </para>
        <para>
         <literal>int8range(50,60) &gt;&gt; int8range(20,30)</literal>
@@ -4682,7 +4705,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the first range not extend to the right of the second?
+-->
+最初の範囲は2番目の右を被覆していないか？
        </para>
        <para>
         <literal>int8range(1,20) &amp;&lt; int8range(18,20)</literal>
@@ -4696,7 +4722,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the first range not extend to the left of the second?
+-->
+最初の範囲は2番目の左を被覆していないか？
        </para>
        <para>
         <literal>int8range(7,20) &amp;&gt; int8range(5,10)</literal>
@@ -4710,7 +4739,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Are the ranges adjacent?
+-->
+範囲は隣接しているか？
        </para>
        <para>
         <literal>numrange(1.1,2.2) -|- numrange(2.2,3.3)</literal>
@@ -4724,9 +4756,12 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
+<!--
         Computes the union of the ranges.  The ranges must overlap or be
         adjacent, so that the union is a single range (but
         see <function>range_merge()</function>).
+-->
+範囲の和を計算します。範囲は和の結果が単一の範囲になるように、重なり合っているか、隣接していなければなりません。（ただし<function>range_merge()</function>を参照してください。）
        </para>
        <para>
         <literal>numrange(5,15) + numrange(10,20)</literal>
@@ -4740,7 +4775,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
+<!--
         Computes the intersection of the ranges.
+-->
+範囲の共通部分を計算します。
        </para>
        <para>
         <literal>int8range(5,15) * int8range(10,20)</literal>
@@ -4754,9 +4792,13 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
+<!--
         Computes the difference of the ranges.  The second range must not be
         contained in the first in such a way that the difference would not be
         a single range.
+-->
+範囲の差を計算します。
+差が単一の範囲にならないように、2番目の範囲は最初の範囲に含まれていてはいけません。
        </para>
        <para>
         <literal>int8range(5,15) - int8range(10,20)</literal>
@@ -4768,18 +4810,30 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
    </table>
 
    <table id="multirange-operators-table">
+<!--
     <title>Multirange Operators</title>
+-->
+    <title>多重範囲演算子</title>
     <tgroup cols="1">
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+<!--
         Operator
+-->
+演算子
        </para>
        <para>
+<!--
         Description
+-->
+説明
        </para>
        <para>
+<!--
         Example(s)
+-->
+例
        </para></entry>
       </row>
      </thead>
@@ -4791,7 +4845,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the first multirange contain the second?
+-->
+最初の多重範囲は2番目を含んでいるか？
        </para>
        <para>
         <literal>'{[2,4)}'::int4multirange @&gt; '{[2,3)}'::int4multirange</literal>
@@ -4805,7 +4862,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the multirange contain the range?
+-->
+多重範囲は範囲を含んでいるか？
        </para>
        <para>
         <literal>'{[2,4)}'::int4multirange @&gt; int4range(2,3)</literal>
@@ -4819,7 +4879,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the multirange contain the element?
+-->
+多重範囲は要素を含んでいるか？
        </para>
        <para>
         <literal>'{[2011-01-01,2011-03-01)}'::tsmultirange @&gt; '2011-01-10'::timestamp</literal>
@@ -4833,7 +4896,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the range contain the multirange?
+-->
+範囲は多重範囲を含んでいるか？
        </para>
        <para>
         <literal>'[2,4)'::int4range @&gt; '{[2,3)}'::int4multirange</literal>
@@ -4847,7 +4913,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the first multirange contained by the second?
+-->
+最初の多重範囲は2番目に含まれているか？
        </para>
        <para>
         <literal>'{[2,4)}'::int4multirange &lt;@ '{[1,7)}'::int4multirange</literal>
@@ -4861,7 +4930,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the multirange contained by the range?
+-->
+多重範囲は範囲に含まれているか？
        </para>
        <para>
         <literal>'{[2,4)}'::int4multirange &lt;@ int4range(1,7)</literal>
@@ -4875,7 +4947,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range contained by the multirange?
+-->
+範囲は多重範囲に含まれているか？
        </para>
        <para>
         <literal>int4range(2,4) &lt;@ '{[1,7)}'::int4multirange</literal>
@@ -4889,7 +4964,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the element contained by the multirange?
+-->
+要素は多重範囲に含まれているか？
        </para>
        <para>
         <literal>42 &lt;@ '{[1,7)}'::int4multirange</literal>
@@ -4903,7 +4981,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Do the multiranges overlap, that is, have any elements in common?
+-->
+多重範囲は重なっているか？すなわち、共通に持つ要素があるか？
        </para>
        <para>
         <literal>'{[3,7)}'::int8multirange &amp;&amp; '{[4,12)}'::int8multirange</literal>
@@ -4917,7 +4998,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the multirange overlap the range?
+-->
+多重範囲は範囲と重なり合うか？
        </para>
        <para>
         <literal>'{[3,7)}'::int8multirange &amp;&amp; int8range(4,12)</literal>
@@ -4931,7 +5015,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the range overlap the multirange?
+-->
+範囲は多重範囲と重なり合うか？
        </para>
        <para>
         <literal>int8range(3,7) &amp;&amp; '{[4,12)}'::int8multirange</literal>
@@ -4945,7 +5032,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the first multirange strictly left of the second?
+-->
+最初の多重範囲は厳密に2番目の左か？
        </para>
        <para>
         <literal>'{[1,10)}'::int8multirange &lt;&lt; '{[100,110)}'::int8multirange</literal>
@@ -4959,7 +5049,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the multirange strictly left of the range?
+-->
+多重範囲は厳密に範囲の左か？
        </para>
        <para>
         <literal>'{[1,10)}'::int8multirange &lt;&lt; int8range(100,110)</literal>
@@ -4973,7 +5066,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range strictly left of the multirange?
+-->
+範囲は厳密に多重範囲の左か？
        </para>
        <para>
         <literal>int8range(1,10) &lt;&lt; '{[100,110)}'::int8multirange</literal>
@@ -4987,7 +5083,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the first multirange strictly right of the second?
+-->
+最初の多重範囲は厳密に2番目の右か？
        </para>
        <para>
         <literal>'{[50,60)}'::int8multirange &gt;&gt; '{[20,30)}'::int8multirange</literal>
@@ -5001,7 +5100,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the multirange strictly right of the range?
+-->
+多重範囲は厳密に範囲の右か？
        </para>
        <para>
         <literal>'{[50,60)}'::int8multirange &gt;&gt; int8range(20,30)</literal>
@@ -5015,7 +5117,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range strictly right of the multirange?
+-->
+範囲は厳密に多重範囲の右か？
        </para>
        <para>
         <literal>int8range(50,60) &gt;&gt; '{[20,30)}'::int8multirange</literal>
@@ -5029,7 +5134,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the first multirange not extend to the right of the second?
+-->
+最初の多重範囲は2番目の右を被覆していないか？
        </para>
        <para>
         <literal>'{[1,20)}'::int8multirange &amp;&lt; '{[18,20)}'::int8multirange</literal>
@@ -5043,7 +5151,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the multirange not extend to the right of the range?
+-->
+多重範囲は範囲の右を被覆していないか？
        </para>
        <para>
         <literal>'{[1,20)}'::int8multirange &amp;&lt; int8range(18,20)</literal>
@@ -5057,7 +5168,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the range not extend to the right of the multirange?
+-->
+範囲は多重範囲の右を被覆していないか？
        </para>
        <para>
         <literal>int8range(1,20) &amp;&lt; '{[18,20)}'::int8multirange</literal>
@@ -5071,7 +5185,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the first multirange not extend to the left of the second?
+-->
+最初の多重範囲は2番目の左を被覆していないか？
        </para>
        <para>
         <literal>'{[7,20)}'::int8multirange &amp;&gt; '{[5,10)}'::int8multirange</literal>
@@ -5085,7 +5202,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the multirange not extend to the left of the range?
+-->
+多重範囲は範囲の左を被覆していないか？
        </para>
        <para>
         <literal>'{[7,20)}'::int8multirange &amp;&gt; int8range(5,10)</literal>
@@ -5099,7 +5219,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Does the range not extend to the left of the multirange?
+-->
+範囲は多重範囲の左を被覆していないか？
        </para>
        <para>
         <literal>int8range(7,20) &amp;&gt; '{[5,10)}'::int8multirange</literal>
@@ -5113,7 +5236,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Are the multiranges adjacent?
+-->
+それらの多重範囲は隣接しているか？
        </para>
        <para>
         <literal>'{[1.1,2.2)}'::nummultirange -|- '{[2.2,3.3)}'::nummultirange</literal>
@@ -5127,7 +5253,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the multirange adjacent to the range?
+-->
+多重範囲は範囲に連接しているか？
        </para>
        <para>
         <literal>'{[1.1,2.2)}'::nummultirange -|- numrange(2.2,3.3)</literal>
@@ -5141,7 +5270,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range adjacent to the multirange?
+-->
+範囲は多重範囲に連接しているか？
        </para>
        <para>
         <literal>numrange(1.1,2.2) -|- '{[2.2,3.3)}'::nummultirange</literal>
@@ -5155,8 +5287,12 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>
+<!--
         Computes the union of the multiranges.  The multiranges need not overlap
         or be adjacent.
+-->
+多重範囲の和を計算します。
+多重範囲は重なり合っている必要も、隣接している必要もありません。
        </para>
        <para>
         <literal>'{[5,10)}'::nummultirange + '{[15,20)}'::nummultirange</literal>
@@ -5170,7 +5306,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>
+<!--
         Computes the intersection of the multiranges.
+-->
+多重範囲の間の共通部分を計算します。
        </para>
        <para>
         <literal>'{[5,15)}'::int8multirange * '{[10,20)}'::int8multirange</literal>
@@ -5184,7 +5323,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>
+<!--
         Computes the difference of the multiranges.
+-->
+多重範囲の間の差を計算します。
        </para>
        <para>
         <literal>'{[5,20)}'::int8multirange - '{[10,15)}'::int8multirange</literal>
@@ -5196,20 +5338,32 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
    </table>
 
   <para>
+<!--
    The left-of/right-of/adjacent operators always return false when an empty
    range or multirange is involved; that is, an empty range is not considered to
    be either before or after any other range.
+-->
+空の範囲あるいは多重範囲が含まれる場合、「左」「右」「隣接」演算子は常に偽を返します。つまり、空の範囲は他の範囲の前でも後ろでもないと見なされます。
   </para>
 
   <para>
+<!--
    Elsewhere empty ranges and multiranges are treated as the additive identity:
    anything unioned with an empty value is itself. Anything minus an empty
    value is itself. An empty multirange has exactly the same points as an empty
    range. Every range contains the empty range. Every multirange contains as many
    empty ranges as you like.
+-->
+他の場所では、空の範囲と多重範囲は加法単位元として扱われます。
+空の値との和は自分自身です。
+空の値を引いたものは自分自身です。
+空の多重範囲は空の範囲と正確に同じ特徴を持ちます。
+すべての範囲は空の範囲を含みます。
+すべての多重範囲はいくらでも空の範囲を含むことができます。
   </para>
 
   <para>
+<!--
    The range union and difference operators will fail if the resulting range would
    need to contain two disjoint sub-ranges, as such a range cannot be
    represented. There are separate operators for union and difference that take
@@ -5217,28 +5371,49 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
    their arguments are disjoint. So if you need a union or difference operation
    for ranges that may be disjoint, you can avoid errors by first casting your
    ranges to multiranges.
+-->
+範囲の和と差演算子は、結果の範囲に2つの隣接しない副範囲が含まれる場合には失敗します。
+そのような範囲は表現できないからです。
+多重範囲引数を取り、多重範囲を返す別の和と差の演算子があり、引数が隣接していなくても失敗しません。
+隣接しないからもしれない範囲の和あるいは差の演算が必要なら、まず範囲を多重範囲にキャストすることによってエラーを避けることができます。
   </para>
 
   <para>
+<!--
    <xref linkend="range-functions-table"/> shows the functions
    available for use with range types.
    <xref linkend="multirange-functions-table"/> shows the functions
    available for use with multirange types.
+-->
+<xref linkend="range-functions-table"/>に範囲型で利用可能な関数を示します。
+<xref linkend="multirange-functions-table"/>に多重範囲型で利用可能な関数を示します。
   </para>
 
    <table id="range-functions-table">
+<!--
     <title>Range Functions</title>
+-->
+    <title>範囲関数</title>
     <tgroup cols="1">
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+<!--
         Function
+-->
+関数
        </para>
        <para>
+<!--
         Description
+-->
+説明
        </para>
        <para>
+<!--
         Example(s)
+-->
+例
        </para></entry>
       </row>
      </thead>
@@ -5253,8 +5428,11 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyelement</returnvalue>
        </para>
        <para>
+<!--
         Extracts the lower bound of the range (<literal>NULL</literal> if the
         range is empty or the lower bound is infinite).
+-->
+範囲の下限を取り出します。（範囲が空か下限が無限ならば<literal>NULL</literal>となります。）
        </para>
        <para>
         <literal>lower(numrange(1.1,2.2))</literal>
@@ -5271,8 +5449,11 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyelement</returnvalue>
        </para>
        <para>
+<!--
         Extracts the upper bound of the range (<literal>NULL</literal> if the
         range is empty or the upper bound is infinite).
+-->
+範囲の下限を取り出します。（範囲が空か下限が無限ならば<literal>NULL</literal>となります。）
        </para>
        <para>
         <literal>upper(numrange(1.1,2.2))</literal>
@@ -5289,7 +5470,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range empty?
+-->
+範囲は空か？
        </para>
        <para>
         <literal>isempty(numrange(1.1,2.2))</literal>
@@ -5306,7 +5490,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range's lower bound inclusive?
+-->
+範囲の下限は境界を含むか？
        </para>
        <para>
         <literal>lower_inc(numrange(1.1,2.2))</literal>
@@ -5323,7 +5510,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range's upper bound inclusive?
+-->
+範囲の上限は境界を含むか？
        </para>
        <para>
         <literal>upper_inc(numrange(1.1,2.2))</literal>
@@ -5340,7 +5530,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range's lower bound infinite?
+-->
+範囲の下限は無限か？
        </para>
        <para>
         <literal>lower_inf('(,)'::daterange)</literal>
@@ -5357,7 +5550,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Is the range's upper bound infinite?
+-->
+範囲の上限は無限か？
        </para>
        <para>
         <literal>upper_inf('(,)'::daterange)</literal>
@@ -5374,7 +5570,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anyrange</returnvalue>
        </para>
        <para>
+<!--
         Computes the smallest range that includes both of the given ranges.
+-->
+与えられた両方の範囲を含む最小の範囲を計算します。
        </para>
        <para>
         <literal>range_merge('[1,2)'::int4range, '[3,4)'::int4range)</literal>
@@ -5386,7 +5585,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
    </table>
 
    <table id="multirange-functions-table">
+<!--
     <title>Multirange Functions</title>
+-->
+    <title>多重範囲関数</title>
     <tgroup cols="1">
      <thead>
       <row>
@@ -5424,7 +5626,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         Extracts the lower bound of the multirange (<literal>NULL</literal> if the
         multirange is empty or the lower bound is infinite).
 -->
-範囲の下限を取り出します。（範囲が空か下限が無限ならば<literal>NULL</literal>となります。）
+多重範囲の下限を取り出します。（範囲が空か下限が無限ならば<literal>NULL</literal>となります。）
        </para>
        <para>
         <literal>lower('{[1.1,2.2)}'::nummultirange)</literal>
@@ -5445,7 +5647,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         Extracts the upper bound of the multirange (<literal>NULL</literal> if the
         multirange is empty or the upper bound is infinite).
 -->
-範囲の上限を取り出します。（範囲が空か上限が無限ならば<literal>NULL</literal>となります。）
+多重範囲の上限を取り出します。（多重範囲が空か上限が無限ならば<literal>NULL</literal>となります。）
        </para>
        <para>
         <literal>upper('{[1.1,2.2)}'::nummultirange)</literal>
@@ -5465,7 +5667,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
         Is the multirange empty?
 -->
-範囲は空か？
+多重範囲は空か？
        </para>
        <para>
         <literal>isempty('{[1.1,2.2)}'::nummultirange)</literal>
@@ -5485,7 +5687,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
         Is the multirange's lower bound inclusive?
 -->
-範囲の下限は境界を含むか？
+多重範囲の下限は境界を含むか？
        </para>
        <para>
         <literal>lower_inc('{[1.1,2.2)}'::nummultirange)</literal>
@@ -5505,7 +5707,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
         Is the multirange's upper bound inclusive?
 -->
-範囲の上限は境界を含むか？
+多重範囲の上限は境界を含むか？
        </para>
        <para>
         <literal>upper_inc('{[1.1,2.2)}'::nummultirange)</literal>
@@ -5525,7 +5727,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
         Is the multirange's lower bound infinite?
 -->
-範囲の下限は無限か？
+多重範囲の下限は無限か？
        </para>
        <para>
         <literal>lower_inf('{(,)}'::datemultirange)</literal>
@@ -5545,7 +5747,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
         Is the multirange's upper bound infinite?
 -->
-範囲の上限は無限か？
+多重範囲の上限は無限か？
        </para>
        <para>
         <literal>upper_inf('{(,)}'::datemultirange)</literal>
@@ -5565,7 +5767,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <!--
         Computes the smallest range that includes the entire multirange.
 -->
-与えられた両方の範囲を含む最小の範囲を計算します。
+与えられた多重範囲全体を含む最小の範囲を計算します。
        </para>
        <para>
         <literal>range_merge('{[1,2), [3,4)}'::int4multirange)</literal>
@@ -5582,7 +5784,10 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>
+<!--
         Returns a multirange containing just the given range.
+-->
+ちょうど与えられた範囲を含む多重範囲を返す。
        </para>
        <para>
         <literal>multirange('[1,2)'::int4range)</literal>
@@ -5600,8 +5805,12 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>setof anyrange</returnvalue>
        </para>
        <para>
+<!--
         Expands a multirange into a set of ranges.
         The ranges are read out in storage order (ascending).
+-->
+多重範囲を範囲の集合に拡張します。
+範囲は格納順で読み出されます（昇順）。
        </para>
        <para>
         <literal>unnest('{[1,2), [3,4)}'::int4multirange)</literal>
@@ -5622,7 +5831,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
    <function>lower_inf</function>, and <function>upper_inf</function>
    functions all return false for an empty range or multirange.
 -->
-<function>lower_inc</function>、<function>upper_inc</function>、<function>lower_inf</function>、<function>upper_inf</function>はすべて空の範囲に対して偽を返します。
+<function>lower_inc</function>、<function>upper_inc</function>、<function>lower_inf</function>、<function>upper_inf</function>はすべて空の多重範囲に対して偽を返します。
   </para>
   </sect1>
 
@@ -5861,8 +6070,12 @@ NULLも含めてすべての入力値を収集して配列に格納します。
         <returnvalue>bit</returnvalue>
        </para>
        <para>
+<!--
         Computes the bitwise exclusive OR of all non-null input values.
         Can be useful as a checksum for an unordered set of values.
+-->
+すべての非NULL入力値のビット毎の排他的論理和を計算します。
+順序付けられない値の集合のチェックサムとして有用かもしれません。
        </para></entry>
        <entry>Yes</entry>
       </row>
@@ -6066,7 +6279,10 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>
+<!--
         Computes the union of the non-null input values.
+-->
+非NULL入力の和を計算します。
        </para></entry>
        <entry>No</entry>
       </row>
@@ -6081,7 +6297,10 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>
+<!--
         Computes the intersection of the non-null input values.
+-->
+非NULL入力の共通部分を計算します。
        </para></entry>
        <entry>No</entry>
       </row>
@@ -7485,7 +7704,7 @@ NULL値は<literal>ORDER BY</literal>節で指定されるルールに従って�
         <parameter>default</parameter> to <literal>NULL</literal>.
 -->
 パーティション内の現在行より<parameter>offset</parameter>行だけ前の行で評価された<parameter>value</parameter>を返します。
-該当する行がない場合、その代わりとして<parameter>default</parameter>(<parameter>value</parameter>と同じ型でなければなりません)を返します。
+該当する行がない場合、その代わりとして<parameter>default</parameter>(<parameter>value</parameter>と互換性のある型でなければなりません)を返します。
 <parameter>offset</parameter>と<parameter>default</parameter>は共に現在行について評価されます。
 省略された場合、<parameter>offset</parameter>はデフォルトで1となり、<parameter>default</parameter>は<literal>NULL</literal>になります。
        </para></entry>
@@ -7516,7 +7735,7 @@ NULL値は<literal>ORDER BY</literal>節で指定されるルールに従って�
         <parameter>default</parameter> to <literal>NULL</literal>.
 -->
 パーティション内の現在行より<parameter>offset</parameter>行だけ後の行で評価された<parameter>value</parameter>を返します。
-該当する行がない場合、その代わりとして<parameter>default</parameter>(<parameter>value</parameter>と同じ型でなければなりません)を返します。
+該当する行がない場合、その代わりとして<parameter>default</parameter>(<parameter>value</parameter>と互換性のある型でなければなりません)を返します。
 <parameter>offset</parameter>と<parameter>default</parameter>は共に現在行について評価されます。
 省略された場合、<parameter>offset</parameter>はデフォルトで1となり、<parameter>default</parameter>は<literal>NULL</literal>になります。
        </para></entry>

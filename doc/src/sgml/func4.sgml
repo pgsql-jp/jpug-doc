@@ -3057,6 +3057,7 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
           <parameter>is_opt</parameter> <type>boolean</type> )
        </para>
        <para>
+<!--
         Returns a set of records describing the foreign key relationships
         that exist within the <productname>PostgreSQL</productname> system
         catalogs.
@@ -3071,6 +3072,13 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
         in the referenced catalog.
         If <parameter>is_opt</parameter> is true, the referencing column(s)
         are allowed to contain zeroes instead of a valid reference.
+-->
+<productname>PostgreSQL</productname>システムカタログ中に存在する外部キー関係を記述するレコードの集合を返します。
+<parameter>fktable</parameter>列は参照するカタログの名前を示し、<parameter>fkcols</parameter>列は参照する列の名前を示します。
+同様に、<parameter>pktable</parameter>は参照されるカタログの名前を示し、<parameter>pkcols</parameter>は参照される列の名前を示し
+ます。
+<parameter>is_array</parameter>が真なら、最後の参照列は配列で、各要素は参照カタログにマッチします。
+<parameter>is_opt</parameter>が真なら、参照される列は有効な参照の代わりにゼロを含んでも構いません。
        </para></entry>
       </row>
 
@@ -3248,7 +3256,9 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 サーバが認識するSQLキーワードを記述するレコードの集合を返します。
 <parameter>word</parameter>列にはキーワードが含まれます。
 <parameter>catcode</parameter>列にはカテゴリーコードが含まれます。<literal>U</literal>は非予約キーワード、<literal>C</literal>は列名になり得るキーワード、<literal>T</literal>は型あるいは関数名になり得るキーワード、<literal>R</literal>は完全な予約キーワードです。
-<parameter>catdesc</parameter>列にはカテゴリーを記述する、ローカライズ化されることもある文字列が含まれます。
+<parameter>barelabel</parameter>列ラベルは、キーワードが<quote>bare</quote>列ラベルとして<command>SELECT</command>リスト中で使えるなら<literal>true</literal>で、<literal>AS</literal>の後にのみ使えるのなら<literal>false</literal>です。
+<parameter>catdesc</parameter>列にはキーワードカテゴリーを記述する、ローカライズ化されることもある文字列が含まれます。
+<parameter>baredesc</parameter>列にはキーワードの列ラベル状態を記述する、ローカライズ化されることもある文字列が含まれます。
        </para></entry>
       </row>
 
@@ -4189,6 +4199,7 @@ SELECT collation for ('foo' COLLATE "de_DE");
 <parameter>name</parameter>は（必要なら引用符で括った）オブジェクトの名前ですが、（適切ならスキーマ名と合わせて）オブジェクトの一意識別子として使用できる場合にのみ指定し、それ以外の場合は<literal>NULL</literal>にします。
 <parameter>identity</parameter>は完全なオブジェクトの識別で、オブジェクトの型に依存した正確なフォーマットを持っています。
 フォーマット内の各部分はスキーマ修飾されており、必要に応じて引用符で括られます。
+未定義オブジェクトは<literal>NULL</literal>値で識別されます。
        </para></entry>
       </row>
 
@@ -4913,7 +4924,10 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
          <parameter>roident</parameter> <type>oid</type>)
        </para>
        <para>
+<!--
          Returns the commit timestamp and replication origin of a transaction.
+-->
+トランザクションのコミットタイムスタンプとレプリケーション原点を返します。
        </para></entry>
       </row>
 
@@ -4933,7 +4947,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         Returns the transaction ID, commit timestamp and replication origin
         of the latest committed transaction.
 -->
-直近にコミットしたトランザクションのトランザクションIDとコミットタイムスタンプを返します。
+直近にコミットしたトランザクションのトランザクションID、コミットタイムスタンプ、レプリケーション原点を返します。
        </para></entry>
       </row>
      </tbody>
@@ -5423,7 +5437,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         the <acronym>SQL</acronym> command <xref linkend="sql-show"/>.
 -->
 現在の<parameter>setting_name</parameter>の設定値を返します。
-そのような設定がなければ、<parameter>missing_ok</parameter>が渡され、それが<literal>true</literal>でない限り<function>current_setting</function>はエラーを引き起こします。
+そのような設定がなければ、<parameter>missing_ok</parameter>が渡され、それが<literal>true</literal>でない限り<function>current_setting</function>はエラーを引き起こします（この場合はNULLが返ります）。
 この関数は<acronym>SQL</acronym>コマンドの<command>SHOW</command>に関連します。
        </para>
        <para>
@@ -5454,8 +5468,8 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         the SQL command <xref linkend="sql-set"/>.
 -->
 <parameter>setting_name</parameter>パラメータに<parameter>new_value</parameter>を設定し、その値を返します。
-<parameter>is_local</parameter>が渡され、それが<literal>true</literal>なら新しい値は現在のトランザクションにのみ適用されます。
-現在のセッションに新しい値を適用したければ、代わりに<literal>false</literal>としてください。
+<parameter>is_local</parameter>が渡され、それが<literal>true</literal>なら新しい値は現在のトランザクションの間にのみ適用されます。
+現在のセッションで以降に新しい値を適用したければ、代わりに<literal>false</literal>としてください。
 このコマンドはSQLコマンドの<command>SET</command>に関連します。
        </para>
        <para>
@@ -5502,7 +5516,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
     the signal was successfully sent and <literal>false</literal>
     if sending the signal failed.
 -->
-これらのそれぞれの関数は成功の場合<literal>true</literal>（真）を返し、そうでない場合は<literal>false</literal>（偽）を返します。
+これらのそれぞれの関数はシグナルの送付が成功の場合<literal>true</literal>を返し、シグナルの送付に失敗したときには<literal>false</literal>を返します。
    </para>
 
    <table id="functions-admin-signal-table">
@@ -5560,6 +5574,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         <returnvalue>boolean</returnvalue>
        </para>
        <para>
+<!--
         Requests to log the memory contexts of the backend with the
         specified process ID.  These memory contexts will be logged at
         <literal>LOG</literal> message level. They will appear in
@@ -5568,6 +5583,11 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         but will not be sent to the client regardless of
         <xref linkend="guc-client-min-messages"/>.
         Only superusers can request to log the memory contexts.
+-->
+指定プロセスIDのバックエンドのメモリコンテキストをログすることを要求します。
+メモリコンテキストは<literal>LOG</literal>メッセージレベルでログされます。
+ログは、ログ設定（詳細は<xref linkend="runtime-config-logging"/>）に基づきサーバログに現れますが、<xref linkend="guc-client-min-messages"/>に関わらずクライアントには送られません。
+スーパユーザだけがメモリコンテキストをログすることを要求できます。
        </para></entry>
       </row>
 
@@ -5592,6 +5612,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
 -->
 <productname>PostgreSQL</productname>のすべてのサーバプロセスに構成ファイルの再読み込みをさせます。
 （これは<systemitem>SIGHUP</systemitem>シグナルをpostmasterプロセスに送ることによって始まり、postmasterは続いて<systemitem>SIGHUP</systemitem>を子に送ります。）
+再ロードする前に、設定ファイルにエラーの可能性があるかどうかをチェックするために<link linkend="view-pg-file-settings"><structname>pg_file_settings</structname></link>と<link linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link>ビューを利用できます。
        </para></entry>
       </row>
 
@@ -5635,6 +5656,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
 ただし、スーパーユーザのバックエンドはスーパーユーザのみが終了できます。
        </para>
        <para>
+<!--
         If <parameter>timeout</parameter> is not specified or zero, this
         function returns <literal>true</literal> whether the process actually
         terminates or not, indicating only that the sending of the signal was
@@ -5644,6 +5666,11 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
         the process is terminated, the function
         returns <literal>true</literal>.  On timeout, a warning is emitted and
         <literal>false</literal> is returned.
+-->
+<parameter>timeout</parameter>が与えられないか、ゼロなら、この関数はプロセスが実際に終了したかどうかに関わらず、この関数はシグナルの送付が成功したことのみを意味する<literal>true</literal>を返します。
+<parameter>timeout</parameter>が指定され、ゼロよりも大きければ、この関数はプロセスが実際に終了するか、指定時間が経過するまで待ちます。
+プロセスが終了したら、この関数は<literal>true</literal>を返します。
+タイムアウトの場合は、警告が出力され、<literal>false</literal>が返ります。
        </para></entry>
       </row>
      </tbody>
@@ -5671,8 +5698,12 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
    </para>
 
    <para>
+<!--
     <function>pg_log_backend_memory_contexts</function> can be used
     to log the memory contexts of a backend process. For example:
+-->
+バックエンドプロセスのメモリコンテキストのログを取るために<function>pg_log_backend_memory_contexts</function>を利用できます。
+例を示します。
 <programlisting>
 postgres=# SELECT pg_log_backend_memory_contexts(pg_backend_pid());
  pg_log_backend_memory_contexts 
@@ -5680,7 +5711,10 @@ postgres=# SELECT pg_log_backend_memory_contexts(pg_backend_pid());
  t
 (1 row)
 </programlisting>
+<!--
 One message for each memory context will be logged. For example:
+-->
+各々のメモリコンテキストについて一つのメッセージがログされます。例を示します。
 <screen>
 LOG:  logging memory contexts of PID 10377
 STATEMENT:  SELECT pg_log_backend_memory_contexts(pg_backend_pid());
@@ -5696,10 +5730,15 @@ LOG:  level: 1; TransactionAbortContext: 32768 total in 1 blocks; 32504 free (0 
 LOG:  level: 1; ErrorContext: 8192 total in 1 blocks; 7928 free (3 chunks); 264 used
 LOG:  Grand total: 1651920 bytes in 201 blocks; 622360 free (88 chunks); 1029560 used
 </screen>
+<!--
     If there are more than 100 child contexts under the same parent, the first
     100 child contexts are logged, along with a summary of the remaining contexts.
     Note that frequent calls to this function could incur significant overhead,
     because it may generate a large number of log messages.
+-->
+同じ親に100よりも多い子コンテキストがあると、最初の100子コンテキストがログされ、残りのコンテキストについてはサマリが付加されます。
+この関数を頻繁に呼び出すと、大きなオーバヘッドを引き起こす可能性があることに注意してください。
+大量のログメッセージが生成される可能性があるからです。
    </para>
 
   </sect2>
@@ -6135,7 +6174,7 @@ falseの場合、<function>pg_stop_backup</function>はバックアップの完�
         functions shown in <xref linkend="functions-admin-backup-table"/> to
         get the replication lag.
 -->
-2つの先行書き込みログの位置のバイト単位の差分を計算します。
+2つの先行書き込みログの位置のバイト単位の差分(<parameter>lsn1</parameter> - <parameter>lsn2</parameter>)を計算します。
 これは<structname>pg_stat_replication</structname>や<xref linkend="functions-admin-backup-table"/>内の関数でレプリケーションの遅延を取得するために使用することができます。
        </para></entry>
       </row>
@@ -6398,11 +6437,17 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         <returnvalue>text</returnvalue>
        </para>
        <para>
+<!--
         Returns recovery pause state.  The return values are <literal>
         not paused</literal> if pause is not requested, <literal>
         pause requested</literal> if pause is requested but recovery is
         not yet paused, and <literal>paused</literal> if the recovery is
         actually paused.
+-->
+リカバリの休止状態を返します。
+休止が要求されていないければ、返り値は<literal>not paused</literal>です。
+休止が要求されていてリカバリがまだ休止していなければ、返り値は<literal>pause requested</literal>です。
+リカバリが実際に休止していれば、返り値は<literal>paused</literal>です。
        </para></entry>
       </row>
 
@@ -6460,7 +6505,10 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         snapshot of the database, and no further query conflicts will be generated
         until recovery is resumed.
 -->
-リカバリを中断します。
+リカバリの中断を要求します。
+要求しても、それは直ちにリカバリが中断することを意味しません。
+リカバリが実際に中断していることを保証したければ、 <function>pg_get_wal_replay_pause_state()</function>が返すリカバリ中断状態をチェックする必要があります。
+<function>pg_is_wal_replay_paused()</function>は要求が行われたかどうかを返すことに注意してください。
 リカバリが中断している間、データベースへの変更は適用されません。
 ホットスタンバイが動作中はすべての新しい問い合わせはデータベースの一貫した同じスナップショットを参照することになり、リカバリが再開するまでそれ以上の問い合わせの衝突は起きません。
        </para>
@@ -6662,7 +6710,7 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
 -->
 <xref linkend="functions-replication-table"/>に示す関数はレプリケーション機能を制御したり、情報を取得したりするためのものです。
 基盤となっている機能の情報に関しては<xref linkend="streaming-replication"/>、<xref linkend="streaming-replication-slots"/>、<xref linkend="replication-origins"/>を参照してください。
-これらの関数のレプリケーションオリジンでの使用はスーパーユーザに限定されています。
+これらの関数のレプリケーションオリジンでの使用はデフォルトでスーパーユーザにのみ許可されていますが、<literal>GRANT</literal>コマンドを使って他のユーザに許可することもできます。
 これらの関数のレプリケーションスロットでの使用はスーパーユーザと<literal>REPLICATION</literal>権限を持つユーザに限定されています。
    </para>
 
@@ -6743,7 +6791,8 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
 物理スロットからのストリーミングの変更はストリーミングレプリケーションプロトコルでのみ可能です。<xref linkend="protocol-replication"/>を参照してください。
 3番目のパラメータ<parameter>temporary</parameter>はオプションで、trueに設定されるとそのスロットは永続的にディスクに保存されるものではなく、現在のセッションによってのみ用いられることを意図していることを指定します。
 一時的なスロットはエラーが発生したときも解放されます。
-この関数は、レプリケーションプロトコルコマンド<literal>CREATE_REPLICATION_SLOT ... PHYSICAL</literal>に対応するものです。
+オプションの4つ目の引数<parameter>two_phase</parameter>がtrueならば、準備されたトランザクションのデコードがこのスロットで可能になります。
+この関数の呼び出しはは、レプリケーションプロトコルコマンド<literal>CREATE_REPLICATION_SLOT ... PHYSICAL</literal>と同じ効果があります。
        </para></entry>
       </row>
 
@@ -7294,9 +7343,13 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         <returnvalue>text</returnvalue>
        </para>
        <para>
+<!--
         Shows the compression algorithm that was used to compress
         an individual variable-length value. Returns <literal>NULL</literal>
         if the value is not compressed.
+-->
+個々の可変長値で使われた圧縮アルゴリズムを表示します。
+値が圧縮されていなければ、<literal>NULL</literal>を返します。
        </para></entry>
       </row>
 
@@ -7523,8 +7576,8 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
     for details.
 -->
 上記の関数において、テーブルやインデックスを<type>regclass</type>引数として受け取って処理するものがありますが、この引数は単に<structname>pg_class</structname>システムカタログにあるテーブルやインデックスのOIDです。
-ただし、<type>regclass</type>データ型が自動で入力変換を行うため、ユーザが手動で該当するOIDを調べる必要はありません。リテラル定数のようにシングルクオートで囲んだテーブル名を記述するだけです。
-通常の<acronym>SQL</acronym>名に対する処理互換のため、テーブル名をダブルクオートで囲わない限り、テーブル名として入力された文字列は小文字に変換されます。
+ただし、<type>regclass</type>データ型が自動で入力変換を行うため、ユーザが手動で該当するOIDを調べる必要はありません。
+詳細は<xref linkend="datatype-oid"/>を参照ください。
    </para>
 
    <para>
@@ -7720,6 +7773,7 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
 （しかし、オペレーティングシステム上にもはや存在しなくなったロケールに基づく照合順序オブジェクトはこの関数では削除されません。）
 <parameter>schema</parameter>パラメータは通常は<literal>pg_catalog</literal>ですが、必ずしもそうでなければならないわけではなく、照合順序をどれか他のスキーマにインストールすることもできます。
 この関数は新しく作成された照合順序オブジェクトの数を返します。
+この関数の利用はスーパユーザにのみ限定されています。
        </para></entry>
       </row>
      </tbody>
