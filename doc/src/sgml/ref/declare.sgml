@@ -56,7 +56,7 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
 -->
 <command>DECLARE</command>を使うと、カーソルが使用できるようになります。
 これは、巨大な問い合わせの結果から一度に少数の行を取り出す機能です。
-カーソルを作成した後、<xref linkend="sql-fetch"/>を使用して行を取り出します。
+カーソルを作成した後、<link linkend="sql-fetch"><command>FETCH</command></link>を使用して行を取り出します。
   </para>
 
   <note>
@@ -109,6 +109,7 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
     <term><literal>INSENSITIVE</literal></term>
     <listitem>
      <para>
+<!--
       Cursor sensitivity determines whether changes to the data underlying the
       cursor, done in the same transaction, after the cursor has been
       declared, are visible in the cursor.  <literal>INSENSITIVE</literal>
@@ -119,11 +120,19 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
       In <productname>PostgreSQL</productname>, all cursors are insensitive;
       so these key words have no effect and are only accepted for
       compatibility with the SQL standard.
+-->
+カーソルの感度とは、カーソルの背後にあるデータが、カーソルが宣言された後に、同じトランザクション内で変更された場合、それがそのカーソル内で可視かどうかを決めるものです。
+<literal>INSENSITIVE</literal>は可視ではないことを意味し、<literal>ASENSITIVE</literal>は、その振舞いが実装依存であることを意味します。
+第3の振舞いである<literal>SENSITIVE</literal>はそのような変更がカーソル内で可視であることを意味しますが、<productname>PostgreSQL</productname>では利用できません。
+<productname>PostgreSQL</productname>では、カーソルはすべてinsensitiveですので、このキーワードを使用しても効果はなく、このキーワードは標準SQLとの互換性を保持するために存在しています。
      </para>
 
      <para>
+<!--
       Specifying <literal>INSENSITIVE</literal> together with <literal>FOR
       UPDATE</literal> or <literal>FOR SHARE</literal> is an error.
+-->
+<literal>INSENSITIVE</literal>を<literal>FOR UPDATE</literal>または<literal>FOR SHARE</literal>といっしょに指定するとエラーになります。
      </para>
     </listitem>
    </varlistentry>
@@ -183,7 +192,7 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
       <link linkend="sql-values"><command>VALUES</command></link> command
       which will provide the rows to be returned by the cursor.
 -->
-カーソルによって返される行を提供する<xref linkend="sql-select"/>または<xref linkend="sql-values"/>コマンドです。
+カーソルによって返される行を提供する<link linkend="sql-select"><command>SELECT</command></link>または<link linkend="sql-values"><command>VALUES</command></link>コマンドです。
      </para>
     </listitem>
    </varlistentry>
@@ -195,7 +204,7 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
    <literal>INSENSITIVE</literal>, and <literal>SCROLL</literal> can
    appear in any order.
 -->
-<literal>BINARY</literal>、<literal>INSENSITIVE</literal>、<literal>SCROLL</literal>キーワードは任意の順番で指定することができます。
+<literal>ASENSITIVE</literal>、<literal>BINARY</literal>、<literal>INSENSITIVE</literal>、<literal>SCROLL</literal>キーワードは任意の順番で指定することができます。
   </para>
  </refsect1>
 
@@ -271,7 +280,7 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
 したがって、<literal>WITH HOLD</literal>のない<command>DECLARE</command>はトランザクションブロックの外側では意味がありません。
 その場合、カーソルはこの文が完了するまでのみ有効です。
 そのため、<productname>PostgreSQL</productname>はトランザクションブロックの外部でこうしたコマンドが使用された場合エラーを報告します。
-トランザクションブロックを定義するには、<xref linkend="sql-begin"/>と<xref linkend="sql-commit"/>（または<xref linkend="sql-rollback"/>）を使用してください。
+トランザクションブロックを定義するには、<link linkend="sql-begin"><command>BEGIN</command></link>と<link linkend="sql-commit"><command>COMMIT</command></link>（または<link linkend="sql-rollback"><command>ROLLBACK</command></link>）を使用してください。
    </para>
 
    <para>
@@ -346,9 +355,10 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
      entire output of the cursor to be materialized in temporary storage,
      so that volatile functions are executed exactly once for each row.
 -->
-スクロール可能な<literal>WITH HOLD</literal>カーソルが揮発関数（<xref linkend="xfunc-volatility"/>参照）を含む場合、想定しない結果をもたらす可能性があります。
+スクロール可能なカーソルが揮発関数（<xref linkend="xfunc-volatility"/>参照）を含む場合、想定しない結果をもたらす可能性があります。
 これまで取り出した行を再度取り出した時、関数は再実行される可能性があり、この場合おそらく初回と異なる結果をもたらします。
-こうした問題の回避方法の1つとして、カーソルを<literal>WITH HOLD</literal>と宣言し、そこから何か行を読み取る前にトランザクションをコミットすることがあります。
+揮発関数を含む問い合わせに対しては<literal>NO SCROLL</literal>を指定するのが最善です。
+それが現実的でないのなら、回避方法の1つは、カーソルを<literal>WITH HOLD</literal>と宣言し、そこから何か行を読み取る前にトランザクションをコミットすることです。
 これにより強制的にカーソルの出力全体が一時領域に具現化され、揮発関数は各行に対して1度しか実行されなくなります。
     </para>
    </caution>
@@ -362,10 +372,8 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
     these options.
     In addition, the returned rows will be the most up-to-date versions.
 -->
-カーソルの問い合わせが<literal>FOR UPDATE</literal>または<literal>FOR SHARE</literal>を含む場合、このオプションを持つ通常の<xref linkend="sql-select"/>コマンドと同様、返される行は取り出した時点でロックされます。
+カーソルの問い合わせが<literal>FOR UPDATE</literal>または<literal>FOR SHARE</literal>を含む場合、このオプションを持つ通常の<link linkend="sql-select"><command>SELECT</command></link>コマンドと同様、返される行は取り出した時点でロックされます。
 さらに、返される行はもっとも最新のバージョンになります。
-したがって、このオプションは、標準SQLで<quote>センシティブカーソル</quote>と呼ばれるものと同じ機能を提供します。
-（<literal>INSENSITIVE</literal>を<literal>FOR UPDATE</literal>または<literal>FOR SHARE</literal>といっしょに指定するとエラーになります。）
    </para>
 
    <caution>
@@ -410,7 +418,7 @@ DECLARE <replaceable class="parameter">name</replaceable> [ BINARY ] [ ASENSITIV
      data).  If this is a requirement, pay close heed to the caveats shown
      above.
 -->
-<literal>FOR UPDATE</literal>を<literal>WHERE CURRENT OF</literal>といっしょに使用しない大きな理由は、カーソルをスクロール可能にする必要がある、または後の更新の影響を受けないようにする（つまり古いデータを表示し続けるようにする）必要がある場合のためです。
+<literal>FOR UPDATE</literal>を<literal>WHERE CURRENT OF</literal>といっしょに使用しない大きな理由は、カーソルをスクロール可能にする必要がある、または同時並行の更新から隔離する（つまり古いデータを表示し続けるようにする）必要がある場合のためです。
 これが必要ならば、上記の警告に十分注意してください。
     </para>
    </caution>
@@ -481,12 +489,16 @@ DECLARE liahona CURSOR FOR SELECT * FROM films;
   </para>
 
   <para>
+<!--
    According to the SQL standard, changes made to insensitive cursors by
    <literal>UPDATE ... WHERE CURRENT OF</literal> and <literal>DELETE
    ... WHERE CURRENT OF</literal> statements are visible in that same
    cursor.  <productname>PostgreSQL</productname> treats these statements like
    all other data changing statements in that they are not visible in
    insensitive cursors.
+-->
+標準SQLに従えば、<literal>UPDATE ... WHERE CURRENT OF</literal>と<literal>DELETE ... WHERE CURRENT OF</literal>文によりinsensitiveカーソルで行なわれた変更は、同じカーソルでは可視です。
+<productname>PostgreSQL</productname>は、これらの文をその他のデータを変更する文すべてと同様に扱います。その他の文ではinsensitiveカーソルでは変更は可視ではありません。
   </para>
 
   <para>
