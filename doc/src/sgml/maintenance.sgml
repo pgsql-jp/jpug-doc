@@ -145,7 +145,7 @@
     <link linkend="sql-vacuum"><command>VACUUM</command></link> command has to
     process each table on a regular basis for several reasons:
 -->
-<productname>PostgreSQL</productname>の<xref linkend="sql-vacuum"/>コマンドは以下の理由により定期的にそれぞれのテーブルを処理しなければなりません。
+<productname>PostgreSQL</productname>の<link linkend="sql-vacuum"><command>VACUUM</command></link>コマンドは以下の理由により定期的にそれぞれのテーブルを処理しなければなりません。
 
     <orderedlist>
      <listitem>
@@ -222,7 +222,7 @@
 また、<command>VACUUM</command>の標準形式は実運用のデータベースに対する操作と同時に実行させることができます。
 （<command>SELECT</command>、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>などのコマンドは通常通りに動作し続けます。
 しかし、バキューム処理中は<command>ALTER TABLE</command>などのコマンドを使用してテーブル定義を変更することはできません。）
-<command>VACUUM FULL</command>はそれが作用する全てのテーブルに対し排他ロックを必要とするので、それらテーブルのその他の用途と並行して行うことはできません。
+<command>VACUUM FULL</command>はそれが作用するテーブルに対し<literal>ACCESS EXCLUSIVE</literal>ロックを必要とするので、それらテーブルのその他の用途と並行して行うことはできません。
 一般的に、管理者は標準<command>VACUUM</command>の使用に努め、<command>VACUUM FULL</command>の使用を避けるべきです。
    </para>
 
@@ -383,9 +383,9 @@
     released until the new ones are complete.
 -->
 大規模な更新や削除作業の結果としてテーブルが不要な行バージョンを大量に含む場合、通常の<command>VACUUM</command>では満足のゆくものではないかもしれません。
-もしそのようなテーブルを所有し、それが占有する余分なディスク空間の回収が必要であれば、<command>VACUUM FULL</command>、またはその代わりに<xref linkend="sql-cluster"/>やテーブルを書き換える<xref linkend="sql-altertable"/>構文の1つを使用しなければなりません。
+もしそのようなテーブルを所有し、それが占有する余分なディスク空間の回収が必要であれば、<command>VACUUM FULL</command>、またはその代わりに<link linkend="sql-cluster"><command>CLUSTER</command></link>やテーブルを書き換える<link linkend="sql-altertable"><command>ALTER TABLE</command></link>構文の1つを使用しなければなりません。
 これらのコマンドはテーブル全体を新しいコピーに書き換え、それに対する新規インデックスを作成します。
-これらの選択肢はすべて排他ロックを必要とします。
+これらの選択肢はすべて<literal>ACCESS EXCLUSIVE</literal>ロックを必要とします。
 新しいものが完成するまで、テーブルの旧コピーとインデックスは解放されませんので、元のテーブルと同程度の容量の余計なディスク領域も一時的に使用することに注意してください。
    </para>
    </tip>
@@ -403,7 +403,7 @@
     FULL</command> to reclaim the now-unused disk space.
     The disadvantage is that strict MVCC semantics are violated.
 -->
-テーブルの内容が定期的に完全に削除される場合、<command>DELETE</command>の後に<command>VACUUM</command>を使用するよりも、<xref linkend="sql-truncate"/>を使用する方が良いでしょう。
+テーブルの内容が定期的に完全に削除される場合、<command>DELETE</command>の後に<command>VACUUM</command>を使用するよりも、<link linkend="sql-truncate"><command>TRUNCATE</command></link>を使用する方が良いでしょう。
 <command>TRUNCATE</command>はテーブルの全ての内容を即座に削除します。
 また、その後に不要となったディスク容量を回収するために<command>VACUUM</command>や<command>VACUUM FULL</command>を行う必要がありません。
 不利な点は厳格なMVCC動作が違反となることです。
@@ -442,7 +442,7 @@
     degrade database performance.
 -->
 <productname>PostgreSQL</productname>問い合わせプランナは、優れた問い合わせ計画を作成するのに、テーブルの内容に関する統計情報に依存しています。
-この統計情報は<xref linkend="sql-analyze"/>によって収集されます。
+この統計情報は<link linkend="sql-analyze"><command>ANALYZE</command></link>コマンドによって収集されます。
 このコマンドはそのものを呼び出す以外にも、<command>VACUUM</command>のオプション処理としても呼び出すことができます。
 合理的な精度の統計情報を持つことは重要です。
 さもないと非効率的な計画を選択してしまい、データベースの性能を悪化させてしまいます。
@@ -534,7 +534,7 @@
      plans that use the expression index.
 -->
 またデフォルトで、関数の選択性に関して利用可能な制限付きの情報があります。
-しかし、関数呼び出しを使用する式インデックスを作成する場合、有用な統計情報が関数に関して収集されます。
+しかし、統計情報オブジェクトや関数呼び出しを使用する式インデックスを作成する場合、有用な統計情報が関数に関して収集されます。
 これにより式インデックスを使用する問い合わせ計画を大きく改良することができます。
     </para>
    </tip>
@@ -941,7 +941,7 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
     system will begin to emit warning messages like this when the database's
     oldest XIDs reach forty million transactions from the wraparound point:
 -->
-何らかの理由により自動バキュームがテーブルの古いXIDの整理に失敗した場合、システムはデータベースの最古のXIDが周回ポイントから1100万トランザクションに達した場合と似たような警告メッセージを発行し始めます。
+何らかの理由により自動バキュームがテーブルの古いXIDの整理に失敗した場合、システムはデータベースの最古のXIDが周回ポイントから4000万トランザクションに達した場合と似たような警告メッセージを発行し始めます。
 
 <programlisting>
 WARNING:  database "mydb" must be vacuumed within 39985967 transactions
@@ -961,7 +961,7 @@ HINT:  To avoid a database shutdown, execute a database-wide VACUUM in that data
 （ヒントで示唆されたように手動<command>VACUUM</command>はこの問題を解決します。
 しかし、<command>VACUUM</command>はスーパーユーザで実行されなければなりません。
 さもないとシステムカタログの処理に失敗し、このためデータベースの<structfield>datfrozenxid</structfield>を桁上げすることができません。）
-こうした警告も無視し続け、周回するまでのトランザクションが100万より少なくなると、システムは停止し、新しいトランザクションの起動を拒絶します。
+こうした警告も無視し続け、周回するまでのトランザクションが300万より少なくなると、システムは停止し、新しいトランザクションの起動を拒絶します。
 
 <programlisting>
 ERROR:  database is not accepting commands to avoid wraparound data loss in database "mydb"
@@ -978,7 +978,7 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
     in single-user mode.  See the <xref linkend="app-postgres"/> reference
     page for details about using single-user mode.
 -->
-この100万トランザクションという安全マージンは、管理者が必要な<command>VACUUM</command>コマンドを手作業で実行することで、データを失うことなくリカバリすることができるようにするために存在します。
+この300万トランザクションという安全マージンは、管理者が必要な<command>VACUUM</command>コマンドを手作業で実行することで、データを失うことなくリカバリすることができるようにするために存在します。
 しかし、システムがこの安全のための停止モードになると、コマンドを実行しませんので、実行するためには、サーバを停止し、シングルユーザモードでサーバを起動して<command>VACUUM</command>を行う他ありません。
 この停止モードはシングルユーザモードでは強制されません。
 シングルユーザモードの使用に関する詳細は<xref linkend="app-postgres"/>マニュアルページを参照してください。
@@ -1075,8 +1075,8 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
      have the oldest multixact-age.  Both of these kinds of aggressive
      scans will occur even if autovacuum is nominally disabled.
 -->
-安全装置として、<xref linkend="guc-autovacuum-multixact-freeze-max-age"/>よりもそのマルチトランザクション年代が大きいどのテーブルに対しても、積極的なバキューム走査が起こります。
-メンバ記憶領域の使用量がアドレス指定可能な記憶領域の50%を越えた場合にも、積極的なバキューム走査は、マルチトランザクション年代の一番古いものから始めて、すべてのテーブルに対して段階的に起こります。
+安全装置として、<xref linkend="guc-autovacuum-multixact-freeze-max-age"/>よりもそのマルチトランザクション年代(<xref linkend="vacuum-for-multixact-wraparound"/>を参照)が大きいどのテーブルに対しても、積極的なバキューム走査が起こります。
+また、マルチトランザクションメンバによるストレージの占有が2GBを超えた場合にも、積極的なバキューム走査は、マルチトランザクション年代の一番古いものから始めて、すべてのテーブルに対してより頻繁に起こります。
 この種の積極的走査はどちらも、自動バキュームが名目上は無効にされていても発生します。
     </para>
    </sect3>
