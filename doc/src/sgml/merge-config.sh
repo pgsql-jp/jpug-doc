@@ -1,3 +1,9 @@
+#! /bin/sh
+# split-config.shで分割されたconfig[0-3].sgmlを結合し、再びconfig.sgmlに戻すスクリプト。
+# config[0-3].sgmlにレビュー結果を反映させた後、config.sgmlに反映するために使用する。
+cat config[0-3].sgml > config.sgml
+patch -p0 config.sgml <<EOF
+
 *** config_cat.sgml	Sun Oct 10 19:33:43 2021
 --- config.sgml	Sun Oct 10 19:04:17 2021
 ***************
@@ -79,3 +85,4 @@
   <!-- split-config3-end -->
 + 
 + </chapter>
+EOF
