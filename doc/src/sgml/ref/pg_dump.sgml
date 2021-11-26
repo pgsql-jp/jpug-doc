@@ -256,8 +256,8 @@ blobはデータとみなされるため、--data-onlyが使われたときは�
         file.  For the archive formats, you can specify the option when you
         call <command>pg_restore</command>.
 -->
-このオプションは平文形式の場合にのみ有効です。
-アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定することができます。
+このオプションはアーカイブ（テキストでない）出力ファイルを出力する場合には無視されます。
+アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -301,8 +301,8 @@ blobはデータとみなされるため、--data-onlyが使われたときは�
         file.  For the archive formats, you can specify the option when you
         call <command>pg_restore</command>.
 -->
-このオプションは平文形式の場合にのみ有効です。
-アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定することができます。
+このオプションはアーカイブ（テキストでない）出力ファイルを出力する場合には無視されます。
+アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -312,6 +312,7 @@ blobはデータとみなされるため、--data-onlyが使われたときは�
       <term><option>--extension=<replaceable class="parameter">pattern</replaceable></option></term>
       <listitem>
        <para>
+<!--
         Dump only extensions matching <replaceable
         class="parameter">pattern</replaceable>.  When this option is not
         specified, all non-system extensions in the target database will be
@@ -324,22 +325,35 @@ blobはデータとみなされるため、--data-onlyが使われたときは�
         be selected by writing wildcard characters in the pattern.  When using
         wildcards, be careful to quote the pattern if needed to prevent the
         shell from expanding the wildcards.
+-->
+<replaceable class="parameter">pattern</replaceable>にマッチする拡張のみをダンプします。
+このオプションが指定されなければ、対象データベース内にあるシステム以外の拡張すべてがダンプされます。
+複数の<option>-e</option>オプションを記述することで、複数の拡張を選択できます。
+<replaceable class="parameter">pattern</replaceable>パラメータは<application>psql</application>の<literal>\d</literal>コマンドと同じ規則に従うパターン（<xref linkend="app-psql-patterns"/>参照）として解釈されます。ですので、ワイルドカード文字をパターン内に記述することで、複数の拡張を選択することもできます。
+ワイルドカードを使用する時は、シェルがそのワイルドカードを展開しないように、必要であればパターンを引用符で括ってください。
        </para>
 
        <para>
+<!--
         Any configuration relation registered by
         <function>pg_extension_config_dump</function> is included in the
-        dump if its extension is specified by <option>--extension</option>.
+        dump if its extension is specified by <option>&#45;-extension</option>.
+-->
+<function>pg_extension_config_dump</function>により登録された設定リレーションは、その拡張が<option>--extension</option>で指定されていればダンプに含まれます。
        </para>
 
        <note>
         <para>
+<!--
          When <option>-e</option> is specified,
          <application>pg_dump</application> makes no attempt to dump any other
          database objects that the selected extension(s) might depend upon.
          Therefore, there is no guarantee that the results of a
          specific-extension dump can be successfully restored by themselves
          into a clean database.
+-->
+<option>-e</option>が指定されると、<application>pg_dump</application>は選択した拡張が依存する可能性のある、その他のデータベースオブジェクトのダンプを行ないません。
+したがって、拡張指定のダンプ結果を初期状態のデータベースに正常にリストアできるという保証はありません。
         </para>
        </note>
       </listitem>
@@ -360,6 +374,7 @@ blobはデータとみなされるため、--data-onlyが使われたときは�
 指定した文字セット符号化方式でダンプを作成します。
 デフォルトではダンプはデータベースの符号化方式で作成されます。
 （環境変数<envar>PGCLIENTENCODING</envar>を好みのダンプ時の符号化方式に設定することで、同じ結果を得ることができます。）
+サポートする符号化方式は<xref linkend="multibyte-charset-supported"/>に記載されています。
        </para>
       </listitem>
      </varlistentry>
@@ -530,9 +545,9 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
         but to abort the dump.
 -->
 並行ダンプを実行している時にデータベースオブジェクトに対して排他ロックを要求すると、ダンプが失敗する可能性があります。
-ダンプ実行中に誰かがダンプ予定のオブジェクトを削除してそれがなくなってしまうことがないように、ワーカプロセスがダンプする予定のオブジェクトに対して<application>pg_dump</application>のマスタプロセスが共有ロックを要求するのがその理由です。
+ダンプ実行中に誰かがダンプ予定のオブジェクトを削除してそれがなくなってしまうことがないように、ワーカプロセスがダンプする予定のオブジェクトに対して<application>pg_dump</application>のリーダープロセスが共有ロックを要求するのがその理由です。
 その後他のクライアントがテーブルに対する排他ロックを要求すると、
-そのロックは許可されませんが、マスタプロセスが共有ロックを解放することを待機するキューに保管されます。
+そのロックは許可されませんが、リーダープロセスが共有ロックを解放することを待機するキューに保管されます。
 その結果、テーブルへのその他のアクセスは許可されず、排他ロック要求の後のキューに保管されます。
 これには、そのテーブルをダンプしようとする作業用プロセスも含まれます。
 何らかの注意をしないと、古典的なデッドロック状態になります。
@@ -557,7 +572,7 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
 これはプライマリサーバについては<productname>PostgreSQL</productname> 9.2で、スタンバイについてはバージョン10で導入された機能です。
 この機能を用いれば、データベースクライアントは異なる接続を使用していたとしても、確実に同じデータセットを参照することができます。
 <command>pg_dump -j</command>は複数のデータベース接続を使用します。
-マスタプロセスで一度、また、作業用ジョブそれぞれでも一度、データベースと接続します。
+リーダープロセスで一度、また、作業用ジョブそれぞれでも一度、データベースと接続します。
 同期スナップショット機能がないと、異なる作業用ジョブがそれぞれの接続で同じデータを参照していることが保証されず、一貫性がないバックアップになってしまいます。
        </para>
        <para>
@@ -571,7 +586,7 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
         <command>pg_dump -j</command> against a pre-9.2 <productname>PostgreSQL</productname>
         server.
 -->
-9.2より前のサーバで並行ダンプを実行させたいのであれば、データベースの内容が、マスタがデータベースに接続してから最後の作業用ジョブがデータベースに接続するまでの間に変更されないことを確実にしなければなりません。
+9.2より前のサーバで並行ダンプを実行させたいのであれば、データベースの内容が、リーダーがデータベースに接続してから最後の作業用ジョブがデータベースに接続するまでの間に変更されないことを確実にしなければなりません。
 このためのもっとも簡単な方法は、バックアップを始める前にデータを変更するプロセス（DDLおよびDML）がデータベースにアクセスすることを止めさせることです。
 また、9.2より前の<productname>PostgreSQL</productname>に対して<command>pg_dump -j</command>を実行する場合は<option>--no-synchronized-snapshots</option>パラメータを指定する必要もあります。
        </para>
@@ -700,8 +715,8 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
         file.  For the archive formats, you can specify the option when you
         call <command>pg_restore</command>.
 -->
-このオプションは平文形式の場合にのみ有効です。
-アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定することができます。
+このオプションはアーカイブ（テキストでない）出力ファイルを出力する場合には無視されます。
+アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -887,6 +902,7 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
 -->
 冗長モードを指定します。
 これを指定すると、<application>pg_dump</application>は、詳細なオブジェクトコメント、開始時刻、終了時刻をダンプファイルに、進行状況メッセージを標準エラーに出力します。
+オプションを繰り返すと、追加のデバッグレベルメッセージが標準エラーに現れます。
        </para>
       </listitem>
      </varlistentry>
@@ -935,7 +951,7 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
 -->
 使用する圧縮レベルを指定します。
 ゼロは圧縮無しを意味します。
-カスタムアーカイブ形式では、これは個々のテーブルデータセグメントの圧縮を指定するもので、デフォルトでは中間レベルで圧縮されます。
+カスタムおよびディレクトリアーカイブ形式では、これは個々のテーブルデータセグメントの圧縮を指定するもので、デフォルトでは中間レベルで圧縮されます。
 平文出力では、非ゼロの圧縮レベルの指定によりあたかも<application>gzip</application>に渡されたかのように出力ファイル全体が圧縮されます。
 しかしデフォルトは圧縮無しです。
 tarアーカイブ形式では現在圧縮を全くサポートしていません。
@@ -1032,8 +1048,8 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         file.  For the archive formats, you can specify the option when you
         call <command>pg_restore</command>.
 -->
-このオプションは平文形式の場合にのみ有効です。
-他の形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定することができます。
+このオプションはアーカイブ（テキストでない）出力ファイルを出力する場合には無視されます。
+アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -1353,8 +1369,8 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         file.  For the archive formats, you can specify the option when you
         call <command>pg_restore</command>.
 -->
-このオプションは平文書式でのみ有意です。
-アーカイブ書式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定することができます。
+このオプションはアーカイブ（テキストでない）出力ファイルを出力する場合には無視されます。
+アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -1363,10 +1379,14 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
       <term><option>--no-toast-compression</option></term>
       <listitem>
        <para>
+<!--
         Do not output commands to set <acronym>TOAST</acronym> compression
         methods.
         With this option, all columns will be restored with the default
         compression setting.
+-->
+<acronym>TOAST</acronym>圧縮手法を設定するコマンドを出力しません。
+このオプションにより、列はすべてデフォルトの圧縮の設定でリストアされます。
        </para>
       </listitem>
      </varlistentry>
@@ -1580,8 +1600,8 @@ pg_dumpを始めた時に読み書きを行う実行中のトランザクショ�
         matches, <application>pg_dump</application> will generate an error
         even without <option>&#045;-strict-names</option>.
 -->
-各スキーマ指定(<option>-n</option>/<option>--schema</option>)および各テーブル指定(<option>-t</option>/<option>--table</option>)が、ダンプされるデータベース内の少なくとも1つのスキーマおよびテーブルにマッチすることを必要とします。
-スキーマおよびテーブル指定のどれもがマッチするものを見つけられなかった場合は、<option>--strict-names</option>がなくても<application>pg_dump</application>はエラーを発生させることに注意して下さい。
+各拡張指定(<option>-e</option>/<option>--extension</option>)、各スキーマ指定(<option>-n</option>/<option>--schema</option>)および各テーブル指定(<option>-t</option>/<option>--table</option>)が、ダンプされるデータベース内の少なくとも1つの拡張、スキーマおよびテーブルにマッチすることを必要とします。
+拡張、スキーマおよびテーブル指定のどれもがマッチするものを見つけられなかった場合は、<option>--strict-names</option>がなくても<application>pg_dump</application>はエラーを発生させることに注意して下さい。
        </para>
        <para>
 <!--
