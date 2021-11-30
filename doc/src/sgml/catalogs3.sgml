@@ -67,7 +67,7 @@
 <!--
        The OID of the <link linkend="catalog-pg-ts-config"><structname>pg_ts_config</structname></link> entry owning this map entry
 -->
-このマップ項目を所有する<structname>pg_ts_config</structname>項目のOID
+このマップ項目を所有する<link linkend="catalog-pg-ts-config"><structname>pg_ts_config</structname></link>項目のOID
       </para></entry>
      </row>
 
@@ -509,7 +509,7 @@
 <!--
        OID of the template's initialization function (zero if none)
 -->
-テンプレートの初期化関数のOID
+テンプレートの初期化関数のOID（なければゼロ）
       </para></entry>
      </row>
 
@@ -550,9 +550,9 @@
    composite types with <command>CREATE TYPE AS</command>.
 -->
 <structname>pg_type</structname>カタログはデータ型の情報を保存します。
-基本型と列挙型（スカラ型）は<xref linkend="sql-createtype"/>で作成され、ドメインは<xref linkend="sql-createdomain"/>で作成されます。
+基本型と列挙型（スカラ型）は<xref linkend="sql-createtype"/>で作成され、ドメインは<link linkend="sql-createdomain"><command>CREATE DOMAIN</command></link>で作成されます。
 複合型がテーブルの行構成を表すためデータベースの個々のテーブルに対して自動的に作成されます。
-複合型を<command>CREATE TYPE AS</command>で作成することもできます。
+複合型を<link linkend="sql-createtype"><command>CREATE TYPE</command></link>で作成することもできます。
   </para>
 
   <table>
@@ -686,7 +686,7 @@
        See also <structfield>typrelid</structfield> and
        <structfield>typbasetype</structfield>.
 -->
-<structfield>typtype</structfield>では、<literal>b</literal>は基本型、<literal>c</literal>は複合型（例えばテーブルの行の型）、<literal>d</literal>は派生型（ドメインなど）、<literal>e</literal>は列挙型、<literal>p</literal>は疑似型、<literal>r</literal>は範囲型です。
+<structfield>typtype</structfield>では、<literal>b</literal>は基本型、<literal>c</literal>は複合型（例えばテーブルの行の型）、<literal>d</literal>は派生型（ドメインなど）、<literal>e</literal>は列挙型、<literal>p</literal>は疑似型、<literal>r</literal>は範囲型、<literal>m</literal>は多重範囲型です。
 <structfield>typrelid</structfield>および<structfield>typbasetype</structfield>も参照してください。
       </para></entry>
      </row>
@@ -767,8 +767,8 @@
        <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link> entries to link to.)
        Zero for non-composite types.
 -->
-もしこれが複合型（<structname>typtype</structname>を参照）であれば、この列は関連するテーブルを定義する<structfield>pg_class</structfield>項目を指します。
-（独立の複合型の場合、<structname>pg_class</structname>項目は実際にはテーブルを表しませんが、いずれにしても型の<structname>pg_attribute</structname>項目をリンクするために必要です。）
+もしこれが複合型（<structname>typtype</structname>を参照）であれば、この列は関連するテーブルを定義する<link linkend="catalog-pg-class"><structname>pg_class</structname></link>項目を指します。
+（独立の複合型の場合、<link linkend="catalog-pg-class"><structname>pg_class</structname></link>項目は実際にはテーブルを表しませんが、いずれにしても型の<link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>項目をリンクするために必要です。）
 複合型でない場合はゼロです。
       </para></entry>
      </row>
@@ -779,12 +779,17 @@
        (references <link linkend="catalog-pg-proc"><structname>pg_proc</structname></link>.<structfield>oid</structfield>)
       </para>
       <para>
+<!--
        Subscripting handler function's OID, or zero if this type doesn't
        support subscripting.  Types that are <quote>true</quote> array
        types have <structfield>typsubscript</structfield>
        = <function>array_subscript_handler</function>, but other types may
        have other handler functions to implement specialized subscripting
        behavior.
+-->
+添字ハンドラ関数のOID、あるいはこの型が添え字付けをサポートしていなければゼロ。
+<quote>本当の</quote>配列型では、<structfield>typsubscript</structfield> = <function>array_subscript_handler</function>となります。
+しかし、他の型では特別な添え字付けの振る舞いを実装するハンドラ関数を持つかもしれません。
       </para></entry>
      </row>
 
@@ -807,11 +812,11 @@
        this type; so DDL changes on the element type might be restricted
        by the presence of this type.
 -->
-<structfield>typelem</structfield>がゼロでない場合、これは<structname>pg_type</structname>の別の列を特定します。
-現在の型は、<structfield>typelem</structfield>型の値を生成する配列のように、配列要素を持てるようになります。
-<quote>本当の</quote>の配列型は可変長（<structfield>typlen</structfield> = -1）ですが、例えば<type>name</type>と<type>point</type>のように、いくつかの固定長（<structfield>typlen</structfield> &gt; 0）型は同時に非ゼロの<structfield>typelem</structfield>を持つことができます。
-もし固定長型が<structfield>typelem</structfield>を持つ場合、その内部表現は他のデータを持たない<structfield>typelem</structfield>データ型の数個の値でなければなりません。
-可変長配列型には配列サブルーチンで定義されたヘッダを持ちます。
+<structfield>typelem</structfield>がゼロでない場合、これは添字付けによって生成された型を定義する<structname>pg_type</structname>の別の列を特定します。
+<structfield>typsubscript</structfield>がゼロなら、これはゼロとなるはずです。
+しかし、添字付けの結果型を決定するためにハンドラが<structfield>typelem</structfield>を必要としてなければ、<structfield>typsubscript</structfield>がゼロでなくても、ゼロとなることがあります。
+<structfield>typelem</structfield>依存性は、この型の要素型を物理的に含むことを暗示すると考えられることに注意してください。
+ですからこの要素型に対するDDL変更は、この型に存在に制限されるかもしれません。
       </para></entry>
      </row>
 
@@ -919,7 +924,7 @@
        Custom <xref linkend="sql-analyze"/> function,
        or zero to use the standard function
 -->
-独自の<command>ANALYZE</command>関数。標準関数を使用する場合はゼロ
+独自の<xref linkend="sql-analyze"/>関数。標準関数を使用する場合はゼロ
       </para></entry>
      </row>
 
@@ -1397,7 +1402,7 @@
        OID of the local role being mapped, or zero if the user mapping is public
 -->
 マッピングされているローカルのロールのOID。
-ユーザマッピングが公開されている場合は0になります。
+ユーザマッピングが公開されている場合はゼロになります。
       </para></entry>
      </row>
 
@@ -1520,7 +1525,10 @@
 
      <row>
       <entry><link linkend="view-pg-backend-memory-contexts"><structname>pg_backend_memory_contexts</structname></link></entry>
+<!--
       <entry>backend memory contexts</entry>
+-->
+      <entry>バックエンドメモリコンテキスト</entry>
      </row>
 
      <row>
@@ -1706,7 +1714,10 @@
 
      <row>
       <entry><link linkend="view-pg-stats-ext-exprs"><structname>pg_stats_ext_exprs</structname></link></entry>
+<!--
       <entry>extended planner statistics for expressions</entry>
+-->
+      <entry>演算式のプランナの拡張統計情報</entry>
      </row>
 
      <row>
@@ -2043,12 +2054,18 @@
   </indexterm>
 
   <para>
+<!--
    The view <structname>pg_backend_memory_contexts</structname> displays all
    the memory contexts of the server process attached to the current session.
+-->
+<structname>pg_backend_memory_contexts</structname>ビューは、現在のセッションにアタッチされているサーバプロセスのすべてのメモリコンテキストを表示します。
   </para>
   <para>
+<!--
    <structname>pg_backend_memory_contexts</structname> contains one row
    for each memory context.
+-->
+<structname>pg_backend_memory_contexts</structname>の各1行が各々のメモリコンテキストを格納します。
   </para>
 
   <table>
@@ -2057,10 +2074,16 @@
     <thead>
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+<!--
        Column Type
+-->
+列 型
       </para>
       <para>
+<!--
        Description
+-->
+説明
       </para></entry>
      </row>
     </thead>
@@ -2071,7 +2094,10 @@
        <structfield>name</structfield> <type>text</type>
       </para>
       <para>
+<!--
        Name of the memory context
+-->
+メモリコンテキストの名前
       </para></entry>
      </row>
 
@@ -2080,7 +2106,10 @@
        <structfield>ident</structfield> <type>text</type>
       </para>
       <para>
+<!--
        Identification information of the memory context. This field is truncated at 1024 bytes
+-->
+メモリコンテキストの識別情報。このフィールドは1024バイトで切り捨てられる
       </para></entry>
      </row>
 
@@ -2089,7 +2118,10 @@
        <structfield>parent</structfield> <type>text</type>
       </para>
       <para>
+<!--
        Name of the parent of this memory context
+-->
+このメモリコンテキストの親の名前
       </para></entry>
      </row>
 
@@ -2098,7 +2130,10 @@
        <structfield>level</structfield> <type>int4</type>
       </para>
       <para>
+<!--
        Distance from TopMemoryContext in context tree
+-->
+コンテキストツリーにおけるTopMemoryContextからの距離
       </para></entry>
      </row>
 
@@ -2107,7 +2142,10 @@
        <structfield>total_bytes</structfield> <type>int8</type>
       </para>
       <para>
+<!--
        Total bytes allocated for this memory context
+-->
+このメモリコンテキストで確保した合計バイト数
       </para></entry>
      </row>
 
@@ -2116,7 +2154,10 @@
        <structfield>total_nblocks</structfield> <type>int8</type>
       </para>
       <para>
+<!--
        Total number of blocks allocated for this memory context
+-->
+このメモリコンテキストで確保した合計ブロック数
       </para></entry>
      </row>
 
@@ -2125,7 +2166,10 @@
        <structfield>free_bytes</structfield> <type>int8</type>
       </para>
       <para>
+<!--
        Free space in bytes
+-->
+バイト単位の空き領域
       </para></entry>
      </row>
 
@@ -2134,7 +2178,10 @@
        <structfield>free_chunks</structfield> <type>int8</type>
       </para>
       <para>
+<!--
        Total number of free chunks
+-->
+空きチャンクの数
       </para></entry>
      </row>
 
@@ -2143,7 +2190,10 @@
        <structfield>used_bytes</structfield> <type>int8</type>
       </para>
       <para>
+<!--
        Used space in bytes
+-->
+バイト単位の使用領域
       </para></entry>
      </row>
     </tbody>
@@ -2151,8 +2201,11 @@
   </table>
 
   <para>
+<!--
    By default, the <structname>pg_backend_memory_contexts</structname> view can be
    read only by superusers.
+-->
+デフォルトでは<structname>pg_backend_memory_contexts</structname>ビューはスーパユーザのみが読み取り専用でアクセスできます
   </para>
  </sect1>
 
@@ -2261,7 +2314,7 @@
       via the <link linkend="sql-declare"><command>DECLARE</command></link>
       statement in SQL
 -->
-SQLから<xref linkend="sql-declare"/>文経由。
+SQLから<link linkend="sql-declare"><command>DECLARE</command></link>文経由。
      </para>
     </listitem>
 
@@ -2725,7 +2778,7 @@ NULLでないときは、このエントリが適用できない理由につい�
    non-empty, non-comment line in the file, with annotations indicating
    whether the rule could be applied successfully.
 -->
-ビュー<structname>pg_hba_file_rules</structname>はクライアント認証の設定ファイル<filename>pg_hba.conf</filename>の内容の要約を提供します。
+ビュー<structname>pg_hba_file_rules</structname>はクライアント認証の設定ファイル<link linkend="auth-pg-hba-conf"><filename>pg_hba.conf</filename></link>の内容の要約を提供します。
 設定ファイル内の空でない、コメントでもない各行について、このビュー内に行が1つあり、ルールが正しく適用できたかどうかを示す注記が入ります。
   </para>
 
@@ -3059,7 +3112,7 @@ NULLでないなら、この行がなぜ処理できなかったかを示すエ�
    user-defined meanings.
 -->
 ロック対象オブジェクトには異なる型がいくつか存在します。
-リレーション全体（例：テーブル）、リレーションの個別のページ、リレーションの個別のタプル、トランザクションID（仮想と永続の両方のID）、一般的なデータベースオブジェクト（これは<structname>pg_description</structname>や<structname>pg_depend</structname>と同様にクラスOIDとオブジェクトOIDで識別されます）。
+リレーション全体（例：テーブル）、リレーションの個別のページ、リレーションの個別のタプル、トランザクションID（仮想と永続の両方のID）、一般的なデータベースオブジェクト（これは<link linkend="catalog-pg-description"><structname>pg_description</structname></link>や<link linkend="catalog-pg-depend"><structname>pg_depend</structname></link>と同様にクラスOIDとオブジェクトOIDで識別されます）。
 さらに、リレーションを拡張する権利は、<structname>pg_database</structname>.<structfield>datfrozenxid</structfield>を更新する権利と同様に、別のロック対象オブジェクトとして表現されます。
 また<quote>勧告的</quote>ロックはユーザ定義の意味を持つ複数から形成されるかもしれません。
   </para>
@@ -3308,11 +3361,15 @@ NULLでないなら、この行がなぜ処理できなかったかを示すエ�
        <structfield>waitstart</structfield> <type>timestamptz</type>
       </para>
       <para>
+<!--
        Time when the server process started waiting for this lock,
        or null if the lock is held.
        Note that this can be null for a very short period of time after
        the wait started even though <structfield>granted</structfield>
        is <literal>false</literal>.
+-->
+サーバプロセスがこのロックを待ち始めた時刻。ロックを獲得していればNULL。
+<structfield>granted</structfield>が<literal>false</literal>であっても、待ちを開始してから非常に短い時間の間、これはNULLになることがあることに注意してください。
       </para></entry>
      </row>
     </tbody>
@@ -3406,7 +3463,7 @@ NULLでないなら、この行がなぜ処理できなかったかを示すエ�
    is either the current database's OID or zero).
 -->
 <structname>pg_locks</structname>は現行のデータベースに関連するロックのみならず、データベースクラスタ内のすべてのロックに関する全体的なビューを提供します。
-<structfield>relation</structfield>列はロックされたリレーションを識別するために<structname>pg_class</structname>.<structfield>oid</structfield>と結合することができますが、これは現行のデータベース内のリレーション（<structfield>database</structfield>列が現行のデータベースのOIDまたはゼロとなっているもの）に対してのみ正常に動作します。
+<structfield>relation</structfield>列はロックされたリレーションを識別するために<link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>と結合することができますが、これは現行のデータベース内のリレーション（<structfield>database</structfield>列が現行のデータベースのOIDまたはゼロとなっているもの）に対してのみ正常に動作します。
   </para>
 
   <para>
@@ -3643,7 +3700,7 @@ SELECT * FROM pg_locks pl LEFT JOIN pg_prepared_xacts ppx
 <!--
        Materialized view definition (a reconstructed <xref linkend="sql-select"/> query)
 -->
-マテリアライズドビューの定義（再構成された<command>SELECT</command>問い合わせ）
+マテリアライズドビューの定義（再構成された<xref linkend="sql-select"/>問い合わせ）
       </para></entry>
      </row>
     </tbody>
