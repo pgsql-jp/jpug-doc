@@ -290,7 +290,7 @@ pg_dump -h <replaceable>host1</replaceable> <replaceable>dbname</replaceable> | 
     into <productname>PostgreSQL</productname> efficiently, refer to <xref
     linkend="populate"/>.
 -->
-バックアップをリストアした後、問い合わせオプティマイザが有用な統計情報を使用できるように、各データベースに対して<xref linkend="sql-analyze"/>を実行することを勧めます。
+バックアップをリストアした後、問い合わせオプティマイザが有用な統計情報を使用できるように、各データベースに対して<link linkend="sql-analyze"/><command>ANALYZE</command></link>を実行することを勧めます。
 より詳しくは、<xref linkend="vacuum-for-statistics"/> と <xref linkend="autovacuum"/>を参照してください。
 効率的に大規模なデータを<productname>PostgreSQL</productname>にロードする方法に関するより多くの勧告については、<xref linkend="populate"/>を参照してください。
    </para>
@@ -436,7 +436,7 @@ cat <replaceable class="parameter">filename</replaceable>.gz | gunzip | psql <re
      make 2 gigabyte chunks:
 -->
 <command>split</command>コマンドで結果を使用しているファイルシステムが受け付けられる大きさに分割することができます。
-例えば1メガバイトずつに分割するには次のようにします。
+例えば2メガバイトずつに分割するには次のようにします。
 
 <programlisting>
 pg_dump <replaceable class="parameter">dbname</replaceable> | split -b 2G - <replaceable class="parameter">filename</replaceable>
@@ -451,14 +451,20 @@ pg_dump <replaceable class="parameter">dbname</replaceable> | split -b 2G - <rep
 cat <replaceable class="parameter">filename</replaceable>* | psql <replaceable class="parameter">dbname</replaceable>
 </programlisting>
 
+<!--
      If using GNU <application>split</application>, it is possible to
      use it and <application>gzip</application> together:
+-->
+GNU <application>split</application>を使用している場合は、次のように<application>gzip</application>を一緒に使うことでファイルの圧縮が出来ます。
 
 <programlisting>
 pg_dump <replaceable class="parameter">dbname</replaceable> | split -b 2G --filter='gzip > $FILE.gz'
 </programlisting>
 
+<!--
      It can be restored using <command>zcat</command>.
+-->
+圧縮されたファイルは<command>zcat</command>を使ってリストア出来ます。
     </para>
    </formalpara>
 
@@ -1004,6 +1010,7 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
    </para>
 
    <para>
+<!--
     When the archive command is terminated by a signal (other than
     <systemitem>SIGTERM</systemitem> that is used as part of a server
     shutdown) or an error by the shell with an exit status greater than
@@ -1011,6 +1018,9 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
     restarted by the postmaster. In such cases, the failure is
     not reported in <xref linkend="pg-stat-archiver-view"/>.
    </para>
+-->
+アーカイブ用コマンドがシグナル（サーバのシャットダウンの一部として使用される<systemitem>SIGTERM</systemitem>以外）やシェルによる125以上の終了ステータスを持つエラー（command not foundなど）によって終了すると、アーカイバプロセスは中止され、postmasterによって再起動されます。
+このような場合、失敗は<xref linkend="pg-stat-archiver-view"/>では報告されません。
 
    <para>
 <!--
@@ -1420,7 +1430,7 @@ SELECT * FROM pg_stop_backup(false, true);
 <function>pg_stop_backup</function>は3つの値を含んだ1行を返します。
 2番目の値は、バックアップのルートディレクトリ内の<filename>backup_label</filename>という名称のファイルを作成の上、値を書き込む必要があります。
 3番目の値は、空でない限りは<filename>tablespace_map</filename>という名称のファイルを作成の上、値を書き込む必要があります。
-これらのファイルは、バックアップの動作にきわめて重要であり、返り値の内容から変更なしに書き込む必要があります。
+これらのファイルは、バックアップの動作にきわめて重要であり、返り値の内容から変更なしに書き込む必要があるため、バイナリモードでファイルを開く必要があります。
     </para>
    </listitem>
    <listitem>
@@ -1514,7 +1524,7 @@ WALのアーカイブを適切に監視していない場合、バックアッ�
 -->
 排他的バックアップの手順は、ほぼ非排他的バックアップのものと同様ですが、いくつかのキーとなる手順に違いがあります。
 このバックアップ方式は、プライマリからしか取得できず、バックアップの複数同時実行を許可しません。
-さらに、後述するようにバックアップラベルファイルを作るため、マスターサーバのクラッシュ後の自動再起動をブロックする可能性があります。
+さらに、後述するようにバックアップラベルファイルを作るため、プライマリサーバのクラッシュ後の自動再起動をブロックする可能性があります。
 一方でバックアップラベルファイルのバックアップやスタンバイからの誤った削除はよくあるミスで、これは深刻なデータ破壊をもたらすおそれがあります。
 この方式を使う必要があるのであれば、以下の手順を用いてください。
     </para>
@@ -1616,7 +1626,7 @@ SELECT pg_start_backup('label', true);
 上記のように、バックアップ中にサーバがクラッシュした場合、<filename>backup_label</filename>ファイルが<envar>PGDATA</envar>ディレクトリから手動で削除されない限り、再起動できないかもしれません。
 破損をもたらすため、バックアップをリストアするときに<filename>backup_label</filename>ファイルを決して削除しないことは重要である点に注意してください。
 このファイルをいつ削除するのが適切かに関する混乱は、この方式を使ったときのデータ破損のよくある原因です。
-確実に、本ファイルは既存マスタでのみ削除して、スタンバイの構築やバックアップのリストアでは決して削除しないでください。たとえ次に新マスタに昇格させるつもりのスタンバイを構築している場合であってもです。
+確実に、本ファイルは既存プライマリでのみ削除して、スタンバイの構築やバックアップのリストアでは決して削除しないでください。たとえ次に新プライマリに昇格させるつもりのスタンバイを構築している場合であってもです。
     </para>
    </listitem>
    <listitem>
@@ -1768,11 +1778,11 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
     contents of those slots will likely be badly out of date by the time
     the new primary comes on line.
 -->
-マスター上に存在するレプリケーションスロットがバックアップに含まれないようにするために、クラスタの中の<filename>pg_replslot/</filename>ディレクトリをバックアップから除くのもしばしば良い考えです。
-もし、スタンバイを作成するためのバックアップを続けて使用すると、スタンバイのWALファイルの保持を無制限に保留する結果になり、ホットスタンバイからのフィードバックを有効にしている場合、マスターのWALを膨張させます。
-これは、これらのレプリケーションスロットを使っているクライアントはまだ、スタンバイではなく、マスターのスロットを接続し続け、更新しているからです。
-バックアップが新しいマスターを作成するためだけに作成されたとしても、レプリケーションスロットをコピーすることは特に有益であるとは考えられません。
-このようにバックアップにレプリケーションスロットを含むことは、新しいマスターがオンラインになったときにはスロットの内容が期限切れしており、有害である可能性があります。
+プライマリ上に存在するレプリケーションスロットがバックアップに含まれないようにするために、クラスタの中の<filename>pg_replslot/</filename>ディレクトリをバックアップから除くのもしばしば良い考えです。
+もし、スタンバイを作成するためのバックアップを続けて使用すると、スタンバイのWALファイルの保持を無制限に保留する結果になり、ホットスタンバイからのフィードバックを有効にしている場合、プライマリのWALを膨張させます。
+これは、これらのレプリケーションスロットを使っているクライアントはまだ、スタンバイではなく、プライマリのスロットを接続し続け、更新しているからです。
+バックアップが新しいプライマリを作成するためだけに作成されたとしても、レプリケーションスロットをコピーすることは特に有益であるとは考えられません。
+このようにバックアップにレプリケーションスロットを含むことは、新しいプライマリがオンラインになったときにはスロットの内容が期限切れしており、有害である可能性があります。
    </para>
 
    <para>
@@ -2250,8 +2260,8 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
     target timeline ID in <xref linkend="guc-recovery-target-timeline"/>. You
     cannot recover into timelines that branched off earlier than the base backup.
 -->
-復旧処理のデフォルトは、ベースバックアップが取得された時点のタイムラインと同一のタイムラインに沿った復旧です。
-別の子タイムラインに沿って復旧させたい（つまり、復旧試行以降に生成されたある状態に戻りたい）場合は、対象のタイムラインIDを指定しなければなりません。
+復旧処理のデフォルトは、アーカイブで見つかった最新のタイムラインへの復旧です。
+ベースバックアップが取得された時点のタイムラインと同一のタイムラインや別の子タイムラインに沿って復旧させたい（つまり、復旧試行以降に生成されたある状態に戻りたい）場合は、<literal>current</literal>か対象のタイムラインIDを指定しなければなりません。
 ベースバックアップより前に分岐したタイムラインに沿って復旧することはできません。
    </para>
   </sect2>
@@ -2499,7 +2509,7 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
      undesirable.  To avoid this risk, it is best not to modify any
      template databases while taking a base backup.
 -->
-もしもベースバックアップが行われている時、<xref linkend="sql-createdatabase"/>コマンドが実行され、ベースバックアップが処理を実行している期間に<command>CREATE DATABASE</command>がコピーしているtemplateデータベースが変更されると、復旧処理はこれらの変更を作成されたデータベースにも同時に伝播させることは確実です。
+もしもベースバックアップが行われている時、<link linkend="sql-createdatabase"/><command>CREATE DATABASE</command></link>コマンドが実行され、ベースバックアップが処理を実行している期間に<command>CREATE DATABASE</command>がコピーしているtemplateデータベースが変更されると、復旧処理はこれらの変更を作成されたデータベースにも同時に伝播させることは確実です。
 もちろん、これは望まれる事ではありません。
 この危険を回避するには、ベースバックアップ期間中にはすべてのtemplateデータベースを変更しないことが一番です。
     </para>
@@ -2519,7 +2529,7 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
      the best practice is to take a new base backup after creating or
      dropping tablespaces.
 -->
-<xref linkend="sql-createtablespace"/>コマンドはリテラルの絶対パス付でWALにログが記録され、したがって、同じ絶対パスでのテーブル空間作成の時に再生されます。
+<link linkend="sql-createtablespace"/><command>CREATE TABLESPACE</command></link>コマンドはリテラルの絶対パス付でWALにログが記録され、したがって、同じ絶対パスでのテーブル空間作成の時に再生されます。
 これは、もしログが異なったマシン上で再生される場合には好ましくありません。
 ログ再生がたとえ同一のマシンであっても、新規のデータディレクトリであれば危険です。
 なぜなら、再生は元のテーブル空間の内容を上書きし続けるからです。
