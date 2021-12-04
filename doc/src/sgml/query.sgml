@@ -678,10 +678,10 @@ SELECT DISTINCT city
     table, and select the pairs of rows where these values match.<footnote>
 -->
 ここまでの問い合わせは、一度に1つのテーブルにのみアクセスするものでした。
-問い合わせは、一度に複数のテーブルにアクセスすることも、テーブル内の複数の行の処理を同時に行うようなやり方で、１つのテーブルにアクセスすることも可能です。
-一度に同一のテーブルまたは異なるテーブルの複数の行にアクセスする問い合わせは、<firstterm>結合</firstterm>問い合わせと呼ばれます。
-例として、すべての気象データを関連する都市の位置情報と一緒に表示したい場合が挙げられます。
-それを行うためには、<structname>weather</structname>テーブルの各行の<structfield>city</structfield>列を、<structname>cities</structname>テーブルの全ての行の<structfield>name</structfield>列と比較し、両者の値が一致する行の組み合わせを選択しなければなりません。
+問い合わせは、一度に複数のテーブルにアクセスすることも、テーブル内の複数の行の処理を同時に行うようなやり方で、1つのテーブルにアクセスすることも可能です。
+一度に複数のテーブル(または同一のテーブルの複数のインスタンス)にアクセスする問い合わせは、<firstterm>結合</firstterm>問い合わせと呼ばれます。
+それらは1つのテーブルからの行を2つ目のテーブルからの行と、どの行同士を組み合わせるかを指定する式により、結び付けます。
+例えば、すべての気象データを関連する都市の位置情報と一緒にすべて返すためには、データベースは<structname>weather</structname>テーブルの各行の<structfield>city</structfield>列を、<structname>cities</structname>テーブルの全ての行の<structfield>name</structfield>列と比較することが必要です。
     <footnote>
      <para>
 <!--
@@ -788,7 +788,7 @@ SELECT weather.city, weather.temp_lo, weather.temp_hi,
     Join queries of the kind seen thus far can also be written in this
     form:
 -->
-ここまでに示したような結合問い合わせは、以下のように別の形で表すことができます。
+ここまでに示したような結合問い合わせは、以下のような形で表すことができます。
 
 <programlisting>
 SELECT *
@@ -796,6 +796,7 @@ SELECT *
     WHERE city = name;
 </programlisting>
 
+<!--
     This syntax pre-dates the <literal>JOIN</literal>/<literal>ON</literal>
     syntax, which was introduced in SQL-92.  The tables are simply listed in
     the <literal>FROM</literal> clause, and the comparison expression is added
@@ -806,14 +807,21 @@ SELECT *
     understand: The join condition is introduced by its own key word whereas
     previously the condition was mixed into the <literal>WHERE</literal>
     clause together with other conditions.
+-->
+この構文は<literal>JOIN</literal>/<literal>ON</literal>より以前のもので、SQL-92で導入されました。
+テーブルは<literal>FROM</literal>句に単に列挙され、比較式は<literal>WHERE</literal>に追加されます。
+この古い暗黙の構文と新しい明示的な<literal>JOIN</literal>/<literal>ON</literal>構文の結果は同一です。
+ですが、問い合わせを読む方にしてみれば、明示的な構文の方がその意味をより理解しやすいです。
+結合条件はそれ独自のキーワードにより導入されるのに対して、以前は条件は他の条件と一緒に<literal>WHERE</literal>句の中に混ざっていました。
    </para>
 
 <!--
    <indexterm><primary>join</primary><secondary>outer</secondary></indexterm>
 -->
-    <indexterm><primary>結合</primary><secondary>外部</secondary></indexterm>
+   <indexterm><primary>結合</primary><secondary>外部</secondary></indexterm>
 
    <para>
+<!--
     Now we will figure out how we can get the Hayward records back in.
     What we want the query to do is to scan the
     <structname>weather</structname> table and for each row to find the
@@ -827,8 +835,8 @@ SELECT *
 ここで、どのようにすればHaywardのレコードを得ることができるようになるのかを明らかにします。
 実行したい問い合わせは、<structname>weather</structname>をスキャンし、各行に対して、<structname>cities</structname>行に一致する行を探すというものです。
 一致する行がなかった場合、<structname>cities</structname>テーブルの列の部分を何らかの<quote>空の値</quote>に置き換えたいのです。
-この種の問い合わせは<firstterm>外部結合</firstterm>と呼ばれます
-（これまで示してきた結合は内部結合です）。
+この種の問い合わせは<firstterm>外部結合</firstterm>と呼ばれます。
+（これまで示してきた結合は<firstterm>内部結合</firstterm>です。）
 以下のようなコマンドになります。
 
 <programlisting>
@@ -875,9 +883,14 @@ SELECT *
     </para>
    </formalpara>
 
+<!--
    <indexterm><primary>join</primary><secondary>self</secondary></indexterm>
    <indexterm><primary>alias</primary><secondary>for table name in query</secondary></indexterm>
+-->
+   <indexterm><primary>結合</primary><secondary>自己</secondary></indexterm>
+   <indexterm><primary>別名</primary><secondary>問い合わせ内のテーブル名用の</secondary></indexterm>
    <para>
+<!--
     We can also join a table against itself.  This is called a
     <firstterm>self join</firstterm>.  As an example, suppose we wish
     to find all the weather records that are in the temperature range
@@ -916,7 +929,7 @@ SELECT w1.city, w1.temp_lo AS low, w1.temp_hi AS high,
     of the join.  You can also use these kinds of aliases in other
     queries to save some typing, e.g.:
 -->
-ここで、結合の左側と右側を区別することができるように、weatherテーブルに<literal>W1</literal>と<literal>W2</literal>というラベルを付けています。
+ここで、結合の左側と右側を区別することができるように、weatherテーブルに<literal>w1</literal>と<literal>w2</literal>というラベルを付けています。
 また、入力量を省くために、他の問い合わせでもこの種の別名を使用することができます。
 以下に例を示します。
 <programlisting>
