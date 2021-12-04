@@ -38,7 +38,7 @@
   defines TOAST tables for catalogs that need one.
 -->
 カタログの構造は、ソースツリーの<filename>src/include/catalog/</filename>ディレクトリの中の特殊な形式のCヘッダーファイルに宣言されています。
-とりわけ、個々のカタログに対応して、カタログと同じ名前のヘッダーファイルが存在し（たとえば、<structname>pg_class</structname>に対して<filename>pg_class.h</filename>というように）、カタログが持つ一連のカラムやOIDのような基本的な特性を定義しています。
+個々のカタログに対応して、カタログと同じ名前のヘッダーファイルが存在し（たとえば、<structname>pg_class</structname>に対して<filename>pg_class.h</filename>というように）、カタログが持つ一連のカラムやOIDのような基本的な特性を定義しています。
 そのほか、カタログ構造を定義している重要なファイルとしては、すべてのシステムカタログに存在するインデックスの構造を定義する<filename>indexing.h</filename>や、カタログによっては必要としているTOASTテーブルの構造を定義する<filename>toasting.h</filename>などがあります。
  </para>
 
@@ -184,7 +184,7 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
 これは<literal>#ifdef CATALOG_VARLEN</literal> ... <literal>#endif</literal>の中に入れることで達成できます。（ここで、<literal>CATALOG_VARLEN</literal>は、決して定義されないシンボルです。）
 これにより、Cコードが不注意で存在しないフィールドにアクセスしようとしたり、オフセットが違うフィールドにアクセスしようとするのを防ぐことができます。
 不正な行を作るのを防ぐ独立したガードとして、NULLを許容しないすべてのカラムを<structname>pg_attribute</structname>でそのように宣言することを要求します。
-ブートストラップコードは、固定長でかつNULLを許容するカラムの次ではないすべてのカラムに対して自動的に<literal>NOT NULL</literal>のマークを付けます。
+ブートストラップコードは、固定長で、かつ、NULLを許容したり可変幅であるカラムの次ではないカタログカラムに対して自動的に<literal>NOT NULL</literal>のマークを付けます。
 このルールが不適切なら、<literal>BKI_FORCE_NOT_NULL</literal>と<literal>BKI_FORCE_NULL</literal>を必要に応じて使ってマーキングを修正できます。
   </para>
 
@@ -719,8 +719,11 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
       a <literal>BKI_LOOKUP</literal> column must be symbolic references.
       <filename>genbki.pl</filename> will warn about unrecognized names.
 -->
-そうしたカラムでは、InvalidOidの意味で<literal>0</literal>を用いる以外には、すべてのエントリでシンボル参照を使用しなければなりません。
+カタログカラムの中には、エントリを有効な参照の代わりにゼロとすることが許されているものがあります。
+これが許されているなら、<literal>BKI_LOOKUP</literal>の代わりに<literal>BKI_LOOKUP_OPT</literal>を書いてください。
+そうすれば、エントリに<literal>0</literal>を書くことができます。
 （カラムが<type>regproc</type>と宣言されている場合は、<literal>0</literal>の代わりに<literal>-</literal>と書くことができます。)
+この特別な場合を除いて、<literal>BKI_LOOKUP</literal>カラム内のすべてのエントリはシンボル参照でなければなりません。
 <filename>genbki.pl</filename>は認識できない名前には警告を出します。
      </para>
     </listitem>
@@ -815,6 +818,7 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
    </para>
 
    <para>
+<!--
     It's desirable to mark OID reference columns
     with <literal>BKI_LOOKUP</literal> or <literal>BKI_LOOKUP_OPT</literal>
     even if the catalog has no initial data that requires lookup.  This
@@ -828,6 +832,11 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
     used to declare foreign key relationships that are too complex
     for <literal>BKI_LOOKUP</literal> (typically, multi-column foreign
     keys).
+-->
+カタログに検索の必要な初期データがなかったとしても、OID参照カラムに<literal>BKI_LOOKUP</literal>や<literal>BKI_LOOKUP_OPT</literal>の印を付けておくことが望ましいです。
+これにより、<filename>genbki.pl</filename>がシステムカタログ内に存在する外部キー関係を記録できるようになります。
+その情報は間違ったエントリを確認するリグレッションテストで使われます。
+マクロ<literal>DECLARE_FOREIGN_KEY</literal>、<literal>DECLARE_FOREIGN_KEY_OPT</literal>、<literal>DECLARE_ARRAY_FOREIGN_KEY</literal>、<literal>DECLARE_ARRAY_FOREIGN_KEY_OPT</literal>も参照してください。<literal>BKI_LOOKUP</literal>には複雑すぎる外部キー関係(典型的には、複数列の外部キー)を宣言するのに使われます
    </para>
   </sect2>
 
@@ -1114,7 +1123,6 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
    a new line, for clarity.)  Tokens can be certain key words, special
    characters (parentheses, commas, etc.), identifiers, numbers, or
    single-quoted strings.  Everything is case sensitive.
-   characters (parentheses, commas, etc.), numbers, or double-quoted
 -->
 <acronym>BKI</acronym>の入力は一連のコマンドで構成されます。
 コマンドはいくつものトークンから構成されていて、コマンドの構文に依存しています。
@@ -1122,7 +1130,7 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
 特別なコマンド区切り文字はありません。
 したがって、構文上その前のコマンドに属すことができない次のトークンは新たなコマンドとなります
 （通常、わかりやすくするために、新しいコマンドは新しい行に記述します）。
-トークンはある一定のキーワードや特別な文字（括弧やカンマなど）、数字、二重引用符で囲まれた文字列などが使用できます。
+トークンはある一定のキーワードや特別な文字（括弧やカンマなど）、識別子、数字、単一引用符で囲まれた文字列などが使用できます。
 大文字/小文字は全て区別されます。
   </para>
 
@@ -1288,7 +1296,9 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
       Escape-string-style backslash escapes are allowed in the string, too.)
 -->
 NULL値は特別なキーワード、<literal>_null_</literal>によって指定できます。
-識別子に見えない値、あるいは数値文字列は二重引用符で囲まなければなりません。
+識別子に見えない値、あるいは数値文字列は単一引用符で囲まなければなりません。
+(単一引用符を値に含めるには、二重に書いてください。
+エスケープ文字列形式のバックスラッシュエスケープも、文字列内で許されています。)
      </para>
     </listitem>
    </varlistentry>
