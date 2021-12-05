@@ -32,14 +32,9 @@
   named after the catalog (e.g., <filename>pg_class.h</filename>
   for <structname>pg_class</structname>), which defines the set of columns
   the catalog has, as well as some other basic properties such as its OID.
-  Other critical files defining the catalog structure
-  include <filename>indexing.h</filename>, which defines the indexes present
-  on all the system catalogs, and <filename>toasting.h</filename>, which
-  defines TOAST tables for catalogs that need one.
 -->
 カタログの構造は、ソースツリーの<filename>src/include/catalog/</filename>ディレクトリの中の特殊な形式のCヘッダーファイルに宣言されています。
-とりわけ、個々のカタログに対応して、カタログと同じ名前のヘッダーファイルが存在し（たとえば、<structname>pg_class</structname>に対して<filename>pg_class.h</filename>というように）、カタログが持つ一連のカラムやOIDのような基本的な特性を定義しています。
-そのほか、カタログ構造を定義している重要なファイルとしては、すべてのシステムカタログに存在するインデックスの構造を定義する<filename>indexing.h</filename>や、カタログによっては必要としているTOASTテーブルの構造を定義する<filename>toasting.h</filename>などがあります。
+個々のカタログに対応して、カタログと同じ名前のヘッダーファイルが存在し（たとえば、<structname>pg_class</structname>に対して<filename>pg_class.h</filename>というように）、カタログが持つ一連の列やOIDのような基本的な特性を定義しています。
  </para>
 
  <para>
@@ -132,7 +127,7 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
 カタログヘッダーファイルの肝心な部分は、カタログにおける行の配置を記述するC構造体定義です。
 これは<literal>CATALOG</literal>マクロで始まりますが、Cコンパイラの観点からすると、単に<literal>typedef struct
    FormData_<replaceable>catalogname</replaceable></literal>の短縮形です。
-構造体の各々のフィールドは、カタログのカラムを生成します。
+構造体の各々のフィールドは、カタログの列を生成します。
 フィールドには<filename>genbki.h</filename>に記述されたBKIプロパティマクロを使って注釈を付けることができます。
 たとえば、フィールドのデフォルト値を定義したり、NULLが許されるかどうかのフラグを付けることができます。
 <literal>CATALOG</literal>行にも注釈が付けられます。
@@ -183,8 +178,8 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
 この種のエラーから部分的に身を守るためには、可変長あるいはNULLを許容するフィールドはCコンパイラから直接見えないようにすべきです。
 これは<literal>#ifdef CATALOG_VARLEN</literal> ... <literal>#endif</literal>の中に入れることで達成できます。（ここで、<literal>CATALOG_VARLEN</literal>は、決して定義されないシンボルです。）
 これにより、Cコードが不注意で存在しないフィールドにアクセスしようとしたり、オフセットが違うフィールドにアクセスしようとするのを防ぐことができます。
-不正な行を作るのを防ぐ独立したガードとして、NULLを許容しないすべてのカラムを<structname>pg_attribute</structname>でそのように宣言することを要求します。
-ブートストラップコードは、固定長でかつNULLを許容するカラムの次ではないすべてのカラムに対して自動的に<literal>NOT NULL</literal>のマークを付けます。
+不正な行を作るのを防ぐ独立したガードとして、NULLを許容しないすべての列を<structname>pg_attribute</structname>でそのように宣言することを要求します。
+ブートストラップコードは、固定長で、かつ、NULLを許容したり可変幅である列の次ではないカタログ列に対して自動的に<literal>NOT NULL</literal>のマークを付けます。
 このルールが不適切なら、<literal>BKI_FORCE_NOT_NULL</literal>と<literal>BKI_FORCE_NULL</literal>を必要に応じて使ってマーキングを修正できます。
   </para>
 
@@ -331,10 +326,10 @@ SQLコマンドを実行可能な状態にまでシステムを持っていく�
       suitable default value for it.)
 -->
 各々のカタログ行にカンマ区切りで<replaceable>key</replaceable><literal>=&gt;</literal><replaceable>value</replaceable>ペアを書きます。
-記述可能な<replaceable>key</replaceable>は、カタログのカラムに加えてメタデータキーである<literal>oid</literal>、<literal>oid_symbol</literal>、<literal>array_type_oid</literal>、<literal>descr</literal>です。
+記述可能な<replaceable>key</replaceable>は、カタログの列に加えてメタデータキーである<literal>oid</literal>、<literal>oid_symbol</literal>、<literal>array_type_oid</literal>、<literal>descr</literal>です。
 （<literal>oid</literal>と<literal>oid_symbol</literal>の使い方は後述の<xref linkend="system-catalog-oid-assignment"/>で説明されていて、一方、<literal>array_type_oid</literal>は<xref linkend="system-catalog-auto-array-types"/>で説明されています。
 <literal>descr</literal>はオブジェクトの説明文字列に使用し、<structname>pg_description</structname>か<structname>pg_shdescription</structname>の適切な方に挿入されます。）
-メタデータキーは省略可能であるのに対し、カタログの<literal>.h</literal>ファイルがカラムのデフォルト値を指定する場合を除いてカタログの定義済みカラムはすべて提供されなければなりません。
+メタデータキーは省略可能であるのに対し、カタログの<literal>.h</literal>ファイルが列のデフォルト値を指定する場合を除いてカタログの定義済み列はすべて提供されなければなりません。
 （上記の例では<filename>pg_database.h</filename>が適切なデフォルト値を供するので<structfield>datdba</structfield>フィールドは省略されました。）
      </para>
     </listitem>
@@ -449,7 +444,7 @@ NULL値は<literal>_null_</literal>で表します。
          value, <filename>reformat_dat_file.pl</filename> will omit it from
          the data file.  This keeps the data representation compact.
 -->
-カタログの<literal>.h</literal>ファイルがカラムのデフォルト値を指定していて、データエントリが同じ値なら、<filename>reformat_dat_file.pl</filename>はデータファイルからデータエントリを省略します。
+カタログの<literal>.h</literal>ファイルが列のデフォルト値を指定していて、データエントリが同じ値なら、<filename>reformat_dat_file.pl</filename>はデータファイルからデータエントリを省略します。
 これでデータ表現が小さくなります。
         </para>
        </listitem>
@@ -686,9 +681,9 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
       or <type>Oid[]</type>; in the latter two cases it implies performing a
       lookup on each element of the array.
 -->
-<literal>BKI_LOOKUP(<replaceable>lookuprule</replaceable>)</literal>をカラム定義に加えることで、特定のカタログカラムでのシンボル参照が利用可能になります。
+<literal>BKI_LOOKUP(<replaceable>lookuprule</replaceable>)</literal>を列の定義に加えることで、特定のカタログ列でのシンボル参照が利用可能になります。
 ここで<replaceable>lookuprule</replaceable>は参照されているカタログ名で、例えば<literal>pg_proc</literal>です。
-<literal>BKI_LOOKUP</literal>を、<type>Oid</type>、<type>regproc</type>、<type>oidvector</type>、<type>Oid[]</type>のカラムに加えることができます。
+<literal>BKI_LOOKUP</literal>を、<type>Oid</type>、<type>regproc</type>、<type>oidvector</type>、<type>Oid[]</type>の列に加えることができます。
 最後の２つにおいては、配列の個々の要素を検索することを暗に意味します。
      </para>
     </listitem>
@@ -719,8 +714,11 @@ Cコード中でOIDの実際の数値を書くのは非常に良くないと考�
       a <literal>BKI_LOOKUP</literal> column must be symbolic references.
       <filename>genbki.pl</filename> will warn about unrecognized names.
 -->
-そうしたカラムでは、InvalidOidの意味で<literal>0</literal>を用いる以外には、すべてのエントリでシンボル参照を使用しなければなりません。
-（カラムが<type>regproc</type>と宣言されている場合は、<literal>0</literal>の代わりに<literal>-</literal>と書くことができます。)
+カタログ列の中には、エントリを有効な参照の代わりにゼロとすることが許されているものがあります。
+これが許されているなら、<literal>BKI_LOOKUP</literal>の代わりに<literal>BKI_LOOKUP_OPT</literal>を書いてください。
+そうすれば、エントリに<literal>0</literal>を書くことができます。
+（列が<type>regproc</type>と宣言されている場合は、<literal>0</literal>の代わりに<literal>-</literal>と書くことができます。)
+この特別な場合を除いて、<literal>BKI_LOOKUP</literal>列内のすべてのエントリはシンボル参照でなければなりません。
 <filename>genbki.pl</filename>は認識できない名前には警告を出します。
      </para>
     </listitem>
@@ -815,6 +813,7 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
    </para>
 
    <para>
+<!--
     It's desirable to mark OID reference columns
     with <literal>BKI_LOOKUP</literal> or <literal>BKI_LOOKUP_OPT</literal>
     even if the catalog has no initial data that requires lookup.  This
@@ -828,6 +827,11 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
     used to declare foreign key relationships that are too complex
     for <literal>BKI_LOOKUP</literal> (typically, multi-column foreign
     keys).
+-->
+カタログに検索の必要な初期データがなかったとしても、OID参照列に<literal>BKI_LOOKUP</literal>や<literal>BKI_LOOKUP_OPT</literal>の印を付けておくことが望ましいです。
+これにより、<filename>genbki.pl</filename>がシステムカタログ内に存在する外部キー関係を記録できるようになります。
+その情報は間違ったエントリを確認するリグレッションテストで使われます。
+マクロ<literal>DECLARE_FOREIGN_KEY</literal>、<literal>DECLARE_FOREIGN_KEY_OPT</literal>、<literal>DECLARE_ARRAY_FOREIGN_KEY</literal>、<literal>DECLARE_ARRAY_FOREIGN_KEY_OPT</literal>も参照してください。<literal>BKI_LOOKUP</literal>には複雑すぎる外部キー関係(典型的には、複数列の外部キー)を宣言するのに使われます
    </para>
   </sect2>
 
@@ -901,7 +905,7 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
 <!--
     <title>Add a new column with a default to a catalog:</title>
 -->
-    <title>カタログにデフォルト付きの新しいカラムを追加する</title>
+    <title>カタログにデフォルト付きの新しい列を追加する</title>
     <para>
 <!--
      Add the column to the header file with
@@ -910,7 +914,7 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
      in existing rows where a non-default value is needed.
 -->
 
-<literal>BKI_DEFAULT(<replaceable>value</replaceable>)</literal>注釈付きでヘッダーファイルにカラムを追加します。
+<literal>BKI_DEFAULT(<replaceable>value</replaceable>)</literal>注釈付きでヘッダーファイルに列を追加します。
 非デフォルト値が必要な既存の行に対してのみフィールドを追加によるデータファイルの調整が必要です。
     </para>
    </formalpara>
@@ -920,7 +924,7 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
     <title>Add a default value to an existing column that doesn't have
      one:</title>
 -->
-    <title>デフォルト値を持たない既存のカラムにデフォルト値を追加する</title>
+    <title>デフォルト値を持たない既存の列にデフォルト値を追加する</title>
 
     <para>
 <!--
@@ -936,13 +940,13 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
 <!--
     <title>Remove a column, whether it has a default or not:</title>
 -->
-    <title>デフォルト値の有無にかかわらず、カラムを削除する</title>
+    <title>デフォルト値の有無にかかわらず、列を削除する</title>
     <para>
 <!--
      Remove the column from the header, then run <literal>make
      reformat-dat-files</literal> to remove now-useless field entries.
 -->
-ヘッダーからカラムを削除し、<literal>make reformat-dat-files</literal>を実行して不要になったフィールドエントリを削除します。
+ヘッダーから列を削除し、<literal>make reformat-dat-files</literal>を実行して不要になったフィールドエントリを削除します。
     </para>
    </formalpara>
 
@@ -990,7 +994,7 @@ opclassesとopfamiliesの名前はアクセスメソッド内でのみユニー�
         Add the new column, with a default,
         to <filename>pg_proc.h</filename>:
 -->
-デフォルトがある新しいカラムを<filename>pg_proc.h</filename>に追加します。
+デフォルトがある新しい列を<filename>pg_proc.h</filename>に追加します。
 <programlisting>
 +    /* see PROKIND_ categories below */
 +    char        prokind BKI_DEFAULT(f);
@@ -1042,7 +1046,7 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
         and <structfield>proiswindow</structfield>, though they will appear
         only in rows where they have non-default values.
 -->
-この時点で<filename>pg_proc.dat</filename>には<structfield>prokind</structfield>、<structfield>proisagg</structfield>、<structfield>proiswindow</structfield>のすべての3つのカラムがありますが、非デフォルト値を持つ行だけに表れます。
+この時点で<filename>pg_proc.dat</filename>には<structfield>prokind</structfield>、<structfield>proisagg</structfield>、<structfield>proiswindow</structfield>のすべての3つの列がありますが、非デフォルト値を持つ行だけに表れます。
        </para>
       </listitem>
 
@@ -1051,7 +1055,7 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
 <!--
         Remove the old columns from <filename>pg_proc.h</filename>:
 -->
-<filename>pg_proc.h</filename>から古いカラムを削除します。
+<filename>pg_proc.h</filename>から古い列を削除します。
 <programlisting>
 -    /* is it an aggregate? */
 -    bool        proisagg BKI_DEFAULT(f);
@@ -1114,7 +1118,6 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
    a new line, for clarity.)  Tokens can be certain key words, special
    characters (parentheses, commas, etc.), identifiers, numbers, or
    single-quoted strings.  Everything is case sensitive.
-   characters (parentheses, commas, etc.), numbers, or double-quoted
 -->
 <acronym>BKI</acronym>の入力は一連のコマンドで構成されます。
 コマンドはいくつものトークンから構成されていて、コマンドの構文に依存しています。
@@ -1122,7 +1125,7 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
 特別なコマンド区切り文字はありません。
 したがって、構文上その前のコマンドに属すことができない次のトークンは新たなコマンドとなります
 （通常、わかりやすくするために、新しいコマンドは新しい行に記述します）。
-トークンはある一定のキーワードや特別な文字（括弧やカンマなど）、数字、二重引用符で囲まれた文字列などが使用できます。
+トークンはある一定のキーワードや特別な文字（括弧やカンマなど）、識別子、数字、単一引用符で囲まれた文字列などが使用できます。
 大文字/小文字は全て区別されます。
   </para>
 
@@ -1191,7 +1194,8 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
 -->
 次の列型は<filename>bootstrap.c</filename>で直接サポートされます。
 <type>bool</type>、<type>bytea</type>、<type>char</type>（1バイト）、<type>name</type>、<type>int2</type>、<type>int4</type>、<type>regproc</type>、<type>regclass</type>、<type>regtype</type>、<type>text</type>、<type>oid</type>、<type>tid</type>、<type>xid</type>、<type>cid</type>、<type>int2vector</type>、<type>oidvector</type>、<type>_int4</type>（配列）、<type>_text</type>（配列）、<type>_oid</type>（配列）、<type>_char</type>（配列）、<type>_aclitem</type>（配列）。
-この他の型を持つテーブルを作成することはできますが、<structname>pg_type</structname>が完了し適切な項目で埋められるまで完了させることができません。（これらの列型のみブートストラップカタログで使用されますが、非ブートストラップカタログは如何なる組み込み型も含む事があるという事を実際に意味しています。）
+この他の型の列を持つテーブルを作成することはできますが、<structname>pg_type</structname>が完了し適切な項目で埋められるまで完了させることができません。
+（これらの列型のみブートストラップカタログで使用されますが、非ブートストラップカタログは如何なる組み込み型も含む事があるという事を実際に意味しています。）
      </para>
 
      <para>
@@ -1288,7 +1292,9 @@ $ perl  rewrite_dat_with_prokind.pl  pg_proc.dat
       Escape-string-style backslash escapes are allowed in the string, too.)
 -->
 NULL値は特別なキーワード、<literal>_null_</literal>によって指定できます。
-識別子に見えない値、あるいは数値文字列は二重引用符で囲まなければなりません。
+識別子に見えない値、あるいは数値文字列は単一引用符で囲まなければなりません。
+(単一引用符を値に含めるには、二重に書いてください。
+エスケープ文字列形式のバックスラッシュエスケープも、文字列内で許されています。)
      </para>
     </listitem>
    </varlistentry>
