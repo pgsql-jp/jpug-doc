@@ -134,6 +134,7 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
       partitioned index.
 -->
 指定したインデックスを再作成します。
+この構文の<command>REINDEX</command>は、パーティションインデックスと使われる場合にはトランザクションブロック内で実行できません。
      </para>
     </listitem>
    </varlistentry>
@@ -150,6 +151,7 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
 -->
 指定したテーブルの全インデックスを再作成します。
 テーブルに2次的な<quote>TOAST</quote>テーブルがある場合、それについてもインデックスを再作成します。
+この構文の<command>REINDEX</command>は、パーティションテーブルと使われる場合にはトランザクションブロック内で実行できません。
      </para>
     </listitem>
    </varlistentry>
@@ -168,7 +170,7 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
 指定したスキーマのすべてのインデックスを再作成します。
 このスキーマのテーブルが二次的な<quote>TOAST</quote>テーブルを持っている場合は、そのインデックスも再作成されます。
 共有システムカタログのインデックスも処理されます。
-この構文の<command>REINDEX</command>はトランザクションブロックの内側で実行することはできません。
+この構文の<command>REINDEX</command>はトランザクションブロック内で実行できません。
      </para>
     </listitem>
    </varlistentry>
@@ -185,7 +187,7 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
 -->
 現在のデータベースのすべてのインデックスを再作成します。
 共有システムカタログのインデックスも処理されます。
-この構文の<command>REINDEX</command>をトランザクションブロック内で実行することはできません。
+この構文の<command>REINDEX</command>をトランザクションブロック内で実行できません。
      </para>
     </listitem>
    </varlistentry>
@@ -204,7 +206,7 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
 現在のデータベースのシステムカタログに対するすべてのインデックスを再作成します。
 共有システムカタログのインデックスも含みます。
 ユーザテーブルのインデックスは処理されません。
-この構文の<command>REINDEX</command>をトランザクションブロック内で実行することはできません。
+この構文の<command>REINDEX</command>をトランザクションブロック内で実行できません。
      </para>
     </listitem>
    </varlistentry>
@@ -258,7 +260,10 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
     <term><literal>TABLESPACE</literal></term>
     <listitem>
      <para>
+<!--
       Specifies that indexes will be rebuilt on a new tablespace.
+-->
+新しいテーブル空間でインデックスを再構築することを指定します。
      </para>
     </listitem>
    </varlistentry>
@@ -279,12 +284,17 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
     <term><replaceable class="parameter">boolean</replaceable></term>
     <listitem>
      <para>
+<!--
       Specifies whether the selected option should be turned on or off.
       You can write <literal>TRUE</literal>, <literal>ON</literal>, or
       <literal>1</literal> to enable the option, and <literal>FALSE</literal>,
       <literal>OFF</literal>, or <literal>0</literal> to disable it.  The
       <replaceable class="parameter">boolean</replaceable> value can also
       be omitted, in which case <literal>TRUE</literal> is assumed.
+-->
+選択したオプションをオンにするかオフにするか指定します。
+オプションを有効にするには<literal>TRUE</literal>、<literal>ON</literal>または<literal>1</literal>と、無効にするには<literal>FALSE</literal>、<literal>OFF</literal>または<literal>0</literal>と書くことができます。
+<replaceable class="parameter">boolean</replaceable>値は省略することもでき、その場合には<literal>TRUE</literal>と仮定されます。
      </para>
     </listitem>
    </varlistentry>
@@ -293,7 +303,10 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
     <term><replaceable class="parameter">new_tablespace</replaceable></term>
     <listitem>
      <para>
+<!--
       The tablespace where indexes will be rebuilt.
+-->
+インデックスが再構築されるテーブル空間です。
      </para>
     </listitem>
    </varlistentry>
@@ -390,8 +403,8 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
 <command>REINDEX</command>は、インデックスの中身を1から作り直すという点では、インデックスを削除してから再作成する処理と似ています。
 しかし、ロックに関しては異なります。
 <command>REINDEX</command>はインデックスの元となるテーブルの書き込みをロックしますが、読み込みはロックしません。
-また、処理中のインデックスに対する排他ロックを取得するので、そのインデックスを使用する読み込みはブロックされます。
-一方、<command>DROP INDEX</command>は瞬間的に元となるテーブルの排他ロックを取得するので、書き込みも読み込みもブロックされます。
+また、処理中のインデックスに対する<literal>ACCESS EXCLUSIVE</literal>ロックを取得するので、そのインデックスを使用する読み込みはブロックされます。
+一方、<command>DROP INDEX</command>は瞬間的に元となるテーブルの<literal>ACCESS EXCLUSIVE</literal>ロックを取得するので、書き込みも読み込みもブロックされます。
 その後に行う<command>CREATE INDEX</command>では書き込みのみをロックし、読み込みはロックしません。
 インデックスは存在しないので、インデックスを使用する読み込みは発生しません。
 したがって、読み込みがブロックされることはありませんが、コストが高いシーケンシャルスキャンの使用を強制されることになります。
@@ -425,11 +438,13 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
    reindexed in a separate transaction. Those commands cannot be used inside
    a transaction block when working on a partitioned table or index.
 -->
-パーティションテーブルやパーティションインデックスのインデックス再作成はサポートされていません。
-その代わり、個々のパーティションで別々にインデックスを再作成できます。
+パーティションインデックスやパーティションテーブルのインデックス再作成は、それぞれ<command>REINDEX INDEX</command>、<command>REINDEX TABLE</command>でサポートされています。
+指定されたパーティションリレーションの個々のパーティションが、別々のトランザクションでインデックスを再作成されます。
+パーティションテーブルやパーティションインデックスに対して操作する場合、このコマンドをトランザクションブロック内では使えません。
   </para>
   
   <para>
+<!--
    When using the <literal>TABLESPACE</literal> clause with
    <command>REINDEX</command> on a partitioned index or table, only the
    tablespace references of the leaf partitions are updated. As partitioned
@@ -439,14 +454,23 @@ REINDEX [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] { IN
    all the indexes to the new tablespace. Re-running the command will rebuild
    all the leaf partitions and move previously-unprocessed indexes to the new
    tablespace.
+-->
+パーティションインデックスやパーティションテーブルで<literal>TABLESPACE</literal>句を使って<command>REINDEX</command>を行なう場合、リーフパーティションのテーブル空間参照のみが更新されます。
+パーティションインデックスは更新されませんので、アタッチされた新しいパーティションが新しいテーブル空間を継承するように、それぞれ<command>ALTER TABLE ONLY</command>を使うことをお勧めします。
+失敗した場合、インデックスはすべて新しいテーブル空間へと移動したわけではないかもしれません。
+コマンドを再実行すればリーフパーティションはすべて再構築され、先ほどは処理されなかったインデックスが新しいテーブル空間へと移動します。
   </para>
 
   <para>
+<!--
    If <literal>SCHEMA</literal>, <literal>DATABASE</literal> or
    <literal>SYSTEM</literal> is used with <literal>TABLESPACE</literal>,
    system relations are skipped and a single <literal>WARNING</literal>
    will be generated. Indexes on TOAST tables are rebuilt, but not moved
    to the new tablespace.
+-->
+<literal>SCHEMA</literal>、<literal>DATABASE</literal>、<literal>SYSTEM</literal>が<literal>TABLESPACE</literal>と一緒に使われた場合、システムリレーションは飛ばされ、<literal>WARNING</literal>が1度出ます。
+TOASTテーブルのインデックスは再構築されますが、新しいテーブル空間には移動しません。
   </para>
    
   <refsect2 id="sql-reindex-concurrently" xreflabel="Rebuilding Indexes Concurrently">
@@ -658,11 +682,15 @@ Indexes:
    </para>
 
    <para>
+<!--
     Like any long-running transaction, <command>REINDEX</command> on a table
     can affect which tuples can be removed by concurrent
     <command>VACUUM</command> on any other table.
     Excepted from this are operations with the <literal>CONCURRENTLY</literal>
     option for indexes that are not partial and do not index any expressions.
+-->
+他の時間のかかるトランザクションと同じく、あるテーブルに対する<command>REINDEX</command>は、その他のテーブルに対する同時実行中の<command>VACUUM</command>によりどのタプルが削除できるかに影響します。
+この例外は、部分インデックスでなく式をインデックス化しないインデックスに対する<literal>CONCURRENTLY</literal>オプション付きの操作です。
    </para>
 
    <para>
@@ -689,9 +717,13 @@ Indexes:
    </para>
 
   <para>
+<!--
     Each backend running <command>REINDEX</command> will report its progress
     in the <structname>pg_stat_progress_create_index</structname> view. See
     <xref linkend="create-index-progress-reporting"/> for details.
+-->
+<command>REINDEX</command>を実行している各バックエンドはその進捗を<structname>pg_stat_progress_create_index</structname>ビューで報告します。
+詳細は<xref linkend="create-index-progress-reporting"/>を参照してください。
   </para>
   </refsect2>
  </refsect1>
