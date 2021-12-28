@@ -1287,7 +1287,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <productname>PostgreSQL</productname>は、テーブル内のデータに対する同時アクセスを制御するために様々な種類のロックモードを備えています。
 これらのモードは、<acronym>MVCC</acronym>では必要な動作を得られない場合、アプリケーション制御のロックに使用することができます。
 また、ほとんどの<productname>PostgreSQL</productname>コマンドでは、参照されるテーブルがそのコマンドの実行中に別の方法で削除もしくは変更されていないことを確実にするために、適切なモードのロックを自動的に獲得します。
-（例えば、<command>TRUNCATE</command>コマンドは、同じテーブルに対する他の操作と同時に安全に実行することはできないので、それを確実に実行するため、そのテーブルの排他ロックを獲得します。）
+（例えば、<command>TRUNCATE</command>コマンドは、同じテーブルに対する他の操作と同時に安全に実行することはできないので、それを確実に実行するため、そのテーブルの<literal>ACCESS EXCLUSIVE</literal>ロックを獲得します。）
    </para>
 
    <para>
@@ -1464,7 +1464,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          INDEX</command></link> and <link linkend="sql-altertable"><command>ALTER TABLE</command></link> variants (for full
          details see the documentation of these commands).
 -->
-（<option>FULL</option>なしの）<command>VACUUM</command>、<command>ANALYZE</command>、<command>CREATE INDEX CONCURRENTLY</command>、<command>REINDEX CONCURRENTLY</command>、<command>CREATE STATISTICS</command>、および、<command>ALTER INDEX</command>や<command>ALTER TABLE</command>の特定の亜種(詳細は<xref linkend="sql-alterindex"/>や<xref linkend="sql-altertable"/>を参照してください)によって獲得されます。
+（<option>FULL</option>なしの）<command>VACUUM</command>、<command>ANALYZE</command>、<command>CREATE INDEX CONCURRENTLY</command>、<command>REINDEX CONCURRENTLY</command>、<command>CREATE STATISTICS</command>、および、<link linkend="sql-alterindex"><command>ALTER
+INDEX</command></link>や<link linkend="sql-altertable"><command>ALTER TABLE</command></link>の特定の亜種(完全な詳細はこれらのコマンドの文書を参照してください)によって獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1521,7 +1522,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          Acquired by <command>CREATE TRIGGER</command> and some forms of
          <link linkend="sql-altertable"><command>ALTER TABLE</command></link>.
 -->
-<command>CREATE TRIGGER</command>、および、<command>ALTER TABLE</command>（<xref linkend="sql-altertable"/>参照）のいくつか形式により獲得されます。
+<command>CREATE TRIGGER</command>、および、<link linkend="sql-altertable"><command>ALTER TABLE</command></link>のいくつか形式により獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -1637,7 +1638,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 <!--
      <title>Conflicting Lock Modes</title>
 -->
-     <title> ロックモードの競合</title>
+     <title>ロックモードの競合</title>
      <tgroup cols="9">
       <colspec colnum="1" colwidth="1.25*"/>
       <colspec colnum="2" colwidth="1*" colname="lockst"/>
@@ -2412,7 +2413,7 @@ SELECT pg_advisory_lock(q.id) FROM
       Because of that, those using hot standby may want to use Repeatable
       Read and explicit locking on the primary.
 -->
-シリアライザブルトランザクションを使用する整合性保護レベルは、まだホットスタンバイモード(<xref linkend="hot-standby"/>)には拡張されていません。そのために、ホットスタンバイを使用する場合は、マスタにおけるリピータブルリードと明示的なロック処理の利用が望まれるかもしれません。
+シリアライザブルトランザクションを使用する整合性保護レベルは、まだホットスタンバイモード(<xref linkend="hot-standby"/>)には拡張されていません。そのために、ホットスタンバイを使用する場合は、プライマリにおけるリピータブルリードと明示的なロック処理の利用が望まれるかもしれません。
      </para>
     </warning>
    </sect2>
@@ -2544,7 +2545,7 @@ SELECT pg_advisory_lock(q.id) FROM
     could cause visible inconsistency between the contents of the target
     table and other tables in the database.
 -->
-DDLコマンドの中には、現在は<xref linkend="sql-truncate"/>とテーブルを書き換える形の<xref linkend="sql-altertable"/>だけですが、MVCCセーフでないものがあります。
+DDLコマンドの中には、現在は<link linkend="sql-truncate"><command>TRUNCATE</command></link>とテーブルを書き換える形の<link linkend="sql-altertable"><command>ALTER TABLE</command></link>だけですが、MVCCセーフでないものがあります。
 これは、DDLコマンドをコミットする前に取得したスナップショットを使っていると、切り詰めまたは書き換えのコミット後に、同時実行トランザクションに対してテーブルが空に見えることを意味しています。
 該当するテーブルにDDLコマンドが開始する前にアクセスしなかったトランザクションにとってのみ、これは問題となるでしょう&mdash;開始前にアクセスしたトランザクションは少なくとも<literal>ACCESS SHARE</literal>テーブルロックを保持しており、そのトランザクションが完了するまでDDLコマンドはブロックされるでしょう。
 ですので、対象のテーブルに対する連続した問い合わせで、このコマンドはテーブルの内容の見かけ上の不整合の原因とはなりません。しかし、対象のテーブルとデータベース内の他のテーブルの内容の間の可視の不整合の原因となるかもしれません。
@@ -2564,7 +2565,7 @@ DDLコマンドの中には、現在は<xref linkend="sql-truncate"/>とテー�
 -->
 シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby"/>で述べます)。
 ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
-マスタ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々マスタのトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
+プライマリ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々プライマリのトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
    </para>
 
    <para>
