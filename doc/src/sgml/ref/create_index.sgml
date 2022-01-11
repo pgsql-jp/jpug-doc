@@ -286,8 +286,8 @@ CREATE [ UNIQUE ] INDEX [ CONCURRENTLY ] [ [ IF NOT EXISTS ] <replaceable class=
         which correspond to heap tuples, but are not included in upper-level
         index entries used for tree navigation.
 -->
-今のところ本機能はB-treeとGiSTインデックスアクセスメソッドに対応しています。
-B-treeとGiSTインデックスでは<literal>INCLUDE</literal>句にリストされた列の値は、ヒープタプルに対応するリーフタプルに含まれますが、ツリーを辿るのに使われる上位レベルのインデックスエントリには含まれません。
+今のところ本機能はB-tree、GiST、SP-GiSTインデックスアクセスメソッドに対応しています。
+これらのインデックスでは<literal>INCLUDE</literal>句にリストされた列の値は、ヒープタプルに対応するリーフタプルに含まれますが、ツリーを辿るのに使われる上位レベルのインデックスエントリには含まれません。
        </para>
       </listitem>
      </varlistentry>
@@ -567,14 +567,11 @@ B-tree、ハッシュ、GiSTおよびSP-GiSTといったインデックスはす
 -->
 インデックス用のフィルファクタは割合（パーセント）で、インデックスメソッドがインデックスページをまとめ上げる時にどの程度ページを使用するかを決定するものです。
 B-treeでは、リーフページは初期インデックス構築時と右側（新しい最大キー値を追加する方向）にインデックスを拡張する時にこの割合分までページを使用します。
-その後ページすべてが完全に使用されると分割され、インデックスの効果が徐々に劣化します。
+その後ページすべてが完全に使用されると分割され、ディスク上のインデックスの構造が断片化していきます。
 B-treeのデフォルトのフィルファクタは90ですが、10から100までの任意の整数値を設定することができます。
-テーブルが静的な場合、100が最善でインデックスの物理サイズを最小化できます。
-更新が非常に多い場合は、ページ分割の頻度を少なくするために、より小さなフィルファクタを設定する方が良いです。
-この他のインデックスメソッドでは、フィルファクタを異なる意味で使用しますが、おおよそは同じです。
-メソッドによってフィルファクタのデフォルト値は異なります。
      </para>
      <para>
+<!--
       B-tree indexes on tables where many inserts and/or updates are
       anticipated can benefit from lower fillfactor settings at
       <command>CREATE INDEX</command> time (following bulk loading into the
@@ -587,8 +584,13 @@ B-treeのデフォルトのフィルファクタは90ですが、10から100ま�
       some <quote>extra</quote> space on pages to store <quote>extra</quote>
       tuple versions, and so can be affected by fillfactor (though the effect
       is usually not significant).
+-->
+多くの挿入や更新が予想されるテーブルのB-treeインデックスでは、(テーブルへの一括ロードに続く)<command>CREATE INDEX</command>の時にフィルファクタを低い値に設定することで恩恵に与れるかもしれません。
+50から90の範囲の値は、B-treeインデックスの初期の段階でのページ分割の<emphasis>割合</emphasis>を<quote>ならす</quote>のに有用かもしれません。(このようにフィルファクタを下げることはページ分割の絶対数を下げるかもしれません。もっとも、この効果はデータベースの処理内容に大きく依存します。)
+<xref linkend="btree-deletion"/>に書かれたB-treeボトムアップインデックス削除技法は<quote>余分な</quote>タプルのバージョンを保存するのにページの<quote>余分な</quote>空きに依存しますので、(その効果は通常、重要なものではありませんが)フィルファクタの影響を受けるかもしれません。
      </para>
      <para>
+<!--
       In other specific cases it might be useful to increase fillfactor to
       100 at <command>CREATE INDEX</command> time as a way of maximizing
       space utilization.  You should only consider this when you are
@@ -596,10 +598,17 @@ B-treeのデフォルトのフィルファクタは90ですが、10から100ま�
       affected by either inserts or updates).  A fillfactor setting of 100
       otherwise risks <emphasis>harming</emphasis> performance: even a few
       updates or inserts will cause a sudden flood of page splits.
+-->
+その他の特別な場合には、空間利用効率を最大にする1つの方法として<command>CREATE INDEX</command>の時にフィルファクタを100に増やすのが有用かもしれません。
+テーブルが静的である(すなわち、挿入や更新により影響を受けない)と完全に確信できる場合にのみ、これを検討すべきです。
+そうでなければ、フィルファクタを100に設定することは性能に<emphasis>悪影響を与える</emphasis>危険があります。更新や挿入がたとえ少数であっても、大量のページ分割が突然発生することになるでしょう。
      </para>
      <para>
+<!--
       The other index methods use fillfactor in different but roughly
       analogous ways; the default fillfactor varies between methods.
+-->
+他のインデックスメソッドでは、フィルファクタを異なる意味で使用しますが、おおよそは同じです。メソッドによってフィルファクタのデフォルト値は異なります。
      </para>
     </listitem>
    </varlistentry>
@@ -609,7 +618,7 @@ B-treeのデフォルトのフィルファクタは90ですが、10から100ま�
 <!--
     B-tree indexes additionally accept this parameter:
 -->
-B-treeインデックスは以下パラメータも受け付けます。
+B-treeインデックスはさらに以下のパラメータを受け付けます。
    </para>
 
    <variablelist>
@@ -684,11 +693,11 @@ GiSTインデックスではさらに以下のパラメータを受け付けま�
      Note that if sorted build is possible, it will be used instead of
      buffered build unless <literal>buffering=ON</literal> is specified.
 -->
-<xref linkend="gist-buffering-build"/>で説明するバッファリング構築技術をインデックスを構築する時に使用するかどうかを決定します。
-<literal>OFF</literal>で無効に、<literal>ON</literal>で有効になります。
-また<literal>AUTO</literal>と指定すると、最初は無効ですが、
-インデックスサイズが<xref linkend="guc-effective-cache-size"/>に達した後はその場で有効になります。
+<xref linkend="gist-buffering-build"/>で説明するバッファ化構築技術をインデックスを構築する時に使用するかどうかを決定します。
+バッファ処理は<literal>OFF</literal>で無効に、<literal>ON</literal>で有効になります。
+また<literal>AUTO</literal>と指定すると、最初は無効ですが、インデックスサイズが<xref linkend="guc-effective-cache-size"/>に達した後はその場で有効になります。
 デフォルトは<literal>AUTO</literal>です。
+ソートしての構築が可能であれば、<literal>buffering=ON</literal>が指定されていない限りバッファ化構築の代わりに使われることに注意してください。
     </para>
     </listitem>
    </varlistentry>
@@ -896,7 +905,7 @@ GINインデックスでは以下の異なるパラメータを受け付けま�
 -->
 同時実行インデックス構築では実際には、1つのトランザクションでシステムカタログに登録され、さらに2つのトランザクションで２つのテーブルスキャンが起こります。
 各テーブルスキャンの前に、インデックス構築はテーブルを修正した実行中のトランザクションが終了するのを待たなければなりません。
-2回目のスキャンの後、インデックス構築は2回目のスキャンより前のスナップショット（<xref linkend="mvcc"/>参照）を持つすべてのトランザクションが終了するのを待たなければなりません。
+2回目のスキャンの後、インデックス構築は2回目のスキャンより前のスナップショット（<xref linkend="mvcc"/>参照）を持つすべてのトランザクションが終了するのを待たなければなりません。関係するインデックスが部分インデックスであったり、単純な列参照でない列を持っているのなら、ここでのトランザクションは他のテーブルでの同時実行インデックス構築の任意の段階で使われているトランザクションを含みます。
 その後でようやく、インデックスは利用可能であると印が付けられ、<command>CREATE INDEX</command>コマンドが終了します。
 しかし、それでもインデックスは問い合わせに対して即座に利用可能であるとは限りません。
 最悪の場合、インデックス構築開始前のトランザクションが存在する間は利用できません。
@@ -1021,8 +1030,10 @@ Indexes:
    <productname>PostgreSQL</productname>.)  Only B-tree currently
    supports unique indexes.
 -->
-現在は、B-tree、GiST、GIN、BRINインデックスメソッドのみが、複数列に対するインデックスをサポートしています。
-指定できる列は、デフォルトでは32個までです（この制限は<productname>PostgreSQL</productname>のコンパイル時に変更できます）。
+現在は、B-tree、GiST、GIN、BRINインデックスメソッドのみが、複数キー列に対するインデックスをサポートしています。
+複数キー列があるかどうかはインデックスに<literal>INCLUDE</literal>列を追加できるかどうかとは独立です。
+インデックスは<literal>INCLUDE</literal>列を含めて32列まで持てます。
+（この制限は<productname>PostgreSQL</productname>のコンパイル時に変更できます。）
 現在、B-treeのみが一意性インデックスをサポートしています。
   </para>
 
@@ -1109,6 +1120,7 @@ Indexes:
   </para>
 
   <para>
+<!--
    The system regularly collects statistics on all of a table's
    columns.  Newly-created non-expression indexes can immediately
    use these statistics to determine an index's usefulness.
@@ -1116,6 +1128,10 @@ Indexes:
    linkend="sql-analyze"><command>ANALYZE</command></link> or wait for
    the <link linkend="autovacuum">autovacuum daemon</link> to analyze
    the table to generate statistics for these indexes.
+-->
+システムは定期的にテーブルの列すべての統計情報を集めています。
+新しく作られた、式でないインデックスは、インデックスの有用性を決定するのにその統計情報をすぐに使うことができます。
+新しい式インデックスに対しては、そのインデックスのための統計情報を生成するために、<link linkend="sql-analyze"><command>ANALYZE</command></link>を実行するか、<link linkend="autovacuum">autovacuumデーモン</link>がそのテーブルを解析するのを待つことが必要です。
   </para>
 
   <para>
@@ -1185,7 +1201,7 @@ Indexes:
    TABLE</command> will disable parallel index builds on the table in
    all cases.
 -->
-<xref linkend="sql-altertable"/>を通して<literal>parallel_workers</literal>の値を設定することで、テーブルに対して<command>CREATE INDEX</command>でどれだけのワーカプロセス数が要求されるかを、直接に調整できます。
+<link linkend="sql-altertable"><command>ALTER TABLE</command></link>を通して<literal>parallel_workers</literal>の値を設定することで、テーブルに対して<command>CREATE INDEX</command>でどれだけのワーカプロセス数が要求されるかを、直接に調整できます。
 これはコストモデルを完全に無視して、<varname>maintenance_work_mem</varname>がパラレルワーカの要求数に影響を与えることを回避します。
 <command>ALTER TABLE</command>を通して<literal>parallel_workers</literal>を0に設定することは、そのテーブルに対するパラレルインデックス作成を全ての場合に無効化します。
   </para>
@@ -1219,15 +1235,19 @@ Indexes:
    Use <link linkend="sql-dropindex"><command>DROP INDEX</command></link>
    to remove an index.
 -->
-インデックスを削除するには、<xref linkend="sql-dropindex"/>を使用してください。
+インデックスを削除するには、<link linkend="sql-dropindex"><command>DROP INDEX</command></link>を使用してください。
   </para>
 
   <para>
+<!--
    Like any long-running transaction, <command>CREATE INDEX</command> on a
    table can affect which tuples can be removed by concurrent
    <command>VACUUM</command> on any other table.
    Excepted from this are operations with the <literal>CONCURRENTLY</literal>
    option for indexes that are not partial and do not index any expressions.
+-->
+他の時間のかかるトランザクションと同じく、あるテーブルに対する<command>CREATE INDEX</command>は、その他のテーブルに対する同時実行中の<command>VACUUM</command>によりどのタプルが削除できるかに影響します。
+この例外は、部分インデックスでなくて式をインデックス化しないインデックスに対する<literal>CONCURRENTLY</literal>オプション付きの操作です。
   </para>
 
   <para>
@@ -1245,9 +1265,13 @@ GiSTメソッドに比べて大きな利点がありませんでしたので、�
   </para>
 
   <para>
+<!--
     Each backend running <command>CREATE INDEX</command> will report its
     progress in the <structname>pg_stat_progress_create_index</structname>
     view. See <xref linkend="create-index-progress-reporting"/> for details.
+-->
+<command>CREATE INDEX</command>を実行している各バックエンドはその進捗を<structname>pg_stat_progress_create_index</structname>ビューで報告します。
+詳細は<xref linkend="create-index-progress-reporting"/>を参照してください。
   </para>
  </refsect1>
 
