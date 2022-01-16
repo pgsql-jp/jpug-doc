@@ -129,10 +129,11 @@ SQL 環境の中では存在するユーザ名でデータベースオブジェ�
 -->
 <filename>pg_hba.conf</filename>ファイルの一般的な書式は、1行につき1つのレコードというレコードの集合です。
 空行はコメント用の<literal>#</literal>文字以降の文字と同じく無視されます。
-レコードは行をまたいで続けることはできません。
+行の最後をバックスラッシュで終えることによりレコードを次の行に継続することができます。（行の最後を除き、バックスラッシュは特別扱いされません。）
 レコードはスペースもしくはタブ、もしくはその両方で区切られた、複数のフィールドで構成されています。
 フィールドには、フィールド値が二重引用符付きの場合空白文字を含むことができます。
 データベース、ユーザもしくはアドレスフィールド内のキーワード(例：<literal>all</literal>または<literal>replication</literal>)の一つを引用するとその特別な意味が失われ、その名称のデータベース、ユーザもしくはホストと一致するようになります。
+引用テキストあるいはコメントもバックスラッシュで行を継続することができます。
   </para>
 
   <para>
@@ -340,7 +341,9 @@ hostnogssenc  <replaceable>database</replaceable>  <replaceable>user</replaceabl
 （以前は<literal>samegroup</literal>と書いていましたが、<literal>samerole</literal>と記述してください）
 スーパーユーザは、直接的であれ間接的であれ、明示的にsameroleのメンバでない限りsameroleのメンバとはみなされません。
 また、スーパーユーザであるからといって<literal>samerole</literal>のメンバとはみなされません。
-<literal>replication</literal>という値は、もし物理レプリケーション接続が要求された場合（レプリケーション接続は特定のデータベースを指定しないことに注意して下さい）にレコードが一致することを指定します。
+<literal>replication</literal>という値は、もし物理レプリケーション接続が要求された場合にレコードが一致することを指定します。
+しかし、論理レプリケーションによる接続には一致しません。
+物理レプリケーション接続は特定のデータベースを指定しないのに対し、論理レプリケーション接続は特定のデータベースを指定することに注意して下さい。
 それ以外の場合には、特定の<productname>PostgreSQL</productname>データベースの名前になります。
 データベースの名前はカンマで区切ることで複数指定できます。
 データベース名を含む別のファイルを、そのファイル名の前に<literal>@</literal>を付けることで指定できます。
@@ -885,6 +888,7 @@ SSLクライアント証明書を使用して認証します。
 この動作は<literal>cert</literal>認証方式（詳細は<xref linkend="auth-cert"/>を参照してください）に似ていますが、クライアント証明書の検証を<literal>hostssl</literal>エントリをサポートする任意の認証方式と組み合わせることができます。
       </para>
       <para>
+<!--
        On any record using client certificate authentication (i.e. one
        using the <literal>cert</literal> authentication method or one
        using the <literal>clientcert</literal> option), you can specify
@@ -900,11 +904,22 @@ SSLクライアント証明書を使用して認証します。
        <ulink url="https://tools.ietf.org/html/rfc2253">RFC 2253</ulink>
        format. To see the <literal>DN</literal> of a client certificate
        in this format, do
+-->
+クライアント証明書認証を使用するすべてのレコード（つまり、<literal>cert</literal>認証方式あるいは<literal>clientcert</literal>オプションを使用している）では、<literal>clientname</literal>オプションを使ってクライアント証明書資格情報のどの部分を照合するかを指定することができます。
+このオプションは1つあるいは2つの値を持つことができます。
+デフォルトである<literal>clientname=CN</literal>を指定すると、ユーザ名は証明書の<literal>Common Name (CN)</literal>と照合されます。
+その代わりに<literal>clientname=DN</literal>を指定すると、ユーザ名は証明書の<literal>Distinguished Name (DN)</literal>全体と照合されます。
+このオプションはおそらくユーザ名マップとともに使うのが最善です。
+<ulink url="https://tools.ietf.org/html/rfc2253">RFC 2253</ulink>の<literal>DN</literal>と比較されます。
+この形式のクライアント証明書の<literal>DN</literal>を参照するには以下のようにしてください。
 <programlisting>
 openssl x509 -in myclient.crt -noout --subject -nameopt RFC2253 | sed "s/^subject=//"
 </programlisting>
+<!--
         Care needs to be taken when using this option, especially when using
         regular expression matching against the <literal>DN</literal>.
+-->
+このオプションを使って<literal>DN</literal>に対して正規表現を使って比較を行う際には注意が必要です。
       </para>
      </listitem>
     </varlistentry>
@@ -1232,7 +1247,7 @@ identマップファイルは一般的な形式の行を含んでいます。
    database user name. The same <replaceable>map-name</replaceable> can be
    used repeatedly to specify multiple user-mappings within a single map.
 -->
-コメントと空白は<filename>pg_hba.conf</filename>と同様に扱われます。 <replaceable>map-name</replaceable>は
+コメント、空白、行継続は<filename>pg_hba.conf</filename>と同様に扱われます。 <replaceable>map-name</replaceable>は
 <filename>pg_hba.conf</filename>内で参照される任意の名称です。
 他の2つのフィールドは、どのオペレーティングシステムユーザが、どのデータベースユーザに接続することを許可されているかを指定しています。
 同じ<replaceable>map-name</replaceable>は、1つのマップ内でユーザをマップするために繰り返し使用されます。
@@ -1423,7 +1438,7 @@ omicron         bryanh                  guest1
       service on the client's machine.  (On local Unix-socket connections,
       this is treated as peer authentication.)
 -->
-<link linkend="auth-ident">ident認証</link>は、クライアントのマシン上の<quote>Identification Protocol</quote> (RFC 1413)サービスに依存します。
+<link linkend="auth-ident">ident認証</link>は、クライアントのマシン上の<quote>Identification Protocol</quote> (<ulink url="https://tools.ietf.org/html/rfc1413">RFC 1413</ulink>)サービスに依存します。
 （ローカルのUnixドメインソケット接続では、これはpeer認証として扱われます）。
      </para>
     </listitem>
@@ -1798,12 +1813,11 @@ TCP/IP接続における<literal>trust</literal>認証は、<literal>trust</lite
     used, the data sent along the database connection will be encrypted;
     otherwise, it will not.
 -->
-<productname>GSSAPI</productname>は、RFC 2743で定義されている安全な認証のための業界標準のプロトコルです。
-
-<productname>PostgreSQL</productname>は、<productname>GSSAPI</productname>をサポートしています。このGSSAPIは、暗号化された認証済みレイヤとして使用するか、認証のみに使用します。
+<productname>GSSAPI</productname>は、<ulink url="https://tools.ietf.org/html/rfc2743">RFC 2743</ulink>で定義されている安全な認証のための業界標準のプロトコルです。
+<productname>PostgreSQL</productname>は、<productname>GSSAPI</productname>を認証、通信の暗号化、あるいはその両方のためにサポートしています。
 <productname>GSSAPI</productname>は、GSSAPIをサポートするシステムに自動認証(シングルサインオン)を提供します。
 認証自体は安全です。
-<productname>GSSAPI</productname>暗号化（詳細は<literal>hostgssenc</literal>を参照してください）、または<acronym>SSL</acronym>暗号化を使用すると、データベース接続に沿って送信されるデータは暗号化されますが、それ以外の場合は暗号化されません。
+<productname>GSSAPI</productname>暗号化、または<acronym>SSL</acronym>暗号化を使用すると、データベース接続に沿って送信されるデータは暗号化されますが、それ以外の場合は暗号化されません。
    </para>
 
    <para>
@@ -1827,9 +1841,17 @@ GSSAPIサポートは、<productname>PostgreSQL</productname>を構築する時�
     the keytab file, the server will accept any one of them.
     The server's realm name is the preferred realm specified in the Kerberos
     configuration file(s) accessible to the server.
+-->
+<productname>GSSAPI</productname>が<productname>Kerberos</productname>を使用しているとき、<productname>GSSAPI</productname>は、<literal><replaceable>servicename</replaceable>/<replaceable>hostname</replaceable>@<replaceable>realm</replaceable></literal>という書式の標準のサービスプリンシパル名を使用します。
+[訳注：プリンシパルとは大雑把に2つのものを指します。1つはサービスを受けるクライアントで、もう1つはサービスを提供するサーバアプリケーションです。どちらも、認証に関してはKerberosのKDCから見るとクライアントになります]
+特定のインストールによって使用されるプリンシパル名は<productname>PostgreSQL</productname>サーバでは決してエンコードされません。
+そうではなくて、サーバが自身の識別を決定するために読み込む<firstterm>keytab</firstterm>ファイルで指定されます。
+そのkeytabファイルに複数のプリンシパルが列挙されている場合は、サーバはそのうちのどれか一つを受け付けます。
+サーバのrealm名は、サーバがアクセスできるKerberos設定ファイルで指定されたものが優先的に採用されます。
    </para>
 
    <para>
+<!--
     When connecting, the client must know the principal name of the server
     it intends to connect to.  The <replaceable>servicename</replaceable>
     part of the principal is ordinarily <literal>postgres</literal>,
@@ -1839,9 +1861,15 @@ GSSAPIサポートは、<productname>PostgreSQL</productname>を構築する時�
     host name that <application>libpq</application> is told to connect to.
     The realm name is the preferred realm specified in the Kerberos
     configuration file(s) accessible to the client.
+-->
+接続する際には、クライアントは接続しようとしているサーバのプリンシパル名を知っておかなければなりません。
+プリンシパルの<replaceable>servicename</replaceable>部は通常<literal>postgres</literal>ですが、<application>libpq</application>の<xref linkend="libpq-connect-krbsrvname"/>接続パラメータで選択できます。
+<replaceable>hostname</replaceable>部は<application>libpq</application>が接続要求されている完全修飾ホスト名です。
+realm名はクライアントがアクセスできるKerberos設定ファイルで指定されているrealmです。
    </para>
 
    <para>
+<!--
     The client will also have a principal name for its own identity
     (and it must have a valid ticket for this principal).  To
     use <productname>GSSAPI</productname> for authentication, the client
@@ -1853,7 +1881,9 @@ GSSAPIサポートは、<productname>PostgreSQL</productname>を構築する時�
     Alternatively, you can use the full <literal>username@realm</literal> principal as
     the role name in <productname>PostgreSQL</productname> without any mapping.
 -->
-クライアントのプリンシパルは<filename>pg_ident.conf</filename>で異なる<productname>PostgreSQL</productname>のデータベースユーザ名にマップできます。
+クライアントは、自身の識別目的でプリンシパル名も持ちます（このプリンシパルの有効なチケットも持っていなければなりません）。
+認証に<productname>GSSAPI</productname>を使うためには、クライアントプリンシパルは<productname>PostgreSQL</productname>データベースユーザ名に紐付いていなければなりません。
+<filename>pg_ident.conf</filename>設定ファイルを使ってプリンシパルをユーザ名にマップできます。
 例えば、<literal>pgusername@realm</literal>を単なる<literal>pgusername</literal>にマップできます。
 もう1つの方法として、プリンシパル名全体<literal>username@realm</literal>を<productname>PostgreSQL</productname>のロール名としてマッピングなしに使うこともできます。
    </para>
@@ -1873,7 +1903,7 @@ GSSAPIサポートは、<productname>PostgreSQL</productname>を構築する時�
     less capable approach compared to specifying an explicit mapping in
     <filename>pg_ident.conf</filename>.
 -->
-<productname>PostgreSQL</productname>はプリンシパルからrealmを外すパラメータもサポートしています。
+<productname>PostgreSQL</productname>はまたプリンシパルから単にrealmを外すことにより、クライアントプリンシパルをユーザ名にマップする方法をサポートしています。
 この方法は後方互換のためにサポートされているものであり、異なるrealmから来た同じユーザ名の異なるユーザを区別することができませんので、使用しないことを強く薦めます。
 この方法を有効にするには<literal>include_realm</literal>を0に設定してください。
 単純な単一realmの設定では、(プリンシパルのrealmが<literal>krb_realm</literal>パラメータ内のものと正確に一致するか確認する)<literal>krb_realm</literal>パラメータと組み合わせることが安全です。
@@ -1881,6 +1911,7 @@ GSSAPIサポートは、<productname>PostgreSQL</productname>を構築する時�
    </para>
 
    <para>
+<!--
     The location of the server's keytab file is specified by the <xref
     linkend="guc-krb-server-keyfile"/> configuration parameter.
     For security reasons, it is recommended to use a separate keytab
@@ -1889,6 +1920,11 @@ GSSAPIサポートは、<productname>PostgreSQL</productname>を構築する時�
     Make sure that your server keytab file is readable (and preferably
     only readable, not writable) by the <productname>PostgreSQL</productname>
     server account.  (See also <xref linkend="postgres-user"/>.)
+-->
+サーバのkeytabファイルの場所は<xref linkend="guc-krb-server-keyfile"/>設定パラメータで指定されます。
+セキュリティ上の理由から、サーバがシステムkeytabファイルの読み込むことを許可するよりも、<productname>PostgreSQL</productname>サーバ用に別のkeytabファイルを使うことをお薦めします。
+サーバ鍵ファイルが<productname>PostgreSQL</productname>サーバアカウントによって読み込み可能（そしてできれば読み込み専用で書き込み不可）であることを確認してください。
+（<xref linkend="postgres-user"/>を参照してください。）
    </para>
 
    <para>
@@ -1898,8 +1934,8 @@ GSSAPIサポートは、<productname>PostgreSQL</productname>を構築する時�
     doing this using the <application>kadmin</application> tool of
     MIT-compatible Kerberos 5 implementations:
 -->
-keytabファイルはKerberosのソフトウェアによって作成されます。詳細はKerberosのドキュメントを参照してください。
-MIT互換のKerberos5実装の例を以下に示します。
+keytabファイルはKerberosのソフトウェアを使って作成されます。詳細はKerberosのドキュメントを参照してください。
+MIT互換のKerberos5実装の<application>kadmin</application>ツールを使って行う例を以下に示します。
 <screen>
 <prompt>kadmin% </prompt><userinput>addprinc -randkey postgres/server.my.domain.org</userinput>
 <prompt>kadmin% </prompt><userinput>ktadd -k krb5.keytab postgres/server.my.domain.org</userinput>
@@ -1907,8 +1943,11 @@ MIT互換のKerberos5実装の例を以下に示します。
    </para>
 
    <para>
+<!--
     The following authentication options are supported for
     the <productname>GSSAPI</productname> authentication method:
+-->
+次の認証オプションは<productname>GSSAPI</productname>のためにサポートされています。
     <variablelist>
      <varlistentry>
       <term><literal>include_realm</literal></term>
@@ -1948,7 +1987,7 @@ MIT互換のKerberos5実装の例を以下に示します。
         <literal>username</literal> (or <literal>username/hostbased</literal>)
         is what is seen as the system user name when mapping.
 -->
-システムとデータベースの間のマッピングを許可します。
+クライアントプリンシパルからデータベースユーザ名へのマッピングを許可します。
 詳細は<xref linkend="auth-username-maps"/>を参照してください。
 GSSAPI/Kerberosプリンシパル<literal>username@EXAMPLE.COM</literal>(もしくは、あまり一般的ではありませんが<literal>username/hostbased@EXAMPLE.COM</literal>)に対しては、もし<literal>include_realm</literal>が0に設定されていない限り、マッピングに使われるユーザ名は<literal>username@EXAMPLE.COM</literal>(もしくは<literal>username/hostbased@EXAMPLE.COM</literal>)です。
 0に設定されている場合には、<literal>username</literal>(もしくは<literal>username/hostbased</literal>)がマッピング時のシステムユーザ名です。
@@ -1976,12 +2015,17 @@ realmをユーザプリンシパル名に一致するように設定します。
    </para>
 
    <para>
+<!--
     In addition to these settings, which can be different for
     different <filename>pg_hba.conf</filename> entries, there is the
     server-wide <xref linkend="guc-krb-caseins-users"/> configuration
     parameter.  If that is set to true, client principals are matched to
     user map entries case-insensitively.  <literal>krb_realm</literal>, if
     set, is also matched case-insensitively.
+-->
+<filename>pg_hba.conf</filename>のエントリによって異なるこれらの設定に加え、サーバ全体の<xref linkend="guc-krb-caseins-users"/>設定パラメータがあります。
+これが真に設定されていれば、クライアントプリンシパルは大文字小文字を区別せずにユーザマップを照合します。
+<literal>krb_realm</literal>が設定されている場合も、大文字小文字を区別せずに照合します。
    </para>
   </sect1>
 
@@ -2225,7 +2269,7 @@ peer認証（<xref linkend="auth-peer"/>を参照してください）が代わ�
     client and can theoretically determine the operating system user
     for any given connection.
 -->
-<quote>身元特定（Identification）プロトコル</quote>についてはRFC 1413で説明されています。
+<quote>身元特定（Identification）プロトコル</quote>については<ulink url="https://tools.ietf.org/html/rfc1413">RFC 1413</ulink>で説明されています。
 事実上全てのUnix系のオペレーティングシステムの配布には、デフォルトでTCPポート113を監視するidentサーバが付属しています。
 identサーバの基本的な機能は<quote>どのユーザがポート<replaceable>X</replaceable>からの接続を開始し、自分のポート<replaceable>Y</replaceable>への接続を初期化したのか？</quote>というような質問に答えることです。
 <productname>PostgreSQL</productname>は物理的な接続が確立された時に<replaceable>X</replaceable>と<replaceable>Y</replaceable>の両方を認識するので、接続するクライアントのホスト上のidentサーバに応答指令信号を送ることができ、理論的には与えられたどの接続にもオペレーティングシステムユーザを決定できます。
@@ -2462,8 +2506,8 @@ LDAPライブラリ内のデフォルトポート設定が使用されます。
         See also the <literal>ldapscheme</literal> option for an alternative.
 -->
 1に設定すると、PostgreSQLとLDAPサーバ間の接続にTLSによる暗号化を使用します。
-これはRFC 4513の<literal>StartTLS</literal>操作を使用します。
-代替方法については、<literal>ldapscheme</literal>オプションを参照して下さい。
+これは<ulink url="https://tools.ietf.org/html/rfc4513">RFC 4513</ulink>の<literal>StartTLS</literal>操作を使用します。
+代替方法については、<literal>ldapscheme</literal>オプションも参照して下さい。
        </para>
       </listitem>
      </varlistentry>
@@ -2596,7 +2640,8 @@ search/bind認証を行うときに使用する検索フィルタです。
          LDAP URL.  This is an alternative way to write some of the
          other LDAP options in a more compact and standard form.  The format is
 -->
-RFC 4516 LDAP URL。これはその他いくつかのLDAPオプションをより簡潔、かつ一般的な形式で記述する別の方法です。
+<ulink url="https://tools.ietf.org/html/rfc4516">RFC 4516</ulink>LDAP URL。
+これはその他いくつかのLDAPオプションをより簡潔、かつ一般的な形式で記述する別の方法です。
 フォーマットは以下のようになっています。
 <synopsis>
 ldap[s]://<replaceable>host</replaceable>[:<replaceable>port</replaceable>]/<replaceable>basedn</replaceable>[?[<replaceable>attribute</replaceable>][?[<replaceable>scope</replaceable>][?[<replaceable>filter</replaceable>]]]]
@@ -2688,7 +2733,7 @@ search/bindモードを使用するときは、<literal>ldapsearchattribute</lit
      <literal>DOMAIN</literal> is extracted from <literal>ldapbasedn</literal>.
 -->
 <productname>PostgreSQL</productname>が、LDAPクライアントライブラリとして<productname>OpenLDAP</productname>を使用するようにコンパイルされていた場合、<literal>ldapserver</literal>の設定は省略出来ます。
-その場合、ホスト名とポート番号のリストは、RFC 2782 DNS SRVレコードを使用して検索されます。
+その場合、ホスト名とポート番号のリストは、<ulink url="https://tools.ietf.org/html/rfc2782">RFC 2782</ulink> DNS SRVレコードを使用して検索されます。
 <literal>_ldap._tcp.DOMAIN</literal>という名前が検索され、<literal>ldapbasedn</literal>から<literal>DOMAIN</literal>が抽出されます。
    </para>
 
