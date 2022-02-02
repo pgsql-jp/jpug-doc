@@ -1957,11 +1957,12 @@ ParameterStatusメッセージは、任意のパラメータの実際の値が�
     parameters that it does not understand or care about.
 -->
 現時点では、ParameterStatusを生成するパラメータ群は固定されています。
-それらは<varname>server_version</varname>、<varname>server_encoding</varname>、<varname>client_encoding</varname>、<varname>application_name</varname>、<varname>is_superuser</varname>、<varname>session_authorization</varname>、<varname>DateStyle</varname>、<varname>IntervalStyle</varname>、<varname>TimeZone</varname>、<varname>integer_datetimes</varname>、および<varname>standard_conforming_strings</varname>です。
+それらは<varname>server_version</varname>、<varname>server_encoding</varname>、<varname>client_encoding</varname>、<varname>application_name</varname>、<varname>default_transaction_read_only</varname>、<varname>in_hot_standby</varname>、<varname>is_superuser</varname>、<varname>session_authorization</varname>、<varname>DateStyle</varname>、<varname>IntervalStyle</varname>、<varname>TimeZone</varname>、<varname>integer_datetimes</varname>、および<varname>standard_conforming_strings</varname>です。
 （8.0より前までのリリースでは、<varname>server_encoding</varname>、<varname>TimeZone</varname>および<varname>integer_datetimes</varname>は送信されませんでした。
 8.1より前までのリリースでは、<varname>standard_conforming_strings</varname>は送信されませんでした。
 8.4より前のリリースでは、<varname>IntervalStyle</varname>は送信されませんでした。
-9.0より前のリリースでは、<varname>application_name</varname>は送信されませんでした。）
+9.0より前のリリースでは、<varname>application_name</varname>は送信されませんでした。
+14より前のリリースでは、<varname>default_transaction_read_only</varname>と<varname>in_hot_standby</varname>は送信されませんでした。）
 <varname>server_version</varname>、<varname>server_encoding</varname>および<varname>integer_datetimes</varname>は仮想的なパラメータであり、起動後に変更することができないことに注意してください。
 これは今後変更される、あるいは設定変更可能になる可能性があります。
 したがって、フロントエンドは未知または注目していないParameterStatusを単に無視すべきです。
@@ -2207,6 +2208,7 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
 これが成功した場合、続いて通常のStartupMessageの送信を行います。
 この場合、StartupMessageおよびその後のデータは<acronym>SSL</acronym>により暗号化されます。
 <literal>N</literal>の後に、通常のStartupMessageを送信することで暗号化なしで進みます。
+（他に、<acronym>SSL</acronym>の代わりに<acronym>GSSAPI</acronym>暗号化の利用を試行するために、<literal>N</literal>応答の後にGSSENCRequestメッセージを送信することが認められています。）
    </para>
 
    <para>
@@ -2295,15 +2297,10 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
 <acronym>GSSAPI</acronym>暗号化接続を開始するには、フロントエンドは最初にStartupMessageではなく、GSSENCRequestメッセージを送ります。
 次にサーバは、それぞれ<acronym>GSSAPI</acronym>暗号化を希望する、しないを意味する<literal>G</literal>または<literal>N</literal>を含む1バイトを送信します。
 このレスポンスに満足できなければ、この時点でフロントエンドは接続を打ち切って構いません。
-<literal>G</literal>の受信後継続するには、RFC2744あるいは同様の文書で議論されているGSSAPI Cバインディングを使い、ループの中で<function>gss_init_sec_context()</function>を呼び出して<acronym>GSSAPI</acronym>を初期化し、結果をサーバに送信し、空の入力を受け取ることから始めて、サーバが出力を返さなくなるまでサーバからの出力を受け取ります。
+<literal>G</literal>の受信後継続するには、<ulink url="https://tools.ietf.org/html/rfc2744">RFC 2744</ulink>あるいは同様の文書で議論されているGSSAPI Cバインディングを使い、ループの中で<function>gss_init_sec_context()</function>を呼び出して<acronym>GSSAPI</acronym>を初期化し、結果をサーバに送信し、空の入力を受け取ることから始めて、サーバが出力を返さなくなるまでサーバからの出力を受け取ります。
 <function>gss_init_sec_context()</function>の結果をサーバに送る際には、ネットワークバイトオーダーで4バイトの整数にメッセージ長を先頭に付与します。
-これに成功したら、<function>gss_wrap()</function>を使って通常のStartupMessageと後続のすべてのメッセージを暗号化します。
-実際に暗号化した送信データの前に、<function>gss_wrap()</function>の結果をネットワークバイトオーダーで4バイトの整数にしたものを付与します。
-サーバは16kB未満のクライアントからの暗号化パケットだけを受け付けることに注意してください。
-クライアントは<function>gss_wrap_size_limit()</function>を使って暗号化前のメッセージの大きさがこの制限に収まるかどうかを確認し、それより大きなメッセージは複数の<function>gss_wrap()</function>呼び出しに分解すべきです。
-典型的なセグメントは暗号化前で8kBのデータで、暗号化後のパケットは8kBより少し大きくなりますが、最大長の16kB以内には問題なく収まります。
-サーバは16kBよりも大きな暗号化パケットをクライアントに送らないものと期待することができます。
 <literal>N</literal>の後継続するには、通常のStartupMessageを送信し、暗号化せずに続けてください。
+（他に、<acronym>GSSAPI</acronym>の代わりに<acronym>SSL</acronym>暗号化の使用を試行するために、<literal>N</literal>応答の後にSSLRequestメッセージを送信することが認められています。）
    </para>
 
    <para>
@@ -2319,7 +2316,6 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
 また、フロントエンドはサーバからのGSSENCRequestへのErrorMessage応答に備えるべきです。
 これはサーバが<productname>PostgreSQL</productname>への<acronym>GSSAPI</acronym>暗号化サポートを追加する以前だったときにのみ発生します。
 この場合は接続を切断しなければなりませんが、フロントエンドは新しい接続を開いて<acronym>GSSAPI</acronym>暗号化を要求せずに進めることを選択するかもしれません。
-上述の長さ制限により、ErrorMessageがサーバからの適切な長さを持つ正しい応答と混同されることはありません。
    </para>
 
    <para>
@@ -2331,6 +2327,7 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
    </para>
 
    <para>
+<!--
     Once <acronym>GSSAPI</acronym> encryption has been successfully
     established, use <function>gss_wrap()</function> to
     encrypt the usual StartupMessage and all subsequent data, prepending the
@@ -2344,6 +2341,13 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
     unencrypted data, resulting in encrypted packets of slightly larger than 8kB
     but well within the 16kB maximum.  The server can be expected to not send
     encrypted packets of larger than 16kB to the client.
+-->
+<acronym>GSSAPI</acronym>暗号化の確立に成功したら、<function>gss_wrap()</function>を使って通常のStartupMessageと後続のすべてのメッセージを暗号化します。
+実際に暗号化した送信データの前に、<function>gss_wrap()</function>の結果をネットワークバイトオーダーで4バイトの整数にしたものを付与します。
+サーバは16kB未満のクライアントからの暗号化パケットだけを受け付けることに注意してください。
+クライアントは<function>gss_wrap_size_limit()</function>を使って暗号化前のメッセージの大きさがこの制限に収まるかどうかを確認し、それより大きなメッセージは複数の<function>gss_wrap()</function>呼び出しに分解すべきです。
+典型的なセグメントは暗号化前で8kBのデータで、暗号化後のパケットは8kBより少し大きくなりますが、最大長の16kB以内には問題なく収まります。
+サーバは16kBよりも大きな暗号化パケットをクライアントに送らないものと期待することができます。
    </para>
 
    <para>
@@ -2465,7 +2469,7 @@ ErrorMessage.
    and <ulink url="https://tools.ietf.org/html/rfc5802">RFC 5802</ulink>.
 -->
 今のところ実装されているSASL機構は<literal>SCRAM-SHA-256</literal>とチャンネルバインディングを伴う変種の<literal>SCRAM-SHA-256-PLUS</literal>です。
-詳細はRFC 7677およびRFC 5802で説明されています。
+詳細は<ulink url="https://tools.ietf.org/html/rfc7677">RFC 7677</ulink>および<ulink url="https://tools.ietf.org/html/rfc5802">RFC 5802</ulink>で説明されています。
   </para>
 
   <para>
@@ -2733,7 +2737,7 @@ The commands accepted in replication mode are:
        consistent with the primary.
 -->
 現在のタイムラインIDです。
-同様にスタンバイがマスタと一貫性を持つことを検査するために使用されます。
+同様にスタンバイがプライマリと一貫性を持つことを検査するために使用されます。
       </para>
       </listitem>
       </varlistentry>
@@ -2820,6 +2824,7 @@ The commands accepted in replication mode are:
 -->
 <replaceable class="parameter">tli</replaceable>のタイムラインのため、サーバにタイムライン履歴ファイルの送付を要求します。
 サーバは2列単一行の結果セットを返します。
+フィールドには<type>text</type>の印が付けられていますが、実際には符号化変換なしの生のバイトが返ります。
      </para>
 
      <para>
@@ -3075,7 +3080,7 @@ The commands accepted in replication mode are:
       mode entirely.
 -->
 最新ではなくて、サーバの過去のタイムラインをクライアントが要求した場合、サーバは要求された開始時点から他のタイムラインに切り替えるまでの、全てのWALストリームを送付します。
-クライアントが旧タイムラインの終点のストリームを要求した場合、サーバはCOPYモードに入らずにCommandCompleteをすぐに応答します。
+クライアントが旧タイムラインの終点のストリームを要求した場合、サーバはCOPYモード全体をスキップします。
      </para>
 
      <para>
@@ -3848,7 +3853,7 @@ CopyBothResponse内部のメッセージは、2つのCommandCompleteメッセー
       ordinary result sets, followed by one or more CopyOutResponse
       results.
 -->
-バックアップを開始する時、サーバはまず２つの通常の結果セットを送信し、続けて１つ以上のCopyResponse結果を送信します。
+バックアップを開始する時、サーバはまず２つの通常の結果セットを送信し、続けて１つ以上のCopyOutResponse結果を送信します。
      </para>
      <para>
 <!--
@@ -3910,8 +3915,8 @@ CopyBothResponse内部のメッセージは、2つのCommandCompleteメッセー
       </variablelist>
      </para>
      <para>
-      After the second regular result set, one or more CopyOutResponse results
 <!--
+      After the second regular result set, one or more CopyOutResponse results
       will be sent, one for the main data directory and one for each additional tablespace other
       than <literal>pg_default</literal> and <literal>pg_global</literal>. The data in
       the CopyOutResponse results will be a tar format (following the
@@ -3924,11 +3929,11 @@ CopyBothResponse内部のメッセージは、2つのCommandCompleteメッセー
       sent, containing the WAL end position of the backup, in the same format as
       the start position.
 -->
-２番目の通常の結果セットの後、１つ以上のCopyResponse結果が送信されます。
+２番目の通常の結果セットの後、１つ以上のCopyOutResponse結果が送信されます。
 主データディレクトリ用に1つ、<literal>pg_default</literal>、<literal>pg_global</literal>以外の追加のテーブル空間ごとに1つ送信されます。
-CopyResponse結果内のデータは、テーブル空間の内容のtar形式（POSIX 1003.1-2008標準で規定された<quote>ustar交換形式</quote>に従う）ダンプです。
+CopyOutResponse結果内のデータは、テーブル空間の内容のtar形式（POSIX 1003.1-2008標準で規定された<quote>ustar交換形式</quote>に従う）ダンプです。
 ただし標準で規定された最後の２つのゼロブロックは省略されています。
-このtarデータが終わった後、バックアップマニフェストが要求された場合、現在のベースバックアップのマニフェストデータを含む別のCopyResponse結果が送信されます。
+このtarデータが終わった後、バックアップマニフェストが要求された場合、現在のベースバックアップのマニフェストデータを含む別のCopyOtResponse結果が送信されます。
 いずれの場合も、バックアップのWAL終了位置を含む最終の通常の結果セットが、開始位置と同じ形式で送信されます。
      </para>
 
@@ -4083,7 +4088,8 @@ PostgreSQLサーバの操作中に作成される種々の一時ファイルお�
        streaming of large in-progress transactions.
 -->
 プロトコルのバージョンです。
-現在はバージョン<literal>1</literal>のみが受け付けられます。
+現在はバージョン<literal>1</literal>と<literal>2</literal>のみが受け付けられます。
+バージョン<literal>2</literal>はバージョン14およびそれ以上のサーバでのみサポートされており、大きな継続中(in-progress)トランザクションのストリーミングが可能です。
      </para>
      </listitem>
     </varlistentry>
@@ -4172,6 +4178,8 @@ PostgreSQLサーバの操作中に作成される種々の一時ファイルお�
 -->
 論理レプリケーションのプロトコルは、個々のトランザクションを一つずつ送信します。
 これはつまり、BeginとCommitのメッセージの対の間にある全てのメッセージは同じトランザクションに属するということです。
+また、ストリーム開始とストリーム終了メッセージの対の間の大きな継続中トランザクションの変更を送信します。
+そのようなトランザクションの最後のストリームは、ストリームコミットあるいはストリームアボートメッセージを含んでいます。
   </para>
 
   <para>
@@ -4390,7 +4398,7 @@ AuthenticationOk (B)
 <!--
                 Length of message contents in bytes, including self.
 -->
-自身を含む、メッセージ内容の長さ（バイト単位）。
+自身を含むメッセージ内容の長さ（バイト単位）。
 </para>
 </listitem>
 </varlistentry>
@@ -4735,7 +4743,10 @@ AuthenticationGSSContinue (B)
 </term>
 <listitem>
 <para>
+<!--
                 Specifies that this message contains GSSAPI or SSPI data.
+-->
+このデータがGSSAPIあるいはSSPIデータを含むことを指定します。
 </para>
 </listitem>
 </varlistentry>
@@ -4745,7 +4756,10 @@ AuthenticationGSSContinue (B)
 </term>
 <listitem>
 <para>
+<!--
                 GSSAPI or SSPI authentication data.
+-->
+GSSAPIあるいはSSPI認証データ。
 </para>
 </listitem>
 </varlistentry>
@@ -4783,7 +4797,10 @@ AuthenticationSSPI (B)
 </term>
 <listitem>
 <para>
+<!--
                 Length of message contents in bytes, including self.
+-->
+自身を含むメッセージ内容のバイト単位の長さ。
 </para>
 </listitem>
 </varlistentry>
@@ -4793,7 +4810,10 @@ AuthenticationSSPI (B)
 </term>
 <listitem>
 <para>
+<!--
                 Specifies that SSPI authentication is required.
+-->
+SSPI認証が要求されていることを指定します。
 </para>
 </listitem>
 </varlistentry>
@@ -5367,7 +5387,7 @@ CancelRequest (F)
                 must not be the same as any protocol version number.)
 -->
 取消要求コードです。
-この値は、最上位16ビットに<literal>1234</literal>が、下位16ビットに<literal>5678</literal>を持つように選択されます。
+この値は、最上位16ビットに<literal>1234</literal>が、下位16ビットに<literal>5678</literal>を持つように選択されています。
 （混乱を防ぐため、このコードはプロトコルバージョン番号と同一になってはいけません。）
 </para>
 </listitem>
@@ -6772,10 +6792,15 @@ GSSENCRequest (F)
 </term>
 <listitem>
 <para>
+<!--
                 The <acronym>GSSAPI</acronym> Encryption request code.  The value is chosen to contain
                 <literal>1234</literal> in the most significant 16 bits, and <literal>5680</literal> in the
                 least significant 16 bits.  (To avoid confusion, this code
                 must not be the same as any protocol version number.)
+-->
+<acronym>GSSAPI</acronym>暗号化要求コードです。
+この値は、最上位16ビットに<literal>1234</literal>が、下位16ビットに<literal>5680</literal>を持つように選択されています。
+（混乱を防ぐため、このコードはプロトコルバージョン番号と同一になってはいけません。）
 </para>
 </listitem>
 </varlistentry>
@@ -8753,7 +8778,10 @@ Message
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a logical decoding message.
+-->
+ロジカルデコーディングメッセージであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -8763,8 +8791,12 @@ Message
 </term>
 <listitem>
 <para>
+<!--
                 Xid of the transaction (only present for streamed transactions).
                 This field is available since protocol version 2.
+-->
+トランザクションのxid（ストリームトランザクションのためにのみ存在します）。
+このフィールドはプロトコルバージョン2以降で利用可能です。
 </para>
 </listitem>
 </varlistentry>
@@ -8774,8 +8806,11 @@ Message
 </term>
 <listitem>
 <para>
+<!--
                 Flags; Either 0 for no flags or 1 if the logical decoding
                 message is transactional.
+-->
+フラグ。0はフラグなし、ロジカルデコーディングメッセージがトランザクションであれば1です。
 </para>
 </listitem>
 </varlistentry>
@@ -8785,7 +8820,10 @@ Message
 </term>
 <listitem>
 <para>
+<!--
                 The LSN of the logical decoding message.
+-->
+ロジカルデコーディングメッセージのLSN。
 </para>
 </listitem>
 </varlistentry>
@@ -8795,7 +8833,10 @@ Message
 </term>
 <listitem>
 <para>
+<!--
                 The prefix of the logical decoding message.
+-->
+ロジカルデコーディングメッセージの接頭辞。
 </para>
 </listitem>
 </varlistentry>
@@ -8806,7 +8847,10 @@ Message
 </term>
 <listitem>
 <para>
+<!--
                 Length of the content.
+-->
+内容の長さ。
 </para>
 </listitem>
 </varlistentry>
@@ -8817,7 +8861,10 @@ Message
 </term>
 <listitem>
 <para>
+<!--
                 The content of the logical decoding message.
+-->
+ロジカルデコーディングメッセージの内容。
 </para>
 </listitem>
 </varlistentry>
@@ -8996,8 +9043,12 @@ Relation
 </term>
 <listitem>
 <para>
+<!--
                Xid of the transaction (only present for streamed transactions).
                This field is available since protocol version 2.
+-->
+トランザクションのxid（ストリームトランザクションのためにのみ存在します）。
+このフィールドはプロトコルバージョン2以降で利用可能です。
 </para>
 </listitem>
 </varlistentry>
@@ -9162,8 +9213,12 @@ Type
 </term>
 <listitem>
 <para>
+<!--
                Xid of the transaction (only present for streamed transactions).
                This field is available since protocol version 2.
+-->
+トランザクションのxid（ストリームトランザクションのためにのみ存在します）。
+このフィールドはプロトコルバージョン2以降で利用可能です。
 </para>
 </listitem>
 </varlistentry>
@@ -9239,8 +9294,12 @@ Insert
 </term>
 <listitem>
 <para>
+<!--
                 Xid of the transaction (only present for streamed transactions).
                 This field is available since protocol version 2.
+-->
+トランザクションのxid（ストリームトランザクションのためにのみ存在します）。
+このフィールドはプロトコルバージョン2以降で利用可能です。
 </para>
 </listitem>
 </varlistentry>
@@ -9318,8 +9377,12 @@ Update
 </term>
 <listitem>
 <para>
+<!--
                Xid of the transaction (only present for streamed transactions).
                This field is available since protocol version 2.
+-->
+トランザクションのxid（ストリームトランザクションのためにのみ存在します）。
+このフィールドはプロトコルバージョン2以降で利用可能です。
 </para>
 </listitem>
 </varlistentry>
@@ -9459,8 +9522,12 @@ Delete
 </term>
 <listitem>
 <para>
+<!--
                Xid of the transaction (only present for streamed transactions).
                This field is available since protocol version 2.
+-->
+トランザクションのxid（ストリームトランザクションのためにのみ存在します）。
+このフィールドはプロトコルバージョン2以降で利用可能です。
 </para>
 </listitem>
 </varlistentry>
@@ -9568,8 +9635,12 @@ Truncate
 </term>
 <listitem>
 <para>
+<!--
                Xid of the transaction (only present for streamed transactions).
                This field is available since protocol version 2.
+-->
+トランザクションのxid（ストリームトランザクションのためにのみ存在します）。
+このフィールドはプロトコルバージョン2以降で利用可能です。
 </para>
 </listitem>
 </varlistentry>
@@ -9625,8 +9696,11 @@ Truncate
 
 <para>
 
+<!--
 The following messages (Stream Start, Stream Stop, Stream Commit, and
 Stream Abort) are available since protocol version 2.
+-->
+次のメッセージ（Stream Start、Stream Stop、Stream Commit、Stream Abort）はプロトコルバージョン2以降で利用可能です。
 
 </para>
 
@@ -9646,7 +9720,10 @@ Stream Start
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a stream start message.
+-->
+メッセージがストリーム開始メッセージであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -9656,7 +9733,10 @@ Stream Start
 </term>
 <listitem>
 <para>
+<!--
                 Xid of the transaction.
+-->
+トランザクションのxid。
 </para>
 </listitem>
 </varlistentry>
@@ -9666,8 +9746,11 @@ Stream Start
 </term>
 <listitem>
 <para>
+<!--
                 A value of 1 indicates this is the first stream segment for
                 this XID, 0 for any other stream segment.
+-->
+値が1ならこのXIDの最初のストリームセグメントであることを、0なら他のストリームセグメントであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -9691,7 +9774,10 @@ Stream Stop
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a stream stop message.
+-->
+メッセージがストリーム停止メッセージであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -9715,7 +9801,10 @@ Stream Commit
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a stream commit message.
+-->
+メッセージがストリームコミットメッセージであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -9725,7 +9814,10 @@ Stream Commit
 </term>
 <listitem>
 <para>
+<!--
                 Xid of the transaction.
+-->
+トランザクションのxid。
 </para>
 </listitem>
 </varlistentry>
@@ -9735,7 +9827,10 @@ Stream Commit
 </term>
 <listitem>
 <para>
+<!--
                 Flags; currently unused (must be 0).
+-->
+フラグ。今の所未使用です（0でなければなりません）。
 </para>
 </listitem>
 </varlistentry>
@@ -9745,7 +9840,10 @@ Stream Commit
 </term>
 <listitem>
 <para>
+<!--
                 The LSN of the commit.
+-->
+コミットのLSN。
 </para>
 </listitem>
 </varlistentry>
@@ -9755,7 +9853,10 @@ Stream Commit
 </term>
 <listitem>
 <para>
+<!--
                 The end LSN of the transaction.
+-->
+トランザクションの終了LSN。
 </para>
 </listitem>
 </varlistentry>
@@ -9765,8 +9866,12 @@ Stream Commit
 </term>
 <listitem>
 <para>
+<!--
                 Commit timestamp of the transaction. The value is in number
                 of microseconds since PostgreSQL epoch (2000-01-01).
+-->
+トランザクションのコミット時刻です。
+値はPostgreSQLエポック(2000-01-01)からのマイクロ秒数です。
 </para>
 </listitem>
 </varlistentry>
@@ -9790,7 +9895,10 @@ Stream Abort
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the message as a stream abort message.
+-->
+メッセージがストリームアボートメッセージであることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -9800,7 +9908,10 @@ Stream Abort
 </term>
 <listitem>
 <para>
+<!--
                 Xid of the transaction.
+-->
+トランザクションのxid。
 </para>
 </listitem>
 </varlistentry>
@@ -9810,8 +9921,11 @@ Stream Abort
 </term>
 <listitem>
 <para>
+<!--
                 Xid of the subtransaction (will be same as xid of the transaction for top-level
                 transactions).
+-->
+サブトラクションxid（トップレベルのトランザクションのxidと同じものになるでしょう）。
 </para>
 </listitem>
 </varlistentry>
@@ -9922,7 +10036,10 @@ TOAST値が変更されないことを識別します（実際の値は送信さ
 </term>
 <listitem>
 <para>
+<!--
                 Identifies the data as binary formatted value.
+-->
+データがバイナリフォーマット値であることを識別します。
 </para>
 </listitem>
 </varlistentry>
@@ -9950,8 +10067,8 @@ TOAST値が変更されないことを識別します（実際の値は送信さ
                 (As specified in the preceding format byte).
                 <replaceable>n</replaceable> is the above length.
 -->
-テキスト形式での列の値。
-（将来のリリースでは他の形式もサポートするかもしれません。）
+テキスト形式あるいはバイナリ形式での列の値。
+（先行するフォーマットバイトで指定されます。）
 <replaceable>n</replaceable>は上記の長さです。
 
 </para>
