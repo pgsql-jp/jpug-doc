@@ -8,11 +8,15 @@
  </indexterm>
 
  <para>
+<!--
   The <filename>amcheck</filename> module provides functions that allow you to
   verify the logical consistency of the structure of relations.
+-->
+<filename>amcheck</filename>モジュールは、リレーションの構造の論理的な一貫性を検査する機能を提供します。
  </para>
 
  <para>
+<!--
   The B-Tree checking functions verify various <emphasis>invariants</emphasis> in the
   structure of the representation of particular relations.  The
   correctness of the access method functions behind index scans and
@@ -25,10 +29,11 @@
   incorrectly guide index scans, resulting in wrong answers to SQL
   queries.  If the structure appears to be valid, no error is raised.
 -->
-この関数は、特定のリレーションの構造表現における様々な<emphasis>不変量</emphasis>を検査します。
+B-Tree検査関数は、特定のリレーションの構造表現における様々な<emphasis>不変量</emphasis>を検査します。
 インデックスの走査や、その他の重要な操作を担うアクセスメソッド関数の正しさは、これらの不変量を常に保つことに依存しています。
 たとえば、ある関数は、とりわけすべてのB-Treeページの中の項目が<quote>論理的な</quote>順序になっていることを検査します。（たとえば<type>text</type>のB-Treeインデックスでは、インデックスタプルは語句の照合順になっていなければなりません。）
 その特定の不変量が何らかの理由で保たれなければ、該当するページで二分探索が不正なインデックス走査をもたらし、SQL問い合わせに誤った答えを返すことになるでしょう。
+構造が適正であると見なされれば、エラーは報告されません。
  </para>
  <para>
 <!--
@@ -45,14 +50,19 @@
 演算子クラスサポート関数の詳細については<xref linkend="xindex-support"/>をご覧ください。
  </para>
  <para>
+<!--
   Unlike the B-Tree checking functions which report corruption by raising
   errors, the heap checking function <function>verify_heapam</function> checks
   a table and attempts to return a set of rows, one row per corruption
   detected.  Despite this, if facilities that
   <function>verify_heapam</function> relies upon are themselves corrupted, the
   function may be unable to continue and may instead raise an error.
+-->
+エラーを起こすことによって破損を報告するB-Tree検査関数とは違って、ヒープ検査関数<function>verify_heapam</function>はテーブルを検査し、破損の検出ごとに1行が対応する行の集合を返そうとします。
+にも関わらず、<function>verify_heapam</function>が依存する機能自体が破損していれば、この関数は続行することができず、代わりにエラーを引き起こすかもしれません。
  </para>
  <para>
+<!--
   Permission to execute <filename>amcheck</filename> functions may be granted
   to non-superusers, but before granting such permissions careful consideration
   should be given to data security and privacy concerns.  Although the
@@ -61,6 +71,9 @@
   of the corruptions found, an attacker who gains permission to execute these
   functions, particularly if the attacker can also induce corruption, might be
   able to infer something of the data itself from such messages.
+-->
+非スーパユーザに<filename>amcheck</filename>関数の実行許可を与えることができますが、そのような権限を許可する前に、データのセキュリティとプライバシー上の懸念を注意深く考慮すべきです。
+これらの関数が生成する破損報告は、データの構造と見つかった破損の性質ほどには、破損データの内容に焦点を当てるわけではありませんが、とりわけ攻撃者が破損を引き起こすこともできるのであれば、これらの関数の実行権限を与えられた攻撃者はそうしたメッセージからデータ自身を推測できるかもしれません。
  </para>
 
  <sect2>
@@ -280,24 +293,36 @@ SET client_min_messages = DEBUG1;
     </term>
     <listitem>
      <para>
+<!--
       Checks a table for structural corruption, where pages in the relation
       contain data that is invalidly formatted, and for logical corruption,
       where pages are structurally valid but inconsistent with the rest of the
       database cluster.
+-->
+リレーションのページが不正なフォーマットのデータを含む構造上の破損と、ページは構造的に正しいものの、データベースクラスタの他の部分と一貫していない論理上の破損に関してテーブルを検査します。
      </para>
      <para>
+<!--
       The following optional arguments are recognized:
+-->
+次のようなオプションの引数を認識します。
      </para>
      <variablelist>
       <varlistentry>
        <term><literal>on_error_stop</literal></term>
        <listitem>
         <para>
+<!--
          If true, corruption checking stops at the end of the first block in
          which any corruptions are found.
+-->
+真なら、破損が見つかった最初のブロックの終端で破損検査は終了します。
         </para>
         <para>
+<!--
          Defaults to false.
+-->
+デフォルトは偽です。
         </para>
        </listitem>
       </varlistentry>
@@ -305,17 +330,28 @@ SET client_min_messages = DEBUG1;
        <term><literal>check_toast</literal></term>
        <listitem>
         <para>
+<!--
          If true, toasted values are checked against the target relation's
          TOAST table.
+-->
+真なら、トースト化された値が対象リレーションのTOASTテーブルに対して検査されます。
         </para>
         <para>
+<!--
          This option is known to be slow.  Also, if the toast table or its
          index is corrupt, checking it against toast values could conceivably
          crash the server, although in many cases this would just produce an
          error.
+-->
+このオプションは遅いことが知られています。
+また、トーストテーブルあるいはそのインデックスが破損していると、それをトースト値に対して検査することで、おそらくサーバがクラッシュすることもあり得ます。
+もっとも、多くの場合には単にエラーが生じるだけでしょう。
         </para>
         <para>
+<!--
          Defaults to false.
+-->
+デフォルトは偽です。
         </para>
        </listitem>
       </varlistentry>
@@ -323,13 +359,20 @@ SET client_min_messages = DEBUG1;
        <term><literal>skip</literal></term>
        <listitem>
         <para>
+<!--
          If not <literal>none</literal>, corruption checking skips blocks that
          are marked as all-visible or all-frozen, as specified.
          Valid options are <literal>all-visible</literal>,
          <literal>all-frozen</literal> and <literal>none</literal>.
+-->
+<literal>none</literal>でなければ、指定されたとおりに破損検査はすべて可視あるいは凍結されていると印が付けられたブロックをスキップします。
+可能なオプションは<literal>all-visible</literal>、<literal>all-frozen</literal>、<literal>none</literal>です。
         </para>
         <para>
+<!--
          Defaults to <literal>none</literal>.
+-->
+デフォルトは<literal>none</literal>です。
         </para>
        </listitem>
       </varlistentry>
@@ -337,13 +380,20 @@ SET client_min_messages = DEBUG1;
        <term><literal>startblock</literal></term>
        <listitem>
         <para>
+<!--
          If specified, corruption checking begins at the specified block,
          skipping all previous blocks.  It is an error to specify a
          <parameter>startblock</parameter> outside the range of blocks in the
          target table.
+-->
+指定すると、破損検査は前のブロックをすべてスキップして指定ブロックから開始されます。
+<parameter>startblock</parameter>をターゲットテーブルに含まれるブロックの範囲外で指定するとエラーになります。
         </para>
         <para>
+<!--
          By default, checking begins at the first block.
+-->
+デフォルトでは最初のブロックから検索が始まります。
         </para>
        </listitem>
       </varlistentry>
@@ -351,27 +401,40 @@ SET client_min_messages = DEBUG1;
        <term><literal>endblock</literal></term>
        <listitem>
         <para>
+<!--
          If specified, corruption checking ends at the specified block,
          skipping all remaining blocks.  It is an error to specify an
          <parameter>endblock</parameter> outside the range of blocks in the target
          table.
+-->
+指定すると、残りのすべてのブロックをスキップして指定ブロックで破損検査が終了します。
+<parameter>endtblock</parameter>をターゲットテーブルに含まれるブロックの範囲外で指定するとエラーになります。
         </para>
         <para>
+<!--
          By default, all blocks are checked.
+-->
+デフォルトではすべてのブロックが検査されます。
         </para>
        </listitem>
       </varlistentry>
      </variablelist>
      <para>
+<!--
       For each corruption detected, <function>verify_heapam</function> returns
       a row with the following columns:
+-->
+個々の破損の検出に対して<function>verify_heapam</function>は以下の列を含む行を返します。
      </para>
      <variablelist>
       <varlistentry>
        <term><literal>blkno</literal></term>
        <listitem>
         <para>
+<!--
          The number of the block containing the corrupt page.
+-->
+破損ページを含むブロック番号。
         </para>
        </listitem>
       </varlistentry>
@@ -379,7 +442,10 @@ SET client_min_messages = DEBUG1;
        <term><literal>offnum</literal></term>
        <listitem>
         <para>
+<!--
          The OffsetNumber of the corrupt tuple.
+-->
+破損タプルのOffsetNumber。
         </para>
        </listitem>
       </varlistentry>
@@ -387,8 +453,11 @@ SET client_min_messages = DEBUG1;
        <term><literal>attnum</literal></term>
        <listitem>
         <para>
+<!--
          The attribute number of the corrupt column in the tuple, if the
          corruption is specific to a column and not the tuple as a whole.
+-->
+タプル全体ではなく、破損が特定の列にのみ起こっているなら、タプル内の破損列の属性番号。
         </para>
        </listitem>
       </varlistentry>
@@ -396,7 +465,10 @@ SET client_min_messages = DEBUG1;
        <term><literal>msg</literal></term>
        <listitem>
         <para>
+<!--
          A message describing the problem detected.
+-->
+検出された問題を記述するメッセージ。
         </para>
        </listitem>
       </varlistentry>
@@ -427,7 +499,7 @@ SET client_min_messages = DEBUG1;
   index that is equivalent to the existing, target index must only
   have entries that can be found in the existing structure.
 -->
-検証関数の<parameter>heapallindexed</parameter>引数が<literal>true</literal>ならば、ターゲットのインデックスリレーションと関連付けられたテーブルに対して追加の検証フェーズが実施されます。
+B-Tree検証関数の<parameter>heapallindexed</parameter>引数が<literal>true</literal>ならば、ターゲットのインデックスリレーションと関連付けられたテーブルに対して追加の検証フェーズが実施されます。
 これは<quote>ダミー</quote>の<command>CREATE INDEX</command>操作から構成され、インメモリ上の一時的なサマリー構造（これは必要に応じて基礎的な最初の検証フェーズで構築されます）に対する仮想的な新しいインデックスタプルがすべて存在することをチェックします。
 サマリー構造はターゲットのインデックスで見つかったすべてのタプルに対して<quote>指紋採取(fingerprint)</quote>を行います。
 <parameter>heapallindexed</parameter>検証の背後にある高レベルの原理は、新しいインデックスが既存のインデックスと等しいこと、ターゲットインデックスが既存の構造中に見つかったエントリーのみを含むことです。
@@ -481,7 +553,7 @@ SET client_min_messages = DEBUG1;
   linkend="app-initdb-data-checksums"><application>data
   checksums</application></link> will fail to catch.  These include:
 -->
-<filename>amcheck</filename>は、<link linkend="app-initdb-data-checksums"><application>データページチェックサム</application></link>が検知できないような、様々なタイプの障害モードを効果的に検知できます。
+<filename>amcheck</filename>は、<link linkend="app-initdb-data-checksums"><application>データチェックサム</application></link>が検知できないような、様々なタイプの障害モードを効果的に検知できます。
 以下のようなものがあります。
 
   <itemizedlist>
@@ -511,7 +583,7 @@ SET client_min_messages = DEBUG1;
 オペレーティングシステムの照合順の比較ルールの変更による問題も含まれます。
 <type>text</type>のような照合可能な型のデータの比較は、不変でなけれならず（B-Treeインデックスの走査のための、すべての比較が不変でなければならないのと同じことです）、それはオペレーティングシステムの照合順が決して変化してはいけないことを意味します。
 まれであるとは言え、オペレーティングシステムの照合順ルールの更新は、これらの問題を引き起こします。
-もっと普通に起こることとしては、マスターサーバとスタンバイサーバの照合順の違いが関与することです。
+もっと普通に起こることとしては、プライマリサーバとスタンバイサーバの照合順の違いが関与することです。
 これは、使用されているオペレーティングシステムの<emphasis>メジャー</emphasis>バージョンに一貫性がないことによります。
 そうした一貫性の欠如は一般的にスタンバイサーバでのみ起こるので、通常スタンバイサーバでのみ検出されます。
     </para>
@@ -633,14 +705,19 @@ SET client_min_messages = DEBUG1;
  </para>
 
  <para>
+<!--
   Structural corruption can happen due to faulty storage hardware, or
   relation files being overwritten or modified by unrelated software.
   This kind of corruption can also be detected with
   <link linkend="checksums"><application>data page
   checksums</application></link>.
+-->
+構造上の破損は故障したストレージハードウェア、あるいはリレーションファイルが無関係のソフトウェアによって上書きされたり変更されることによって起こることがあります。
+この種の破損は<link linkend="checksums"><application>データページチェックサム</application></link>によっても検出することができます。
  </para>
 
  <para>
+<!--
   Relation pages which are correctly formatted, internally consistent, and
   correct relative to their own internal checksums may still contain
   logical corruption.  As such, this kind of corruption cannot be detected
@@ -648,16 +725,24 @@ SET client_min_messages = DEBUG1;
   values in the main table which lack a corresponding entry in the toast
   table, and tuples in the main table with a Transaction ID that is older
   than the oldest valid Transaction ID in the database or cluster.
+-->
+正しくフォーマットされ、内部的に一貫していて、かつ自身の内部チェックサムが正しいリレーションページでも論理的に破損していることがあります。
+ですから、この種の破損は<application>チェックサム</application>では検出できません。
+例としては、主テーブルのトースト化された値に対応するトーストテーブルのエントリが存在しない、主テーブルのタプルのトランザクションIDがデータベースクラスタ内の有効な最古のトランザクションIDよりも古い、などがあります。
  </para>
 
  <para>
+<!--
   Multiple causes of logical corruption have been observed in production
   systems, including bugs in the <productname>PostgreSQL</productname>
   server software, faulty and ill-conceived backup and restore tools, and
   user error.
+-->
+<productname>PostgreSQL</productname>サーバソフトウェアのバグ、欠陥があったり、よく考慮されていないバックアップ、リストアツール、ユーザのエラーなど、論理的破損の複数の原因が実運用システム上で観測されています。
  </para>
 
  <para>
+<!--
   Corrupt relations are most concerning in live production environments,
   precisely the same environments where high risk activities are least
   welcome.  For this reason, <function>verify_heapam</function> has been
@@ -666,6 +751,11 @@ SET client_min_messages = DEBUG1;
   query could be unsafe on a badly corrupted system.   Access to <link
   linkend="catalogs-overview">catalog tables</link> is performed and could
   be problematic if the catalogs themselves are corrupted.
+-->
+破損したリレーションは、リスクの高い活動がもっとも忌避される環境である、運用中の実システム環境では最大の懸念事項です。
+このため、<function>verify_heapam</function>は過度のリスクを伴わずに破損を診断するように設計されています。
+ひどく破損したシステムでは問い合わせの呼び出しを実行するだけでも安全ではないため、バックエンドのクラッシュのすべての原因から守ることはできません。
+カタログ自身が破損していれば<link linkend="catalogs-overview">カタログテーブル</link>へのアクセスの実行も問題になるでしょう。
  </para>
 
  <para>
