@@ -127,7 +127,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
 この機能は、<firstterm>並列バキューム</firstterm>として知られています。
 この機能を無効にするには、<literal>PARALLEL</literal>オプションでパラレルワーカーの数をゼロに指定します。
 <command>VACUUM FULL</command>では、テーブルの内容全体を新しいディスクファイルに領域を余すことなく書き換えるため、オペレーティングシステムに未使用の領域を返すことができます。
-この形式では、実行速度がかなり低速になります。また、処理中のテーブルに対する排他的ロックが必要になります。
+この形式では、実行速度がかなり低速になります。また、処理中のテーブルに対する<literal>ACCESS EXCLUSIVE</literal>ロックが必要になります。
   </para>
 
   <para>
@@ -277,6 +277,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <term><literal>INDEX_CLEANUP</literal></term>
     <listitem>
      <para>
+<!--
       Normally, <command>VACUUM</command> will skip index vacuuming
       when there are very few dead tuples in the table.  The cost of
       processing all of the table's indexes is expected to greatly
@@ -291,8 +292,16 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       useful for backwards compatibility with earlier releases of
       <productname>PostgreSQL</productname> where this was the
       standard behavior.
+-->
+通常、<command>VACUUM</command>は、テーブル内に無効なタプルがほとんどない場合インデックスのバキュームをスキップします。
+テーブルのインデックスをすべて処理するコストは、無効なインデックスタプルを削除した場合にそれにより得られる利益を大きく上回ると考えられます。
+このオプションは、無効なタプルが1つ以上ある場合に<command>VACUUM</command>にインデックスを強制的に処理させるのに使えます。
+デフォルトは<literal>AUTO</literal>で、適切な場合<command>VACUUM</command>はインデックスのバキュームをスキップします。
+<literal>INDEX_CLEANUP</literal>が<literal>ON</literal>に設定されていれば、<command>VACUUM</command>は保守的にインデックスから無効なタプルをすべて削除します。
+この動作が標準だった<productname>PostgreSQL</productname>の以前のリリースとの後方互換性のためには、これは有用かもしれません。
      </para>
      <para>
+<!--
       <literal>INDEX_CLEANUP</literal> can also be set to
       <literal>OFF</literal> to force <command>VACUUM</command> to
       <emphasis>always</emphasis> skip index vacuuming, even when
@@ -308,14 +317,24 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       modified indexes will accumulate dead tuples and the table
       itself will accumulate dead line pointers that cannot be removed
       until index cleanup is completed.
+-->
+<literal>INDEX_CLEANUP</literal>を<literal>OFF</literal>に設定して、<command>VACUUM</command>に<emphasis>必ず</emphasis>インデックスのバキュームをスキップするよう強制することもできます。テーブルに多くの無効なタプルがある場合でさえも同様です。
+切迫したトランザクションIDの周回を避けるため<command>VACUUM</command>をできる限り速く実行することが必要な場合には、これは有用かもしれません(<xref linkend="vacuum-for-wraparound"/>を参照してください)。
+しかしながら、たいていは<xref linkend="guc-vacuum-failsafe-age"/>により制御される周回安全機構がトランザクションIDの周回の失敗を避けるために自動的に発動しますし、そちらの方が好ましいです。
+インデックスクリーンアップが定期的に実行されていなければ、テーブルが修正されるに従い、インデックスは無効なタプルを蓄積し、テーブル自身もインデックスクリーンアップが完了するまで削除できない無効な行ポインタを蓄積していきますので、性能は悪化するでしょう。
      </para>
      <para>
+<!--
       This option has no effect for tables that have no index and is
       ignored if the <literal>FULL</literal> option is used.  It also
       has no effect on the transaction ID wraparound failsafe
       mechanism.  When triggered it will skip index vacuuming, even
       when <literal>INDEX_CLEANUP</literal> is set to
       <literal>ON</literal>.
+-->
+このオプションはテーブルにインデックスがない場合には効果がありませんし、<literal>FULL</literal>オプションが使われている場合には無視されます。
+トランザクションID周回安全機構にも影響はありません。
+発動した場合には、<literal>INDEX_CLEANUP</literal>が<literal>ON</literal>に設定されていたとしても、インデックスのバキュームをスキップします。
      </para>
     </listitem>
    </varlistentry>
@@ -332,11 +351,10 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
       vacuum the main relation. This option is required when the
       <literal>FULL</literal> option is used.
 -->
-<command>VACUUM</command>に、無効なタプルを指しているインデックスのエントリーの削除を試みるよう指定します。
-これは普通は望まれる振舞いであり、バキュームされるテーブルに対して<literal>vacuum_index_cleanup</literal>オプションが偽に設定されていない限りデフォルトです。
-このオプションを偽に設定するのは、バキュームの実行をできる限り速くする必要がある場合には有用かもしれません。例えば、切迫したトランザクションIDの周回を避ける場合です(<xref linkend="vacuum-for-wraparound"/>を参照してください)。
-しかしながら、インデックスの掃除を定期的に行なわない場合、テーブルが修正されるに従い、インデックスは無効なタプルを蓄積し、テーブル自身もインデックスの掃除が完了するまで削除できない無効な行ポインタを蓄積していきますので、パフォーマンスは悪くなるでしょう。
-このオプションはインデックスを持たないテーブルには影響せず、<literal>FULL</literal>オプションが使われていれば無視されます。
+各リレーションに対応する<literal>TOAST</literal>テーブルが存在するのなら、<command>VACUUM</command>がその処理を試みるよう指定します。
+これは普通は望まれる振舞いであり、デフォルトです。
+このオプションを偽に設定するのは、主リレーションをバキュームすることだけが必要な場合には有用かもしれません。
+<literal>FULL</literal>オプションを使うときにはこのオプションが必要です。
      </para>
     </listitem>
    </varlistentry>
@@ -590,6 +608,7 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
 自動バキューム処理および手作業によるバキューム処理に関する詳細については、<xref linkend="routine-vacuuming"/>を参照してください。
    </para>
    <para>
+<!--
     Each backend running <command>VACUUM</command> without the
     <literal>FULL</literal> option will report its progress in the
     <structname>pg_stat_progress_vacuum</structname> view. Backends running
@@ -597,6 +616,10 @@ VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ ANALYZE ] [ <replaceable class="paramet
     <structname>pg_stat_progress_cluster</structname> view. See
     <xref linkend="vacuum-progress-reporting"/> and
     <xref linkend="cluster-progress-reporting"/> for details.
+-->
+<command>VACUUM</command>を<literal>FULL</literal>オプションなしで実行している各バックエンドはその進捗を<structname>pg_stat_progress_vacuum</structname>ビューで報告します。
+<command>VACUUM FULL</command>を実行しているバックエンドはその代わりにその進捗を<structname>pg_stat_progress_cluster</structname>ビューで報告します。
+詳細は<xref linkend="vacuum-progress-reporting"/>と<xref linkend="cluster-progress-reporting"/>を参照してください。
    </para>
  </refsect1>
 
