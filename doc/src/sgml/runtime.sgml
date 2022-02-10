@@ -1002,9 +1002,12 @@ TCP/IP通信を試みた時に上記のように表示されます。
 psql: error: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory
         Is the server running locally and accepting connections on that socket?
 </screen>
+<!--
      If the server is indeed running, check that the client's idea of the
      socket path (here <literal>/tmp</literal>) agrees with the server's
      <xref linkend="guc-unix-socket-directories"/> setting.
+-->
+サーバが実行中にもかかわらずこうなるなら、クライアントが想定しているソケットパス（ここでは<literal>/tmp</literal>）がサーバの<xref linkend="guc-unix-socket-directories"/>設定と一致しているかどうか確認してください。
     </para>
 
     <para>
@@ -1025,11 +1028,11 @@ psql: error: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such
      indicate more fundamental problems, like lack of network
      connectivity, or a firewall blocking the connection.
 -->
-最後の行は、クライアントが正しいところに接続しようとしていることを実証するのに役立ちます。
-もしそこに動いているサーバがない場合、典型的なカーネルエラーメッセージは、表示されているように<computeroutput>Connection refused</computeroutput>もしくは<computeroutput>No such file or directory</computeroutput>となります。
+接続失敗のメッセージは常にサーバのアドレスか、ソケットパス名を表示し、クライアントが正しいところに接続しようとしていることを確認するのに役立ちます。
+もしそこを接続待ちしているサーバがない場合、典型的なカーネルエラーメッセージは、表示されているように<computeroutput>Connection refused</computeroutput>もしくは<computeroutput>No such file or directory</computeroutput>となります。
 （この場合の<computeroutput>Connection refused</computeroutput>はサーバが接続要求を受け付けた後に拒否したわけでは<emphasis>ない</emphasis>ということを理解しておくことが大切です。
 もしそうだった場合は<xref linkend="client-authentication-problems"/>で示されるような別のメッセージが表示されます。）
-<computeroutput>Connection timed out</computeroutput>のような他のメッセージは、例えばネットワーク接続の欠如のようなもっと根本的な問題を表しています。
+<computeroutput>Connection timed out</computeroutput>のような他のメッセージは、例えばネットワーク接続の欠如、あるいはファイアーウォールが接続をブロックしているようなもっと根本的な問題を表しています。
     </para>
    </sect2>
   </sect1>
@@ -2204,7 +2207,7 @@ export PG_OOM_ADJUST_VALUE=0
 -->
 <productname>PostgreSQL</productname>のように、メモリの大きな連続チャンクを使用するとき、特に<xref linkend="guc-shared-buffers"/>の値が大きい場合に、huge pagesを使用するとオーバーヘッドが減少します。
 <productname>PostgreSQL</productname>でこの機能を有効にするには、<varname>CONFIG_HUGETLBFS=y</varname>および<varname>CONFIG_HUGETLB_PAGE=y</varname>としたカーネルが必要です。
-またカーネル設定<varname>vm.nr_hugepages</varname>を調整する必要もあるでしょう。
+また、要求される十分な量だけhuge pagesを提供するようにオペレーティングシステムを調整する必要があるでしょう。
 必要なhuge pages数を見積もるには、huge pagesを有効にせずに<productname>PostgreSQL</productname>を起動し、<filename>/proc</filename>ファイルシステムを使用してpostmasterの無名共有セグメントサイズとシステムのhuge pageサイズの値をチェックします。
 これは以下のような感じになるでしょう。
 <programlisting>
@@ -2218,6 +2221,7 @@ $ <userinput>ls /sys/kernel/mm/hugepages</userinput>
 hugepages-1048576kB  hugepages-2048kB
 </programlisting>
 
+<!--
      In this example the default is 2MB, but you can also explicitly request
      either 2MB or 1GB with <xref linkend="guc-huge-page-size"/>.
 
@@ -2227,17 +2231,30 @@ hugepages-1048576kB  hugepages-2048kB
      least <literal>3170</literal> huge pages.  A larger setting would be
      appropriate if other programs on the machine also need huge pages.
      We can set this with:
+-->
+この例ではデフォルトは2MBです。しかし、<xref linkend="guc-huge-page-size"/>で明示的に2MBあるいは1GBを要求することができます。
+
+<literal>2MB</literal>のhuge pagesを想定すると、<literal>6490428</literal> / <literal>2048</literal>はおおよそ<literal>3169.154</literal>となり、この例では<literal>3170</literal>のhuge pagesが必要となります。
+このマシンで他のプログラムもhuge pagesを必要とする場合には、より大きな値を設定するのが適切です。
+以下のようにして設定できます。
 <programlisting>
 # <userinput>sysctl -w vm.nr_hugepages=3170</userinput>
 </programlisting>
+<!--
      Don't forget to add this setting to <filename>/etc/sysctl.conf</filename>
      so that it is reapplied after reboots.  For non-default huge page sizes,
      we can instead use:
+-->
+再起動後にこの設定が行われるように、<filename>/etc/sysctl.conf</filename>にこの設定を追加するのを忘れないようにしましょう。
+非標準のhuge pageサイズなら、代わりに以下のようにできます。
 <programlisting>
 # <userinput>echo 3170 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</userinput>
 </programlisting>
+<!--
     It is also possible to provide these settings at boot time using
     kernel parameters such as <literal>hugepagesz=2M hugepages=3170</literal>.
+-->
+<literal>hugepagesz=2M hugepages=3170</literal>のようにして、起動時にカーネルパラメータとしてこれらの設定を与えることもできます。
    </para>
 
    <para>
@@ -2248,9 +2265,9 @@ hugepages-1048576kB  hugepages-2048kB
     the machine's memory should be available to convert into huge pages.)
     To verify the huge page allocation situation for a given size, use:
 -->
-時には、カーネルは求められた数のhuge pagesを割り当てることができないことがあるので、そのコマンドを繰り返すか、再起動する必要があるかもしれません。
+時には、断片化のためにカーネルは求められた数のhuge pagesを直ちには割り当てることができないことがあるので、そのコマンドを繰り返すか、再起動する必要があるかもしれません。
 （再起動の直後は、マシンのメモリの大部分はhuge pagesへの変更が可能なはずです。）
-huge pagesの割り当ての状況を確認するには、次のようにします。
+指定サイズに対するhuge pagesの割り当ての状況を確認するには、次のようにします。
 <programlisting>
 $ <userinput>cat /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</userinput>
 </programlisting>
@@ -2277,7 +2294,7 @@ $ <userinput>cat /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</userinp
     Note that with this setting <productname>PostgreSQL</productname> will fail to
     start if not enough huge pages are available.
 -->
-<productname>PostgreSQL</productname>のhuge pagesのデフォルトの動作は、可能な場合はhuge pagesを使用し、失敗した場合は通常のページを使用します。
+<productname>PostgreSQL</productname>のhuge pagesのデフォルトの動作は、可能な場合はシステムのデフォルトサイズのhuge pagesを使用し、失敗した場合は通常のページを使用します。
 <filename>postgresql.conf</filename>で<xref linkend="guc-huge-pages"/>を<literal>on</literal>に設定することで、huge pagesの使用を強制することができます。
 この設定の場合、十分なhuge pagesが確保できなければ、<productname>PostgreSQL</productname>の起動に失敗することに注意してください。
    </para>
@@ -2406,7 +2423,7 @@ $ <userinput>cat /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</userinp
 これは<firstterm>即時シャットダウン</firstterm>モードです。
 サーバは、すべての子プロセスに<systemitem>SIGQUIT</systemitem>を送信し、それらが終了するのを待ちます。
 5秒以内に終了しないものには、<systemitem>SIGKILL</systemitem>が送られます。
-すべての子プロセスが終了したら、マスタサーバプロセスはすぐに終了しますが、このとき通常のデータベースのシャットダウン処理を実行しません。
+すべての子プロセスが終了したら、スーパーバイザサーバプロセスはすぐに終了しますが、このとき通常のデータベースのシャットダウン処理を実行しません。
 これは次の起動時に（WALログを再実行することで）リカバリをすることになります。
 これは緊急の時にのみ使うことを勧めます。
       </para>
@@ -2567,7 +2584,7 @@ $ <userinput>kill -INT `head -1 /usr/local/pgsql/data/postmaster.pid`</userinput
 このためアプリケーションのプログラム変更が必要になる可能性があります。
 ユーザに影響する変更はすべてリリースノート（<xref linkend="release"/>）に列挙されています。
 「移行」という名前の節に特に注意してください。
-複数のメジャーバージョンをまたいでアップグレードする場合は、関連するバージョンそれぞれのリリースノートを確認してください。
+あるメジャーバージョンから他のメジャーバージョンへと途中のバージョンを経由しないでアップグレードできますが、途中のバージョンすべてのリリースノートを確認してください。
   </para>
 
   <para>
@@ -2956,7 +2973,7 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
 論理レプリケーションを使って更新対象のバージョンの<productname>PostgreSQL</productname>をスタンバイサーバとして作成することもできます。
 論理レプリケーションが異なるメジャーバージョンの<productname>PostgreSQL</productname>の間でレプリケーションすることができるため、これが実現できます。
 スタンバイは同じコンピュータで作成することも異なるコンピュータで作成することもできます。
-（古いバージョンの<productname>PostgreSQL</productname>で実行している）マスタサーバと同期した後、マスタを切り替え、スタンバイをマスタにし、古いデータベースインスタンスを停止することができます。
+（古いバージョンの<productname>PostgreSQL</productname>で実行している）プライマリサーバと同期した後、プライマリを切り替え、スタンバイをプライマリにし、古いデータベースインスタンスを停止することができます。
 このようなスイッチオーバの結果、数秒の停止時間でアップグレードされます。
    </para>
 
@@ -3564,7 +3581,7 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    file only if a client certificate is presented and the CA is configured.
 -->
 認証オプション<literal>clientcert</literal>はすべての認証方式について利用可能ですが、<filename>pg_hba.conf</filename>の<literal>hostssl</literal>として指定された行でのみ有効です。
-<literal>clientcert</literal>が指定されていない、または<literal>no-verify</literal>と設定されている場合でも、認証局のリストが設定されていれば、サーバはその認証局に対してクライアント証明書の検証を行いますが、クライアント証明書を提示することを要求しません。
+<literal>clientcert</literal>が指定されていない場合でも、クライアント証明書が提示され、認証局が設定されているときに限ってサーバはその認証局ファイルに対してクライアント証明書の検証を行います。
   </para>
 
   <para>
@@ -3909,6 +3926,7 @@ openssl x509 -req -in server.csr -text -days 365 \
    </para>
 
    <para>
+<!--
     When using <acronym>GSSAPI</acronym> for encryption, it is common to
     use <acronym>GSSAPI</acronym> for authentication as well, since the
     underlying mechanism will determine both client and server identities
@@ -3916,6 +3934,9 @@ openssl x509 -req -in server.csr -text -days 365 \
     case.  But this is not required;
     another <productname>PostgreSQL</productname> authentication method
     can be chosen to perform additional verification.
+-->
+常に基盤の仕組みがクライアントとサーバの身元を（<acronym>GSSAPI</acronym>の実装により）特定するため、暗号化に<acronym>GSSAPI</acronym>を使用する際は、<acronym>GSSAPI</acronym>を認証にも使うのが一般的です。
+しかしこれは必須ではありません。追加の認証を行うために、<productname>PostgreSQL</productname>の他の認証方法を選択することができます。
    </para>
 
    <para>
