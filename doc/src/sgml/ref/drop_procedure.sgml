@@ -46,9 +46,9 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
    procedure(s) usually must be specified, since several different procedures
    can exist with the same name and different argument lists.
 -->
-<command>DROP PROCEDURE</command>は既存のプロシージャ定義を削除します。
+<command>DROP PROCEDURE</command>は1つ以上の既存のプロシージャ定義を削除します。
 このコマンドを実行できるのは、そのプロシージャの所有者のみです。
-プロシージャの引数の型は必ず指定しなければなりません。
+プロシージャの引数の型は通常必ず指定しなければなりません。
 異なる引数を持つ同じ名前のプロシージャが複数存在する可能性があるからです。
   </para>
  </refsect1>
@@ -82,7 +82,6 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
       The name (optionally schema-qualified) of an existing procedure.
 -->
 既存の関数の名前です（スキーマ修飾名も可）。
-引数リストを指定しない場合、名前はスキーマ内で一意でなければなりません。
      </para>
     </listitem>
    </varlistentry>
@@ -97,8 +96,8 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
       <literal>INOUT</literal>, or <literal>VARIADIC</literal>.  If omitted,
       the default is <literal>IN</literal> (but see below).
 -->
-引数モードで、<literal>IN</literal>か<literal>VARIADIC</literal>のいずれかです。
-省略した場合のデフォルトは<literal>IN</literal>です。
+引数モードで、<literal>IN</literal>か<literal>OUT</literal>か<literal>INOUT</literal>か<literal>VARIADIC</literal>のいずれかです。
+省略した場合のデフォルトは<literal>IN</literal>です（ただし、以下を参照）。
      </para>
     </listitem>
    </varlistentry>
@@ -115,7 +114,7 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
       types are used to determine the procedure's identity.
 -->
 引数の名前です。
-プロシージャの識別を行うには引数のデータ型のみが必要ですので、実際には<command>DROP PROCEDURE</command>は引数の名前を無視することに注意してください。
+プロシージャの識別を行うには引数のデータ型のみが使用されますので、実際には<command>DROP PROCEDURE</command>は引数の名前を無視することに注意してください。
      </para>
     </listitem>
    </varlistentry>
@@ -131,6 +130,7 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
       See below for details.
 -->
 もしあれば、そのプロシージャの引数のデータ型（スキーマ修飾可能）です。
+詳細は以下を参照してください。
      </para>
     </listitem>
    </varlistentry>
@@ -166,14 +166,22 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
  </refsect1>
 
  <refsect1 id="sql-dropprocedure-notes">
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    If there is only one procedure of the given name, the argument list
    can be omitted.  Omit the parentheses too in this case.
+-->
+指定した名前のプロシージャが1つしかない場合は、引数リストを省略できます。 
+この場合は括弧も省略してください。
   </para>
 
   <para>
+<!--
    In <productname>PostgreSQL</productname>, it's sufficient to list the
    input (including <literal>INOUT</literal>) arguments,
    because no two routines of the same name are allowed to share the same
@@ -183,9 +191,16 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
    are explicitly marked <literal>OUT</literal> are just noise.  But
    writing them is recommendable for consistency with the
    corresponding <command>CREATE</command> command.
+-->
+<productname>PostgreSQL</productname>では、入力引数（<literal>INOUT</literal>を含む）を列挙すれば十分です。
+これは同じ名前のルーチンが同じ入力引数リストを共有することは許可されていないためです。 
+さらに<command>DROP</command>コマンドは<literal>OUT</literal>引数の型を正しく書いたかどうかを実際にはチェックしません。
+したがって、明示的に<literal>OUT</literal>と記された引数は単なるノイズにすぎません。
+しかし、対応する<command>CREATE</command>コマンドとの一貫性を保つために、これらを書いておくことをお勧めします。
   </para>
 
   <para>
+<!--
    For compatibility with the SQL standard, it is also allowed to write
    all the argument data types (including those of <literal>OUT</literal>
    arguments) without
@@ -202,12 +217,21 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
    be defaulted, thus forcing the
    traditional <productname>PostgreSQL</productname> interpretation to be
    used.
+-->
+SQL標準との互換性のため、<replaceable class="parameter">argmode</replaceable>印を付けずに、すべての引数のデータ型（<literal>OUT</literal>引数のデータ型を含む）を書くこともできます。
+これが行なわれると、プロシージャの<literal>OUT</literal>引数の型はコマンドに対して検証されるように<emphasis>なるでしょう</emphasis>。
+この規定は、引数リストに<replaceable class="parameter">argmode</replaceable>印が含まれていない場合、どの規則を意図しているのかが不明確であるという曖昧さを生じさせます。
+<command>DROP</command>コマンドは両方の方法で検索を試み、2つの異なるプロシージャが見つかった場合エラーを生じます。
+このような曖昧さのリスクを避けるために、<literal>IN</literal>印をデフォルトにするのではなく明示的に記述して、従来の<productname>PostgreSQL</productname>解釈を強制的に使用することをお勧めします。
   </para>
 
   <para>
+<!--
    The lookup rules just explained are also used by other commands that
    act on existing procedures, such as <command>ALTER PROCEDURE</command>
    and <command>COMMENT ON PROCEDURE</command>.
+-->
+ここで説明した検索規則は、<command>ALTER PROCEDURE</command>や<command>COMMENT ON PROCEDURE</command>など、既存のプロシージャーに作用する他のコマンドでも使用されます。
   </para>
  </refsect1>
 
@@ -218,19 +242,28 @@ DROP PROCEDURE [ IF EXISTS ] <replaceable class="parameter">name</replaceable> [
   <title>例</title>
 
   <para>
+<!--
    If there is only one procedure <literal>do_db_maintenance</literal>,
    this command is sufficient to drop it:
+-->
+<literal>do_db_maintenance</literal>プロシージャが1つしかない場合、次のコマンドで削除できます。
 <programlisting>
 DROP PROCEDURE do_db_maintenance;
 </programlisting>
   </para>
 
   <para>
+<!--
    Given this procedure definition:
+-->
+下記のプロシージャ定義が与えられた時、
 <programlisting>
 CREATE PROCEDURE do_db_maintenance(IN target_schema text, OUT results text) ...
 </programlisting>
+<!--
    any one of these commands would work to drop it:
+-->
+下記のコマンドのいずれかを使用すれば、プロシージャを削除することができます。
 <programlisting>
 DROP PROCEDURE do_db_maintenance(IN target_schema text, OUT results text);
 DROP PROCEDURE do_db_maintenance(IN text, OUT text);
@@ -238,7 +271,10 @@ DROP PROCEDURE do_db_maintenance(IN text);
 DROP PROCEDURE do_db_maintenance(text);
 DROP PROCEDURE do_db_maintenance(text, text);  -- potentially ambiguous
 </programlisting>
+<!--
    However, the last example would be ambiguous if there is also, say,
+-->
+しかし、最後の例は、例えば下記もあると曖昧になります。
 <programlisting>
 CREATE PROCEDURE do_db_maintenance(IN target_schema text, IN options text) ...
 </programlisting>
@@ -268,14 +304,14 @@ CREATE PROCEDURE do_db_maintenance(IN target_schema text, IN options text) ...
 <!--
      <para>The <literal>IF EXISTS</literal> option is an extension.</para>
 -->
-     <para><literal>IF EXISTS</literal>オプション</para>
+     <para><literal>IF EXISTS</literal>オプションは拡張です。</para>
     </listitem>
     <listitem>
 <!--
      <para>The ability to specify argument modes and names is an
      extension, and the lookup rules differ when modes are given.</para>
 -->
-     <para>引数モードと引数名を指定できます。</para>
+     <para>引数モードと引数名を指定できるのは拡張で、モードが指定されている場合は検索規則が異なります。</para>
     </listitem>
    </itemizedlist></para>
  </refsect1>
