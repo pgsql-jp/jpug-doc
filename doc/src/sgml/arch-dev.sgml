@@ -34,9 +34,7 @@
 -->
 本章では<productname>PostgreSQL</productname>のバックエンドの内部構造の概要を説明します。
 次からの節を読んだ後には、問い合わせがどのように処理されるかの概念がつかめているはずです。
-ここでは<productname>PostgreSQL</productname>の内部操作の詳細な説明は行いません。
-記述するとしたら文章が膨大になってしまうからです。
-どちらかと言えば、バックエンドが問い合わせを受け取った時点からクライアントに結果を返す時点の間に引き起こる操作の一般的な流れを理解してもらうのが目的です。
+バックエンドが問い合わせを受け取った時点からクライアントに結果を返す時点の間に引き起こる操作の一般的な流れを理解してもらうのが、この章の目的です。
   </para>
 
   <sect1 id="query-path">
@@ -192,12 +190,12 @@
     <glossterm linkend="glossary-shared-memory">shared memory</glossterm>
     to ensure data integrity throughout concurrent data access.
 -->
-<productname>PostgreSQL</productname>は単純な<quote>1プロセスに1ユーザ</quote>のクライアント/サーバモデルによって実装されています。
-このモデルでは1つの<firstterm>サーバプロセス</firstterm>に対し厳密に1つの<firstterm>クライアントプロセス</firstterm>しか存在しません。
-いくつの接続が行われるか事前にわからないので、接続要求の度に新しいプロセスを作る<firstterm>マスタープロセス</firstterm>を使わなければなりません。
-このマスタープロセスは<literal>postgres</literal>と呼ばれ、指定されたTCP/IPポートで入ってくる接続要求を監視します。
-接続要求を検出すると、<literal>postgres</literal>プロセスは新しいサーバプロセスを生み出します。
-このサーバのタスクは<firstterm>セマフォ</firstterm>と<firstterm>共有メモリ</firstterm>を活用してお互いに連絡を取り合い、同時にデータにアクセスしても整合性が保たれるようにします。
+<productname>PostgreSQL</productname>は<quote>1プロセスに1ユーザ</quote>のクライアント/サーバモデルを実装しています。
+このモデルでは、各<glossterm linkend="glossary-client">クライアントプロセス</glossterm>は厳密に1つの<glossterm linkend="glossary-backend">バックエンドプロセス</glossterm>に接続します。
+いくつの接続が行われるか事前にわからないので、接続要求の度に新しいバックエンドプロセスを作る<quote>スーパーバイザプロセス</quote>を使わなければなりません。
+このスーパーバイザプロセスは<glossterm linkend="glossary-postmaster">postmaster</glossterm>と呼ばれ、指定されたTCP/IPポートで入ってくる接続要求を監視します。
+接続要求を検出すると、新しいバックエンドプロセスを生み出します。
+このバックエンドプロセスは<firstterm>セマフォ</firstterm>と<glossterm linkend="glossary-shared-memory">共有メモリ</glossterm>を活用してお互いに連絡を取り合い、同時にデータにアクセスしても整合性が保たれるようにします。
    </para>
 
    <para>
@@ -222,10 +220,10 @@
     executes the plan, and returns the retrieved rows to the client
     by transmitting them over the established connection.
 -->
-いったん接続が確立されると、クライアントプロセスは<firstterm>バックエンド</firstterm>（サーバ）に問い合わせを送ることができます。
+いったん接続が確立されると、クライアントプロセスは接続されたバックエンドプロセスに問い合わせを送ることができます。
 問い合わせは平文で送信されます。
-つまり、<firstterm>フロントエンド</firstterm>（クライアント）は構文解析を行いません。
-サーバは問い合わせの構文解析を行い、<firstterm>実行計画</firstterm>を作り、そして計画を実行し、抽出した行を確立された接続を通じてクライアントに返します。
+つまり、クライアントでは構文解析を行いません。
+バックエンドプロセスは問い合わせの構文解析を行い、<firstterm>実行計画</firstterm>を作り、そして計画を実行し、抽出した行を確立された接続を通じてクライアントに返します。
    </para>
   </sect1>
 
@@ -523,7 +521,7 @@
      Query Optimizer</firstterm> (see <xref linkend="geqo"/>) when the number of joins
      exceeds a threshold (see <xref linkend="guc-geqo-threshold"/>).
 -->
-場合によっては、問い合わせがどう実行されるか、可能性のある全ての手段を検証するため、膨大な時間とメモリ空間を消費する可能性があります。
+場合によっては、問い合わせがどう実行されるか、可能性のある全ての手段を検証するため、膨大な時間とメモリを消費する可能性があります。
 特に数多くの結合操作に問い合わせが関わった時です。
 相応な（必ずしも最適ではありませんが）問い合わせ計画を、相応な時間内で決定するため<productname>PostgreSQL</productname>は結合の数が閾値を越えた場合、<firstterm>遺伝的問い合わせオプティマイザ</firstterm>（<xref linkend="geqo"/>参照）を使用します（<xref linkend="guc-geqo-threshold"/>を参照ください）。
     </para>
@@ -795,6 +793,7 @@
    </para>
 
    <para>
+<!--
     The executor mechanism is used to evaluate all four basic SQL query
     types: <command>SELECT</command>, <command>INSERT</command>,
     <command>UPDATE</command>, and <command>DELETE</command>.
@@ -804,9 +803,15 @@
     <command>UPDATE</command>, and <command>DELETE</command>
     are effectively <command>SELECT</command>s under a special
     top-level plan node called <literal>ModifyTable</literal>.
+-->
+エクゼキュータ機構は4つの基本的なSQL問い合わせの種類すべてを検証するために用いられます。
+4つのSQL問い合わせの種類とは<command>SELECT</command>、<command>INSERT</command>、<command>UPDATE</command>、そして<command>DELETE</command>です。
+<command>SELECT</command>では、最上位階層のエクゼキュータコードは問い合わせ計画ツリーによって返されるそれぞれの行をクライアントへ送り返すだけでよいことになっています。
+<command>INSERT ... SELECT</command>、<command>UPDATE</command>、<command>DELETE</command>は、実質的には<literal>ModifyTable</literal>と呼ばれる特別な最上位階層の計画ノードの下の<command>SELECT</command>です。
    </para>
 
    <para>
+<!--
     <command>INSERT ... SELECT</command> feeds the rows up
     to <literal>ModifyTable</literal> for insertion.  For
     <command>UPDATE</command>, the planner arranges that each
@@ -818,13 +823,21 @@
     column that is actually returned by the plan is the TID, and the
     <literal>ModifyTable</literal> node simply uses the TID to visit each
     target row and mark it deleted.
+-->
+<command>INSERT ... SELECT</command>は挿入のために<literal>ModifyTable</literal>に行を入力します。
+<command>UPDATE</command>では、プランナはすべての更新された列の値を含んだ行の演算結果と元の対象業の<firstterm>TID</firstterm>(タプルID、または行ID)を準備します。
+このデータは<literal>ModifyTable</literal>ノードに入力され、ノードでは新しく更新された行の作成と古い行に削除の印を付けるためこの情報を利用します。
+<command>DELETE</command>では、計画から実際に返されるただ1つの列はTIDで、<literal>ModifyTable</literal>ノードは単に各対象行を尋ね当てて削除の印を付けるためにこのTIDを使用します。
    </para>
 
    <para>
+<!--
     A simple <command>INSERT ... VALUES</command> command creates a
     trivial plan tree consisting of a single <literal>Result</literal>
     node, which computes just one result row, feeding that up
     to<literal>ModifyTable</literal> to perform the insertion.
+-->
+単純な<command>INSERT ... VALUES</command>コマンドは、1つの<literal>Result</literal>ノードからなる単純な計画ツリーを生成し、そのノードは結果としての行を1つだけ計算し、挿入を実行するためにその行が<literal>ModifyTable</literal>に入力されます。
    </para>
 
   </sect1>
