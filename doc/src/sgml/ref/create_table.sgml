@@ -243,7 +243,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 -->
 このパラメータが指定された場合、テーブルは一時テーブルとして作成されます。
 一時テーブルは、そのセッションの終わり、場合によっては、現在のトランザクションの終わり（後述の<literal>ON COMMIT</literal>を参照）に自動的に削除されます。
-一時テーブルが存在する場合、同じ名前を持つ既存の永続テーブルは、スキーマ修飾名で参照されていない限り、現在のセッションでは非可視になります。
+デフォルトのsearch_pathは一時スキーマを最初に含んでいますので、同じ名前を持つ既存の永続テーブルは、スキーマ修飾名で参照されていない限り、一時テーブルが存在する間は非可視になります。
 一時テーブルに作られるインデックスも、全て自動的に一時的なものとなります。
      </para>
 
@@ -409,6 +409,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
     <term><literal>COMPRESSION <replaceable class="parameter">compression_method</replaceable></literal></term>
     <listitem>
      <para>
+<!--
       The <literal>COMPRESSION</literal> clause sets the compression method
       for the column.  Compression is supported only for variable-width data
       types, and is used only when the column's storage mode
@@ -419,13 +420,20 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       but the configured value will be inherited by newly-created partitions.
       The supported compression methods are <literal>pglz</literal> and
       <literal>lz4</literal>.  (<literal>lz4</literal> is available only if
-      <option>--with-lz4</option> was used when building
+      <option>&#45;-with-lz4</option> was used when building
       <productname>PostgreSQL</productname>.)  In addition,
       <replaceable class="parameter">compression_method</replaceable>
       can be <literal>default</literal> to explicitly specify the default
       behavior, which is to consult the
       <xref linkend="guc-default-toast-compression"/> setting at the time of
       data insertion to determine the method to use.
+-->
+<literal>COMPRESSION</literal>句は列の圧縮法を設定します。圧縮は可変幅データ型に対してのみサポートされていて、列の保管モードが<literal>main</literal>または<literal>extended</literal>の場合にのみ使われます。
+(列の保管モードについての情報は<xref linkend="sql-altertable"/>を参照してください。)
+パーティションテーブルには自身のストレージがありませんので、パーティションテーブルに対してこの属性を設定しても直接の影響はありませんが、設定値は新しく作成されるパーティションに継承されます。
+サポートされている圧縮法は<literal>pglz</literal>と<literal>lz4</literal>です。
+(<literal>lz4</literal>は、<productname>PostgreSQL</productname>構築時に<option>--with-lz4</option>が使われた場合にのみ利用可能です。)
+さらに<replaceable class="parameter">compression_method</replaceable>は、明示的にデフォルトの動作を指定するために<literal>default</literal>とすることもできます。その場合、利用する圧縮法を決定するためにデータ挿入時に<xref linkend="guc-default-toast-compression"/>設定を調べます。
      </para>
     </listitem>
    </varlistentry>
@@ -911,9 +919,13 @@ TRUNCATEのように通常はテーブルとそれを継承するすべての子
         <term><literal>INCLUDING COMPRESSION</literal></term>
         <listitem>
          <para>
+<!--
           Compression method of the columns will be copied.  The default
           behavior is to exclude compression methods, resulting in columns
           having the default compression method.
+-->
+列の圧縮法をコピーします。
+デフォルトの振る舞いでは圧縮法は除外されて、列にはデフォルトの圧縮法が設定されます。
          </para>
         </listitem>
        </varlistentry>
@@ -1254,7 +1266,8 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       Such a column is implicitly <literal>NOT NULL</literal>.
 -->
 この句は列を<firstterm>IDENTITY列</firstterm>として作成します。
-それには暗示的なシーケンスが紐付けられ、新しい行のその列には紐付けられたシーケンスから取られた値が自動的に入ります。
+それには暗黙のシーケンスが紐付けられ、新しい行のその列には紐付けられたシーケンスから取られた値が自動的に入ります。
+そのような列は暗黙的に<literal>NOT NULL</literal>です。
      </para>
 
      <para>
@@ -1332,6 +1345,7 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 -->
 <literal>UNIQUE</literal>制約は、テーブルの1つまたは複数の列からなるグループが、一意な値のみを持つことができることを指定します。
 一意性テーブル制約の動作は一意性列制約と同じですが、さらに複数列にまたがる機能を持ちます。
+それゆえ、制約は2つの行はその列の少なくとも1つが異なることを強制します。
      </para>
 
      <para>
@@ -1349,8 +1363,8 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       primary key constraint defined for the table.  (Otherwise, redundant
       unique constraints will be discarded.)
 -->
-それぞれの一意性テーブル制約には、そのテーブルの他の一意性制約もしくは主キー制約によって指定された列の集合とは、異なる名前の列の集合を指定しなければなりません
-（同じ名前を指定すると、同じ制約が2回現れるだけになります）。
+それぞれの一意性制約には、そのテーブルの他の一意性制約もしくは主キー制約によって指定された列の集合とは、異なる列の集合を指定しなければなりません。
+（そうでなければ、余分な一意性制約は捨てられます。）
      </para>
 
      <para>
@@ -1364,8 +1378,11 @@ TRUEまたはUNKNOWNと評価される式は成功します。
      </para>
 
      <para>
+<!--
       Adding a unique constraint will automatically create a unique btree
       index on the column or group of columns used in the constraint.
+-->
+一意性制約を加えると、制約で使われている列や列のグループに一意性btreeインデックスが自動的に作られます。
      </para>
 
      <para>
@@ -1379,11 +1396,10 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       (e.g., <literal>DROP COLUMN</literal>) can cause cascaded constraint and
       index deletion.
 -->
-一意性制約を加えると、制約で使われている列や列のグループに一意性btreeインデックスが自動的に作られます。
-省略可能な<literal>INCLUDE</literal>句はインデックスに一意性を強要されない列を1つまたは複数、追加します。
+省略可能な<literal>INCLUDE</literal>句はインデックスに単に<quote>ペイロード</quote>である列を1つまたは複数、追加します。一意性はその列には強要されず、その列に基づいてインデックスが検索されることはありません。
+しかしながら、インデックスオンリースキャンでは取り出すことができます。
 含めた（INCLUDEした）列に制約は強制されませんが、依存はしていることに注意してください。
 このため、これらの列に対する一部の操作（例えば<literal>DROP COLUMN</literal>）は制約の連鎖とインデックスの削除をひき起こすことがあります。
-
      </para>
     </listitem>
    </varlistentry>
@@ -1430,20 +1446,27 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       about the design of the schema, since a primary key implies that other
       tables can rely on this set of columns as a unique identifier for rows.
 -->
-<literal>PRIMARY KEY</literal>は<literal>UNIQUE</literal>と<literal>NOT NULL</literal>の組み合わせと同じデータ制約を課しますが、列の集合を主キーと指定することは、スキーマの設計についてのメタデータを提供することにもなります。
+<literal>PRIMARY KEY</literal>は<literal>UNIQUE</literal>と<literal>NOT NULL</literal>の組み合わせと同じデータ制約を課します。
+ですが、列の集合を主キーと指定することは、スキーマの設計についてのメタデータを提供することにもなります。
 なぜなら、主キーであることは、行を一意に特定するものとして、他のテーブルがその列の集合を当てにして良い、ということを意味するからです。
      </para>
 
      <para>
+<!--
       When placed on a partitioned table, <literal>PRIMARY KEY</literal>
       constraints share the restrictions previously described
       for <literal>UNIQUE</literal> constraints.
+-->
+パーティションテーブルに設定すると、<literal>PRIMARY KEY</literal>制約は、以前述べた制限を<literal>UNIQUE</literal>制約と共有します。
      </para>
 
      <para>
+<!--
       Adding a <literal>PRIMARY KEY</literal> constraint will automatically
       create a unique btree index on the column or group of columns used in the
       constraint.
+-->
+<literal>PRIMARY KEY</literal>制約を追加すると、制約で使用する列や列のグループに一意性のbtreeインデックスが自動的に作られます。
      </para>
 
      <para>
@@ -1457,10 +1480,10 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       (e.g., <literal>DROP COLUMN</literal>) can cause cascaded constraint and
       index deletion.
 -->
-<literal>PRIMARY KEY</literal>制約を追加すると、制約で使用する列や列のグループに一意性のbtreeインデックスが自動的に作られます。
-省略可能な<literal>INCLUDE</literal>句はインデックスの非キー部分に含める列のリストを指定できます。
+省略可能な<literal>INCLUDE</literal>句はインデックスに単に<quote>ペイロード</quote>である列を1つまたは複数、追加します。一意性はその列には強要されず、その列に基づいてインデックスが検索されることはありません。
+しかしながら、インデックスオンリースキャンでは取り出すことができます。
 含めた列に一意性は強制されませんが、制約はこれらに依存はしています。
-このため、これらの含められた列に対する一部の操作（例えば<literal>DROP COLUMN</literal>）は制約の連鎖とインデックスの削除をひき起こすことがあります。
+このため、これらの列に対する一部の操作（例えば<literal>DROP COLUMN</literal>）は制約の連鎖とインデックスの削除をひき起こすことがあります。
      </para>
     </listitem>
    </varlistentry>
@@ -1746,7 +1769,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
 -->
 制約を遅延させることが可能かどうかを制御します。
 遅延不可の制約は各コマンドの後すぐに検査されます。
-遅延可能な制約の検査は、（<xref linkend="sql-set-constraints"/>コマンドを使用して）トランザクションの終了時まで遅延させることができます。
+遅延可能な制約の検査は、（<link linkend="sql-set-constraints"><command>SET CONSTRAINTS</command></link>コマンドを使用して）トランザクションの終了時まで遅延させることができます。
 <literal>NOT DEFERRABLE</literal>がデフォルトです。
 現在、<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、<literal>EXCLUDE</literal>、<literal>REFERENCES</literal>（外部キー）制約のみがこの句を受け付けることができます。
 <literal>NOT NULL</literal>および <literal>CHECK</literal>制約は遅延させることができません。
@@ -1773,7 +1796,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
 制約が<literal>INITIALLY IMMEDIATE</literal>の場合、各文の実行後に検査されます。
 これがデフォルトです。
 制約が<literal>INITIALLY DEFERRED</literal>の場合、トランザクションの終了時にのみ検査されます。
-制約検査の時期は<xref linkend="sql-set-constraints"/>コマンドを使用して変更することができます。
+制約検査の時期は<link linkend="sql-set-constraints"><command>SET CONSTRAINTS</command></link>コマンドを使用して変更することができます。
      </para>
     </listitem>
    </varlistentry>
@@ -1871,7 +1894,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
           is not cascaded to its partitions.
 -->
 一時テーブル内の全ての行は、各トランザクションブロックの終わりで削除されます。
-実質的には、コミットの度に自動的に<xref linkend="sql-truncate"/>が実行されます。
+実質的には、コミットの度に自動的に<link linkend="sql-truncate"><command>TRUNCATE</command></link>が実行されます。
 パーティションテーブルに使われた場合、そのパーティションに連鎖適用はされません。
          </para>
         </listitem>
@@ -2120,11 +2143,15 @@ falseの場合、トランザクションIDの周回問題を回避するため�
    <varlistentry id="reloption-vacuum-index-cleanup" xreflabel="vacuum_index_cleanup">
     <term><literal>vacuum_index_cleanup</literal>, <literal>toast.vacuum_index_cleanup</literal> (<type>enum</type>)
     <indexterm>
+<!--
      <primary><varname>vacuum_index_cleanup</varname> storage parameter</primary>
+-->
+     <primary><varname>vacuum_index_cleanup</varname>格納パラメータ</primary>
     </indexterm>
     </term>
     <listitem>
      <para>
+<!--
       Forces or disables index cleanup when <command>VACUUM</command>
       is run on this table.  The default value is
       <literal>AUTO</literal>.  With <literal>OFF</literal>, index
@@ -2139,6 +2166,13 @@ falseの場合、トランザクションIDの周回問題を回避するため�
       <literal>INDEX_CLEANUP</literal> parameter of <link
        linkend="sql-vacuum"><command>VACUUM</command></link>, if
       specified, overrides the value of this option.
+-->
+このテーブルに<command>VACUUM</command>が実行されたときのインデックスのクリーンアップを強制または無効にします。
+デフォルト値は<literal>AUTO</literal>です。
+<literal>OFF</literal>でインデックスのクリーンアップは無効になり、<literal>ON</literal>で有効に、<literal>AUTO</literal>でその時々の<command>VACUUM</command>実行時に決定が動的に行なわれるようになります。
+動的な動作により、ほとんどない無効タプル削除するために必要もないのにインデックスをスキャンしてしまうことを<command>VACUUM</command>が避けられるようになります。
+インデックスのクリーンアップを強制的にすべて無効にすることで、<command>VACUUM</command>を大幅に高速化できますが、テーブルの変更が頻繁である場合には深刻なインデックスの肥大化も生じさせるかもしれません。
+<link linkend="sql-vacuum"><command>VACUUM</command></link>の<literal>INDEX_CLEANUP</literal>パラメータは、指定されていたなら本オプションを上書きします。
      </para>
     </listitem>
    </varlistentry>
@@ -2169,7 +2203,7 @@ falseの場合、トランザクションIDの周回問題を回避するため�
 デフォルト値は<literal>true</literal>です。
 <literal>true</literal>の場合、<command>VACUUM</command>と自動バキュームは切り捨てを行い切り捨てられたページのディスク領域はオペレーティングシステムに返されます。
 切り捨てにはテーブルに<literal>ACCESS EXCLUSIVE</literal>ロックが必要であることに注意してください。
-<xref linkend="sql-vacuum"/>の<literal>TRUNCATE</literal>パラメータは、指定されていたなら本オプションを上書きします。
+<link linkend="sql-vacuum"><command>VACUUM</command></link>の<literal>TRUNCATE</literal>パラメータは、指定されていたなら本オプションを上書きします。
      </para>
     </listitem>
    </varlistentry>
