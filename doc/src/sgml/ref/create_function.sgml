@@ -151,8 +151,11 @@ CREATE [ OR REPLACE ] FUNCTION
   </para>
 
   <para>
+<!--
    Refer to <xref linkend="xfunc"/> for further information on writing
    functions.
+-->
+さらに詳しい関数の作成方法については<xref linkend="xfunc"/>を参照してください。
   </para>
  </refsect1>
 
@@ -381,6 +384,7 @@ CREATE [ OR REPLACE ] FUNCTION
 -->
 関数を実装している言語の名前です。
 このパラメータには、<literal>sql</literal>、<literal>c</literal>、<literal>internal</literal>、もしくはユーザ定義手続き言語(例：<literal>plpgsql</literal>)の名前を指定可能です。
+<replaceable class="parameter">sql_body</replaceable>が指定されていれば、デフォルトは<literal>sql</literal>です。
 名前を単一引用符で囲むのは廃止予定で、大文字小文字の一致が必要になります。
       </para>
      </listitem>
@@ -810,7 +814,7 @@ C言語の関数は、ラベルが間違っていると、理論的には全く�
        part of the C names).
 -->
 この構文の<literal>AS</literal>句は、動的にロードされるC言語関数において、C言語のソースコード中の関数名がSQL関数の名前と同じでない場合に使われます。
-<replaceable class="parameter">obj_file</replaceable>という文字列はコンパイルされたC関数を含む共有ライブラリファイルの名前で、<xref linkend="sql-load"/>コマンドの場合と同じように解釈されます。
+<replaceable class="parameter">obj_file</replaceable>という文字列はコンパイルされたC関数を含む共有ライブラリファイルの名前で、<link linkend="sql-load"><command>LOAD</command></link>コマンドの場合と同じように解釈されます。
 文字列<replaceable class="parameter">link_symbol</replaceable>はその関数のリンクシンボル、つまり、C言語ソースコード中の関数の名前です。
 リンクシンボルが省略された場合、定義されるSQL関数の名前と同じものであるとみなされます。
 全ての関数について、C言語における名前は、重複してはいけません。したがって、オーバーロードするC言語関数には、異なるC言語の名前を与える必要があります(例えば、C言語における名前の一部に引数の型を使用してください)。
@@ -835,12 +839,19 @@ C言語の関数は、ラベルが間違っていると、理論的には全く�
 
      <listitem>
       <para>
+<!--
        The body of a <literal>LANGUAGE SQL</literal> function.  This can
        either be a single statement
+-->
+<literal>LANGUAGE SQL</literal>関数の本体です。
+これは以下のような単一の文
 <programlisting>
 RETURN <replaceable>expression</replaceable>
 </programlisting>
+<!--
        or a block
+-->
+またはブロックです。
 <programlisting>
 BEGIN ATOMIC
   <replaceable>statement</replaceable>;
@@ -852,6 +863,7 @@ END
       </para>
 
       <para>
+<!--
        This is similar to writing the text of the function body as a string
        constant (see <replaceable>definition</replaceable> above), but there
        are some differences: This form only works for <literal>LANGUAGE
@@ -864,6 +876,13 @@ END
        ... CASCADE</literal> will work correctly, whereas the form using
        string literals may leave dangling functions.  Finally, this form is
        more compatible with the SQL standard and other SQL implementations.
+-->
+これは文字列定数として関数本体を書くのと似ていますが(上記の<replaceable>definition</replaceable>を参照してください)、いくつか違いがあります。
+この形式は<literal>LANGUAGE SQL</literal>に対してのみ機能し、文字列定数の形式はすべての言語に対して機能します。
+この形式はプロシージャ定義時に解析され、文字列定数の形式は実行時に解析されます。
+そのため、この形式は多様引数型や関数定義時に解決できないその他の構文をサポートできません。
+この形式は関数と関数本体の中で使われているオブジェクトの間の依存関係を追跡しますので、<literal>DROP ... CASCADE</literal>は正しく動作しますが、一方、文字列定数を使う形式は宙に浮いた関数を放置するかもしれません。
+最後に、この形式は標準SQLや他のSQL実装とより互換性があります。
       </para>
      </listitem>
     </varlistentry>
@@ -985,10 +1004,13 @@ CREATE FUNCTION foo(int, int default 42) ...
 <!--
   <title>Examples</title>
 -->
-<title>例</title>
+  <title>例</title>
 
   <para>
+<!--
    Add two integers using an SQL function:
+-->
+SQL関数を使って2つの整数を足す。
 <programlisting>
 CREATE FUNCTION add(integer, integer) RETURNS integer
     AS 'select $1 + $2;'
@@ -996,8 +1018,11 @@ CREATE FUNCTION add(integer, integer) RETURNS integer
     IMMUTABLE
     RETURNS NULL ON NULL INPUT;
 </programlisting>
+<!--
    The same function written in a more SQL-conforming style, using argument
    names and an unquoted body:
+-->
+引数名と引用されていない本体を使って、よりSQLに準拠した形で書かれた同じ関数。
 <programlisting>
 CREATE FUNCTION add(a integer, b integer) RETURNS integer
     LANGUAGE SQL
@@ -1187,7 +1212,7 @@ COMMIT;
 <!--
   <title>Compatibility</title>
 -->
-<title>互換性</title>
+  <title>互換性</title>
 
   <para>
 <!--
@@ -1198,17 +1223,23 @@ COMMIT;
    in <productname>PostgreSQL</productname>.
 -->
 <command>CREATE FUNCTION</command>コマンドは標準SQLで定義されています。
-<productname>PostgreSQL</productname>における<command>CREATE FUNCTION</command>も類似の機能を持ちますが、完全な互換性はありません。
-属性には移植性がありません。また、使用可能な言語も異なります。
+<productname>PostgreSQL</productname>の実装は互換性のある方法で使うことはできますが、多くの拡張があります。
+逆に、標準SQLには<productname>PostgreSQL</productname>では実装されていない多くの省略可能な機能が定義されています。
   </para>
 
   <para>
+<!--
    The following are important compatibility issues:
+-->
+以下が重要な互換性の問題です。
 
    <itemizedlist>
     <listitem>
      <para>
+<!--
       <literal>OR REPLACE</literal> is a PostgreSQL extension.
+-->
+<literal>OR REPLACE</literal>はPostgreSQLの拡張です。
      </para>
     </listitem>
 
@@ -1239,38 +1270,54 @@ COMMIT;
 
     <listitem>
      <para>
+<!--
       The <literal>SETOF</literal> modifier is a PostgreSQL extension.
+-->
+<literal>SETOF</literal>修飾子はPostgreSQLの拡張です。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       Only <literal>SQL</literal> is standardized as a language.
+-->
+<literal>SQL</literal>のみが言語として標準化されています。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       All other attributes except <literal>CALLED ON NULL INPUT</literal> and
       <literal>RETURNS NULL ON NULL INPUT</literal> are not standardized.
+-->
+<literal>CALLED ON NULL INPUT</literal>と<literal>RETURNS NULL ON NULL INPUT</literal>以外の属性はすべて標準化されていません。
      </para>
     </listitem>
 
     <listitem>
      <para>
+<!--
       For the body of <literal>LANGUAGE SQL</literal> functions, the SQL
       standard only specifies the <replaceable>sql_body</replaceable> form.
+-->
+<literal>LANGUAGE SQL</literal>関数の本体に対して、標準SQLは<replaceable>sql_body</replaceable>形式のみを定義しています。
      </para>
     </listitem>
    </itemizedlist>
   </para>
 
   <para>
+<!--
    Simple <literal>LANGUAGE SQL</literal> functions can be written in a way
    that is both standard-conforming and portable to other implementations.
    More complex functions using advanced features, optimization attributes, or
    other languages will necessarily be specific to PostgreSQL in a significant
    way.
+-->
+単純な<literal>LANGUAGE SQL</literal>関数は、標準に準拠して、なおかつ他の実装に移植性のある方法で書くことができます。
+高度な機能、最適化属性、他の言語を使ったより複雑な関数は、必ず重要なところでPostgreSQLに固有のものになるでしょう。
   </para>
  </refsect1>
 
