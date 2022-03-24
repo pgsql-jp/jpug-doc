@@ -99,7 +99,7 @@ JSONデータ型はJSON(JavaScript Object Notation)データを格納するた�
   characters that can be represented in the database encoding but not
   in UTF8 will be allowed.
 -->
-RFC 7159は、JSON文字列はUTF8でエンコードすべきと指定しています。
+<acronym>RFC</acronym> 7159は、JSON文字列はUTF8でエンコードすべきと指定しています。
 従ってデータベースエンコーディングがUTF8でない限り、厳密にはJSON型がJSON仕様に準拠することはできません。
 データベースのエンコーディングで表現できない文字を直接含めようとすると失敗します。逆に、UTF8で許可されずにデータベースのエンコーディングで許可される文字が許されてしまいます。
  </para>
@@ -121,8 +121,8 @@ RFC 7159は、JSON文字列はUTF8でエンコードすべきと指定してい�
   are converted to the equivalent single character for storage;
   this includes folding surrogate pairs into a single character.
 -->
- RFC 7159 では、JSON文字列はUnicodeエスケープシーケンス <literal>\u<replaceable>XXXX</replaceable></literal> を許可するように記述されています。
- <type>json</type>型の入力関数は、データベースエンコーディング方式に関係なくUnicodeエスケープが許可されています。それは、構文上の正しさ(つまり<literal>\u</literal>に続けて16進数が4桁)だけをチェックしています。
+<acronym>RFC</acronym> 7159 では、JSON文字列はUnicodeエスケープシーケンス <literal>\u<replaceable>XXXX</replaceable></literal> を許可するように記述されています。
+<type>json</type>型の入力関数は、データベースエンコーディング方式に関係なくUnicodeエスケープが許可されています。それは、構文上の正しさ(つまり<literal>\u</literal>に続けて16進数が4桁)だけをチェックしています。
 しかし、<type>jsonb</type>の入力関数はより厳しくなります。
 データベースエンコーディング方式で表現できない文字のUnicodeエスケープを禁止します。
 <type>jsonb</type>型は<literal>\u0000</literal>も許可しません。(なぜなら<productname>PostgreSQL</productname>の<type>text</type>型で表現できないためです。)
@@ -948,8 +948,12 @@ JSONプリミティブ値は基本的に<productname>PostgreSQL</productname>デ
  </sect2>
 
  <sect2 id="jsonb-subscripting">
+<!--
   <title><type>jsonb</type> Subscripting</title>
+-->
+  <title><type>jsonb</type>の添字</title>
   <para>
+<!--
    The <type>jsonb</type> data type supports array-style subscripting expressions
    to extract and modify elements. Nested values can be indicated by chaining
    subscripting expressions, following the same rules as the <literal>path</literal>
@@ -957,9 +961,16 @@ JSONプリミティブ値は基本的に<productname>PostgreSQL</productname>デ
    value is an array, numeric subscripts start at zero, and negative integers count
    backwards from the last element of the array. Slice expressions are not supported.
    The result of a subscripting expression is always of the jsonb data type.
+-->
+<type>jsonb</type>データ型は要素を取り出したり修正したりするために配列形式の添字表現をサポートします。
+入れ子になった値は、<literal>jsonb_set</literal>関数での<literal>path</literal>引数と同じ規則に従って、添字表現をつなげることで指定できます。
+<type>jsonb</type>値が配列であれば、数字の添字はゼロから始まり、負の整数は配列の最後の要素から逆に数えます。
+スライス表現はサポートされていません。
+添字表現の結果は、必ずjsonbデータ型です。
   </para>
 
   <para>
+<!--
    <command>UPDATE</command> statements may use subscripting in the
    <literal>SET</literal> clause to modify <type>jsonb</type> values. Subscript
    paths must be traversable for all affected values insofar as they exist. For
@@ -972,61 +983,110 @@ JSONプリミティブ値は基本的に<productname>PostgreSQL</productname>デ
    intermediary values is defined as a non-object such as a string, number, or
    <literal>jsonb</literal> <literal>null</literal>, traversal cannot proceed so
    an error is raised and the transaction aborted.
+-->
+<command>UPDATE</command>文では、<type>jsonb</type>値を修正する<literal>SET</literal>句内で添字が使えます。
+添字のパスは、存在する範囲では影響する値すべてが到達可能でなければなりません。
+例えば、パス<literal>val['a']['b']['c']</literal>は、<literal>val</literal>、<literal>val['a']</literal>、<literal>val['a']['b']</literal>それぞれがオブジェクトであれば、<literal>c</literal>までたどることができます。
+<literal>val['a']</literal>または<literal>val['a']['b']</literal>が定義されていなければ、空のオブジェクトとして作られ必要に応じて埋められます。
+しかしながら、<literal>val</literal>自身または途中の値の1つでも、文字列、数値、<literal>jsonb</literal> <literal>null</literal>のような非オブジェクトとして定義されていれば、到達できないためエラーが発生し、トランザクションはアボートされます。
   </para>
 
   <para>
+<!--
    An example of subscripting syntax:
+-->
+添字構文の例です。
 
 <programlisting>
 
--- Extract object value by key
+<!--
+&#45;- Extract object value by key
+-->
+-- キーでオブジェクトの値を取り出す
 SELECT ('{"a": 1}'::jsonb)['a'];
 
--- Extract nested object value by key path
+<!--
+&#45;- Extract nested object value by key path
+-->
+-- キーのパスで入れ子のオブジェクトの値を取り出す
 SELECT ('{"a": {"b": {"c": 1}}}'::jsonb)['a']['b']['c'];
 
--- Extract array element by index
+<!--
+&#45;- Extract array element by index
+-->
+-- インデックスで配列要素を取り出す
 SELECT ('[1, "2", null]'::jsonb)[1];
 
--- Update object value by key. Note the quotes around '1': the assigned
--- value must be of the jsonb type as well
+<!--
+&#45;- Update object value by key. Note the quotes around '1': the assigned
+&#45;- value must be of the jsonb type as well
+-->
+-- キーでオブジェクトの値を更新する。'1'の周りの一重引用符に注意。
+-- 代入する値もjsonb型でなければならない
 UPDATE table_name SET jsonb_field['key'] = '1';
 
--- This will raise an error if any record's jsonb_field['a']['b'] is something
--- other than an object. For example, the value {"a": 1} has a numeric value
--- of the key 'a'.
+<!--
+&#45;- This will raise an error if any record's jsonb_field['a']['b'] is something
+&#45;- other than an object. For example, the value {"a": 1} has a numeric value
+&#45;- of the key 'a'.
+-->
+-- これはjsonb_field['a']['b']のいずれかのデータがオブジェクト以外のものであればエラーになる。
+-- 例えば、値{"a": 1}はキー'a'の数値を持つ。
 UPDATE table_name SET jsonb_field['a']['b']['c'] = '1';
 
--- Filter records using a WHERE clause with subscripting. Since the result of
--- subscripting is jsonb, the value we compare it against must also be jsonb.
--- The double quotes make "value" also a valid jsonb string.
+<!--
+&#45;- Filter records using a WHERE clause with subscripting. Since the result of
+&#45;- subscripting is jsonb, the value we compare it against must also be jsonb.
+&#45;- The double quotes make "value" also a valid jsonb string.
+-->
+-- WHERE句で添字を使ってデータにフィルタを掛ける。
+-- 添字による結果はjsonbなので、それと比較する値もjsonbでなければならない。
+-- 二重引用符により"value"も有効なjsonb文字列になる。
 SELECT * FROM table_name WHERE jsonb_field['key'] = '"value"';
 </programlisting>
 
+<!--
    <type>jsonb</type> assignment via subscripting handles a few edge cases
    differently from <literal>jsonb_set</literal>. When a source <type>jsonb</type>
    value is <literal>NULL</literal>, assignment via subscripting will proceed
    as if it was an empty JSON value of the type (object or array) implied by the
    subscript key:
+-->
+添字による<type>jsonb</type>の代入は、まれに<literal>jsonb_set</literal>とは異なる場合があります。
+元の<type>jsonb</type>値が<literal>NULL</literal>の場合、添字による代入は、添字のキーで暗示されるその型の空のJSON値(オブジェクトまたは配列)であるかのように処理されます。
 
 <programlisting>
--- Where jsonb_field was NULL, it is now {"a": 1}
+<!--
+&#45;- Where jsonb_field was NULL, it is now {"a": 1}
+-->
+-- jsonb_fieldがNULLの場合、{"a": 1}になる
 UPDATE table_name SET jsonb_field['a'] = '1';
 
--- Where jsonb_field was NULL, it is now [1]
+<!--
+&#45;- Where jsonb_field was NULL, it is now [1]
+-->
+-- jsonb_fieldがNULLの場合、[1]になる
 UPDATE table_name SET jsonb_field[0] = '1';
 </programlisting>
 
+<!--
    If an index is specified for an array containing too few elements,
    <literal>NULL</literal> elements will be appended until the index is reachable
    and the value can be set.
+-->
+要素が足りない配列に対してインデックスを指定した場合、インデックスが到達可能になって値が設定できるようになるまで<literal>NULL</literal>要素が追加されます。
 
 <programlisting>
--- Where jsonb_field was [], it is now [null, null, 2];
--- where jsonb_field was [0], it is now [0, null, 2]
+<!--
+&#45;- Where jsonb_field was [], it is now [null, null, 2];
+&#45;- where jsonb_field was [0], it is now [0, null, 2]
+-->
+-- jsonb_fieldが[]なら、[null, null, 2]になり、
+-- jsonb_fieldが[0]なら、[0, null, 2]になる
 UPDATE table_name SET jsonb_field[2] = '2';
 </programlisting>
 
+<!--
    A <type>jsonb</type> value will accept assignments to nonexistent subscript
    paths as long as the last existing element to be traversed is an object or
    array, as implied by the corresponding subscript (the element indicated by
@@ -1034,12 +1094,22 @@ UPDATE table_name SET jsonb_field[2] = '2';
    array and object structures will be created, and in the former case
    <literal>null</literal>-padded, as specified by the subscript path until the
    assigned value can be placed.
+-->
+対応する添字が暗示するように、到達できる最後の存在する要素がオブジェクトか配列である限り、<type>jsonb</type>値は存在しない添字のパスへの代入を受け付けます。
+(パスの最後の添字で指定される要素には到達しませんし、何でも構いません。)
+入れ子の配列やオブジェクト構造が作られ、前者の場合には、添字のパスにより指定されたように値が代入できるようになるまで<literal>null</literal>で埋められます。
 
 <programlisting>
--- Where jsonb_field was {}, it is now {'a': [{'b': 1}]}
+<!--
+&#45;- Where jsonb_field was {}, it is now {'a': [{'b': 1}]}
+-->
+-- jsonb_fieldが{}であれば、{'a': [{'b': 1}]}になる
 UPDATE table_name SET jsonb_field['a'][0]['b'] = '1';
 
--- Where jsonb_field was [], it is now [null, {'a': 1}]
+<!--
+&#45;- Where jsonb_field was [], it is now [null, {'a': 1}]
+-->
+-- jsonb_fieldが[]であれば、[null, {'a': 1}]になる
 UPDATE table_name SET jsonb_field[1]['a'] = '1';
 </programlisting>
 
