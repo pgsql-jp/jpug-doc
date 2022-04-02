@@ -11,7 +11,7 @@
   This chapter explains how the Write-Ahead Log is used to obtain
   efficient, reliable operation.
 -->
-本章では、効率的かつ信頼できる運用を得るためにログ先行書き込みがどのように使用されているかについて説明します。
+本章では、効率的かつ信頼できる操作を得るためにログ先行書き込みがどのように使用されているかについて説明します。
  </para>
 
  <sect1 id="wal-reliability">
@@ -281,7 +281,7 @@ BBUによる性能上の効果を得ることできるでしょう。もしwrite
    on storage devices that may occur because of hardware errors or media failure over time,
    such as reading/writing garbage data.
 -->
-さらに<productname>PostgreSQL</productname>は、ハードウェアエラーや経時変化によるメディア障害により発生する、ごみデータ読み書きしてしまうようなストレージ装置内のある種のデータ破損を防ぎます。
+さらに<productname>PostgreSQL</productname>は、ハードウェアエラーや経時変化によるメディア障害により発生する、ごみデータを読み書きしてしまうようなストレージ装置内のある種のデータ破損を防ぎます。
    <itemizedlist>
     <listitem>
      <para>
@@ -292,7 +292,7 @@ BBUによる性能上の効果を得ることできるでしょう。もしwrite
       archive recovery and replication.
 -->
 WALファイルのそれぞれのレコードは、レコードの内容が正確かどうかを伝えるためCRC-32 (32-bit)チェックにより保護されています。
-CRCの値はそれぞれのWALレコードを書き込み、クラッシュ回復の過程で検証され、アーカイブの回復とレプリケーション時に設定されます。
+CRCの値はそれぞれのWALレコードを書き込む時に設定され、クラッシュリカバリ、アーカイブリカバリとレプリケーション時に検証されます。
      </para>
     </listitem>
     <listitem>
@@ -304,7 +304,7 @@ CRCの値はそれぞれのWALレコードを書き込み、クラッシュ回�
       for details about enabling data checksums.
 -->
 今のところ、デフォルトではデータページはチェックサム計算はされませんが、WALレコードに記録されているページ全体のイメージは保護されます。
-詳細は<link linkend="app-initdb-data-checksums"><application>initdb</application></link>を参照してください。
+データチェックサム有効化についての詳細は<link linkend="app-initdb-data-checksums"><application>initdb</application></link>を参照してください。
      </para>
     </listitem>
     <listitem>
@@ -318,7 +318,7 @@ CRCの値はそれぞれのWALレコードを書き込み、クラッシュ回�
       WAL records are protected as discussed above.
 -->
 <filename>pg_xact</filename>、<filename>pg_subtrans</filename>、<filename>pg_multixact</filename>、<filename>pg_serial</filename>、<filename>pg_notify</filename>、<filename>pg_stat</filename>、<filename>pg_snapshots</filename>のような内部データ構造は直接チェックサム計算もされず、全ページ書き込みによる保護もされていません。
-しかし、そのようなデータ構造が持続する場所は、WALレコードはクラッシュ回復時に正確に最新の変更を行えるようWALレコードが書き出され、それらのWALレコードは上記のように保護されます。
+しかし、そのようなデータ構造が持続する場所は、WALレコードはクラッシュリカバリ時に正確に最新の変更を行えるようWALレコードが書き出され、それらのWALレコードは上記のように保護されます。
      </para>
     </listitem>
     <listitem>
@@ -352,47 +352,74 @@ CRCの値はそれぞれのWALレコードを書き込み、クラッシュ回�
  </sect1>
 
  <sect1 id="checksums">
+<!--
   <title>Data Checksums</title>
+-->
+  <title>データチェックサム</title>
   <indexterm>
    <primary>checksums</primary>
   </indexterm>
 
   <para>
+<!--
    By default, data pages are not protected by checksums, but this can
    optionally be enabled for a cluster. When enabled, each data page includes
    a checksum that is updated when the page is written and verified each time
    the page is read. Only data pages are protected by checksums; internal data
    structures and temporary files are not.
+-->
+デフォルトでは、データページはチェックサムで保護されていませんが、オプションでデータベースクラスタに対して有効にすることができます。 
+チェックサムを有効にすると、各データページにチェックサムが含まれます。
+チェックサムは、ページが書き込まれるときに更新され、ページが読み取られるたびに検証されます。 
+データページのみがチェックサムによって保護されますが、内部データ構造と一時ファイルは保護されません。
   </para>
 
   <para>
+<!--
    Checksums are normally enabled when the cluster is initialized using <link
    linkend="app-initdb-data-checksums"><application>initdb</application></link>.
    They can also be enabled or disabled at a later time as an offline
    operation. Data checksums are enabled or disabled at the full cluster
    level, and cannot be specified individually for databases or tables.
+-->
+チェックサムは通常、<link linkend="app-initdb-data-checksums"><application>initdb</application></link>を使用してデータベースクラスタを初期化するときに有効にできます。
+また、オフライン操作で後から有効化または無効化することもできます。
+データチェックサムは、データベースクラスタ全体のレベルで有効または無効になり、データベースやテーブルに対して個別に指定することはできません。
   </para>
 
   <para>
+<!--
    The current state of checksums in the cluster can be verified by viewing the
    value of the read-only configuration variable <xref
    linkend="guc-data-checksums" /> by issuing the command <command>SHOW
    data_checksums</command>.
+-->
+データベースクラスタのチェックサムの現在の状態は、<command>SHOW data_checksums</command>コマンドを実行して読み取り専用設定変数<xref linkend="guc-data-checksums" />の値を参照することで確認できます。
   </para>
 
   <para>
+<!--
    When attempting to recover from page corruptions, it may be necessary to
    bypass the checksum protection. To do this, temporarily set the
    configuration parameter <xref linkend="guc-ignore-checksum-failure" />.
+-->
+ページ破損からの復旧を試みる場合、チェックサム保護のバイパスが必要な場合があります。
+これを行うには、一時的に設定パラメータ<xref linkend="guc-ignore-checksum-failure" />を設定します。
   </para>
 
   <sect2 id="checksums-offline-enable-disable">
+<!--
    <title>Off-line Enabling of Checksums</title>
+-->
+   <title>オフラインでのチェックサムの有効化</title>
 
    <para>
+<!--
     The <link linkend="app-pgchecksums"><application>pg_checksums</application></link>
     application can be used to enable or disable data checksums, as well as
     verify checksums, on an offline cluster.
+-->
+<link linkend="app-pgchecksums"><application>pg_checksums</application></link>アプリケーションは、オフラインのデータベースクラスタ上でデータチェックサムを有効または無効にしたり、チェックサムを検証したりできます。
    </para>
 
   </sect2>
@@ -434,9 +461,9 @@ CRCの値はそれぞれのWALレコードを書き込み、クラッシュ回�
 -->
 <firstterm>ログ先行書き込み</firstterm>（<acronym>WAL</acronym>）はデータの一貫性を確実にするための標準的な手法です。
 詳細については、トランザクション処理について書かれた(すべてとは言いませんが)たいていの書籍に記載されています。
-簡単に言うと、<acronym>WAL</acronym>の基本的な考え方は、（テーブルやインデックスがある）データファイルへの変更は、ログへの記録、つまり、変更内容を記述したログレコードが永続格納領域に書き出された後にのみ書き出されなければならないということです。
-このような手順に従って処理を行えば、たとえクラッシュが起きてもログを使ってデータベースをリカバリすることができるため、トランザクションのコミットの度にデータページをディスクに吐き出す必要がなくなります。
-リカバリの時点では、まず、データページに対してまだ行われていない変更分はログレコードを使って再実行されます（これがREDOとして知られているロールフォワードリカバリです）。
+簡単に言うと、<acronym>WAL</acronym>の基本的な考え方は、(テーブルやインデックスがある)データファイルへの変更は、ログへの記録、つまり、変更内容を記述したログレコードが永続格納領域にフラッシュされた後にのみ書き出されなければならないということです。
+このような手順に従って処理を行えば、たとえクラッシュが起きてもログを使ってデータベースをリカバリすることができるため、トランザクションのコミットの度にデータページをディスクにフラッシュする必要がなくなります。
+リカバリの時点でデータページに対してまだ行われていない変更分は、ログレコードを使って再実行されます（これがREDOとして知られているロールフォワードリカバリです）。
    </para>
 
    <tip>
@@ -548,10 +575,10 @@ WALのデータを保持することにより、そのWALデータが範囲内�
    in throughput for small transactions.
 -->
 前節で説明した通り、通常トランザクションのコミットは<firstterm>同期的</firstterm>です。
-サーバはトランザクションの<acronym>WAL</acronym>レコードが永続的格納領域に記録されるまで、クライアントに成功したことを通知することを待機します。
+サーバはトランザクションの<acronym>WAL</acronym>レコードが永続的格納領域にフラッシュされるまで、クライアントに成功したことを通知することを待機します。
 従って、直後にサーバクラッシュといった障害があったとしても、コミットされたと報告されたトランザクションは保持されることをクライアントは保証されます。
 しかし、短期のトランザクションでは、この遅延はトランザクションの処理時間の大半を占める要素となります。
-非同期コミットモードを選択することは、サーバが<acronym>WAL</acronym>記録が実際に作成された通りにディスクに書き込まれるより前に、トランザクションの論理的な完了をもって成功したと通知することを意味します。
+非同期コミットモードを選択することは、サーバが<acronym>WAL</acronym>レコードが実際に作成された通りにディスクに書き込まれるより前に、トランザクションの論理的な完了をもって成功したと通知することを意味します。
 これにより、小規模なトランザクションでスループットがかなり向上します。
   </para>
 
@@ -571,8 +598,8 @@ WALのデータを保持することにより、そのWALデータが範囲内�
 非同期コミットにはデータ損失の危険があります。
 トランザクションの完了をクライアントに通知してからトランザクションが本当に完了する（つまり、サーバクラッシュしても損失がないことが保証される）までの間にわずかな時間が存在します。
 したがって、クライアントがトランザクションが記録されているという仮定を元に外部的な動作を行う場合は、非同期コミットを使用すべきではありません。
-例えば、銀行では、ATMの現金分配を記録するトランザクションで非同期コミットを使用してはいけません。
-しかし、イベント記録など多くのシナリオでは、この種の保証を持って格納する必要はありません。
+例えば、銀行では、ATMの現金支払を記録するトランザクションで非同期コミットを使用してはいけません。
+しかし、イベントロギングなど多くのシナリオでは、この種の強力な保証は必要ありません。
   </para>
 
   <para>
@@ -589,7 +616,7 @@ WALのデータを保持することにより、そのWALデータが範囲内�
    transaction A, it is not possible for A's effects to be lost while B's
    effects are preserved.
 -->
-非同期コミットによりもたらされる危険性は、データの破壊ではなくデータの損失です。
+非同期コミットによりもたらされる危険性は、データの破損ではなくデータの損失です。
 データベースがクラッシュした場合、最後にフラッシュされた記録まで<acronym>WAL</acronym>を再生することで復旧が行われます。
 このため、データベースは内部で一貫性を持った状態に復旧されますが、ディスクにフラッシュされていないトランザクションはすべてそこには反映されません。
 したがって、影響を受けるのは、最後に行われたいくつかのトランザクションの損失です。
@@ -628,7 +655,7 @@ WALのデータを保持することにより、そのWALデータが範囲内�
 -->
 例えば<command>DROP TABLE</command>などの特定のユーティリティコマンドでは、<varname>synchronous_commit</varname>の設定に関わらず、強制的に同期的コミットが行われます。
 これにより、サーバのファイルシステムとデータベースの論理的な状態との間の一貫性が保証されます。
-<command>PREPARE TRANSACTION</command>などの2相コミットをサポートするコマンドもまた、常に同期的です。
+<command>PREPARE TRANSACTION</command>などの二相コミットをサポートするコマンドもまた、常に同期的です。
   </para>
 
   <para>
@@ -645,8 +672,8 @@ WALのデータを保持することにより、そのWALデータが範囲内�
    <varname>wal_writer_delay</varname> because the WAL writer is
    designed to favor writing whole pages at a time during busy periods.
 -->
-もし非同期コミットとそのトランザクションの<acronym>WAL</acronym>記録の書き込みの間の危険期間にデータベースがクラッシュしたとすると、そのトランザクションでなされた変更は失われる<emphasis>でしょう</emphasis>。
-バックグラウンドプロセス（<quote>WALライタ</quote>）が未書き込みの<acronym>WAL</acronym>記録を<xref linkend="guc-wal-writer-delay"/>ミリ秒毎にディスクに吐き出しますので、この危険期間は制限されます。
+もし非同期コミットとそのトランザクションの<acronym>WAL</acronym>レコードの書き込みの間の危険期間にデータベースがクラッシュしたとすると、そのトランザクションでなされた変更は失われる<emphasis>でしょう</emphasis>。
+バックグラウンドプロセス（<quote>WALライタ</quote>）が未書き込みの<acronym>WAL</acronym>レコードを<xref linkend="guc-wal-writer-delay"/>ミリ秒毎にディスクにフラッシュしますので、この危険期間は制限されます。
 WALライタは稼働中に一回ページ全体を書き込むように設計されているため、危険期間の実際の最大の長さは<varname>wal_writer_delay</varname>の３倍です。
   </para>
 
@@ -677,9 +704,9 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
 -->
 非同期コミットでは<xref linkend="guc-fsync"/> = offという設定とは異なる動作になります。
 <varname>fsync</varname>はサーバ全体に関する設定であり、すべてのトランザクションの動作を変更します。
-これは、<productname>PostgreSQL</productname>における、データベースの別の場所への同期書き込みの試行に関するすべてのロジックを無効にします。
-このため、システムクラッシュ（<productname>PostgreSQL</productname>自体の失敗ではなくハードウェアやオペレーティングシステムのクラッシュ）の結果、予測できないデータベース状態の破壊が起こります。
-非同期コミットはデータ破壊の危険性はなく、多くの状況では<varname>fsync</varname>を無効にした場合に得られる性能向上とほぼ同等の性能を提供します。
+これは、<productname>PostgreSQL</productname>における、データベースの様々な場所への書き込みを同期しようとするすべてのロジックを無効にします。
+このため、システムクラッシュ（<productname>PostgreSQL</productname>自体の障害ではなくハードウェアやオペレーティングシステムのクラッシュ）の結果、予測できないデータベース状態の破損が起こります。
+非同期コミットはデータ破損の危険性はなく、多くの状況では<varname>fsync</varname>を無効にした場合に得られる性能向上とほぼ同等の性能を提供します。
   </para>
 
   <para>
@@ -697,8 +724,8 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
 -->
 また<xref linkend="guc-commit-delay"/>も非同期コミットと類似のように見えますが、これは実のところ同期コミットの一方法です。
 （実際、非同期コミット時<varname>commit_delay</varname>は無視されます。）
-トランザクションが<acronym>WAL</acronym>をディスクに吐き出す直前に、こうしたトランザクションによって実行される一度の吐き出しにより、ほぼ同時期にコミットを行う他のトランザクションの分も処理できるようにすることを目的とした遅延が<varname>commit_delay</varname>により発生します。
-この設定は、一回のフラッシュに参画するグループに、複数のトランザクションの中でフラッシュのコストを償却し、加わることが可能なトランザクションの時間的猶予を広げる方法の一つとして考えることができます。
+トランザクションが<acronym>WAL</acronym>をディスクにフラッシュする直前に、こうしたトランザクションによって実行される一度のフラッシュにより、ほぼ同時期にコミットを行う他のトランザクションの分も処理できるようにすることを目的とした遅延が<varname>commit_delay</varname>により発生します。
+この設定は、複数のトランザクションの中でフラッシュのコストを償却するために、トランザクションが一回のフラッシュに参加しようとするグループに参加できる時間的猶予を広げる方法として考えることができます。
   </para>
 
  </sect1>
@@ -739,13 +766,13 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
    <acronym>WAL</acronym> archiving is being done, the log segments must be
    archived before being recycled or removed.)
 -->
-<firstterm>チェックポイント</firstterm><indexterm><primary>checkpoint</primary></indexterm>は、一連のトランザクションにおいて、そのチェックポイント以前に書かれた全ての情報によりヒープとインデックスファイルがすでに更新されていることを保証する場所です。
-チェックポイントの時刻において、全てのダーティページデータはディスクにフラッシュされ、特殊なチェックポイントレコードがログファイルに書き込まれます。
-(変更されたレコードは以前に<acronym>WAL</acronym>フラッシュされています。)
-クラッシュした時、クラッシュからの復旧処理は最後のチェックポイントレコードを見つけ、ログの中でどのレコード（これはredoレコードと呼ばれています）から復旧処理がREDOログ操作を開始すべきかを決定します。
-このチェックポイント以前になされたデータの変更は、すでにディスク上にあることが保証されています。
-従って、チェックポイント後、redoレコード内のそのチェックポイント以前のログセグメントは不要となり、再利用または削除することができます
-（<acronym>WAL</acronym>アーカイブが行われる場合、このログセグメントは削除もしくは再利用される前に保存されなければなりません）。
+<firstterm>チェックポイント</firstterm><indexterm><primary>checkpoint</primary></indexterm>は、一連のトランザクションにおいて、そのチェックポイント以前に書かれた全ての情報によりヒープとインデックスファイルがすでに更新されていることを保証する時点です。
+チェックポイント時に、全てのダーティページデータはディスクにフラッシュされ、特殊なチェックポイントレコードがログファイルに書き込まれます。
+(変更されたレコードは以前に<acronym>WAL</acronym>ファイルにフラッシュされています。)
+クラッシュした時、クラッシュリカバリ処理は最新のチェックポイントレコードを見つけ、ログの中でどのレコード(これはredoレコードと呼ばれています)からREDOログ操作を開始すべきかを決定します。
+このチェックポイント以前になされたデータファイルの変更は、すでにディスク上にあることが保証されています。
+従って、チェックポイント後、redoレコード内のそのチェックポイント以前のログセグメントは不要となり、再利用または削除することができます。
+(<acronym>WAL</acronym>アーカイブが行われる場合、このログセグメントは削除もしくは再利用される前に保存されなければなりません。)
   </para>
 
   <para>
@@ -756,7 +783,7 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
    before the next checkpoint is due to start; this minimizes performance
    degradation during checkpoints.
 -->
-チェックポイント処理は、全てのダーティデータページをディスクへ書き出すため、大きなI/O負荷を発生させます。
+チェックポイント処理は、全てのダーティデータページをディスクへフラッシュするため、大きなI/O負荷を発生させます。
 チェックポイント処理においては、I/Oはチェックポイント開始時に始まり、次のチェックポイントが開始する前に完了するように調節されます。
 これは、チェックポイント処理中の性能劣化を極力抑える効果があります。
   </para>
@@ -782,7 +809,7 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
 <xref linkend="guc-checkpoint-timeout"/>秒が経過するか、または<xref linkend="guc-max-wal-size"/>に達するか、どちらかの条件が最初に満たされるとチェックポイントが開始されます。
 デフォルトの設定では、それぞれ5分と1GBとなっています。
 前回のチェックポイント以降書き出すWALがない場合、<varname>checkpoint_timeout</varname>が経過したとしても新しいチェックポイントが飛ばされます。
-(WALアーカイブ処理を使用しており、かつ、データ損失の可能性を限定するためにファイルのアーカイブ頻度に対する下限を設定したい場合、チェックポイント関連のパラメータよりも、<xref linkend="guc-archive-timeout"/>パラメータを調節するべきです。)
+(WALアーカイブ処理を使用しており、かつ、データ損失の可能性を限定するためにファイルのアーカイブ頻度の下限を設定したい場合、チェックポイント関連のパラメータよりも、<xref linkend="guc-archive-timeout"/>パラメータを調節するべきです。)
 また、<command>CHECKPOINT</command> SQLコマンドで強制的にチェックポイントを作成することもできます。
   </para>
 
@@ -870,15 +897,16 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
    completed on time, which would result in performance loss due to
    unexpected variation in the number of WAL segments needed.
 -->
-ページ書き出しの集中による入出力システムの溢れを防ぐために、チェックポイント期間のダーティバッファの書き出しは一定の期間に分散されます。
-この期間は<xref linkend="guc-checkpoint-completion-target"/>により制御され、チェックポイント間隔の割合として指定されます。
+ページ書き出しの集中によるI/Oシステムの溢れを防ぐために、チェックポイント期間のダーティバッファの書き出しは一定の期間に分散されます。
+この期間は<xref linkend="guc-checkpoint-completion-target"/>により制御され、<varname>checkpoint_timeout</varname>によって設定されるチェックポイント間隔の割合として指定されます。
 I/Oの割合は、チェックポイントの起動時から<varname>checkpoint_timeout</varname>秒が経過した時、あるいは<varname>max_wal_size</varname>を超えた時、このどちらかが発生するとすぐに、チェックポイントが完了するように調整されます。
-デフォルトの0.5という値では、<productname>PostgreSQL</productname>は、次のチェックポイントが始まるまでのおよそ半分の時間で各チェックポイントが完了するものと想定できることになります。
-通常の操作においてほぼ最大のI/Oスループットに近いようなシステムでは、チェックポイントにおけるI/O負荷を減らすために<varname>checkpoint_completion_target</varname>を増やすことを勧めます。
-この欠点は、延長されたチェックポイントがリカバリ時に影響をあたえることです。
+デフォルトの0.9という値では、<productname>PostgreSQL</productname>は次のチェックポイントが始まる少し前に、前回のチェックポイント期間の約90%程度の時間で各チェックポイントが完了するものと想定できることになります。
+これにより、チェックポイントのI/O負荷がチェックポイント期間を通して一定になるように、I/Oが可能な限り分散されます。
+この欠点は、延長されたチェックポイントがリカバリ時間に影響をあたえることです。
 リカバリ時に使用できるように、より多くのWALセグメントを保持する必要があるためです。
-<varname>checkpoint_completion_target</varname>を最大の1.0に設定することもできますが、より低く抑えること（おそらく最大で0.9）が最善です。
-チェックポイントには、ダーティバッファを書き出す以外の活動も含まれているからです。
+リカバリに必要な時間を気にするユーザは、<varname>checkpoint_timeout</varname>を減らして、チェックポイントをより頻繁に発生しながらも、チェックポイント間隔全体にI/Oを分散させることを望むかもしれません。
+または、<varname>checkpoint_completion_target</varname>を減らすこともできますが、この場合、チェックポイント中のI/Oが多い時間帯と、チェックポイント完了後から次に予定されているチェックポイントの前までのI/Oの少ない時間帯が発生しますので、推奨されません。
+<varname>checkpoint_completion_target</varname>を最大の1.0に設定することもできますが、チェックポイントにはダーティバッファを書き出す以外の活動も含まれているため、通常はデフォルトの0.9以下に設定することをお勧めします。
 1.0という設定は、ある時点でチェックポイントが完了しなくなるという結果に陥ります。
 これは必要なWALセグメント数が想定以上に変動することになり、性能の劣化が発生することになります。
   </para>
@@ -970,8 +998,8 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    (<varname>max_wal_size</varname> is never a hard limit anyway, so you should
    always leave plenty of headroom to avoid running out of disk space.)
 -->
-アーカイブからのリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</firstterm><indexterm><primary>restartpoint</primary></indexterm>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</filename>ファイルを更新します。また<filename>pg_wal</filename>ディレクトリの中の古いログセグメントを再利用できるようにします。
-リスタートポイント処理はチェックポイントレコードに対してしか実施されないので、マスタ側のチェックポイント処理よりも発生頻度が多いということはありません。
+アーカイブリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</firstterm><indexterm><primary>restartpoint</primary></indexterm>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</filename>ファイルを更新します。また<filename>pg_wal</filename>ディレクトリの中の古いログセグメントを再利用できるようにします。
+リスタートポイント処理はチェックポイントレコードに対してしか実施されないので、プライマリ側のチェックポイント処理よりも発生頻度が多いということはありません。
 リスタートポイントは、最後のリスタートポイントより少なくとも<varname>checkpoint_timeout</varname>秒が経過しているか、あるいは<varname>max_wal_size</varname>を超えそうな場合に起動されます。
 しかし、リスタートポイントが実施できるための制約事項により、リカバリの際には1回のチェックポイント分のWALを上限に、<varname>max_wal_size</varname>を超えてしまいがちです。
 (どのみち<varname>max_wal_size</varname>はハードリミットではないので、ディスクスペースを使い尽くしてしまわないように、常に十分な余裕を持っておくべきです)
@@ -1143,6 +1171,7 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
   </para>
 
   <para>
+<!--
    There are two internal functions to write WAL data to disk:
    <function>XLogWrite</function> and <function>issue_xlog_fsync</function>.
    When <xref linkend="guc-track-wal-io-timing"/> is enabled, the total
@@ -1169,6 +1198,15 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    <function>issue_xlog_fsync</function> syncs WAL data to disk are also
    counted as <literal>wal_write</literal> and <literal>wal_sync</literal>
    in <structname>pg_stat_wal</structname>, respectively.
+-->
+WALデータをディスクに書き込むための2つの内部関数があります。
+<function>XLogWrite</function>と<function>issue_xlog_fsync</function>です。
+<xref linkend="guc-track-wal-io-timing"/>が有効な場合、<function>XLogWrite</function>がWALデータをディスクに書き込み、<function>issue_xlog_fsync</function>がWALデータをディスクに同期する合計時間は、それぞれ<xref linkend="pg-stat-wal-view"/>の<literal>wal_write_time</literal>および<literal>wal_sync_time</literal>として数えられます。
+<function>XLogWrite</function>は、WALバッファをディスクに書き込んで<function>issue_xlog_fsync</function>を呼び出すために、通常は<function>XLogInsertRecord</function>（WALバッファに新しいレコード用の領域がない場合）、<function>XLogFlush</function>、WALライタによって呼び出されます。
+<function>issue_xlog_fsync</function>は通常、WALファイルをディスクに同期するために<function>XLogWrite</function>によって呼び出されます。
+<varname>wal_sync_method</varname>が<literal>open_datasync</literal>または<literal>open_sync</literal>の場合、<function>XLogWrite</function>での書き込み操作はディスクに書き込まれたWALデータの同期を保証し、<function>issue_xlog_fsync</function>は何も行いません。
+<varname>wal_sync_method</varname>が<literal>fdatasync</literal>、<literal>fsync</literal>、または<literal>fsync_writethrough</literal>のいずれかの場合、書き込み操作はWALバッファをカーネルキャッシュに移動し、<function>issue_xlog_fsync</function>はそれらをディスクに同期します。
+<varname>track_wal_io_timing</varname>の設定に関係なく、<function>XLogWrite</function>の書き込み回数と<function>issue_xlog_fsync</function>のディスクへのWALデータの同期回数もそれぞれ<structname>pg_stat_wal</structname>の<literal>wal_write</literal>と<literal>wal_sync</literal>としてカウントされます。
   </para>
  </sect1>
 
@@ -1192,7 +1230,7 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    linkend="wal-configuration"/>).
 -->
 <acronym>WAL</acronym>は自動的に有効になります。
-<acronym>WAL</acronym>ログが必要とするディスク容量を確保すること、そして必要ならばチューニングすることを除いては（<xref linkend="wal-configuration"/>を参照）、管理者は何もする必要はありません。
+<acronym>WAL</acronym>ログが必要とするディスク容量の確保することと、必要なチューニングを実施すること以外は（<xref linkend="wal-configuration"/>を参照）、管理者は何もする必要はありません。
   </para>
 
   <para>
@@ -1208,9 +1246,9 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    and recovery.
 -->
 新しいレコードが作成されるごとに、<acronym>WAL</acronym>レコードが<acronym>WAL</acronym>ログに追加されます。
-挿入位置はログシーケンス番号(<acronym>LSN</acronym>)によって記録されます。LSNはログのバイトオフセットで、単調増加します。
+挿入位置はログシーケンス番号(<acronym>LSN</acronym>)によって記録されます。LSNはログのバイトオフセットで、新しいレコードごとに単調増加します。
 <acronym>LSN</acronym>値は、<link linkend="datatype-pg-lsn"><type>pg_lsn</type></link>データ型として返されます。
-2つの<acronym>LSN</acronym>値を比較することで<acronym>WAL</acronym>データの差分量を計算することができるので、レプリケーションやリカバリーの進捗状況を測定できます。
+2つの<acronym>LSN</acronym>値を比較することで<acronym>WAL</acronym>データの差分量を計算することができるので、レプリケーションやリカバリの進捗状況を測定できます。
   </para>
 
   <para>
@@ -1228,9 +1266,9 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    but it will take a very, very long time to exhaust the
    available stock of numbers.
 -->
-<acronym>WAL</acronym>ログは、データディレクトリ以下の<filename>pg_wal</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズはinitdbの<option>--with-wal-segsize</option>オプションで変更できます)。
+<acronym>WAL</acronym>ログは、データディレクトリ以下の<filename>pg_wal</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズは<application>initdb</application>の<option>--with-wal-segsize</option>オプションで変更できます)。
 各セグメントは通常8キロバイトのページに分割されます(このサイズは<option>--with-wal-blocksize</option>というconfigureオプションで変更できます)。
-ログレコード用のヘッダは<filename>access/xlogrecord.h</filename>に記述されています。レコードの内容は、ログの対象となる事象の種類によって異なります。
+ログレコード用のヘッダは<filename>access/xlogrecord.h</filename>に記述されています。レコードの内容は、ログの対象となるイベントの種類によって異なります。
 セグメントファイルは名前として<filename>000000010000000000000001</filename>から始まる、常に増加する数が与えられています。
 数字は巡回しませんが、利用可能な数字を使い尽くすには非常に長い時間がかかるはずです。
   </para>
@@ -1261,7 +1299,7 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    (See <xref linkend="wal-reliability"/>.)
 -->
 <acronym>WAL</acronym>の目的である、確実にデータベースレコードが変更される前にログが書き出されることは、実際にはキャッシュにしかデータがなく、ディスクには格納されていない時にディスクドライブ<indexterm><primary>ディスクドライブ</primary></indexterm>が格納に成功したとカーネルに虚偽の報告を行うことによって失われる可能性があります。
-そのような状況では、電源が落ちた際に、復旧不可能なデータの破壊が起こることがあります。
+そのような状況では、電源が落ちた際に、復旧不可能なデータ破損が起こることがあります。
 管理者は、<productname>PostgreSQL</productname>の<acronym>WAL</acronym>ログを保持しているディスク装置がそのような嘘の報告をしないように保証するべきです。(<xref linkend="wal-reliability"/>を参照して下さい。)
   </para>
 
@@ -1279,9 +1317,9 @@ WALログが高遅延の回転ディスクに格納されているときは、<v
    changed since the checkpoint will be restored to a consistent
    state.
 -->
-チェックポイントが実行され、ログが吐き出された後、チェックポイントの位置は<filename>pg_control</filename>に保存されます。
-したがって、リカバリの開始の際は、サーバはまず<filename>pg_control</filename>を読み、次にチェックポイントレコードを読みます。
-そして、チェックポイントレコード内で示されたログの位置から前方をスキャンすることでREDO処理を行います。
+チェックポイントが実行され、ログがフラッシュされた後、チェックポイントの位置は<filename>pg_control</filename>に保存されます。
+したがって、リカバリの開始時は、サーバはまず<filename>pg_control</filename>を読み、次にチェックポイントレコードを読みます。
+そして、チェックポイントレコード内で示されたログの位置から前方にスキャンしてREDO処理を行います。
 データページの内容全体は、チェックポイント後の最初のページ変更時にログ内に保存されますので(<xref linkend="guc-full-page-writes"/>パラメータが無効にされていないという前提です)、そのチェックポイント以降に変更された全てのページは一貫した状態に復旧されます。
   </para>
 
