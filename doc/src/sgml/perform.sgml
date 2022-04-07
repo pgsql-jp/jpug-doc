@@ -57,7 +57,7 @@
 <productname>PostgreSQL</productname>は受理した問い合わせから<firstterm>問い合わせ計画</firstterm>を作り出します。
 問い合わせの構造と含まれるデータの性質に適した正しい問い合わせ計画を選択することが、良い性能を得るために非常に重要になります。
 ですので、システムには優れた計画の選択を試みる複雑な<firstterm>プランナ</firstterm>が存在します。
-<xref linkend="sql-explain"/>コマンドを使えば、任意の問い合わせに対してプランナがどのような問い合わせ計画を作ったのかわかります。
+<link linkend="sql-explain"><command>EXPLAIN</command></link>コマンドを使えば、任意の問い合わせに対してプランナがどのような問い合わせ計画を作ったのかわかります。
 問い合わせ計画を読みこなすには、ある程度の経験が必要です。
 本節ではその基本を提供しようと考えます。
    </para>
@@ -232,7 +232,7 @@ EXPLAIN SELECT * FROM tenk1;
 上位ノードのコストには、すべての子ノードのコストもその中に含まれていることを理解することは重要です。
 このコストはプランナが関与するコストのみ反映する点もまた重要です。
 とりわけ、結果の行をクライアントに転送するコストは、実際の処理時間の重要な要因となる可能性があるにもかかわらず、考慮されません。
-プランナは、計画をいかに変更しようと、どうすることもできないため、これを無視します。
+プランナは、計画をいかに変更しようと、転送コストを変えることはできないため、これを無視します。
 （正しい計画はどんなものであれ、すべて同じ行を結果として出力すると信じています。）
    </para>
 
@@ -375,7 +375,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100;
 子の計画ノードは、インデックスを使用して、インデックス条件(index condition)に合う行の場所を検索します。
 そして、上位計画ノードが実際にテーブル自体からこれらの行を取り出します。
 行を別々に取り出すことは、シーケンシャルな読み取りに比べ非常に高価です。
-しかし、テーブルのすべてのページを読み取る必要はありませんので、シーケンシャルスキャンより低価になります。
+しかし、テーブルのすべてのページを読み取る必要はありませんので、シーケンシャルスキャンより安価になります。
 （2段階の計画を使用する理由は、別々に行を取り出すコストを最小にするために、上位の計画ノードがインデックスにより識別された行の位置を読み取る前に物理的な順序でソートすることです。
 ノードで記載されている<quote>bitmap</quote>は、ソートを行う機構の名前です。）
    </para>
@@ -567,8 +567,7 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND unique2 &gt; 9000 LIMIT 2
 しかしLimitノードが、これらの行の1/5だけを取り出した後で停止することが想定されています。
 そのため総コストは1/5程度のみとなり、これが問い合わせの実際の推定コストとなります。
 この計画は、以前の計画にLimitノードを追加することより好まれます。
-Limitはビットマップスキャンの起動コストを払うことを避けることができないためです。
-このため総コストはこの方法に25単位ほど増加します。
+以前の計画へのLimit追加でのLimitはビットマップスキャンの起動コストを払うことを避けることができないため、総コストは25単位を超えてしまうからです。
    </para>
 
    <para>
@@ -1156,7 +1155,6 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
 この例では、Updateノードは元々言及されている親テーブルに加えて3つの子テーブルを考慮することが必要です。
 そのため、テーブル毎に1つ、4つの入力スキャン副計画があります。
 明確にするため、Updateノードには対応する副計画と同じ順に更新される特定の対象テーブルを示す注釈が付けられています。
-(この注釈は<productname>PostgreSQL</productname> 9.5からの新しいものです。以前のバージョンでは副計画を調べることで対象テーブルを勘で当てなければなりませんでした。)
    </para>
 
    <para>
@@ -1612,7 +1610,7 @@ WHERE tablename = 'road';
     <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
     catalog.
 -->
-統計情報オブジェクトは<xref linkend="sql-createstatistics"/>で作成します。
+統計情報オブジェクトは<link linkend="sql-createstatistics"><command>CREATE STATISTICS</command></link>で作成します。
 そうしたオブジェクトを作っても、単に統計情報として興味があることを示すカタログエントリが作られるだけです。
 実際のデータ収集は、<command>ANALYZE</command> （手動のコマンドを起動あるいはバックグラウンドでの自動ANALYZE）が行います。
 収集したデータは、<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>カタログで参照することができます。
@@ -2335,7 +2333,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     is a single command, there is no need to disable autocommit if you
     use this method to populate a table.
 -->
-単一コマンドですべての行をロードするために一連の<command>INSERT</command>コマンドではなく、<xref linkend="sql-copy"/>を使用してください。
+単一コマンドですべての行をロードするために一連の<command>INSERT</command>コマンドではなく、<link linkend="sql-copy"><command>COPY</command></link>を使用してください。
 <command>COPY</command>コマンドは行を大量にロードすることに最適化されています。
 このコマンドは<command>INSERT</command>に比べ柔軟性に欠けていますが、大量のデータロードにおけるオーバーヘッドを大きく低減します。
 <command>COPY</command>コマンドでテーブルにデータを投入する場合、コマンドは1つなので、自動コミットを無効にする必要はありません。
@@ -2352,7 +2350,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     in different ways; look for <quote>prepared statements</quote> in the interface
     documentation.
 -->
-<command>COPY</command>を使用できない場合、準備された<command>INSERT</command>文を<xref linkend="sql-prepare"/>を使用して作成し、必要な回数だけ<command>EXECUTE</command>を実行する方が良いでしょう。
+<command>COPY</command>を使用できない場合、準備された<command>INSERT</command>文を<link linkend="sql-prepare"><command>PREPARE</command></link>を使用して作成し、必要な回数だけ<command>EXECUTE</command>を実行する方が良いでしょう。
 これにより、繰り返し行われる<command>INSERT</command>の解析と計画作成分のオーバーヘッドを省くことになります。
 この機能のための方法はインタフェースによって異なります。
 このインタフェースの文書の<quote>準備された文</quote>を参照してください。
@@ -2533,7 +2531,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
 -->
 大量のデータをWALアーカイブ処理またはストリーミングレプリケーションを使用するインストレーションにロードする時、増加する大量のWALデータを処理するより、ロードが完了した後に新しくベースバックアップを取る方が高速です。
 ロード中のWALログの増加を防ぐためには、<xref linkend="guc-wal-level"/>を<literal>minimal</literal>に、<xref linkend="guc-archive-mode"/>を<literal>off</literal>に、<xref linkend="guc-max-wal-senders"/>をゼロに設定することにより、アーカイブ処理とストリーミングレプリケーションを無効にしてください。
-しかし、これらの変数を変更するにはサーバの再起動が必要な点に注意してください。
+しかし、これらの変数を変更するにはサーバの再起動が必要となり、以前取得したベースバックアップがアーカイブリカバリやスタンバイサーバーで使用できなくなりデータ消失につながる可能性があるため、注意してください。
    </para>
 
    <para>
@@ -2573,7 +2571,7 @@ SELECT * FROM x, y, a, b, c WHERE something AND somethingelse;
     <xref linkend="vacuum-for-statistics"/>
     and <xref linkend="autovacuum"/> for more information.
 -->
-テーブル内のデータ分布を大きく変更した時は毎回、<xref linkend="sql-analyze"/>を実行することを強く勧めます。
+テーブル内のデータ分布を大きく変更した時は毎回、<link linkend="sql-analyze"><command>ANALYZE</command></link>を実行することを強く勧めます。
 これは、テーブルに大量のデータをまとめてロードする場合も含まれます。
 <command>ANALYZE</command>（または<command>VACUUM ANALYZE</command>）を実行することで、確実にプランナがテーブルに関する最新の統計情報を持つことができます。
 統計情報が存在しない、または古い場合、プランナは、そのテーブルに対する問い合わせの性能を損なわせる、お粗末な問い合わせ計画を選択する可能性があります。
@@ -2774,7 +2772,7 @@ WALアーカイブ処理またはストリーミングレプリケーション�
 このためこの保証を必要としないサイトでは、<productname>PostgreSQL</productname>をかなり高速に実行するように設定することができます。
 以下に、こうした状況で性能を向上させるために行うことができる設定変更を示します。
 後述の注意を除き、データベースソフトウェアがクラッシュした場合でも、永続性は保証されています。
-突然のオペレーティングシステムの停止だけが、この設定を使用した時のデータ損失、破損の危険性を引き起こします。
+突然のオペレーティングシステムのクラッシュだけが、この設定を使用した時のデータ損失、破損の危険性を引き起こします。
 
     <itemizedlist>
      <listitem>
