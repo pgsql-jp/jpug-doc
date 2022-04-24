@@ -158,7 +158,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    generated from a table or a group of tables, and might also be described as
    a change set or replication set.  Each publication exists in only one database.
 -->
-<firstterm>パブリケーション</firstterm>は、どのような物理レプリケーションのマスターにも定義できます。
+<firstterm>パブリケーション</firstterm>は、どのような物理レプリケーションのプライマリにも定義できます。
 パブリケーションが定義されたノードは、<firstterm>パブリッシャー</firstterm>と呼ばれます。
 パブリケーションは、テーブルか、テーブルのグループから生成された更新の集合であると同時に、更新セットあるいはレプリケーションセットであるとも言えます。
 一つのパブリケーションは一つのデータベースにのみ存在します。
@@ -237,7 +237,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    A publication is created using the <link linkend="sql-createpublication"><command>CREATE PUBLICATION</command></link>
    command and may later be altered or dropped using corresponding commands.
 -->
-パブリケーションは、<xref linkend="sql-createpublication"/>コマンドで作成し、対応するコマンドで変更や削除ができます。
+パブリケーションは、<link linkend="sql-createpublication"><command>CREATE PUBLICATION</command></link>コマンドで作成し、対応するコマンドで変更や削除ができます。
   </para>
 
   <para>
@@ -248,7 +248,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    transactional; so the table will start or stop replicating at the correct
    snapshot once the transaction has committed.
 -->
-個々のテーブルは<xref linkend="sql-alterpublication"/>で動的に追加削除できます。
+個々のテーブルは<link linkend="sql-alterpublication"><command>ALTER PUBLICATION</command></link>で動的に追加削除できます。
 <literal>ADD TABLE</literal>および<literal>DROP TABLE</literal>操作はトランザクションの対象です。
 ひとたびトランザクションがコミットされれば、正しいスナップショットでテーブルのレプリケーションが開始あるいは終了されます。
   </para>
@@ -302,7 +302,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    synchronization.
 -->
 各々のサブスクリプションは、一つのレプリケーションスロット（<xref linkend="streaming-replication-slots"/>を参照）を通じて更新が通知されます。
-既存のテーブルデータを初期同期するために、追加で一時的なレプリケーションスロットが必要になることもあります。
+既存のテーブルデータを初期同期するために、追加でレプリケーションスロットが必要になることもあります。それらはデータ同期の終了時に削除されます。
   </para>
 
   <para>
@@ -337,7 +337,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    <link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION</command></link> command and removed using
    <link linkend="sql-dropsubscription"><command>DROP SUBSCRIPTION</command></link>.
 -->
-サブスクリプションは<xref linkend="sql-createsubscription"/>で追加し、<xref linkend="sql-altersubscription"/>を使って、いつでも停止、再開でき、そして<xref linkend="sql-dropsubscription"/>で削除できます。
+サブスクリプションは<link linkend="sql-createsubscription"><command>CREATE SUBSCRIPTION</command></link>で追加し、<link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION</command></link>を使って、いつでも停止、再開でき、そして<link linkend="sql-dropsubscription"><command>DROP SUBSCRIPTION</command></link>で削除できます。
   </para>
 
   <para>
@@ -398,24 +398,36 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    <title>レプリケーションスロットの管理</title>
 
    <para>
+<!--
     As mentioned earlier, each (active) subscription receives changes from a
     replication slot on the remote (publishing) side.
+-->
+前述のように、各々の（有効な）サブスクリプションは、リモート（パブリッシュしている）側のレプリケーションスロットに対する変更を受信します。
    </para>
    <para>
+<!--
     Additional table synchronization slots are normally transient, created
     internally to perform initial table synchronization and dropped
     automatically when they are no longer needed. These table synchronization
     slots have generated names: <quote><literal>pg_%u_sync_%u_%llu</literal></quote>
     (parameters: Subscription <parameter>oid</parameter>,
     Table <parameter>relid</parameter>, system identifier <parameter>sysid</parameter>)
+-->
+追加的なテーブル同期スロットは通常一時的なもので、初期テーブル同期を実行するために内部的に作成され、不要になった時に自動的に削除されます。
+これらのテーブル同期スロットには<quote><literal>pg_%u_sync_%u_%llu</literal></quote>（パラメータは、サブスクリプション<parameter>oid</parameter>、テーブル<parameter>relid</parameter>、システム識別子<parameter>sysid</parameter>）という名前が生成されます。
    </para>
    <para>
+<!--
     Normally, the remote replication slot is created automatically when the
     subscription is created using <command>CREATE SUBSCRIPTION</command> and it
     is dropped automatically when the subscription is dropped using
     <command>DROP SUBSCRIPTION</command>.  In some situations, however, it can
     be useful or necessary to manipulate the subscription and the underlying
     replication slot separately.  Here are some scenarios:
+-->
+通常、リモートのレプリケーションスロットは<command>CREATE SUBSCRIPTION</command>でサブスクリプションが作成されるときに自動的に作成され、サブスクリプションが<command>DROP SUBSCRIPTION</command>で削除されるときに自動的に削除されます。
+しかしながら、状況によっては、サブスクリプションとその下にあるレプリケーションスロットを別々に操作することが有用であったり必要であったりします。
+以下にいくつかシナリオを示します。
     <itemizedlist>
      <listitem>
       <para>
@@ -480,7 +492,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 サブスクリプションを削除する際に、リモートホストに接続できません。
 この場合、サブスクリプションを削除する前に、<command>ALTER SUBSCRIPTION</command>でそのスロットを切り離しを試みます。
 リモートデータベースインスタンスが存在しない場合は、これ以上の操作は必要ありません。
-しかし、単にリモートデータベースに接続できない状態ならば、レプリケーションスロットを手動で削除する必要があります。
+しかし、単にリモートデータベースに接続できない状態ならば、レプリケーションスロット（および、未だ残っている全てのテーブル同期スロット）を手動で削除する必要があります。
 そうでなければ、WALが保存され続け、いずれディスクを埋め尽くすかもしれません。
 そのような状態は注意深く調査する必要があります。
       </para>
@@ -664,7 +676,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
 -->
 パーティションテーブル間でレプリケーションする場合には、実際のレプリケーションは、デフォルトでは、パブリッシャー側の末端のパーティションから開始します。ですので、パブリッシャー側のパーティションがサブスクライバー側にも有効な対象テーブルとして存在していなければなりません。
 (対象テーブルは、それ自身が末端のパーティションかもしれませんし、さらにサブパーティション化されているかもしれません。独立したテーブルであっても構いません。)
-パブリケーションは、変更が実際に開始された個々の末端のパーティションのIDとスキーマの代わりに、パーティションのルートのテーブルのIDとスキーマを使って指定することもできます(<xref linkend="sql-createpublication"/>を参照してください)。
+パブリケーションは、変更が実際に開始された個々の末端のパーティションのIDとスキーマの代わりに、パーティションのルートのテーブルのIDとスキーマを使って指定することもできます(<link linkend="sql-createpublication"><command>CREATE PUBLICATION</command></link>を参照してください)。
     </para>
    </listitem>
   </itemizedlist>
@@ -759,9 +771,11 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
      replication continues as normal.
 -->
 既存のサブスクライブされたテーブル中の初期データのスナップショットが取得され、特殊な適用プロセスの並列インスタンスにコピーされます。
-このプロセスは自身の一時レプリケーションスロットを作成し、既存のデータをコピーします。
+このプロセスは自身のレプリケーションスロットを作成し、既存のデータをコピーします。
+コピーが終わるとすぐにテーブル内容が他のバックエンドから見えるようになります。
 既存のデータのコピーが終わると、ワーカーは同期モードに入ります。
 このモードでは、初期データのコピー中に起こった更新を標準の論理レプリケーションを使ってストリーミングすることにより、テーブルが主適用プロセスと同期状態になることを保証します。
+この同期フェーズの間、パブリッシャで発生したのと同じ順序で変更が適用され、コミットされます。
 ひとたび同期が完了すれば、テーブルのレプリケーションの制御は主適用プロセスに戻され、レプリケーションは通常通り継続されます。
     </para>
   </sect2>
@@ -781,7 +795,7 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
    physical replication primary
    (see <xref linkend="streaming-replication-monitoring"/>).
 -->
-論理レプリケーションは<link linkend="streaming-replication">物理ストリーミングレプリケーション</link>と類似のアーキテクチャに基づいているので、パブリケーションノードの監視は、物理レプリケーションのマスター（<xref linkend="streaming-replication-monitoring"/>参照）の監視と似ています。
+論理レプリケーションは<link linkend="streaming-replication">物理ストリーミングレプリケーション</link>と類似のアーキテクチャに基づいているので、パブリケーションノードの監視は、物理レプリケーションのプライマリ（<xref linkend="streaming-replication-monitoring"/>参照）の監視と似ています。
   </para>
 
   <para>
@@ -961,7 +975,7 @@ walsenderプロセスはWALのロジカルデコーディング（<xref linkend=
    also take worker slots from <varname>max_worker_processes</varname>.
 -->
 また、サブスクライバーでは<varname>max_replication_slots</varname>の設定が必要です。
-この場合、少なくともサブスクライバーに追加する予定のサブスクリプション数が設定されている必要があります。
+少なくともサブスクライバーに追加する予定のサブスクリプション数が、加えてテーブル同期のためのいくらかの予備が、設定されているべきです。
 パブリッシャーと同様に、<varname>max_logical_replication_workers</varname>は、少なくともサブスクリプション数に加えてテーブル同期のための予備が設定されていなければなりません。
 加えて、レプリケーションワーカーを収容するために、<varname>max_worker_processes</varname>を少なくとも（<varname>max_logical_replication_workers</varname> + <literal>1</literal>）に調整する必要があるかもしれません。
 ある種の拡張とパラレルクエリは、 <varname>max_worker_processes</varname>からワーカースロットを使うことに留意してください。
