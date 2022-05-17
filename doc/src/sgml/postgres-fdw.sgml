@@ -95,15 +95,18 @@
   have privileges to do these things.)
 -->
 今のところ、リモートテーブルに格納されているデータにアクセスするには少なくとも外部テーブルに対する<command>SELECT</command>権限が必要です。
-また、<command>INSERT</command>や<command>UPDATE</command>、<command>DELETE</command>を使用してリモートテーブルを操作する事もできます。
+また、<command>INSERT</command>や<command>UPDATE</command>、<command>DELETE</command>、<command>TRUNCATE</command>を使用してリモートテーブルを操作する事もできます。
 （もちろん、ユーザマッピングで指定されたリモートユーザは、これらの操作を実行する権限を有している必要があります）
  </para>
 
  <para>
+<!--
   Note that the <literal>ONLY</literal> option specified in
   <command>SELECT</command>, <command>UPDATE</command>,
   <command>DELETE</command> or <command>TRUNCATE</command>
   has no effect when accessing or modifying the remote table.
+-->
+リモートテーブルをアクセスあるいは変更する際、<command>SELECT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>TRUNCATE</command>に対して<literal>ONLY</literal>オプションを指定しても効果はありません。
  </para>
 
  <para>
@@ -121,7 +124,7 @@
 -->
 <filename>postgres_fdw</filename>は今のところ、<literal>ON CONFLICT DO UPDATE</literal>句のある<command>INSERT</command>文をサポートしていないことに注意して下さい。
 しかし、一意インデックスの推定の指定を省略しているならば、<literal>ON CONFLICT DO NOTHING</literal>句はサポートされます。
-<filename>postgres_fdw</filename>は、パーティションテーブルで実行された<command>UPDATE</command>文により引き起こされる行の移動をサポートしますが、移動した行を挿入するよう選択されたリモートパーティションが後で更新される<command>UPDATE</command>対象のパーティションでもある場合は、今のところ扱わないことにも注意してください。
+<filename>postgres_fdw</filename>は、パーティションテーブルで実行された<command>UPDATE</command>文により引き起こされる行の移動をサポートしますが、移動した行を挿入するよう選択されたリモートパーティションが同じコマンド内で別の場所で更新される<command>UPDATE</command>対象のパーティションでもある場合は、今のところ扱わないことにも注意してください。
  </para>
 
  <para>
@@ -135,7 +138,7 @@
   differently from the local server.
 -->
 一般的な推奨事項として、可能であれば外部テーブルのカラムを、被参照側のリモートテーブル側のカラムと全く同一のデータ型および照合順序によって定義してください。
-<filename>postgres_fdw</filename>は必要に応じてデータ型の変換を行いますが、リモートサーバがローカルサーバとは少々違った<literal>WHERE</literal>句の解釈を行うため、データ型や照合順序が一致していないと、時には予期しない結果を得る事があるかもしれません。
+<filename>postgres_fdw</filename>は必要に応じてデータ型の変換を行いますが、リモートサーバがローカルサーバとは異なる問い合わせ条件の解釈を行うため、データ型や照合順序が一致していないと、時には予期しない意味論的に異常な結果を得る事があるかもしれません。
  </para>
 
  <para>
@@ -392,7 +395,7 @@ postgresサーバが動作しているシステムユーザのunixのホーム�
        the remote side, etc.
        The default value is <literal>100</literal>.
 -->
-外部テーブルまたは外部サーバに指定できるこのオプションは、当該外部サーバに関連付けられた全ての外部テーブルスキャンの推定開始コストに加算される数値です。
+外部テーブルまたは外部サーバに指定できるこのオプションは、当該外部サーバに関連付けられた全ての外部テーブルスキャンの推定開始コストに加算される浮動小数点値です。
 これは、接続の確立、リモート側でのクエリのパース・最適化など、追加的なオーバーヘッドを表現します。
 デフォルト値は<literal>100</literal>です。
       </para>
@@ -411,7 +414,7 @@ postgresサーバが動作しているシステムユーザのunixのホーム�
        number to reflect higher or lower network delay to the remote server.
        The default value is <literal>0.01</literal>.
 -->
-外部サーバに指定できるこのオプションは、このサーバでの外部テーブルのスキャンにおいて、各タプル毎に発生する追加的なコストとして使用される数値です。
+外部サーバに指定できるこのオプションは、このサーバでの外部テーブルのスキャンにおいて、各タプル毎に発生する追加的なコストとして使用される浮動小数点値です。
 これは、サーバ間のデータ転送における追加的なオーバーヘッドを表現し、リモートサーバへのネットワーク遅延の高低を反映するためにこの数値を増減することができます。
 デフォルト値は<literal>0.01</literal>です。
       </para>
@@ -526,14 +529,21 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
      <term><literal>batch_size</literal></term>
      <listitem>
       <para>
+<!--
        This option specifies the number of rows <filename>postgres_fdw</filename>
        should insert in each insert operation. It can be specified for a
        foreign table or a foreign server. The option specified on a table
        overrides an option specified for the server.
        The default is <literal>1</literal>.
+-->
+このオプションは、<filename>postgres_fdw</filename>が個々のINSERT操作で挿入する行数を指定します。
+外部テーブルあるいは外部サーバに対して指定することができます。
+テーブルに対してこのオプションを指定すると、サーバに対して指定されたオプションを上書きします。
+デフォルトは<literal>1</literal>です。
       </para>
 
       <para>
+<!--
        Note the actual number of rows <filename>postgres_fdw</filename> inserts at
        once depends on the number of columns and the provided
        <literal>batch_size</literal> value. The batch is executed as a single
@@ -542,6 +552,10 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
        single query to 65535. When the number of columns * <literal>batch_size</literal>
        exceeds the limit, the <literal>batch_size</literal> will be adjusted to
        avoid an error.
+-->
+<filename>postgres_fdw</filename>が実際に一度に挿入する行数は、列の数と指定された<literal>batch_size</literal>値に依存することに注意してください。
+一つのバッチは単一の問い合わせとして実行され、libpqプロトコル（<filename>postgres_fdw</filename>がリモートサーバに接続するために使用します）は単一の問い合わせにおけるパラメータ数を65535に制限していることに注意してください。
+列数 * <literal>batch_size</literal>がその上限を超えると、エラーを回避するために<literal>batch_size</literal>が調整されます。
       </para>
      </listitem>
     </varlistentry>
@@ -551,13 +565,21 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
   </sect3>
 
   <sect3>
+<!--
    <title>Asynchronous Execution Options</title>
+-->
+   <title>非同期実行オプション</title>
 
    <para>
+<!--
     <filename>postgres_fdw</filename> supports asynchronous execution, which
     runs multiple parts of an <structname>Append</structname> node
     concurrently rather than serially to improve performance.
     This execution can be controlled using the following option:
+-->
+<filename>postgres_fdw</filename>は非同期実行をサポートします。
+これは性能を向上するために、複数の<structname>Append</structname>ノードの部分を順番にではなく、並行して実行します。
+この実行は以下のオプションで制御できます。
    </para>
 
    <variablelist>
@@ -566,14 +588,21 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
      <term><literal>async_capable</literal></term>
      <listitem>
       <para>
+<!--
        This option controls whether <filename>postgres_fdw</filename> allows
        foreign tables to be scanned concurrently for asynchronous execution.
        It can be specified for a foreign table or a foreign server.
        A table-level option overrides a server-level option.
        The default is <literal>false</literal>.
+-->
+このオプションは、<filename>postgres_fdw</filename>が非同期実行の際に外部テーブルの並列走査を許すかどうかを制御します。
+外部テーブルあるいは外部サーバに対して指定できます。
+テーブルレベルのオプションはサーバレベルのオプションを上書きします。
+デフォルトは<literal>false</literal>です。
       </para>
 
       <para>
+<!--
        In order to ensure that the data being returned from a foreign server
        is consistent, <filename>postgres_fdw</filename> will only open one
        connection for a given foreign server and will run all queries against
@@ -581,9 +610,14 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
        involved, unless those tables are subject to different user mappings.
        In such a case, it may be more performant to disable this option to
        eliminate the overhead associated with running queries asynchronously.
+-->
+外部サーバから返却されるデータの一貫性を保証するために、<filename>postgres_fdw</filename>は一つの外部サーバに対して一つの接続だけを開きます。
+そして、テーブルが異なるユーザマッピングの対象でない限り、複数の外部テーブルが存在してもすべての問い合わせをサーバに対して順番に実行します。
+この場合、問い合わせを非同期に実行することによるオーバヘッドをなくすためにこのオプションを使用しないほうが性能が良くなるかもしれません。
       </para>
 
       <para>
+<!--
        Asynchronous execution is applied even when an
        <structname>Append</structname> node contains subplan(s) executed
        synchronously as well as subplan(s) executed asynchronously.
@@ -594,6 +628,10 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
        subplans are waiting for the results of asynchronous queries sent to
        foreign servers.
        This behavior might change in a future release.
+-->
+<structname>Append</structname>ノードに順次実行されるサブプランが含まれていても、あるいは非同期実行されるサブプランが含まれていても、非同期実行は適用されます。
+このような場合では、非同期実行のサブプランが<filename>postgres_fdw</filename>を用いて処理されると、外部サーバに送信される非同期問い合わせの結果を非同期サブプランが待っている間に順次実行サブプランが実行されるため、少なくとも１つの順次実行サブプランがすべてのタプルを返すまでは、非同期実行サブプランによるタプルは返りません。
+このふるまいは将来のリリースでは変更されるかもしれません。
       </para>
      </listitem>
     </varlistentry>
@@ -655,11 +693,18 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
   </sect3>
 
   <sect3>
+<!--
    <title>Truncatability Options</title>
+-->
+   <title>切り詰めオプション</title>
 
    <para>
+<!--
     By default all foreign tables using <filename>postgres_fdw</filename> are assumed
     to be truncatable.  This may be overridden using the following option:
+-->
+デフォルトでは<filename>postgres_fdw</filename>を使用する外部テーブルは切り詰め可能であると見なされます。
+これは以下のオプションで変更が可能です。
    </para>
 
    <variablelist>
@@ -668,17 +713,27 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
      <term><literal>truncatable</literal></term>
      <listitem>
       <para>
+<!--
        This option controls whether <filename>postgres_fdw</filename> allows
        foreign tables to be truncated using the <command>TRUNCATE</command>
        command. It can be specified for a foreign table or a foreign server.
        A table-level option overrides a server-level option.
        The default is <literal>true</literal>.
+-->
+このオプションは<filename>postgres_fdw</filename>が外部テーブルを<command>TRUNCATE</command>を使って切り詰めることができるかどうかを制御します。
+外部テーブルあるいは外部サーバに対して指定できます。
+外部テーブルで指定されたオプションは、外部サーバにおいて指定されたオプションを上書きします。
+デフォルトは<literal>true</literal>です。
       </para>
 
       <para>
+<!--
        Of course, if the remote table is not in fact truncatable, an error
        would occur anyway.  Use of this option primarily allows the error to
        be thrown locally without querying the remote server.
+-->
+もちろん外部テーブルが切り詰め不可能なら、結局エラーが生じます。
+このオプションを使用することにより、リモートサーバに問い合わせることなくエラーをローカルで起こすことができるのが主な用途です。
       </para>
      </listitem>
     </varlistentry>
@@ -733,14 +788,19 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
 デフォルトは<literal>true</literal>です。
 リモートサーバとローカルサーバで照合順序の名前の集合が異なる場合は、この設定を無効にする必要があるでしょう。
 リモートサーバが異なるOSで動作しているなら、そういうことがありそうです。
+しかし、そうした時には、インポートしたテーブルの列の照合順序が実際のデータと一致せず、問い合わせの振る舞いが結果として異常になる大きなリスクがあります。
       </para>
 
       <para>
+<!--
        Even when this parameter is set to <literal>true</literal>, importing
        columns whose collation is the remote server's default can be risky.
        They will be imported with <literal>COLLATE "default"</literal>, which
        will select the local server's default collation, which could be
        different.
+-->
+このパラメータが<literal>true</literal>のときでさえ、照合順序がリモートサーバのデフォルトである列をインポートするのは危険性があります。
+これらの列は<literal>COLLATE "default"</literal>としてインポートされますが、ローカルサーバのデフォルトの照合順序は異なるかもしれません。
       </para>
      </listitem>
     </varlistentry>
@@ -770,11 +830,16 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
      <term><literal>import_generated</literal></term>
      <listitem>
       <para>
+<!--
        This option controls whether column <literal>GENERATED</literal> expressions
        are included in the definitions of foreign tables imported
        from a foreign server. The default is <literal>true</literal>.
        The <command>IMPORT</command> will fail altogether if an imported generated
        expression uses a function or operator that does not exist locally.
+-->
+このオプションは、外部サーバからインポートされた外部テーブルの定義に<literal>GENERATED</literal>列式が含まれるかどうかを制御します。
+デフォルトは<literal>true</literal>です。
+インポートされる生成式がローカルには存在しない関数あるいは演算子を使っていた場合、<command>IMPORT</command>は失敗します。
       </para>
      </listitem>
     </varlistentry>
@@ -809,11 +874,11 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
     foreign tables, see <xref linkend="sql-createforeigntable"/>.
 -->
 <literal>NOT NULL</literal>以外の制約は決してリモートのテーブルからインポートされないことに注意して下さい。
-<productname>PostgreSQL</productname>は外部テーブルの<literal>CHECK</literal>制約をサポートしていますが、それを自動的にインポートする予定はありません。
+<productname>PostgreSQL</productname>は外部テーブルのcheck制約をサポートしていますが、それを自動的にインポートする予定はありません。
 なぜなら、制約の式はローカルとリモートのサーバで異なる評価をされる危険があるからです。
-<literal>CHECK</literal>制約でそのような一貫しない動作があると、問い合わせの最適化で検知するのが難しい誤りが発生するかもしれません。
-そのため、<literal>CHECK</literal>制約をインポートしたい場合は、それを手作業で実行する必要があり、またその一つ一つの意味を注意深く確認するべきです。
-外部テーブルの<literal>CHECK</literal>制約の取扱いについて、詳しくは<xref linkend="sql-createforeigntable"/>を参照して下さい。
+check制約でそのような一貫しない動作があると、問い合わせの最適化で検知するのが難しい誤りが発生するかもしれません。
+そのため、check制約をインポートしたい場合は、それを手作業で実行する必要があり、またその一つ一つの意味を注意深く確認するべきです。
+外部テーブルのcheck制約の取扱いについて、詳しくは<xref linkend="sql-createforeigntable"/>を参照して下さい。
    </para>
 
    <para>
@@ -827,20 +892,26 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
     partitioned tables should allow access to all the data without
     creating extra objects.
 -->
-他のテーブルのパーティションであるテーブルや外部テーブルは、自動的に除外されます。
-パーティション化されたテーブルは、他のテーブルのパーティションでない限り、インポートされます。
-パーティション化階層のルートであるパーティションテーブルを介してすべてのデータにアクセスできるため、この方法では余分なオブジェクトを作成せずにすべてのデータにアクセスできます。
+他のテーブルのパーティションであるテーブルや外部テーブルは、明示的な<literal>LIMIT TO</literal>句が指定されている場合にのみインポートされます。
+そうでなければそれらは、<xref linkend="sql-importforeignschema"/>から自動的に除外されます。
+パーティション化階層のルートであるパーティションテーブルを介してすべてのデータにアクセスできるため、パーティション化テーブルのみをインポートすることで余分なオブジェクトを作成せずにすべてのデータにアクセスできます。
    </para>
 
   </sect3>
 
   <sect3>
+<!--
     <title>Connection Management Options</title>
+-->
+    <title>接続管理オプション</title>
 
     <para>
+<!--
      By default, all connections that <filename>postgres_fdw</filename>
      establishes to foreign servers are kept open in the local session
      for re-use.
+-->
+デフォルトでは<filename>postgres_fdw</filename>が外部サーバに確立した接続は、再利用のためにローカルセッションにおいて開いたまま維持されます。
     </para>
 
     <variablelist>
@@ -849,12 +920,18 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
       <term><literal>keep_connections</literal></term>
       <listitem>
        <para>
+<!--
         This option controls whether <filename>postgres_fdw</filename> keeps
         the connections to the foreign server open so that subsequent
         queries can re-use them. It can only be specified for a foreign server.
         The default is <literal>on</literal>. If set to <literal>off</literal>,
         all connections to this foreign server will be discarded at the end of
         each transaction.
+-->
+このオプションは、後の再利用のために<filename>postgres_fdw</filename>が外部サーバに対する接続を保持したままにしておくかどうかを制御します。
+外部サーバに対してのみ指定ができます。
+デフォルトは<literal>on</literal>です。
+<literal>off</literal>に設定すると、この外部サーバに対するすべての接続は個々のトランザクションの終了時に破棄されます。
       </para>
       </listitem>
      </varlistentry>
@@ -864,13 +941,17 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
  </sect2>
 
 <sect2>
+<!--
   <title>Functions</title>
+-->
+  <title>関数</title>
 
   <variablelist>
    <varlistentry>
     <term><function>postgres_fdw_get_connections(OUT server_name text, OUT valid boolean) returns setof record</function></term>
     <listitem>
      <para>
+<!--
       This function returns the foreign server names of all the open
       connections that <filename>postgres_fdw</filename> established from
       the local session to the foreign servers. It also returns whether
@@ -883,6 +964,13 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
       the end of that transaction. <literal>true</literal> is returned
       otherwise. If there are no open connections, no record is returned.
       Example usage of the function:
+-->
+この関数は、<filename>postgres_fdw</filename>によってローカルセッションから外部サーバに確立されたすべての開いている接続の外部サーバ名を返します。
+個々の接続が有効かどうかも返します。
+外部サーバの接続が現在のローカルトランザクションで使用されていても、外部サーバあるいはユーザマッピングが変更あるいは削除されると<literal>false</literal>が返り（無効な接続のサーバ名は、サーバが削除されると<literal>NULL</literal>になることに注意してください）、そうした無効な接続はトランザクションの終了時に閉じられます。
+そうでなければ<literal>true</literal>が返ります。
+開いた接続がなければレコードは返りません。
+関数の使用例を示します。
 <screen>
 postgres=# SELECT * FROM postgres_fdw_get_connections() ORDER BY 1;
  server_name | valid 
@@ -898,6 +986,7 @@ postgres=# SELECT * FROM postgres_fdw_get_connections() ORDER BY 1;
     <term><function>postgres_fdw_disconnect(server_name text) returns boolean</function></term>
     <listitem>
      <para>
+<!--
       This function discards the open connections that are established by
       <filename>postgres_fdw</filename> from the local session to
       the foreign server with the given name.  Note that there can be
@@ -908,6 +997,13 @@ postgres=# SELECT * FROM postgres_fdw_get_connections() ORDER BY 1;
       at least one connection, otherwise <literal>false</literal>.
       If no foreign server with the given name is found, an error is reported.
       Example usage of the function:
+-->
+この関数は、<filename>postgres_fdw</filename>によってローカルセッションから指定された名前の外部サーバに確立された開いている接続を破棄します。
+異なるユーザマッピングを使用することにより、指定されたサーバに複数の接続が存在する可能性があることに注意してください。
+現在のローカルトランザクションで接続が使われている場合は、接続は切断されず、警告メッセージが報告されます。
+少なくとも１つの接続が切断されると、この関数は<literal>true</literal>を返します。
+指定した名前の外部サーバが存在しなければ、エラーが報告されます。
+この関数の使用例を示します。
 <screen>
 postgres=# SELECT postgres_fdw_disconnect('loopback1');
  postgres_fdw_disconnect 
@@ -922,6 +1018,7 @@ postgres=# SELECT postgres_fdw_disconnect('loopback1');
     <term><function>postgres_fdw_disconnect_all() returns boolean</function></term>
     <listitem>
      <para>
+<!--
       This function discards all the open connections that are established by
       <filename>postgres_fdw</filename> from the local session to
       foreign servers.  If the connections are used in the current local
@@ -929,6 +1026,12 @@ postgres=# SELECT postgres_fdw_disconnect('loopback1');
       This function returns <literal>true</literal> if it disconnects
       at least one connection, otherwise <literal>false</literal>.
       Example usage of the function:
+-->
+この関数は、<filename>postgres_fdw</filename>によってローカルセッションから外部サーバに確立されたすべての開いている接続を破棄します。
+現在のローカルトランザクションで接続が使われている場合は、接続は切断されず、警告メッセージが報告されます。
+少なくとも１つの接続が切断されると、この関数は<literal>true</literal>を返します。
+さもなければ<literal>false</literal>が返ります。
+この関数の使用例を示します。
 <screen>
 postgres=# SELECT postgres_fdw_disconnect_all();
  postgres_fdw_disconnect_all 
@@ -960,20 +1063,27 @@ postgres=# SELECT postgres_fdw_disconnect_all();
    server, a connection is established for each user mapping.
 -->
 <filename>postgres_fdw</filename>は、外部サーバに関連付けられた外部テーブルを参照するクエリを最初に実行する際に、外部サーバへの接続を確立します。
-この接続は保持され、同じセッションで以降の問い合わせのために再利用されます。
+デフォルトではこの接続は保持され、同じセッションで以降の問い合わせのために再利用されます。
+この振る舞いは外部サーバの<literal>keep_connections</literal>オプションを使って制御できます。
 しかし、外部サーバへのアクセスに対して複数のユーザ識別子（ユーザマッピング）が使用される場合には、接続はユーザマッピング毎に確立される事になります。
   </para>
 
   <para>
+<!--
    When changing the definition of or removing a foreign server or
    a user mapping, the associated connections are closed.
    But note that if any connections are in use in the current local transaction,
    they are kept until the end of the transaction.
    Closed connections will be re-established when they are necessary
    by future queries using a foreign table.
+-->
+外部サーバあるいはユーザマッピングの定義を変更ないし削除している場合は、関連する接続は閉じられます。
+しかし、現在のローカルトランザクションが接続を使っていると、接続はトランザクションが終了するまでは維持されることに注意してください。
+このあと外部テーブルを使用する問い合わせで必要になれば、閉じた接続は再び確立されます。
   </para>
 
   <para>
+<!--
    Once a connection to a foreign server has been established,
    it's by default kept until the local or corresponding remote
    session exits.  To disconnect a connection explicitly,
@@ -984,6 +1094,10 @@ postgres=# SELECT postgres_fdw_disconnect_all();
    may be used.  For example, these are useful to close
    connections that are no longer necessary, thereby releasing
    connections on the foreign server.
+-->
+ひとたび外部サーバに接続が確立されると、デフォルトではローカルあるいは関連するリモートセッションが終了するまで接続は維持されます。
+明示的に接続を切断するには外部サーバの<literal>keep_connections</literal>オプションを無効にするか、<function>postgres_fdw_disconnect</function>関数あるいは<function>postgres_fdw_disconnect_all</function>関数を使用します。
+たとえば、必要がなくなった接続を切断し、それによって外部サーバの接続を開放するのにこれらの関数が役に立ちます。
   </para>
  </sect2>
 
@@ -1307,7 +1421,7 @@ CREATE FOREIGN TABLE foreign_table (
 -->
 <command>CREATE FOREIGN TABLE</command>で宣言した列のデータ型やその他の属性は、実際のリモートテーブルと一致していることが必須です。
 リモートテーブルでどのような名前なのかを個々の列に対して<literal>column_name</literal>オプションで指定しない限り、列名も一致していなければなりません。
-多くの場合、外部テーブルの定義を手作業で作成するよりも、<xref linkend="sql-importforeignschema"/>を使用する方が望ましいです。
+多くの場合、外部テーブルの定義を手作業で作成するよりも、<link linkend="sql-importforeignschema"><command>IMPORT FOREIGN SCHEMA</command></link>を使用する方が望ましいです。
   </para>
  </sect2>
 
