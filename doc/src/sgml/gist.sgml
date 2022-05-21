@@ -378,6 +378,7 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
 これは演算子クラスに順序付けスキャン（最近傍検索）をサポートさせたい場合に必要です。
 オプションの9番目のメソッド<function>fetch</function>は、<function>compress</function>メソッドが省略されている場合を除き、演算子クラスがインデックスオンリースキャンをサポートしたい場合に必要になります。
 オプションの10番目のメソッド<function>options</function>は、演算子クラスがユーザに固有のパラメータを提供する場合に必要です。
+<function>sortsupport</function>メソッドも省略可能であり、<acronym>GiST</acronym>インデックスの構築を高速にするのに使われます。
  </para>
 
  <variablelist>
@@ -1289,7 +1290,7 @@ LANGUAGE C STRICT;
        functions using the <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
        <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
 -->
-関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+関数には<structname>local_relopts</structname>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
 オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
       </para>
 
@@ -1460,22 +1461,34 @@ my_compress(PG_FUNCTION_ARGS)
      <term><function>sortsupport</function></term>
      <listitem>
       <para>
+<!--
        Returns a comparator function to sort data in a way that preserves
        locality. It is used by <command>CREATE INDEX</command> and
        <command>REINDEX</command> commands. The quality of the created index
        depends on how well the sort order determined by the comparator function
        preserves locality of the inputs.
+-->
+ある程度局所性を保つ方法でデータをソートする比較関数を返します。
+<command>CREATE INDEX</command>と<command>REINDEX</command>コマンドで使われます。
+作成されるインデックスの質は、比較関数により決定された順序が入力の局所性をどれだけよく保っているかに依存します。
       </para>
       <para>
+<!--
        The <function>sortsupport</function> method is optional. If it is not
        provided, <command>CREATE INDEX</command> builds the index by inserting
        each tuple to the tree using the <function>penalty</function> and
        <function>picksplit</function> functions, which is much slower.
+-->
+<function>sortsupport</function>メソッドは省略可能です。
+提供されなければ、<command>CREATE INDEX</command>は各タプルを<function>penalty</function>関数と<function>picksplit</function>関数を使ってツリーに挿入することでインデックスを構築します。これはずっと遅いです。
       </para>
 
       <para>
+<!--
        The <acronym>SQL</acronym> declaration of the function must look like
        this:
+-->
+この関数の<acronym>SQL</acronym>宣言は以下のようになります。
 
 <programlisting>
 CREATE OR REPLACE FUNCTION my_sortsupport(internal)
@@ -1484,6 +1497,7 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 </programlisting>
 
+<!--
        The argument is a pointer to a <structname>SortSupport</structname>
        struct. At a minimum, the function must fill in its comparator field.
        The comparator takes three arguments: two Datums to compare, and
@@ -1492,10 +1506,19 @@ LANGUAGE C STRICT;
        in the index; that is, in the format returned by the
        <function>compress</function> method. The full API is defined in
        <filename>src/include/utils/sortsupport.h</filename>.
+-->
+引数は<structname>SortSupport</structname>構造体へのポインタです。
+最低でも、関数は構造体のcomparatorフィールドを埋めなければなりません。
+比較関数は引数を3つ取ります。比較するDatumを2つと<structname>SortSupport</structname>構造体へのポインタです。
+Datumはインデックス付けされる値2つで、インデックスに格納される形式です。すなわち、<function>compress</function>メソッドにより返される形式です。
+完全なAPIは<filename>src/include/utils/sortsupport.h</filename>で定義されています。
        </para>
 
        <para>
+<!--
         The matching code in the C module could then follow this skeleton:
+-->
+そして、Cモジュール内の対応するコードは以下のような骨格に従うことになります。
 
 <programlisting>
 PG_FUNCTION_INFO_V1(my_sortsupport);
@@ -1503,7 +1526,10 @@ PG_FUNCTION_INFO_V1(my_sortsupport);
 static int
 my_fastcmp(Datum x, Datum y, SortSupport ssup)
 {
+<!--
   /* establish order between x and y by computing some sorting value z */
+-->
+  /* ソートのための値zを計算することでxとyの間に順序を確立する */
 
   int z1 = ComputeSpatialCode(x);
   int z2 = ComputeSpatialCode(y);
@@ -1558,9 +1584,13 @@ my_sortsupport(PG_FUNCTION_ARGS)
  <title>実装</title>
 
  <sect2 id="gist-buffering-build">
+<!--
   <title>GiST Index Build Methods</title>
+-->
+  <title>GiSTインデックス構築法</title>
 
   <para>
+<!--
    The simplest way to build a GiST index is just to insert all the entries,
    one by one.  This tends to be slow for large indexes, because if the
    index tuples are scattered across the index and the index is large enough
@@ -1568,22 +1598,35 @@ my_sortsupport(PG_FUNCTION_ARGS)
    needed.  <productname>PostgreSQL</productname> supports two alternative
    methods for initial build of a GiST index: <firstterm>sorted</firstterm>
    and <firstterm>buffered</firstterm> modes.
+-->
+GiSTインデックスを構築する一番簡単な方法は、全項目を単に1つ1つ挿入することです。
+インデックスタプルがインデックス全体に分散し、インデックスがキャッシュに収まらない程大規模である場合、大量のランダムI/Oを必要としますので、これは大規模なインデックスに対して低速になりがちです。
+<productname>PostgreSQL</productname>はGiSTインデックスの初期構築のために他に2つの方法をサポートします。<firstterm>ソート処理</firstterm>モードと<firstterm>バッファ処理</firstterm>モードです。
   </para>
 
   <para>
+<!--
    The sorted method is only available if each of the opclasses used by the
    index provides a <function>sortsupport</function> function, as described
    in <xref linkend="gist-extensibility"/>.  If they do, this method is
    usually the best, so it is used by default.
+-->
+ソート処理法は、インデックスで使われる演算子クラスのそれぞれが、<xref linkend="gist-extensibility"/>に記載されているように<function>sortsupport</function>を提供している場合にのみ利用可能です。
+もしそうであれば、この方法が普通は最善ですので、デフォルトで使われます。
   </para>
 
   <para>
+<!--
    The buffered method works by not inserting tuples directly into the index
    right away.  It can dramatically reduce the amount of random I/O needed
    for non-ordered data sets.  For well-ordered data sets the benefit is
    smaller or non-existent, because only a small number of pages receive new
    tuples at a time, and those pages fit in cache even if the index as a
    whole does not.
+-->
+バッファ処理法はタプルを直ちに直接インデックスに挿入しないことで動作します。
+これは、順序付けられていないデータ群に対して必要とされるランダムI/Oの量を劇的に減らすかもしれません。
+十分に順序付けられたデータ群では、一度にわずかなページ数のみが新しいタプルを受け取り、そのためインデックス全体がキャッシュに収まらなくてもこれらのページがキャッシュ内に収まりますので、利点はより小さく、または利点がなくなります。
   </para>
 
   <para>
@@ -1596,8 +1639,8 @@ my_sortsupport(PG_FUNCTION_ARGS)
    influence depends on various factors, like the distribution of the input
    data and the operator class implementation.
 -->
-しかしバッファ付きインデックス構築は、CPUリソースを多少多く消費する<function>penalty</function>関数をより多く呼び出さなければなりません。
-またバッファ付き構築で使用されるバッファは、最大作成されるインデックスと同じサイズまで、一時的にディスク容量を必要とします。
+バッファ処理法は、<function>penalty</function>関数を単純な方法よりもより多く呼び出すことが必要で、余計にCPUリソースを消費します。
+またバッファは、最大作成されるインデックスと同じサイズまで、一時的にディスク容量を必要とします。
 バッファ処理は作成されるインデックスの品質にも、良くも悪くも、影響を与えます。
 この影響は、入力データの分布や演算子クラスの実装等、様々な要因に依存します。
   </para>
@@ -1612,8 +1655,8 @@ my_sortsupport(PG_FUNCTION_ARGS)
    turning buffering off might speed up the build somewhat if the input data
    is ordered.
 -->
-デフォルトでは、インデックスのサイズが<xref linkend="guc-effective-cache-size"/>に達した時にGiSTインデックス構築はバッファ処理方式に切り替わります。
-CREATE INDEXコマンドの<literal>buffering</literal>パラメータによって、手作業で有効または無効にすることができます。
+ソートが可能でない場合、デフォルトでは、インデックスのサイズが<xref linkend="guc-effective-cache-size"/>に達した時にGiSTインデックス構築はバッファ処理法に切り替わります。
+バッファ処理はCREATE INDEXコマンドの<literal>buffering</literal>パラメータによって、手動で強制あるいは無効にできます。
 デフォルトの動作は大抵の場合良好です。
 しかし、入力データが順序付けされている場合、バッファ処理を無効にすることで構築が多少高速になります。
   </para>
