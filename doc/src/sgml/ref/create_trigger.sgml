@@ -76,13 +76,18 @@ CREATE [ OR REPLACE ] [ CONSTRAINT ] TRIGGER <replaceable class="parameter">name
    certain operations are performed on that table.
 -->
 <command>CREATE TRIGGER</command>は新しいトリガを作成します。
+<command>CREATE OR REPLACE TRIGGER</command>は新しいトリガを作成、または、既存のトリガを置き換えます。
 作成したトリガは指定したテーブル、ビューまたは外部テーブルと関連付けられ、そのテーブルに特定の操作が行われた時に指定した関数<replaceable class="parameter">function_name</replaceable>を実行します。
   </para>
 
   <para>
+<!--
    To replace the current definition of an existing trigger, use
    <command>CREATE OR REPLACE TRIGGER</command>, specifying the existing
    trigger's name and parent table.  All other properties are replaced.
+-->
+既存トリガの現在の定義を置き換えるには、既存のトリガ名と親テーブルを指定して<command>CREATE OR REPLACE TRIGGER</command>を使用してください。
+その他の属性はすべて置き換えられます。
   </para>
 
   <para>
@@ -251,8 +256,12 @@ CREATE [ OR REPLACE ] [ CONSTRAINT ] TRIGGER <replaceable class="parameter">name
 
   <para>
    <indexterm>
+<!--
     <primary>trigger</primary>
     <secondary>constraint trigger</secondary>
+-->
+    <primary>トリガ</primary>
+    <secondary>制約トリガ</secondary>
    </indexterm>
 <!--
    When the <literal>CONSTRAINT</literal> option is specified, this command creates a
@@ -269,7 +278,7 @@ CREATE [ OR REPLACE ] [ CONSTRAINT ] TRIGGER <replaceable class="parameter">name
    when the constraints they implement are violated.
 -->
 <literal>CONSTRAINT</literal>オプションが指定された場合、このコマンドは<firstterm>制約トリガ</firstterm>を作成します。
-これは、<xref linkend="sql-set-constraints"/>を使用してトリガを発行するタイミングを調整することができるという点を除き、通常のトリガと同じです。
+これは、<link linkend="sql-set-constraints"><command>SET CONSTRAINTS</command></link>を使用してトリガを発行するタイミングを調整することができるという点を除き、通常のトリガと同じです。
 制約トリガは（外部テーブルではない）普通のテーブルの<literal>AFTER ROW</literal>トリガでなければなりません。
 トリガイベントを引き起こした文の最後、またはそれを含むトランザクションの最後のいずれかで発行することができます。
 後者の場合、<firstterm>遅延</firstterm>と呼ばれます。
@@ -644,7 +653,7 @@ UPDATE OF <replaceable>column_name1</replaceable> [, <replaceable>column_name2</
    <literal>TRIGGER</literal> privilege on the table.  The user must
    also have <literal>EXECUTE</literal> privilege on the trigger function.
 -->
-テーブルにトリガを作成するには、ユーザがそのテーブルに対し<literal>TRIGGER</literal>権限を持っている必要があります。
+テーブルに対してトリガを作成もしくは変更するには、ユーザがそのテーブルに対し<literal>TRIGGER</literal>権限を持っている必要があります。
 またユーザはトリガ関数に対し<literal>EXECUTE</literal>権限を持たなければなりません。
   </para>
 
@@ -652,10 +661,11 @@ UPDATE OF <replaceable>column_name1</replaceable> [, <replaceable>column_name2</
 <!--
    Use <link linkend="sql-droptrigger"><command>DROP TRIGGER</command></link> to remove a trigger.
 -->
-トリガを削除するためには<xref linkend="sql-droptrigger"/>を使用してください。
+トリガを削除するためには<link linkend="sql-droptrigger"><command>DROP TRIGGER</command></link>を使用してください。
   </para>
 
   <para>
+<!--
    Creating a row-level trigger on a partitioned table will cause an
    identical <quote>clone</quote> trigger to be created on each of its
    existing partitions; and any partitions created or attached later will have
@@ -664,6 +674,11 @@ UPDATE OF <replaceable>column_name1</replaceable> [, <replaceable>column_name2</
    TRIGGER</command> is used, in which case that trigger is replaced with a
    clone trigger.  When a partition is detached from its parent, its clone
    triggers are removed.
+-->
+パーティションテーブルに行レベルのトリガを作ると、存在するパーティションすべてに同一の<quote>クローン</quote>トリガがつくられます。そして、後から作られたり追加されるパーティションも同一のトリガを含みます。
+子パーティションに名前が衝突するトリガがすでにある場合には、<command>CREATE OR REPLACE
+ TRIGGER</command>によってそのトリガをクローントリガで置き換えない限りエラーになります。
+パーティションが親から切り離された場合、クローントリガは削除されます。
   </para>
 
   <para>
@@ -780,6 +795,7 @@ UPDATE OF <replaceable>column_name1</replaceable> [, <replaceable>column_name2</
   </para>
 
   <para>
+<!--
    Modifying a partitioned table or a table with inheritance children fires
    statement-level triggers attached to the explicitly named table, but not
    statement-level triggers for its partitions or child tables.  In contrast,
@@ -790,25 +806,41 @@ UPDATE OF <replaceable>column_name1</replaceable> [, <replaceable>column_name2</
    images of rows are visible from all affected partitions or child tables.
    In the case of inheritance children, the row images include only columns
    that are present in the table that the trigger is attached to.
+-->
+パーティションテーブルや継承した子テーブルがあるテーブルを変更したとき、明示的に指定されたテーブルに付けられている文レベルのトリガが発行されますが、パーティションや子テーブルに付けられている文レベルのトリガは発行されません。
+対照的に、問合せ中で明示的に指定されていなくても、行レベルのトリガはすべての変更されたパーティションや子テーブルに対して発行されます。
+<literal>REFERENCING</literal>句で指定された遷移リレーションのある文レベルのトリガが定義されている場合、行の変更前イメージおよび変更後イメージは、変更されたすべてのパーティションおよび子テーブルから見ることができます。
+継承された子テーブルの場合、行イメージはトリガが付けられたテーブルに存在する列だけしか含みません。
   </para>
 
   <para>
+<!--
    Currently, row-level triggers with transition relations cannot be defined
    on partitions or inheritance child tables.  Also, triggers on partitioned
    tables may not be <literal>INSTEAD OF</literal>.
+-->
+現在のところ、遷移リレーションのある行レベルトリガは、パーティションや継承した子テーブルには定義できません。
+また、パーティションテーブルのトリガは<literal>INSTEAD OF</literal>とすることはできません。
   </para>
 
   <para>
+<!--
    Currently, the <literal>OR REPLACE</literal> option is not supported for
    constraint triggers.
+-->
+現在のところ、<literal>OR REPLACE</literal>オプションは制約トリガに対してはサポートされていません。
   </para>
 
   <para>
+<!--
    Replacing an existing trigger within a transaction that has already
    performed updating actions on the trigger's table is not recommended.
    Trigger firing decisions, or portions of firing decisions, that have
    already been made will not be reconsidered, so the effects could be
    surprising.
+-->
+トリガのテーブルに対してすでに更新動作を実行したトランザクション内で、既存のトリガを置き換えることはお勧めしません。
+既に決定されたトリガ発行、もしくは発行の判断のうち既に決定された部分は再考されることはありませんので、結果は驚くべきものになるかもしれません。
   </para>
 
   <para>
@@ -841,9 +873,12 @@ CREATE TRIGGER check_update
     EXECUTE FUNCTION check_account_update();
 </programlisting>
 
+<!--
    Modify that trigger definition to only execute the function if
    column <literal>balance</literal> is specified as a target in
    the <command>UPDATE</command> command:
+-->
+<command>UPDATE</command>コマンドで<literal>balance</literal>列が対象として指定されている場合にのみ関数を実行するよう、そのトリガ定義を修正します。
 
 <programlisting>
 CREATE OR REPLACE TRIGGER check_update
@@ -1067,6 +1102,7 @@ SQLでは、数珠繋ぎの削除に対する<literal>BEFORE DELETE</literal>は
    So is the <literal>OR REPLACE</literal> option.
 -->
 <command>CREATE CONSTRAINT TRIGGER</command>は標準<acronym>SQL</acronym>に対する<productname>PostgreSQL</productname>の拡張です。
+<literal>OR REPLACE</literal>オプションも同じです。
   </para>
 
  </refsect1>

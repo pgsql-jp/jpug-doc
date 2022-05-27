@@ -174,7 +174,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
 <command>CREATE TYPE</command>の2つ目の構文を使用すると、<xref linkend="datatype-enum"/>で説明する列挙型（enum）を作成します。
 列挙型は、引用符付きのラベルのリストを取ります。
 ラベルは<symbol>NAMEDATALEN</symbol>（<productname>PostgreSQL</productname>の標準のビルドでは64バイト）バイトよりも少ない長さでなければなりません。
-(ラベルのない列挙型を作成できますが、<xref linkend="sql-altertype"/>を使ってラベルを少なくとも1つ追加するまでは、そのような型は値を保持するのに使えません。)
+(ラベルのない列挙型を作成できますが、<link linkend="sql-altertype"><command>ALTER TYPE</command></link>を使ってラベルを少なくとも1つ追加するまでは、そのような型は値を保持するのに使えません。)
    </para>
   </refsect2>
 
@@ -255,6 +255,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
    </para>
 
    <para>
+<!--
     The optional <replaceable class="parameter">multirange_type_name</replaceable>
     parameter specifies the name of the corresponding multirange type.  If not
     specified, this name is chosen automatically as follows.
@@ -263,6 +264,11 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
     substring with <literal>multirange</literal> in the range
     type name.  Otherwise, the multirange type name is formed by appending a
     <literal>_multirange</literal> suffix to the range type name.
+-->
+<replaceable class="parameter">multirange_type_name</replaceable>パラメータ(省略可能)は、対応するマルチ範囲型の名前を指定します。
+指定されなければ、この名前は自動的に以下のように選ばれます。
+範囲型の名前が部分文字列<literal>range</literal>を含んでいれば、マルチ範囲型の名前は、範囲型の名前における部分文字列<literal>range</literal>を<literal>multirange</literal>で置き換えることで作られます。
+そうでなければ、マルチ範囲型の名前は範囲型の名前の末尾に<literal>_multirange</literal>を追加することで作られます。
    </para>
   </refsect2>
 
@@ -305,7 +311,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
 パラメータは、上述の順番である必要はなく、任意の順番で指定することができ、多くは省略可能です。
 型を定義する前に、（<command>CREATE FUNCTION</command>を用いて）2つ以上の関数を登録しておく必要があります。
 サポート関数である<replaceable class="parameter">input_function</replaceable>と<replaceable class="parameter">output_function</replaceable>は必須です。
-<replaceable class="parameter">receive_function</replaceable>関数、<replaceable class="parameter">send_function</replaceable>関数、<replaceable class="parameter">type_modifier_input_function</replaceable>関数、<replaceable class="parameter">type_modifier_output_function</replaceable>関数、および<replaceable class="parameter">analyze_function</replaceable>関数は省略可能です。
+<replaceable class="parameter">receive_function</replaceable>関数、<replaceable class="parameter">send_function</replaceable>関数、<replaceable class="parameter">type_modifier_input_function</replaceable>関数、<replaceable class="parameter">type_modifier_output_function</replaceable>関数、<replaceable class="parameter">analyze_function</replaceable>関数、および<replaceable class="parameter">subscript_function</replaceable>は省略可能です。
 通常、これらの関数は、C言語やその他の低レベル言語で作成されなければなりません。
   </para>
 
@@ -491,6 +497,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
   </para>
 
   <para>
+<!--
    The optional <replaceable class="parameter">subscript_function</replaceable>
    allows the data type to be subscripted in SQL commands.  Specifying this
    function does not cause the type to be considered a <quote>true</quote>
@@ -510,6 +517,14 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
    in <filename>contrib/hstore/hstore_subs.c</filename>.
    Additional information appears in
    <xref linkend="sql-createtype-array"/> below.
+-->
+オプションの<replaceable class="parameter">subscript_function</replaceable>は、SQLコマンド内で指定されたデータ型に添字をつけることを許可します。
+この関数を指定することで、指定されたデータ型が<quote>真の</quote>配列型とみなされる訳ではありません。たとえば、<literal>ARRAY[]</literal>生成の結果型の候補にはなりません。
+ですが、その型の値に添字をつけることが、そこからデータを取り出す自然な表記法であるなら、その意味を定義するのに<replaceable class="parameter">subscript_function</replaceable>を書くことができます。
+添字関数は<type>internal</type>型の引数を1つ取り、添字を実装しているメソッド(関数)の構造体へのポインタである<type>internal</type>の結果を返すよう宣言しなければなりません。
+添字関数の詳細なAPIは<filename>src/include/nodes/subscripting.h</filename>にあります。
+<filename>src/backend/utils/adt/arraysubs.c</filename>にある配列の実装や<filename>contrib/hstore/hstore_subs.c</filename>にあるより単純なコードを読むのも有用かもしれません。
+追加の情報は以下の<xref linkend="sql-createtype-array"/>にあります。
   </para>
 
   <para>
@@ -671,8 +686,8 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
    clause attached to a particular column.)
 -->
 ユーザがそのデータ型の列のデフォルトをNULL以外にしたい場合は、デフォルト値を指定することができます。
-デフォルト値は<literal>DEFAULT</literal>キーワードで指定してください
-（この方法で指定されたデフォルト値を、特定の列に付与された、明示的な<literal>DEFAULT</literal>句によって上書きすることができます）。
+デフォルト値は<literal>DEFAULT</literal>キーワードで指定してください。
+（この方法で指定されたデフォルト値を、特定の列に付与された、明示的な<literal>DEFAULT</literal>句によって上書きすることができます。）
   </para>
 
   <para>
@@ -684,9 +699,9 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
    <literal>ELEMENT = int4</literal>.  For more details,
    see <xref linkend="sql-createtype-array"/> below.
 -->
-データ型が配列であることを示すには、<literal>ELEMENT</literal>キーワードを使用して配列要素の型を指定してください。
+データ型が固定長の配列型であることを示すには、<literal>ELEMENT</literal>キーワードを使用して配列要素の型を指定してください。
 例えば、4バイト整数（<type>int4</type>）の配列を定義するには、<literal>ELEMENT = int4</literal>と指定してください。
-配列型の詳細は後述します。
+より詳細は以下の<xref linkend="sql-createtype-array"/>を参照してください。
   </para>
 
   <para>
@@ -746,6 +761,7 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
 その要素型の名前の前にアンダースコアを付け、必要に応じて<symbol>NAMEDATALEN</symbol>長より短くなるように切り詰められた名前になります。
 （こうして付けられた名前が既存の型名と競合する場合、競合する名称がなくなるまでこの処理が繰り返されます。）
 この暗黙的に作成される配列型は可変長で、組み込み入出力関数<literal>array_in</literal>と<literal>array_out</literal>を使用します。
+さらに、この型は、ユーザ定義型に対してシステムが<literal>ARRAY[]</literal>のように構成時に使うものです。
 配列型はその要素となる型の所有者とスキーマのなんらかの変更に追従し、また、要素となる型が削除された場合に削除されます。
    </para>
 
@@ -768,15 +784,15 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
     zero, rather than from one as for variable-length arrays.
 -->
 「システムが自動的に配列型を正しく作成するのであれば、<option>ELEMENT</option>オプションはどうして存在するのだろう」と疑問に思うのも道理です。
-<option>ELEMENT</option>が意味を持つ、唯一の場合は次のような条件を満たす固定長の型を作成する時です。
+<option>ELEMENT</option>が意味を持つ、主な場合は次のような条件を満たす固定長の型を作成する時です。
 その条件とは、内部的に複数の同一の要素からなる配列となっていること、その配列に対して添字を指定して直接アクセスできること、加えて、今後作成する型全体に対する操作がどのようなものであっても、それらから直接アクセスできることです。
 例えば、<type>point</type>型は、2つの浮動小数点だけから構成され、それらは<literal>point[0]</literal>および<literal>point[1]</literal>を用いてアクセスすることができます。
 この機能は、その内部形式が同一の固定長フィールドの正確な並びである、固定長の型でのみ動作することに注意してください。
-添字による指定が可能な可変長型は、<literal>array_in</literal>と<literal>array_out</literal>を使用して、一般化された内部表現を持つ必要があります。
 歴史的な理由（明らかに間違いなのですが、変更するには遅すぎたため）により、固定長配列型への要素番号指定は0から始まり、可変長配列の場合は1から始まります。
    </para>
 
    <para>
+<!--
     Specifying the <option>SUBSCRIPT</option> option allows a data type to
     be subscripted, even though the system does not otherwise regard it as
     an array type.  The behavior just described for fixed-length arrays is
@@ -784,9 +800,13 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
     function <function>raw_array_subscript_handler</function>, which is
     used automatically if you specify <option>ELEMENT</option> for a
     fixed-length type without also writing <option>SUBSCRIPT</option>.
+-->
+<option>SUBSCRIPT</option>オプションを指定すると、たとえシステムが配列型とみなさない場合でも、データ型に添字をつけることができるようになります。
+固定長の配列について述べた振舞いは、実は<option>SUBSCRIPT</option>ハンドラ関数<function>raw_array_subscript_handler</function>により実装されており、固定長型に対して<option>SUBSCRIPT</option>を書かずに<option>ELEMENT</option>を指定した場合には自動的に、この関数が使われます。
    </para>
 
    <para>
+<!--
     When specifying a custom <option>SUBSCRIPT</option> function, it is
     not necessary to specify <option>ELEMENT</option> unless
     the <option>SUBSCRIPT</option> handler function needs to
@@ -795,6 +815,9 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
     assume that the new type contains, or is somehow physically dependent on,
     the element type; thus for example changing properties of the element
     type won't be allowed if there are any columns of the dependent type.
+-->
+カスタムの<option>SUBSCRIPT</option>関数を指定した場合には、<option>SUBSCRIPT</option>ハンドラ関数が何を返すべきか見つけるために<structfield>typelem</structfield>を調べる必要がない限り、<option>ELEMENT</option>を指定することは必要ではありません。
+<option>ELEMENT</option>を指定すると、新しい型が要素型を含んでいる、すなわち要素型に何らかの形で物理的に依存しているとシステムが仮定することに注意してください。このため、例えば、依存する型の列があれば要素型の属性を変更することはできません。
    </para>
   </refsect2>
  </refsect1>
@@ -922,7 +945,10 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
     <term><replaceable class="parameter">multirange_type_name</replaceable></term>
     <listitem>
      <para>
+<!--
       The name of the corresponding multirange type.
+-->
+対応するマルチ範囲型の名前です。
      </para>
     </listitem>
    </varlistentry>
@@ -1022,8 +1048,11 @@ CREATE TYPE <replaceable class="parameter">name</replaceable>
     <term><replaceable class="parameter">subscript_function</replaceable></term>
     <listitem>
      <para>
+<!--
       The name of a function that defines what subscripting a value of the
       data type does.
+-->
+指定したデータ型の値に添字をつけることを定義する関数の名前です。
      </para>
     </listitem>
    </varlistentry>
