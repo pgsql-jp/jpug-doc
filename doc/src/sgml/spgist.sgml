@@ -276,17 +276,21 @@
   reconstruct the original value using information accumulated from the
   inner tuples that are passed through to reach the leaf level.
 -->
-<acronym>SP-GiST</acronym>のツリーのリーフタプルは、インデックスの付けられた列と同じデータ型の値を含んでいます。
-ルートレベルにあるリーフタプルは、必ずインデックスが付けられた元のデータの値を含んでいますが、より下のレベルのリーフタプルは、接尾辞など、圧縮された表現しか含んでいないかも知れません。
+<acronym>SP-GiST</acronym>のツリーのリーフタプルは、インデックスの付けられた列の損失のある表現を含むこともできますが、通常はインデックスの付けられた列と同じデータ型の値を含んでいます。
+ルートレベルに格納されたリーフタプルは、インデックスが付けられた元のデータの値を直接表現していますが、より下のレベルのリーフタプルは、接尾辞など、部分的な値しか含んでいないかも知れません。
 この場合、演算子クラスのサポート関数が、内部タプルをリーフレベルまでたどりながら集める情報を使って元の値を再構築できる必要があります。
  </para>
 
  <para>
+<!--
   When an <acronym>SP-GiST</acronym> index is created with
   <literal>INCLUDE</literal> columns, the values of those columns are also
   stored in leaf tuples.  The <literal>INCLUDE</literal> columns are of no
   concern to the <acronym>SP-GiST</acronym> operator class, so they are
   not discussed further here.
+-->
+<acronym>SP-GiST</acronym>インデックスが<literal>INCLUDE</literal>列を付けて作成された場合には、その列の値もリーフタプルに格納されます。
+<literal>INCLUDE</literal>列は<acronym>SP-GiST</acronym>演算子クラスとは関係ありませんので、ここではこれ以上議論しません。
  </para>
 
  <para>
@@ -471,6 +475,7 @@ typedef struct spgConfigOut
      </para>
 
      <para>
+<!--
       <structfield>leafType</structfield> should match the index storage type
       defined by the operator class's <structfield>opckeytype</structfield>
       catalog entry.
@@ -485,15 +490,24 @@ typedef struct spgConfigOut
       leave <structfield>leafType</structfield> uninitialized (zero);
       that is interpreted as meaning the index storage type derived from
       <structfield>opckeytype</structfield>.
+-->
+<structfield>leafType</structfield>は、演算子クラスの<structfield>opckeytype</structfield>カタログエントリにより定義されたインデックス格納型と一致しなければなりません。
+(<structfield>opckeytype</structfield>は0の場合もあり得て、それは格納型が演算子クラスの入力型と同じであることを意味しています。これが最も一般的な状況であることに注意してください。)
+後方互換性のため、<function>config</function>メソッドは<structfield>leafType</structfield>を他の値に設定して、その値を使うことができます。ですが、インデックスの内容がカタログでは誤って特定されますので、これは非推奨です。
+また、<structfield>leafType</structfield>を初期化しないまま(0)にできます。これは<structfield>opckeytype</structfield>から導かれたインデックス格納型を意味すると解釈されます。
      </para>
 
      <para>
+<!--
       When <structfield>attType</structfield>
       and <structfield>leafType</structfield> are different, the optional
       method <function>compress</function> must be provided.
       Method <function>compress</function> is responsible
       for transformation of datums to be indexed from <structfield>attType</structfield>
       to <structfield>leafType</structfield>.
+-->
+<structfield>attType</structfield>と<structfield>leafType</structfield>が異なる場合には、オプションのメソッド<function>compress</function>を提供しなければなりません。
+メソッド<function>compress</function>は、インデックス付けされるデータを<structfield>attType</structfield>から<structfield>leafType</structfield>に変換する責任があります。
      </para>
      </listitem>
     </varlistentry>
@@ -1051,7 +1065,6 @@ typedef struct spgInnerConsistentOut
 とりわけ、比較値がNULLかどうかを確認するために<structfield>sk_flags</structfield>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
 配列<structfield>orderbys</structfield>は長さが<structfield>norderbys</structfield>で、(もしあれば)順序付け演算子を同じように記述します。
 <structfield>reconstructedValue</structfield>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</function>関数が値を返さなかった場合は<literal>(Datum) 0</literal>となります。
-<structfield>reconstructedValue</structfield>は常に<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型です。
 <structfield>traversalValue</structfield>は親インデックスのタプルの<function>inner_consistent</function>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
 <structfield>traversalMemoryContext</structfield>は出力探索値が格納されるメモリコンテキストです（以下を参照）。
 <structfield>level</structfield>は現在の内部タプルのレベルを、ルートレベルを0として数えたものです。
@@ -1104,7 +1117,9 @@ typedef struct spgInnerConsistentOut
 <structfield>nNodes</structfield>は探索で訪れる必要のある子ノードの数にセットされなければなりません。また、<structfield>nodeNumbers</structfield>はそれらの番号の配列にセットされなければなりません。
 演算子クラスがレベルを監視しているときは、それぞれのノードへと下って訪れるときに必要なレベルの増分の配列を<structfield>levelAdds</structfield>にセットします。
 (この増分はすべてのノードについて同じになることも多いですが、必ずしもそうなるとは限らないので配列が使われます。)
-値の再構築が必要なときには、訪れるそれぞれの子ノードについて再構築された<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型の値の配列を<structfield>reconstructedValues</structfield>にセットします。再構築が必要でなければ、<structfield>reconstructedValues</structfield>をNULLのままにします。
+値の再構築が必要なときには、訪れるそれぞれの子ノードについて再構築された値の配列を<structfield>reconstructedValues</structfield>にセットします。再構築が必要でなければ、<structfield>reconstructedValues</structfield>をNULLのままにします。
+再構築された値は<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型と仮定されます。
+(しかしながら、コアシステムはそれらに対してコピー以外のことをしませんので、<structfield>leafType</structfield>と同じ<literal>typlen</literal>と<literal>typbyval</literal>属性を持っていれば十分です。)
 順序付け検索を実行するなら、<structfield>orderbys</structfield>配列に従って<structfield>distances</structfield>に距離の値の配列を設定します(距離の最も近いノードが最初に処理されます)。
 そうでなければNULLのままにします。
 追加の外部情報（<quote>探索値</quote>）をツリー探索の下位レベルに渡したい場合は、<structfield>traversalValues</structfield>を適切な探索値、訪れるそれぞれの子ノードについて1つの配列にセットします。
@@ -1229,7 +1244,6 @@ typedef struct spgLeafConsistentOut
 なお、比較値がNULLかどうかを確認するために<structfield>sk_flags</structfield>を検査する必要はありません。なぜならSP-GiSTのコアのコードがそのような条件を除外するからです。
 配列<structfield>orderbys</structfield>は長さが<structfield>norderbys</structfield>で、順序付け演算子を同じように記述します。
 <structfield>reconstructedValue</structfield>は親タプルのために再構築された値で、ルートレベルの場合、あるいは親レベルの<function>inner_consistent</function>関数が値を返さなかった場合は<literal>(Datum) 0</literal>となります。
-<structfield>reconstructedValue</structfield>は常に<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型です。
 <structfield>traversalValue</structfield>は親インデックスのタプルの<function>inner_consistent</function>の前の呼び出しから渡された探索データへのポインタで、ルートレベルならNULLです。
 <structfield>level</structfield>は現在のリーフタプルのレベルを、ルートレベルを0として数えたものです。
 <structfield>returnData</structfield>は、この問い合わせで再構築されたデータが必要な場合に<literal>true</literal>となりますが、これは<function>config</function>関数が<structfield>canReturnData</structfield>を確認した場合にのみ、そうなります。
@@ -1255,7 +1269,7 @@ typedef struct spgLeafConsistentOut
        fetching the tuple from the heap, and will reorder the tuples if needed.
 -->
 この関数は、リーフタプルが問い合わせにマッチすれば<literal>true</literal>を返し、マッチしなければ<literal>false</literal>を返します。
-<literal>true</literal>の場合、<structfield>returnData</structfield>が<literal>true</literal>であれば、<structfield>leafValue</structfield>は、このリーフタプルにインデックス付けするために元々提供された<structname>spgConfigIn</structname>.<structfield>attType</structfield>型の値にセットされなければなりません。
+<literal>true</literal>の場合、<structfield>returnData</structfield>が<literal>true</literal>であれば、<structfield>leafValue</structfield>を、このリーフタプルにインデックス付けするために元々提供された(<structname>spgConfigIn</structname>.<structfield>attType</structfield>型の)値に設定しなければなりません。
 また、マッチするかどうかが不確実で、マッチするかの確認のために実際のヒープタプルに演算子を再適用しなければならないときは、<structfield>recheck</structfield>が<literal>true</literal>にセットされることがあります。
 順序付け検索を実行するなら、<structfield>orderbys</structfield>配列に従って<structfield>distances</structfield>に距離の値の配列を設定します。
 そうでなければNULLのままにします。
@@ -1286,15 +1300,19 @@ typedef struct spgLeafConsistentOut
        <structname>spgConfigOut</structname>.<structfield>leafType</structfield>.
        The output value must not contain an out-of-line TOAST pointer.
 -->
-インデックページのリーフタプルでデータ項目を物理ストレージに適した形式に変換します。
-<structname>spgConfigIn</structname>.<structfield>attType</structfield>の値を受け付け、<structname>spgConfigOut</structname>.<structfield>leafType</structfield>の値を返します。
-出力値はTOASTされていないべきです。
+インデックスのリーフタプルでデータ項目を物理ストレージに適した形式に変換します。
+<structname>spgConfigIn</structname>.<structfield>attType</structfield>型の値を受け付け、<structname>spgConfigOut</structname>.<structfield>leafType</structfield>型の値を返します。
+出力値は行に収まらないTOASTを含んでいてはいけません。
       </para>
 
       <para>
+<!--
        Note: the <function>compress</function> method is only applied to
        values to be stored.  The consistent methods receive query scankeys
        unchanged, without transformation using <function>compress</function>.
+-->
+注意: <function>compress</function>メソッドは格納される値にのみ適用されます。
+適合するメソッドは<function>compress</function>を使って変換することなく、問い合わせのscankeysをそのまま受け取ります。
       </para>
      </listitem>
     </varlistentry>
@@ -1332,7 +1350,7 @@ LANGUAGE C STRICT;
        functions using the <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
        <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
 -->
-関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+関数には<structname>local_relopts</structname>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
 オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
       </para>
 
@@ -1446,6 +1464,7 @@ SP-GiSTのすべてのサポートメソッドは、通常は短期間有効な�
   </para>
 
   <para>
+<!--
    When <structfield>longValuesOK</structfield> is true, it is expected
    that successive levels of the <acronym>SP-GiST</acronym> tree will
    absorb more and more information into the prefixes and node labels of
@@ -1455,6 +1474,9 @@ SP-GiSTのすべてのサポートメソッドは、通常は短期間有効な�
    loops, the <acronym>SP-GiST</acronym> core will raise an error if the
    leaf datum does not become any smaller within ten cycles
    of <function>choose</function> method calls.
+-->
+<structfield>longValuesOK</structfield>が真であれば、<acronym>SP-GiST</acronym>ツリーの後続のレベルは、より多くの情報を接頭辞と内部タプルのノードラベルへと吸収し、要求されるリーフデータより小さくして、最終的には1ページに収まるようになることが期待されます。
+演算子クラスのバグが無限の挿入ループを引き起こすのを防ぐために、<function>choose</function>メソッドの呼び出しの10サイクル以内でリーフデータが少しも小さくならなければ、<acronym>SP-GiST</acronym>コアはエラーを発生します。
   </para>
  </sect2>
 
