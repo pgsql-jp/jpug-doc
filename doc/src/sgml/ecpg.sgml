@@ -59,7 +59,8 @@
 -->
 埋め込みSQLプログラムは通常のプログラミング言語（ここではC）で記述されたコードで、特別にマークされたセクション内のSQLコマンドとともに使用されます。
 このプログラムを構築するには、まずソースコード (<filename>*.pgc</filename>) を埋め込みSQLプリプロセッサに渡します。
-ソースコードは、プリプロセッサによって通常のCプログラム (<filename>*.c</filename>) に変換され、その後Cコンパイラによって処理されます。(コンパイルとリンクの詳細については <xref linkend="ecpg-process"/> を参照してください)
+ソースコードは、プリプロセッサによって通常のCプログラム (<filename>*.c</filename>) に変換され、その後Cコンパイラによって処理されます。
+(コンパイルとリンクの詳細については <xref linkend="ecpg-process"/> を参照してください。)
 変換されたECPGアプリケーションは、libpqライブラリにある関数を埋め込みSQLライブラリ (ecpglib) を介して呼び出し、通常のフロントエンド・バックエンドプロトコルを使ってPostgreSQLサーバと通信します。
   </para>
 
@@ -103,9 +104,13 @@ EXEC SQL ...;
    These statements syntactically take the place of a C statement.
    Depending on the particular statement, they can appear at the
    global level or within a function.
+-->
+このSQL文は、構文上でC言語の文の置き換えとなります。
+SQL文によりますが、グローバルレベル、または関数内で記述することができます。
   </para>
 
   <para>
+<!--
    Embedded
    <acronym>SQL</acronym> statements follow the case-sensitivity rules of
    normal <acronym>SQL</acronym> code, and not those of C. Also they allow nested
@@ -119,11 +124,13 @@ EXEC SQL ...;
    is <literal>on</literal>.)
    Of course, the C part of the program follows C quoting rules.
 -->
-このSQL文は、構文上でC言語の文の置き換えとなります。
-SQL文によりますが、グローバルレベル、または関数内で記述することができます。
 埋め込み<acronym>SQL</acronym>文における大文字小文字の区別の有無は、Cコードではなく、通常の<acronym>SQL</acronym>コードの規則に従います。
-また、SQL標準の部分にある入れ子のC形式のコメントを許します。
+また、SQL標準に従い入れ子のC形式のコメントを許します。
 しかし、プログラムのCの部分では、入れ子のコメントを受け付けないというC標準に従います。
+同様に、埋め込み<acronym>SQL</acronym>文は引用符付きの文字列や識別子の解析に、Cの規則ではなく、SQLの規則を使います。
+(それぞれ<xref linkend="sql-syntax-strings"/>と<xref linkend="sql-syntax-identifiers"/>を参照してください。
+ECPGは<varname>standard_conforming_strings</varname>が<literal>on</literal>であることを仮定することに注意してください。)
+もちろん、プログラムのCの部分では、Cの引用の規則に従います。
   </para>
 
   <para>
@@ -217,14 +224,12 @@ EXEC SQL CONNECT TO <replaceable>target</replaceable> <optional>AS <replaceable>
    to the default database under the default user name.  No separate
    user name or connection name can be specified in that case.
 -->
-接続対象をリテラル（つまり、変数を参照しない形）で指定し、その値を引用符でくくらなかった場合、大文字小文字の区別に関して通常のSQLの規則が適用されます。
-また、この場合、必要に応じて個々のパラメータを二重引用符で別々にくくることもできます。
-実際には、おそらく（単一引用符でくくられた）文字列リテラルもしくは変数の参照を使用した方がエラーをより防止することができます。
 <literal>DEFAULT</literal>接続対象は、デフォルトデータベース、デフォルトのユーザ名で接続を初期化します。
 この場合は、ユーザ名と接続名を分けて指定することができません。
   </para>
 
   <para>
+<!--
    If you specify the connection target directly (that is, not as a string
    literal or variable reference), then the components of the target are
    passed through normal SQL parsing; this means that, for example,
@@ -237,6 +242,11 @@ EXEC SQL CONNECT TO <replaceable>target</replaceable> <optional>AS <replaceable>
    In practice, it is probably less error-prone to use a (single-quoted)
    string literal or a variable reference than to write the connection
    target directly.
+-->
+接続対象を直接(すなわち、文字列リテラルとしてでも、変数参照でもない形で)指定した場合、対象の要素は通常のSQLとして解析されて渡されます。これは、例えば、<replaceable>hostname</replaceable>はドットで区切られた一つ以上のSQL識別子のようでなければならなず、識別子が二重引用符で括られていなければ大文字小文字は変換されるということを意味します。
+<replaceable>options</replaceable>の値は、SQL識別子、整数、もしくは変数参照でなければなりません。
+もちろん、二重引用符で括ることでSQL識別子の中にほぼ何でも入れることができます。
+実際には、おそらく（単一引用符でくくられた）文字列リテラルもしくは変数の参照を使用した方がエラーをより防止できます。
   </para>
 
   <para>
@@ -299,12 +309,16 @@ EXEC SQL CONNECT TO <replaceable>target</replaceable> <optional>AS <replaceable>
   </para>
 
   <para>
+<!--
    Notice that when specifying a socket connection
    (with the <literal>unix:</literal> prefix), the host name must be
    exactly <literal>localhost</literal>.  To select a non-default
    socket directory, write the directory's pathname as the value of
    a <varname>host</varname> option in
    the <replaceable>options</replaceable> part of the target.
+-->
+(<literal>unix:</literal>接頭辞で)ソケット接続を指定するときには、ホスト名は厳密に<literal>localhost</literal>でなければなりません。
+デフォルトでないソケットディレクトリを選ぶためには、対象の<replaceable>options</replaceable>部分の<varname>host</varname>オプションの値としてディレクトリのパス名を書いてください。
   </para>
 
   <para>
@@ -349,7 +363,7 @@ EXEC SQL CONNECT TO :target USER :user USING :passwd;
    variables can be used in SQL statements when you prefix them with a
    colon.
 -->
-最後の形式では、文字変数参照として上を参照する変数を使用しています。
+最後の例では、文字変数参照として上を参照する機能を使用しています。
 後の節で、接頭辞にコロンを持つ場合のSQL文内でのC変数の使用方法について説明します。
   </para>
 
@@ -366,6 +380,7 @@ EXEC SQL CONNECT TO :target USER :user USING :passwd;
   </para>
 
   <para>
+<!--
    If untrusted users have access to a database that has not adopted a
    <link linkend="ddl-schemas-patterns">secure schema usage pattern</link>,
    begin each session by removing publicly-writable schemas
@@ -375,6 +390,10 @@ EXEC SQL CONNECT TO :target USER :user USING :passwd;
    issue <literal>EXEC SQL SELECT pg_catalog.set_config('search_path', '',
    false);</literal> after connecting.  This consideration is not specific to
    ECPG; it applies to every interface for executing arbitrary SQL commands.
+-->
+信用できないユーザが<link linkend="ddl-schemas-patterns">安全なスキーマ使用パターン</link>を採用していないデータベースにアクセスできる場合、各セッションを<varname>search_path</varname>から一般のユーザが書き込み可能なスキーマを取り除くことから始めます。
+例えば、<literal>options=-c search_path=</literal>を<literal><replaceable>options</replaceable></literal>に追加したり、接続後に<literal>EXEC SQL SELECT pg_catalog.set_config('search_path', '', false);</literal>を発行したりします。
+この配慮はECPGに特有のものではありません。任意のSQLコマンドを実行するインタフェースすべてに当てはまります。
   </para>
   </sect2>
 
@@ -392,7 +411,7 @@ EXEC SQL CONNECT TO :target USER :user USING :passwd;
    three ways to handle this.
 -->
 前節で示したSQL文は現在の接続、つまり、最も最近に開いた接続上で実行されます。
-複数の接続を管理する必要があるアプリケーションでは、これを処理する2つの方法があります。
+複数の接続を管理する必要があるアプリケーションでは、これを処理する3つの方法があります。
   </para>
 
   <para>
@@ -427,7 +446,7 @@ EXEC SQL AT <replaceable>connection-name</replaceable> SELECT ...;
    The second option is to execute a statement to switch the current
    connection.  That statement is:
 -->
-2番目の選択肢は、現在の接続を切り替えるSQL文を実行することです。
+2つ目の選択肢は、現在の接続を切り替えるSQL文を実行することです。
 以下のSQL文です。
 <programlisting>
 EXEC SQL SET CONNECTION <replaceable>connection-name</replaceable>;
@@ -501,18 +520,28 @@ current=testdb1 (should be testdb1)
   </para>
 
   <para>
+<!--
   The third option is to declare an SQL identifier linked to
   the connection, for example:
+-->
+3つ目の選択肢は、接続に結び付いたSQL識別子を宣言することです。
 <programlisting>
 EXEC SQL AT <replaceable>connection-name</replaceable> DECLARE <replaceable>statement-name</replaceable> STATEMENT;
 EXEC SQL PREPARE <replaceable>statement-name</replaceable> FROM :<replaceable>dyn-string</replaceable>;
 </programlisting>
+<!--
    Once you link an SQL identifier to a connection, you execute dynamic SQL
    without an AT clause. Note that this option behaves like preprocessor
    directives, therefore the link is enabled only in the file.
+-->
+一度SQL識別子を接続に結び付ければ、AT句なしに動的なSQLを実行できます。
+この選択肢はプリプロセッサ指示子のように振る舞いますので、結び付けはファイルの中でのみ可能です。
   </para>
   <para>
+<!--
    Here is an example program using this option:
+-->
+以下にこの選択肢を使用したプログラムの例を示します。
 <programlisting><![CDATA[
 #include <stdio.h>
 
@@ -534,7 +563,10 @@ int main(){
 }
 ]]></programlisting>
 
+<!--
    This example would produce this output, even if the default connection is testdb:
+-->
+この例は、たとえデフォルトの接続がtestdbであったとしても、次のような出力を生成します。
 <screen>
 postgres
 </screen>
@@ -761,7 +793,7 @@ EXEC SQL COMMIT;
    linkend="ecpg-sql-declare"/>; for more details about fetching rows from a
    cursor, see <xref linkend="sql-fetch"/>.
 -->
-カーソルの宣言の詳細については <xref linkend="ecpg-sql-declare"/> を、<literal>FETCH</literal> コマンドの詳細については <xref linkend="sql-fetch"/> を参照してください。
+カーソルの宣言の詳細については<xref linkend="ecpg-sql-declare"/>を参照してください。カーソルから行を取り出す詳細については<xref linkend="sql-fetch"/>を参照してください。
   </para>
 
    <note>
@@ -4618,7 +4650,7 @@ int PGTYPEStimestamp_fmt_asc(timestamp *ts, char *output, int str_len, char *fmt
 -->
 <literal>%z</literal> - UTCからの時間帯オフセットに置換されます。
 UTCより東では正符号が先頭に付き、西では負符号が付きます。
-それぞれ2桁の時間と分がその後に続きますが、その区切りはありません。（この形式はRFC 822の日付ヘッダでよく使用されます。）
+それぞれ2桁の時間と分がその後に続きますが、その区切りはありません。（この形式は<ulink url="https://tools.ietf.org/html/rfc822">RFC 822</ulink>の日付ヘッダでよく使用されます。）
           </para>
          </listitem>
          <listitem>
@@ -9677,7 +9709,10 @@ EXEC SQL DECLARE cur1 CURSOR FOR stmt1;
   <refentry id="ecpg-sql-declare-statement">
    <refnamediv>
     <refname>DECLARE STATEMENT</refname>
+<!--
     <refpurpose>declare SQL statement identifier</refpurpose>
+-->
+    <refpurpose>SQL文識別子を宣言する</refpurpose>
    </refnamediv>
 
    <refsynopsisdiv>
@@ -9687,9 +9722,13 @@ EXEC SQL [ AT <replaceable class="parameter">connection_name</replaceable> ] DEC
    </refsynopsisdiv>
 
    <refsect1>
+<!--
     <title>Description</title>
+-->
+    <title>説明</title>
 
     <para>
+<!--
      <command>DECLARE STATEMENT</command> declares an SQL statement identifier.
      SQL statement identifier can be associated with the connection.
      When the identifier is used by dynamic SQL statements, the statements
@@ -9699,21 +9738,36 @@ EXEC SQL [ AT <replaceable class="parameter">connection_name</replaceable> ] DEC
      Note that if the precompiler runs in Informix compatibility mode and
      some SQL statement is declared, "database" can not be used as a cursor
      name.
+-->
+<command>DECLARE STATEMENT</command>はSQL文識別子を宣言します。
+SQL文識別子は接続と関連させることができます。
+識別子が動的SQL文で使われれば、文は関連する接続を使って実行されます。
+宣言の名前空間はプリプロセスの単位であり、同じSQL文識別子の複数回の宣言は認められていません。
+プリプロセッサがInformix互換モードで動作していて、SQL文が宣言されているのなら、"database"はカーソル名として使えないことに注意してください。
     </para>
    </refsect1>
 
    <refsect1>
+<!--
     <title>Parameters</title>
+-->
+    <title>パラメータ</title>
 
     <variablelist>
      <varlistentry>
       <term><replaceable class="parameter">connection_name</replaceable></term>
       <listitem>
        <para>
+<!--
         A database connection name established by the <command>CONNECT</command> command.
+-->
+<command>CONNECT</command>コマンドにより確立されたデータベース接続名。
        </para>
        <para>
+<!--
         AT clause can be omitted, but such statement has no meaning.
+-->
+AT句は省略可能ですが、そのような文は意味がありません。
        </para>
       </listitem>
      </varlistentry>
@@ -9724,7 +9778,10 @@ EXEC SQL [ AT <replaceable class="parameter">connection_name</replaceable> ] DEC
       <term><replaceable class="parameter">statement_name</replaceable></term>
       <listitem>
        <para>
+<!--
         The name of an SQL statement identifier, either as an SQL identifier or a host variable.
+-->
+SQL文識別子の名前で、SQL識別子かホスト変数のいずれかです。
        </para>
       </listitem>
      </varlistentry>
@@ -9732,14 +9789,23 @@ EXEC SQL [ AT <replaceable class="parameter">connection_name</replaceable> ] DEC
    </refsect1>
 
    <refsect1>
+<!--
     <title>Notes</title>
+-->
+    <title>注釈</title>
     <para>
+<!--
      This association is valid only if the declaration is physically placed on top of a dynamic statement.
+-->
+宣言が物理的に動的文の上に置かれた場合にのみ、この関連は有効です。
     </para>
    </refsect1>
 
    <refsect1>
+<!--
     <title>Examples</title>
+-->
+    <title>例</title>
 
 <programlisting>
 EXEC SQL CONNECT TO postgres AS con1;
@@ -9753,16 +9819,25 @@ EXEC SQL CLOSE cursor_name;
    </refsect1>
 
    <refsect1>
+<!--
     <title>Compatibility</title>
+-->
+    <title>互換性</title>
 
     <para>
+<!--
      <command>DECLARE STATEMENT</command> is a extension of the SQL standard,
      but can be used in famous DBMSs.
+-->
+<command>DECLARE STATEMENT</command>は標準SQLの拡張ですが、有名なDBMSは利用できます。
     </para>
    </refsect1>
 
    <refsect1>
+<!--
     <title>See Also</title>
+-->
+    <title>関連項目</title>
 
     <simplelist type="inline">
      <member><xref linkend="ecpg-sql-connect"/></member>
@@ -10095,7 +10170,7 @@ EXECUTE IMMEDIATE <replaceable class="parameter">string</replaceable>
         A literal string or a host variable containing the SQL
         statement to be executed.
 -->
-実行するSQL文を含むC文字列リテラルまたはホスト変数です。
+文字列リテラル、または実行するSQL文を含むホスト変数です。
        </para>
       </listitem>
      </varlistentry>
@@ -10103,17 +10178,25 @@ EXECUTE IMMEDIATE <replaceable class="parameter">string</replaceable>
    </refsect1>
 
    <refsect1>
+<!--
     <title>Notes</title>
+-->
+    <title>注釈</title>
 
     <para>
+<!--
      In typical usage, the <replaceable>string</replaceable> is a host
      variable reference to a string containing a dynamically-constructed
      SQL statement.  The case of a literal string is not very useful;
      you might as well just write the SQL statement directly, without
      the extra typing of <command>EXECUTE IMMEDIATE</command>.
+-->
+典型的な使い方では、<replaceable>string</replaceable>は動的に構成されたSQL文を含む文字列へのホスト変数参照です。
+リテラル文字列の場合はあまり有用ではありません。<command>EXECUTE IMMEDIATE</command>を余計にタイプせずに、単にSQL文を直接書くこともできるからです。
     </para>
 
     <para>
+<!--
      If you do use a literal string, keep in mind that any double quotes
      you might wish to include in the SQL statement must be written as
      octal escapes (<literal>\042</literal>) not the usual C
@@ -10123,6 +10206,10 @@ EXECUTE IMMEDIATE <replaceable class="parameter">string</replaceable>
      later be handled according to C rules; but <literal>\"</literal>
      causes an immediate syntax error because it is seen as ending the
      literal.
+-->
+どうしてもリテラル文字列を使う場合には、SQL文に含める二重引用符は、通常のCのイディオムである<literal>\"</literal>ではなく、8進エスケープ(<literal>\042</literal>)として書かなければならないことを心に留めておいてください。
+これは文字列が<literal>EXEC SQL</literal>内にあるからで、そのためECPG字句解析器はCの規則ではなくSQLの規則に従って解析します。
+埋め込まれたバックスラッシュは後でCの規則に従って扱われます。ですが、<literal>\"</literal>はリテラルの終了とみなされますので、すぐに文法エラーを引き起こします。
     </para>
    </refsect1>
 
@@ -10626,7 +10713,8 @@ PREPARE <replaceable class="parameter">prepared_name</replaceable> FROM <replace
         Use question marks (<literal>?</literal>) for parameter values
         to be supplied at execution.
 -->
-Cリテラル文字列、または、プリペア可能な文であるSELECT/INSERT/UPDATE/DELETEの1つを含むホスト変数、のいずれかです。
+リテラル文字列、または、プリペア可能なSQL文であるSELECT/INSERT/UPDATE/DELETEの1つを含むホスト変数、のいずれかです。
+実行時に提供されるパラメータ値には疑問符(<literal>?</literal>)を使ってください。
        </para>
       </listitem>
      </varlistentry>
@@ -10634,17 +10722,25 @@ Cリテラル文字列、または、プリペア可能な文であるSELECT/INS
    </refsect1>
 
    <refsect1>
+<!--
     <title>Notes</title>
+-->
+    <title>注釈</title>
 
     <para>
+<!--
      In typical usage, the <replaceable>string</replaceable> is a host
      variable reference to a string containing a dynamically-constructed
      SQL statement.  The case of a literal string is not very useful;
      you might as well just write a direct SQL <command>PREPARE</command>
      statement.
+-->
+典型的な使い方では、<replaceable>string</replaceable>は動的に構成されたSQL文を含む文字列へのホスト変数参照です。
+リテラル文字列の場合はあまり有用ではありません。単に直接SQL <command>PREPARE</command>文を書くこともできるからです。
     </para>
 
     <para>
+<!--
      If you do use a literal string, keep in mind that any double quotes
      you might wish to include in the SQL statement must be written as
      octal escapes (<literal>\042</literal>) not the usual C
@@ -10654,6 +10750,10 @@ Cリテラル文字列、または、プリペア可能な文であるSELECT/INS
      later be handled according to C rules; but <literal>\"</literal>
      causes an immediate syntax error because it is seen as ending the
      literal.
+-->
+どうしてもリテラル文字列を使う場合には、SQL文に含める二重引用符は、通常のCのイディオムである<literal>\"</literal>ではなく、8進エスケープ(<literal>\042</literal>)として書かなければならないことを心に留めておいてください。
+これは文字列が<literal>EXEC SQL</literal>内にあるからで、そのためECPG字句解析器はCの規則ではなくSQLの規則に従って解析します。
+埋め込まれたバックスラッシュは後でCの規則に従って扱われます。ですが、<literal>\"</literal>はリテラルの終了とみなされますので、すぐに文法エラーを引き起こします。
     </para>
    </refsect1>
 
@@ -12417,7 +12517,7 @@ int dectoint(decimal *np, int *ip);
         architecture (<literal>INT_MIN .. INT_MAX</literal>).
 -->
 このECPGの実装は<productname>Informix</productname>の実装と異なることに注意してください。
-<productname>Informix</productname>では、整数範囲に-32767から32767までという制限をしていますが、ECPGでの制限はアーキテクチャに依存(<literal>-INT_MAX .. INT_MAX</literal>)します。
+<productname>Informix</productname>では、整数範囲に-32767から32767までという制限をしていますが、ECPGでの制限はアーキテクチャに依存(<literal>INT_MIN .. INT_MAX</literal>)します。
        </para>
       </listitem>
      </varlistentry>
