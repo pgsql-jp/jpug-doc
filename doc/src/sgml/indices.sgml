@@ -196,7 +196,9 @@ CREATE INDEX test1_id_index ON test1 (id);
 -->
 <productname>PostgreSQL</productname>では、B-tree、Hash、GiST、SP-GiST、GIN、BRINといった複数の種類のインデックスを使用可能です。
 インデックスの各種類は、異なる種類の問い合わせに最も適した、異なるアルゴリズムを使用します。
-デフォルトで<command>CREATE INDEX</command>コマンドは、B-treeインデックスを作成し、それは最も一般的な状況に適合します。
+デフォルトで<link linkend="sql-createindex"><command>CREATE INDEX</command></link>コマンドは、B-treeインデックスを作成し、それは最も一般的な状況に適合します。
+他のインデックスの種類は、キーワード<literal>USING</literal>の後にインデックス種類名を記述することで選択されます。
+例えば、ハッシュインデックスを作成するには、次のようにします。
 <programlisting>
 CREATE INDEX <replaceable>name</replaceable> ON <replaceable>table</replaceable> USING HASH (<replaceable>column</replaceable>);
 </programlisting>
@@ -307,11 +309,11 @@ B-treeインデックスをソートされた順序でデータを受けとる�
    The query planner will consider using a hash index whenever an
    indexed column is involved in a comparison using the
    equal operator:
-
 -->
-ハッシュインデックスは単純な等価性比較のみを扱うことができます。
-問い合わせプランナでは、インデックスの付いた列を<literal>=</literal>演算子を使用して比較する場合に、ハッシュインデックスの使用を検討します。
-ハッシュインデックスを作成するには、以下のようなコマンドを使用してください。
+ハッシュインデックスは、インデックスの付いた列の値から算出される32ビットのハッシュコードを格納します。
+したがって、ハッシュインデックスは単純な等価性比較のみを扱うことができます。
+問い合わせプランナでは、インデックスの付いた列を以下の等号演算子を使用して比較する場合は常に、ハッシュインデックスの使用を検討します。
+
 <synopsis>
 =
 </synopsis>
@@ -435,8 +437,8 @@ SP-GiSTインデックスは広域な異なる不均衡でディスクベース�
    documented in <xref linkend="spgist-builtin-opclasses-table"/>.
    For more information see <xref linkend="spgist"/>.
 -->
-(演算子の意味は以下を参照してください<xref linkend="functions-geometry"/> )
-標準配布物に含まれるSP-GiSTクラスは<xref linkend="spgist-builtin-opclasses-table"/>に記載されています。
+（これらの演算子の意味については<xref linkend="functions-geometry"/>を参照してください。）
+標準配布物に含まれるSP-GiST演算子クラスは<xref linkend="spgist-builtin-opclasses-table"/>に記載されています。
 詳細は <xref linkend="spgist"/>を参照してください。
   </para>
 
@@ -448,7 +450,7 @@ SP-GiSTインデックスは広域な異なる不均衡でディスクベース�
    column in <xref linkend="spgist-builtin-opclasses-table"/>.
 -->
 GiSTと同様に、SP-GiSTは<quote>最近傍</quote>検索をサポートします。
-距離の順序付けをサポートするSP-GiST演算子クラスの場合、対応する演算子は<xref linkend="spgist-builtin-opclasses-table"/>の<quote>順序付け演算子</quote>列に指定されます。
+距離の順序付けをサポートするSP-GiST演算子クラスの場合、対応する演算子は<xref linkend="spgist-builtin-opclasses-table"/>の<quote>順序付け演算子</quote>列に一覧表示されます。
   </para>
   </sect2>
 
@@ -549,6 +551,7 @@ GiSTやSP-GiST同様、GINも多くの異なるユーザ定義のインデック
    using these operators:
 -->
 BRINインデックス(ブロックレンジインデックス(Block Range INdex)を縮めたものです)はテーブルの連続的な物理ブロックの範囲に格納された値についての要約を格納します。
+したがって、これらの値は、テーブル行の物理的な順序とよく相関している列に最も効果的です。
 GiST、SP-GiST、GINと同じように、BRINは多くの異なるインデックス戦略をサポートし、BRINインデックスが使用できる具体的な演算子はインデックス戦略によって変化します。
 線形のソート順を持つデータ型では、インデックス付けされたデータは各ブロックレンジの列の中の値の最小値と最大値に対応しています。
 これは以下の演算子を使用したインデックスによる問い合わせをサポートします。
@@ -562,7 +565,7 @@ GiST、SP-GiST、GINと同じように、BRINは多くの異なるインデッ�
    documented in <xref linkend="brin-builtin-opclasses-table"/>.
    For more information see <xref linkend="brin"/>.
 -->
-標準配布物に含まれるBRIN演算子クラスは<xref linkend="brin-builtin-opclasses-table"/>.に記載されています。
+標準配布物に含まれるBRIN演算子クラスは<xref linkend="brin-builtin-opclasses-table"/>に記載されています。
 詳細は<xref linkend="brin"/>を参照してください。
   </para>
   </sect2>
@@ -627,8 +630,9 @@ CREATE INDEX test2_mm_idx ON test2 (major, minor);
    altered when building <productname>PostgreSQL</productname>; see the
    file <filename>pg_config_manual.h</filename>.)
 -->
-現在、B-tree、GiST、GINおよびBRINインデックス型でのみ、複数列インデックスをサポートしています。
-最高32列まで指定可能です。
+現在、B-tree、GiST、GINおよびBRINインデックス型でのみ、複数キー列インデックスをサポートしています。
+複数キー列を持つことができるかどうかは、<literal>INCLUDE</literal>列をインデックスに追加できるかどうかとは無関係です。
+インデックスは<literal>INCLUDE</literal>列を含めて最大32列まで持つことができます。
 （この上限は、<productname>PostgreSQL</productname>を構築する際に変更可能です。
 <filename>pg_config_manual.h</filename>ファイルを参照してください。）
   </para>
@@ -1875,7 +1879,7 @@ CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
 いかなる場合でもキー以外の列が重複データだったり、インデックスサイズが膨張すると、検索が遅くなる可能性があります。
 それから、覚えておくべきもう一つの小さなポイントは、インデックスオンリースキャンがヒープへのアクセスが必要がないほどテーブルがゆっくり変化しない限り、インデックスにペイロード列を含めることにほとんど意味が無いことです。
 とにかくヒープタプルを訪れなければならなくなった場合は、そこから列値を取得するためにそれ以上のコストはかかりません。
-他の制限は、式を列に含めることは、現在のところサポートされていません。また、列を含めるサポートは現在のところB-treeとGiSTインデックスのみサポートされています。
+他の制限は、式を列に含めることは、現在のところサポートされていません。また、列を含めるサポートは現在のところB-treeとGiSTとSP-GiSTインデックスのみサポートされています。
   </para>
 
   <para>
