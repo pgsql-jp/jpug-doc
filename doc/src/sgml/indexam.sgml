@@ -302,7 +302,7 @@ typedef struct IndexAmRoutine
 -->
 <structname>IndexAmRoutine</structname>のフラグフィールドの中には、意味がわかりにくいものがあります。
 <structfield>amcanunique</structfield>の必要条件は<xref linkend="index-unique-checks"/>で説明されています。
-<structfield>amcanmulticol</structfield>フラグはアクセスメソッドが複数列に対するインデックスをサポートすることを表し、<structfield>amoptionalkey</structfield>は、インデックス可能な制限句が最初のインデックス列に指定されていないスキャンを許可することを表します。
+<structfield>amcanmulticol</structfield>フラグはアクセスメソッドが複数キー列に対するインデックスをサポートすることを表し、<structfield>amoptionalkey</structfield>は、インデックス可能な制限句が最初のインデックス列に指定されていないスキャンを許可することを表します。
 <structfield>amcanmulticol</structfield>が偽の場合、<structfield>amoptionalkey</structfield>は基本的に、アクセスメソッドが制限句なしで完全なインデックススキャンをサポートするかどうかを表します。
 複数列に対するインデックスをサポートするアクセスメソッドは、最初の列以降のすべてまたは一部の列に関する制限がなくてもスキャンをサポート<emphasis>しなければなりません</emphasis>。
 しかし、最初のインデックス列にいくつかの制限を要求することは認められています。
@@ -322,6 +322,7 @@ typedef struct IndexAmRoutine
   </para>
 
   <para>
+<!--
    The <structfield>amcaninclude</structfield> flag indicates whether the
    access method supports <quote>included</quote> columns, that is it can
    store (without processing) additional columns beyond the key column(s).
@@ -332,6 +333,12 @@ typedef struct IndexAmRoutine
    sensible: it means that there can only be one key column, but there can
    also be included column(s).  Also, included columns must be allowed to be
    null, independently of <structfield>amoptionalkey</structfield>.
+-->
+<structfield>amcaninclude</structfield>フラグは、このアクセスメソッドが（処理することなく）キー列以外の追加の列を格納することができる<quote>included</quote>列をサポートしているかどうかを示します。
+前段落の要件はキー列にのみ適用されます。
+とりわけ、<structfield>amcanmulticol</structfield>=<literal>false</literal>と<structfield>amcaninclude</structfield>=<literal>true</literal>の組み合わせは実用的です。
+これは単一のキー列だけが存在しつつも、include列が存在することができることを示しています。
+また、<structfield>amoptionalkey</structfield>とは独立して、include列はNULLにすることができなければなりません。
   </para>
 
  </sect1>
@@ -425,6 +432,7 @@ aminsert (Relation indexRelation,
   </para>
 
   <para>
+<!--
    The <literal>indexUnchanged</literal> Boolean value gives a hint
    about the nature of the tuple to be indexed.  When it is true,
    the tuple is a duplicate of some existing tuple in the index.  The
@@ -436,6 +444,13 @@ aminsert (Relation indexRelation,
    versions of the same logical row accumulate.  Note that updating a
    non-key column does not affect the value of
    <literal>indexUnchanged</literal>.
+-->
+<literal>indexUnchanged</literal>真偽値はインデックス付されるタプルの性質に関するヒントを与えます。
+真なら、そのタプルは既存のインデックス中のタプルと重複しています。
+新しいタプルは論理的に変わっていない後継であるMVCCタプルバージョンです。
+これは<command>UPDATE</command>の実行によりインデックス対象のどの列も変更されず、それにもかかわらずインデックスにおいて新しいバージョンを要求する場合に起こります。
+インデックスAMは、同じ論理的な行の多くのバージョンが蓄積されるときに、インデックスのある部分にボトムアップインデックス削除を適用するかどうかを決定するためにこのヒントを使うことができます。
+非キー列を更新しても<literal>indexUnchanged</literal>の値には影響がないことに留意してください。
   </para>
 
   <para>
@@ -549,7 +564,6 @@ amvacuumcleanup (IndexVacuumInfo *info,
 
   <para>
 <!--
-   As of <productname>PostgreSQL</productname> 8.4,
    <function>amvacuumcleanup</function> will also be called at completion of an
    <command>ANALYZE</command> operation.  In this case <literal>stats</literal> is always
    NULL and any return value will be ignored.  This case can be distinguished
@@ -557,7 +571,7 @@ amvacuumcleanup (IndexVacuumInfo *info,
    that the access method do nothing except post-insert cleanup in such a
    call, and that only in an autovacuum worker process.
 -->
-<productname>PostgreSQL</productname> 8.4の時点で、<function>amvacuumcleanup</function>も<command>ANALYZE</command>操作の完了時点にも呼び出されます。
+<function>amvacuumcleanup</function>も<command>ANALYZE</command>操作の完了時点にも呼び出されます。
 この場合、<literal>stats</literal>は常にNULLで、戻り値はまったく無視されます。
 この事象は<literal>info-&gt;analyze_only</literal>を検査することで識別されます。
 アクセスメソッドがそのような呼び出しで挿入後の整理以外何もしないように、そしてそれは自動バキュームワーカプロセスのみであるようにすることを推奨します。
@@ -581,9 +595,10 @@ amcanreturn (Relation indexRelation, int attno);
    the <structfield>amcanreturn</structfield> field in its <structname>IndexAmRoutine</structname>
    struct can be set to NULL.
 -->
-<structname>IndexTuple</structname>形式のインデックスエントリをインデックスが設定された列の値として返すことにより、そのインデックスが指定された列で<link linkend="indexes-index-only-scans"><firstterm>インデックスオンリースキャン</firstterm></link>をサポートしているかどうかを判断します。
-属性番号は1始まり、すなわち最初の列の属性番号は1です。
+列のインデックスされた元の値を返すことにより、そのインデックスが指定された列で<link linkend="indexes-index-only-scans"><firstterm>インデックスオンリースキャン</firstterm></link>をサポート可能かどうかを判断します。
+属性番号は1始まり、すなわち最初の列のattnoは1です。
 インデックスオンリースキャンがサポートされている場合は真が返され、サポートされていない場合は偽が返ります。
+取得できない列がinclude列である意味はないので、この関数は（サポートされていれば）incliude列に対しては常に真を返すでしょう。
 アクセスメソッドがインデックスオンリースキャンをサポートしていない場合、<structname>IndexAmRoutine</structname>構造体の<structfield>amcanreturn</structfield>フィールドをNULLにセットすることができます。
   </para>
 
@@ -709,7 +724,7 @@ amproperty (Oid index_oid, int attno,
 -->
 順序付け演算子をサポートするアクセスメソッドは、<literal>AMPROP_DISTANCE_ORDERABLE</literal>の属性検査を実装する必要があります。
 なぜなら、コアコードはそれをどうすれば良いか知らないため、NULLを返すからです。
-コアコードのデフォルトの動作であるインデックスのオープンと<structfield>amcanreturn</structfield>の呼び出しよりも安価にできるのであれば、<literal>AMPROP_RETURNABLE</literal>の検査を実装するのは利点となります。
+コアコードのデフォルトの動作であるインデックスのオープンと<function>amcanreturn</function>の呼び出しよりも安価にできるのであれば、<literal>AMPROP_RETURNABLE</literal>の検査を実装するのは利点となります。
 その他のすべての標準属性に対しては、デフォルトの動作が満足できるもののはずです。
   </para>
 
@@ -743,10 +758,10 @@ amvalidate (Oid opclassoid);
    invalid.  Problems should be reported with <function>ereport</function>
    messages, typically at <literal>INFO</literal> level.
 -->
-指定の演算子クラスについて、アクセスメソッドが合理的にできる限りにおいて、カタログエントリを検証します。
+指定の演算子クラスについて、アクセスメソッドが合理的に可能な範囲でカタログエントリを検証します。
 例えば、これには必要なすべてのサポート関数が提供されていることのテストが含まれるかもしれません。
 <function>amvalidate</function>関数は演算子クラスが無効なときは偽を返さなければなりません。
-問題点は<function>ereport</function>メッセージにより報告されます。
+問題があれば典型的には<literal>INFO</literal>レベルで<function>ereport</function>メッセージにより報告されます。
   </para>
 
   <para>
@@ -757,6 +772,7 @@ amadjustmembers (Oid opfamilyoid,
                  List *operators,
                  List *functions);
 </programlisting>
+<!--
    Validate proposed new operator and function members of an operator family,
    so far as the access method can reasonably do that, and set their
    dependency types if the default is not satisfactory.  This is called
@@ -787,6 +803,21 @@ amadjustmembers (Oid opfamilyoid,
    weak in these index types; so it is reasonable to allow operator members
    to be added and removed freely.  Optional support functions are typically
    also given soft dependencies, so that they can be removed if necessary.
+-->
+アクセスメソッドが合理的に可能な範囲で提案された新しい演算子族の演算子と関数メンバーを検証し、デフォルトが不十分なら依存型を設定します。
+これは<command>CREATE OPERATOR CLASS</command>と<command>ALTER OPERATOR FAMILY ADD</command>の実行中に呼び出されます。
+後者の場合、<parameter>opclassoid</parameter>は<literal>InvalidOid</literal>です。
+<type>List</type>引数は<filename>amapi.h</filename>で定義されている<structname>OpFamilyMember</structname>構造体のリストです。
+
+この関数で実施されるテストは典型的には<function>amvalidate</function>が行うテストのサブセットです。
+なぜなら、<function>amadjustmembers</function>はメンバーの集合のすべてを観察しているとは仮定することができないからです。
+たとえば、サポート関数の呼び出し形式を検証することは妥当ですが、必要なすべてのサポート関数が提供されていることを検証するのは妥当ではないからです。
+問題が発生すればどの場合でもエラーが生じます。
+
+<structname>OpFamilyMember</structname>構造体の依存性に関するフィールドに、<command>CREATE OPERATOR CLASS</command>の場合にはopclassにコアコードがハード依存性を設定します。<command>ALTER OPERATOR FAMILY ADD</command>ならばopfamilyにソフト依存性を設定します。
+それ以外の振る舞いがより適正ならば、<function>amadjustmembers</function>でこれらのフィールドを調整することができます。
+たとえば、GIN、GiST、SP-GiSTのようなインデックス形式では演算子とopclassの関連性が相対的低く、演算子メンバーの追加削除を自由に行うことが合理的であるため、これらの演算子メンバーにおいてはopfamilyに常にソフト依存性が設定されます。
+また、必要ならば削除可能にするために、追加のサポート関数にソフト依存性を設定するのが一般的です。
   </para>
 
 
@@ -920,7 +951,8 @@ amgettuple (IndexScanDesc scan,
    <function>amgettuple</function>, <function>amrescan</function>, or <function>amendscan</function>
    call for the scan.
 -->
-そのインデックスが<link linkend="indexes-index-only-scans">インデックスオンリースキャン</link>をサポートしている場合(つまり<function>amcanreturn</function>が真を返す場合)、そのアクセスメソッドはスキャンが成功したならば<literal>scan-&gt;xs_want_itup</literal>も確認し、それが真の場合、そのインデックスエントリに対応する元のインデックスされたデータを返さなければなりません。
+そのインデックスが<link linkend="indexes-index-only-scans">インデックスオンリースキャン</link>をサポートしている場合(つまり<function>amcanreturn</function>がすべての列に対して真を返す場合)、そのアクセスメソッドはスキャンが成功したならば<literal>scan-&gt;xs_want_itup</literal>も確認し、それが真の場合、そのインデックスエントリに対応する元のインデックスされたデータを返さなければなりません。
+<function>amcanreturn</function>が列に対して偽を返す場合、その列はNULLとして返されます。
 返却されるデータは、<literal>scan-&gt;xs_itupdesc</literal>タプルディスクリプタとともに<literal>scan-&gt;xs_itup</literal>に格納された<structname>IndexTuple</structname>ポインタの形式か、あるいは、<literal>scan-&gt;xs_hitupdesc</literal>タプルディスクリプタとともに<literal>scan-&gt;xs_hitup</literal>に格納された<structname>HeapTuple</structname>ポインタの形式です。
 （後者の形式は、再構成されたデータが<structname>IndexTuple</structname>に収まらない場合に使用するべきです。）
 どちらの場合でも、そのポインタが参照するデータの管理はアクセスメソッドの責任です。
@@ -1393,7 +1425,7 @@ amparallelrescan (IndexScanDesc scan);
 <productname>PostgreSQL</productname>コアシステムはインデックススキャン中にインデックスに対して<literal>AccessShareLock</literal>を獲得します。
 また、（通常の<command>VACUUM</command>を含む）インデックスの更新中に<literal>RowExclusiveLock</literal>を獲得します。
 これらの種類のロックは競合しませんので、アクセスメソッドは必要になるかもしれない粒度の細かなロック処理に関して責任を持ちます。
-インデックスの生成、破棄、<literal>REINDEX</literal>時にインデックス全体に対する排他ロックが獲得されます。
+インデックスの生成、破棄、<literal>REINDEX</literal>時にインデックス全体に対する<literal>ACCESS EXCLUSIVE</literal>ロックが獲得されます。
   </para>
 
   <para>
