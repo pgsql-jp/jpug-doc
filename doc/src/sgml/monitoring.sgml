@@ -50,7 +50,7 @@
 -->
 データベース活動状況の監視と性能解析用のツールはいくつか存在します。
 本章の大部分は<productname>PostgreSQL</productname>の統計情報コレクタの説明に費されていますが、<command>ps</command>や<command>top</command>、<command>iostat</command>、<command>vmstat</command>などの通常のUnix監視プログラムを無視すべきではありません。
-また、性能が悪い問い合わせであると認知された問い合わせは、その後、<productname>PostgreSQL</productname>の<xref linkend="sql-explain"/>コマンドを使用して調査を行う必要が発生します。
+また、性能が悪い問い合わせであると認知された問い合わせは、その後、<productname>PostgreSQL</productname>の<link linkend="sql-explain"/><command>EXPLAIN</command></link>コマンドを使用して調査を行う必要が発生します。
 <xref linkend="using-explain"/>では、個々の問い合わせの振舞いを理解するための、<command>EXPLAIN</command>やその他の方法について記載しています。
   </para>
 
@@ -107,9 +107,9 @@ postgres  15610  0.0  0.0  58772  3056 ?        Ss   18:07   0:00 postgres: tgl 
 （<command>ps</command>の適切な呼び出し方はプラットフォームによって異なります。
 同様に、何が詳細に表示されるのかも異なります。
 この例は最近のLinuxシステムのものです。）
-この一覧の最初のプロセスはマスタサーバプロセスです。
+この一覧の最初のプロセスはプライマリサーバプロセスです。
 表示されているコマンド引数は、起動時に使用されたものと同じものです。
-次の5つのプロセスは、マスタプロセスから自動的に起動されるバックグラウンドワーカプロセスです。
+次の5つのプロセスは、プライマリプロセスから自動的に起動されるバックグラウンドワーカプロセスです。
 （システムを統計情報コレクタが起動しないように設定していた場合は<quote>統計情報コレクタ</quote>はありません。同様に<quote>自動バキュームランチャ</quote>を無効にできます。）
 残るプロセスはそれぞれ、1つのクライアント接続を取り扱うサーバプロセスです。
 それぞれのプロセスは、次の形式のコマンドライン表示を設定します。
@@ -224,8 +224,11 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
   </para>
 
   <para>
+<!--
    The parameter <xref linkend="guc-track-wal-io-timing"/> enables monitoring
    of WAL write times.
+-->
+パラメータ<xref linkend="guc-track-wal-io-timing"/>を有効にすると、WALの書き込み時間を監視できます。
   </para>
 
   <para>
@@ -440,7 +443,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
 一般ユーザは自身のセッション（メンバとなっているロールに属するセッション）に関する全情報だけを参照できます。
 他セッションに関する行では多くの列がNULLになるでしょう。
 しかしながら、セッションの存在とセッションのユーザとデータベースなどの一般的な属性は全ユーザに可視であることに注意してください。
-スーパーユーザと組み込みロール<literal>pg_read_all_stats</literal>（<xref linkend="default-roles"/>も参照してください）のメンバも全セッションに関する全情報を参照できます。
+スーパーユーザと組み込みロール<literal>pg_read_all_stats</literal>（<xref linkend="predefined-roles"/>も参照してください）のメンバも全セッションに関する全情報を参照できます。
   </para>
 
   <table id="monitoring-stats-dynamic-views-table">
@@ -495,10 +498,15 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
 
      <row>
       <entry><structname>pg_stat_replication_slots</structname><indexterm><primary>pg_stat_replication_slots</primary></indexterm></entry>
+<!--
       <entry>One row per replication slot, showing statistics about
        the replication slot's usage.
        See <link linkend="monitoring-pg-stat-replication-slots-view">
        <structname>pg_stat_replication_slots</structname></link> for details.
+-->
+      <entry>
+レプリケーションスロット毎に1行の形式で、レプリケーションスロットの使用状況に関する統計情報を表示します。
+詳細については<link linkend="monitoring-pg-stat-replication-slots-view"> <structname>pg_stat_replication_slots</structname></link>を参照してください。
       </entry>
      </row>
 
@@ -625,8 +633,13 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
 
      <row>
       <entry><structname>pg_stat_progress_copy</structname><indexterm><primary>pg_stat_progress_copy</primary></indexterm></entry>
+<!--
       <entry>One row for each backend running <command>COPY</command>, showing current progress.
        See <xref linkend='copy-progress-reporting'/>.
+-->
+      <entry>
+<command>COPY</command>を実行している各バックエンドごとに1行の形式で、現在の進捗を表示します。
+<xref linkend='copy-progress-reporting'/>を参照してください。
       </entry>
      </row>
     </tbody>
@@ -682,9 +695,14 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
 
      <row>
       <entry><structname>pg_stat_wal</structname><indexterm><primary>pg_stat_wal</primary></indexterm></entry>
+<!--
       <entry>One row only, showing statistics about WAL activity. See
        <link linkend="monitoring-pg-stat-wal-view">
        <structname>pg_stat_wal</structname></link> for details.
+-->
+      <entry>
+WALの活動状況に関する統計情報を1行のみで表示します。
+詳細については<link linkend="monitoring-pg-stat-wal-view"><structname>pg_stat_wal</structname></link>を参照してください。
       </entry>
      </row>
 
@@ -1367,6 +1385,7 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
       <structfield>query_id</structfield> <type>bigint</type>
      </para>
      <para>
+<!--
       Identifier of this backend's most recent query. If
       <structfield>state</structfield> is <literal>active</literal> this
       field shows the identifier of the currently executing query. In
@@ -1375,6 +1394,11 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
       field will be null unless <xref linkend="guc-compute-query-id"/>
       parameter is enabled or a third-party module that computes query
       identifiers is configured.
+-->
+バックエンドの直近のクエリ識別子です。 
+<structfield>state</structfield>が<literal>active</literal>の場合、このフィールドには現在実行中のクエリ識別子が表示されます。
+他のすべての状態では、最後に実行されたクエリ識別子が表示されます。 
+クエリ識別子はデフォルトでは計算されないため、<xref linkend="guc-compute-query-id"/>パラメータが有効になっているか、クエリ識別子を計算するサードパーティモジュールが設定されていない限り、このフィールドはnullになります。
      </para></entry>
     </row>
 
@@ -1866,7 +1890,10 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
     <tbody>
      <row>
       <entry><literal>BaseBackupRead</literal></entry>
+<!--
       <entry>Waiting for base backup to read from a file.</entry>
+-->
+      <entry>ベースバックアップがファイルから読み取るのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>BufFileRead</literal></entry>
@@ -1884,7 +1911,10 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>BufFileTruncate</literal></entry>
+<!--
       <entry>Waiting for a buffered file to be truncated.</entry>
+-->
+      <entry>バッファファイルが切り捨てられるのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>ControlFileRead</literal></entry>
@@ -2389,19 +2419,31 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>LogicalChangesRead</literal></entry>
+<!--
       <entry>Waiting for a read from a logical changes file.</entry>
+-->
+      <entry>論理変更ファイルからの読み込みを待機しています。</entry>
      </row>
      <row>
       <entry><literal>LogicalChangesWrite</literal></entry>
+<!--
       <entry>Waiting for a write to a logical changes file.</entry>
+-->
+      <entry>論理変更ファイルへの書き込みを待機しています。</entry>
      </row>
      <row>
       <entry><literal>LogicalSubxactRead</literal></entry>
+<!--
       <entry>Waiting for a read from a logical subxact file.</entry>
+-->
+      <entry>論理サブトランザクションファイルからの読み込みを待機しています。</entry>
      </row>
      <row>
       <entry><literal>LogicalSubxactWrite</literal></entry>
+<!--
       <entry>Waiting for a write to a logical subxact file.</entry>
+-->
+      <entry>論理サブトランザクションファイルへの書き込みを待機しています。</entry>
      </row>
     </tbody>
    </tgroup>
@@ -2427,12 +2469,19 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
     <tbody>
      <row>
       <entry><literal>AppendReady</literal></entry>
+<!--
       <entry>Waiting for subplan nodes of an <literal>Append</literal> plan
        node to be ready.</entry>
+-->
+      <entry><literal>Append</literal>プランノードのサブプランノードの準備が整うのを待機しています。</entry>
+
      </row>
     <row>
       <entry><literal>BackendTermination</literal></entry>
+<!--
       <entry>Waiting for the termination of another backend.</entry>
+-->
+      <entry>他のバックエンドの終了を待機しています。</entry>
      </row>
      <row>
       <entry><literal>BackupWaitWalArchive</literal></entry>
@@ -2466,7 +2515,10 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>BufferIO</literal></entry>
+<!--
       <entry>Waiting for buffer I/O to complete.</entry>
+-->
+      <entry>バッファI/Oが完了するのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>CheckpointDone</literal></entry>
@@ -2758,12 +2810,18 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>WalReceiverExit</literal></entry>
+<!--
       <entry>Waiting for the WAL receiver to exit.</entry>
+-->
+      <entry>WALレシーバが終了するのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>WalReceiverWaitStart</literal></entry>
+<!--
       <entry>Waiting for startup process to send initial data for streaming
        replication.</entry>
+-->
+      <entry>ストリーミングレプリケーションの初期データを送信するための起動プロセスを待機しています。</entry>
      </row>
      <row>
       <entry><literal>XactGroupUpdate</literal></entry>
@@ -3989,20 +4047,32 @@ WAL送信サーバの現在の状態です。
   </indexterm>
 
   <para>
+<!--
    The <structname>pg_stat_replication_slots</structname> view will contain
    one row per logical replication slot, showing statistics about its usage.
+-->
+<structname>pg_stat_replication_slots</structname>ビューには、論理レプリケーションスロットごとに1行が含まれ、その使用状況に関する統計情報が表示されます。
   </para>
 
   <table id="pg-stat-replication-slots-view" xreflabel="pg_stat_replication_slots">
+<!--
    <title><structname>pg_stat_replication_slots</structname> View</title>
+-->
+   <title><structname>pg_stat_replication_slots</structname>ビュー</title>
    <tgroup cols="1">
     <thead>
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+<!--
         Column Type
+-->
+列 型
        </para>
        <para>
+<!--
         Description
+-->
+説明
       </para></entry>
      </row>
     </thead>
@@ -4013,7 +4083,10 @@ WAL送信サーバの現在の状態です。
         <structfield>slot_name</structfield> <type>text</type>
        </para>
        <para>
+<!--
         A unique, cluster-wide identifier for the replication slot
+-->
+クラスタ全体で一意なレプリケーションスロットの識別子です。
       </para></entry>
      </row>
 
@@ -4022,10 +4095,14 @@ WAL送信サーバの現在の状態です。
         <structfield>spill_txns</structfield> <type>bigint</type>
        </para>
        <para>
+<!--
         Number of transactions spilled to disk once the memory used by
         logical decoding to decode changes from WAL has exceeded
         <literal>logical_decoding_work_mem</literal>. The counter gets
         incremented for both top-level transactions and subtransactions.
+-->
+WALからの変更をデコードするために論理デコードによって使用されるメモリが<literal>logical_decoding_work_mem</literal>を超えたときにディスクにあふれたトランザクション数です。 
+カウンタは、トップレベルのトランザクションとサブトランザクションの両方で増分されます。
       </para></entry>
      </row>
 
@@ -4034,10 +4111,14 @@ WAL送信サーバの現在の状態です。
         <structfield>spill_count</structfield> <type>bigint</type>
        </para>
        <para>
+<!--
         Number of times transactions were spilled to disk while decoding
         changes from WAL for this slot. This counter is incremented each time
         a transaction is spilled, and the same transaction may be spilled
         multiple times.
+-->
+このスロットのWALから変更をデコードしている間に、トランザクションがディスクにあふれた回数です。
+このカウンタは、トランザクションがあふれるたびに増分され、同じトランザクションが複数回あふれることもあります。
       </para></entry>
      </row>
 
@@ -4046,10 +4127,14 @@ WAL送信サーバの現在の状態です。
         <structfield>spill_bytes</structfield> <type>bigint</type>
        </para>
        <para>
+<!--
         Amount of decoded transaction data spilled to disk while performing
         decoding of changes from WAL for this slot. This and other spill
         counters can be used to gauge the I/O which occurred during logical
         decoding and allow tuning <literal>logical_decoding_work_mem</literal>.
+-->
+このスロットのWALからの変更をデコード実行している間に、ディスクにあふれたデコード済みトランザクションデータ量です。
+このカウンタと他のあふれカウンタは、論理デコード中に発生したI/Oを測定し<literal>logical_decoding_work_mem</literal>を調整できます。
       </para></entry>
      </row>
 
@@ -4058,12 +4143,16 @@ WAL送信サーバの現在の状態です。
         <structfield>stream_txns</structfield> <type>bigint</type>
        </para>
        <para>
+<!--
         Number of in-progress transactions streamed to the decoding output
         plugin after the memory used by logical decoding to decode changes
         from WAL for this slot has exceeded
         <literal>logical_decoding_work_mem</literal>. Streaming only
         works with top-level transactions (subtransactions can't be streamed
         independently), so the counter is not incremented for subtransactions.
+-->
+このスロットのWALからの変更をデコードするために論理デコードが使用するメモリが<literal>logical_decoding_work_mem</literal>を超えた後にデコード出力プラグインにストリーミングされた進行中のトランザクション数です。
+ストリーミングはトップレベルのトランザクションでのみ機能するため (サブトランザクションは独立してストリーミングできません)、サブトランザクションではカウンタは増分されません。
        </para></entry>
      </row>
 
@@ -4072,10 +4161,14 @@ WAL送信サーバの現在の状態です。
         <structfield>stream_count</structfield><type>bigint</type>
        </para>
        <para>
+<!--
         Number of times in-progress transactions were streamed to the decoding
         output plugin while decoding changes from WAL for this slot. This
         counter is incremented each time a transaction is streamed, and the
         same transaction may be streamed multiple times.
+-->
+このスロットのWALからの変更をデコードしている間に、進行中のトランザクションがデコード出力プラグインにストリーミングされた回数です。
+このカウンタは、トランザクションがストリーミングされるたびに増分され、同じトランザクションが複数回ストリーミングされる可能性があります。
       </para></entry>
      </row>
 
@@ -4084,10 +4177,14 @@ WAL送信サーバの現在の状態です。
         <structfield>stream_bytes</structfield><type>bigint</type>
        </para>
        <para>
+<!--
         Amount of transaction data decoded for streaming in-progress
         transactions to the decoding output plugin while decoding changes from
         WAL for this slot. This and other streaming counters for this slot can
         be used to tune <literal>logical_decoding_work_mem</literal>.
+-->
+このスロットのWALからの変更をデコードしている間に、進行中のトランザクションをデコード出力プラグインにストリーミングするためにデコードされたトランザクションデータ量です。
+このスロットのこの他のストリーミングカウンタは、<literal>logical_decoding_work_mem</literal>を調整するために使用できます。
        </para>
       </entry>
      </row>
@@ -4097,10 +4194,15 @@ WAL送信サーバの現在の状態です。
         <structfield>total_txns</structfield> <type>bigint</type>
        </para>
        <para>
+<!--
         Number of decoded transactions sent to the decoding output plugin for
         this slot. This counts top-level transactions only, and is not incremented
         for subtransactions. Note that this includes the transactions that are
         streamed and/or spilled.
+-->
+このスロットのデコード出力プラグインに送信されたデコードされたトランザクション数です。
+これはトップレベルのトランザクションのみ数えられ、サブトランザクションは数えられません。
+これには、ストリーミングされたトランザクションやあふれたトランザクションが含まれることに注意してください。
        </para></entry>
      </row>
 
@@ -4109,9 +4211,13 @@ WAL送信サーバの現在の状態です。
         <structfield>total_bytes</structfield><type>bigint</type>
        </para>
        <para>
+<!--
         Amount of transaction data decoded for sending transactions to the
         decoding output plugin while decoding changes from WAL for this slot.
         Note that this includes data that is streamed and/or spilled.
+-->
+このスロットのWALからの変更をデコードしながら、デコード出力プラグインにトランザクションを送信するためにデコードされたトランザクションデータ量です。
+これには、ストリーミングされたデータやあふれたデータが含まれることに注意してください。
        </para>
       </entry>
      </row>
@@ -4121,7 +4227,10 @@ WAL送信サーバの現在の状態です。
         <structfield>stats_reset</structfield> <type>timestamp with time zone</type>
        </para>
        <para>
+<!--
         Time at which these statistics were last reset
+-->
+統計情報がリセットされた最終時刻です。
        </para></entry>
      </row>
     </tbody>
@@ -5111,20 +5220,32 @@ WALファイルのアーカイブに失敗した回数です。
   </indexterm>
 
   <para>
+<!--
    The <structname>pg_stat_wal</structname> view will always have a
    single row, containing data about WAL activity of the cluster.
+-->
+<structname>pg_stat_wal</structname>ビューは常に、クラスタのWAL活動状況のデータに関する1つの行を持ちます。
   </para>
 
   <table id="pg-stat-wal-view" xreflabel="pg_stat_wal">
+<!--
    <title><structname>pg_stat_wal</structname> View</title>
+-->
+   <title><structname>pg_stat_wal</structname>ビュー</title>
    <tgroup cols="1">
     <thead>
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+<!--
        Column Type
+-->
+列 型
       </para>
       <para>
+<!--
        Description
+-->
+説明
       </para></entry>
      </row>
     </thead>
@@ -5135,7 +5256,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_records</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Total number of WAL records generated
+-->
+生成されたWALレコードの総数です。
       </para></entry>
      </row>
 
@@ -5144,7 +5268,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_fpi</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Total number of WAL full page images generated
+-->
+生成されたWALフルページイメージの総数です。
       </para></entry>
      </row>
 
@@ -5153,7 +5280,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_bytes</structfield> <type>numeric</type>
       </para>
       <para>
+<!--
        Total amount of WAL generated in bytes
+-->
+生成されたWALのバイト単位の総量です。
       </para></entry>
      </row>
 
@@ -5162,7 +5292,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_buffers_full</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of times WAL data was written to disk because WAL buffers became full
+-->
+WALバッファが満杯になったため、WALデータがディスクに書き込まれた回数です。
       </para></entry>
      </row>
 
@@ -5171,10 +5304,14 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_write</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of times WAL buffers were written out to disk via
        <function>XLogWrite</function> request.
        See <xref linkend="wal-configuration"/> for more information about
        the internal WAL function <function>XLogWrite</function>.
+-->
+WALバッファが<function>XLogWrite</function>要求によりディスクに書き出された回数です。
+内部WAL関数<function>XLogWrite</function>の詳細については、<xref linkend="wal-configuration"/>を参照してください。
       </para></entry>
      </row>
 
@@ -5183,6 +5320,7 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_sync</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of times WAL files were synced to disk via
        <function>issue_xlog_fsync</function> request
        (if <xref linkend="guc-fsync"/> is <literal>on</literal> and
@@ -5191,6 +5329,9 @@ WALファイルのアーカイブに失敗した回数です。
        <literal>fsync_writethrough</literal>, otherwise zero).
        See <xref linkend="wal-configuration"/> for more information about
        the internal WAL function <function>issue_xlog_fsync</function>.
+-->
+WAL ファイルが<function>issue_xlog_fsync</function>要求によりディスクに同期された回数（<xref linkend="guc-fsync"/>が<literal>on</literal>かつ<xref linkend="guc-wal-sync-method"/>が<literal>fdatasync</literal>または<literal>fsync</literal>または<literal>fsync_writethrough</literal>のいずれかである場合、そうでなければゼロ）です。
+内部WAL関数<function>issue_xlog_fsync</function>の詳細については、<xref linkend="wal-configuration"/>を参照してください。
       </para></entry>
      </row>
 
@@ -5199,12 +5340,16 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_write_time</structfield> <type>double precision</type>
       </para>
       <para>
+<!--
        Total amount of time spent writing WAL buffers to disk via
        <function>XLogWrite</function> request, in milliseconds
        (if <xref linkend="guc-track-wal-io-timing"/> is enabled,
        otherwise zero).  This includes the sync time when
        <varname>wal_sync_method</varname> is either
        <literal>open_datasync</literal> or <literal>open_sync</literal>.
+-->
+<function>XLogWrite</function>の要求を介してWALバッファをディスクに書き込むのに費やされたミリ秒単位の合計時間（<xref linkend="guc-track-wal-io-timing"/> が有効である場合、そうでなければゼロ）です。
+これには<varname>wal_sync_method</varname>が<literal>open_datasync</literal>または<literal>open_sync</literal>の場合の同期時間が含まれます。
       </para></entry>
      </row>
 
@@ -5213,6 +5358,7 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>wal_sync_time</structfield> <type>double precision</type>
       </para>
       <para>
+<!--
        Total amount of time spent syncing WAL files to disk via
        <function>issue_xlog_fsync</function> request, in milliseconds
        (if <varname>track_wal_io_timing</varname> is enabled,
@@ -5220,6 +5366,8 @@ WALファイルのアーカイブに失敗した回数です。
        <varname>wal_sync_method</varname> is either
        <literal>fdatasync</literal>, <literal>fsync</literal> or
        <literal>fsync_writethrough</literal>, otherwise zero).
+-->
+<function>issue_xlog_fsync</function>要求を介してWALファイルのディスクへの同期に費やされたミリ秒単位の合計時間（<varname>track_wal_io_timing</varname>が有効、かつ<varname>fsync</varname>が<literal>on</literal>、かつ<varname>wal_sync_method</varname>が<literal>fdatasync</literal>または<literal>fsync</literal>または<literal>fsync_writethrough</literal>のいずれかの場合、それ以外の場合は0）です。
       </para></entry>
      </row>
 
@@ -5228,7 +5376,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>stats_reset</structfield> <type>timestamp with time zone</type>
       </para>
       <para>
+<!--
        Time at which these statistics were last reset
+-->
+統計情報がリセットされた最終時刻です。
       </para></entry>
      </row>
      </tbody>
@@ -5553,10 +5704,13 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>session_time</structfield> <type>double precision</type>
       </para>
       <para>
+<!--
        Time spent by database sessions in this database, in milliseconds
        (note that statistics are only updated when the state of a session
        changes, so if sessions have been idle for a long time, this idle time
        won't be included)
+-->
+このデータベースでデータベースセッションに費やされた、ミリ秒単位の時間です（統計はセッションの状態が変化したときのみ更新されるため、セッションが長い間アイドル状態の場合、このアイドル時間は含まれません）。
       </para></entry>
      </row>
 
@@ -5565,11 +5719,14 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>active_time</structfield> <type>double precision</type>
       </para>
       <para>
+<!--
        Time spent executing SQL statements in this database, in milliseconds
        (this corresponds to the states <literal>active</literal> and
        <literal>fastpath function call</literal> in
        <link linkend="monitoring-pg-stat-activity-view">
        <structname>pg_stat_activity</structname></link>)
+-->
+このデータベースでSQL文実行に費やされた、ミリ秒単位の時間です（これは<link linkend="monitoring-pg-stat-activity-view"><structname>pg_stat_activity</structname></link>の<literal>active</literal>と<literal>fastpath function call</literal>状態に対応します)。
       </para></entry>
      </row>
 
@@ -5578,11 +5735,14 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>idle_in_transaction_time</structfield> <type>double precision</type>
       </para>
       <para>
+<!--
        Time spent idling while in a transaction in this database, in milliseconds
        (this corresponds to the states <literal>idle in transaction</literal> and
        <literal>idle in transaction (aborted)</literal> in
        <link linkend="monitoring-pg-stat-activity-view">
        <structname>pg_stat_activity</structname></link>)
+-->
+このデータベースでトランザクション中にアイドル状態であった、ミリ秒単位の時間です（これは<link linkend="monitoring-pg-stat-activity-view"><structname>pg_stat_activity</structname></link>の<literal>idle in transaction</literal>と<literal>idle in transaction (aborted)</literal>状態に対応します）。
       </para></entry>
      </row>
 
@@ -5591,7 +5751,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>sessions</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Total number of sessions established to this database
+-->
+このデータベースに対して確立されたセッションの総数です。
       </para></entry>
      </row>
 
@@ -5600,8 +5763,11 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>sessions_abandoned</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of database sessions to this database that were terminated
        because connection to the client was lost
+-->
+このデータベースに対するデータベースセッションのうち、クライアントとの接続が失われたために終了したセッションの数です。
       </para></entry>
      </row>
 
@@ -5610,8 +5776,11 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>sessions_fatal</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of database sessions to this database that were terminated
        by fatal errors
+-->
+このデータベースに対するデータベースセッションのうち、致命的なエラーによって終了したセッションの数です。
       </para></entry>
      </row>
 
@@ -5620,8 +5789,11 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>sessions_killed</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of database sessions to this database that were terminated
        by operator intervention
+-->
+このデータベースに対するデータベースセッションのうち、オペレータの介入によって終了したセッションの数です。
       </para></entry>
      </row>
 
@@ -5658,7 +5830,7 @@ WALファイルのアーカイブに失敗した回数です。
    conflicts do not occur on primary servers.
 -->
 <structname>pg_stat_database_conflicts</structname>ビューは、データベース毎に１行を保持し、スタンバイサーバでのリカバリと競合するためにキャンセルされた問い合わせに関するデータベース全体の統計情報を示します。
-マスタサーバでは競合は発生しませんので、スタンバイサーバ上の情報のみが保持されます。
+プライマリサーバでは競合は発生しませんので、スタンバイサーバ上の情報のみが保持されます。
   </para>
 
   <table id="pg-stat-database-conflicts-view" xreflabel="pg_stat_database_conflicts">
@@ -7175,7 +7347,7 @@ SLRUでの切り詰めの数です。
         to reset all the counters shown in the <structname>pg_stat_wal</structname> view.
 -->
 引数に応じて、クラスタ全体の統計情報カウンタの一部をゼロにリセットします。
-引数に<literal>bgwriter</literal>を指定すると、<structname>pg_stat_bgwriter</structname>ビューで示されるカウンタがすべてリセットされ、<literal>archiver</literal>を指定すると<structname>pg_stat_archiver</structname>ビューで示されるカウンタがすべてリセットされます。
+引数に<literal>bgwriter</literal>を指定すると、<structname>pg_stat_bgwriter</structname>ビューで示されるカウンタがすべてリセットされ、<literal>archiver</literal>を指定すると<structname>pg_stat_archiver</structname>ビューで示されるカウンタがすべてリセットされ、<literal>wal</literal>を指定すると<structname>pg_stat_wal</structname>ビューで示されるカウンタがすべてリセットされます。
        </para>
        <para>
 <!--
@@ -7283,13 +7455,20 @@ SLRUでの切り詰めの数です。
         <returnvalue>void</returnvalue>
        </para>
        <para>
+<!--
         Resets statistics of the replication slot defined by the argument. If
         the argument is <literal>NULL</literal>, resets statistics for all
         the replication slots.
+-->
+引数で定義されたレプリケーションスロットの統計情報をリセットします。
+引数が<literal>NULL</literal>の場合、すべてのレプリケーションスロットの統計情報をリセットします。
        </para>
        <para>
+<!--
          This function is restricted to superusers by default, but other users
          can be granted EXECUTE to run the function.
+-->
+この関数はデフォルトでスーパーユーザに限定されていますが、関数を実行できるように他のユーザにEXECUTE権限を付与できます。
        </para></entry>
       </row>
      </tbody>
@@ -7951,7 +8130,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
     progress is reported first for the parent table, whereby its inheritance
     statistics are collected, followed by that for each partition.
 -->
-<command>ANALYZE</command>がパーティションテーブルで実行される場合は、そのパーティションテーブルのすべても<xref linkend="sql-analyze"/>に書かれているように再帰的に解析されることに注意してください。
+<command>ANALYZE</command>がパーティションテーブルで実行される場合は、そのパーティションテーブルのすべても再帰的に解析されることに注意してください。
 その場合、<command>ANALYZE</command>の進捗はまず親テーブルについて報告され、それによってその継承の統計情報が集められ、各パーティションの報告が続きます。
    </para>
   </note>
@@ -8190,6 +8369,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        This field is <literal>0</literal> during a <literal>REINDEX</literal>.
 -->
 パーティションテーブル上のインデックスを作成するとき、この列にはインデックスが作られることになっているパーティションの総数が設定されます。
+このフィールドは<literal>REINDEX</literal>実行中は<literal>0</literal>になります。
       </para></entry>
      </row>
 
@@ -8203,7 +8383,8 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        the number of partitions on which the index has been created.
        This field is <literal>0</literal> during a <literal>REINDEX</literal>.
 -->
-パーティションテーブル上のインデックスを作成するとき、この列にはインデックス作成が既に完了しているパーティションの数が設定されます。
+パーティションテーブル上のインデックスを作成するとき、この列にはインデックスが既に作成されたパーティションの数が設定されます。
+このフィールドは<literal>REINDEX</literal>実行中は<literal>0</literal>になります。
       </para></entry>
      </row>
     </tbody>
@@ -8648,7 +8829,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
 -->
 <command>VACUUM</command>は、現在インデックスをバキューム処理中です。
 テーブルにインデックスが存在する場合、ヒープが完全にスキャンされた後に、バキューム実行ごとに少なくとも１回発生します。
-<xref linkend="guc-maintenance-work-mem"/>が、発見された無効タプルの数量を格納するのに不十分な場合は、バキューム実行ごとに複数回発生する可能性があります。
+<xref linkend="guc-maintenance-work-mem"/>が、発見された無効タプルの数量を格納するのに不十分な場合（または、自動バキュームの場合は<xref linkend="guc-autovacuum-work-mem" />が設定されている場合）は、バキューム実行ごとに複数回発生する可能性があります。
      </entry>
     </row>
     <row>
@@ -9272,18 +9453,24 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
  </sect2>
 
  <sect2 id="copy-progress-reporting">
+<!--
   <title>COPY Progress Reporting</title>
-
+-->
+  <title>COPYの進捗状況のレポート</title>
   <indexterm>
    <primary>pg_stat_progress_copy</primary>
   </indexterm>
 
   <para>
+<!--
    Whenever <command>COPY</command> is running, the
    <structname>pg_stat_progress_copy</structname> view will contain one row
    for each backend that is currently running a <command>COPY</command> command.
    The table below describes the information that will be reported and provides
    information about how to interpret it.
+-->
+<command>COPY</command>が実行されているときはいつでも、<structname>pg_stat_progress_copy</structname>ビューには現在COPYコマンドを実行している各バックエンドごとの行が含まれます。
+以下の表は、報告される情報を説明し、どのように解釈するかの情報を提供します。
   </para>
 
   <table id="pg-stat-progress-copy-view" xreflabel="pg_stat_progress_copy">
@@ -9292,10 +9479,16 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
     <thead>
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+<!--
        Column Type
+-->
+列 型
       </para>
       <para>
+<!--
        Description
+-->
+説明
       </para></entry>
      </row>
     </thead>
@@ -9306,7 +9499,10 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>pid</structfield> <type>integer</type>
       </para>
       <para>
+<!--
        Process ID of backend.
+-->
+バックエンドのプロセスIDです。
       </para></entry>
      </row>
 
@@ -9315,7 +9511,10 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>datid</structfield> <type>oid</type>
       </para>
       <para>
+<!--
        OID of the database to which this backend is connected.
+-->
+バックエンドが接続されているデータベースのOIDです。
       </para></entry>
      </row>
 
@@ -9324,7 +9523,10 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>datname</structfield> <type>name</type>
       </para>
       <para>
+<!--
        Name of the database to which this backend is connected.
+-->
+バックエンドが接続されているデータベース名です。
       </para></entry>
      </row>
 
@@ -9333,9 +9535,13 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>relid</structfield> <type>oid</type>
       </para>
       <para>
+<!--
        OID of the table on which the <command>COPY</command> command is
        executed. It is set to <literal>0</literal> if copying from a
        <command>SELECT</command> query.
+-->
+<command>COPY</command>コマンドが実行されるテーブルのOIDです。
+<command>SELECT</command>クエリからコピーする場合は<literal>0</literal>に設定されます。
       </para></entry>
      </row>
 
@@ -9344,8 +9550,12 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>command</structfield> <type>text</type>
       </para>
       <para>
+<!--
        The command that is running: <literal>COPY FROM</literal>, or
        <literal>COPY TO</literal>.
+-->
+実行しているコマンドで、
+<literal>COPY FROM</literal>または<literal>COPY TO</literal>です。
       </para></entry>
      </row>
 
@@ -9354,12 +9564,19 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>type</structfield> <type>text</type>
       </para>
       <para>
+<!--
        The io type that the data is read from or written to:
        <literal>FILE</literal>, <literal>PROGRAM</literal>,
        <literal>PIPE</literal> (for <command>COPY FROM STDIN</command> and
        <command>COPY TO STDOUT</command>), or <literal>CALLBACK</literal>
        (used for example during the initial table synchronization in
        logical replication).
+-->
+データの読み取りまたは書き込みが行われる入出力の種類で、
+<literal>FILE</literal>、
+<literal>PROGRAM</literal>、
+<literal>PIPE</literal>（<command>COPY FROM STDIN</command>および<command>COPY TO STDOUT</command>用）、
+または<literal>CALLBACK</literal>（たとえば、論理レプリケーションの初期テーブル同期中に使用されます）です。
       </para></entry>
      </row>
 
@@ -9368,7 +9585,10 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>bytes_processed</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of bytes already processed by <command>COPY</command> command.
+-->
+<command>COPY</command>コマンドで既に処理されたバイト数です。
       </para></entry>
      </row>
 
@@ -9377,8 +9597,12 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>bytes_total</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Size of source file for <command>COPY FROM</command> command in bytes.
        It is set to <literal>0</literal> if not available.
+-->
+<command>COPY FROM</command>コマンドのコピー元ファイルのバイト数でのサイズです。
+利用できない場合は<literal>0</literal>に設定されます。
       </para></entry>
      </row>
 
@@ -9387,7 +9611,10 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>tuples_processed</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of tuples already processed by <command>COPY</command> command.
+-->
+<command>COPY</command>コマンドで既に処理されたタプル数です。
       </para></entry>
      </row>
 
@@ -9396,8 +9623,11 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
        <structfield>tuples_excluded</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of tuples not processed because they were excluded by the
        <command>WHERE</command> clause of the <command>COPY</command> command.
+-->
+<command>COPY</command>コマンドの<command>WHERE</command>句で除外されたために処理されなかったタプル数です。
       </para></entry>
      </row>
     </tbody>
