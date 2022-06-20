@@ -861,7 +861,7 @@ minmax-multi演算子クラスでは次のパラメータを受け取ります�
      8 and 256, and the default value is 32.
 -->
 ブロック範囲を集計するために<acronym>BRIN</acronym>minmaxインデックスによって格納される値の最大数を定義します。
-各値は、点または境界の間隔として表すこともできます。値は8から256の間である必要があり、デフォルト値は32です。
+各値は、点または境界の区間として表すこともできます。値は8から256の間である必要があり、デフォルト値は32です。
     </para>
     </listitem>
    </varlistentry>
@@ -948,11 +948,16 @@ typedef struct BrinOpcInfo
        ScanKey *keys, int nkeys)</function></term>
     <listitem>
      <para>
+<!--
       Returns whether all the ScanKey entries are consistent with the given
       indexed values for a range.
       The attribute number to use is passed as part of the scan key.
       Multiple scan keys for the same attribute may be passed at once; the
       number of entries is determined by the <literal>nkeys</literal> parameter.
+-->
+ある範囲について、すべてのScanKeyエントリが指定されたインデックス値と一致するかどうかを返します。
+属性の数はスキャンキーの一部として渡されます。同じ属性の複数のスキャンキーを一度に渡すこともできます。
+エントリの数は <literal>nkeys</literal>パラメータによって決定されます。
      </para>
     </listitem>
    </varlistentry>
@@ -970,6 +975,7 @@ typedef struct BrinOpcInfo
 -->
 ScanKeyがある範囲のインデックス値と一致しているかどうかを返します。
 属性の数はスキャンキーの一部として渡されます。
+これはconsistent関数の後方互換のための派生型です。
      </para>
     </listitem>
    </varlistentry>
@@ -1036,7 +1042,7 @@ ScanKeyがある範囲のインデックス値と一致しているかどうか�
        <literal>PG_HAS_OPCLASS_OPTIONS()</literal> and
        <literal>PG_GET_OPCLASS_OPTIONS()</literal> macros.
 -->
-<function>options</function>関数には<replaceable>local_relopts</replaceable>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
+<function>options</function>関数には<structname>local_relopts</structname>構造体へのポインタが渡されますが、構造体を演算子クラスに固有のオプションの集合で満たすことが必要です。
 オプションはマクロ<literal>PG_HAS_OPCLASS_OPTIONS()</literal>と<literal>PG_GET_OPCLASS_OPTIONS()</literal>を使って他のサポート関数からアクセスできます。
       </para>
 
@@ -1062,7 +1068,7 @@ ScanKeyがある範囲のインデックス値と一致しているかどうか�
   assumptions about the semantics of operator strategies are embedded in the
   support functions' source code.
 -->
-コア配布物には、2種類の演算子クラスが含まれます。すなわち、minmaxとinclusionです。
+コア配布物には、4種類の演算子クラスが含まれます。すなわち、minmax、inclusion、minmax-multiとbloomです。
 それらを使った演算子クラスの定義がコア配布物に必要に応じて含まれます。
 同じ定義を使って、ユーザは他のデータ型のために演算子クラスを定義することができます。
 そのためにソースコードを書く必要はありません。適切なシステムカタログの定義があれば十分です。
@@ -1355,15 +1361,22 @@ BRINフレームワークは和が変化しない時に操作を省略するこ�
  </para>
 
  <para>
+<!--
   To write an operator class for a data type that implements only an equality
   operator and supports hashing, it is possible to use the bloom support procedures
   alongside the corresponding operators, as shown in
   <xref linkend="brin-extensibility-bloom-table"/>.
   All operator class members (procedures and operators) are mandatory.
+-->
+<xref linkend="brin-extensibility-bloom-table"/>で示すように、等号演算子のみを実装しハッシュをサポートするデータ型の演算子クラスを書くために、関連する演算子とともにbloomがサポートするプロシージャを使うことができます。
+演算子クラスのメンバー(プロシージャと演算子)はすべて必須です。
  </para>
 
  <table id="brin-extensibility-bloom-table">
+<!--
   <title>Procedure and Support Numbers for Bloom Operator Classes</title>
+-->
+  <title>Bloom演算子クラスのプロシージャとサポート番号</title>
   <tgroup cols="2">
    <thead>
     <row>
@@ -1401,14 +1414,20 @@ BRINフレームワークは和が変化しない時に操作を省略するこ�
  </table>
 
  <para>
+<!--
     Support procedure numbers 1-10 are reserved for the BRIN internal
     functions, so the SQL level functions start with number 11.  Support
     function number 11 is the main function required to build the index.
     It should accept one argument with the same data type as the operator class,
     and return a hash of the value.
+-->
+サポートプロシージャ番号1から10は、BRINの内部関数として予約されており、SQLレベルの関数は11番から始まります。
+サポート関数11は、インデックスを構築するのに必要なメイン関数です。
+演算子クラスと同じデータ型の引数を1つ受け取り、その値のハッシュを返す必要があります。
  </para>
 
  <para>
+<!--
   The minmax-multi operator class is also intended for data types implementing
   a totally ordered set, and may be seen as a simple extension of the minmax
   operator class. While minmax operator class summarizes values from each block
@@ -1418,10 +1437,18 @@ BRINフレームワークは和が変化しない時に操作を省略するこ�
   corresponding operators, as shown in
   <xref linkend="brin-extensibility-minmax-multi-table"/>.
   All operator class members (procedures and operators) are mandatory.
+-->
+minmax-multi演算子クラスもまた、全順序集合を実装するデータ型を対象としており、minmax演算子クラスの単純な拡張と見なすことができます。
+minmax演算子クラスは各ブロックの範囲を一つの連続した区間にまとめますが、minmax-multiはより小さな複数の区間にまとめることで、外れ値の扱いを改善します。
+<xref linkend="brin-extensibility-minmax-multi-table"/> で示すように、minmax-multiがサポートするプロシージャを使うことができます。
+演算子クラスのメンバー(プロシージャと演算子)はすべて必須です。
  </para>
 
  <table id="brin-extensibility-minmax-multi-table">
+<!--
   <title>Procedure and Support Numbers for minmax-multi Operator Classes</title>
+-->
+  <title>minmax-multi演算子クラスのプロシージャとサポート番号</title>
   <tgroup cols="2">
    <thead>
     <row>
