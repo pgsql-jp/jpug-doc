@@ -1451,7 +1451,8 @@ CREATE TABLE t1 (
     structure, you could write
 -->
 時には外部キー制約の<quote>他のテーブル</quote>を同じテーブルにすることが有用です。
-たとえばテーブルの行が木構造のノードを表現するようにしたいのであれば、以下のように書くことができるでしょう。
+これは<firstterm>自己参照</firstterm>外部キーと呼ばれます。
+たとえばテーブルの行がツリー構造のノードを表現するようにしたいのであれば、以下のように書くことができるでしょう。
 <programlisting>
 CREATE TABLE tree (
     node_id integer PRIMARY KEY,
@@ -2703,7 +2704,7 @@ REVOKE ALL ON accounts FROM PUBLIC;
 <!--
        Allows <command>TRUNCATE</command> on a table.
 -->
-テーブルあるいはビューの<command>TRUNCATE</command>を許可します。
+テーブルに<command>TRUNCATE</command>を許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -5579,13 +5580,13 @@ VALUES ('Albany', NULL, NULL, 'NY');
    </para>
 
    <para>
+<!--
     Partitions can also be foreign tables, although they have some limitations
     that normal tables do not; see <xref linkend="sql-createforeigntable"/> for
     more information.
 -->
 通常のテーブルにない制限がいくつかありますが、パーティションを外部テーブルとすることができます。
 詳細は<xref linkend="sql-createforeigntable"/>を参照してください。
-例えば、パーティションテーブルに挿入されるデータは外部テーブルのパーティションには振り向けられません。
    </para>
 
    <sect3 id="ddl-partitioning-declarative-example">
@@ -5691,7 +5692,7 @@ CREATE TABLE measurement (
        time.  So the commands might look like:
 -->
 この例では、個々のパーティションは一月分のデータを保持し、一度に一月分のデータを削除するという要件を満たしています。
-ですからコマンドは以下のようになるかも知れません。
+ですからコマンドは以下のようになるかもしれません。
 
 <programlisting>
 CREATE TABLE measurement_y2006m02 PARTITION OF measurement
@@ -5970,8 +5971,8 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 -->
 上で説明したように、<command>ATTACH PARTITION</command>コマンドを実行する前に、マッチするパーティション制約を記述する<literal>CHECK</literal>制約を、パーティションに追加するテーブルに作成することを推奨します。
 こうすることで、システムは、そうしなければ必要になる暗示的なパーティション制約を検証するための走査を、省略することができます。
-このような制約がなければ、そのパーティションに<literal>ACCESS EXCLUSIVE</literal>ロック、親テーブルに<literal>SHARE UPDATE EXCLUSIVE</literal>を保持したままで、パーティション制約を検証するためにテーブルを走査することになります。
-この制約は<command>ATTACH PARTITION</command>が終わった後に削除することを推奨します。
+このような<literal>CHECK</literal>制約がなければ、そのパーティションに<literal>ACCESS EXCLUSIVE</literal>ロック、を保持したままで、パーティション制約を検証するためにテーブルを走査することになります。
+もう不要になったこの<literal>CHECK</literal>制約は<command>ATTACH PARTITION</command>が終わった後に削除することを推奨します。
 アタッチされるテーブル自体がパーティションテーブルなら、適切な<literal>CHECK</literal>制約が見つかるか、リーフパーティションに到達するまで個々のサブパーティションは再帰的にロックされ走査されます。
     </para>
 
@@ -5992,7 +5993,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 同様に、そのパーティションが<literal>DEFAULT</literal>パーティションを持っているなら、アタッチ予定のパーティションの制約を含まない<literal>CHECK</literal>制約を作成することをお勧めします。
 これをしておかないと、アタッチ予定のパーティション中にレコードがないことを確認するために<literal>DEFAULT</literal>パーティションが走査されます。
 この操作の間、<literal>ACCESS EXCLUSIVE</literal>ロックが<literal>DEFAULT</literal>パーティションに保持されます。
-<literal>DEFAULT</literal>パーティション自体がパーティションテーブルなら、個々のパーティションは、上で述べたようにアタッチ予定のテーブルと同じ方法で捜査されます。
+<literal>DEFAULT</literal>パーティション自体がパーティションテーブルなら、個々のパーティションは、上で述べたようにアタッチ予定のテーブルと同じ方法で走査されます。
     </para>
 
     <para>
@@ -7191,7 +7192,7 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
 -->
 サブパーティショニングは、他のパーティションより巨大になると想定されるパーティションを更に分割するために役立ちます。
 他の選択は、パーティションキー中に複数の列を含む範囲パーティションを使うことです。
-これらのどちらも大量のパーティション数をもたらす結果になるので、自制することをお勧めします。
+これらのどちらも容易に大量のパーティション数をもたらす結果になるので、自制することをお勧めします。
    </para>
 
    <para>
