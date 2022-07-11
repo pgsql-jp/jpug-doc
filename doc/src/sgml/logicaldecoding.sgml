@@ -17,6 +17,7 @@
    variety of purposes, including replication solutions and auditing.
 -->
 PostgreSQLは、SQLによって実行された更新結果を外部のコンシューマにストリーミングする基盤を提供しています。
+この機能は、レプリケーションソリューションや監査など、さまざまな目的に使用できます。
   </para>
 
   <para>
@@ -86,12 +87,15 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
     should connect to the target database (in the example
     below, <literal>postgres</literal>) as a superuser.
 -->
-ロジカルデコーディングを使う前に、<xref linkend="guc-wal-level"/> を <literal>logical</literal> に、そして<xref linkend="guc-max-replication-slots"/>を少なくとも1に設定しなければなりません。
+ロジカルデコーディングを使う前に、<xref linkend="guc-wal-level"/>を<literal>logical</literal>に、そして<xref linkend="guc-max-replication-slots"/>を少なくとも1に設定しなければなりません。
 次に、使用するデータベースにスーパーユーザ(以下の例では<literal>postgres</literal>)として接続します。
    </para>
 
 <programlisting>
-postgres=# -- Create a slot named 'regression_slot' using the output plugin 'test_decoding'
+<!--
+postgres=# &#45;- Create a slot named 'regression_slot' using the output plugin 'test_decoding'
+-->
+postgres=# -- 出力プラグイン'test_decoding'を使用して'regression_slot'という名前のスロットを作成します。
 postgres=# SELECT * FROM pg_create_logical_replication_slot('regression_slot', 'test_decoding', false, true);
     slot_name    |    lsn
 -----------------+-----------
@@ -191,8 +195,7 @@ postgres=# SELECT pg_drop_replication_slot('regression_slot');
     that <varname>max_wal_senders</varname> is set sufficiently high to allow
     an additional connection.
 -->
-以下はPostgreSQLに付属するプログラム<xref linkend="app-pgrecvlogical"/>を用いてロジカルデコーディングを
-ストリーミングレプリケーションのプロトコルによって制御する例です。
+以下はPostgreSQLに付属するプログラム<xref linkend="app-pgrecvlogical"/>を用いてロジカルデコーディングをストリーミングレプリケーションのプロトコルによって制御する例です。
 この方法を使うには、レプリケーション接続を許すようにクライアント認証を設定し(<xref linkend="streaming-replication-authentication"/>参照)、<varname>max_wal_senders</varname>を十分に大きくして追加の接続ができるようにしておかなければなりません。
    </para>
 <programlisting>
@@ -209,6 +212,7 @@ $ pg_recvlogical -d postgres --slot=test --drop-slot
 </programlisting>
 
   <para>
+<!--
   The following example shows SQL interface that can be used to decode prepared
   transactions. Before you use two-phase commit commands, you must set
   <varname>max_prepared_transactions</varname> to at least 1. You must also have
@@ -216,6 +220,11 @@ $ pg_recvlogical -d postgres --slot=test --drop-slot
   <function>pg_create_logical_replication_slot</function>
   Note that we will stream the entire transaction after the commit if it
   is not already decoded.
+-->
+以下の例では、準備されたトランザクションのデコードに使用できるSQLインターフェースを示します。
+2相コミットコマンドを使用する前に、<varname>max_prepared_transactions</varname>を少なくとも1に設定しなければなりません。
+<function>pg_create_logical_replication_slot</function>を使用してスロットを作成する際に、2相パラメータを'true'に設定しておく必要もあります。
+トランザクションがまだデコードされていない場合は、コミット後にトランザクション全体をストリームすることに注意してください。
   </para>
 <programlisting>
 postgres=# BEGIN;
@@ -342,7 +351,8 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      in a <productname>PostgreSQL</productname> cluster. Slots persist
      independently of the connection using them and are crash-safe.
 -->
-それぞれのレプリケーションスロットは<productname>PostgreSQL</productname>クラスタの中で一意な識別子を持っています。スロットは、そのために使用される接続とは独立しており、クラッシュセーフです。
+それぞれのレプリケーションスロットは<productname>PostgreSQL</productname>クラスタの中で一意な識別子を持っています。
+スロットは、そのために使用される接続とは独立しており、クラッシュセーフです。
     </para>
 
     <para>
@@ -388,7 +398,10 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      on from when the last receiver stopped consuming them. Only one receiver
      may consume changes from a slot at any given time.
 -->
-ロジカルレプリケーションスロットは、受信者の状態については関知しません。同時にでなければ、同じスロットを使う複数の異なる受信者を持つことさえできます。その場合は、直近の受信者がストリームの消費を終了した時点から更新データを受信するだけです。
+ロジカルレプリケーションスロットは、受信者の状態については関知しません。
+同時にでなければ、同じスロットを使う複数の異なる受信者を持つことさえできます。
+その場合は、直近の受信者がストリームの消費を終了した時点から更新データを受信するだけです。
+1つのスロットからの変更を同時に消費できるのは1つの受信側だけです。
     </para>
 
     <caution>
@@ -557,6 +570,7 @@ SQLでは使用できません。
     view provides statistics information about the logical replication slots.
 -->
 <link linkend="view-pg-replication-slots"><structname>pg_replication_slots</structname></link>ビューと<link linkend="monitoring-pg-stat-replication-view"><structname>pg_stat_replication</structname></link>ビューは、レプリケーションスロット、ストリーミングレプリケーションのコネクションのそれぞれの現在の状態に関する情報を提供します。
+<link linkend="monitoring-pg-stat-replication-slots-view"><structname>pg_stat_replication_slots</structname></link>ビューは、ロジカルレプリケーションスロットに関する統計情報を提供します。
    </para>
   </sect1>
 
@@ -641,6 +655,7 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
     </para>
 
     <para>
+<!--
      An output plugin may also define functions to support streaming of large,
      in-progress transactions. The <function>stream_start_cb</function>,
      <function>stream_stop_cb</function>, <function>stream_abort_cb</function>,
@@ -648,15 +663,22 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
      and <function>stream_prepare_cb</function>
      are required, while <function>stream_message_cb</function> and
      <function>stream_truncate_cb</function> are optional.
+-->
+出力プラグインは、大きな継続中(in-progress)トランザクションのストリーミングをサポートする関数を定義することもできます。
+<function>stream_start_cb</function>、<function>stream_stop_cb</function>、<function>stream_abort_cb</function>、<function>stream_commit_cb</function>、<function>stream_change_cb</function>、<function>stream_prepare_cb</function>は必須ですが、<function>stream_message_cb</function>と<function>stream_truncate_cb</function>は必須ではありません。
     </para>
 
     <para>
+<!--
     An output plugin may also define functions to support two-phase commits,
     which allows actions to be decoded on the <command>PREPARE TRANSACTION</command>.
     The <function>begin_prepare_cb</function>, <function>prepare_cb</function>,
     <function>stream_prepare_cb</function>,
     <function>commit_prepared_cb</function> and <function>rollback_prepared_cb</function>
     callbacks are required, while <function>filter_prepare_cb</function> is optional.
+-->
+出力プラグインは、<command>PREPARE TRANSACTION</command>でアクションをデコードできるようにする2相コミットをサポートする関数を定義することもできます。
+<function>begin_prepare_cb</function>、<function>prepare_cb</function>、<function>stream_prepare_cb</function>、<function>commit_prepared_cb</function>、<function>rollback_prepared_cb</function>コールバックは必須ですが、<function>filter_prepare_cb</function>は必須ではありません。
     </para>
    </sect2>
 
@@ -682,12 +704,18 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
 ALTER TABLE user_catalog_table SET (user_catalog_table = true);
 CREATE TABLE another_catalog_table(data text) WITH (user_catalog_table = true);
 </programlisting>
+<!--
      Note that access to user catalog tables or regular system catalog tables
      in the output plugins has to be done via the <literal>systable_*</literal>
      scan APIs only. Access via the <literal>heap_*</literal> scan APIs will
      error out. Additionally, any actions leading to transaction ID assignment
      are prohibited. That, among others, includes writing to tables, performing
      DDL changes, and calling <literal>pg_current_xact_id()</literal>.
+-->
+出力プラグイン内のユーザカタログテーブルまたは通常のシステムカタログテーブルへのアクセスは、<literal>systable_*</literal>スキャンAPIを介してのみ行う必要があることに注意してください。
+<literal>heap_*</literal>スキャンAPIを介したアクセスはエラーになります。
+さらに、トランザクションIDの割り当てにつながるアクションは禁止されています。
+これには、テーブルへの書き込み、DDL変更の実行、<literal>pg_current_xact_id()</literal>の呼び出しなどが含まれます。
     </para>
    </sect2>
 
@@ -759,6 +787,11 @@ SQLで変更データを見るような場合、任意のかたちでデータ�
 指定したトランザクションに含まれる更新だけが<literal>begin</literal>と<literal>commit</literal>の間のコールバックによってデコードされます。
 明示的あるいは暗黙的にロールバックされたトランザクションは、決してデコードされません。
 成功したセーブポイントは、実行された順番にセーブポイントが実行されたトランザクションの中に折り込まれます。
+<command>PREPARE TRANSACTION</command>を使用して2相コミット用に準備されたトランザクションも、デコードに必要な出力プラグインコールバックが提供されていればデコードされます。
+<command>ROLLBACK PREPARED</command>コマンドを使用して、現在準備されているトランザクションが同時にアボートされる可能性があります。
+その場合、このトランザクションのロジカルデコーディングもアボートされます。
+そのようなトランザクションのすべての変更は、アボートが検出され、<function>prepare_cb</function>コールバックが呼び出されるとスキップされます。
+このように、同時にアボートされた場合でも、デコードされた<command>ROLLBACK PREPARED</command>を適切に処理するために十分な情報が出力プラグインに提供されます。
     </para>
 
     <note>
@@ -817,8 +850,8 @@ typedef struct OutputPluginOptions
       operations.  These are of interest to plugins that handle DDL
       replication, but they require special handling.
 -->
-      <literal>output_type</literal>は<literal>OUTPUT_PLUGIN_TEXTUAL_OUTPUT</literal>か<literal>OUTPUT_PLUGIN_BINARY_OUTPUT</literal>のどちらかです。
-      <xref linkend="logicaldecoding-output-mode"/>も参照してください。
+<literal>output_type</literal>は<literal>OUTPUT_PLUGIN_TEXTUAL_OUTPUT</literal>か<literal>OUTPUT_PLUGIN_BINARY_OUTPUT</literal>のどちらかです。
+<xref linkend="logicaldecoding-output-mode"/>も参照してください。
 <literal>receive_rewrites</literal>が真なら、何らかDDL操作時のヒープ書き換えで生じた変更に対して、出力プラグインも呼ばれます。
 これはDDLレプリケーションを処理するプラグインを対象としていますが、これらは特別な処理を必要とします。
      </para>
@@ -931,6 +964,9 @@ typedef void (*LogicalDecodeCommitCB) (struct LogicalDecodingContext *ctx,
 -->
 トランザクション内の<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>の更新に対して、必須コールバックである<function>change_cb</function>が呼び出されます。
 元の更新コマンドが複数の行を一度に更新する場合は、それぞれの行に対してこのコールバックが呼び出されます。
+<function>change_cb</function>コールバックは、システムまたはユーザカタログテーブルにアクセスして、行変更の詳細を出力する処理を支援することができます。
+準備された(まだコミットされていない)トランザクションをデコードする場合、またはコミットされていないトランザクションをデコードする場合、この変更コールバックは、まったく同じトランザクションが同時にロールバックされるためにエラーになることもあります。
+この場合、このアボートされたトランザクションのロジカルデコーディングは正常に停止されます。
 <programlisting>
 typedef void (*LogicalDecodeChangeCB) (struct LogicalDecodingContext *ctx,
                                        ReorderBufferTXN *txn,
@@ -1088,6 +1124,9 @@ typedef void (*LogicalDecodeMessageCB) (struct LogicalDecodingContext *ctx,
 ただし、そのメッセージがトランザクション扱いではなく、メッセージをログしたトランザクションにXIDが割り当てられてない場合はNULLになることに注意してください。
 <parameter>lsn</parameter>は、メッセージに対応するWALの位置です。
 <parameter>transactional</parameter>は、メッセージがトランザクションとして送られたものかどうかを表しています。
+変更コールバックと同様に、準備された(まだコミットされていない)トランザクションをデコードする場合、またはコミットされていないトランザクションをデコードする場合、このメッセージコールバックも、まったく同じトランザクションの同時ロールバックのためにエラーになることがあります。
+この場合、アボートされたトランザクションのロジカルデコーディングは正常に停止されます。
+
 <parameter>prefix</parameter>はnull終端された任意の接頭辞で、現在のプラグインが興味のあるメッセージを特定するために利用できます。
 最後に、<parameter>message</parameter>パラメータは、大きさが<parameter>message_size</parameter>の、実際のメッセージを保持します。
      </para>
@@ -1103,9 +1142,12 @@ typedef void (*LogicalDecodeMessageCB) (struct LogicalDecodingContext *ctx,
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-filter-prepare">
+<!--
      <title>Prepare Filter Callback</title>
-
+-->
+     <title>フィルタコールバックの準備</title>
      <para>
+<!--
        The optional <function>filter_prepare_cb</function> callback
        is called to determine whether data that is part of the current
        two-phase commit transaction should be considered for decoding
@@ -1115,30 +1157,47 @@ typedef void (*LogicalDecodeMessageCB) (struct LogicalDecodingContext *ctx,
        <literal>false</literal> otherwise. When the callback is not
        defined, <literal>false</literal> is assumed (i.e. no filtering, all
        transactions using two-phase commit are decoded in two phases as well).
+-->
+オプションの<function>filter_prepare_cb</function>コールバックは、現在の2相コミットトランザクションの一部であるデータを、この準備段階でデコードするか、または<command>COMMIT PREPARED</command>時に通常の1相トランザクションとしてデコードするかを決定するために呼び出されます。
+デコードをスキップするように合図するには、<literal>true</literal>を返します。
+そうでなければ<literal>false</literal>を返します。
+コールバックが定義されていない場合、<literal>false</literal>が想定されます(すなわち、フィルタリングなしで、2相コミットを使用するすべてのトランザクションも同様に2相でデコードされます)。
 <programlisting>
 typedef bool (*LogicalDecodeFilterPrepareCB) (struct LogicalDecodingContext *ctx,
                                               TransactionId xid,
                                               const char *gid);
 </programlisting>
+<!--
        The <parameter>ctx</parameter> parameter has the same contents as for
        the other callbacks. The parameters <parameter>xid</parameter>
        and <parameter>gid</parameter> provide two different ways to identify
        the transaction.  The later <command>COMMIT PREPARED</command> or
        <command>ROLLBACK PREPARED</command> carries both identifiers,
        providing an output plugin the choice of what to use.
+-->
+<parameter>ctx</parameter>パラメータは他のコールバックと同じ内容です。
+パラメータ<parameter>xid</parameter>と<parameter>gid</parameter>は、トランザクションを識別するための2つの異なる方法を提供します。
+後の<command>COMMIT PREPARED</command>または<command>ROLLBACK PREPARED</command>は両方の識別子を持ち、出力プラグインに何を使用するかの選択を提供します。
      </para>
      <para>
+<!--
        The callback may be invoked multiple times per transaction to decode
        and must provide the same static answer for a given pair of
        <parameter>xid</parameter> and <parameter>gid</parameter> every time
        it is called.
+-->
+このコールバックは、デコードするトランザクションごとに複数回呼び出すことができ、呼び出されるたびに<parameter>xid</parameter>と<parameter>gid</parameter>の与えられたペアに対して同じ静的な答えを提供しなければなりません。
      </para>
      </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-begin-prepare">
+<!--
      <title>Transaction Begin Prepare Callback</title>
+-->
+     <title>トランザクション開始準備コールバック</title>
 
      <para>
+<!--
       The required <function>begin_prepare_cb</function> callback is called
       whenever the start of a prepared transaction has been decoded. The
       <parameter>gid</parameter> field, which is part of the
@@ -1146,6 +1205,10 @@ typedef bool (*LogicalDecodeFilterPrepareCB) (struct LogicalDecodingContext *ctx
       check if the plugin has already received this <command>PREPARE</command>
       in which case it can either error out or skip the remaining changes of 
       the transaction.
+-->
+必須である<function>begin_prepare_cb</function>コールバックは、準備されたトランザクションの開始がデコードされるたびに呼び出されます。
+<parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドをこのコールバックで使用して、プラグインがこの<command>PREPARE</command>を既に受信しているかどうかをチェックできます。
+この場合、エラーになるか、トランザクションの残りの変更をスキップできます。
 <programlisting>
 typedef void (*LogicalDecodeBeginPrepareCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn);
@@ -1154,15 +1217,23 @@ typedef void (*LogicalDecodeBeginPrepareCB) (struct LogicalDecodingContext *ctx,
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-prepare">
+<!--
      <title>Transaction Prepare Callback</title>
+-->
+     <title>トランザクション準備コールバック</title>
 
      <para>
+<!--
       The required <function>prepare_cb</function> callback is called whenever
       a transaction which is prepared for two-phase commit has been
       decoded. The <function>change_cb</function> callback for all modified
       rows will have been called before this, if there have been any modified
       rows. The <parameter>gid</parameter> field, which is part of the
       <parameter>txn</parameter> parameter, can be used in this callback.
+-->
+必須である<function>prepare_cb</function>コールバックは、2相コミット用に準備されたトランザクションがデコードされるたびに呼び出されます。
+修正された行がある場合、すべての修正された行に対する<function>change_cb</function>コールバックはこの前に呼び出されています。
+<parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドは、このコールバックで使用できます。
 <programlisting>
 typedef void (*LogicalDecodePrepareCB) (struct LogicalDecodingContext *ctx,
                                         ReorderBufferTXN *txn,
@@ -1172,13 +1243,20 @@ typedef void (*LogicalDecodePrepareCB) (struct LogicalDecodingContext *ctx,
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-commit-prepared">
+<!--
      <title>Transaction Commit Prepared Callback</title>
+-->
+     <title>トランザクションコミット準備コールバック</title>
 
      <para>
+<!--
       The required <function>commit_prepared_cb</function> callback is called
       whenever a transaction <command>COMMIT PREPARED</command> has been decoded.
       The <parameter>gid</parameter> field, which is part of the
       <parameter>txn</parameter> parameter, can be used in this callback.
+-->
+必須である<function>commit_prepared_cb</function>コールバックは、トランザクション<command>COMMIT PREPARED</command>がデコードされるたびに呼び出されます。
+<parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドは、このコールバックで使用できます。
 <programlisting>
 typedef void (*LogicalDecodeCommitPreparedCB) (struct LogicalDecodingContext *ctx,
                                                ReorderBufferTXN *txn,
@@ -1188,9 +1266,13 @@ typedef void (*LogicalDecodeCommitPreparedCB) (struct LogicalDecodingContext *ct
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-rollback-prepared">
+<!--
      <title>Transaction Rollback Prepared Callback</title>
+-->
+     <title>トランザクションロールバック準備コールバック</title>
 
      <para>
+<!--
       The required <function>rollback_prepared_cb</function> callback is called
       whenever a transaction <command>ROLLBACK PREPARED</command> has been
       decoded. The <parameter>gid</parameter> field, which is part of the
@@ -1201,6 +1283,14 @@ typedef void (*LogicalDecodeCommitPreparedCB) (struct LogicalDecodingContext *ct
       it can apply the rollback, otherwise, it can skip the rollback operation. The
       <parameter>gid</parameter> alone is not sufficient because the downstream
       node can have a prepared transaction with same identifier.
+-->
+必須である<function>rollback_prepared_cb</function>コールバックは、トランザクション<command>ROLLBACK PREPARED</command>がデコードされるたびに呼び出されます。
+<parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドは、このコールバックで使用できます。
+パラメータ<parameter>prepare_end_lsn</parameter>と<parameter>prepare_time</parameter>は、プラグインがこの<command>PREPARE TRANSACTION</command>を受信したかどうかをチェックするために使用できます。
+この場合、プラグインはロールバックを適用できます。
+そうでない場合は、ロールバック操作をスキップできます。
+<parameter>gid</parameter>だけでは十分ではありません。
+なぜなら、下流ノードは同じ識別子を持つ準備されたトランザクションを持つことができるからです。
 <programlisting>
 typedef void (*LogicalDecodeRollbackPreparedCB) (struct LogicalDecodingContext *ctx,
                                                  ReorderBufferTXN *txn,
@@ -1211,10 +1301,16 @@ typedef void (*LogicalDecodeRollbackPreparedCB) (struct LogicalDecodingContext *
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-stream-start">
+<!--
      <title>Stream Start Callback</title>
+-->
+     <title>ストリーム開始コールバック</title>
      <para>
+<!--
       The <function>stream_start_cb</function> callback is called when opening
       a block of streamed changes from an in-progress transaction.
+-->
+<function>stream_start_cb</function>コールバックは、継続中のトランザクションからストリーム化された変更のブロックを開くときに呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamStartCB) (struct LogicalDecodingContext *ctx,
                                             ReorderBufferTXN *txn);
@@ -1223,10 +1319,16 @@ typedef void (*LogicalDecodeStreamStartCB) (struct LogicalDecodingContext *ctx,
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-stream-stop">
+<!--
      <title>Stream Stop Callback</title>
+-->
+     <title>ストリーム停止コールバック</title>
      <para>
+<!--
       The <function>stream_stop_cb</function> callback is called when closing
       a block of streamed changes from an in-progress transaction.
+-->
+<function>stream_stop_cb</function>コールバックは、継続中のトランザクションからストリームされた変更のブロックをクローズするときに呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamStopCB) (struct LogicalDecodingContext *ctx,
                                            ReorderBufferTXN *txn);
@@ -1235,10 +1337,16 @@ typedef void (*LogicalDecodeStreamStopCB) (struct LogicalDecodingContext *ctx,
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-stream-abort">
+<!--
      <title>Stream Abort Callback</title>
+-->
+     <title>ストリームアボートコールバック</title>
      <para>
+<!--
       The <function>stream_abort_cb</function> callback is called to abort
       a previously streamed transaction.
+-->
+<function>stream_abort_cb</function>コールバックは、以前にストリームされたトランザクションをアボートするために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamAbortCB) (struct LogicalDecodingContext *ctx,
                                             ReorderBufferTXN *txn,
@@ -1248,10 +1356,16 @@ typedef void (*LogicalDecodeStreamAbortCB) (struct LogicalDecodingContext *ctx,
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-stream-prepare">
+<!--
      <title>Stream Prepare Callback</title>
+-->
+     <title>ストリーム準備コールバック</title>
      <para>
+<!--
       The <function>stream_prepare_cb</function> callback is called to prepare
       a previously streamed transaction as part of a two-phase commit.
+-->
+<function>stream_prepare_cb</function>コールバックは、2相コミットの一部として前にストリームされたトランザクションを準備するために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamPrepareCB) (struct LogicalDecodingContext *ctx,
                                               ReorderBufferTXN *txn,
@@ -1261,10 +1375,16 @@ typedef void (*LogicalDecodeStreamPrepareCB) (struct LogicalDecodingContext *ctx
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-stream-commit">
+<!--
      <title>Stream Commit Callback</title>
+-->
+     <title>ストリームコミットコールバック</title>
      <para>
+<!--
       The <function>stream_commit_cb</function> callback is called to commit
       a previously streamed transaction.
+-->
+<function>stream_commit_cb</function>コールバックは、以前にストリームされたトランザクションをコミットするために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamCommitCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn,
@@ -1274,13 +1394,21 @@ typedef void (*LogicalDecodeStreamCommitCB) (struct LogicalDecodingContext *ctx,
     </sect3>
     
     <sect3 id="logicaldecoding-output-plugin-stream-change">
+<!--
      <title>Stream Change Callback</title>
+-->
+     <title>ストリーム変更コールバック</title>
      <para>
+<!--
       The <function>stream_change_cb</function> callback is called when sending
       a change in a block of streamed changes (demarcated by
       <function>stream_start_cb</function> and <function>stream_stop_cb</function> calls).
       The actual changes are not displayed as the transaction can abort at a later
       point in time and we don't decode changes for aborted transactions.
+-->
+<function>stream_change_cb</function>コールバックは、ストリーム化された変更のブロック(<function>stream_start_cb</function>と<function>stream_stop_cb</function>呼び出しで区切られます)で変更を送信するときに呼び出されます。
+実際の変更は表示されません。
+トランザクションは後の時点でアボートされる可能性があり、アボートされたトランザクションの変更はデコードされません。
 <programlisting>
 typedef void (*LogicalDecodeStreamChangeCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn,
@@ -1291,14 +1419,22 @@ typedef void (*LogicalDecodeStreamChangeCB) (struct LogicalDecodingContext *ctx,
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-stream-message">
+<!--
      <title>Stream Message Callback</title>
+-->
+     <title>ストリームメッセージコールバック</title>
      <para>
+<!--
       The <function>stream_message_cb</function> callback is called when sending
       a generic message in a block of streamed changes (demarcated by
       <function>stream_start_cb</function> and <function>stream_stop_cb</function> calls).
       The message contents for transactional messages are not displayed as the transaction
       can abort at a later point in time and we don't decode changes for aborted
       transactions.
+-->
+<function>stream_message_cb</function>コールバックは、ストリーム化された変更のブロック(<function>stream_start_cb</function>と<function>stream_stop_cb</function>コールで区切られた)で汎用メッセージを送信するときに呼び出されます。
+トランザクションメッセージのメッセージ内容は表示されません。
+なぜなら、トランザクションは後の時点でアボートする可能性があり、アボートされたトランザクションの変更はデコードされないからです。
 <programlisting>
 typedef void (*LogicalDecodeStreamMessageCB) (struct LogicalDecodingContext *ctx,
                                               ReorderBufferTXN *txn,
@@ -1312,12 +1448,18 @@ typedef void (*LogicalDecodeStreamMessageCB) (struct LogicalDecodingContext *ctx
     </sect3>
 
     <sect3 id="logicaldecoding-output-plugin-stream-truncate">
+<!--
      <title>Stream Truncate Callback</title>
+-->
+     <title>ストリームTRUNCATEコールバック</title>
      <para>
+<!--
       The <function>stream_truncate_cb</function> callback is called for a
       <command>TRUNCATE</command> command in a block of streamed changes
       (demarcated by <function>stream_start_cb</function> and
       <function>stream_stop_cb</function> calls).
+-->
+<function>stream_truncate_cb</function>コールバックは、ストリーム化された変更のブロック(<function>stream_start_cb</function>と<function>stream_stop_cb</function>呼び出しで区切られます)内の<command>TRUNCATE</command>コマンドに対して呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamTruncateCB) (struct LogicalDecodingContext *ctx,
                                                ReorderBufferTXN *txn,
@@ -1325,12 +1467,17 @@ typedef void (*LogicalDecodeStreamTruncateCB) (struct LogicalDecodingContext *ct
                                                Relation relations[],
                                                ReorderBufferChange *change);
 </programlisting>
+<!--
       The parameters are analogous to the <function>stream_change_cb</function>
       callback.  However, because <command>TRUNCATE</command> actions on
       tables connected by foreign keys need to be executed together, this
       callback receives an array of relations instead of just a single one.
       See the description of the <xref linkend="sql-truncate"/> statement for
       details.
+-->
+パラメータは<function>stream_change_cb</function>コールバックに類似しています。
+ただし、外部キーで接続されたテーブルに対する<command>TRUNCATE</command>アクションは一緒に実行する必要があるため、このコールバックは単一のリレーションではなくリレーションの配列を受け取ります。
+詳細は<xref linkend="sql-truncate"/>文の説明を参照してください。
      </para>
     </sect3>
 
@@ -1405,7 +1552,10 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
 -->
    <title>ロジカルデコーディングにおける同期レプリケーションのサポート</title>
    <sect2>
+<!--
     <title>Overview</title>
+-->
+    <title>概要</title>
 
     <para>
 <!--
@@ -1440,9 +1590,13 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
    </sect2>
 
    <sect2 id="logicaldecoding-synchronous-caveats">
+<!--
     <title>Caveats</title>
+-->
+    <title>警告</title>
 
     <para>
+<!--
      In synchronous replication setup, a deadlock can happen, if the transaction
      has locked [user] catalog tables exclusively. See
      <xref linkend="logicaldecoding-capabilities"/> for information on user
@@ -1450,76 +1604,112 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
      catalog tables to access them. To avoid this users must refrain from taking
      an exclusive lock on [user] catalog tables. This can happen in the following
      ways:
-
+-->
+同期レプリケーション設定では、トランザクションが[user]カタログテーブルを排他的にロックした場合、デッドロックが発生する可能性があります。
+ユーザカタログテーブルに関する情報については<xref linkend="logicaldecoding-capabilities"/>を参照してください。
+これは、トランザクションの論理的なデコードがカタログテーブルをロックしてアクセスできるためです。
+これを回避するために、ユーザは[user]カタログテーブルに対する排他ロックの取得を控える必要があります。
+これは以下の方法で発生します。
      <itemizedlist>
       <listitem>
        <para>
+<!--
         Issuing an explicit <command>LOCK</command> on <structname>pg_class</structname>
         in a transaction.
+-->
+トランザクションの<structname>pg_class</structname>に対する明示的な<command>LOCK</command>の発行。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Perform <command>CLUSTER</command> on <structname>pg_class</structname> in
         a transaction.
+-->
+トランザクション内の<structname>pg_class</structname>に対して<command>CLUSTER</command>を実行。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         <command>PREPARE TRANSACTION</command> after <command>LOCK</command> command
         on <structname>pg_class</structname> and allow logical decoding of two-phase
         transactions.
+-->
+<structname>pg_class</structname>上の<command>LOCK</command>コマンドの後に<command>PREPARE TRANSACTION</command>を実行し、2相トランザクションのロジカルデコーディングを可能にする。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         <command>PREPARE TRANSACTION</command> after <command>CLUSTER</command>
         command on <structname>pg_trigger</structname> and allow logical decoding of
         two-phase transactions. This will lead to deadlock only when published table
         have a trigger.
+-->
+<structname>pg_trigger</structname>上の<command>CLUSTER</command>コマンドの後に<command>PREPARE TRANSACTION</command>を実行し、2相トランザクションのロジカルデコーディングを可能にする。
+これにより、発行されたテーブルにトリガがある場合にのみデッドロックが発生します。
        </para>
       </listitem>
 
       <listitem>
        <para>
+<!--
         Executing <command>TRUNCATE</command> on [user] catalog table in a
         transaction.
+-->
+トランザクションの[user]カタログテーブルに対して<command>TRUNCATE</command>を実行。
        </para>
       </listitem>
      </itemizedlist>
 
+<!--
      Note that these commands that can cause deadlock apply to not only explicitly
      indicated system catalog tables above but also to any other [user] catalog
      table.
+-->
+デッドロックの原因となるこれらのコマンドは、上記の明示的に指定されたシステムカタログテーブルだけでなく、他の[user]カタログテーブルにも適用されることに注意してください。
     </para>
    </sect2>
   </sect1>
 
   <sect1 id="logicaldecoding-streaming">
+<!--
    <title>Streaming of Large Transactions for Logical Decoding</title>
+-->
+   <title>ロジカルデコーディングための大規模トランザクションのストリーミング</title>
 
    <para>
+<!--
     The basic output plugin callbacks (e.g., <function>begin_cb</function>,
     <function>change_cb</function>, <function>commit_cb</function> and
     <function>message_cb</function>) are only invoked when the transaction
     actually commits. The changes are still decoded from the transaction
     log, but are only passed to the output plugin at commit (and discarded
     if the transaction aborts).
+-->
+基本的な出力プラグインコールバック(<function>begin_cb</function>、<function>change_cb</function>、<function>commit_cb</function>、<function>message_cb</function>など)は、トランザクションが実際にコミットしたときにのみ呼び出されます。
+変更はトランザクションログからデコードされますが、コミット時に出力プラグインに渡されるだけです(トランザクションがアボートした場合は破棄されます)。
    </para>
 
    <para>
+<!--
     This means that while the decoding happens incrementally, and may spill
     to disk to keep memory usage under control, all the decoded changes have
     to be transmitted when the transaction finally commits (or more precisely,
     when the commit is decoded from the transaction log). Depending on the
     size of the transaction and network bandwidth, the transfer time may
     significantly increase the apply lag.
+-->
+つまり、デコードは増分的に行われ、メモリー使用量を制御するためにディスクにオーバーフローする場合がありますが、デコードされたすべての変更は、トランザクションが最終的にコミットされたとき(より正確には、コミットがトランザクションログからデコードされたとき)に送信される必要があります。
+トランザクションおよびネットワーク帯域幅のサイズによっては、転送時間によって適用ラグが大幅に増加する場合があります。
    </para>
 
    <para>
+<!--
     To reduce the apply lag caused by large transactions, an output plugin
     may provide additional callback to support incremental streaming of
     in-progress transactions. There are multiple required streaming callbacks
@@ -1527,9 +1717,13 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
     <function>stream_abort_cb</function>, <function>stream_commit_cb</function>
     and <function>stream_change_cb</function>) and two optional callbacks
     (<function>stream_message_cb</function> and <function>stream_truncate_cb</function>).
+-->
+大規模なトランザクションによって発生する適用遅延を軽減するために、出力プラグインは、継続中のトランザクションの増分ストリーミングをサポートする追加のコールバックを提供できます。
+複数の必要なストリーミングコールバック(<function>stream_start_cb</function>、<function>stream_stop_cb</function>、<function>stream_abort_cb</function>、<function>stream_commit_cb</function>および<function>stream_change_cb</function>)と2つのオプションのコールバック(<function>stream_message_cb</function>および<function>stream_truncate_cb</function>)があります。
    </para>
 
    <para>
+<!--
     When streaming an in-progress transaction, the changes (and messages) are
     streamed in blocks demarcated by <function>stream_start_cb</function>
     and <function>stream_stop_cb</function> callbacks. Once all the decoded
@@ -1541,11 +1735,20 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
     <command>COMMIT PREPARED</command> using the
     <function>commit_prepared_cb</function> callback or aborted using the
     <function>rollback_prepared_cb</function>.
+-->
+継続中のトランザクションをストリーミングする場合、変更(およびメッセージ)は<function>stream_start_cb</function>および<function>stream_stop_cb</function>コールバックで区切られたブロックでストリーミングされます。
+デコードされたすべての変更が送信されると、トランザクションは<function>stream_commit_cb</function>コールバックを使用してコミットできます(または<function>stream_abort_cb</function>コールバックを使用してアボートできます)。
+2相コミットがサポートされている場合、トランザクションは<function>stream_prepare_cb</function>コールバックを使用して準備できます。
+<command>COMMIT PREPARED</command>は<function>commit_prepared_cb</function>コールバックを使用して準備できます。
+または<function>rollback_prepared_cb</function>を使用してアボートできます。
    </para>
 
    <para>
+<!--
     One example sequence of streaming callback calls for one transaction may
     look like this:
+-->
+1つのトランザクションに対するストリーミングコールバック呼び出しのシーケンスの例は、次のようになります。
 <programlisting>
 stream_start_cb(...);   &lt;-- start of first block of changes
   stream_change_cb(...);
@@ -1570,12 +1773,17 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
    </para>
 
    <para>
+<!--
     The actual sequence of callback calls may be more complicated, of course.
     There may be blocks for multiple streamed transactions, some of the
     transactions may get aborted, etc.
+-->
+もちろん、実際のコールバック呼び出しのシーケンスはもっと複雑かもしれません。
+ストリームされた複数のトランザクションにブロックがあったり、一部のトランザクションがアボートされたりするなどです。
    </para>
 
    <para>
+<!--
     Similar to spill-to-disk behavior, streaming is triggered when the total
     amount of changes decoded from the WAL (for all in-progress transactions)
     exceeds the limit defined by <varname>logical_decoding_work_mem</varname> setting.
@@ -1585,19 +1793,30 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
     because we exceed the memory threshold but still have not decoded the
     complete tuple e.g., only decoded toast table insert but not the main table
     insert.
+-->
+ディスクへのスピル動作と同様に、ストリーミングは、WALからデコードされた変更の合計量(すべての継続中のトランザクションについて)が<varname>logical_decoding_work_mem</varname>設定で定義された制限を超えたときにトリガされます。
+その時点で、最大のトップレベルトランザクション(デコードされた変更に現在使用されているメモリ量で測定されます)が選択され、ストリーミングされます。
+ただし、場合によっては、ストリーミングが有効になっていても、メモリしきい値を超えても完全なタプルがまだデコードされていない(例えば、メインテーブルの挿入ではなくトーストテーブルの挿入のみがデコードされているなど)ため、ディスクへのスピルが必要になることがあります。
    </para>
 
    <para>
+<!--
     Even when streaming large transactions, the changes are still applied in
     commit order, preserving the same guarantees as the non-streaming mode.
+-->
+大規模なトランザクションをストリーミングする場合でも、変更はコミット順に適用され、非ストリーミングモードと同じ保証が維持されます。
    </para>
 
   </sect1>
 
   <sect1 id="logicaldecoding-two-phase-commits">
+<!--
    <title>Two-phase Commit Support for Logical Decoding</title>
+-->
+   <title>ロジカルデコーディングための2相コミット</title>
 
    <para>
+<!--
     With the basic output plugin callbacks (eg., <function>begin_cb</function>,
     <function>change_cb</function>, <function>commit_cb</function> and
     <function>message_cb</function>) two-phase commit commands like
@@ -1607,9 +1826,13 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
     <command>COMMIT PREPARED</command> is decoded as a <command>COMMIT</command>
     and <command>ROLLBACK PREPARED</command> is decoded as a
     <command>ROLLBACK</command>.
+-->
+基本的な出力プラグインコールバック(例えば、<function>begin_cb</function>、<function>change_cb</function>、<function>commit_cb</function>、<function>message_cb</function>)では、<command>PREPARE TRANSACTION</command>、<command>COMMIT PREPARED</command>、<command>ROLLBACK PREPARED</command>のような2相コミットコマンドはデコードされません。
+<command>PREPARE TRANSACTION</command>は無視されますが、<command>COMMIT PREPARED</command>は<command>COMMIT</command>としてデコードされ、<command>ROLLBACK PREPARED</command>は<command>ROLLBACK</command>としてデコードされます。
    </para>
 
    <para>
+<!--
     To support the streaming of two-phase commands, an output plugin needs to
     provide additional callbacks. There are multiple two-phase commit callbacks
     that are required, (<function>begin_prepare_cb</function>,
@@ -1617,9 +1840,13 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
     <function>rollback_prepared_cb</function> and
     <function>stream_prepare_cb</function>) and an optional callback
     (<function>filter_prepare_cb</function>).
+-->
+2相コマンドのストリーミングをサポートするために、出力プラグインは追加のコールバックを提供する必要があります。
+複数の必要な2相コミットコールバック(<function>begin_prepare_cb</function>、<function>prepare_cb</function>、<function>commit_prepared_cb</function>、<function>rollback_prepared_cb</function>、<function>stream_prepare_cb</function>)とオプションのコールバック(<function>filter_prepare_cb</function>)があります。
    </para>
 
    <para>
+<!--
     If the output plugin callbacks for decoding two-phase commit commands are
     provided, then on <command>PREPARE TRANSACTION</command>, the changes of
     that transaction are decoded, passed to the output plugin, and the
@@ -1627,44 +1854,66 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
     basic decoding setup where changes are only passed to the output plugin
     when a transaction is committed. The start of a prepared transaction is
     indicated by the <function>begin_prepare_cb</function> callback.
+-->
+2相コミットコマンドをデコードするための出力プラグインコールバックが提供されている場合、<command>PREPARE TRANSACTION</command>で、そのトランザクションの変更がデコードされ、出力プラグインに渡され、<function>prepare_cb</function>コールバックが呼び出されます。
+これは、トランザクションがコミットされたときにのみ変更が出力プラグインに渡される基本的なデコード設定とは異なります。
+準備されたトランザクションの開始は、<function>begin_prepare_cb</function>コールバックによって示されます。
    </para>
 
    <para>
+<!--
     When a prepared transaction is rolled back using the
     <command>ROLLBACK PREPARED</command>, then the
     <function>rollback_prepared_cb</function> callback is invoked and when the
     prepared transaction is committed using <command>COMMIT PREPARED</command>,
     then the <function>commit_prepared_cb</function> callback is invoked.
+-->
+準備されたトランザクションが<command>ROLLBACK PREPARED</command>を使用してロールバックされると、<function>rollback_prepared_cb</function>コールバックが呼び出されます。
+準備されたトランザクションが<command>COMMIT PREPARED</command>を使用してコミットされると、<function>commit_prepared_cb</function>コールバックが呼び出されます。
    </para>
 
    <para>
+<!--
     Optionally the output plugin can define filtering rules via
     <function>filter_prepare_cb</function> to decode only specific transaction
     in two phases.  This can be achieved by pattern matching on the
     <parameter>gid</parameter> or via lookups using the
     <parameter>xid</parameter>.
+-->
+オプションで、出力プラグインは<function>filter_prepare_cb</function>を使ってフィルタリング規則を定義し、特定のトランザクションのみを2つの相でデコードすることができます。
+これは<parameter>gid</parameter>でパターンマッチングを行うか、<parameter>xid</parameter>を使って検索することで実現できます。
    </para>
 
    <para>
+<!--
     The users that want to decode prepared transactions need to be careful about
     below mentioned points:
-
+-->
+準備されたトランザクションをデコードしようとするユーザは、以下の点に注意する必要があります。
     <itemizedlist>
      <listitem>
       <para>
+<!--
        If the prepared transaction has locked [user] catalog tables exclusively
        then decoding prepare can block till the main transaction is committed.
+-->
+準備されたトランザクションが[user]カタログテーブルを排他的にロックしている場合、メイントランザクションがコミットされるまで準備のデコードをブロックできます。
       </para>
      </listitem>
 
      <listitem>
       <para>
+<!--
        The logical replication solution that builds distributed two phase commit
        using this feature can deadlock if the prepared transaction has locked
        [user] catalog tables exclusively. To avoid this users must refrain from
        having locks on catalog tables (e.g. explicit <command>LOCK</command> command)
        in such transactions.
        See <xref linkend="logicaldecoding-synchronous-caveats"/> for the details.
+-->
+この機能を使用して分散2相コミットを構築する論理レプリケーションソリューションは、準備されたトランザクションが[user]カタログテーブルを排他的にロックした場合にデッドロックを発生する可能性があります。
+これを回避するために、ユーザはこのようなトランザクションでカタログテーブルをロック(例えば明示的な<command>LOCK</command>コマンド)しないようにしなければなりません。
+詳細については<xref linkend="logicaldecoding-synchronous-caveats"/>を参照してください。
       </para>
      </listitem>
     </itemizedlist>
