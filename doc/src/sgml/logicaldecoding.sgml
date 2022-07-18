@@ -1146,6 +1146,7 @@ typedef void (*LogicalDecodeMessageCB) (struct LogicalDecodingContext *ctx,
      <title>Prepare Filter Callback</title>
 -->
      <title>フィルタコールバックの準備</title>
+
      <para>
 <!--
        The optional <function>filter_prepare_cb</function> callback
@@ -1328,7 +1329,7 @@ typedef void (*LogicalDecodeStreamStartCB) (struct LogicalDecodingContext *ctx,
       The <function>stream_stop_cb</function> callback is called when closing
       a block of streamed changes from an in-progress transaction.
 -->
-<function>stream_stop_cb</function>コールバックは、継続中のトランザクションからストリームされた変更のブロックをクローズするときに呼び出されます。
+<function>stream_stop_cb</function>コールバックは、継続中のトランザクションからストリーム化された変更のブロックをクローズするときに呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamStopCB) (struct LogicalDecodingContext *ctx,
                                            ReorderBufferTXN *txn);
@@ -1346,7 +1347,7 @@ typedef void (*LogicalDecodeStreamStopCB) (struct LogicalDecodingContext *ctx,
       The <function>stream_abort_cb</function> callback is called to abort
       a previously streamed transaction.
 -->
-<function>stream_abort_cb</function>コールバックは、以前にストリームされたトランザクションをアボートするために呼び出されます。
+<function>stream_abort_cb</function>コールバックは、以前にストリーム化されたトランザクションをアボートするために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamAbortCB) (struct LogicalDecodingContext *ctx,
                                             ReorderBufferTXN *txn,
@@ -1365,7 +1366,7 @@ typedef void (*LogicalDecodeStreamAbortCB) (struct LogicalDecodingContext *ctx,
       The <function>stream_prepare_cb</function> callback is called to prepare
       a previously streamed transaction as part of a two-phase commit.
 -->
-<function>stream_prepare_cb</function>コールバックは、2相コミットの一部として前にストリームされたトランザクションを準備するために呼び出されます。
+<function>stream_prepare_cb</function>コールバックは、2相コミットの一部として前にストリーム化されたトランザクションを準備するために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamPrepareCB) (struct LogicalDecodingContext *ctx,
                                               ReorderBufferTXN *txn,
@@ -1384,7 +1385,7 @@ typedef void (*LogicalDecodeStreamPrepareCB) (struct LogicalDecodingContext *ctx
       The <function>stream_commit_cb</function> callback is called to commit
       a previously streamed transaction.
 -->
-<function>stream_commit_cb</function>コールバックは、以前にストリームされたトランザクションをコミットするために呼び出されます。
+<function>stream_commit_cb</function>コールバックは、以前にストリーム化されたトランザクションをコミットするために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamCommitCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn,
@@ -1408,7 +1409,7 @@ typedef void (*LogicalDecodeStreamCommitCB) (struct LogicalDecodingContext *ctx,
 -->
 <function>stream_change_cb</function>コールバックは、ストリーム化された変更のブロック(<function>stream_start_cb</function>と<function>stream_stop_cb</function>呼び出しで区切られます)で変更を送信するときに呼び出されます。
 実際の変更は表示されません。
-トランザクションは後の時点でアボートされる可能性があり、アボートされたトランザクションの変更はデコードされません。
+なぜなら、トランザクションは後の時点でアボートする可能性があり、アボートされたトランザクションの変更はデコードされないからです。
 <programlisting>
 typedef void (*LogicalDecodeStreamChangeCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn,
@@ -1610,6 +1611,7 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
 これは、トランザクションの論理的なデコードがカタログテーブルをロックしてアクセスできるためです。
 これを回避するために、ユーザは[user]カタログテーブルに対する排他ロックの取得を控える必要があります。
 これは以下の方法で発生します。
+
      <itemizedlist>
       <listitem>
        <para>
@@ -1779,7 +1781,7 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
     transactions may get aborted, etc.
 -->
 もちろん、実際のコールバック呼び出しのシーケンスはもっと複雑かもしれません。
-ストリームされた複数のトランザクションにブロックがあったり、一部のトランザクションがアボートされたりするなどです。
+ストリーム化された複数のトランザクションにブロックがあったり、一部のトランザクションがアボートされたりするなどです。
    </para>
 
    <para>
@@ -1890,6 +1892,7 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
     below mentioned points:
 -->
 準備されたトランザクションをデコードしようとするユーザは、以下の点に注意する必要があります。
+
     <itemizedlist>
      <listitem>
       <para>
@@ -1911,7 +1914,7 @@ stream_commit_cb(...);  &lt;-- commit of the streamed transaction
        in such transactions.
        See <xref linkend="logicaldecoding-synchronous-caveats"/> for the details.
 -->
-この機能を使用して分散2相コミットを構築する論理レプリケーションソリューションは、準備されたトランザクションが[user]カタログテーブルを排他的にロックした場合にデッドロックを発生する可能性があります。
+この機能を使用して分散2相コミットを構築するロジカルレプリケーションソリューションは、準備されたトランザクションが[user]カタログテーブルを排他的にロックした場合にデッドロックを発生する可能性があります。
 これを回避するために、ユーザはこのようなトランザクションでカタログテーブルをロック(例えば明示的な<command>LOCK</command>コマンド)しないようにしなければなりません。
 詳細については<xref linkend="logicaldecoding-synchronous-caveats"/>を参照してください。
       </para>
