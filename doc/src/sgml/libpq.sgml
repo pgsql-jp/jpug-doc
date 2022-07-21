@@ -7875,11 +7875,11 @@ UPDATE mytable SET x = x + 1 WHERE id = 42;
 -->
 単一行モードに入るためには、<xref linkend="libpq-PQsendQuery"/>（または同系列の関数）の呼び出しに成功した直後に<xref linkend="libpq-PQsetSingleRowMode"/>を呼び出してください。
 このモード選択は、現在実行中の問い合わせに対してのみ有効です。
-その後、<xref linkend="libpq-async"/>の説明通りに、ヌルを返すようになるまで<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出してください。
+その後、<xref linkend="libpq-async"/>の説明通りに、NULLを返すようになるまで<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出してください。
 問い合わせが何らかの行を返す場合、<literal>PGRES_TUPLES_OK</literal>ではなく<literal>PGRES_SINGLE_TUPLE</literal>状態コードを持つ以外通常の問い合わせ結果と同じように見える、個々の<structname>PGresult</structname>オブジェクトを返します。
 最後の行の後、または問い合わせがゼロ行を返す場合は即座に、<literal>PGRES_TUPLES_OK</literal>状態のゼロ行のオブジェクトが返されます。
 これはもう行が届かないことを通知するものです。
-（しかしヌルが返るまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければならないことに注意してください。）
+（しかしNULLが返るまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければならないことに注意してください。）
 <structname>PGresult</structname>オブジェクトのすべては、その問い合わせに対する通常の<structname>PGresult</structname>と同一の行説明データ（列名、型など）を持ちます。
 各オブジェクトは通常通り<xref linkend="libpq-PQclear"/>で解放しなければなりません。
   </para>
@@ -7891,8 +7891,7 @@ UPDATE mytable SET x = x + 1 WHERE id = 42;
    with <function>PQgetResult</function>.
    See <xref linkend="libpq-pipeline-mode"/> for more information.
 -->
-<!-- 《機械翻訳》 -->
-パイプラインモードを使用する場合、単一行モードは、<function>PQgetResult</function>でそのクエリの結果を取得する前に、パイプラインの各クエリに対してアクティブにする必要があります。
+パイプラインモードを使用する場合、単一行モードは、<function>PQgetResult</function>でその問い合わせの結果を取得する前に、パイプラインの各問い合わせに対してアクティブにする必要があります。
 詳細は<xref linkend="libpq-pipeline-mode"/>を参照してください。
   </para>
 
@@ -8268,7 +8267,8 @@ typedef struct
    freeing  the  <structname>PGresult</structname>  with
    <xref linkend="libpq-PQclear"/> when it is no longer needed.
 -->
-<function>PQfn</function>は常に有効な<structname>PGresult*</structname>を返します。
+<function>PQfn</function>は常に有効な<structname>PGresult*</structname>ポインタを返します。
+成功した場合は<literal>PGRES_COMMAND_OK</literal>、問題が発生した場合は<literal>PGRES_FATAL_ERROR</literal>のステータスが返されます。
 結果を使う前にはまず、結果ステータスを調べておくべきでしょう。
 結果が必要なくなった時点で、<xref linkend="libpq-PQclear"/>によって、<structname>PGresult</structname>を解放するのは、呼び出し側の責任です。
   </para>
@@ -8280,7 +8280,6 @@ typedef struct
    to <literal>-1</literal>; the <parameter>isint</parameter>
    and <parameter>u</parameter> fields are then irrelevant.
 -->
-<!-- 《機械翻訳》 -->
 関数にNULL引数を渡すには、そのパラメータ構造体の<parameter>len</parameter>フィールドを<literal>-1</literal>に設定します。
 <parameter>isint</parameter>フィールドと<parameter>u</parameter>フィールドは無関係です。
   </para>
@@ -8291,7 +8290,6 @@ typedef struct
    to <literal>-1</literal>, and <parameter>*result_buf</parameter> is not
    modified.
 -->
-<!-- 《機械翻訳》 -->
 この関数がNULLを返す場合、<parameter>*result_len</parameter>は<literal>-1</literal>に設定され、<parameter>*result_buf</parameter>は変更されません。
   </para>
 
@@ -8301,8 +8299,8 @@ typedef struct
    this interface.  Also, the function must be a plain function, not an
    aggregate, window function, or procedure.
 -->
-<!-- 《機械翻訳》 -->
-このインタフェースを使用する場合、セット値の結果を処理できないことに注意してください。また、関数は、集約関数、ウィンドウ関数またはプロシージャではなく、プレーンな関数である必要があります。
+このインタフェースを使用した場合、セット値の結果を扱うことができないことに注意してください。
+また、関数は、集約関数、ウィンドウ関数またはプロシージャではなく、プレーンな関数である必要があります。
   </para>
 
  </sect1>
@@ -8362,7 +8360,7 @@ typedef struct
    handled and will be removed from the list of notifications.
 -->
 <function>PQnotifies</function>関数は、サーバから受信した通知メッセージの未処理リストから次の通知を返します。
-保留中の通知がなくなればヌルポインタを返します。
+保留中の通知がなくなればNULLポインタを返します。
 <function>PQnotifies</function>が通知を返すと、その通知は処理済みとみなされ、通知リストから取り除かれます。
 
 <synopsis>
@@ -8695,8 +8693,7 @@ int PQputCopyEnd(PGconn *conn,
 <parameter>errormsg</parameter>が<symbol>NULL</symbol>でない場合は、<command>COPY</command>は強制的に失敗させられました。
 <parameter>errormsg</parameter>が指し示す文字列はエラーメッセージとして使用されます。
 （しかし、このエラーメッセージが正しくサーバから返ったものであるとは仮定すべきではありません。
-サーバは既に別の原因で<command>COPY</command>に失敗していた可能性があります。
-また、この強制的な失敗は3.0より前のプロトコルの接続を使用している場合は動作しません。）
+サーバは既に別の原因で<command>COPY</command>に失敗していた可能性があります。）
       </para>
 
       <para>
@@ -8810,7 +8807,7 @@ int PQgetCopyData(PGconn *conn,
 -->
 行の取り込みに成功した時、戻り値は行内のデータのバイト数になります。
 (これは常に0より大きくなります。)
-返された文字列は常にヌル終端ですが、おそらくテキスト<command>COPY</command>でのみ有用になるでしょう。
+返された文字列は常にNULL終端ですが、おそらくテキスト<command>COPY</command>でのみ有用になるでしょう。
 ゼロという結果は、<command>COPY</command>が進行中で、行がまだ利用できない状態であることを示します。
 (<parameter>async</parameter>が真の場合にのみ発生することがあります。)
 -1という結果は、<command>COPY</command>が完了したことを示します。
@@ -8993,8 +8990,8 @@ int PQgetlineAsync(PGconn *conn,
 しかし呼び出し側が準備したバッファが少なすぎ、サーバから送られてくる行を保持しておくことができない場合には、分割された行データを返します。
 テキストデータでは、これは最後の1バイトが<literal>\n</literal>かどうかを確認すれば検出できます。
 （バイナリ<command>COPY</command>の場合に同様の検出を行うためには、実際に<command>COPY</command>データの書式を解析しなければなりません。）
-なお、返される文字列はヌル終端ではありません。
-（ヌル終端を後から付け加えるのであれば、実際に確保するバッファサイズ-1を<parameter>bufsize</parameter>として渡すようにしてください。）
+なお、返される文字列はNULL終端ではありません。
+（NULL終端を後から付け加えるのであれば、実際に確保するバッファサイズ-1を<parameter>bufsize</parameter>として渡すようにしてください。）
       </para>
      </listitem>
     </varlistentry>
@@ -9008,7 +9005,7 @@ int PQgetlineAsync(PGconn *conn,
        Sends  a  null-terminated  string  to  the server.  Returns 0 if
        OK and <symbol>EOF</symbol> if unable to send the string.
 -->
-サーバにヌル終端の文字列を送信します。
+サーバにNULL終端の文字列を送信します。
 問題なければ0を返します。
 文字列の送信ができなかった場合は<symbol>EOF</symbol>を返します。
 <synopsis>
@@ -9060,7 +9057,7 @@ int PQputline(PGconn *conn,
        Sends  a  non-null-terminated  string  to  the server.  Returns
        0 if OK and <symbol>EOF</symbol> if unable to send the string.
 -->
-ヌル終端ではない文字列をサーバに送信します。
+NULL終端ではない文字列をサーバに送信します。
 問題なければ0を返します。
 文字列の送信ができなかった場合は<symbol>EOF</symbol>を返します。
 <synopsis>
@@ -9077,7 +9074,7 @@ int PQputnbytes(PGconn *conn,
        specified directly.  Use this procedure when sending binary data.
 -->
 これはまさに<xref linkend="libpq-PQputline"/>と同様です。
-ただし、直接送信バイト数を指定するため、ヌル終端である必要がありません。
+ただし、直接送信バイト数を指定するため、NULL終端である必要がありません。
 バイナリデータを送信する時はこのプロシージャを使用してください。
       </para>
      </listitem>
@@ -9131,7 +9128,7 @@ int PQendcopy(PGconn *conn);
        of <acronym>SQL</acronym> commands will be executed correctly.
 -->
 <xref linkend="libpq-PQgetResult"/>を使う場合、アプリケーションは<xref linkend="libpq-PQgetline"/>を繰り返し呼び出して<literal>PGRES_COPY_OUT</literal>に応答し、終端行を見つけたら続いて<xref linkend="libpq-PQendcopy"/>を呼び出さなければなりません。
-それから、<xref linkend="libpq-PQgetResult"/>がヌルポインタを返すまで、<xref linkend="libpq-PQgetResult"/>のループに戻らなければなりません。
+それから、<xref linkend="libpq-PQgetResult"/>がNULLポインタを返すまで、<xref linkend="libpq-PQgetResult"/>のループに戻らなければなりません。
 同じように <literal>PGRES_COPY_IN</literal>は連続した<xref linkend="libpq-PQputline"/>で処理し、それから<xref linkend="libpq-PQendcopy"/>で締めくくった後に<xref linkend="libpq-PQgetResult"/>のループに戻ります。
 このようにすることで、一連の<acronym>SQL</acronym>コマンド群に含めた<command>COPY</command>コマンドを確実に、また正しく実行できるはずです。
       </para>
@@ -9372,12 +9369,11 @@ void PQtrace(PGconn *conn, FILE *stream);
       Further message-type-specific detail can be found in
       <xref linkend="protocol-message-formats"/>.
 -->
-<!-- 《機械翻訳》 -->
-各行は、オプションのタイムスタンプ、方向インジケータ(クライアントからサーバへのメッセージの場合は<literal>F</literal>、サーバからクライアントへのメッセージの場合は<literal>B</literal>)、メッセージ長、メッセージタイプ、およびメッセージ内容で構成されます。
-メッセージ内容以外のフィールド(タイムスタンプ、方向、長さ、メッセージタイプ)はタブで区切られます。
+各行は、オプションのタイムスタンプ、方向インジケータ（クライアントからサーバへのメッセージの場合は<literal>F</literal>、サーバからクライアントへのメッセージの場合は<literal>B</literal>）、メッセージ長、メッセージタイプ、およびメッセージ内容で構成されます。
+メッセージ内容以外のフィールド（タイムスタンプ、方向、長さ、メッセージタイプ)はタブで区切られます。
 メッセージ内容はスペースで区切られます。
 プロトコル文字列は二重引用符で囲まれますが、データ値として使用される文字列は単一引用符で囲まれます。
-印刷できない文字は16進エスケープとして出力されます。
+表示できない文字は16進エスケープとして出力されます。
 メッセージタイプ固有の詳細については、<xref linkend="protocol-message-formats"/>を参照してください。
      </para>
 
@@ -9407,8 +9403,7 @@ Windowsにおいて、<application>libpq</application>ライブラリとアプ�
 <!--
       Controls the tracing behavior of client/server communication.
 -->
-<!-- 《機械翻訳》 -->
-クライアント/サーバ通信のトレース動作を制御します。
+クライアント／サーバ通信のトレース動作を制御します。
 <synopsis>
 void PQsetTraceFlags(PGconn *conn, int flags);
 </synopsis>
@@ -9425,7 +9420,6 @@ void PQsetTraceFlags(PGconn *conn, int flags);
       OIDs, to make the output more convenient to use in testing frameworks.
       This function must be called after calling <function>PQtrace</function>.
 -->
-<!-- 《機械翻訳》 -->
 <literal>flags</literal>には、トレースの動作モードを記述するフラグビットが含まれています。
 <literal>flags</literal>に<literal>PQTRACE_SUPPRESS_TIMESTAMPS</literal>が含まれている場合、各メッセージを出力するときにタイムスタンプは含まれません。
 <literal>flags</literal>に<literal>PQTRACE_REGRESS_MODE</literal>が含まれている場合、各メッセージを出力するときにオブジェクトOIDなどの一部のフィールドが編集され、テストフレームワークで使用しやすくなります。
@@ -9664,8 +9658,8 @@ PGresult *PQmakeEmptyPGresult(PGconn *conn, ExecStatusType status);
 これは空の<structname>PGresult</structname>オブジェクトを割り当てて、初期化する<application>libpq</application>の内部関数です。
 メモリが割り当てられなかった場合、この関数は<symbol>NULL</symbol>を返します。
 一部のアプリケーションで結果オブジェクト（特にエラーステータスを伴ったオブジェクト）それ自身を生成することが便利であることが分かりましたので、外部公開されました。
-<parameter>conn</parameter>が非ヌルで、<parameter>status</parameter>がエラーを示唆している場合、特定された接続の現在のエラーメッセージは<structname>PGresult</structname>にコピーされます。
-同時に、<parameter>conn</parameter>が非ヌルの場合、接続で登録された任意のイベントプロシージャは<structname>PGresult</structname>にコピーされます。
+<parameter>conn</parameter>が非NULで、<parameter>status</parameter>がエラーを示唆している場合、特定された接続の現在のエラーメッセージは<structname>PGresult</structname>にコピーされます。
+同時に、<parameter>conn</parameter>が非NULLの場合、接続で登録された任意のイベントプロシージャは<structname>PGresult</structname>にコピーされます。
 （それらは<literal>PGEVT_RESULTCREATE</literal>呼び出しを受けませんが、<xref linkend="libpq-PQfireResultCreateEvents"/>を理解します。）
 <application>libpq</application>自身で返された<structname>PGresult</structname>と同様に、最終的にはこのオブジェクトに対して<xref linkend="libpq-PQclear"/>を呼び出さなければならないことに注意してください。
      </para>
@@ -10074,7 +10068,7 @@ PQsetNoticeProcessor(PGconn *conn,
    returned.
 -->
 各関数は、以前の通知レシーバもしくは通知プロセッサ用の関数へのポインタを返し、新しい値を設定します。
-関数ポインタにヌルを渡した場合、何も変更されず、現在のポインタが返されるだけです。
+関数ポインタにNULLを渡した場合、何も変更されず、現在のポインタが返されるだけです。
   </para>
 
   <para>
@@ -11228,15 +11222,14 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
 
     <listitem>
      <para>
-<!--
       <indexterm>
        <primary><envar>PGSSLCRLDIR</envar></primary>
       </indexterm>
+<!--
       <envar>PGSSLCRLDIR</envar> behaves the same as the <xref
       linkend="libpq-connect-sslcrldir"/> connection parameter.
 -->
-<!-- 《機械翻訳》 -->
-<indexterm><primary><envar>PGSSLCRLDIR</envar></primary></indexterm><envar>PGSSLCRLDIR</envar>は、<xref linkend="libpq-connect-sslcrldir"/>接続パラメータと同じように動作します。
+<envar>PGSSLCRLDIR</envar>は、<xref linkend="libpq-connect-sslcrldir"/>接続パラメータと同様に動作します。
      </para>
     </listitem>
 
@@ -11249,8 +11242,7 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
       <envar>PGSSLSNI</envar>  behaves the same as the <xref
       linkend="libpq-connect-sslsni"/> connection parameter.
 -->
-<!-- 《機械翻訳》 -->
-<envar>PGSSLSNI</envar>は<xref linkend="libpq-connect-sslsni"/>接続パラメータと同じように動作します。
+<envar>PGSSLSNI</envar>は<xref linkend="libpq-connect-sslsni"/>接続パラメータと同様に動作します。
      </para>
     </listitem>
 
@@ -11554,7 +11546,7 @@ Microsoft Windowsでは、このファイルの名前は<filename>%APPDATA%\post
 ホスト名フィールドは、<literal>host</literal>接続パラメータか、もし指定されていれば、<literal>hostaddr</literal>パラメータと一致します。
 どちらも指定されていなければ、ホスト名<literal>localhost</literal>が検索されます。
 接続がUnixドメインソケット接続で、<literal>host</literal>パラメータが<application>libpq</application>のデフォルトソケットディレクトリパスに一致した場合も、ホスト名<literal>localhost</literal>が検索されます。
-スタンバイサーバでは、<literal>replication</literal>という名称のデータベースは、マスタサーバとの間でなされるストリーミングレプリケーション用の接続に一致します。
+スタンバイサーバでは、<literal>replication</literal>という名称のデータベースは、プライマリサーバとの間でなされるストリーミングレプリケーション用の接続に一致します。
 同一のクラスタ内のすべてのデータベースに対するパスワードは同じものですので、データベースフィールドの有用性は限定的なものです。
   </para>
 
@@ -11604,8 +11596,8 @@ Microsoft Windowsにおいては、このファイルが安全なディレクト
    specified using the <envar>PGSERVICE</envar> environment variable.
 -->
 接続サービスファイルにより、libpq接続パラメータをひとつのサービス名に関連付けることができます。
-サービス名は、libpq接続によって指定され、関連付けられた設定が利用されます。
-これは、接続パラメータをlibpqアプリケーションの再コンパイルをせずに修正できるというものです。
+サービス名は、libpq接続文字列によって指定され、関連付けられた設定が利用されます。
+これは、接続パラメータをlibpqを使用するアプリケーションの再コンパイルをせずに修正できるというものです。
 サービス名は<envar>PGSERVICE</envar>環境変数を利用することで使用できます。
   </para>
 
@@ -11625,13 +11617,12 @@ Microsoft Windowsにおいては、このファイルが安全なディレクト
    name, can be specified by setting the environment variable
    <envar>PGSYSCONFDIR</envar>.
 -->
-<!-- 《機械翻訳》 -->
 サービス名は、ユーザ単位のサービスファイルまたはシステム全体のファイルのいずれかで定義できます。
 ユーザとシステムファイルの両方に同じサービス名が存在する場合は、ユーザファイルが優先されます。
 デフォルトでは、ユーザ単位のサービスファイルは<filename>~/.pg_service.conf</filename>にあります。
 これは環境変数<envar>PGSERVICEFILE</envar>を設定することで上書きできます。
 システム全体のファイルは<filename>pg_service.conf</filename>という名前です。
-デフォルトでは、<productname>PostgreSQL</productname>インストールの<filename>etc</filename>ディレクトリに検索されます(このディレクトリを正確に識別するには<literal>pg_config--sysconfdir</literal>を使用します)。
+デフォルトでは、<productname>PostgreSQL</productname>インストールの<filename>etc</filename>ディレクトリに検索されます（このディレクトリを正確に識別するには<literal>pg_config--sysconfdir</literal>を使用します）。
 環境変数<envar>PGSYSCONFDIR</envar>を設定することで、別のディレクトリを指定できますが、異なるファイル名は指定できません。
   </para>
 
@@ -11642,7 +11633,7 @@ Microsoft Windowsにおいては、このファイルが安全なディレクト
    parameters; see <xref linkend="libpq-paramkeywords"/> for a list.  For
    example:
 -->
-このファイルは<quote>INIファイル</quote>書式を使用します。
+どちらのサービスファイルも<quote>INIファイル</quote>書式を使用します。
 セクション名がサービス名となり、パラメータが接続パラメータです。
 <xref linkend="libpq-paramkeywords"/>のリストを参照してください。
 以下に例を示します。
@@ -11658,7 +11649,7 @@ user=admin
    the <productname>PostgreSQL</productname> installation at
    <filename>share/pg_service.conf.sample</filename>.
 -->
-例となるファイルが<filename>share/pg_service.conf.sample</filename>にあります。
+例となるファイルが<productname>PostgreSQL</productname>インストールの<filename>share/pg_service.conf.sample</filename>にあります。
   </para>
 
   <para>
@@ -11673,7 +11664,6 @@ user=admin
    user <literal>admin</literal>, and other parameters as set by
    environment variables or built-in defaults.
 -->
-<!-- 《機械翻訳》 -->
 サービスファイルから取得された接続パラメータは、他のソースから取得されたパラメータと組み合わされます。
 サービスファイルの設定は、対応する環境変数を上書きし、接続文字列で直接指定された値によって上書きすることができます。
 たとえば、上記のサービスファイルを使用すると、接続文字列<literal>service=mydb port=5434</literal>は、host<literal>somehost</literal>、port<literal>5434</literal>、user<literal>admin</literal>、および環境変数または組み込みデフォルトで設定されたその他のパラメータを使用します。
@@ -11719,21 +11709,20 @@ user=admin
    connection options.  The URL must conform to
    <ulink url="https://tools.ietf.org/html/rfc1959">RFC 1959</ulink>
    and be of the form
-<synopsis>
-ldap://[<replaceable>hostname</replaceable>[:<replaceable>port</replaceable>]]/<replaceable>search_base</replaceable>?<replaceable>attribute</replaceable>?<replaceable>search_scope</replaceable>?<replaceable>filter</replaceable>
-</synopsis>
-   where <replaceable>hostname</replaceable> defaults to
-   <literal>localhost</literal> and <replaceable>port</replaceable>
-   defaults to 389.
 -->
 LDAP接続パラメータ検索は、<filename>pg_service.conf</filename>という接続サービスファイル（<xref linkend="libpq-pgservice"/>を参照）を使用します。
 <filename>pg_service.conf</filename>内の<literal>ldap://</literal>から始まる行は、LDAP URLとして認識され、LDAP問い合わせが実行されることを示します。
 その結果は、<literal>keyword = value</literal>という組み合わせのリストでなければなりません。
 これらが接続用オプションの設定に使用されます。
-このURLはRFC 1959に従ったもので、以下のような形式でなければなりません。
+このURLは <ulink url="https://tools.ietf.org/html/rfc1959">RFC 1959</ulink>に従ったもので、以下のような形式でなければなりません。
 <synopsis>
 ldap://[<replaceable>hostname</replaceable>[:<replaceable>port</replaceable>]]/<replaceable>search_base</replaceable>?<replaceable>attribute</replaceable>?<replaceable>search_scope</replaceable>?<replaceable>filter</replaceable>
 </synopsis>
+<!--
+   where <replaceable>hostname</replaceable> defaults to
+   <literal>localhost</literal> and <replaceable>port</replaceable>
+   defaults to 389.
+-->
 ここで、<replaceable>hostname</replaceable>のデフォルトは<literal>localhost</literal>、<replaceable>port</replaceable>のデフォルトは389です。
   </para>
 
