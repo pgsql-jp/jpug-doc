@@ -200,7 +200,8 @@ GetForeignRelSize(PlannerInfo *root,
 <literal>baserel-&gt;rows</literal>の初期値は固定のデフォルト見積もりなので、可能な限り置き換えられるべきです。この関数は、行の幅のよりよい見積もりを計算できるのであれば、<literal>baserel-&gt;width</literal>を更新することも選択出来ます。
 (初期値は列の型と最後に実行された<command>ANALYZE</command>から計測された平均列幅に基づいています。)
 また、外部テーブルの総行数の見積もりをより正しく計算できる場合、この関数は、<literal>baserel-&gt;tuples</literal>を更新しても構いません。
-(初期値は<structname>pg_class</structname>.<structfield>reltuples</structfield>で、最後に実行された<command>ANALYZE</command>によって確認された総行数です。)
+(初期値は<structname>pg_class</structname>.<structfield>reltuples</structfield>で、最後に実行された<command>ANALYZE</command>によって確認された総行数です。
+もしこの外部テーブルに<command>ANALYZE</command>が実行されていない場合は、<literal>-1</literal>になります。)
     </para>
 
     <para>
@@ -639,6 +640,7 @@ FDWは、更新や削除の対象行を厳密に識別できるように行IDや
     </para>
 
     <para>
+<!--
      To do that, construct a <structname>Var</structname> representing
      an extra value you need, and pass it
      to <function>add_row_identity_var</function>, along with a name for
@@ -664,6 +666,14 @@ FDWは、更新や削除の対象行を厳密に識別できるように行IDや
      requests for identical junk columns).  If you need another kind of
      junk column besides these, it might be wise to choose a name prefixed
      with your extension name, to avoid conflicts against other FDWs.
+-->
+それを行うには、必要な追加の値を表す<structname>Var</structname>を作成し、それをジャンク列の名前とともに<function>add_row_identity_var</function>に渡します。
+（複数の列が必要な場合は、これを一回以上実行できます。）
+必要とするそれぞれの<structname>Var</structname>に個別のジャンク列名を選択する必要があります。
+ただし、<structname>Var</structname>が<structfield>varno</structfield>フィールドを除いて同一である場合は、カラム名を共有することができるのでそうすべきです。
+コアシステムは、テーブルの<structfield>tableoid</structfield>列、<literal>ctid</literal>または<literal>ctid<replaceable>N</replaceable></literal>にジャンク列名<literal>tableoid</literal>を使用し、
+<literal>wholerow</literal>は<structfield>vartype</structfield> = <type>RECORD</type>と記された<structname>Var</structname>の行全体と、<literal>wholerow<replaceable>N</replaceable></literal>は<structfield>vartype</structfield>のある行全体の<structname>Var</structname>とテーブルの宣言した行型が同じです。
+できる限りこれらの名前を再利用してください（プランナーは同一のジャンク列に対する重複したリクエストを結合します）。 もしこれらとは別の種類のジャンク列が必要なら、他のFDWとの衝突を避けるために拡張子名をプレフィックスとした名前を選ぶのが賢明かもしれません。
     </para>
 
     <para>
@@ -714,6 +724,7 @@ PlanForeignModify(PlannerInfo *root,
 <literal>plan</literal>は<structfield>fdwPrivLists</structfield>フィールドを除いて完成している<structname>ModifyTable</structname>プランノードです。
 <literal>resultRelation</literal>は対象の外部テーブルをレンジテーブルの添字で識別します。
 <literal>subplan_index</literal>は<structname>ModifyTable</structname>プランノードの対象がどれであるかを0始まりで識別します。この情報は<literal>plan-&gt;plans</literal>などの<literal>plan</literal>の下位構造を指定したい場合に使用してください。
+対象のリレーションごとの<literal>plan</literal>ノードの部分構造へのインデックスを求める場合に使用します。
     </para>
 
     <para>
@@ -755,7 +766,7 @@ BeginForeignModify(ModifyTableState *mtstate,
 外部テーブルへの変更操作の実行を開始します。
 このルーチンはエクゼキュータの起動中に呼び出されます。
 実際のテーブル変更に先立って必要なあらゆる初期化処理を実行する必要があります。
-その後、各タプルが挿入、更新、削除されるように<function>ExecForeignInsert</function>、<function>ExecForeignUpdate</function>、<function>ExecForeignDelete</function>のいずれかが呼ばれます。
+その後、各タプルが挿入、更新、削除されるように<function>ExecForeignInsert/ExecForeignBatchInsert</function>、<function>ExecForeignUpdate</function>、<function>ExecForeignDelete</function>のいずれかが呼ばれます。
     </para>
 
     <para>
@@ -890,21 +901,29 @@ ExecForeignBatchInsert(EState *estate,
                        TupleTableSlot **planSlots,
                        int *numSlots);
 </programlisting>
-
+<!--
      Insert multiple tuples in bulk into the foreign table.
      The parameters are the same for <function>ExecForeignInsert</function>
      except <literal>slots</literal> and <literal>planSlots</literal> contain
      multiple tuples and <literal>*numSlots</literal> specifies the number of
      tuples in those arrays.
+-->
+外部テーブルに一括で複数のタプルを一つ挿入します。
+<literal>slots</literal> and <literal>planSlots</literal>が複数のタプルを含むことと<literal>*numSlots</literal>がそれらの配列のタプルの数を指定すること以外は<function>ExecForeignInsert</function>とパラメータは同じです。
     </para>
 
     <para>
+<!--
      The return value is an array of slots containing the data that was
      actually inserted (this might differ from the data supplied, for
      example as a result of trigger actions.)
      The passed-in <literal>slots</literal> can be re-used for this purpose.
      The number of successfully inserted tuples is returned in
      <literal>*numSlots</literal>.
+-->
+戻り値は実際に挿入されたデータを含んだスロットの配列です。（これは例えばトリガー実行の結果として、提供された結果と異なるかもしれません。）
+渡された<literal>slots</literal>は、この目的のために再利用できます。
+挿入に成功したタプルの数は、<literal>*numSlots</literal>に返されます。
     </para>
 
     <para>
