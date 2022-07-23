@@ -871,7 +871,7 @@ NUMERIC
      about portability, always specify the precision and scale
      explicitly.)
 -->
-と記述すると、実装されている限界の精度まで、いかなる精度あるいは位取りの値も格納できる列が作られます。
+と記述すると、実装されている限界の精度まで、いかなる精度あるいは位取りの値も格納できる<quote>制約の無い数値</quote>列が作られます。
 この類の列は入力値をいかなる特定の位取りにも変換しませんが、宣言された位取りを持つ<type>numeric</type>列は入力値をその位取りに変換します。
 （標準<acronym>SQL</acronym>はデフォルトとして位取り0を要求していて、つまり、整数の精度に変換されます。
 しかし、この方法はあまり役に立たないと思われます。
@@ -886,8 +886,8 @@ NUMERIC
       unconstrained <type>NUMERIC</type> column is subject to the limits
       described in <xref linkend="datatype-numeric-table"/>.
 -->
-明示的に型宣言で指定される場合に許される最大精度は1000です。
-精度の指定がない<type>NUMERIC</type>は<xref linkend="datatype-numeric-table"/>で説明する制限に従います。
+明示的に<type>NUMERIC</type>型宣言で指定される場合の最大精度は1000です。
+制約の無い<type>NUMERIC</type>列は<xref linkend="datatype-numeric-table"/>で説明する制限に従います。
      </para>
     </note>
 
@@ -942,13 +942,17 @@ NUMERIC
     </indexterm>
 
     <para>
+<!--
      In addition to ordinary numeric values, the <type>numeric</type> type
      has several special values:
+-->
+通常の数値に加え、<type>numeric</type>型はいくつかの特別な値を取ることができます。
 <literallayout>
 <literal>Infinity</literal>
 <literal>-Infinity</literal>
 <literal>NaN</literal>
 </literallayout>
+<!--
      These are adapted from the IEEE 754 standard, and represent
      <quote>infinity</quote>, <quote>negative infinity</quote>, and
      <quote>not-a-number</quote>, respectively. When writing these values
@@ -957,9 +961,15 @@ NUMERIC
      On input, these strings are recognized in a case-insensitive manner.
      The infinity values can alternatively be spelled <literal>inf</literal>
      and <literal>-inf</literal>.
+-->
+これらはIEEE 754標準から引用されたもので、それぞれ<quote>無限大</quote>、<quote>マイナス無限大</quote>そして<quote>非数値</quote>を表します。
+SQLコマンドの定数として記述する場合は、例えば<literal>UPDATE table SET x = '-Infinity'</literal>のように、引用符でくくらなければなりません。
+入力の際、これらの文字列は大文字小文字の区別なく認識されます。
+無限の値は代わりに<literal>inf</literal>や<literal>-inf</literal>と綴ることもできます。
     </para>
 
     <para>
+<!--
      The infinity values behave as per mathematical expectations.  For
      example, <literal>Infinity</literal> plus any finite value equals
      <literal>Infinity</literal>, as does <literal>Infinity</literal>
@@ -968,9 +978,14 @@ NUMERIC
      number), because it has no well-defined interpretation.  Note that an
      infinity can only be stored in an unconstrained <type>numeric</type>
      column, because it notionally exceeds any finite precision limit.
+-->
+無限の値は数学的に期待されたとおりに振る舞います。
+例えば、<literal>Infinity</literal>に有限な値を加算した場合や<literal>Infinity</literal>に<literal>Infinity</literal>を加算した場合は<literal>Infinity</literal>になります。しかし、<literal>Infinity</literal>から<literal>Infinity</literal>を減算した場合は、解釈が定まらないため<literal>NaN</literal>(数値では無い)になります。
+無限大は制約が無い<type>numeric</type>列にのみ格納できることに注意してください。これは理論上、いかなる有限な精度も超えているためです。
     </para>
 
     <para>
+<!--
      The <literal>NaN</literal> (not a number) value is used to represent
      undefined calculational results.  In general, any operation with
      a <literal>NaN</literal> input yields another <literal>NaN</literal>.
@@ -980,6 +995,11 @@ NUMERIC
      value is used for <literal>NaN</literal> too.  (An example of this
      principle is that <literal>NaN</literal> raised to the zero power
      yields one.)
+-->
+<literal>NaN</literal>(数値では無い)値は定義されていない計算の結果を表現するために使用されます。
+通常、<literal>NaN</literal>入力を伴う操作は別の<literal>NaN</literal>を出力します。
+その操作の入力が<literal>NaN</literal>を他の有限もしくは無限の数値型の値に置き換えられた場合に同じ出力が得られる時に限り例外があります。
+この時は<literal>NaN</literal>の代わりにその操作の出力が使われます(この概念では例えば、<literal>NaN</literal>の0乗は1を出力します)。
     </para>
 
     <note>
@@ -1248,6 +1268,7 @@ FROM generate_series(-3.5, 3.5, 1) as x;
 これらはそれぞれ、IEEE 754の特殊な値、<quote>無限大</quote>、<quote>負の無限大</quote>、<quote>非数値</quote>を表します。
 これらの値をSQLコマンドの定数として記述する場合、例えば<literal>UPDATE table SET x = '-Infinity'</literal>のように引用符でくくる必要があります。
 入力の際、これらの文字列は大文字小文字の区別なく認識されます。
+無限の値は代わりに<literal>inf</literal>や<literal>-inf</literal>と綴ることもできます。
     </para>
 
     <note>
@@ -1260,7 +1281,7 @@ FROM generate_series(-3.5, 3.5, 1) as x;
       <literal>NaN</literal> values as equal, and greater than all
       non-<literal>NaN</literal> values.
 -->
-IEEE754では、<literal>NaN</literal>は（<literal>NaN</literal>を含む）他のすべての浮動小数点値と比べた時に不等でなければならないと規定しています。
+IEEE 754では、<literal>NaN</literal>は（<literal>NaN</literal>を含む）他のすべての浮動小数点値と比べた時に不等でなければならないと規定しています。
 浮動小数点値をソートできる、また、ツリーを基にしたインデックスで使用できるように、<productname>PostgreSQL</productname>は<literal>NaN</literal>同士は等しく、すべての<literal>NaN</literal>以外の値よりも大きな値となるものとして扱います。
      </para>
     </note>
@@ -1779,11 +1800,16 @@ SELECT '52093.89'::money::numeric::float8;
    </para>
 
    <para>
+<!--
     The characters that can be stored in any of these data types are
     determined by the database character set, which is selected when
     the database is created.  Regardless of the specific character set,
     the character with code zero (sometimes called NUL) cannot be stored.
     For more information refer to <xref linkend="multibyte"/>.
+-->
+これらのデータ型のいずれかに格納できる文字はデータベースを作成するときに選択されるデータベースキャラクタセットによって決定されます。
+特定のキャラクタセットに関わらず、コード0（時にはNULLと呼ばれます）を格納することはできません。
+より詳細な情報は<xref linkend="multibyte"/>を参照ください。
    </para>
 
    <para>
@@ -1844,8 +1870,6 @@ SELECT '52093.89'::money::numeric::float8;
     for information about available operators and functions.
 -->
 文字列リテラルの構文については<xref linkend="sql-syntax-strings"/>、利用可能な演算子と関数については<xref linkend="functions"/>を参照してください。
-データベースの文字セットは、テキストの値を格納する時に使用される文字セットを決定します。
-文字セットのサポートに関する詳細については<xref linkend="multibyte"/>を参照してください。
    </para>
 
    <example>
@@ -3013,27 +3037,45 @@ MINUTE TO SECOND
          </row>
          <row>
           <entry><literal>04:05:06.789-8</literal></entry>
+<!--
           <entry>ISO 8601, with time zone as UTC offset</entry>
+-->
+          <entry>ISO 8601, UTC オフセットとしてのタイムゾーン</entry>
          </row>
          <row>
           <entry><literal>04:05:06-08:00</literal></entry>
+<!--
           <entry>ISO 8601, with time zone as UTC offset</entry>
+-->
+          <entry>ISO 8601, UTC オフセットとしてのタイムゾーン</entry>
          </row>
          <row>
           <entry><literal>04:05-08:00</literal></entry>
+<!--
           <entry>ISO 8601, with time zone as UTC offset</entry>
+-->
+          <entry>ISO 8601, UTC オフセットとしてのタイムゾーン</entry>
          </row>
          <row>
           <entry><literal>040506-08</literal></entry>
+<!--
           <entry>ISO 8601, with time zone as UTC offset</entry>
+-->
+          <entry>ISO 8601, UTC オフセットとしてのタイムゾーン</entry>
          </row>
          <row>
           <entry><literal>040506+0730</literal></entry>
+<!--
           <entry>ISO 8601, with fractional-hour time zone as UTC offset</entry>
+-->
+          <entry>ISO 8601, UTC オフセットとしての小数付き時間のタイムゾーン</entry>
          </row>
          <row>
           <entry><literal>040506+07:30:00</literal></entry>
+<!--
           <entry>UTC offset specified to seconds (not allowed in ISO 8601)</entry>
+-->
+          <entry>秒まで指定されたUTCオフセット(ISO 8601では未サポート)</entry>
          </row>
          <row>
           <entry><literal>04:05:06 PST</literal></entry>
@@ -3093,19 +3135,31 @@ MINUTE TO SECOND
          </row>
          <row>
           <entry><literal>-8:00:00</literal></entry>
+<!--
           <entry>UTC offset for PST</entry>
+-->
+          <entry>PSTのUTCオフセット</entry>
          </row>
          <row>
           <entry><literal>-8:00</literal></entry>
+<!--
           <entry>UTC offset for PST (ISO 8601 extended format)</entry>
+-->
+          <entry>PSTのUTCオフセット(ISO 8601の拡張フォーマット)</entry>
          </row>
          <row>
           <entry><literal>-800</literal></entry>
+<!--
           <entry>UTC offset for PST (ISO 8601 basic format)</entry>
+-->
+          <entry>PSTのUTCオフセット(ISO 8601の基本フォーマット)</entry>
          </row>
          <row>
           <entry><literal>-8</literal></entry>
+<!--
           <entry>UTC offset for PST (ISO 8601 basic format)</entry>
+-->
+          <entry>PSTのUTCオフセット(ISO 8601の基本フォーマット)</entry>
          </row>
          <row>
           <entry><literal>zulu</literal></entry>
@@ -3119,7 +3173,7 @@ MINUTE TO SECOND
 <!--
           <entry>Short form of <literal>zulu</literal> (also in ISO 8601)</entry>
 -->
-          <entry><literal>zulu</literal>の略記</entry>
+          <entry><literal>zulu</literal>の略記(また、ISO 8601)</entry>
          </row>
         </tbody>
        </tgroup>
@@ -3581,7 +3635,7 @@ http://www.postgresql.org/message-id/2598E90D3D534989905115C5C1172679@maumau
 -->
 ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>T</literal>を使用します。
 <productname>PostgreSQL</productname>は入力ではこの書式を受け付けますが、上記のように出力では<literal>T</literal>ではなく空白を使用します。
-これは読みやすさのため、そしてRFC3339や他のデータベースシステムとの整合性を保つためです。
+これは読みやすさのため、そして<ulink url="https://tools.ietf.org/html/rfc3339">RFC3339</ulink>や他のデータベースシステムとの整合性を保つためです。
      </para>
     </note>
 
@@ -3651,6 +3705,7 @@ ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>
      </table>
 
     <para>
+<!--
      In the <acronym>ISO</acronym> style, the time zone is always shown as
      a signed numeric offset from UTC, with positive sign used for zones
      east of Greenwich.  The offset will be shown
@@ -3666,6 +3721,11 @@ ISO 8601の仕様では日付と時刻を区切るために大文字の<literal>
      abbreviation if one is in common use in the current zone.  Otherwise
      it appears as a signed numeric offset in ISO 8601 basic format
      (<replaceable>hh</replaceable> or <replaceable>hhmm</replaceable>).
+-->
+<acronym>ISO</acronym>形式ではタイムゾーンはUTCからの符号付きの数値で表現され、グリニッジより東の地域では正の符号が使用されます。
+オフセットは時間の整数倍であれば<replaceable>hh</replaceable>(時間のみ)、分の整数倍であれば<replaceable>hh</replaceable>:<replaceable>mm</replaceable>、それ以外の場合は、<replaceable>hh</replaceable>:<replaceable>mm</replaceable>:<replaceable>ss</replaceable>で表現されます（三番目のケースは現代のどのタイムゾーンの標準でもありえませんが、タイムゾーンが標準化される前に適用されたタイムスタンプで動いている場合に現れる可能性があります)。
+他の日付スタイルでは、現在の地域で一般的に使われている場合、タイムゾーンは省略形で表現されます。
+それ以外の場合はISO 8601の基本フォーマット(<replaceable>hh</replaceable>や<replaceable>hhmm</replaceable>)の符号付き数値のオフセットとして表示されます。
     </para>
 
     <para>
@@ -4183,6 +4243,7 @@ P <optional> <replaceable>years</replaceable>-<replaceable>months</replaceable>-
     </para>
 
     <para>
+<!--
      Field values can have fractional parts:  for example, <literal>'1.5
      weeks'</literal> or <literal>'01:02:03.45'</literal>.  However,
      because interval internally stores only three integer units (months,
@@ -4195,6 +4256,12 @@ P <optional> <replaceable>years</replaceable>-<replaceable>months</replaceable>-
      <literal>'1.75 months'</literal> becomes <literal>1 mon 22 days
      12:00:00</literal>.  Only seconds will ever be shown as fractional
      on output.
+-->
+フィールドには<literal>'1.5weeks'</literal> や <literal>'01:02:03.45'</literal>のような小数部分を持つことができます。
+しかし、intervalは内部的に３つの整数型の位(月、日、マイクロ秒)でのみ格納されるため、小数の位はより小さな位で埋められていく必要があります。
+月より大きな小数部分の位は月の整数に切り捨てられます。例えば、<literal>'1.5 years'</literal>は<literal>'1 year 6 mons'</literal>になります。
+週と日の小数部分は、1ヶ月は30日、1日は24時間と想定して整数の日数やマイクロ秒として計算されます。例えば<literal>'1.75 months'</literal>は<literal>1 mon 22 days 12:00:00</literal>になります。
+出力では秒だけが小数として表示されます。
     </para>
 
     <para>
@@ -4272,9 +4339,9 @@ P <optional> <replaceable>years</replaceable>-<replaceable>months</replaceable>-
      this storage method works well in most cases, but can cause unexpected
      results:
 -->
-内部的に<type>interval</type>の値は月、日、秒として格納されます。
-これはひと月の日数は変化し、一日も夏時間では23時間もしくは25時間になりうるからです。
-秒の桁は小数で格納できますが、月、日の桁は整数です。
+内部的に<type>interval</type>の値は月、日、マイクロ秒として格納されます。
+これはひと月の日数は変化し、一日も夏時間への切り替えで23時間もしくは25時間になりうるからです。
+マイクロ秒の桁は小数で格納できますが、月、日の桁は整数です。
 時間の間隔は通常、文字列定数もしくは<type>timestamp</type>の引き算で生成されるため、この格納方式はほとんどのケースではうまくいきますが、予期しない結果を返すこともあります。
 例：
 
@@ -5156,7 +5223,7 @@ SELECT person.name, holidays.num_weeks FROM person, holidays
 <!--
      Boxes are output using the second syntax.
 -->
-矩形は最初に示した構文で出力されます。
+矩形は2番目の構文で出力されます。
     </para>
 
     <para>
@@ -6327,7 +6394,7 @@ SELECT to_tsvector( 'postgraduate' ), to_tsquery( 'postgres:*' );
     guarantee than sequence generators, which
     are only unique within a single database.
 -->
-<type>uuid</type>データ型は、RFC 4122、ISO/IEC 9834-8:2005および関連する標準に従う、汎用一意識別子（UUID）を格納します。
+<type>uuid</type>データ型は、<ulink url="https://tools.ietf.org/html/rfc4122">RFC 4122</ulink>:、ISO/IEC 9834-8:2005および関連する標準に従う、汎用一意識別子（UUID）を格納します。
 （一部のシステムでは、このデータ型をグローバル一意識別子（GUID<indexterm><primary>GUID</primary></indexterm>）と呼んでいます。）
 この識別子は、同一のアルゴリズムを使用しても既知の世界上の他の誰かが同一識別子が生成される可能性がほとんどないように選択されたアルゴリズムで生成された128ビット量の値です。
 したがって、分散システムにおいて、これら識別子は、単一データベース内でしか一意にならないシーケンスジェネレータよりも優れた一意性保証を提供します。
@@ -6872,7 +6939,7 @@ INSERT INTO mytable VALUES(-1);  -- fails
 オブジェクト識別子（OID）は<productname>PostgreSQL</productname>の内部で様々なシステムテーブルの主キーとして使用されます。
 <type>oid</type>データ型はオブジェクト識別子を表します。
 <type>oid</type>には別名型もいくつかあります。
-<type>reg<replaceable>何とか</replaceable></type>と名付けられた<type>oid</type>の様々なエイリアスの型は<xref linkend="datatype-oid-table"/>からその概要を見ることができます。
+<type>reg<replaceable>何とか</replaceable></type>とそれぞれ名付けられた<type>oid</type>の様々なエイリアスの型は<xref linkend="datatype-oid-table"/>からその概要を見ることができます。
    </para>
 
    <para>
@@ -7106,12 +7173,15 @@ SELECT * FROM pg_attribute
 -->
 名前空間でグループ化されたオブジェクトのOID別名型はすべてスキーマ修飾名を受け入れ、出力時にスキーマ修飾名を表示します。
 ただし、現在の検索パスでオブジェクトが見つけられなければ、修飾せずに出力します。
+例えば、<literal>myschema.mytable</literal>は<type>regclass</type>という入力を(そのようなテーブルがあれば)許容します。
+この値の出力は現在の検索パス次第で<literal>myschema.mytable</literal>もしくは単に<literal>mytable</literal>と出力されるでしょう。
 <type>regproc</type>と<type>regoper</type>別名型は、一意な（オーバーロードしていない）名前のみを入力として受け入れるため、これらの使用には限度があります。
 ほとんどの場合、<type>regprocedure</type>または<type>regoperator</type>を使用するのが適切です。
 <type>regoperator</type>の場合、単項演算子は未使用のオペランドを<literal>NONE</literal>と記述することによって指定されます。
    </para>
 
    <para>
+<!--
     The input functions for these types allow whitespace between tokens,
     and will fold upper-case letters to lower case, except within double
     quotes; this is done to make the syntax rules similar to the way
@@ -7124,9 +7194,17 @@ SELECT * FROM pg_attribute
     output would look like <literal>"Foo"(integer,integer)</literal>.
     Both the function name and the argument type names could be
     schema-qualified, too.
+-->
+これらの型の入力を許容する関数はトークンの間に空白を入れることを許容し、二重引用符で囲まれたものを除き大文字は小文字に折りたたみます。
+これはオブジェクト名がSQLで記述される方法と同じような文法のルールとするための動作です。
+逆に出力する関数は有効なSQL識別子となるように必要に応じて二重引用符を使用します。
+例えば、<literal>Foo</literal>(<literal>F</literal>が大文字)という２つの整数型の引数を持つ関数のOIDは<literal>' "Foo" ( int, integer ) '::regprocedure</literal>として入力できます。
+出力は<literal>"Foo"(integer,integer)</literal>のようになります。
+関数名も引数の型名も共にスキーマ修飾することもできます。
    </para>
 
    <para>
+<!--
     Many built-in <productname>PostgreSQL</productname> functions accept
     the OID of a table, or another kind of database object, and for
     convenience are declared as taking <type>regclass</type> (or the
@@ -7134,18 +7212,31 @@ SELECT * FROM pg_attribute
     the object's OID by hand, but can just enter its name as a string
     literal.  For example, the <function>nextval(regclass)</function> function
     takes a sequence relation's OID, so you could call it like this:
+-->
+<productname>PostgreSQL</productname>に組み込まれている多くの関数はテーブルやそれ以外の種類のデータベースオブジェクトのOIDを受け入れ、利便性のために <type>regclass</type>(もしくは適切なOIDのエイリアスである型)を取るものとして定義されています。
+これはオブジェクトのOIDをわざわざ手動で調べる必要が無く、単にその名前を文字列として入力すれば良いことを意味します。
+例えば、 <function>nextval(regclass)</function>関数はシーケンスリレーションのOIDを引数に取りますが、このように呼び出すことができます。
 <programlisting>
+<!--
 nextval('foo')              <lineannotation>operates on sequence <literal>foo</literal></lineannotation>
 nextval('FOO')              <lineannotation>same as above</lineannotation>
 nextval('"Foo"')            <lineannotation>operates on sequence <literal>Foo</literal></lineannotation>
 nextval('myschema.foo')     <lineannotation>operates on <literal>myschema.foo</literal></lineannotation>
 nextval('"myschema".foo')   <lineannotation>same as above</lineannotation>
 nextval('foo')              <lineannotation>searches search path for <literal>foo</literal></lineannotation>
+-->
+nextval('foo')              <lineannotation>シーケンス<literal>foo</literal>への操作</lineannotation>
+nextval('FOO')              <lineannotation>上と同じ</lineannotation>
+nextval('"Foo"')            <lineannotation>シーケンス<literal>Foo</literal>への操作</lineannotation>
+nextval('myschema.foo')     <lineannotation><literal>myschema.foo</literal>への操作</lineannotation>
+nextval('"myschema".foo')   <lineannotation>上と同じ</lineannotation>
+nextval('foo')              <lineannotation><literal>foo</literal>のサーチパスの検索</lineannotation>
 </programlisting>
    </para>
 
    <note>
     <para>
+<!--
      When you write the argument of such a function as an unadorned
      literal string, it becomes a constant of type <type>regclass</type>
      (or the appropriate type).
@@ -7162,10 +7253,22 @@ nextval('foo'::text)      <lineannotation><literal>foo</literal> is looked up at
      The <function>to_regclass()</function> function and its siblings
      can also be used to perform run-time lookups.  See
      <xref linkend="functions-info-catalog-table"/>.
+-->
+そのような関数の引数を装飾のない文字列として記載した場合、それは<type>regclass</type>型(もしくは適切な型)の定数になります。
+これは実際には単にOIDなので、スキーマの再割り当てなどで後からリネームされたとしても最初に識別されたオブジェクトを追跡します。
+この<quote>早期バインディング(early binding)</quote>の動作は列のデフォルトを参照する列やビューにとっては望ましい動作です。
+しかし、オブジェクトの参照を実行時に行う<quote>遅延バインディング(late binding)</quote>が望ましいこともあります。
+遅延バインディングの動作とするためには、定数は<type>regclass</type>の代わりに<type>text</type>の定数として配置してください。
+<programlisting>
+nextval('foo'::text)      <lineannotation><literal>foo</literal>は実行時に参照されます。</lineannotation>
+</programlisting>
+<function>to_regclass()</function>関数とその兄弟は実行時に参照させるために使用することもできます。
+詳細は<xref linkend="functions-info-catalog-table"/>を参照ください。
     </para>
    </note>
 
    <para>
+<!--
     Another practical example of use of <type>regclass</type>
     is to look up the OID of a table listed in
     the <literal>information_schema</literal> views, which don't supply
@@ -7190,6 +7293,26 @@ WHERE ...
     is <emphasis>not recommended</emphasis>, because it will fail for
     tables that are outside your search path or have names that require
     quoting.
+-->
+<type>regclass</type>のもう一つの実用的な使用例はそのようなOIDを直接提供しない<literal>information_schema</literal>ビューにリストされたテーブルのOIDを参照することです。
+例えば、テーブルのOIDを必要とする<function>pg_relation_size()</function>関数を呼び出したい場合を考えます。
+上記のルールを考慮すると、正しい方法は以下のとおりです。
+<programlisting>
+SELECT table_schema, table_name,
+       pg_relation_size((quote_ident(table_schema) || '.' ||
+                         quote_ident(table_name))::regclass)
+FROM information_schema.tables
+WHERE ...
+</programlisting>
+<function>quote_ident()</function>関数は必要に応じて二重引用符をつけます。
+より簡単そうに思われる
+<programlisting>
+SELECT pg_relation_size(table_name)
+FROM information_schema.tables
+WHERE ...
+</programlisting>
+という方法は<emphasis>推奨されません</emphasis>。
+テーブルがサーチパスの範囲外にあったり、引用符付けを必要とする名前であった場合に失敗するためです。
    </para>
 
    <para>
@@ -7213,8 +7336,9 @@ WHERE ...
 これらの型の1つの定数が格納された式内に存在する場合（列のデフォルト式やビューなど）、参照されるオブジェクトへの依存性を生成します。
 例えば、列が<literal>nextval('my_seq'::regclass)</literal>というデフォルト式を持つ場合、<productname>PostgreSQL</productname>はデフォルト式が<literal>my_seq</literal>シーケンスに依存することを理解します。
 システムは先にこのデフォルト式が削除されない限り、このシーケンスを削除させません。
-プロパティの唯一の例外は<type>regrole</type>です。
-このような式では、この型の定数は使用できません。
+代わりに<literal>nextval('my_seq'::text)</literal>を使用しても依存性は作成されません。
+(このプロパティの例外は<type>regrole</type>です。
+ストアド式では、この型の定数は使用できません。)
    </para>
 
    <para>
@@ -7308,6 +7432,8 @@ WHERE ...
 LSNは例えば、<literal>16/B374D848</literal>のように２つのスラッシュで分けられた8桁の16進数で表示されます。
 <type>pg_lsn</type>は例えば、<literal>=</literal>や<literal>&gt;</literal>などの標準の比較演算子をサポートしています。
 2つのLSNは<literal>-</literal>演算子を使い引き算することも可能で、結果はこれらの2つのWALの位置のbytes差分です。
+また、バイト数はそれぞれ<literal>+(pg_lsn,numeric)</literal>や<literal>-(pg_lsn,numeric)</literal>演算子を使って加算、減算ができます。
+計算されたLSNは<type>pg_lsn</type>型の範囲、つまり、<literal>0/0</literal>と<literal>FFFFFFFF/FFFFFFFF</literal>の間にあるべきであることに注意してください。
    </para>
   </sect1>
 
@@ -7513,9 +7639,12 @@ LSNは例えば、<literal>16/B374D848</literal>のように２つのスラッ�
 
        <row>
         <entry><type>anymultirange</type></entry>
+<!--
         <entry>Indicates that a function accepts any multirange data type
         (see <xref linkend="extend-types-polymorphic"/> and
         <xref linkend="rangetypes"/>).</entry>
+-->
+<entry>関数がマルチ範囲型を受け入れることを示します(<xref linkend="extend-types-polymorphic"/>と<xref linkend="rangetypes"/>を参照してください)。</entry>
        </row>
 
        <row>
@@ -7525,7 +7654,7 @@ LSNは例えば、<literal>16/B374D848</literal>のように２つのスラッ�
         with automatic promotion of multiple arguments to a common data type
         (see <xref linkend="extend-types-polymorphic"/>).</entry>
 -->
-<entry>関数が複数の引数を一般的なデータ型に自動的に昇格させるどのようなデータ型でも受け入れることを示します(<xref linkend="extend-types-polymorphic"/>)を参照してください)。</entry>
+<entry>関数が複数の引数を一般的なマルチデータ型に自動的に昇格させるどのようなデータ型でも受け入れることを示します(<xref linkend="extend-types-polymorphic"/>)を参照してください)。</entry>
        </row>
 
        <row>
@@ -7556,15 +7685,18 @@ LSNは例えば、<literal>16/B374D848</literal>のように２つのスラッ�
         (see <xref linkend="extend-types-polymorphic"/> and
         <xref linkend="rangetypes"/>).</entry>
 -->
-<entry>関数が複数の引数を一般的なデータ型に自動的に昇格させるどのような範囲データ型でも受け入れることを示します(<xref linkend="extend-types-polymorphic"/>と<xref linkend="rangetypes"/>を参照ください)。  </entry>
+<entry>関数が複数の引数を一般的なデータ型に自動的に昇格させるどのようなmaruti範囲データ型でも受け入れることを示します(<xref linkend="extend-types-polymorphic"/>と<xref linkend="rangetypes"/>を参照ください)。  </entry>
        </row>
 
        <row>
         <entry><type>anycompatiblemultirange</type></entry>
+<!--
         <entry>Indicates that a function accepts any multirange data type,
         with automatic promotion of multiple arguments to a common data type
         (see <xref linkend="extend-types-polymorphic"/> and
         <xref linkend="rangetypes"/>).</entry>
+-->
+<entry>関数が複数の引数を一般的なデータ型に自動的に昇格するすべての範囲データ型を受け入れることを示します。(<xref linkend="extend-types-polymorphic"/>と<xref linkend="rangetypes"/>を参照ください)。</entry>
        </row>
 
        <row>
