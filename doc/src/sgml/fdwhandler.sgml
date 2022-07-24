@@ -1025,7 +1025,10 @@ ExecForeignUpdate(EState *estate,
 <literal>estate</literal>はそのクエリのグローバルな実行状態です。
 <literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
 <literal>slot</literal>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
-<literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</quote>列を含みうる点において、<literal>slot</literal>とは異なります。実際、<function>AddForeignUpdateTargets</function>が要求するジャンク列はこのスロットから利用可能です。
+<literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。
+<literal>slot</literal>とは異なり、このタプルはクエリによって変更されたカラムの新しい値のみを含むので、<literal>planSlot</literal>にインデックスを付けるために外部テーブルの属性番号に依存しないようにしましょう。
+また、<literal>planSlot</literal>は通常、追加の<quote>junk</quote> カラムを含んでいます。
+特に、<function>AddForeignUpdateTargets</function>によって要求されたジャンク列は、このスロットから利用できるようになります。
     </para>
 
     <para>
@@ -1186,7 +1189,7 @@ BeginForeignInsert(ModifyTableState *mtstate,
 外部テーブルへの挿入操作の実行を開始します。
 このルーチンは、タプル転送のためにパーティションが選択された場合か、<command>COPY FROM</command>コマンドでターゲットが指定された場合に、最初の行が外部テーブルに挿入される直前に呼び出されます。
 この関数は、実際の挿入に先立つすべての必要な初期化を実行すべきです。
-続いて、<function>ExecForeignInsert</function>が外部テーブルに挿入される個々のタブル毎に呼び出されます。
+続いて、<function>ExecForeignInsert</function>または<function>ExecForeignBatchInsert</function>が外部テーブルにタブルを挿入するために呼び出されます。
     </para>
 
     <para>
@@ -1233,7 +1236,7 @@ BeginForeignInsert(ModifyTableState *mtstate,
      function or <function>ExecForeignInsert/ExecForeignBatchInsert</function>
      subsequently called must throw error as needed.
 -->
-FDWが外部テーブルパーティションのタプル転送をサポートしていないか、または外部テーブルに対して<command>COPY FROM</command>の実行をサポートしていないか、あるいはその両方なら、この関数あるいは以後呼ばれた<function>ExecForeignInsert</function>は、必ず必要なだけエラーを引き起こします。
+FDWが外部テーブルパーティションのタプル転送をサポートしていないか、または外部テーブルに対して<command>COPY FROM</command>の実行をサポートしていないか、あるいはその両方なら、この関数あるいは以後呼ばれた<function>ExecForeignInsert/ExecForeignBatchInsert</function>は、必ず必要なだけエラーを引き起こします。
     </para>
 
     <para>
@@ -1525,7 +1528,10 @@ EndDirectModify(ForeignScanState *node);
    </sect2>
 
    <sect2 id="fdw-callbacks-truncate">
+    <!--
     <title>FDW Routines for <command>TRUNCATE</command></title>
+    -->
+    <title><command>TRUNCATE</command>のためのFDWルーチン</title>
 
     <para>
 <programlisting>
@@ -1535,47 +1541,69 @@ ExecForeignTruncate(List *rels,
                     bool restart_seqs);
 </programlisting>
 
+<!--
      Truncate foreign tables.  This function is called when
      <xref linkend="sql-truncate"/> is executed on a foreign table.
      <literal>rels</literal> is a list of <structname>Relation</structname>
      data structures of foreign tables to truncate.
+-->
+外部テーブルを切り捨てます。
+この関数は<xref linkend="sql-truncate"/>が外部テーブルに対して実行されたときに呼び出されます。
+<literal>rels</literal>は切り捨てられる外部テーブルの<structname>Relation</structname>データ構造のリストです。
     </para>
 
     <para>
+<!--
      <literal>behavior</literal> is either <literal>DROP_RESTRICT</literal>
      or <literal>DROP_CASCADE</literal> indicating that the
      <literal>RESTRICT</literal> or <literal>CASCADE</literal> option was
      requested in the original <command>TRUNCATE</command> command,
      respectively.
+-->
+<literal>behavior</literal>は<literal>DROP_RESTRICT</literal>か<literal>DROP_CASCADE</literal>のいずれかで、それぞれ元の<command>TRUNCATE</command>コマンドで<literal>RESTRICT</literal>また<literal>CASCADE</literal>オプションが要求されたことを表しています。
     </para>
     
     <para>
+<!--
      If <literal>restart_seqs</literal> is <literal>true</literal>,
      the original <command>TRUNCATE</command> command requested the
      <literal>RESTART IDENTITY</literal> behavior, otherwise the
      <literal>CONTINUE IDENTITY</literal> behavior was requested.
+-->
+<literal>restart_seqs</literal>が<literal>true</literal> の場合、元の<command>TRUNCATE</command>コマンドが<literal>RESTART IDENTITY</literal>動作が要求され、それ以外の場合は<literal>CONTINUE IDENTITY</literal> 動作が要求されていたことになります。
     </para>
 
     <para>
+<!--
      Note that the <literal>ONLY</literal> options specified
      in the original <command>TRUNCATE</command> command are not passed to
      <function>ExecForeignTruncate</function>.  This behavior is similar to
      the callback functions of <command>SELECT</command>,
      <command>UPDATE</command> and <command>DELETE</command> on
      a foreign table.
+-->
+元の<command>TRUNCATE</command>コマンドで指定された<literal>ONLY</literal>オプションは<function>ExecForeignTruncate</function>に渡されないことに注意してください。
+この動作は外部テーブルに対する<command>SELECT</command>と<command>UPDATE</command>、<command>DELETE</command>のコールバック関数と同様です。
     </para>
 
     <para>
+<!--
      <function>ExecForeignTruncate</function> is invoked once per
      foreign server for which foreign tables are to be truncated.
      This means that all foreign tables included in <literal>rels</literal>
      must belong to the same server.
+-->
+<function>ExecForeignTruncate</function>は、外部テーブルが切り捨てられる外部サーバごとに一度呼び出されます。
+これは、<literal>rels</literal>に含まれるすべての外部テーブルが同じサーバーに所属していなければならないことを意味しています。
     </para>
 
     <para>
+<!--
      If the <function>ExecForeignTruncate</function> pointer is set to
      <literal>NULL</literal>, attempts to truncate foreign tables will
      fail with an error message.
+-->
+<function>ExecForeignTruncate</function>ポインタが<literal>NULL</literal>に設定されている場合、外部テーブルを切り捨てる試みはエラーメッセージとともに失敗します。
     </para>
    </sect2>
 
@@ -2206,13 +2234,20 @@ ShutdownForeignScan(ForeignScanState *node);
    </sect2>
 
    <sect2 id="fdw-callbacks-async">
+<!--   
     <title>FDW Routines for Asynchronous Execution</title>
+-->
+    <title>非同期実行のためのFDWルーチン</title>
     <para>
+<!--
      A <structname>ForeignScan</structname> node can, optionally, support
      asynchronous execution as described in
      <filename>src/backend/executor/README</filename>.  The following
      functions are all optional, but are all required if asynchronous
      execution is to be supported.
+-->
+<structname>ForeignScan</structname>ノードは、オプションとして<filename>src/backend/executor/README</filename>に記述されているように、非同期実行をサポートすることが可能です。
+以下の関数はすべてオプションですが、非同期実行をサポートする場合はすべて必須です。
     </para>
 
     <para>
@@ -2220,6 +2255,7 @@ ShutdownForeignScan(ForeignScanState *node);
 bool
 IsForeignPathAsyncCapable(ForeignPath *path);
 </programlisting>
+<!--
      Test whether a given <structname>ForeignPath</structname> path can scan
      the underlying foreign relation asynchronously.
      This function will only be called at the end of query planning when the
@@ -2227,13 +2263,20 @@ IsForeignPathAsyncCapable(ForeignPath *path);
      path and when the planner believes that asynchronous execution improves
      performance, and should return true if the given path is able to scan the
      foreign relation asynchronously.
+-->
+与えられた<structname>ForeignPath</structname>パスが、そもそも外部リレーションを非同期でスキャンできるかどうかをテストします。
+この関数は与えられたパスが<structname>AppendPath</structname>パスの直接の子であり、プランナが非同期実行が性能を向上させると考える場合にのみ、問い合わせ計画の最後で呼ばれ、与えられたパスが外部リレーションを非同期にスキャンできる場合に真を返さなければなりません。
     </para>
 
     <para>
+<!--
      If this function is not defined, it is assumed that the given path scans
      the foreign relation using <function>IterateForeignScan</function>.
      (This implies that the callback functions described below will never be
      called, so they need not be provided either.)
+-->
+この関数が定義されていない場合、与えられたパスは<function>IterateForeignScan</function>を使用して外部リレーションをスキャンすることが想定されます。
+(これは以下で説明されるコールバック関数が決して呼ばれないことを意味します。呼ばれないことを意味するので、それらも提供される必要はありません)。
     </para>
 
     <para>
@@ -2241,6 +2284,7 @@ IsForeignPathAsyncCapable(ForeignPath *path);
 void
 ForeignAsyncRequest(AsyncRequest *areq);
 </programlisting>
+<!--
      Produce one tuple asynchronously from the
      <structname>ForeignScan</structname> node.  <literal>areq</literal> is
      the <structname>AsyncRequest</structname> struct describing the
@@ -2261,6 +2305,13 @@ ForeignAsyncRequest(AsyncRequest *areq);
      <function>ExecAsyncRequestDone</function> or
      <function>ExecAsyncRequestPending</function> to set the output parameters
      in the <literal>areq</literal>.
+-->
+<structname>ForeignScan</structname>ノードから非同期に1つのタプルを生成します。
+<literal>areq</literal>は<structname>ForeignScan</structname>ノードと、そこからタプルを要求した親<structname>Append</structname>ノードを記述する<structname>AsyncRequest</structname>構造体です。
+<literal>areq-&gt;result</literal>で指定されたスロットにタプルを格納し、<literal>areq-&gt;request_complete</literal>に<literal>true</literal>を設定します。
+または、ネットワークI/Oなどコアサーバの外部のイベントを待つ必要があり、すぐにタプルを生成できない場合は、フラグを<literal>false</literal>に、<literal>areq-&gt;callback_pending</literal>を<literal>true</literal>に設定して、<structname>ForeignScan</structname>ノードが後述のコールバック関数からコールバックを取得するようにします。
+それ以上のタプルがない場合、スロットにNULLまたは空のスロットを設定し、<literal>areq-&gt;request_complete</literal>フラグに<literal>true</literal>を設定します。
+<function>ExecAsyncRequestDone</function>や<function>ExecAsyncRequestPending</function>を使って<literal>areq</literal>に出力パラメータを設定することが推奨されています。
     </para>
 
     <para>
@@ -2268,6 +2319,7 @@ ForeignAsyncRequest(AsyncRequest *areq);
 void
 ForeignAsyncConfigureWait(AsyncRequest *areq);
 </programlisting>
+<!--
      Configure a file descriptor event for which the
      <structname>ForeignScan</structname> node wishes to wait.
      This function will only be called when the
@@ -2280,6 +2332,11 @@ ForeignAsyncConfigureWait(AsyncRequest *areq);
      <filename>src/backend/executor/execAsync.c</filename> for additional
      information.  When the file descriptor event occurs,
      <function>ForeignAsyncNotify</function> will be called.
+-->
+<structname>ForeignScan</structname>ノードが待機したいファイル記述子イベントを設定します。
+この関数は、<structname>ForeignScan</structname>ノードに<literal>areq-&gt;callback_pending</literal>フラグが設定されている場合にのみ呼び出され、<literal>areq</literal>で記述された親ノード<structname>Append</structname>の<structfield>as_eventset</structfield>にイベントを追加しなければなりません。
+詳細は<filename>src/backend/executor/execAsync.c</filename>の<function>ExecAsyncConfigureWait</function>に対するコメントを参照してください。 
+ファイルディスクリプタのイベントが発生すると、<function>ForeignAsyncNotify</function>が呼ばれます。
     </para>
 
     <para>
@@ -2287,11 +2344,15 @@ ForeignAsyncConfigureWait(AsyncRequest *areq);
 void
 ForeignAsyncNotify(AsyncRequest *areq);
 </programlisting>
+<!--
      Process a relevant event that has occurred, then produce one tuple
      asynchronously from the <structname>ForeignScan</structname> node.
      This function should set the output parameters in the
      <literal>areq</literal> in the same way as
      <function>ForeignAsyncRequest</function>.
+-->
+発生した関連イベントを処理し、<structname>ForeignScan</structname>ノードから非同期に1つのタプルを生成します。
+この関数は<function>ForeignAsyncRequest</function>と同じように<literal>areq</literal>に出力パラメータを設定する必要があります。
     </para>
    </sect2>
 
