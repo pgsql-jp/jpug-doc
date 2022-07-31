@@ -667,13 +667,10 @@ FDWは、更新や削除の対象行を厳密に識別できるように行IDや
      junk column besides these, it might be wise to choose a name prefixed
      with your extension name, to avoid conflicts against other FDWs.
 -->
-それを行うには、必要な追加の値を表す<structname>Var</structname>を作成し、それをジャンク列の名前とともに<function>add_row_identity_var</function>に渡します。
-（複数の列が必要な場合は、これを一回以上実行できます。）
-必要とするそれぞれの<structname>Var</structname>に個別のジャンク列名を選択する必要があります。
-ただし、<structname>Var</structname>が<structfield>varno</structfield>フィールドを除いて同一である場合は、カラム名を共有することができるのでそうすべきです。
-コアシステムは、テーブルの<structfield>tableoid</structfield>列をジャンク列名<literal>tableoid</literal>に、<literal>ctid</literal>または<literal>ctid<replaceable>N</replaceable></literal>を<structfield>ctid</structfield>に使用し、
-<structfield>vartype</structfield> = <type>RECORD</type>と記された行全体の<structname>Var</structname>である<literal>wholerow</literal>と、<structfield>vartype</structfield>を記された行全体の<structname>Var</structname>である<literal>wholerow<replaceable>N</replaceable></literal>は、テーブルで宣言された行型が同じです。
-できる限りこれらの名前を再利用してください（プランナーは同一のジャンク列に対する重複したリクエストを結合します）。 もしこれらとは別の種類のジャンク列が必要なら、他のFDWとの衝突を避けるために拡張子名をプレフィックスとした名前を選ぶのが賢明かもしれません。
+それを行うには、必要な追加の値を表す<structname>Var</structname>を作成し、それをジャンク列の名前とともに<function>add_row_identity_var</function>に渡します。（複数の列が必要な場合は、これを二回以上実行できます。）必要とするそれぞれの<structname>Var</structname>に個別のジャンク列名を選択する必要があります。ただし、<structname>Var</structname>が<structfield>varno</structfield>フィールドを除いて同一である場合は、列名を共有することができるのでそうすべきです。
+コアシステムは、テーブルの<structfield>tableoid</structfield>列をジャンク列名<literal>tableoid</literal>に、<literal>ctid</literal>または<literal>ctid<replaceable>N</replaceable></literal>を<structfield>ctid</structfield>に使用し、<structfield>vartype</structfield> = <type>RECORD</type>と記された行全体の<structname>Var</structname>を<literal>wholerow</literal>に、<structfield>vartype</structfield>を記された行全体の<structname>Var</structname>を<literal>wholerow<replaceable>N</replaceable></literal>使用しており、テーブルで宣言された行型が同じです。
+できる限りこれらの名前を再利用してください（プランナーは同一のジャンク列に対する重複したリクエストを結合します）。 
+もしこれらとは別の種類のジャンク列が必要なら、他のFDWとの衝突を避けるために拡張子名をプレフィックスとした名前を選ぶのが賢明かもしれません。
     </para>
 
     <para>
@@ -835,7 +832,7 @@ ExecForeignInsert(EState *estate,
      for <command>INSERT</command> cases, but is provided for completeness.)
 -->
 外部テーブルにタプルを一つ挿入します。
-<literal>estate</literal>はそのクエリのグローバルな実行状態です。
+<literal>estate</literal>はその問い合わせのグローバルな実行状態です。
 <literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
 <literal>slot</literal>には挿入されるタプルが含まれます。その行型定義は外部テーブルと一致します。
 <literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。追加の<quote>ジャンク</quote>列を含みうる点において、<literal>slot</literal>とは異なります。(<literal>planSlot</literal>は一般的に<command>INSERT</command>のケースにおいてはそれほど意味を持ちませんが、完全性のために提供されます。)
@@ -901,6 +898,7 @@ ExecForeignBatchInsert(EState *estate,
                        TupleTableSlot **planSlots,
                        int *numSlots);
 </programlisting>
+
 <!--
      Insert multiple tuples in bulk into the foreign table.
      The parameters are the same for <function>ExecForeignInsert</function>
@@ -908,7 +906,7 @@ ExecForeignBatchInsert(EState *estate,
      multiple tuples and <literal>*numSlots</literal> specifies the number of
      tuples in those arrays.
 -->
-外部テーブルに一括で複数のタプルを一つ挿入します。
+外部テーブルに一括で複数のタプルを挿入します。
 <literal>slots</literal>と<literal>planSlots</literal>が複数のタプルを含むことと<literal>*numSlots</literal>がそれらの配列のタプルの数を指定すること以外は<function>ExecForeignInsert</function>とパラメータは同じです。
     </para>
 
@@ -1026,8 +1024,8 @@ ExecForeignUpdate(EState *estate,
 <literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
 <literal>slot</literal>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
 <literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。
-<literal>slot</literal>とは異なり、このタプルはクエリによって変更されたカラムの新しい値のみを含むので、<literal>planSlot</literal>にインデックスを付けるために外部テーブルの属性番号に依存しないようにしましょう。
-また、<literal>planSlot</literal>は通常、追加の<quote>junk</quote> カラムを含んでいます。
+<literal>slot</literal>とは異なり、このタプルは問い合わせによって変更された列の新しい値のみを含むので、<literal>planSlot</literal>にインデックスを付けるために外部テーブルの属性番号に依存しないようにしましょう。
+また、<literal>planSlot</literal>は通常、追加の<quote>ジャンク</quote>列を含んでいます。
 特に、<function>AddForeignUpdateTargets</function>によって要求されたジャンク列は、このスロットから利用できるようになります。
     </para>
 
@@ -1570,7 +1568,7 @@ ExecForeignTruncate(List *rels,
      <literal>RESTART IDENTITY</literal> behavior, otherwise the
      <literal>CONTINUE IDENTITY</literal> behavior was requested.
 -->
-<literal>restart_seqs</literal>が<literal>true</literal> の場合、元の<command>TRUNCATE</command>コマンドが<literal>RESTART IDENTITY</literal>動作が要求され、それ以外の場合は<literal>CONTINUE IDENTITY</literal> 動作が要求されていたことになります。
+<literal>restart_seqs</literal>が<literal>true</literal> の場合、元の<command>TRUNCATE</command>コマンドが<literal>RESTART IDENTITY</literal>動作が要求され、それ以外の場合は<literal>CONTINUE IDENTITY</literal>動作が要求されていたことになります。
     </para>
 
     <para>
@@ -2276,7 +2274,7 @@ IsForeignPathAsyncCapable(ForeignPath *path);
      called, so they need not be provided either.)
 -->
 この関数が定義されていない場合、与えられたパスは<function>IterateForeignScan</function>を使用して外部リレーションをスキャンすることが想定されます。
-(これは以下で説明されるコールバック関数が決して呼ばれないことを意味します。呼ばれないことを意味するので、それらも提供される必要はありません)。
+(これは以下で説明されるコールバック関数が決して呼ばれないことを意味します。呼ばれないことを意味するので、それらも提供される必要はありません。)
     </para>
 
     <para>
