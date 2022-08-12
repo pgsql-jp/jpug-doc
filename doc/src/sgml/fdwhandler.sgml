@@ -170,8 +170,8 @@ GetForeignRelSize(PlannerInfo *root,
      planner data structures, but it's passed explicitly to save effort.)
 -->
 外部テーブルのリレーションサイズ見積もりを取得します。
-この関数は、ある外部テーブルをスキャンするクエリのプラン作成の開始時に呼び出されます。
-<literal>root</literal>はそのクエリに関するプランナのグローバル情報です。
+この関数は、ある外部テーブルをスキャンする問い合わせのプラン作成の開始時に呼び出されます。
+<literal>root</literal>はその問い合わせに関するプランナのグローバル情報です。
 <literal>baserel</literal>はそのテーブルに関するプランナの情報です。
 そして、<literal>foreigntableid</literal>はその外部テーブルの<structname>pg_class</structname> OIDです。
 (<literal>foreigntableid</literal>はプランナデータ構造体からも取得できますが、手間を省くために明示的に渡されます。)
@@ -226,7 +226,7 @@ GetForeignPaths(PlannerInfo *root,
      which has already been called.
 -->
 外部テーブル対するスキャンとして可能なアクセスパスを作成します。
-この関数はクエリのプラン作成中に呼び出されます。
+この関数は問い合わせのプラン作成中に呼び出されます。
 引数は、先に呼ばれている<function>GetForeignRelSize</function>と同じです。
     </para>
 
@@ -283,7 +283,7 @@ GetForeignPlan(PlannerInfo *root,
      relation, <literal>foreigntableid</literal> is <literal>InvalidOid</literal>.)
 -->
 選択された外部アクセスパスから<structname>ForeignScan</structname>プランノードを作成します。
-この関数はクエリプラン作成の最後に呼び出されます。
+この関数は問い合わせのプラン作成の最後に呼び出されます。
 引数は、<function>GetForeignRelSize</function>と同じものに、選択された<structname>ForeignPath</structname>(事前に<function>GetForeignPaths</function>、<function>GetForeignJoinPaths</function>または<function>GetForeignUpperPaths</function>によって作成されたもの)、そのプランノードによって出力されるターゲットリスト、そのプランノードで強制される条件句、および<function>RecheckForeignScan</function>が実行する再検査で使用される<structname>ForeignScan</structname>の外側のサブプランが追加されます。
 （パスがベースリレーションではなく結合のためのものの場合、<literal>foreigntableid</literal>は<literal>InvalidOid</literal>になります。）
     </para>
@@ -667,7 +667,8 @@ FDWは、更新や削除の対象行を厳密に識別できるように行IDや
      junk column besides these, it might be wise to choose a name prefixed
      with your extension name, to avoid conflicts against other FDWs.
 -->
-それを行うには、必要な追加の値を表す<structname>Var</structname>を作成し、それをジャンク列の名前とともに<function>add_row_identity_var</function>に渡します。（複数の列が必要な場合は、これを二回以上実行できます。）必要とするそれぞれの<structname>Var</structname>に個別のジャンク列名を選択する必要があります。ただし、<structname>Var</structname>が<structfield>varno</structfield>フィールドを除いて同一である場合は、列名を共有することができるのでそうすべきです。
+それを行うには、必要な追加の値を表す<structname>Var</structname>を作成し、それをジャンク列の名前とともに<function>add_row_identity_var</function>に渡します。（複数の列が必要な場合は、これを二回以上実行できます。）
+必要とするそれぞれの<structname>Var</structname>に個別のジャンク列名を選択する必要があります。ただし、<structname>Var</structname>が<structfield>varno</structfield>フィールドを除いて同一である場合は、列名を共有することができるのでそうすべきです。
 コアシステムは、テーブルの<structfield>tableoid</structfield>列をジャンク列名<literal>tableoid</literal>に、<literal>ctid</literal>または<literal>ctid<replaceable>N</replaceable></literal>を<structfield>ctid</structfield>に使用し、<structfield>vartype</structfield> = <type>RECORD</type>と記された行全体の<structname>Var</structname>を<literal>wholerow</literal>に、<structfield>vartype</structfield>を記された行全体の<structname>Var</structname>を<literal>wholerow<replaceable>N</replaceable></literal>使用しており、テーブルで宣言された行型が同じです。
 できる限りこれらの名前を再利用してください（プランナーは同一のジャンク列に対する重複したリクエストを結合します）。 
 もしこれらとは別の種類のジャンク列が必要なら、他のFDWとの衝突を避けるために拡張子名をプレフィックスとした名前を選ぶのが賢明かもしれません。
@@ -717,7 +718,7 @@ PlanForeignModify(PlannerInfo *root,
      use this if you want to index into per-target-relation substructures of the
      <literal>plan</literal> node.
 -->
-<literal>root</literal>はそのクエリに関するプランナのグローバル情報です。
+<literal>root</literal>はその問い合わせに関するプランナのグローバル情報です。
 <literal>plan</literal>は<structfield>fdwPrivLists</structfield>フィールドを除いて完成している<structname>ModifyTable</structname>プランノードです。
 <literal>resultRelation</literal>は対象の外部テーブルをレンジテーブルの添字で識別します。
 <literal>subplan_index</literal>は<structname>ModifyTable</structname>プランノードの対象がどれであるかを0始まりで識別します。
@@ -864,7 +865,7 @@ ExecForeignInsert(EState *estate,
 -->
 返却されたスロット内のデータは<command>INSERT</command>文が<literal>RETURNING</literal>句を持っているか、<literal>WITH CHECK OPTION</literal>を伴うビューに影響を及ぼす場合、もしくは、外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
 トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句や<literal>WITH CHECK OPTION</literal>の制約の内容に応じて、返却する列を一部にするかすべてにするかを最適化する余地があります。
-それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告される問い合わせの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
@@ -1020,7 +1021,7 @@ ExecForeignUpdate(EState *estate,
      be available from this slot.
 -->
 外部テーブル内のタプルを一つ更新します。
-<literal>estate</literal>はそのクエリのグローバルな実行状態です。
+<literal>estate</literal>はその問い合わせのグローバルな実行状態です。
 <literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
 <literal>slot</literal>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
 <literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。
@@ -1055,7 +1056,7 @@ ExecForeignUpdate(EState *estate,
 -->
 返却されたスロット内のデータは<command>UPDATE</command>文が<literal>RETURNING</literal>句を持っているか、<literal>WITH CHECK OPTION</literal>を伴うビューに影響を及ぼす場合、もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
 トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句や<literal>WITH CHECK OPTION</literal>の制約の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
-それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告される問い合わせの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
@@ -1090,7 +1091,7 @@ ExecForeignDelete(EState *estate,
      to identify the tuple to be deleted.
 -->
 外部テーブルからタプルを一つ削除します。
-<literal>estate</literal>はそのクエリのグローバルな実行状態です。
+<literal>estate</literal>はその問い合わせのグローバルな実行状態です。
 <literal>rinfo</literal>は対象の外部テーブルを表す<structname>ResultRelInfo</structname>構造体です。
 <literal>slot</literal>にはタプルの新しいデータが含まれます。その行型定義は外部テーブルと一致します。
 <literal>planSlot</literal>には<structname>ModifyTable</structname>プランノードのサブプランが生成したタプルが含まれます。実際、<function>AddForeignUpdateTargets</function>が要求するジャンク列はこのスロットが運びます。ジャンク列は削除されるタプルを識別するために使用しなければなりません。
@@ -1116,9 +1117,9 @@ ExecForeignDelete(EState *estate,
      slot must be returned to indicate success, or the query's reported row
      count will be wrong.
 -->
-返却されたスロット内のデータは<command>DELETE</command>クエリが<literal>RETURNING</literal>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
+返却されたスロット内のデータは<command>DELETE</command>問い合わせが<literal>RETURNING</literal>句を持っていた場合もしくは外部テーブルが<literal>AFTER ROW</literal>トリガを持っていた場合にのみ使われます。
 トリガは全列を必要としますが、FDWは<literal>RETURNING</literal>句の内容に応じて返却する列を一部にするか全てにするかを最適化する余地があります。
-それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告されるクエリの結果行数が誤った値になってしまいます。
+それとは関係なく、処理成功を表すためになんらかのスロットは返却しなければなりません。さもないと、報告される問い合わせの結果行数が誤った値になってしまいます。
     </para>
 
     <para>
@@ -1295,7 +1296,7 @@ IsForeignRelUpdatable(Relation rel);
 -->
 もし<function>IsForeignRelUpdatable</function>ポインタが<literal>NULL</literal>に設定されていると、外部テーブルは<function>ExecForeignInsert</function>、<function>ExecForeignUpdate</function>、<function>ExecForeignDelete</function>を提供していると、それぞれ挿入、更新、削除をサポートしていると判断します。
 この関数は、FDWが一部のテーブルについてのみ更新をサポートする場合にのみ必要です。
-(そのような場合でも、この関数でチェックする代わりにクエリ実行関数でエラーにしても構いません。しかしながら、この関数は<literal>information_schema</literal>のビューの表示で更新可否を判定するのに使用されます。)
+(そのような場合でも、この関数でチェックする代わりに問い合わせ実行関数でエラーにしても構いません。しかしながら、この関数は<literal>information_schema</literal>のビューの表示で更新可否を判定するのに使用されます。)
     </para>
 
     <para>
@@ -1366,7 +1367,8 @@ PlanDirectModify(PlannerInfo *root,
      <structfield>resultRelation</structfield> field.
 -->
 リモートサーバで直接変更を実行するには、本関数は対象サブプランをリモートサーバ上で直接変更する<structname>ForeignScan</structname>プランノードで書き換えしなければなりません。
-<structname>ForeignScan</structname>の<structfield>operation</structfield>フィールドには<literal>CmdType</literal>列挙値を適切に、すなわち、<command>UPDATE</command>には<literal>CMD_UPDATE</literal>、<command>INSERT</command>には<literal>CMD_INSERT</literal>、<command>DELETE</command>には<literal>CMD_DELETE</literal>を設定しなければいけません。
+<structname>ForeignScan</structname>の<structfield>operation</structfield>と<structfield>resultRelation</structfield>フィールドは適切にセットされる必要があります。
+<structfield>operation</structfield>は文の種類に対応する<literal>CmdType</literal>列挙値にセットする必要があり(すなわち<command>UPDATE</command>には<literal>CMD_UPDATE</literal>、<command>INSERT</command>には<literal>CMD_INSERT</literal>、<command>DELETE</command>には<literal>CMD_DELETE</literal>)、そして、<literal>resultRelation</literal>引数は<structfield>resultRelation</structfield>フィールドにコピーされる必要があります。
     </para>
 
     <para>
@@ -2227,7 +2229,7 @@ ShutdownForeignScan(ForeignScanState *node);
 ノードが完了するまで実行されないことが予想されるときにリソースを解放します。
 これはすべてのケースで呼ばれるわけではありません。
 <literal>EndForeignScan</literal>は、この関数が最初に呼び出されなくても呼び出されることがあります。
-このコールバックが呼び出された直後に、並列クエリで使用されるDSM(動的共有メモリ)セグメントが破棄されるため、DSMセグメントがなくなる前に何らかのアクションを実行する外部データラッパーがこのメソッドを実装する必要があります。
+このコールバックが呼び出された直後に、パラレルクエリで使用されるDSM(動的共有メモリ)セグメントが破棄されるため、DSMセグメントがなくなる前に何らかのアクションを実行する外部データラッパーがこのメソッドを実装する必要があります。
    </para>
    </sect2>
 
@@ -2572,7 +2574,7 @@ GetForeignServerByName(const char *name, bool missing_ok);
 <!--
     <title>Foreign Data Wrapper Query Planning</title>
 -->
-    <title>外部データラッパのクエリプラン作成</title>
+    <title>外部データラッパの問い合わせプラン作成</title>
 
     <para>
 <!--
@@ -2602,7 +2604,7 @@ FDWコールバック関数の<function>GetForeignRelSize</function>、<function
 -->
 <literal>root</literal>と<literal>baserel</literal>に含まれる情報は、外部テーブルから取得する必要のある情報の量(とそれによるコスト)を削減するために使用できます。
 <literal>baserel-&gt;baserestrictinfo</literal>は、取得される行をフィルタリングする検索条件(<literal>WHERE</literal>句)を含んでいるため、特に興味深いものです。(コアのエクゼキュータが代わりにそれらをチェックできるので、FDW自身がこれらの制約を適用しなければならないわけではありません。)
-<literal>baserel-&gt;reltarget-&gt;exprs</literal>はどの列が取得される必要があるかを決定するのに使用できます。ただし、このリストは<structname>ForeignScan</structname>プランノードから出力すべき列しか含んでおらず、条件検査には必要だがクエリからは出力されない列は含まないことに注意してください。
+<literal>baserel-&gt;reltarget-&gt;exprs</literal>はどの列が取得される必要があるかを決定するのに使用できます。ただし、このリストは<structname>ForeignScan</structname>プランノードから出力すべき列しか含んでおらず、条件検査には必要だが問い合わせからは出力されない列は含まないことに注意してください。
     </para>
 
     <para>
@@ -2664,7 +2666,7 @@ FDWコールバック関数の<function>GetForeignRelSize</function>、<function
 <function>GetForeignPlan</function>では、選択された<structname>ForeignPath</structname>ノードの<structfield>fdw_private</structfield>フィールドを調べて、<structname>ForeignScan</structname>プランノード内に格納されプラン実行時に利用可能な<structfield>fdw_exprs</structfield>と<structfield>fdw_private</structfield>の二つのリストを生成することができます。
 これらは両方とも<function>copyObject</function>がコピーできる形式でなければなりません。
 <structfield>fdw_private</structfield>リストにはこれ以外に制約はなく、コアバックエンドによって解釈されることはありません。
-<structfield>fdw_exprs</structfield>リストがNILでない場合は、クエリ実行時に実行されることを意図した式ツリーが含まれていることが期待されます。
+<structfield>fdw_exprs</structfield>リストがNILでない場合は、問い合わせ実行時に実行されることを意図した式ツリーが含まれていることが期待されます。
 これらのツリーは、完全に実行可能な状態にするためにプランナによる後処理を受けます。
     </para>
 
@@ -2714,7 +2716,7 @@ FDWにできるのが<structname>RestrictInfo</structname>ノードを<literal>s
 おそらく、そのパスの<structfield>fdw_private</structfield>フィールドは識別された句の<structname>RestrictInfo</structname>ノードをさすポインタを含むでしょう。
 そして、<function>GetForeignPlan</function>はその句を<literal>scan_clauses</literal>から取り除き、実行可能な形式にほぐされることを保障するために<replaceable>sub_expression</replaceable>を<structfield>fdw_exprs</structfield>に追加するでしょう。
 また、おそらく、実行時に何をすべきかをプラン実行関数に伝えるためにプランノードの<structfield>fdw_private</structfield>フィールドに制御情報を入れるでしょう。
-リモートサーバに送られたクエリは、実行時に<structfield>fdw_exprs</structfield>式ツリーを評価して得られた値をパラメータ値とする<literal>WHERE <replaceable>foreign_variable</replaceable> = $1</literal>のようなものを伴うでしょう。
+リモートサーバに送られた問い合わせは、実行時に<structfield>fdw_exprs</structfield>式ツリーを評価して得られた値をパラメータ値とする<literal>WHERE <replaceable>foreign_variable</replaceable> = $1</literal>のようなものを伴うでしょう。
     </para>
 
     <para>
@@ -2782,7 +2784,7 @@ FDWがセットできる別の<structname>ForeignScan</structname>フィール�
      to <structfield>fdw_exprs</structfield>, and then at run time the case works the
      same as for an ordinary restriction clause.
 -->
-FDWはそのテーブルの条件句のみに依存するパスを常に少なくとも一つは生成すべきです。結合クエリでは、例えば<replaceable>foreign_variable</replaceable> <literal>=</literal> <replaceable>local_variable</replaceable>といった結合句に依存するパス(群)を生成することもできます。
+FDWはそのテーブルの条件句のみに依存するパスを常に少なくとも一つは生成すべきです。結合問い合わせでは、例えば<replaceable>foreign_variable</replaceable> <literal>=</literal> <replaceable>local_variable</replaceable>といった結合句に依存するパス(群)を生成することもできます。
 そのような句は<literal>baserel-&gt;baserestrictinfo</literal>には見つからず、リレーションの結合リストにあるはずです。
 そのような句を使用するパスは<quote>パラメータ化されたパス</quote>と呼ばれます。
 このようなパスでは、選択された結合句（群）で使用されているリレーション（群）を<literal>param_info</literal>の適合する値から特定しなければなりません;その値を計算するには<function>get_baserel_parampathinfo</function>を使用します。
