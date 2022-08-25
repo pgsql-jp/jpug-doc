@@ -164,6 +164,9 @@ static void expand_table_name_patterns(Archive *fout,
 									   SimpleStringList *patterns,
 									   SimpleOidList *oids,
 									   bool strict_names);
+static void prohibit_crossdb_refs(PGconn *conn, const char *dbname,
+								  const char *pattern);
+
 static NamespaceInfo *findNamespace(Oid nsoid);
 static void dumpTableData(Archive *fout, const TableDataInfo *tdinfo);
 static void refreshMatViewData(Archive *fout, const TableDataInfo *tdinfo);
@@ -1358,10 +1361,21 @@ expand_schema_name_patterns(Archive *fout,
 
 	for (cell = patterns->head; cell; cell = cell->next)
 	{
+		PQExpBufferData	dbbuf;
+		int		dotcnt;
+
 		appendPQExpBufferStr(query,
 							 "SELECT oid FROM pg_catalog.pg_namespace n\n");
+		initPQExpBuffer(&dbbuf);
 		processSQLNamePattern(GetConnection(fout), query, cell->val, false,
-							  false, NULL, "n.nspname", NULL, NULL);
+							  false, NULL, "n.nspname", NULL, NULL, &dbbuf,
+							  &dotcnt);
+		if (dotcnt > 1)
+			fatal("improper qualified name (too many dotted names): %s",
+				  cell->val);
+		else if (dotcnt == 1)
+			prohibit_crossdb_refs(GetConnection(fout), dbbuf.data, cell->val);
+		termPQExpBuffer(&dbbuf);
 
 		res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
 		if (strict_names && PQntuples(res) == 0)
@@ -1405,10 +1419,16 @@ expand_extension_name_patterns(Archive *fout,
 	 */
 	for (cell = patterns->head; cell; cell = cell->next)
 	{
+		int		dotcnt;
+
 		appendPQExpBufferStr(query,
 							 "SELECT oid FROM pg_catalog.pg_extension e\n");
 		processSQLNamePattern(GetConnection(fout), query, cell->val, false,
-							  false, NULL, "e.extname", NULL, NULL);
+							  false, NULL, "e.extname", NULL, NULL, NULL,
+							  &dotcnt);
+		if (dotcnt > 0)
+			fatal("improper qualified name (too many dotted names): %s",
+				  cell->val);
 
 		res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
 		if (strict_names && PQntuples(res) == 0)
@@ -1452,10 +1472,16 @@ expand_foreign_server_name_patterns(Archive *fout,
 
 	for (cell = patterns->head; cell; cell = cell->next)
 	{
+		int		dotcnt;
+
 		appendPQExpBufferStr(query,
 							 "SELECT oid FROM pg_catalog.pg_foreign_server s\n");
 		processSQLNamePattern(GetConnection(fout), query, cell->val, false,
-							  false, NULL, "s.srvname", NULL, NULL);
+							  false, NULL, "s.srvname", NULL, NULL, NULL,
+							  &dotcnt);
+		if (dotcnt > 0)
+			fatal("improper qualified name (too many dotted names): %s",
+				  cell->val);
 
 		res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
 		if (PQntuples(res) == 0)
@@ -1498,6 +1524,9 @@ expand_table_name_patterns(Archive *fout,
 
 	for (cell = patterns->head; cell; cell = cell->next)
 	{
+		PQExpBufferData	dbbuf;
+		int		dotcnt;
+
 		/*
 		 * Query must remain ABSOLUTELY devoid of unqualified names.  This
 		 * would be unnecessary given a pg_table_is_visible() variant taking a
@@ -1513,9 +1542,17 @@ expand_table_name_patterns(Archive *fout,
 						  RELKIND_RELATION, RELKIND_SEQUENCE, RELKIND_VIEW,
 						  RELKIND_MATVIEW, RELKIND_FOREIGN_TABLE,
 						  RELKIND_PARTITIONED_TABLE);
+		initPQExpBuffer(&dbbuf);
 		processSQLNamePattern(GetConnection(fout), query, cell->val, true,
 							  false, "n.nspname", "c.relname", NULL,
-							  "pg_catalog.pg_table_is_visible(c.oid)");
+							  "pg_catalog.pg_table_is_visible(c.oid)", &dbbuf,
+							  &dotcnt);
+		if (dotcnt > 2)
+			fatal("improper relation name (too many dotted names): %s",
+				  cell->val);
+		else if (dotcnt == 2)
+			prohibit_crossdb_refs(GetConnection(fout), dbbuf.data, cell->val);
+		termPQExpBuffer(&dbbuf);
 
 		ExecuteSqlStatement(fout, "RESET search_path");
 		res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
@@ -1534,6 +1571,25 @@ expand_table_name_patterns(Archive *fout,
 	}
 
 	destroyPQExpBuffer(query);
+}
+
+/*
+ * Verifies that the connected database name matches the given database name,
+ * and if not, dies with an error about the given pattern.
+ *
+ * The 'dbname' argument should be a literal name parsed from 'pattern'.
+ */
+static void
+prohibit_crossdb_refs(PGconn *conn, const char *dbname, const char *pattern)
+{
+	const char *db;
+
+	db = PQdb(conn);
+	if (db == NULL)
+		fatal("You are currently not connected to a database.");
+
+	if (strcmp(db, dbname) != 0)
+		fatal("cross-database references are not implemented: %s", pattern);
 }
 
 /*
@@ -2094,13 +2150,42 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 	DumpOptions *dopt = fout->dopt;
 	PQExpBuffer q = createPQExpBuffer();
 	PQExpBuffer insertStmt = NULL;
+	char	   *attgenerated;
 	PGresult   *res;
-	int			nfields;
+	int			nfields,
+				i;
 	int			rows_per_statement = dopt->dump_inserts;
 	int			rows_this_statement = 0;
 
-	appendPQExpBuffer(q, "DECLARE _pg_dump_cursor CURSOR FOR "
-					  "SELECT * FROM ONLY %s",
+	/*
+	 * If we're going to emit INSERTs with column names, the most efficient
+	 * way to deal with generated columns is to exclude them entirely.  For
+	 * INSERTs without column names, we have to emit DEFAULT rather than the
+	 * actual column value --- but we can save a few cycles by fetching nulls
+	 * rather than the uninteresting-to-us value.
+	 */
+	attgenerated = (char *) pg_malloc(tbinfo->numatts * sizeof(char));
+	appendPQExpBufferStr(q, "DECLARE _pg_dump_cursor CURSOR FOR SELECT ");
+	nfields = 0;
+	for (i = 0; i < tbinfo->numatts; i++)
+	{
+		if (tbinfo->attisdropped[i])
+			continue;
+		if (tbinfo->attgenerated[i] && dopt->column_inserts)
+			continue;
+		if (nfields > 0)
+			appendPQExpBufferStr(q, ", ");
+		if (tbinfo->attgenerated[i])
+			appendPQExpBufferStr(q, "NULL");
+		else
+			appendPQExpBufferStr(q, fmtId(tbinfo->attnames[i]));
+		attgenerated[nfields] = tbinfo->attgenerated[i];
+		nfields++;
+	}
+	/* Servers before 9.4 will complain about zero-column SELECT */
+	if (nfields == 0)
+		appendPQExpBufferStr(q, "NULL");
+	appendPQExpBuffer(q, " FROM ONLY %s",
 					  fmtQualifiedDumpable(tbinfo));
 	if (tdinfo->filtercond)
 		appendPQExpBuffer(q, " %s", tdinfo->filtercond);
@@ -2111,14 +2196,19 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 	{
 		res = ExecuteSqlQuery(fout, "FETCH 100 FROM _pg_dump_cursor",
 							  PGRES_TUPLES_OK);
-		nfields = PQnfields(res);
+
+		/* cross-check field count, allowing for dummy NULL if any */
+		if (nfields != PQnfields(res) &&
+			!(nfields == 0 && PQnfields(res) == 1))
+			fatal("wrong number of fields retrieved from table \"%s\"",
+				  tbinfo->dobj.name);
 
 		/*
 		 * First time through, we build as much of the INSERT statement as
 		 * possible in "insertStmt", which we can then just print for each
-		 * statement. If the table happens to have zero columns then this will
-		 * be a complete statement, otherwise it will end in "VALUES" and be
-		 * ready to have the row's column values printed.
+		 * statement. If the table happens to have zero dumpable columns then
+		 * this will be a complete statement, otherwise it will end in
+		 * "VALUES" and be ready to have the row's column values printed.
 		 */
 		if (insertStmt == NULL)
 		{
@@ -2197,7 +2287,7 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 			{
 				if (field > 0)
 					archputs(", ", fout);
-				if (tbinfo->attgenerated[field])
+				if (attgenerated[field])
 				{
 					archputs("DEFAULT", fout);
 					continue;
@@ -2302,6 +2392,7 @@ dumpTableData_insert(Archive *fout, const void *dcontext)
 	destroyPQExpBuffer(q);
 	if (insertStmt != NULL)
 		destroyPQExpBuffer(insertStmt);
+	free(attgenerated);
 
 	return 1;
 }
@@ -4617,7 +4708,7 @@ binary_upgrade_set_type_oids_by_type_oid(Archive *fout,
 	{
 		if (fout->remoteVersion >= 140000)
 		{
-			appendPQExpBuffer(upgrade_query,
+			printfPQExpBuffer(upgrade_query,
 							  "SELECT t.oid, t.typarray "
 							  "FROM pg_catalog.pg_type t "
 							  "JOIN pg_catalog.pg_range r "
@@ -6983,7 +7074,7 @@ getTables(Archive *fout, int *numTables)
 		 */
 		if (tblinfo[i].dobj.dump &&
 			(tblinfo[i].relkind == RELKIND_RELATION ||
-			 tblinfo->relkind == RELKIND_PARTITIONED_TABLE) &&
+			 tblinfo[i].relkind == RELKIND_PARTITIONED_TABLE) &&
 			(tblinfo[i].dobj.dump & DUMP_COMPONENTS_REQUIRING_LOCK))
 		{
 			resetPQExpBuffer(query);
@@ -8049,6 +8140,7 @@ getTriggers(Archive *fout, TableInfo tblinfo[], int numTables)
 							  "SELECT tgname, "
 							  "tgfoid::pg_catalog.regproc AS tgfname, "
 							  "tgtype, tgnargs, tgargs, tgenabled, "
+							  "false as tgisinternal, "
 							  "tgisconstraint, tgconstrname, tgdeferrable, "
 							  "tgconstrrelid, tginitdeferred, tableoid, oid, "
 							  "tgconstrrelid::pg_catalog.regclass AS tgconstrrelname "
@@ -9786,9 +9878,26 @@ getDefaultACLs(Archive *fout, int *numDefaultACLs)
 		PQExpBuffer initacl_subquery = createPQExpBuffer();
 		PQExpBuffer initracl_subquery = createPQExpBuffer();
 
+		/*
+		 * Global entries (with defaclnamespace=0) replace the hard-wired
+		 * default ACL for their object type.  We should dump them as deltas
+		 * from the default ACL, since that will be used as a starting point
+		 * for interpreting the ALTER DEFAULT PRIVILEGES commands.  On the
+		 * other hand, non-global entries can only add privileges not revoke
+		 * them.  We must dump those as-is (i.e., as deltas from an empty
+		 * ACL).  We implement that by passing NULL as the object type for
+		 * acldefault(), which works because acldefault() is STRICT.
+		 *
+		 * We can use defaclobjtype as the object type for acldefault(),
+		 * except for the case of 'S' (DEFACLOBJ_SEQUENCE) which must be
+		 * converted to 's'.
+		 */
 		buildACLQueries(acl_subquery, racl_subquery, initacl_subquery,
 						initracl_subquery, "defaclacl", "defaclrole",
-						"CASE WHEN defaclobjtype = 'S' THEN 's' ELSE defaclobjtype END::\"char\"",
+						"CASE WHEN defaclnamespace = 0 THEN"
+						"	  CASE WHEN defaclobjtype = 'S' THEN 's'::\"char\""
+						"	  ELSE defaclobjtype END "
+						"ELSE NULL END",
 						dopt->binary_upgrade);
 
 		appendPQExpBuffer(query, "SELECT d.oid, d.tableoid, "

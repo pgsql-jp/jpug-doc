@@ -1428,6 +1428,11 @@ create trigger trg1 after insert on trigpart3 for each row execute procedure tri
 alter table trigpart attach partition trigpart3 FOR VALUES FROM (2000) to (3000); -- fail
 drop table trigpart3;
 
+-- check display of unrelated triggers
+create trigger samename after delete on trigpart execute function trigger_nothing();
+create trigger samename after delete on trigpart1 execute function trigger_nothing();
+\d trigpart1
+
 drop table trigpart;
 drop function trigger_nothing();
 
@@ -1827,13 +1832,22 @@ create table parent (a int) partition by list (a);
 create table child1 partition of parent for values in (1);
 create trigger tg after insert on parent
   for each row execute procedure trig_nothing();
+create trigger tg_stmt after insert on parent
+  for statement execute procedure trig_nothing();
 select tgrelid::regclass, tgname, tgenabled from pg_trigger
   where tgrelid in ('parent'::regclass, 'child1'::regclass)
-  order by tgrelid::regclass::text;
-alter table only parent enable always trigger tg;
+  order by tgrelid::regclass::text, tgname;
+alter table only parent enable always trigger tg;	-- no recursion because ONLY
+alter table parent enable always trigger tg_stmt;	-- no recursion because statement trigger
 select tgrelid::regclass, tgname, tgenabled from pg_trigger
   where tgrelid in ('parent'::regclass, 'child1'::regclass)
-  order by tgrelid::regclass::text;
+  order by tgrelid::regclass::text, tgname;
+-- The following is a no-op for the parent trigger but not so
+-- for the child trigger, so recursion should be applied.
+alter table parent enable always trigger tg;
+select tgrelid::regclass, tgname, tgenabled from pg_trigger
+  where tgrelid in ('parent'::regclass, 'child1'::regclass)
+  order by tgrelid::regclass::text, tgname;
 drop table parent, child1;
 
 -- Verify that firing state propagates correctly on creation, too

@@ -408,6 +408,15 @@ EXPLAIN (VERBOSE, COSTS OFF)
   SELECT * FROM ft1 t1 WHERE t1.c1 === t1.c2 order by t1.c2 limit 1;
 SELECT * FROM ft1 t1 WHERE t1.c1 === t1.c2 order by t1.c2 limit 1;
 
+-- check schema-qualification of regconfig constant
+CREATE TEXT SEARCH CONFIGURATION public.custom_search
+  (COPY = pg_catalog.english);
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT c1, to_tsvector('custom_search'::regconfig, c3) FROM ft1
+WHERE c1 = 642 AND length(to_tsvector('custom_search'::regconfig, c3)) > 0;
+SELECT c1, to_tsvector('custom_search'::regconfig, c3) FROM ft1
+WHERE c1 = 642 AND length(to_tsvector('custom_search'::regconfig, c3)) > 0;
+
 -- ===================================================================
 -- JOIN queries
 -- ===================================================================
@@ -873,6 +882,10 @@ create operator class my_op_class for type int using btree family my_op_family a
 explain (verbose, costs off)
 select array_agg(c1 order by c1 using operator(public.<^)) from ft2 where c2 = 6 and c1 < 100 group by c2;
 
+-- This should not be pushed either.
+explain (verbose, costs off)
+select * from ft2 order by c1 using operator(public.<^);
+
 -- Update local stats on ft2
 ANALYZE ft2;
 
@@ -889,6 +902,10 @@ alter server loopback options (set extensions 'postgres_fdw');
 explain (verbose, costs off)
 select array_agg(c1 order by c1 using operator(public.<^)) from ft2 where c2 = 6 and c1 < 100 group by c2;
 select array_agg(c1 order by c1 using operator(public.<^)) from ft2 where c2 = 6 and c1 < 100 group by c2;
+
+-- This should be pushed too.
+explain (verbose, costs off)
+select * from ft2 order by c1 using operator(public.<^);
 
 -- Remove from extension
 alter extension postgres_fdw drop operator class my_op_class using btree;
@@ -1135,6 +1152,7 @@ SELECT ftx.x1, ft2.c2, ftx.x8 FROM ft1 ftx(x1,x2,x3,x4,x5,x6,x7,x8), ft2
 SELECT ftx.x1, ft2.c2, ftx FROM ft1 ftx(x1,x2,x3,x4,x5,x6,x7,x8), ft2
   WHERE ftx.x1 = ft2.c1 AND ftx.x1 = 1; -- ERROR
 SELECT sum(c2), array_agg(c8) FROM ft1 GROUP BY c8; -- ERROR
+ANALYZE ft1; -- ERROR
 ALTER FOREIGN TABLE ft1 ALTER COLUMN c8 TYPE user_enum;
 
 -- ===================================================================
@@ -1423,6 +1441,14 @@ UPDATE rw_view SET b = b + 15;
 UPDATE rw_view SET b = b + 15; -- ok
 SELECT * FROM foreign_tbl;
 
+-- We don't allow batch insert when there are any WCO constraints
+ALTER SERVER loopback OPTIONS (ADD batch_size '10');
+EXPLAIN (VERBOSE, COSTS OFF)
+INSERT INTO rw_view VALUES (0, 15), (0, 5);
+INSERT INTO rw_view VALUES (0, 15), (0, 5); -- should fail
+SELECT * FROM foreign_tbl;
+ALTER SERVER loopback OPTIONS (DROP batch_size);
+
 DROP FOREIGN TABLE foreign_tbl CASCADE;
 DROP TRIGGER row_before_insupd_trigger ON base_tbl;
 DROP TABLE base_tbl;
@@ -1436,6 +1462,9 @@ CREATE FOREIGN TABLE foreign_tbl (a int, b int)
   SERVER loopback OPTIONS (table_name 'child_tbl');
 
 CREATE TABLE parent_tbl (a int, b int) PARTITION BY RANGE(a);
+ALTER TABLE parent_tbl ATTACH PARTITION foreign_tbl FOR VALUES FROM (0) TO (100);
+-- Detach and re-attach once, to stress the concurrent detach case.
+ALTER TABLE parent_tbl DETACH PARTITION foreign_tbl CONCURRENTLY;
 ALTER TABLE parent_tbl ATTACH PARTITION foreign_tbl FOR VALUES FROM (0) TO (100);
 
 CREATE VIEW rw_view AS SELECT * FROM parent_tbl
@@ -1457,6 +1486,14 @@ EXPLAIN (VERBOSE, COSTS OFF)
 UPDATE rw_view SET b = b + 15;
 UPDATE rw_view SET b = b + 15; -- ok
 SELECT * FROM foreign_tbl;
+
+-- We don't allow batch insert when there are any WCO constraints
+ALTER SERVER loopback OPTIONS (ADD batch_size '10');
+EXPLAIN (VERBOSE, COSTS OFF)
+INSERT INTO rw_view VALUES (0, 15), (0, 5);
+INSERT INTO rw_view VALUES (0, 15), (0, 5); -- should fail
+SELECT * FROM foreign_tbl;
+ALTER SERVER loopback OPTIONS (DROP batch_size);
 
 DROP FOREIGN TABLE foreign_tbl CASCADE;
 DROP TRIGGER row_before_insupd_trigger ON child_tbl;
@@ -3071,6 +3108,18 @@ CREATE FOREIGN TABLE ftable ( x int ) SERVER loopback OPTIONS ( table_name 'batc
 EXPLAIN (VERBOSE, COSTS OFF) INSERT INTO ftable VALUES (1), (2);
 INSERT INTO ftable VALUES (1), (2);
 SELECT COUNT(*) FROM ftable;
+
+-- Disable batch inserting into foreign tables with BEFORE ROW INSERT triggers
+-- even if the batch_size option is enabled.
+ALTER FOREIGN TABLE ftable OPTIONS ( SET batch_size '10' );
+CREATE TRIGGER trig_row_before BEFORE INSERT ON ftable
+FOR EACH ROW EXECUTE PROCEDURE trigger_data(23,'skidoo');
+EXPLAIN (VERBOSE, COSTS OFF) INSERT INTO ftable VALUES (3), (4);
+INSERT INTO ftable VALUES (3), (4);
+SELECT COUNT(*) FROM ftable;
+
+-- Clean up
+DROP TRIGGER trig_row_before ON ftable;
 DROP FOREIGN TABLE ftable;
 DROP TABLE batch_table;
 
@@ -3293,6 +3342,11 @@ DROP INDEX base_tbl1_idx;
 DROP INDEX base_tbl2_idx;
 DROP INDEX async_p3_idx;
 
+-- Disable async execution if we use gating Result nodes for pseudoconstant
+-- quals
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT * FROM async_pt WHERE CURRENT_USER = SESSION_USER;
+
 -- Test that pending requests are processed properly
 SET enable_mergejoin TO false;
 SET enable_hashjoin TO false;
@@ -3374,6 +3428,23 @@ DROP TABLE base_tbl1;
 DROP TABLE base_tbl2;
 DROP TABLE result_tbl;
 DROP TABLE join_tbl;
+
+-- Test that an asynchronous fetch is processed before restarting the scan in
+-- ReScanForeignScan
+CREATE TABLE base_tbl (a int, b int);
+INSERT INTO base_tbl VALUES (1, 11), (2, 22), (3, 33);
+CREATE FOREIGN TABLE foreign_tbl (b int)
+  SERVER loopback OPTIONS (table_name 'base_tbl');
+CREATE FOREIGN TABLE foreign_tbl2 () INHERITS (foreign_tbl)
+  SERVER loopback OPTIONS (table_name 'base_tbl');
+
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT a FROM base_tbl WHERE a IN (SELECT a FROM foreign_tbl);
+SELECT a FROM base_tbl WHERE a IN (SELECT a FROM foreign_tbl);
+
+-- Clean up
+DROP FOREIGN TABLE foreign_tbl CASCADE;
+DROP TABLE base_tbl;
 
 ALTER SERVER loopback OPTIONS (DROP async_capable);
 ALTER SERVER loopback2 OPTIONS (DROP async_capable);

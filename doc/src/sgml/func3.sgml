@@ -982,6 +982,10 @@ variadic引数リストからJSONオブジェクトを作成します。
        <para>
         <literal>json_array_length('[1,2,3,{"f1":1,"f2":[5,6]},4]')</literal>
         <returnvalue>5</returnvalue>
+       </para>
+       <para>
+        <literal>jsonb_array_length('[]')</literal>
+        <returnvalue>0</returnvalue>
        </para></entry>
       </row>
 
@@ -3360,16 +3364,15 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
    <para>
 <!--
     To avoid blocking concurrent transactions that obtain numbers from
-    the same sequence, a <function>nextval</function> operation is never
-    rolled back; that is, once a value has been fetched it is considered
-    used and will not be returned again.  This is true even if the
-    surrounding transaction later aborts, or if the calling query ends
-    up not using the value.  For example an <command>INSERT</command> with
+    the same sequence, the value obtained by <function>nextval</function>
+    is not reclaimed for re-use if the calling transaction later aborts.
+    This means that transaction aborts or database crashes can result in
+    gaps in the sequence of assigned values.  That can happen without a
+    transaction abort, too.  For example an <command>INSERT</command> with
     an <literal>ON CONFLICT</literal> clause will compute the to-be-inserted
     tuple, including doing any required <function>nextval</function>
     calls, before detecting any conflict that would cause it to follow
-    the <literal>ON CONFLICT</literal> rule instead.  Such cases will leave
-    unused <quote>holes</quote> in the sequence of assigned values.
+    the <literal>ON CONFLICT</literal> rule instead.
     Thus, <productname>PostgreSQL</productname> sequence
     objects <emphasis>cannot be used to obtain <quote>gapless</quote>
     sequences</emphasis>.
@@ -3384,10 +3387,27 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
 
    <para>
 <!--
-    Likewise, any sequence state changes made by <function>setval</function>
-    are not undone if the transaction rolls back.
+    Likewise, sequence state changes made by <function>setval</function>
+    are immediately visible to other transactions, and are not undone if
+    the calling transaction rolls back.
+-->
+<!-- マッチ度[63.583815]
+Likewise, any sequence state changes made by <function>setval</function> are not undone if the transaction rolls back.
 -->
 同様に、<function>setval</function>が行ったシーケンス状態の変更はトランザクションがロールバックしても元には戻りません。
+   </para>
+
+   <para>
+    If the database cluster crashes before committing a transaction
+    containing a <function>nextval</function>
+    or <function>setval</function> call, the sequence state change might
+    not have made its way to persistent storage, so that it is uncertain
+    whether the sequence will have its original or updated state after the
+    cluster restarts.  This is harmless for usage of the sequence within
+    the database, since other effects of uncommitted transactions will not
+    be visible either.  However, if you wish to use a sequence value for
+    persistent outside-the-database purposes, make sure that the
+    <function>nextval</function> call has been committed before doing so.
    </para>
   </caution>
 
@@ -4125,14 +4145,20 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>integer</returnvalue>
        </para>
        <para>
-<!--
         Returns the length of the requested array dimension.
--->
-要求された配列の次元の長さを返します。
+        (Produces NULL instead of 0 for empty or missing array dimensions.)
        </para>
        <para>
         <literal>array_length(array[1,2,3], 1)</literal>
         <returnvalue>3</returnvalue>
+       </para>
+       <para>
+        <literal>array_length(array[]::int[], 1)</literal>
+        <returnvalue>NULL</returnvalue>
+       </para>
+       <para>
+        <literal>array_length(array['text'], 2)</literal>
+        <returnvalue>NULL</returnvalue>
        </para></entry>
       </row>
 
@@ -4942,7 +4968,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 要素は多重範囲に含まれているか？
        </para>
        <para>
-        <literal>42 &lt;@ '{[1,7)}'::int4multirange</literal>
+        <literal>4 &lt;@ '{[1,7)}'::int4multirange</literal>
         <returnvalue>t</returnvalue>
        </para></entry>
       </row>
@@ -6266,6 +6292,11 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         </indexterm>
         <function>range_intersect_agg</function> ( <parameter>value</parameter>
          <type>anyrange</type> )
+        <returnvalue>anyrange</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>range_intersect_agg</function> ( <parameter>value</parameter>
+         <type>anymultirange</type> )
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>

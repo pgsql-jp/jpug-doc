@@ -818,8 +818,13 @@ GINインデックスでは以下の異なるパラメータを受け付けま�
     <listitem>
     <para>
 <!--
-     Defines whether a summarization run is invoked for the previous page
+     Defines whether a summarization run is queued for the previous page
      range whenever an insertion is detected on the next one.
+     See <xref linkend="brin-operation"/> for more details.
+     The default is <literal>off</literal>.
+-->
+<!-- マッチ度[54.587156]
+Defines whether a summarization run is invoked for the previous page range whenever an insertion is detected on the next one.
 -->
 次のページへの挿入が検知された時に、いつでも直前のページに対してサマリー処理を起動するかどうかを定義します。
     </para>
@@ -889,7 +894,8 @@ GINインデックスでは以下の異なるパラメータを受け付けま�
 
    <para>
 <!--
-    In a concurrent index build, the index is actually entered into
+    In a concurrent index build, the index is actually entered as an
+    <quote>invalid</quote> index into
     the system catalogs in one transaction, then two table scans occur in
     two more transactions.  Before each table scan, the index build must
     wait for existing transactions that have modified the table to terminate.
@@ -898,11 +904,14 @@ GINインデックスでは以下の異なるパラメータを受け付けま�
     scan to terminate, including transactions used by any phase of concurrent
     index builds on other tables, if the indexes involved are partial or have
     columns that are not simple column references.
-    Then finally the index can be marked ready for use,
+    Then finally the index can be marked <quote>valid</quote> and ready for use,
     and the <command>CREATE INDEX</command> command terminates.
     Even then, however, the index may not be immediately usable for queries:
     in the worst case, it cannot be used as long as transactions exist that
     predate the start of the index build.
+-->
+<!-- マッチ度[93.788820]
+In a concurrent index build, the index is actually entered into the system catalogs in one transaction, then two table scans occur in two more transactions. Before each table scan, the index build must wait for existing transactions that have modified the table to terminate. After the second scan, the index build must wait for any transactions that have a snapshot (see <xref linkend="mvcc"/>) predating the second scan to terminate, including transactions used by any phase of concurrent index builds on other tables, if the indexes involved are partial or have columns that are not simple column references. Then finally the index can be marked ready for use, and the <command>CREATE INDEX</command> command terminates. Even then, however, the index may not be immediately usable for queries: in the worst case, it cannot be used as long as transactions exist that predate the start of the index build.
 -->
 同時実行インデックス構築では実際には、1つのトランザクションでシステムカタログに登録され、さらに2つのトランザクションで２つのテーブルスキャンが起こります。
 各テーブルスキャンの前に、インデックス構築はテーブルを修正した実行中のトランザクションが終了するのを待たなければなりません。
@@ -1240,15 +1249,9 @@ Indexes:
   </para>
 
   <para>
-<!--
    Like any long-running transaction, <command>CREATE INDEX</command> on a
    table can affect which tuples can be removed by concurrent
    <command>VACUUM</command> on any other table.
-   Excepted from this are operations with the <literal>CONCURRENTLY</literal>
-   option for indexes that are not partial and do not index any expressions.
--->
-他の時間のかかるトランザクションと同じく、あるテーブルに対する<command>CREATE INDEX</command>は、その他のテーブルに対する同時実行中の<command>VACUUM</command>によりどのタプルが削除できるかに影響します。
-この例外は、部分インデックスでなくて式をインデックス化しないインデックスに対する<literal>CONCURRENTLY</literal>オプション付きの操作です。
   </para>
 
   <para>

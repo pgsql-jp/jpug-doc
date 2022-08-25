@@ -46,6 +46,7 @@
 #include "replication/logical.h"
 #include "replication/logicallauncher.h"
 #include "replication/origin.h"
+#include "replication/snapbuild.h"
 #include "replication/syncrep.h"
 #include "replication/walsender.h"
 #include "storage/condition_variable.h"
@@ -1334,6 +1335,7 @@ RecordTransactionCommit(void)
 		 * This makes checkpoint's determination of which xacts are delayChkpt
 		 * a bit fuzzy, but it doesn't matter.
 		 */
+		Assert(!MyProc->delayChkpt);
 		START_CRIT_SECTION();
 		MyProc->delayChkpt = true;
 
@@ -2506,6 +2508,13 @@ PrepareTransaction(void)
 	XactLastRecEnd = 0;
 
 	/*
+	 * Transfer our locks to a dummy PGPROC.  This has to be done before
+	 * ProcArrayClearTransaction().  Otherwise, a GetLockConflicts() would
+	 * conclude "xact already committed or aborted" for our locks.
+	 */
+	PostPrepare_Locks(xid);
+
+	/*
 	 * Let others know about no transaction in progress by me.  This has to be
 	 * done *after* the prepared transaction has been marked valid, else
 	 * someone may think it is unlocked and recyclable.
@@ -2544,7 +2553,6 @@ PrepareTransaction(void)
 
 	PostPrepare_MultiXact(xid);
 
-	PostPrepare_Locks(xid);
 	PostPrepare_PredicateLocks(xid);
 
 	ResourceOwnerRelease(TopTransactionResourceOwner,
@@ -2697,6 +2705,9 @@ AbortTransaction(void)
 
 	/* Reset logical streaming state. */
 	ResetLogicalStreamingState();
+
+	/* Reset snapshot export state. */
+	SnapBuildResetExportedSnapshotState();
 
 	/* If in parallel mode, clean up workers and exit parallel mode. */
 	if (IsInParallelMode())
@@ -3380,6 +3391,9 @@ AbortCurrentTransaction(void)
  *	could issue more commands and possibly cause a failure after the statement
  *	completes).  Subtransactions are verboten too.
  *
+ *	We must also set XACT_FLAGS_NEEDIMMEDIATECOMMIT in MyXactFlags, to ensure
+ *	that postgres.c follows through by committing after the statement is done.
+ *
  *	isTopLevel: passed down from ProcessUtility to determine whether we are
  *	inside a function.  (We will always fail if this is false, but it's
  *	convenient to centralize the check here instead of making callers do it.)
@@ -3421,7 +3435,9 @@ PreventInTransactionBlock(bool isTopLevel, const char *stmtType)
 	if (CurrentTransactionState->blockState != TBLOCK_DEFAULT &&
 		CurrentTransactionState->blockState != TBLOCK_STARTED)
 		elog(FATAL, "cannot prevent transaction chain");
-	/* all okay */
+
+	/* All okay.  Set the flag to make sure the right thing happens later. */
+	MyXactFlags |= XACT_FLAGS_NEEDIMMEDIATECOMMIT;
 }
 
 /*
@@ -3517,6 +3533,13 @@ IsInTransactionBlock(bool isTopLevel)
 	if (CurrentTransactionState->blockState != TBLOCK_DEFAULT &&
 		CurrentTransactionState->blockState != TBLOCK_STARTED)
 		return true;
+
+	/*
+	 * If we tell the caller we're not in a transaction block, then inform
+	 * postgres.c that it had better commit when the statement is done.
+	 * Otherwise our report could be a lie.
+	 */
+	MyXactFlags |= XACT_FLAGS_NEEDIMMEDIATECOMMIT;
 
 	return false;
 }
@@ -4863,6 +4886,7 @@ CommitSubTransaction(void)
 	AfterTriggerEndSubXact(true);
 	AtSubCommit_Portals(s->subTransactionId,
 						s->parent->subTransactionId,
+						s->parent->nestingLevel,
 						s->parent->curTransactionOwner);
 	AtEOSubXact_LargeObject(true, s->subTransactionId,
 							s->parent->subTransactionId);
@@ -5008,6 +5032,11 @@ AbortSubTransaction(void)
 
 	/* Reset logical streaming state. */
 	ResetLogicalStreamingState();
+
+	/*
+	 * No need for SnapBuildResetExportedSnapshotState() here, snapshot
+	 * exports are not supported in subtransactions.
+	 */
 
 	/* Exit from parallel mode, if necessary. */
 	if (IsInParallelMode())
@@ -5289,8 +5318,9 @@ SerializeTransactionState(Size maxsize, char *start_address)
 	{
 		if (FullTransactionIdIsValid(s->fullTransactionId))
 			workspace[i++] = XidFromFullTransactionId(s->fullTransactionId);
-		memcpy(&workspace[i], s->childXids,
-			   s->nChildXids * sizeof(TransactionId));
+		if (s->nChildXids > 0)
+			memcpy(&workspace[i], s->childXids,
+				   s->nChildXids * sizeof(TransactionId));
 		i += s->nChildXids;
 	}
 	Assert(i == nxids);
