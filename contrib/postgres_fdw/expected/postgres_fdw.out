@@ -1067,6 +1067,26 @@ SELECT * FROM ft1 t1 WHERE t1.c1 === t1.c2 order by t1.c2 limit 1;
   1 |  1 | 00001 | Fri Jan 02 00:00:00 1970 PST | Fri Jan 02 00:00:00 1970 | 1  | 1          | foo
 (1 row)
 
+-- check schema-qualification of regconfig constant
+CREATE TEXT SEARCH CONFIGURATION public.custom_search
+  (COPY = pg_catalog.english);
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT c1, to_tsvector('custom_search'::regconfig, c3) FROM ft1
+WHERE c1 = 642 AND length(to_tsvector('custom_search'::regconfig, c3)) > 0;
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan on public.ft1
+   Output: c1, to_tsvector('custom_search'::regconfig, c3)
+   Remote SQL: SELECT "C 1", c3 FROM "S 1"."T 1" WHERE (("C 1" = 642)) AND ((length(to_tsvector('public.custom_search'::regconfig, c3)) > 0))
+(3 rows)
+
+SELECT c1, to_tsvector('custom_search'::regconfig, c3) FROM ft1
+WHERE c1 = 642 AND length(to_tsvector('custom_search'::regconfig, c3)) > 0;
+ c1  | to_tsvector 
+-----+-------------
+ 642 | '00642':1
+(1 row)
+
 -- ===================================================================
 -- JOIN queries
 -- ===================================================================
@@ -2151,6 +2171,7 @@ SELECT t1."C 1" FROM "S 1"."T 1" t1, LATERAL (SELECT DISTINCT t2.c1, t3.c1 FROM 
                Output: t1."C 1", t1.c2, t1.c3, t1.c4, t1.c5, t1.c6, t1.c7, t1.c8
          ->  Memoize
                Cache Key: t1.c2
+               Cache Mode: binary
                ->  Subquery Scan on q
                      ->  HashAggregate
                            Output: t2.c1, t3.c1
@@ -2159,7 +2180,7 @@ SELECT t1."C 1" FROM "S 1"."T 1" t1, LATERAL (SELECT DISTINCT t2.c1, t3.c1 FROM 
                                  Output: t2.c1, t3.c1
                                  Relations: (public.ft1 t2) INNER JOIN (public.ft2 t3)
                                  Remote SQL: SELECT r1."C 1", r2."C 1" FROM ("S 1"."T 1" r1 INNER JOIN "S 1"."T 1" r2 ON (((r1."C 1" = r2."C 1")) AND ((r1.c2 = $1::integer))))
-(16 rows)
+(17 rows)
 
 SELECT t1."C 1" FROM "S 1"."T 1" t1, LATERAL (SELECT DISTINCT t2.c1, t3.c1 FROM ft1 t2, ft2 t3 WHERE t2.c1 = t3.c1 AND t2.c2 = t1.c2) q ORDER BY t1."C 1" OFFSET 10 LIMIT 10;
  C 1 
@@ -3168,6 +3189,19 @@ select array_agg(c1 order by c1 using operator(public.<^)) from ft2 where c2 = 6
          Remote SQL: SELECT "C 1", c2 FROM "S 1"."T 1" WHERE (("C 1" < 100)) AND ((c2 = 6))
 (6 rows)
 
+-- This should not be pushed either.
+explain (verbose, costs off)
+select * from ft2 order by c1 using operator(public.<^);
+                                  QUERY PLAN                                   
+-------------------------------------------------------------------------------
+ Sort
+   Output: c1, c2, c3, c4, c5, c6, c7, c8
+   Sort Key: ft2.c1 USING <^
+   ->  Foreign Scan on public.ft2
+         Output: c1, c2, c3, c4, c5, c6, c7, c8
+         Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1"
+(6 rows)
+
 -- Update local stats on ft2
 ANALYZE ft2;
 -- Add into extension
@@ -3194,6 +3228,16 @@ select array_agg(c1 order by c1 using operator(public.<^)) from ft2 where c2 = 6
 --------------------------------
  {6,16,26,36,46,56,66,76,86,96}
 (1 row)
+
+-- This should be pushed too.
+explain (verbose, costs off)
+select * from ft2 order by c1 using operator(public.<^);
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan on public.ft2
+   Output: c1, c2, c3, c4, c5, c6, c7, c8
+   Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" ORDER BY "C 1" USING OPERATOR(public.<^) NULLS LAST
+(3 rows)
 
 -- Remove from extension
 alter extension postgres_fdw drop operator class my_op_class using btree;
@@ -4110,6 +4154,9 @@ CONTEXT:  whole-row reference to foreign table "ftx"
 SELECT sum(c2), array_agg(c8) FROM ft1 GROUP BY c8; -- ERROR
 ERROR:  invalid input syntax for type integer: "foo"
 CONTEXT:  processing expression at position 2 in select list
+ANALYZE ft1; -- ERROR
+ERROR:  invalid input syntax for type integer: "foo"
+CONTEXT:  column "c8" of foreign table "ft1"
 ALTER FOREIGN TABLE ft1 ALTER COLUMN c8 TYPE user_enum;
 -- ===================================================================
 -- subtransaction
@@ -6326,6 +6373,29 @@ SELECT * FROM foreign_tbl;
  20 | 30
 (1 row)
 
+-- We don't allow batch insert when there are any WCO constraints
+ALTER SERVER loopback OPTIONS (ADD batch_size '10');
+EXPLAIN (VERBOSE, COSTS OFF)
+INSERT INTO rw_view VALUES (0, 15), (0, 5);
+                                   QUERY PLAN                                   
+--------------------------------------------------------------------------------
+ Insert on public.foreign_tbl
+   Remote SQL: INSERT INTO public.base_tbl(a, b) VALUES ($1, $2) RETURNING a, b
+   Batch Size: 1
+   ->  Values Scan on "*VALUES*"
+         Output: "*VALUES*".column1, "*VALUES*".column2
+(5 rows)
+
+INSERT INTO rw_view VALUES (0, 15), (0, 5); -- should fail
+ERROR:  new row violates check option for view "rw_view"
+DETAIL:  Failing row contains (10, 5).
+SELECT * FROM foreign_tbl;
+ a  | b  
+----+----
+ 20 | 30
+(1 row)
+
+ALTER SERVER loopback OPTIONS (DROP batch_size);
 DROP FOREIGN TABLE foreign_tbl CASCADE;
 NOTICE:  drop cascades to view rw_view
 DROP TRIGGER row_before_insupd_trigger ON base_tbl;
@@ -6337,6 +6407,9 @@ CREATE TRIGGER row_before_insupd_trigger BEFORE INSERT OR UPDATE ON child_tbl FO
 CREATE FOREIGN TABLE foreign_tbl (a int, b int)
   SERVER loopback OPTIONS (table_name 'child_tbl');
 CREATE TABLE parent_tbl (a int, b int) PARTITION BY RANGE(a);
+ALTER TABLE parent_tbl ATTACH PARTITION foreign_tbl FOR VALUES FROM (0) TO (100);
+-- Detach and re-attach once, to stress the concurrent detach case.
+ALTER TABLE parent_tbl DETACH PARTITION foreign_tbl CONCURRENTLY;
 ALTER TABLE parent_tbl ATTACH PARTITION foreign_tbl FOR VALUES FROM (0) TO (100);
 CREATE VIEW rw_view AS SELECT * FROM parent_tbl
   WHERE a < b WITH CHECK OPTION;
@@ -6415,6 +6488,27 @@ SELECT * FROM foreign_tbl;
  20 | 30
 (1 row)
 
+-- We don't allow batch insert when there are any WCO constraints
+ALTER SERVER loopback OPTIONS (ADD batch_size '10');
+EXPLAIN (VERBOSE, COSTS OFF)
+INSERT INTO rw_view VALUES (0, 15), (0, 5);
+                       QUERY PLAN                       
+--------------------------------------------------------
+ Insert on public.parent_tbl
+   ->  Values Scan on "*VALUES*"
+         Output: "*VALUES*".column1, "*VALUES*".column2
+(3 rows)
+
+INSERT INTO rw_view VALUES (0, 15), (0, 5); -- should fail
+ERROR:  new row violates check option for view "rw_view"
+DETAIL:  Failing row contains (10, 5).
+SELECT * FROM foreign_tbl;
+ a  | b  
+----+----
+ 20 | 30
+(1 row)
+
+ALTER SERVER loopback OPTIONS (DROP batch_size);
 DROP FOREIGN TABLE foreign_tbl CASCADE;
 DROP TRIGGER row_before_insupd_trigger ON child_tbl;
 DROP TABLE parent_tbl CASCADE;
@@ -9838,6 +9932,34 @@ SELECT COUNT(*) FROM ftable;
      2
 (1 row)
 
+-- Disable batch inserting into foreign tables with BEFORE ROW INSERT triggers
+-- even if the batch_size option is enabled.
+ALTER FOREIGN TABLE ftable OPTIONS ( SET batch_size '10' );
+CREATE TRIGGER trig_row_before BEFORE INSERT ON ftable
+FOR EACH ROW EXECUTE PROCEDURE trigger_data(23,'skidoo');
+EXPLAIN (VERBOSE, COSTS OFF) INSERT INTO ftable VALUES (3), (4);
+                         QUERY PLAN                          
+-------------------------------------------------------------
+ Insert on public.ftable
+   Remote SQL: INSERT INTO public.batch_table(x) VALUES ($1)
+   Batch Size: 1
+   ->  Values Scan on "*VALUES*"
+         Output: "*VALUES*".column1
+(5 rows)
+
+INSERT INTO ftable VALUES (3), (4);
+NOTICE:  trig_row_before(23, skidoo) BEFORE ROW INSERT ON ftable
+NOTICE:  NEW: (3)
+NOTICE:  trig_row_before(23, skidoo) BEFORE ROW INSERT ON ftable
+NOTICE:  NEW: (4)
+SELECT COUNT(*) FROM ftable;
+ count 
+-------
+     4
+(1 row)
+
+-- Clean up
+DROP TRIGGER trig_row_before ON ftable;
 DROP FOREIGN TABLE ftable;
 DROP TABLE batch_table;
 -- Use partitioning
@@ -10366,6 +10488,32 @@ DROP TABLE local_tbl;
 DROP INDEX base_tbl1_idx;
 DROP INDEX base_tbl2_idx;
 DROP INDEX async_p3_idx;
+-- Disable async execution if we use gating Result nodes for pseudoconstant
+-- quals
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT * FROM async_pt WHERE CURRENT_USER = SESSION_USER;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Append
+   ->  Result
+         Output: async_pt_1.a, async_pt_1.b, async_pt_1.c
+         One-Time Filter: (CURRENT_USER = SESSION_USER)
+         ->  Foreign Scan on public.async_p1 async_pt_1
+               Output: async_pt_1.a, async_pt_1.b, async_pt_1.c
+               Remote SQL: SELECT a, b, c FROM public.base_tbl1
+   ->  Result
+         Output: async_pt_2.a, async_pt_2.b, async_pt_2.c
+         One-Time Filter: (CURRENT_USER = SESSION_USER)
+         ->  Foreign Scan on public.async_p2 async_pt_2
+               Output: async_pt_2.a, async_pt_2.b, async_pt_2.c
+               Remote SQL: SELECT a, b, c FROM public.base_tbl2
+   ->  Result
+         Output: async_pt_3.a, async_pt_3.b, async_pt_3.c
+         One-Time Filter: (CURRENT_USER = SESSION_USER)
+         ->  Seq Scan on public.async_p3 async_pt_3
+               Output: async_pt_3.a, async_pt_3.b, async_pt_3.c
+(18 rows)
+
 -- Test that pending requests are processed properly
 SET enable_mergejoin TO false;
 SET enable_hashjoin TO false;
@@ -10650,6 +10798,43 @@ DROP TABLE base_tbl1;
 DROP TABLE base_tbl2;
 DROP TABLE result_tbl;
 DROP TABLE join_tbl;
+-- Test that an asynchronous fetch is processed before restarting the scan in
+-- ReScanForeignScan
+CREATE TABLE base_tbl (a int, b int);
+INSERT INTO base_tbl VALUES (1, 11), (2, 22), (3, 33);
+CREATE FOREIGN TABLE foreign_tbl (b int)
+  SERVER loopback OPTIONS (table_name 'base_tbl');
+CREATE FOREIGN TABLE foreign_tbl2 () INHERITS (foreign_tbl)
+  SERVER loopback OPTIONS (table_name 'base_tbl');
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT a FROM base_tbl WHERE a IN (SELECT a FROM foreign_tbl);
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Seq Scan on public.base_tbl
+   Output: base_tbl.a
+   Filter: (SubPlan 1)
+   SubPlan 1
+     ->  Result
+           Output: base_tbl.a
+           ->  Append
+                 ->  Async Foreign Scan on public.foreign_tbl foreign_tbl_1
+                       Remote SQL: SELECT NULL FROM public.base_tbl
+                 ->  Async Foreign Scan on public.foreign_tbl2 foreign_tbl_2
+                       Remote SQL: SELECT NULL FROM public.base_tbl
+(11 rows)
+
+SELECT a FROM base_tbl WHERE a IN (SELECT a FROM foreign_tbl);
+ a 
+---
+ 1
+ 2
+ 3
+(3 rows)
+
+-- Clean up
+DROP FOREIGN TABLE foreign_tbl CASCADE;
+NOTICE:  drop cascades to foreign table foreign_tbl2
+DROP TABLE base_tbl;
 ALTER SERVER loopback OPTIONS (DROP async_capable);
 ALTER SERVER loopback2 OPTIONS (DROP async_capable);
 -- ===================================================================

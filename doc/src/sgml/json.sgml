@@ -674,9 +674,10 @@ GINインデックスは、多数の<type>jsonb</type>ドキュメント(デー�
   <para>
 <!--
     The default GIN operator class for <type>jsonb</type> supports queries with
-    top-level key-exists operators <literal>?</literal>, <literal>?&amp;</literal>
-    and <literal>?|</literal> operators and path/value-exists operator
-    <literal>@&gt;</literal>.
+    the key-exists operators <literal>?</literal>, <literal>?|</literal>
+    and <literal>?&amp;</literal>, the containment operator
+    <literal>@&gt;</literal>, and the <type>jsonpath</type> match
+    operators <literal>@?</literal> and <literal>@@</literal>.
     (For details of the semantics that these operators
     implement, see <xref linkend="functions-jsonb-op-table"/>.)
     An example of creating an index with this operator class is:
@@ -689,7 +690,8 @@ CREATE INDEX idxgin ON api USING GIN (jdoc);
 </programlisting>
 <!--
     The non-default GIN operator class <literal>jsonb_path_ops</literal>
-    supports indexing the <literal>@&gt;</literal> operator only.
+    does not support the key-exists operators, but it does support
+    <literal>@&gt;</literal>, <literal>@?</literal> and <literal>@@</literal>.
     An example of creating an index with this operator class is:
 -->
 デフォルトでないGIN演算子クラスは、<literal>@&gt;</literal>演算子のみサポートする<literal>jsonb_path_ops</literal>があります。
@@ -773,30 +775,7 @@ CREATE INDEX idxgintags ON api USING GIN ((jdoc -&gt; 'tags'));
 さて、 <literal>WHERE</literal>句の <literal>jdoc -&gt; 'tags' ? 'qui'</literal>は、インデックス式では 、<literal>?</literal>演算子はインデックス可能として認識されます。
 （式インデックスに関する詳細情報は<xref linkend="indexes-expressional"/>を参照してください。）
   </para>
-  <para>
-<!--
-    Also, GIN index supports <literal>@@</literal> and <literal>@?</literal>
-    operators, which perform <literal>jsonpath</literal> matching.
--->
-また、GINインデックスは<literal>jsonpath</literal>のマッチングを実行する<literal>@@</literal>演算子と<literal>@?</literal>演算子をサポートします。
-<programlisting>
-SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @@ '$.tags[*] == "qui"';
-</programlisting>
-<programlisting>
-SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @? '$.tags[*] ? (@ == "qui")';
-</programlisting>
-<!--
-    GIN index extracts statements of following form out of
-    <literal>jsonpath</literal>: <replaceable>accessors_chain</replaceable> = <replaceable>const</replaceable>.
-    Accessors chain may consist of <literal>.key</literal>,
-    <literal>[*]</literal>, and <literal>[<replaceable>index</replaceable>]</literal> accessors.
-    <literal>jsonb_ops</literal> additionally supports <literal>.*</literal>
-    and <literal>.**</literal> accessors.
--->
-GINインデックスは、<literal>jsonpath</literal>: <replaceable>accessors_chain</replaceable> = <replaceable>const</replaceable>の形式の文を抽出します。
-アクセサチェーン(Accessors chain)は<literal>[*]</literal>と<literal>[<replaceable>index</replaceable>]</literal>アクセサで構成されます。
-<literal>jsonb_ops</literal>は、さらに<literal>.*</literal>と<literal>.**</literal>アクセサもサポートします。
-  </para>
+
   <para>
 <!--
     Another approach to querying is to exploit containment, for example:
@@ -825,10 +804,33 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"tags": ["qu
   </para>
 
   <para>
+    GIN indexes also support the <literal>@?</literal>
+    and <literal>@@</literal> operators, which
+    perform <type>jsonpath</type> matching.  Examples are
+<programlisting>
+SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @? '$.tags[*] ? (@ == "qui")';
+</programlisting>
+<programlisting>
+SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @@ '$.tags[*] == "qui"';
+</programlisting>
+    For these operators, a GIN index extracts clauses of the form
+    <literal><replaceable>accessors_chain</replaceable>
+    = <replaceable>constant</replaceable></literal> out of
+    the <type>jsonpath</type> pattern, and does the index search based on
+    the keys and values mentioned in these clauses.  The accessors chain
+    may include <literal>.<replaceable>key</replaceable></literal>,
+    <literal>[*]</literal>,
+    and <literal>[<replaceable>index</replaceable>]</literal> accessors.
+    The <literal>jsonb_ops</literal> operator class also
+    supports <literal>.*</literal> and <literal>.**</literal> accessors,
+    but the <literal>jsonb_path_ops</literal> operator class does not.
+  </para>
+
+  <para>
 <!--
     Although the <literal>jsonb_path_ops</literal> operator class supports
-    only queries with the <literal>@&gt;</literal>, <literal>@@</literal>
-    and <literal>@?</literal> operators, it has notable
+    only queries with the <literal>@&gt;</literal>, <literal>@?</literal>
+    and <literal>@@</literal> operators, it has notable
     performance advantages over the default operator
     class <literal>jsonb_ops</literal>.  A <literal>jsonb_path_ops</literal>
     index is usually much smaller than a <literal>jsonb_ops</literal>
@@ -1105,16 +1107,10 @@ UPDATE table_name SET jsonb_field[2] = '2';
 入れ子の配列やオブジェクト構造が作られ、前者の場合には、添字のパスにより指定されたように値が代入できるようになるまで<literal>null</literal>で埋められます。
 
 <programlisting>
-<!--
-&#45;- Where jsonb_field was {}, it is now {'a': [{'b': 1}]}
--->
--- jsonb_fieldが{}であれば、{'a': [{'b': 1}]}になる
+-- Where jsonb_field was {}, it is now {"a": [{"b": 1}]}
 UPDATE table_name SET jsonb_field['a'][0]['b'] = '1';
 
-<!--
-&#45;- Where jsonb_field was [], it is now [null, {'a': 1}]
--->
--- jsonb_fieldが[]であれば、[null, {'a': 1}]になる
+-- Where jsonb_field was [], it is now [null, {"a": 1}]
 UPDATE table_name SET jsonb_field[1]['a'] = '1';
 </programlisting>
 

@@ -57,8 +57,11 @@
 #define COPY_POINTER_FIELD(fldname, sz) \
 	do { \
 		Size	_size = (sz); \
-		newnode->fldname = palloc(_size); \
-		memcpy(newnode->fldname, from->fldname, _size); \
+		if (_size > 0) \
+		{ \
+			newnode->fldname = palloc(_size); \
+			memcpy(newnode->fldname, from->fldname, _size); \
+		} \
 	} while (0)
 
 /* Copy a parse location field (for Copy, this is same as scalar case) */
@@ -296,12 +299,9 @@ _copyRecursiveUnion(const RecursiveUnion *from)
 	 */
 	COPY_SCALAR_FIELD(wtParam);
 	COPY_SCALAR_FIELD(numCols);
-	if (from->numCols > 0)
-	{
-		COPY_POINTER_FIELD(dupColIdx, from->numCols * sizeof(AttrNumber));
-		COPY_POINTER_FIELD(dupOperators, from->numCols * sizeof(Oid));
-		COPY_POINTER_FIELD(dupCollations, from->numCols * sizeof(Oid));
-	}
+	COPY_POINTER_FIELD(dupColIdx, from->numCols * sizeof(AttrNumber));
+	COPY_POINTER_FIELD(dupOperators, from->numCols * sizeof(Oid));
+	COPY_POINTER_FIELD(dupCollations, from->numCols * sizeof(Oid));
 	COPY_SCALAR_FIELD(numGroups);
 
 	return newnode;
@@ -515,6 +515,7 @@ _copyIndexOnlyScan(const IndexOnlyScan *from)
 	 */
 	COPY_SCALAR_FIELD(indexid);
 	COPY_NODE_FIELD(indexqual);
+	COPY_NODE_FIELD(recheckqual);
 	COPY_NODE_FIELD(indexorderby);
 	COPY_NODE_FIELD(indextlist);
 	COPY_SCALAR_FIELD(indexorderdir);
@@ -896,13 +897,10 @@ _copyMergeJoin(const MergeJoin *from)
 	COPY_SCALAR_FIELD(skip_mark_restore);
 	COPY_NODE_FIELD(mergeclauses);
 	numCols = list_length(from->mergeclauses);
-	if (numCols > 0)
-	{
-		COPY_POINTER_FIELD(mergeFamilies, numCols * sizeof(Oid));
-		COPY_POINTER_FIELD(mergeCollations, numCols * sizeof(Oid));
-		COPY_POINTER_FIELD(mergeStrategies, numCols * sizeof(int));
-		COPY_POINTER_FIELD(mergeNullsFirst, numCols * sizeof(bool));
-	}
+	COPY_POINTER_FIELD(mergeFamilies, numCols * sizeof(Oid));
+	COPY_POINTER_FIELD(mergeCollations, numCols * sizeof(Oid));
+	COPY_POINTER_FIELD(mergeStrategies, numCols * sizeof(int));
+	COPY_POINTER_FIELD(mergeNullsFirst, numCols * sizeof(bool));
 
 	return newnode;
 }
@@ -970,7 +968,9 @@ _copyMemoize(const Memoize *from)
 	COPY_POINTER_FIELD(collations, sizeof(Oid) * from->numKeys);
 	COPY_NODE_FIELD(param_exprs);
 	COPY_SCALAR_FIELD(singlerow);
+	COPY_SCALAR_FIELD(binary_mode);
 	COPY_SCALAR_FIELD(est_entries);
+	COPY_BITMAPSET_FIELD(keyparamids);
 
 	return newnode;
 }
@@ -1064,12 +1064,9 @@ _copyAgg(const Agg *from)
 	COPY_SCALAR_FIELD(aggstrategy);
 	COPY_SCALAR_FIELD(aggsplit);
 	COPY_SCALAR_FIELD(numCols);
-	if (from->numCols > 0)
-	{
-		COPY_POINTER_FIELD(grpColIdx, from->numCols * sizeof(AttrNumber));
-		COPY_POINTER_FIELD(grpOperators, from->numCols * sizeof(Oid));
-		COPY_POINTER_FIELD(grpCollations, from->numCols * sizeof(Oid));
-	}
+	COPY_POINTER_FIELD(grpColIdx, from->numCols * sizeof(AttrNumber));
+	COPY_POINTER_FIELD(grpOperators, from->numCols * sizeof(Oid));
+	COPY_POINTER_FIELD(grpCollations, from->numCols * sizeof(Oid));
 	COPY_SCALAR_FIELD(numGroups);
 	COPY_SCALAR_FIELD(transitionSpace);
 	COPY_BITMAPSET_FIELD(aggParams);
@@ -1091,19 +1088,13 @@ _copyWindowAgg(const WindowAgg *from)
 
 	COPY_SCALAR_FIELD(winref);
 	COPY_SCALAR_FIELD(partNumCols);
-	if (from->partNumCols > 0)
-	{
-		COPY_POINTER_FIELD(partColIdx, from->partNumCols * sizeof(AttrNumber));
-		COPY_POINTER_FIELD(partOperators, from->partNumCols * sizeof(Oid));
-		COPY_POINTER_FIELD(partCollations, from->partNumCols * sizeof(Oid));
-	}
+	COPY_POINTER_FIELD(partColIdx, from->partNumCols * sizeof(AttrNumber));
+	COPY_POINTER_FIELD(partOperators, from->partNumCols * sizeof(Oid));
+	COPY_POINTER_FIELD(partCollations, from->partNumCols * sizeof(Oid));
 	COPY_SCALAR_FIELD(ordNumCols);
-	if (from->ordNumCols > 0)
-	{
-		COPY_POINTER_FIELD(ordColIdx, from->ordNumCols * sizeof(AttrNumber));
-		COPY_POINTER_FIELD(ordOperators, from->ordNumCols * sizeof(Oid));
-		COPY_POINTER_FIELD(ordCollations, from->ordNumCols * sizeof(Oid));
-	}
+	COPY_POINTER_FIELD(ordColIdx, from->ordNumCols * sizeof(AttrNumber));
+	COPY_POINTER_FIELD(ordOperators, from->ordNumCols * sizeof(Oid));
+	COPY_POINTER_FIELD(ordCollations, from->ordNumCols * sizeof(Oid));
 	COPY_SCALAR_FIELD(frameOptions);
 	COPY_NODE_FIELD(startOffset);
 	COPY_NODE_FIELD(endOffset);
@@ -3353,6 +3344,7 @@ _copyAlterTableCmd(const AlterTableCmd *from)
 	COPY_NODE_FIELD(def);
 	COPY_SCALAR_FIELD(behavior);
 	COPY_SCALAR_FIELD(missing_ok);
+	COPY_SCALAR_FIELD(recurse);
 
 	return newnode;
 }

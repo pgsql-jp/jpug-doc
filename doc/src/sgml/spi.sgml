@@ -142,16 +142,10 @@ SPIユーティリティ関数の中には、未接続のC関数から呼び出�
      <term><symbol>SPI_OPT_NONATOMIC</symbol></term>
      <listitem>
       <para>
-<!--
        Sets the SPI connection to be <firstterm>nonatomic</firstterm>, which
-       means that transaction control calls <function>SPI_commit</function>,
-       <function>SPI_rollback</function>, and
-       <function>SPI_start_transaction</function> are allowed.  Otherwise,
-       calling these functions will result in an immediate error.
--->
-SPI接続を<firstterm>非原子的</firstterm>になるように設定します。
-これはトランザクション制御呼び出しの<function>SPI_commit</function>、<function>SPI_rollback</function>、および、<function>SPI_start_transaction</function>が可能であることを意味します。
-このフラグなしで、これら関数を呼び出すと即座にエラーになります。
+       means that transaction control calls (<function>SPI_commit</function>,
+       <function>SPI_rollback</function>) are allowed.  Otherwise,
+       calling those functions will result in an immediate error.
       </para>
      </listitem>
     </varlistentry>
@@ -1046,6 +1040,17 @@ int SPI_execute_extended(const char *<parameter>command</parameter>,
       statements
 -->
 <literal>true</literal>でCALLとDO文の非原子的実行を許可します
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>bool <parameter>must_return_tuples</parameter></literal></term>
+    <listitem>
+     <para>
+      if <literal>true</literal>, raise error if the query is not of a kind
+      that returns tuples (this does not forbid the case where it happens to
+      return zero tuples)
      </para>
     </listitem>
    </varlistentry>
@@ -2628,6 +2633,17 @@ int SPI_execute_plan_extended(SPIPlanPtr <parameter>plan</parameter>,
       statements
 -->
 <literal>true</literal>でCALLとDO文の非原子的実行を許可します
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>bool <parameter>must_return_tuples</parameter></literal></term>
+    <listitem>
+     <para>
+      if <literal>true</literal>, raise error if the query is not of a kind
+      that returns tuples (this does not forbid the case where it happens to
+      return zero tuples)
      </para>
     </listitem>
    </varlistentry>
@@ -7057,20 +7073,17 @@ void SPI_commit_and_chain(void)
 <!--
    <function>SPI_commit</function> commits the current transaction.  It is
    approximately equivalent to running the SQL
-   command <command>COMMIT</command>.  After a transaction is committed, a new
-   transaction has to be started
-   using <function>SPI_start_transaction</function> before further database
-   actions can be executed.
--->
-<function>SPI_commit</function>は現在のトランザクションをコミットします。
-これはSQLコマンドの<command>COMMIT</command>を実行することと概ね同等です。
-トランザクションがコミットされた後には、続くデータベース操作を実行する前に<function>SPI_start_transaction</function>を使って新たなトランザクションを開始しなければなりません。
+   command <command>COMMIT</command>.  After the transaction is committed, a
+   new transaction is automatically started using default transaction
+   characteristics, so that the caller can continue using SPI facilities.
+   If there is a failure during commit, the current transaction is instead
+   rolled back and a new transaction is started, after which the error is
+   thrown in the usual way.
   </para>
 
   <para>
-<!--
-   <function>SPI_commit_and_chain</function> is the same, but a new
-   transaction is immediately started with the same transaction
+   <function>SPI_commit_and_chain</function> is the same, but the new
+   transaction is started with the same transaction
    characteristics as the just finished one, like with the SQL command
    <command>COMMIT AND CHAIN</command>.
 -->
@@ -7127,19 +7140,13 @@ void SPI_rollback_and_chain(void)
 <!--
    <function>SPI_rollback</function> rolls back the current transaction.  It
    is approximately equivalent to running the SQL
-   command <command>ROLLBACK</command>.  After a transaction is rolled back, a
-   new transaction has to be started
-   using <function>SPI_start_transaction</function> before further database
-   actions can be executed.
--->
-<function>SPI_rollback</function>は現在のトランザクションをロールバックします。
-これはSQLコマンドの<command>ROLLBACK</command>を実行することと概ね同等です。
-トランザクションをロールバックした後、続くデータベース操作を実行する前に<function>SPI_start_transaction</function>を使用して新たなトランザクションを開始しなければなりません。
+   command <command>ROLLBACK</command>.  After the transaction is rolled back,
+   a new transaction is automatically started using default transaction
+   characteristics, so that the caller can continue using SPI facilities.
   </para>
   <para>
-<!--
-   <function>SPI_rollback_and_chain</function> is the same, but a new
-   transaction is immediately started with the same transaction
+   <function>SPI_rollback_and_chain</function> is the same, but the new
+   transaction is started with the same transaction
    characteristics as the just finished one, like with the SQL command
    <command>ROLLBACK AND CHAIN</command>.
 -->
@@ -7168,10 +7175,7 @@ void SPI_rollback_and_chain(void)
 
  <refnamediv>
   <refname>SPI_start_transaction</refname>
-<!--
-  <refpurpose>start a new transaction</refpurpose>
--->
-  <refpurpose>新たなトランザクションを開始します</refpurpose>
+  <refpurpose>obsolete function</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -7187,25 +7191,12 @@ void SPI_start_transaction(void)
   <title>説明</title>
 
   <para>
-<!--
-   <function>SPI_start_transaction</function> starts a new transaction.  It
-   can only be called after <function>SPI_commit</function>
-   or <function>SPI_rollback</function>, as there is no transaction active at
-   that point.  Normally, when an SPI-using procedure is called, there is already a
-   transaction active, so attempting to start another one before closing out
-   the current one will result in an error.
--->
-<function>SPI_start_transaction</function>は新たなトランザクションを開始します。
-そこがトランザクション内では無いように、<function>SPI_commit</function>または<function>SPI_rollback</function>の後でのみ呼び出しできます。
-通常は、何らかSPIを使ったプロシージャが呼ばれたとき、トランザクションは既に開始済みです。そのため、現在のトランザクションを閉じる前に別のトランザクションを開始しようとするとエラーになります。
-  </para>
-
-  <para>
-<!--
-   This function can only be executed if the SPI connection has been set as
-   nonatomic in the call to <function>SPI_connect_ext</function>.
--->
-この関数はSPI接続が<function>SPI_connect_ext</function>の呼び出しで非原子的と設定されている場合のみ、実行できます。
+   <function>SPI_start_transaction</function> does nothing, and exists
+   only for code compatibility with
+   earlier <productname>PostgreSQL</productname> releases.  It used to
+   be required after calling <function>SPI_commit</function>
+   or <function>SPI_rollback</function>, but now those functions start
+   a new transaction automatically.
   </para>
  </refsect1>
 </refentry>

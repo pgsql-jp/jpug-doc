@@ -240,7 +240,8 @@ struct PlannerInfo
 
 	List	   *init_plans;		/* init SubPlans for query */
 
-	List	   *cte_plan_ids;	/* per-CTE-item list of subplan IDs */
+	List	   *cte_plan_ids;	/* per-CTE-item list of subplan IDs (or -1 if
+								 * no subplan was made for that CTE) */
 
 	List	   *multiexpr_params;	/* List of Lists of Params for MULTIEXPR
 									 * subquery outputs */
@@ -1511,6 +1512,8 @@ typedef struct MemoizePath
 	List	   *param_exprs;	/* cache keys */
 	bool		singlerow;		/* true if the cache entry is to be marked as
 								 * complete after caching the first record. */
+	bool		binary_mode;	/* true when cache key should be compared bit
+								 * by bit, false when using hash equality ops */
 	double		calls;			/* expected number of rescans */
 	uint32		est_entries;	/* The maximum number of entries that the
 								 * planner expects will fit in the cache, or 0

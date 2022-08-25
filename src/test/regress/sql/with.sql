@@ -464,6 +464,16 @@ with recursive search_graph(f, t, label) as (
 ) search depth first by f, t set seq
 select * from search_graph order by seq;
 
+-- check that we distinguish same CTE name used at different levels
+-- (this case could be supported, perhaps, but it isn't today)
+with recursive x(col) as (
+	select 1
+	union
+	(with x as (select * from x)
+	 select * from x)
+) search depth first by col set seq
+select * from x;
+
 -- test ruleutils and view expansion
 create temp view v_search as
 with recursive search_graph(f, t, label) as (
@@ -784,6 +794,9 @@ DROP TABLE y;
 --
 -- error cases
 --
+
+WITH x(n, b) AS (SELECT 1)
+SELECT * FROM x;
 
 -- INTERSECT
 WITH RECURSIVE x(n) AS (SELECT 1 INTERSECT SELECT n+1 FROM x)
@@ -1173,6 +1186,37 @@ COMMIT;
 
 SELECT * FROM bug6051_3;
 
+-- check case where CTE reference is removed due to optimization
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT q1 FROM
+(
+  WITH t_cte AS (SELECT * FROM int8_tbl t)
+  SELECT q1, (SELECT q2 FROM t_cte WHERE t_cte.q1 = i8.q1) AS t_sub
+  FROM int8_tbl i8
+) ss;
+
+SELECT q1 FROM
+(
+  WITH t_cte AS (SELECT * FROM int8_tbl t)
+  SELECT q1, (SELECT q2 FROM t_cte WHERE t_cte.q1 = i8.q1) AS t_sub
+  FROM int8_tbl i8
+) ss;
+
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT q1 FROM
+(
+  WITH t_cte AS MATERIALIZED (SELECT * FROM int8_tbl t)
+  SELECT q1, (SELECT q2 FROM t_cte WHERE t_cte.q1 = i8.q1) AS t_sub
+  FROM int8_tbl i8
+) ss;
+
+SELECT q1 FROM
+(
+  WITH t_cte AS MATERIALIZED (SELECT * FROM int8_tbl t)
+  SELECT q1, (SELECT q2 FROM t_cte WHERE t_cte.q1 = i8.q1) AS t_sub
+  FROM int8_tbl i8
+) ss;
+
 -- a truly recursive CTE in the same list
 WITH RECURSIVE t(a) AS (
 	SELECT 0
@@ -1451,12 +1495,12 @@ create table foo (with ordinality);  -- fail, WITH is a reserved word
 with ordinality as (select 1 as x) select * from ordinality;
 
 -- check sane response to attempt to modify CTE relation
-WITH test AS (SELECT 42) INSERT INTO test VALUES (1);
+WITH with_test AS (SELECT 42) INSERT INTO with_test VALUES (1);
 
 -- check response to attempt to modify table with same name as a CTE (perhaps
 -- surprisingly it works, because CTEs don't hide tables from data-modifying
 -- statements)
-create temp table test (i int);
-with test as (select 42) insert into test select * from test;
-select * from test;
-drop table test;
+create temp table with_test (i int);
+with with_test as (select 42) insert into with_test select * from with_test;
+select * from with_test;
+drop table with_test;

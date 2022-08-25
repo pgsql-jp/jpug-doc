@@ -862,7 +862,7 @@ CREATE TABLE products (
      tests, it cannot guarantee that the database will not reach a state
      in which the constraint condition is false (due to subsequent changes
      of the other row(s) involved).  This would cause a database dump and
-     reload to fail.  The reload could fail even when the complete
+     restore to fail.  The restore could fail even when the complete
      database state is consistent with the constraint, due to rows not
      being loaded in an order that will satisfy the constraint.  If
      possible, use <literal>UNIQUE</literal>, <literal>EXCLUDE</literal>,
@@ -881,10 +881,13 @@ CREATE TABLE products (
      If what you desire is a one-time check against other rows at row
      insertion, rather than a continuously-maintained consistency
      guarantee, a custom <link linkend="triggers">trigger</link> can be used
-     to implement that.  (This approach avoids the dump/reload problem because
+     to implement that.  (This approach avoids the dump/restore problem because
      <application>pg_dump</application> does not reinstall triggers until after
-     reloading data, so that the check will not be enforced during a
-     dump/reload.)
+     restoring data, so that the check will not be enforced during a
+     dump/restore.)
+-->
+<!-- マッチ度[97.176471]
+If what you desire is a one-time check against other rows at row insertion, rather than a continuously-maintained consistency guarantee, a custom <link linkend="triggers">trigger</link> can be used to implement that. (This approach avoids the dump/reload problem because <application>pg_dump</application> does not reinstall triggers until after reloading data, so that the check will not be enforced during a dump/reload.)
 -->
 常に一貫性の保障を維持するのではなく、行挿入の際に一回だけの行の検査が必要なら、その実装のためにカスタム<link linkend="triggers">トリガ</link>が利用できます。
 （<application>pg_dump</application>はデータの再ロード後までトリガを再インストールせず、ダンプ/再ロード中は検査が強制されないため、この方法でダンプ/再ロード問題を回避できます。）
@@ -916,7 +919,7 @@ CREATE TABLE products (
      function.  <productname>PostgreSQL</productname> does not disallow
      that, but it will not notice if there are rows in the table that now
      violate the <literal>CHECK</literal> constraint. That would cause a
-     subsequent database dump and reload to fail.
+     subsequent database dump and restore to fail.
      The recommended way to handle such a change is to drop the constraint
      (using <command>ALTER TABLE</command>), adjust the function definition,
      and re-add the constraint, thereby rechecking it against all table rows.
@@ -5582,13 +5585,12 @@ VALUES ('Albany', NULL, NULL, 'NY');
    </para>
 
    <para>
-<!--
-    Partitions can also be foreign tables, although they have some limitations
-    that normal tables do not; see <xref linkend="sql-createforeigntable"/> for
-    more information.
--->
-通常のテーブルにない制限がいくつかありますが、パーティションを外部テーブルとすることができます。
-詳細は<xref linkend="sql-createforeigntable"/>を参照してください。
+    Partitions can also be <link linkend="ddl-foreign-data">foreign
+    tables</link>, although considerable care is needed because it is then
+    the user's responsibility that the contents of the foreign table
+    satisfy the partitioning rule.  There are some other restrictions as
+    well.  See <xref linkend="sql-createforeigntable"/> for more
+    information.
    </para>
 
    <sect3 id="ddl-partitioning-declarative-example">
@@ -5966,7 +5968,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
      holding an <literal>ACCESS EXCLUSIVE</literal> lock on that partition.
      It is recommended to drop the now-redundant <literal>CHECK</literal>
      constraint after the <command>ATTACH PARTITION</command> is complete.  If
-     the table being attached is itself a partitioned table then each of its
+     the table being attached is itself a partitioned table, then each of its
      sub-partitions will be recursively locked and scanned until either a
      suitable <literal>CHECK</literal> constraint is encountered or the leaf
      partitions are reached.
@@ -5988,7 +5990,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
      the partition being attached.  This operation will be performed whilst
      holding an <literal>ACCESS EXCLUSIVE</literal> lock on the <literal>
      DEFAULT</literal> partition.  If the <literal>DEFAULT</literal> partition
-     is itself a partitioned table then each of its partitions will be
+     is itself a partitioned table, then each of its partitions will be
      recursively checked in the same way as the table being attached, as
      mentioned above.
 -->
