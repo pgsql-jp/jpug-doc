@@ -682,7 +682,7 @@ GINインデックスは、多数の<type>jsonb</type>ドキュメント(デー�
     implement, see <xref linkend="functions-jsonb-op-table"/>.)
     An example of creating an index with this operator class is:
 -->
-<type>jsonb</type>型の問い合わせでサポートしているデフォルトのGIN演算子クラスは、トップレベルのキーが存在するかの演算子として<literal>?</literal>、<literal>?&amp;</literal>、<literal>?|</literal>があり、パス／値が存在するかの演算子として<literal>@&gt;</literal>があります。
+<type>jsonb</type>型の問い合わせでサポートしているデフォルトのGIN演算子クラスは、キーが存在するかの演算子として<literal>?</literal>、<literal>?|</literal>、<literal>?&amp;</literal>があり、包含演算子として<literal>@&gt;</literal>があり、<type>jsonpath</type>マッチング演算子として<literal>@?</literal>、<literal>@@</literal>があります。
 （これらの演算子の意味の詳細は、<xref linkend="functions-jsonb-op-table"/>を参照してください。）
 この演算子クラスのインデックスを作成する例。
 <programlisting>
@@ -694,7 +694,7 @@ CREATE INDEX idxgin ON api USING GIN (jdoc);
     <literal>@&gt;</literal>, <literal>@?</literal> and <literal>@@</literal>.
     An example of creating an index with this operator class is:
 -->
-デフォルトでないGIN演算子クラスは、<literal>@&gt;</literal>演算子のみサポートする<literal>jsonb_path_ops</literal>があります。
+デフォルトでないGIN演算子クラス<literal>jsonb_path_ops</literal>は、キーが存在するかの演算子をサポートしませんが、<literal>@&gt;</literal>、<literal>@?</literal>、<literal>@@</literal>をサポートします。
 この演算子クラスのインデックスを作成する例。
 <programlisting>
 CREATE INDEX idxginp ON api USING GIN (jdoc jsonb_path_ops);
@@ -804,15 +804,20 @@ SELECT jdoc-&gt;'guid', jdoc-&gt;'name' FROM api WHERE jdoc @&gt; '{"tags": ["qu
   </para>
 
   <para>
+<!--
     GIN indexes also support the <literal>@?</literal>
     and <literal>@@</literal> operators, which
     perform <type>jsonpath</type> matching.  Examples are
+-->
+GINインデックスは<type>jsonpath</type>のマッチングを実行する<literal>@?</literal>演算子と<literal>@@</literal>演算子もサポートします。
+例は以下の通りです。
 <programlisting>
 SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @? '$.tags[*] ? (@ == "qui")';
 </programlisting>
 <programlisting>
 SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @@ '$.tags[*] == "qui"';
 </programlisting>
+<!--
     For these operators, a GIN index extracts clauses of the form
     <literal><replaceable>accessors_chain</replaceable>
     = <replaceable>constant</replaceable></literal> out of
@@ -824,6 +829,10 @@ SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @@ '$.tags[*] == "qui"';
     The <literal>jsonb_ops</literal> operator class also
     supports <literal>.*</literal> and <literal>.**</literal> accessors,
     but the <literal>jsonb_path_ops</literal> operator class does not.
+-->
+これらの演算子に対して、GINインデックスは、<literal>jsonpath</literal>パターンから<literal><replaceable>accessors_chain</replaceable> = <replaceable>constant</replaceable></literal>の形式の句を抽出し、句内で使われているキーと値に基づいてインデックスサーチをします。
+アクセサチェーン(accessors chain)は<literal>.<replaceable>key</replaceable></literal>、<literal>[*]</literal>、<literal>[<replaceable>index</replaceable>]</literal>アクセサを含みます。
+<literal>jsonb_ops</literal>演算子クラスは<literal>.*</literal>と<literal>.**</literal>アクセサもサポートしますが、<literal>jsonb_path_ops</literal>演算子クラスはサポートしません。
   </para>
 
   <para>
@@ -839,7 +848,7 @@ SELECT jdoc->'guid', jdoc->'name' FROM api WHERE jdoc @@ '$.tags[*] == "qui"';
     data.  Therefore search operations typically perform better
     than with the default operator class.
 -->
-<literal>jsonb_path_ops</literal>演算子クラスは、<literal>@&gt;</literal>、<literal>@@</literal>、<literal>@?</literal>演算子をサポートしているだけですが、デフォルト演算子クラスの<literal>jsonb_ops</literal>よりも顕著なパフォーマンス上の利点があります。
+<literal>jsonb_path_ops</literal>演算子クラスは、<literal>@&gt;</literal>、<literal>@?</literal>、<literal>@@</literal>演算子をサポートしているだけですが、デフォルト演算子クラスの<literal>jsonb_ops</literal>よりも顕著なパフォーマンス上の利点があります。
 <literal>jsonb_path_ops</literal>インデックスは、通常同じデータの<literal>jsonb_ops</literal>インデックスよりもはるかに小さく、データの中で頻繁に現れるキーを含む場合のような特別な検索には、より良くなります。
 そのため、デフォルトの演算子クラスよりも検索性能が良くなります。
   </para>
@@ -1107,10 +1116,16 @@ UPDATE table_name SET jsonb_field[2] = '2';
 入れ子の配列やオブジェクト構造が作られ、前者の場合には、添字のパスにより指定されたように値が代入できるようになるまで<literal>null</literal>で埋められます。
 
 <programlisting>
--- Where jsonb_field was {}, it is now {"a": [{"b": 1}]}
+<!--
+&#45;- Where jsonb_field was {}, it is now {"a": [{"b": 1}]}
+-->
+-- jsonb_fieldが{}であれば、{"a": [{"b": 1}]}になる
 UPDATE table_name SET jsonb_field['a'][0]['b'] = '1';
 
--- Where jsonb_field was [], it is now [null, {"a": 1}]
+<!--
+&#45;- Where jsonb_field was [], it is now [null, {"a": 1}]
+-->
+-- jsonb_fieldが[]であれば、[null, {"a": 1}]になる
 UPDATE table_name SET jsonb_field[1]['a'] = '1';
 </programlisting>
 
