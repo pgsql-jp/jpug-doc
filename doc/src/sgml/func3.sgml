@@ -3377,11 +3377,10 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
     objects <emphasis>cannot be used to obtain <quote>gapless</quote>
     sequences</emphasis>.
 -->
-同一のシーケンスから数値を取得する同時実行トランザクション同士のブロックを防止するため、<function>nextval</function>演算は決してロールバックされません。
-つまり、値が一度取り出されたら、それは使用されたものと見なされ、同じ値が再び返されることはありません。
-これは、それを取り囲むトランザクションが後にアボートした場合でも、あるいは呼び出し側の問い合わせがその値を使用せずに終わった場合でも当てはまります。
+同一のシーケンスから数値を取得する同時実行トランザクション同士のブロックを防止するため、<function>nextval</function>で得られる値は、呼び出しているトランザクションが後でアボートした際に再利用目的での回収は行われません。
+これは、トランザクションのアボートあるいはデータベースのクラッシュによって、割り当てられるシーケンスの値に欠番ができることがある、ということを意味します。
+これはトランザクションのアボートがなくても起こります。
 例えば<literal>ON CONFLICT</literal>句のある<command>INSERT</command>では、挿入される予定のタプルについて、必要となるすべての<function>nextval</function>の呼び出しも含めて計算し、その後で<literal>ON CONFLICT</literal>のルールを代わりに使用することになる競合について検知します。
-このような場合には、割り当てられた値のシーケンス内に未使用の<quote>欠損</quote>を残すことになります。
 従って、<productname>PostgreSQL</productname>のシーケンスオブジェクトは<emphasis><quote>欠番のない</quote>シーケンスを得るために使うことはできません</emphasis>。
    </para>
 
@@ -3394,10 +3393,11 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
 <!-- マッチ度[63.583815]
 Likewise, any sequence state changes made by <function>setval</function> are not undone if the transaction rolls back.
 -->
-同様に、<function>setval</function>が行ったシーケンス状態の変更はトランザクションがロールバックしても元には戻りません。
+同様に、<function>setval</function>が行ったシーケンス状態の変更は直ちに他のトランザクションから可視になり、トランザクションがロールバックしても元には戻りません。
    </para>
 
    <para>
+<!--
     If the database cluster crashes before committing a transaction
     containing a <function>nextval</function>
     or <function>setval</function> call, the sequence state change might
@@ -3408,6 +3408,10 @@ Likewise, any sequence state changes made by <function>setval</function> are not
     be visible either.  However, if you wish to use a sequence value for
     persistent outside-the-database purposes, make sure that the
     <function>nextval</function> call has been committed before doing so.
+-->
+<function>nextval</function>や<function>setval</function>の呼び出しを含むトランザクションがコミットする前にデータベースクラスタがクラッシュすると、そのシーケンスの状態は永続的な記憶装置に格納されないかもしれず、クラスタが再起動した後にそのシーケンスが元の状態のままなのか、更新された状態になっているのかは定かではありません。
+コミットされていないトランザクションは可視ではないので、これはデータベース内のシーケンスの利用に関して言えば無害です。
+しかし、シーケンス値をデータベースの外での永続的な利用を目的として使う場合は、<function>nextval</function>の呼び出しが確実にコミットされてから利用してください。
    </para>
   </caution>
 
@@ -4145,8 +4149,12 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>integer</returnvalue>
        </para>
        <para>
+<!--
         Returns the length of the requested array dimension.
         (Produces NULL instead of 0 for empty or missing array dimensions.)
+-->
+要求された配列の次元の大きさを返します。
+（空、あるいは配列の次元が見つからない場合は0ではなくNULLを生成します。）
        </para>
        <para>
         <literal>array_length(array[1,2,3], 1)</literal>
