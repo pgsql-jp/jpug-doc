@@ -94,11 +94,7 @@
                 <xsl:when test="$html.original = 1">
                   <div class="actions">
                     <a class="issue" title="github">
-                      <xsl:attribute name="href">https://github.com/pgsql-jp/jpug-doc/issues/new?title=version&#160;<xsl:value-of select="$pg.version"/>&#160;
-                      <xsl:call-template name="href.target">
-                        <xsl:with-param name="object" select="."/>
-                      </xsl:call-template>
-                      </xsl:attribute>誤訳等の報告
+                      <xsl:attribute name="href">https://github.com/pgsql-jp/jpug-doc/issues/new?template=bug_report.yml&amp;what-happened=version&#160;<xsl:value-of select="$pg.version"/> &#058; <xsl:call-template name="href.target"><xsl:with-param name="object" select="."/></xsl:call-template></xsl:attribute>誤訳等の報告
                     </a>
                   </div>
                 </xsl:when>
