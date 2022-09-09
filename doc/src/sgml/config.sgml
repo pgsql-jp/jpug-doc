@@ -1906,7 +1906,7 @@ SSLサーバ証明書が入っているファイル名を設定します。
         The default is empty, meaning no CRL file is loaded (unless
         <xref linkend="guc-ssl-crl-dir"/> is set).
 -->
-SSLサーバ証明書失効リスト（CRL）が入っているファイル名を設定します。
+SSLクライアント証明書失効リスト（CRL）が入っているファイル名を設定します。
 相対パスの場合は、データディレクトリからの相対パスになります。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
 デフォルトは空で、この場合CRLファイルは読み込まれません（<xref linkend="guc-ssl-crl-dir"/>が設定されていない限り)。
@@ -1933,7 +1933,7 @@ SSLサーバ証明書失効リスト（CRL）が入っているファイル名�
         line.  The default is empty, meaning no CRLs are used (unless
         <xref linkend="guc-ssl-crl-file"/> is set).
 -->
-SSLサーバ証明書失効リスト（CRL）が入っているディレクトリ名を設定します。
+SSLクライアント証明書失効リスト（CRL）が入っているディレクトリ名を設定します。
 相対パスの場合は、データディレクトリからの相対パスになります。
 このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
 デフォルトは空で、この場合CRLファイルは読み込まれません（<xref linkend="guc-ssl-crl-file"/>が設定されていない限り)。
@@ -2534,11 +2534,9 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
         <varname>shared_memory_type</varname> is set to <literal>mmap</literal>
         (the default).
 -->
-<!-- マッチ度[53.231939]
-At present, this setting is supported only on Linux and Windows. The setting is ignored on other systems when set to <literal>try</literal>.
--->
 今のところこの機能はLinuxとWindowsでのみサポートされています。
 他のシステムでは<literal>try</literal>と設定しても無視されます。
+Linuxではこの機能は<varname>shared_memory_type</varname>が<literal>mmap</literal>（デフォルトです）に設定されている時にのみサポートされます。
        </para>
 
        <para>
@@ -6251,14 +6249,13 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-<!-- マッチ度[78.965922]
-Specify the maximum size of WAL files that <link linkend="streaming-replication-slots">replication slots</link> are allowed to retain in the <filename>pg_wal</filename> directory at checkpoint time. If <varname>max_slot_wal_keep_size</varname> is -1 (the default), replication slots may retain an unlimited amount of WAL files. Otherwise, if restart_lsn of a replication slot falls behind the current LSN by more than the given size, the standby using the slot may no longer be able to continue replication due to removal of required WAL files. You can see the WAL availability of replication slots in <link linkend="view-pg-replication-slots">pg_replication_slots</link>.
--->
 チェックポイント時に<link linkend="streaming-replication-slots">レプリケーションスロット</link>が<filename>pg_wal</filename>ディレクトリに残すことのできる
 最大のWALファイルのサイズを指定します。
 <varname>max_slot_wal_keep_size</varname>が-1 (デフォルトです)なら、レプリケーションスロットは無制限のWALファイルを残すかも知れません。
 そうでなければ、レプリケーションスロットのrestart_lsnが現在のLSNよりも与えられたサイズ分遅れると、そのスロットを使っているスタンバイは必要なWALファイルが削除されたためにレプリケーションを継続できなくなります。
 レプリケーションスロットのWALが存在するかどうかは<link linkend="view-pg-replication-slots">pg_replication_slots</link>を見て確認できます。
+この値が単位無しで指定されると、メガバイトであると見なします。
+このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
        </para>
        </listitem>
       </varlistentry>
@@ -11254,7 +11251,7 @@ CSVログファイルをインポートする作業を単純にするために�
 -->
 各セッションで実行中のコマンドに関する情報と、そのコマンドの識別子および実行開始時刻の収集を有効にします。
 このパラメータはデフォルトで有効です。
-有効な場合であっても、すべてのユーザがこの情報を見ることができず、スーパーユーザと報告されたセッションの所有者のみから可視である点に注意してください。
+有効な場合であっても、すべてのユーザがこの情報を見ることができず、スーパーユーザ、<literal>pg_read_all_stats</literal>ロール権限を持つロール、報告対象のセッション（権限を持つロールに所属するセッションを含みます）の所有者のみから可視である点に注意してください。
 このためセキュリティ上の危険性はありません。
 スーパーユーザのみがこの設定を変更することができます。
        </para>
@@ -11492,7 +11489,7 @@ SQL関数、C言語関数も追跡するためには<literal>all</literal>と指
 <xref linkend="pgstatstatements"/>拡張も問い合わせ識別子の計算が必要です。
 組み込みの計算が許容できなければ、外部モジュールを代わりに利用することができることに注意してください。
 この場合、組み込みの計算は常に無効にしなければなりません。
-有効な値は、<literal>off</literal>（常に無効）、<literal>on</literal>（常に有効）、<xref linkend="pgstatstatements"/>のようなモジュールによって自動的に有効になる<literal>auto</literal>です。
+有効な値は、<literal>off</literal>（常に無効）、<literal>on</literal>（常に有効）、<xref linkend="pgstatstatements"/>のようなモジュールによって自動的に有効になる<literal>auto</literal>、自動回帰テストを機能させるために、問い合わせ識別子が<literal>EXPLAIN</literal>出力に表示されないことを除けば<literal>auto</literal>と同じ効果を持つ<literal>regress</literal>です。
 デフォルトは<literal>auto</literal>です。
        </para>
        <note>
@@ -12288,9 +12285,6 @@ vacuumは同時に<filename>pg_xact</filename>サブディレクトリから古�
         command does not explicitly specify an access method, or when
         <command>SELECT ... INTO</command> is used, which does not allow
         specifying a table access method. The default is <literal>heap</literal>.
--->
-<!-- マッチ度[98.235294]
-This parameter specifies the default table access method to use when creating tables or materialized views if the <command>CREATE</command> command does not explicitly specify an access method, or when <command>SELECT ... INTO</command> is used, which does not allow to specify a table access method. The default is <literal>heap</literal>.
 -->
 このパラメータは、テーブルあるいはマテリアライズドビューの作成時に<command>CREATE</command>コマンドが明示的にアクセスメソッドを指定しないか、あるいはテーブルアクセスメソッドを指定できない<command>SELECT ... INTO</command>が利用された時に使われるデフォルトのテーブルアクセスメソッドを指定します。
 デフォルトは<literal>heap</literal>です。
@@ -15523,9 +15517,13 @@ WALディスクブロックの容量を報告します。
       <indexterm>
         <primary><varname>allow_in_place_tablespaces</varname> configuration parameter</primary>
       </indexterm>
+      <indexterm>
+        <primary><varname>allow_in_place_tablespaces</varname>設定パラメータ</primary>
+      </indexterm>
       </term>
       <listitem>
        <para>
+<!--
         Allows tablespaces to be created as directories inside
         <filename>pg_tblspc</filename>, when an empty location string
         is provided to the <command>CREATE TABLESPACE</command> command.  This
@@ -15533,6 +15531,11 @@ WALディスクブロックの容量を報告します。
         standby servers are running on the same machine.  Such directories
         are likely to confuse backup tools that expect to find only symbolic
         links in that location.  Only superusers can change this setting.
+-->
+<command>CREATE TABLESPACE</command>コマンドに空の位置文字列が渡された時に、<filename>pg_tblspc</filename>内にテーブル空間をディレクトリとして作ることを可能にします。
+これは、プライマリとスタンバイサーバが同じマシン上で実行されるレプリケーションシナリオをテストするために使用することを意図しています。
+このようなディレクトリは、その場所にシンボリックリンクだけが見つかることを期待しているバックアップツールを混乱させる可能性が高いでしょう。
+スーパーユーザだけがこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
