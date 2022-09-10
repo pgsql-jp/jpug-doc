@@ -1672,7 +1672,7 @@ SELECT product_id, p.name, (sum(s.units) * p.price) AS sales
 この例では、<literal>product_id</literal>列、<literal>p.name</literal>列、<literal>p.price</literal>列は必ず<literal>GROUP BY</literal>句で指定する必要があります。
 なぜなら、これらは問い合わせ選択リストの中で使われているからです（ただし、以下を参照）。
 <literal>s.units</literal>列は<literal>GROUP BY</literal>で指定する必要はありません。
-これは、製品ごとの売上計算の集約式（<function>sum(...)</function>）の中だけで使われるためです。
+これは、製品ごとの売上計算の集約式（<literal>sum(...)</literal>）の中だけで使われるためです。
 この問い合わせは、各製品に対して製品の全販売に関する合計行が返されます。
    </para>
 
@@ -1700,7 +1700,7 @@ productsテーブルが、例えば、<literal>product_id</literal>が主キー�
     select list.  Grouping by value expressions instead of simple
     column names is also allowed.
 -->
-厳密なSQLでは、<literal>GROUP BY</literal>は、元となるテーブルの列によってのみグループ化できますが、<productname>PostgreSQL</productname>では、選択リストの列によるグループ化もできるように拡張されています。
+厳密なSQLでは、<literal>GROUP BY</literal>は、元となるテーブルの列によってのみグループ化できますが、<productname>PostgreSQL</productname>では、<literal>GROUP BY</literal>が選択リストの列によってグループ化できるように拡張されています。
 単純な列名の代わりに、評価式でグループ化することもできます。
    </para>
 
@@ -2503,7 +2503,7 @@ SELECT DISTINCT ON (<replaceable>expression</replaceable> <optional>, <replaceab
    <primary>set operation</primary>
   </indexterm>
   <indexterm zone="queries-union">
-   <primary>集合操作</primary>
+   <primary>集合演算</primary>
   </indexterm>
 
   <para>
@@ -2518,9 +2518,12 @@ SELECT DISTINCT ON (<replaceable>expression</replaceable> <optional>, <replaceab
 <replaceable>query1</replaceable> INTERSECT <optional>ALL</optional> <replaceable>query2</replaceable>
 <replaceable>query1</replaceable> EXCEPT <optional>ALL</optional> <replaceable>query2</replaceable>
 </synopsis>
+<!--
    where <replaceable>query1</replaceable> and
    <replaceable>query2</replaceable> are queries that can use any of
    the features discussed up to this point.
+-->
+<replaceable>query1</replaceable>と<replaceable>query2</replaceable>は、これまで説明した任意の機能をすべて使用することができる問い合わせです。
   </para>
 
   <para>
@@ -2573,26 +2576,41 @@ SELECT DISTINCT ON (<replaceable>expression</replaceable> <optional>, <replaceab
   </para>
 
   <para>
+<!--
    Set operations can be combined, for example
+-->
+集合演算は組み合わせることができます。以下に例を示します。
 <synopsis>
 <replaceable>query1</replaceable> UNION <replaceable>query2</replaceable> EXCEPT <replaceable>query3</replaceable>
 </synopsis>
+<!--
    which is equivalent to
+-->
+これは以下と同じです。
 <synopsis>
 (<replaceable>query1</replaceable> UNION <replaceable>query2</replaceable>) EXCEPT <replaceable>query3</replaceable>
 </synopsis>
+<!--
    As shown here, you can use parentheses to control the order of
    evaluation.  Without parentheses, <literal>UNION</literal>
    and <literal>EXCEPT</literal> associate left-to-right,
    but <literal>INTERSECT</literal> binds more tightly than those two
    operators.  Thus
+-->
+ここに示すように、括弧を使用して評価の順序を制御できます。
+括弧がない場合、<literal>UNION</literal>と<literal>EXCEPT</literal>は左から右に関連付けられますが、<literal>INTERSECT</literal>はこれらの2つの演算子よりも強く結合します。
+つまり、
 <synopsis>
 <replaceable>query1</replaceable> UNION <replaceable>query2</replaceable> INTERSECT <replaceable>query3</replaceable>
 </synopsis>
+<!--
    means
+-->
+は以下を意味します。
 <synopsis>
 <replaceable>query1</replaceable> UNION (<replaceable>query2</replaceable> INTERSECT <replaceable>query3</replaceable>)
 </synopsis>
+<!--
    You can also surround an individual <replaceable>query</replaceable>
    with parentheses.  This is important if
    the <replaceable>query</replaceable> needs to use any of the clauses
@@ -2600,14 +2618,25 @@ SELECT DISTINCT ON (<replaceable>expression</replaceable> <optional>, <replaceab
    Without parentheses, you'll get a syntax error, or else the clause will
    be understood as applying to the output of the set operation rather
    than one of its inputs.  For example,
+-->
+個々の<replaceable>問い合わせ</replaceable>を括弧で囲むこともできます。
+これは、<replaceable>問い合わせ</replaceable>が<literal>LIMIT</literal>のような、以下の節で説明されている句のいずれかを使用する必要がある場合に重要です。
+括弧がないと、構文エラーが発生します。さもなければ、この句は集合演算の入力の1つではなく、集合演算の出力に適用されると解釈されます。
+例えば、以下のようになります。
 <synopsis>
 SELECT a FROM b UNION SELECT x FROM y LIMIT 10
 </synopsis>
+<!--
    is accepted, but it means
+-->
+は、受け入れられますが、以下を意味します。
 <synopsis>
 (SELECT a FROM b UNION SELECT x FROM y) LIMIT 10
 </synopsis>
+<!--
    not
+-->
+以下ではありません。
 <synopsis>
 SELECT a FROM b UNION (SELECT x FROM y LIMIT 10)
 </synopsis>
@@ -3137,7 +3166,7 @@ SELECT sum(n) FROM t;
    a reference to the query's own output.  Such a query is executed as
    follows:
 -->
-再帰的<literal>WITH</literal>問い合わせの汎用形式は常に、<firstterm>非再帰的表現（non-recursiveterm）</firstterm>、そして<literal>UNION</literal>（または<literal>UNION ALL</literal>）、そして<firstterm>再帰的表現（recursive term）</firstterm>です。
+再帰的<literal>WITH</literal>問い合わせの汎用形式は常に、<firstterm>非再帰的表現（non-recursive term）</firstterm>、そして<literal>UNION</literal>（または<literal>UNION ALL</literal>）、そして<firstterm>再帰的表現（recursive term）</firstterm>です。
 再帰的表現だけが、その問い合わせ自身の出力への参照を含むことができます。
 このような問い合わせは以下のように実行されます。
   </para>
