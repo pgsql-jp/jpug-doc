@@ -2376,12 +2376,10 @@ NULL引数の数を返す。
    session, the first <function>random()</function> call obtains a seed
    from a platform-dependent source of random bits.
 -->
-<!-- マッチ度[70.747218]
-The <function>random()</function> function uses a simple linear congruential algorithm. It is fast but not suitable for cryptographic applications; see the <xref linkend="pgcrypto"/> module for a more secure alternative. If <function>setseed()</function> is called, the series of results of subsequent <function>random()</function> calls in the current session can be repeated by re-issuing <function>setseed()</function> with the same argument.
--->
 <function>random()</function>関数は単純な線形合同法を使用しています。
 高速ですが、暗号用途には適していません。より安全な代替物として<xref linkend="pgcrypto"/>モジュールを参照してください。
 <function>setseed()</function>が呼び出されると、現在のセッション内での以後の一連の<function>random()</function>の呼び出し結果は<function>setseed()</function>を同じ引数で再実行することによって再現可能となります。
+同じセッション内で<function>setseed()</function>をそれ以前に呼び出していない場合は、最初の<function>random()</function>の呼び出しによってプラットフォーム依存の乱数ビットのソースからシードを入手します。
   </para>
 
   <para>
@@ -14164,7 +14162,7 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         <type>polygon</type>, <type>circle</type>.
 -->
 中心点を計算します。
-<type>box</type>、<type>lseg</type>、<type>path</type>、<type>polygon</type>、<type>circle</type>で利用可能です。
+<type>box</type>、<type>lseg</type>、<type>polygon</type>、<type>circle</type>で利用可能です。
        </para>
        <para>
         <literal>@@ box '(2,2),(0,0)'</literal>
@@ -14271,8 +14269,8 @@ CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow', 'green', 'blue', 'purple
         (and the commutator cases).
 -->
 オブジェクト間の距離を計算します。
-7つのすべての幾何型、<type>point</type>と他のすべての幾何型との組み合わせ、そして次の型の組み合わせで利用できます。
-(<type>box</type>、<type>lseg</type>)、(<type>box</type>、<type>line</type>)、(<type>lseg</type>、<type>line</type>)、(<type>polygon</type>、<type>circle</type>)(そして可換の組み合わせ)。
+<type>polygon</type>を除くすべての幾何型、<type>point</type>と他のすべての幾何型との組み合わせ、そして次の型の組み合わせで利用できます。
+(<type>box</type>、<type>lseg</type>)、(<type>lseg</type>、<type>line</type>)、(<type>polygon</type>、<type>circle</type>)(そして可換の組み合わせ)。
        </para>
        <para>
         <literal>circle '&lt;(0,0),1&gt;' &lt;-&gt; circle '&lt;(5,0),1&gt;'</literal>
@@ -22636,11 +22634,10 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
     objects <emphasis>cannot be used to obtain <quote>gapless</quote>
     sequences</emphasis>.
 -->
-同一のシーケンスから数値を取得する同時実行トランザクション同士のブロックを防止するため、<function>nextval</function>演算は決してロールバックされません。
-つまり、値が一度取り出されたら、それは使用されたものと見なされ、同じ値が再び返されることはありません。
-これは、それを取り囲むトランザクションが後にアボートした場合でも、あるいは呼び出し側の問い合わせがその値を使用せずに終わった場合でも当てはまります。
+同一のシーケンスから数値を取得する同時実行トランザクション同士のブロックを防止するため、<function>nextval</function>で得られる値は、呼び出しているトランザクションが後でアボートした際に再利用目的での回収は行われません。
+これは、トランザクションのアボートあるいはデータベースのクラッシュによって、割り当てられるシーケンスの値に欠番ができることがある、ということを意味します。
+これはトランザクションのアボートがなくても起こります。
 例えば<literal>ON CONFLICT</literal>句のある<command>INSERT</command>では、挿入される予定のタプルについて、必要となるすべての<function>nextval</function>の呼び出しも含めて計算し、その後で<literal>ON CONFLICT</literal>のルールを代わりに使用することになる競合について検知します。
-このような場合には、割り当てられた値のシーケンス内に未使用の<quote>欠損</quote>を残すことになります。
 従って、<productname>PostgreSQL</productname>のシーケンスオブジェクトは<emphasis><quote>欠番のない</quote>シーケンスを得るために使うことはできません</emphasis>。
    </para>
 
@@ -22650,13 +22647,11 @@ SELECT setval('myseq', 42, false);    <lineannotation>次の<function>nextval</f
     are immediately visible to other transactions, and are not undone if
     the calling transaction rolls back.
 -->
-<!-- マッチ度[63.583815]
-Likewise, any sequence state changes made by <function>setval</function> are not undone if the transaction rolls back.
--->
-同様に、<function>setval</function>が行ったシーケンス状態の変更はトランザクションがロールバックしても元には戻りません。
+同様に、<function>setval</function>が行ったシーケンス状態の変更は直ちに他のトランザクションから可視になり、トランザクションがロールバックしても元には戻りません。
    </para>
 
    <para>
+<!--
     If the database cluster crashes before committing a transaction
     containing a <function>nextval</function>
     or <function>setval</function> call, the sequence state change might
@@ -22667,6 +22662,10 @@ Likewise, any sequence state changes made by <function>setval</function> are not
     be visible either.  However, if you wish to use a sequence value for
     persistent outside-the-database purposes, make sure that the
     <function>nextval</function> call has been committed before doing so.
+-->
+<function>nextval</function>や<function>setval</function>の呼び出しを含むトランザクションがコミットする前にデータベースクラスタがクラッシュすると、そのシーケンスの状態は永続的な記憶装置に格納されないかもしれず、クラスタが再起動した後にそのシーケンスが元の状態のままなのか、更新された状態になっているのかは定かではありません。
+コミットされていないトランザクションは可視ではないので、これはデータベース内のシーケンスの利用に関して言えば無害です。
+しかし、シーケンス値をデータベースの外での永続的な利用を目的として使う場合は、<function>nextval</function>の呼び出しが確実にコミットされてから利用してください。
    </para>
   </caution>
 
@@ -23404,8 +23403,12 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
         <returnvalue>integer</returnvalue>
        </para>
        <para>
+<!--
         Returns the length of the requested array dimension.
         (Produces NULL instead of 0 for empty or missing array dimensions.)
+-->
+要求された配列の次元の大きさを返します。
+（空、あるいは配列の次元が見つからない場合は0ではなくNULLを生成します。）
        </para>
        <para>
         <literal>array_length(array[1,2,3], 1)</literal>
@@ -34223,11 +34226,8 @@ postgres=# SELECT * FROM pg_walfile_name_offset(pg_stop_backup());
         no such replication origin is found, <literal>NULL</literal> is
         returned.
 -->
-<!-- マッチ度[81.118881]
-Looks up a replication origin by name and returns the internal ID. If no such replication origin is found an error is thrown.
--->
 レプリケーション起点を名前で検索し、内部IDを返します。
-相当するレプリケーション起点が見つからない場合はエラーが発生します。
+相当するレプリケーション起点が見つからない場合は<literal>NULL</literal>を返します。
        </para></entry>
       </row>
 
