@@ -232,7 +232,7 @@ psql --set ON_ERROR_STOP=on <replaceable>dbname</replaceable> &lt; <replaceable>
     Alternatively, you can specify that the whole dump should be
     restored as a single transaction, so the restore is either fully
     completed or fully rolled back. This mode can be specified by
-    passing the <option>-1</option> or <option>&#045;-single-transaction</option>
+    passing the <option>-1</option> or <option>&#45;-single-transaction</option>
     command-line options to <application>psql</application>. When using this
     mode, be aware that even a minor error can rollback a
     restore that has already run for many hours. However, that might
@@ -357,7 +357,7 @@ psql -f <replaceable class="parameter">dumpfile</replaceable> postgres
    <para>
 <!--
     Cluster-wide data can be dumped alone using the
-    <application>pg_dumpall</application> <option>&#045;-globals-only</option> option.
+    <application>pg_dumpall</application> <option>&#45;-globals-only</option> option.
     This is necessary to fully backup the cluster if running the
     <application>pg_dump</application> command on individual databases.
 -->
@@ -595,7 +595,7 @@ tar -cf backup.tar /usr/local/pgsql/data
       also need to shut down the server before restoring the data.
 -->
 有効なバックアップを行うにはデータベースサーバを<emphasis>必ず</emphasis>停止しなければなりません。
-全ての接続を無効とするような中途半端な対策では作用しません
+全ての接続を無効とするような中途半端な対策では作用<emphasis>しません</emphasis>
 （<command>tar</command>やその類似ツールはある時点におけるファイルシステムの原子的なスナップショットを取らないことと同時に、サーバ内の内部バッファリングの理由によるからです）。
 サーバの停止に関しては<xref linkend="server-shutdown"/>を参照してください。
 言うまでもありませんが、データをリストアする前にもサーバを停止させる必要があります。
@@ -695,8 +695,8 @@ tar -cf backup.tar /usr/local/pgsql/data
    Another option is to use <application>rsync</application> to perform a file
    system backup.  This is done by first running <application>rsync</application>
    while the database server is running, then shutting down the database
-   server long enough to do an <command>rsync &#045;&#045;checksum</command>.
-   (<option>&#045;&#045;checksum</option> is necessary because <command>rsync</command> only
+   server long enough to do an <command>rsync &#45;-checksum</command>.
+   (<option>&#45;-checksum</option> is necessary because <command>rsync</command> only
    has file modification-time granularity of one second.)  The
    second <application>rsync</application> will be quicker than the first,
    because it has relatively little data to transfer, and the end result
@@ -966,7 +966,7 @@ archive_command = 'copy "%p" "C:\\server\\archivedir\\%f"'  # Windows
     <literal>%p</literal> and <literal>%f</literal> parameters have been replaced,
     the actual command executed might look like this:
 -->
-これは、アーカイブ可能なWALセグメントを<literal>/mnt/server/archivedir</literal>ディレクトリにコピーします
+これは、アーカイブ可能なWALセグメントを<filename>/mnt/server/archivedir</filename>ディレクトリにコピーします
 （これは一例です。
 推奨するものではなく、また、全てのプラットフォームで動作しない可能性があります）。
 <literal>%p</literal>および<literal>%f</literal>パラメータが置き換えられたあと、実行された実コマンドは以下のようになります。
@@ -1027,7 +1027,6 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
     preserve the integrity of your archive in case of administrator error
     (such as sending the output of two different servers to the same archive
     directory).
-
 -->
 通常アーカイブ用コマンドは既存のアーカイブ済みファイルの上書きを行わないように設計されなければなりません。
 これは、管理者のミス（例えば2つの異なるサーバの出力を同一のアーカイブ用ディレクトリに送信してしまうなど）といった場合からアーカイブ状況の整合性を保護するための安全策として重要です。
@@ -1245,7 +1244,6 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
 (ファイル名の2番目のパートはWALファイルの厳密な位置が記載されます。通常は無視することができます。)
 一旦、安全にファイルシステムのバックアップとそのバックアップ中に使用されたWALセグメントファイル(バックアップ履歴ファイルから特定できます)を取得すると、それより数値の小さな全てのWALアーカイブセグメントはファイルシステムの復旧には必要が無く、削除することができます。
 しかし、データを確実に復旧させるためには数世代のバックアップセットを保持することを考慮すべきです。
-
    </para>
 
    <para>
@@ -1412,7 +1410,9 @@ SELECT * FROM pg_stop_backup(false, true);
      the last WAL segment file written during the backup interval to be
      ready to archive.
 -->
-これはバックアップモードを終了し、次のWALセグメントへの自動切換えを行います。
+これはバックアップモードを終了し、プライマリでは、次のWALセグメントへの自動切換えを行います。
+スタンバイでは、WALセグメントを自動的に切り替えることはできません。
+ですから、手動切り替えを行うためにプライマリで<function>pg_switch_wal</function>を実行することをお勧めします。
 この切換えの理由は、バックアップ期間中に書き出された最後のWALファイルがアーカイブできるよう準備することです。
     </para>
     <para>
@@ -1697,7 +1697,6 @@ SELECT pg_stop_backup();
 -->
    <title>データディレクトリのバックアップ</title>
    <para>
-
 <!--
     Some file system backup tools emit warnings or errors
     if the files they are trying to copy change while the copy proceeds.
@@ -1712,8 +1711,8 @@ SELECT pg_stop_backup();
     copying it.  Fortunately, GNU <application>tar</application> versions 1.16 and
     later exit with 1 if a file was changed during the backup,
     and 2 for other errors.  With GNU <application>tar</application> version 1.23 and
-    later, you can use the warning options <literal>&#045;-warning=no-file-changed
-    &#045;-warning=no-file-removed</literal> to hide the related warning messages.
+    later, you can use the warning options <literal>&#45;-warning=no-file-changed
+    &#45;-warning=no-file-removed</literal> to hide the related warning messages.
 -->
 ファイルシステムのバックアップツール中には複写している途中でファイルが変更されると警告もしくはエラーを報告するものがあります。
 稼働しているデータベースのベースバックアップを取っている場合には、この状況は正常でエラーではありません。
@@ -2369,7 +2368,7 @@ tar -rf /var/lib/pgsql/backup.tar /var/lib/pgsql/archive/
     <sect3 id="compressed-archive-logs">
 <!--
      <title>Compressed Archive Logs</title>
- -->
+-->
      <title>圧縮アーカイブログ</title>
 
      <para>
@@ -2378,7 +2377,6 @@ tar -rf /var/lib/pgsql/backup.tar /var/lib/pgsql/archive/
       <application>gzip</application> to compress the archive files:
 -->
 もし、アーカイブのストレージ容量に懸念がある場合、アーカイブファイルを圧縮するために<application>gzip</application>を使用することもできます。
-
 <programlisting>
 archive_command = 'gzip &lt; %p &gt; /mnt/server/archivedir/%f.gz'
 </programlisting>
@@ -2391,7 +2389,6 @@ restore_command = 'gunzip &lt; /mnt/server/archivedir/%f.gz &gt; %p'
 </programlisting>
      </para>
     </sect3>
-
 
     <sect3 id="backup-scripts">
 <!--
