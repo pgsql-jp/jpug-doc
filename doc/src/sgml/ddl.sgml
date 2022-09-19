@@ -871,8 +871,8 @@ CREATE TABLE products (
 -->
 <productname>PostgreSQL</productname>は、検査対象の新しい行もしくは更新対象行以外のテーブルデータを参照する<literal>CHECK</literal>制約はサポートしていません。
 このルールに違反する<literal>CHECK</literal>制約は単純なテストでは動いたように見えますが、（関連する他の行が後で更新されたことにより）データベースがその制約条件が偽になるような状態にならないことを保証できません。
-これによってデータベースのダンプと再ロードの失敗が引き起こされるでしょう。
-最終的なデータベース状態が制約に対して一貫した状態であったとしても、制約を満たす順で行がロードされないことにより再ロードは失敗することがあります。
+これによってデータベースのダンプとリストアの失敗が引き起こされるでしょう。
+最終的なデータベース状態が制約に対して一貫した状態であったとしても、制約を満たす順で行がロードされないことによりリストアは失敗することがあります。
 可能ならば<literal>UNIQUE</literal>、<literal>EXCLUDE</literal>、<literal>FOREIGN KEY</literal>制約を使って行あるいはテーブルをまたがる制約を表現してください。
     </para>
 
@@ -886,11 +886,8 @@ CREATE TABLE products (
      restoring data, so that the check will not be enforced during a
      dump/restore.)
 -->
-<!-- マッチ度[97.176471]
-If what you desire is a one-time check against other rows at row insertion, rather than a continuously-maintained consistency guarantee, a custom <link linkend="triggers">trigger</link> can be used to implement that. (This approach avoids the dump/reload problem because <application>pg_dump</application> does not reinstall triggers until after reloading data, so that the check will not be enforced during a dump/reload.)
--->
 常に一貫性の保障を維持するのではなく、行挿入の際に一回だけの行の検査が必要なら、その実装のためにカスタム<link linkend="triggers">トリガ</link>が利用できます。
-（<application>pg_dump</application>はデータの再ロード後までトリガを再インストールせず、ダンプ/再ロード中は検査が強制されないため、この方法でダンプ/再ロード問題を回避できます。）
+（<application>pg_dump</application>はデータのリストア後までトリガを再インストールせず、ダンプ/リストア中は検査が強制されないため、この方法でダンプ/リストア問題を回避できます。）
     </para>
    </note>
 
@@ -926,7 +923,7 @@ If what you desire is a one-time check against other rows at row insertion, rath
 -->
 この仮定に反する一般的な例は、<literal>CHECK</literal>式でユーザ定義関数を参照し、その関数の振る舞いを変更することです。
 <productname>PostgreSQL</productname>はこれを禁止はしませんが、今や<literal>CHECK</literal>制約に違反する行がテーブル中に存在することを通知しません。
-これによって後でデータベースのダンプと再ロードの失敗を引き起こすでしょう。
+これによって後でデータベースのダンプとリストアの失敗を引き起こすでしょう。
 そのような変更に対処するおすすめの方法は、（<command>ALTER TABLE</command>を使って）制約を削除し、関数定義を調整し、そして制約を再度追加して、それによってテーブル全体の行に対して再チェックを行うことです。
     </para>
    </note>
@@ -5585,12 +5582,17 @@ VALUES ('Albany', NULL, NULL, 'NY');
    </para>
 
    <para>
+<!--
     Partitions can also be <link linkend="ddl-foreign-data">foreign
     tables</link>, although considerable care is needed because it is then
     the user's responsibility that the contents of the foreign table
     satisfy the partitioning rule.  There are some other restrictions as
     well.  See <xref linkend="sql-createforeigntable"/> for more
     information.
+-->
+外部テーブルの内容がパーティション化のルールを満たすようにするのはユーザの責任なので、入念な考慮が必要ではあるものの、パーティションを<link linkend="ddl-foreign-data">外部テーブル</link>とすることができます。
+他にもいくつか制限事項があります。
+詳細は<xref linkend="sql-createforeigntable"/>を参照してください。
    </para>
 
    <sect3 id="ddl-partitioning-declarative-example">
