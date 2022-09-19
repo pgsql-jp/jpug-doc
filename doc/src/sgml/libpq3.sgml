@@ -158,6 +158,7 @@ Microsoft Windowsにおいては、このファイルが安全なディレクト
 サービス名は、ユーザ単位のサービスファイルまたはシステム全体のファイルのいずれかで定義できます。
 ユーザとシステムファイルの両方に同じサービス名が存在する場合は、ユーザファイルが優先されます。
 デフォルトでは、ユーザ単位のサービスファイルは<filename>~/.pg_service.conf</filename>にあります。
+Microsoft Windowsでは、<filename>%APPDATA%\postgresql\.pg_service.conf</filename>という名前です（<filename>%APPDATA%</filename>は、ユーザプロファイル内のApplication Dataサブディレクトリです）。
 これは環境変数<envar>PGSERVICEFILE</envar>を設定することで上書きできます。
 システム全体のファイルは<filename>pg_service.conf</filename>という名前です。
 デフォルトでは、<productname>PostgreSQL</productname>インストールの<filename>etc</filename>ディレクトリに検索されます（このディレクトリを正確に識別するには<literal>pg_config--sysconfdir</literal>を使用します）。
@@ -225,7 +226,7 @@ user=admin
   <para>
 <!--
    If <application>libpq</application> has been compiled with LDAP support (option
-   <literal><option>&#045;-with-ldap</option></literal> for <command>configure</command>)
+   <literal><option>&#45;-with-ldap</option></literal> for <command>configure</command>)
    it is possible to retrieve connection options like <literal>host</literal>
    or <literal>dbname</literal> via LDAP from a central server.
    The advantage is that if the connection parameters for a database change,
@@ -470,12 +471,16 @@ SSL接続はサーバ証明書が検証されない場合失敗します。
   </para>
 
   <para>
+<!--
    The location of the root certificate file and the CRL can be changed by
    setting
    the connection parameters <literal>sslrootcert</literal> and <literal>sslcrl</literal>
    or the environment variables <envar>PGSSLROOTCERT</envar> and <envar>PGSSLCRL</envar>.
    <literal>sslcrldir</literal> or the environment variable <envar>PGSSLCRLDIR</envar>
    can also be used to specify a directory containing CRL files.
+-->
+ルート証明書ファイルとCRLの格納場所を接続パラメータ<literal>sslrootcert</literal>と<literal>sslcrl</literal>、もしくは環境変数<envar>PGSSLROOTCERT</envar>と<envar>PGSSLCRL</envar>で変更することができます。
+<literal>sslcrldir</literal>または環境変数<envar>PGSSLCRLDIR</envar>を使用して、CRLファイルを含むディレクトリを指定することもできます。
   </para>
 
   <note>
@@ -525,12 +530,12 @@ SSL接続はサーバ証明書が検証されない場合失敗します。
 証明書は、サーバが信頼するルート証明書につながらなければなりません。
 対応する<filename>~/.postgresql/postgresql.key</filename>秘密キーファイルも存在しなければなりません。
 秘密キーファイルは他者やグループからのアクセスを許可してはいけません。
-<command>chmod 0600 ~/.postgresql/postgresql.key</command>コマンドでこれを実現してください。
-Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%APPDATA%\postgresql\postgresql.crt</filename>と<filename>%APPDATA%\postgresql\postgresql.key</filename>であり、このディレクトリは安全であると想定されますので、特別な権限検査は行われません。
+Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%APPDATA%\postgresql\postgresql.crt</filename>と<filename>%APPDATA%\postgresql\postgresql.key</filename>です。
 証明書とキーファイルの格納場所は<literal>sslcert</literal>および<literal>sslkey</literal>接続パラメータ、または<envar>PGSSLCERT</envar>および<envar>PGSSLKEY</envar>環境変数で上書きされます。
   </para>
 
   <para>
+<!--
    On Unix systems, the permissions on the private key file must disallow
    any access to world or group; achieve this by a command such as
    <command>chmod 0600 ~/.postgresql/postgresql.key</command>.
@@ -542,6 +547,13 @@ Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%A
    and key files.  (On Microsoft Windows, there is no file permissions
    check, since the <filename>%APPDATA%\postgresql</filename> directory is
    presumed secure.)
+-->
+Unixシステムにおいて、秘密鍵ファイル権限はグループ、他者へのアクセスをすべて拒否しなければなりません。
+これは<command>chmod 0600~/.postgresql/postgresql.key</command>といったコマンドによって行います。
+あるいは、このファイルをrootが所有し、グループの読み取りアクセス権（つまり<literal>0640</literal>のアクセス権）を持つこともできます。
+このセットアップは、証明書と鍵ファイルがオペレーティングシステムによって管理されているインストールを対象としています。
+<application>libpq</application>のユーザは、これらの証明書と鍵ファイルへのアクセス権を持つグループのメンバになる必要があります。
+（Microsoft Windowsにおいては、<filename>%APPDATA%\postgresql</filename>ディレクトリが安全であると考えられるため、ファイルの権限の検査は行われません。）
   </para>
 
   <para>
@@ -1415,7 +1427,7 @@ testlibpq.o(.text+0xa4): undefined reference to `PQerrorMessage'
 ]]><!--
  *      Test the C version of libpq, the PostgreSQL frontend library.
 --><![CDATA[
- *              C言語PostgreSQLフロントエンドライブラリlibpqの試験
+ *      C言語PostgreSQLフロントエンドライブラリlibpqの試験。
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -1605,7 +1617,7 @@ main(int argc, char **argv)
 ]]><!--
  *      Test of the asynchronous notification interface
 --><![CDATA[
- *              非同期通知インタフェースの試験
+ *      非同期通知インタフェースの試験
  *
 ]]><!--
  * Start this program, then from psql in another window do
@@ -1631,7 +1643,10 @@ main(int argc, char **argv)
  *   CREATE RULE r1 AS ON INSERT TO TBL1 DO
  *     (INSERT INTO TBL2 VALUES (new.i); NOTIFY TBL2);
  *
+]]><!--
  * Start this program, then from psql do this four times:
+--><![CDATA[
+ * このプログラムを起動し、psqlからこれを4回実行します。
  *
  *   INSERT INTO TESTLIBPQ2.TBL1 VALUES (10);
  */
@@ -1712,8 +1727,12 @@ main(int argc, char **argv)
     }
 
     /*
+]]><!--
      * Should PQclear PGresult whenever it is no longer needed to avoid memory
      * leaks
+--><![CDATA[
+     * メモリリークを避けるため、必要なくなったときにはいつでもPGresultを 
+     * PQclearすべき
      */
     PQclear(res);
 
@@ -1721,7 +1740,7 @@ main(int argc, char **argv)
 ]]><!--
      * Issue LISTEN command to enable notifications from the rule's NOTIFY.
 --><![CDATA[
-     * LISTENコマンドを発行して、INSERTルールによる通知を有効にする。
+     * LISTENコマンドを発行して、ルールのNOTIFYからの通知を有効にする。
      */
     res = PQexec(conn, "LISTEN TBL2");
     if (PQresultStatus(res) != PGRES_COMMAND_OK)
