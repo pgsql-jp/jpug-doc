@@ -75,6 +75,7 @@ CREATE POLICY <replaceable class="parameter">name</replaceable> ON <replaceable 
   </para>
 
   <para>
+<!--
    For <command>INSERT</command>, <command>UPDATE</command>, and
    <command>MERGE</command> statements,
    <literal>WITH CHECK</literal> expressions are enforced after
@@ -83,6 +84,10 @@ CREATE POLICY <replaceable class="parameter">name</replaceable> ON <replaceable 
    modify the data to be inserted, affecting the result of the security
    policy check.  <literal>WITH CHECK</literal> expressions are enforced
    before any other constraints.
+-->
+《マッチ度[88.160677]》<command>INSERT</command>文および<command>UPDATE</command>文では、<literal>BEFORE</literal>トリガーが実行された後で、かつ、実際のデータ更新が行われるより前に<literal>WITH CHECK</literal>式が実行されます。
+従って、<literal>BEFORE ROW</literal>トリガーは挿入されるデータを変更する場合があり、これはセキュリティポリシーの検査の結果に影響を与えます。
+<literal>WITH CHECK</literal>式は他のいかなる制約よりも前に実行されます。
   </para>
 
   <para>
@@ -390,6 +395,7 @@ CREATE POLICY <replaceable class="parameter">name</replaceable> ON <replaceable 
       <term><literal>INSERT</literal></term>
       <listitem>
        <para>
+<!--
          Using <literal>INSERT</literal> for a policy means that it will apply
          to <literal>INSERT</literal> commands and <literal>MERGE</literal>
          commands that contain <literal>INSERT</literal> actions.
@@ -399,6 +405,10 @@ CREATE POLICY <replaceable class="parameter">name</replaceable> ON <replaceable 
          An <literal>INSERT</literal> policy cannot have
          a <literal>USING</literal> expression, as it only applies in cases
          where records are being added to the relation.
+-->
+《マッチ度[72.211350]》ポリシーに<literal>INSERT</literal>を使うのは、そのポリシーは<literal>INSERT</literal>コマンドに適用されるという意味になります。
+このポリシーに反する行を挿入しようとすると、ポリシー違反エラーを起こし、<literal>INSERT</literal>コマンド全体が中止されます。
+<literal>INSERT</literal>ポリシーはリレーションにレコードを追加する場合にしか適用されないため、<literal>USING</literal>式を持つことはできません。
        </para>
        <para>
 <!--
@@ -416,6 +426,7 @@ CREATE POLICY <replaceable class="parameter">name</replaceable> ON <replaceable 
       <term><literal>UPDATE</literal></term>
       <listitem>
        <para>
+<!--
          Using <literal>UPDATE</literal> for a policy means that it will apply
          to <literal>UPDATE</literal>, <literal>SELECT FOR UPDATE</literal>
          and <literal>SELECT FOR SHARE</literal> commands, as well as
@@ -431,6 +442,11 @@ CREATE POLICY <replaceable class="parameter">name</replaceable> ON <replaceable 
          the <literal>UPDATE</literal> command will see to operate against,
          while the <literal>WITH CHECK</literal> expression defines which
          modified rows are allowed to be stored back into the relation.
+-->
+《マッチ度[77.383592]》ポリシーに<literal>UPDATE</literal>を使うのは、そのポリシーは<literal>UPDATE</literal>コマンド、<literal>SELECT FOR UPDATE</literal>コマンド、<literal>SELECT FOR SHARE</literal>コマンド、および補助的に<literal>INSERT</literal>コマンドの<literal>ON CONFLICT DO UPDATE</literal>句で適用されるという意味になります。
+<literal>UPDATE</literal>は既存のレコードを取り出すことと、レコードを新しい修正されたレコードで置換することが含まれるので、<literal>UPDATE</literal>ポリシーは<literal>USING</literal>式と<literal>WITH CHECK</literal>式の両方を受け付けます。
+<literal>USING</literal>式は<literal>UPDATE</literal>コマンドが操作の対象としてどのレコードを見ることができるかを決めるのに使われます。
+一方で<literal>WITH CHECK</literal>はどの修正した行をリレーションに戻すことができるかを定義します。
        </para>
 
        <para>
@@ -841,6 +857,7 @@ AND
   </para>
 
   <para>
+<!--
    Since policy expressions
    are added to the user's query directly, they will be run with the rights of
    the user running the overall query.  Therefore, users who are using a given
@@ -853,6 +870,12 @@ AND
    owner's rights and any policies which apply to the view owner, except if
    the view is defined using the <literal>security_invoker</literal> option
    (see <link linkend="sql-createview"><command>CREATE VIEW</command></link>).
+-->
+《マッチ度[75.544174]》ポリシーの式はユーザの問い合わせに直接追加されるため、式は問い合わせ全体を実行しているユーザの権限によって実行されます。
+そのため、あるポリシーを使用するユーザは、その式が参照しているすべてのテーブルおよび関数にアクセスできる必要があります。
+そうでなければ、行単位セキュリティが有効になっているテーブルに問い合わせをしようとしたときに、単に権限なしのエラーを受け取ります。
+しかし、これによってビューの動作が変わることはありません。
+通常の問い合わせおよびビューと同じく、ビューによって参照されるテーブルに対する権限の確認とポリシーは、ビューの所有者の権限およびビューの所有者に適用されるポリシーを利用します。
   </para>
 
   <para>

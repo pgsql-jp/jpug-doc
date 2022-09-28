@@ -35,6 +35,7 @@
  </para>
 
   <para>
+<!--
    Several tools are available for monitoring database activity and
    analyzing performance.  Most of this chapter is devoted to describing
    <productname>PostgreSQL</productname>'s cumulative statistics system,
@@ -46,6 +47,11 @@
    <xref linkend="using-explain"/> discusses <command>EXPLAIN</command>
    and other methods for understanding the behavior of an individual
    query.
+-->
+《マッチ度[92.739726]》データベース活動状況の監視と性能解析用のツールはいくつか存在します。
+本章の大部分は<productname>PostgreSQL</productname>の統計情報コレクタの説明に費されていますが、<command>ps</command>や<command>top</command>、<command>iostat</command>、<command>vmstat</command>などの通常のUnix監視プログラムを無視すべきではありません。
+また、性能が悪い問い合わせであると認知された問い合わせは、その後、<productname>PostgreSQL</productname>の<link linkend="sql-explain"><command>EXPLAIN</command></link>コマンドを使用して調査を行う必要が発生します。
+<xref linkend="using-explain"/>では、個々の問い合わせの振舞いを理解するための、<command>EXPLAIN</command>やその他の方法について記載しています。
   </para>
 
  <sect1 id="monitoring-ps">
@@ -187,6 +193,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
   </indexterm>
 
   <para>
+<!--
    <productname>PostgreSQL</productname>'s <firstterm>cumulative statistics
    system</firstterm> supports collection and reporting of information about
    server activity.  Presently, accesses to tables and indexes in both
@@ -194,14 +201,23 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    in each table, and information about vacuum and analyze actions for each
    table are also counted.  If enabled, calls to user-defined functions and
    the total time spent in each one are counted as well.
+-->
+《マッチ度[70.576132]》<productname>PostgreSQL</productname>の<firstterm>統計情報コレクタ</firstterm>はサーバの活動状況に関する情報を収集し、報告するサブシステムです。
+現在、コレクタはテーブルとインデックスへのアクセスをディスクブロックおよび個々の行単位で数えることができます。
+またこれは、各テーブル内の総行数、および、各テーブルでのバキュームやアナライズの実施情報を追跡します。
+また、ユーザ定義関数の呼ばれた回数、それぞれの消費した総時間を数えます。
   </para>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> also supports reporting dynamic
    information about exactly what is going on in the system right now, such as
    the exact command currently being executed by other server processes, and
    which other connections exist in the system.  This facility is independent
    of the cumulative statistics system.
+-->
+《マッチ度[88.787879]》また、<productname>PostgreSQL</productname>は他のサーバプロセスによって現在実行されている正確なコマンドなど現在システム内で起きていること、またシステム内にどんな他の接続が存在するかということについての動的情報を正確に報告する機能を持ちます。
+これはコレクタプロセスから独立している機能です。
   </para>
 
  <sect2 id="monitoring-stats-setup">
@@ -232,8 +248,11 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
   </para>
 
   <para>
+<!--
    The parameter <xref linkend="guc-track-counts"/> controls whether
    cumulative statistics are collected about table and index accesses.
+-->
+《マッチ度[89.473684]》<xref linkend="guc-track-counts"/>パラメータは、テーブルおよびインデックスアクセスに関する統計情報を収集するかどうかを制御します。
   </para>
 
   <para>
@@ -296,6 +315,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
   <title>統計情報の表示</title>
 
   <para>
+<!--
    Several predefined views, listed in <xref
    linkend="monitoring-stats-dynamic-views-table"/>, are available to show
    the current state of the system. There are also several other
@@ -304,9 +324,14 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    statistics.  Alternatively, one can
    build custom views using the underlying cumulative statistics functions, as
    discussed in <xref linkend="monitoring-stats-functions"/>.
+-->
+《マッチ度[87.387387]》システムの現在の状態を表示するために、いくつかの定義済みのビューがあり、<xref linkend="monitoring-stats-dynamic-views-table"/>に一覧されています。
+また、統計情報の収集結果を表示するために、他にもいくつかのビューがあり、<xref linkend="monitoring-stats-views-table"/>に一覧されています。
+あるいはまた、<xref linkend="monitoring-stats-functions"/>で説明する、基礎的な統計情報関数を使用した独自のビューを構築することもできます。
   </para>
 
   <para>
+<!--
    When using the cumulative statistics views and functions to monitor
    collected data, it is important to realize that the information does not
    update instantaneously.  Each individual server process flushes out
@@ -317,9 +342,17 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    and the displayed information lags behind actual activity.  However,
    current-query information collected by <varname>track_activities</varname>
    is always up-to-date.
+-->
+《マッチ度[54.545455]》この統計情報を使用して、収集されるデータを監視する場合、この情報は即座に更新されないことを認識することが重要です。
+個別のサーバプロセスは、待機状態になる直前に、新しい統計情報に関する数をコレクタに送信します。
+ですので、実行中の問い合わせやトランザクションは表示上の総和には影響を与えません。
+また、コレクタ自体は<varname>PGSTAT_STAT_INTERVAL</varname>ミリ秒（サーバ構築時に変更しない限り500 ms）に多くても一度新しい報告を出力します。
+ですので、表示上の情報は実際の活動から遅れて表示されます。
+しかし、<varname>track_activities</varname>で収集される現在の問い合わせの情報は常に最新です。
   </para>
 
   <para>
+<!--
    Another important point is that when a server process is asked to display
    any of the accumulated statistics, accessed values are cached until the end
    of its current transaction in the default configuration. So the statistics
@@ -346,9 +379,22 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    next use of statistical information will (when in snapshot mode) cause a
    new snapshot to be built or (when in cache mode) accessed statistics to be
    cached.
+-->
+《マッチ度[50.505689]》この他の重要なポイントは、いつサーバプロセスが統計情報を表示するように尋ねられるかです。
+サーバプロセスは、まずコレクタプロセスによって発行された最も最近の報告を取り出します。
+そして、現在のトランザクションが終わるまで、全ての統計情報ビューと関数においてこのスナップショットを使用し続けます。
+ですから、現在のトランザクションを続けている間、統計情報は一定の情報を示します。
+同様に、全セッションの現在の問い合わせに関する情報も、そうした情報がトランザクションで最初に要求された時に収集され、そのトランザクションの間同じ情報が表示されます。
+これはバグではなく、特徴です。
+なぜなら、これにより、知らない間に値が変わるのを考慮することなく、統計情報に対して複数の問い合わせを実行し、その結果を相関することができるからです。
+しかし、各問い合わせで新しい結果を取り出したい場合は、確実にトランザクションブロックの外側でその問い合わせを行ってください。
+あるいはまた、<function>pg_stat_clear_snapshot</function>()を呼び出すこともできます。
+これは現在のトランザクションの統計情報スナップショットを（もしあれば）破棄します。
+次に統計情報を使用する場合に新しいスナップショットを取り出すことになります。
   </para>
 
   <para>
+<!--
    A transaction can also see its own statistics (not yet flushed out to the
    shared memory statistics) in the views
    <structname>pg_stat_xact_all_tables</structname>,
@@ -356,9 +402,13 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    <structname>pg_stat_xact_user_tables</structname>, and
    <structname>pg_stat_xact_user_functions</structname>.  These numbers do not act as
    stated above; instead they update continuously throughout the transaction.
+-->
+《マッチ度[87.500000]》トランザクションからは、<structname>pg_stat_xact_all_tables</structname>、<structname>pg_stat_xact_sys_tables</structname>、<structname>pg_stat_xact_user_tables</structname>、および<structname>pg_stat_xact_user_functions</structname>を通じて、自身の統計情報(まだコレクタに送られていない)も参照することができます。
+これらの数値はトランザクション中に継続的に更新されていくため上記の様な(静的な情報を示す)振る舞いとはなりません。
   </para>
 
   <para>
+<!--
    Some of the information in the dynamic statistics views shown in <xref
    linkend="monitoring-stats-dynamic-views-table"/> is security restricted.
    Ordinary users can only see all the information about their own sessions
@@ -368,6 +418,12 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    and database are visible to all users.  Superusers and roles with privileges of
    built-in role <literal>pg_read_all_stats</literal> (see also <xref
    linkend="predefined-roles"/>) can see all the information about all sessions.
+-->
+《マッチ度[92.824427]》<xref linkend="monitoring-stats-dynamic-views-table"/>で表示される動的な統計ビューの情報の中にはセキュリティ制限があるものがあります。
+一般ユーザは自身のセッション（メンバとなっているロールに属するセッション）に関する全情報だけを参照できます。
+他セッションに関する行では多くの列がNULLになるでしょう。
+しかしながら、セッションの存在とセッションのユーザとデータベースなどの一般的な属性は全ユーザに可視であることに注意してください。
+スーパーユーザと組み込みロール<literal>pg_read_all_stats</literal>（<xref linkend="predefined-roles"/>も参照してください）のメンバも全セッションに関する全情報を参照できます。
   </para>
 
   <table id="monitoring-stats-dynamic-views-table">
@@ -945,6 +1001,7 @@ SLRUごとに1行の形で、操作に関する統計情報を示します。
   </para>
 
   <para>
+<!--
    The <structname>pg_statio_</structname> views are primarily useful to
    determine the effectiveness of the buffer cache.  When the number
    of actual disk reads is much smaller than the number of buffer
@@ -959,6 +1016,11 @@ SLRUごとに1行の形で、操作に関する統計情報を示します。
    advised to use the <productname>PostgreSQL</productname> statistics views
    in combination with operating system utilities that allow insight
    into the kernel's handling of I/O.
+-->
+《マッチ度[94.339623]》<structname>pg_statio_</structname>ビューは主に、バッファキャッシュの効率を評価する際に有用です。
+実ディスク読み取りの数がバッファヒットの数よりもかなり少ないのであれば、そのキャッシュはカーネル呼び出しを行うことなく、ほとんどの読み取り要求を満足させています。
+しかし、<productname>PostgreSQL</productname>バッファキャッシュに存在しないデータはカーネルのI/Oキャッシュにある可能性があり、そのため、物理的な読み取りを行うことなく取り出される可能性があるという<productname>PostgreSQL</productname>のディスクI/Oの取り扱いのため、これらの統計情報は、完全な論拠を提供しません。
+<productname>PostgreSQL</productname>のI/O動作に関するより詳細な情報を入手したいのであれば、<productname>PostgreSQL</productname>統計情報コレクタとカーネルのI/Oの取り扱いの監視を行うオペレーティングシステムユーティリティを組み合わせることを勧めます。
   </para>
 
  </sect2>
@@ -5146,7 +5208,10 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
        <structfield>last_archived_wal</structfield> <type>text</type>
       </para>
       <para>
+<!--
        Name of the WAL file most recently successfully archived
+-->
+《マッチ度[57.142857]》アーカイブに成功した最後のWALファイルの名前です。
       </para></entry>
      </row>
 
@@ -5155,7 +5220,10 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
        <structfield>last_archived_time</structfield> <type>timestamp with time zone</type>
       </para>
       <para>
+<!--
        Time of the most recent successful archive operation
+-->
+《マッチ度[69.230769]》最後に成功したアーカイブ操作の時刻です。
       </para></entry>
      </row>
 
@@ -5176,7 +5244,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>last_failed_wal</structfield> <type>text</type>
       </para>
       <para>
+<!--
        Name of the WAL file of the most recent failed archival operation
+-->
+《マッチ度[75.384615]》最後にアーカイブ操作に失敗したWALファイルの名前です。
       </para></entry>
      </row>
 
@@ -5185,7 +5256,10 @@ WALファイルのアーカイブに失敗した回数です。
        <structfield>last_failed_time</structfield> <type>timestamp with time zone</type>
       </para>
       <para>
+<!--
        Time of the most recent failed archival operation
+-->
+《マッチ度[67.346939]》最後にアーカイブ操作に失敗した時刻です。
       </para></entry>
      </row>
 
@@ -5723,7 +5797,10 @@ WALファイルが<function>issue_xlog_fsync</function>要求によりディス�
        <structfield>tup_fetched</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of live rows fetched by index scans in this database
+-->
+《マッチ度[64.406780]》データベース内の問い合わせで取り出された行数です。
       </para></entry>
      </row>
 
@@ -6277,7 +6354,10 @@ WALファイルが<function>issue_xlog_fsync</function>要求によりディス�
        <structfield>n_tup_upd</structfield> <type>bigint</type>
       </para>
       <para>
+<!--
        Number of rows updated (includes <link linkend="storage-hot">HOT updated rows</link>)
+-->
+《マッチ度[50.588235]》更新された行数です。（HOT更新された行数を含みます）
       </para></entry>
      </row>
 
@@ -7384,8 +7464,11 @@ SLRUでの切り詰めの数です。
   </para>
 
   <para>
+<!--
    Additional functions related to the cumulative statistics system are listed
    in <xref linkend="monitoring-stats-funcs-table"/>.
+-->
+《マッチ度[76.190476]》その他の統計情報収集に関連した関数を<xref linkend="monitoring-stats-funcs-table"/>に示します。
   </para>
 
    <table id="monitoring-stats-funcs-table">
@@ -7473,7 +7556,10 @@ SLRUでの切り詰めの数です。
         <returnvalue>void</returnvalue>
        </para>
        <para>
+<!--
         Discards the current statistics snapshot or cached information.
+-->
+《マッチ度[52.380952]》現在の統計情報スナップショットを破棄します。
        </para></entry>
       </row>
 
@@ -7509,6 +7595,7 @@ SLRUでの切り詰めの数です。
         <returnvalue>void</returnvalue>
        </para>
        <para>
+<!--
         Resets some cluster-wide statistics counters to zero, depending on the
         argument.  The argument can be <literal>bgwriter</literal> to reset
         all the counters shown in
@@ -7519,6 +7606,9 @@ SLRUでの切り詰めの数です。
         <structname>pg_stat_wal</structname> view or
         <literal>recovery_prefetch</literal> to reset all the counters shown
         in the <structname>pg_stat_recovery_prefetch</structname> view.
+-->
+《マッチ度[67.894737]》引数に応じて、クラスタ全体の統計情報カウンタの一部をゼロにリセットします。
+引数に<literal>bgwriter</literal>を指定すると、<structname>pg_stat_bgwriter</structname>ビューで示されるカウンタがすべてリセットされ、<literal>archiver</literal>を指定すると<structname>pg_stat_archiver</structname>ビューで示されるカウンタがすべてリセットされ、<literal>wal</literal>を指定すると<structname>pg_stat_wal</structname>ビューで示されるカウンタがすべてリセットされます。
        </para>
        <para>
 <!--
@@ -7538,8 +7628,11 @@ SLRUでの切り詰めの数です。
         <returnvalue>void</returnvalue>
        </para>
        <para>
+<!--
         Resets statistics for a single table or index in the current database
         or shared across all databases in the cluster to zero.
+-->
+《マッチ度[62.096774]》現在のデータベース内にある、ひとつのテーブルあるいはインデックスの統計情報をゼロにリセットします。
        </para>
        <para>
 <!--
@@ -9906,7 +9999,10 @@ DTraceサポートを含めるには、configureに<option>--enable-dtrace</opti
   </para>
 
  <table id="dtrace-probe-point-table">
+<!--
   <title>Built-in DTrace Probes</title>
+-->
+  <title>組み込み済みのDTraceプローブ</title>
   <tgroup cols="3">
    <colspec colname="col1" colwidth="2*"/>
    <colspec colname="col2" colwidth="3*"/>

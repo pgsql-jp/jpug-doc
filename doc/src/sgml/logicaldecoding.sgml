@@ -185,6 +185,7 @@ postgres=# SELECT pg_drop_replication_slot('regression_slot');
 </programlisting>
 
    <para>
+<!--
     The following examples shows how logical decoding is controlled over the
     streaming replication protocol, using the
     program <xref linkend="app-pgrecvlogical"/> included in the PostgreSQL
@@ -195,6 +196,9 @@ postgres=# SELECT pg_drop_replication_slot('regression_slot');
     an additional connection.  The second example shows how to stream two-phase
     transactions.  Before you use two-phase commands, you must set
     <xref linkend="guc-max-prepared-transactions"/> to at least 1.
+-->
+《マッチ度[66.881029]》以下はPostgreSQLに付属するプログラム<xref linkend="app-pgrecvlogical"/>を用いてロジカルデコーディングをストリーミングレプリケーションのプロトコルによって制御する例です。
+この方法を使うには、レプリケーション接続を許すようにクライアント認証を設定し(<xref linkend="streaming-replication-authentication"/>参照)、<varname>max_wal_senders</varname>を十分に大きくして追加の接続ができるようにしておかなければなりません。
    </para>
 <programlisting>
 Example 1:
@@ -458,6 +462,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
 -->
     <title>スナップショットのエクスポート</title>
     <para>
+<!--
      When a new replication slot is created using the streaming replication
      interface (see <xref linkend="protocol-replication-create-replication-slot"/>), a
      snapshot is exported
@@ -469,6 +474,12 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      the slot was created. This transaction can then be used to dump the
      database's state at that point in time, which afterwards can be updated
      using the slot's contents without losing any changes.
+-->
+《マッチ度[90.758621]》ストリーミングレプリケーションのインタフェースを使って新しいスロットを作ると(<xref linkend="protocol-replication-create-replication-slot"/>参照)、スナップショットがエクスポートされます(<xref linkend="functions-snapshot-synchronization"/>参照)。
+このスナップショットはまさにその時点でのデータベースの状態を示しており、スナップショット以後のすべての変更は更新ストリームに含まれるようになります。
+このことを利用して、スロットが作られた際のデータベースの状態を<link linkend="sql-set-transaction"><literal>SET TRANSACTION SNAPSHOT</literal></link>を使って読み込むことにより、新しいレプリカを作ることができます。
+このトランザクションは、その時点のデータベースの状態をダンプするために使用することができます。
+また、スロットに含まれるデータを使って、ダンプした後で行われた更新を失うことなくデータベースを更新できます。
     </para>
     <para>
 <!--
@@ -1201,6 +1212,7 @@ typedef bool (*LogicalDecodeFilterPrepareCB) (struct LogicalDecodingContext *ctx
      <title>トランザクション開始準備コールバック</title>
 
      <para>
+<!--
       The required <function>begin_prepare_cb</function> callback is called
       whenever the start of a prepared transaction has been decoded. The
       <parameter>gid</parameter> field, which is part of the
@@ -1212,6 +1224,10 @@ typedef bool (*LogicalDecodeFilterPrepareCB) (struct LogicalDecodingContext *ctx
 typedef void (*LogicalDecodeBeginPrepareCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn);
 </programlisting>
+-->
+《マッチ度[68.505338]》必須である<function>begin_prepare_cb</function>コールバックは、準備されたトランザクションの開始がデコードされるたびに呼び出されます。
+<parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドをこのコールバックで使用して、プラグインがこの<command>PREPARE</command>を既に受信しているかどうかをチェックできます。
+この場合、エラーになるか、トランザクションの残りの変更をスキップできます。
      </para>
     </sect3>
 
@@ -1726,6 +1742,7 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
    </para>
 
    <para>
+<!--
     When streaming an in-progress transaction, the changes (and messages) are
     streamed in blocks demarcated by <function>stream_start_cb</function>
     and <function>stream_stop_cb</function> callbacks. Once all the decoded
@@ -1737,6 +1754,12 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
     <command>COMMIT PREPARED</command> using the
     <function>commit_prepared_cb</function> callback or aborted using the
     <function>rollback_prepared_cb</function>.
+-->
+《マッチ度[93.083573]》継続中のトランザクションをストリーミングする場合、変更(およびメッセージ)は<function>stream_start_cb</function>および<function>stream_stop_cb</function>コールバックで区切られたブロックでストリーミングされます。
+デコードされたすべての変更が送信されると、トランザクションは<function>stream_commit_cb</function>コールバックを使用してコミットできます(または<function>stream_abort_cb</function>コールバックを使用してアボートできます)。
+2相コミットがサポートされている場合、トランザクションは<function>stream_prepare_cb</function>コールバックを使用して準備できます。
+<command>COMMIT PREPARED</command>は<function>commit_prepared_cb</function>コールバックを使用して準備できます。
+または<function>rollback_prepared_cb</function>を使用してアボートできます。
    </para>
 
    <para>

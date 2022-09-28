@@ -763,6 +763,7 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
    </para>
 
    <para>
+<!--
     <command>VACUUM</command> uses the <link linkend="storage-vm">visibility map</link>
     to determine which pages of a table must be scanned.  Normally, it
     will skip pages that don't have any dead row versions even if those pages
@@ -779,6 +780,15 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
     <varname>vacuum_freeze_min_age</varname>. Setting
     <varname>vacuum_freeze_table_age</varname> to 0 forces <command>VACUUM</command> to
     always use its aggressive strategy.
+-->
+《マッチ度[77.669903]》<command>VACUUM</command>は<link linkend="storage-vm">可視性マップ</link>を使用して、テーブルのどのページを走査する必要があるかを決定します。
+通常は、不要な行バージョンを持っていないページを読み飛ばします。
+このとき、そのページに古いXID値の行バージョンがまだある可能性があったとしても読み飛ばします。
+したがって、通常の<command>VACUUM</command>では必ずしもテーブル内のすべての古い行バージョンを凍結するわけではありません。
+定期的に<command>VACUUM</command>は<firstterm>積極的なバキューム</firstterm>を実行し、そのときは不要な行も凍結されていないXID値やMXID値もないページのみを読み飛ばします。
+<xref linkend="guc-vacuum-freeze-table-age"/>は<command>VACUUM</command>がいつこれを行うかを制御します。
+つまり、最後にそのような走査が行われた後に実行されたトランザクションの数が<varname>vacuum_freeze_table_age</varname>から<varname>vacuum_freeze_min_age</varname>を引いた数より大きいとき、全可視ではあるが全凍結ではないページも走査されます。
+<varname>vacuum_freeze_table_age</varname>を0に設定すると<command>VACUUM</command>はすべての走査についてこのより積極的な戦略を使うようになります。
    </para>
 
    <para>
@@ -937,6 +947,7 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
    </tip>
 
    <para>
+<!--
     <command>VACUUM</command> normally only scans pages that have been modified
     since the last vacuum, but <structfield>relfrozenxid</structfield> can only be
     advanced when every page of the table
@@ -958,6 +969,12 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
     <command>VACUUM</command> is issued on the table until
     <varname>autovacuum_freeze_max_age</varname> is reached, an autovacuum will soon
     be forced for the table.
+-->
+《マッチ度[79.176201]》<command>VACUUM</command>は通常は最後のバキュームの後で変更されたページのみ走査しますが、<structfield>relfrozenxid</structfield>はテーブルの凍結されていないXIDを含むかもしれないすべてのページを走査したときのみ繰り上がります。
+これは、<structfield>relfrozenxid</structfield>が<varname>vacuum_freeze_table_age</varname>トランザクション年齢より大きい時、<command>VACUUM</command>の<literal>FREEZE</literal>オプションが使用された時、もしくは使用されない行バージョンを削除するため全てのページをバキュームしなければならなくなった時に発生します。
+<command>VACUUM</command>がテーブルの全凍結になっていないすべてのページを走査したとき、<literal>age(relfrozenxid)</literal>は、使用された<varname>vacuum_freeze_min_age</varname>設定より若干大きくなるはずです
+（<command>VACUUM</command>を起動してから始まったトランザクションの数分大きくなります）。
+<structfield>relfrozenxid</structfield>を繰り上げる<command>VACUUM</command>が<varname>autovacuum_freeze_max_age</varname>に達するまでにテーブルに対して発行されない場合、そのテーブルに対して自動バキュームが早急に強制されます。
    </para>
 
    <para>
@@ -1078,12 +1095,16 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
     </para>
 
     <para>
+<!--
      Aggressive <command>VACUUM</command>s, regardless of what causes
      them, are <emphasis>guaranteed</emphasis> to be able to advance
      the table's <structfield>relminmxid</structfield>.
      Eventually, as all tables in all databases are scanned and their
      oldest multixact values are advanced, on-disk storage for older
      multixacts can be removed.
+-->
+《マッチ度[66.865672]》積極的な<command>VACUUM</command>走査は、その原因が何かに関わらず、そのテーブルのその値を進めることができます。
+結局、データベースすべてのテーブルすべてが走査され、最も古いマルチトランザクション値が進められますので、ディスク上でより古いマルチトランザクションを保持している領域は削除できます。
     </para>
 
     <para>

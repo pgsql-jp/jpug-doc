@@ -883,6 +883,7 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
   </para>
 
   <para>
+<!--
    Recovery performance is sufficiently good that the standby will
    typically be only moments away from full
    availability once it has been activated. As a result, this is called
@@ -893,6 +894,13 @@ WALファイル(16MB)は隣り合うシステム、同じサイトの別シス�
    A standby server can also be used for read-only queries, in which case
    it is called a <firstterm>hot standby</firstterm> server. See
    <xref linkend="hot-standby"/> for more information.
+-->
+《マッチ度[90.848586]》リカバリ処理の性能は十分よく、一度実施されれば、スタンバイサーバが完全な状態から逸脱するのは一時的にしかすぎません。
+結果としてこれは、高可用性を提供するウォームスタンバイ構成と呼ばれます。
+保管されたベースバックアップからサーバをリストアし、ロールフォワードを行うことはおそらく長時間かかりますので、これは高可用性のための解法とはいえず、災害からのリカバリのための解法です。
+スタンバイサーバは読み取り専用の問い合わせに使用することもできます。
+この場合ホットスタンバイサーバと呼ばれます。
+詳細については<xref linkend="hot-standby"/>を参照してください。
   </para>
 
   <indexterm zone="high-availability">
@@ -1473,6 +1481,7 @@ primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
 全てのスタンバイがWALセグメントを受け取るまでは、プライマリがWALセグメントを削除しないこと、また、スタンバイが接続していない際にも、<link linkend="hot-standby-conflict">リカバリの競合</link>が発生する可能性がある行をプライマリが削除しないこと、です。
    </para>
    <para>
+<!--
     In lieu of using replication slots, it is possible to prevent the removal
     of old WAL segments using <xref linkend="guc-wal-keep-size"/>, or by
     storing the segments in an archive using
@@ -1484,6 +1493,11 @@ primary_conninfo = 'host=192.168.1.50 port=5432 user=foo password=foopass'
     for <literal>pg_wal</literal>;
     <xref linkend="guc-max-slot-wal-keep-size"/> limits the size of WAL files
     retained by replication slots.
+-->
+《マッチ度[87.892377]》レプリケーションスロットを使う代わりに、<xref linkend="guc-wal-keep-size"/>を使う、あるいは<xref linkend="guc-archive-command"/>を使用してセグメントをアーカイブに保存することによっても、古いWALセグメントの削除を防ぐことができます。
+しかし、これらの方法はしばしば要求される以上のWALセグメントを残すことになってしまうのに対し、レプリケーションスロットは必要と判断されたセグメントのみを残します。
+一方で、レプリケーションスロットは<literal>pg_wal</literal>のための領域を埋め尽くす大量のWALセグメントを残してしまうかも知れません。
+<xref linkend="guc-max-slot-wal-keep-size"/>はレプリケーションスロットによって残されるWALファイルの大きさを制限します。
    </para>
    <para>
 <!--
@@ -1623,7 +1637,10 @@ primary_slot_name = 'node_a_slot'
    </para>
 
    <para>
+<!--
     Hot standby feedback propagates upstream, whatever the cascaded arrangement.
+-->
+《マッチ度[93.421053]》ホットスタンバイがどの様に配置されていても、ホットスタンバイフィードバックは上流に伝播します。
    </para>
 
    <para>
@@ -2130,11 +2147,15 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
    </para>
 
    <para>
+<!--
     If you need to re-create a standby server while transactions are
     waiting, make sure that the commands pg_backup_start() and
     pg_backup_stop() are run in a session with
     <varname>synchronous_commit</varname> = <literal>off</literal>, otherwise those
     requests will wait forever for the standby to appear.
+-->
+《マッチ度[86.000000]》トランザクションの待機中にスタンバイサーバを再作成する必要がある場合、pg_start_backup()およびpg_stop_backup()を実行するコマンドを<varname>synchronous_commit</varname> = <literal>off</literal>であるセッション内で確実に実行してください。
+さもないとこれらの要求はスタンバイに現れるまで永遠に待機します。
    </para>
 
    </sect3>
@@ -2156,6 +2177,7 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
    </indexterm>
 
    <para>
+<!--
      When continuous WAL archiving is used in a standby, there are two
      different scenarios: the WAL archive can be shared between the primary
      and the standby, or the standby can have its own WAL archive. When
@@ -2171,6 +2193,14 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
      but return success if the exactly same file is archived twice. And
      all that must be done free of race conditions, if two servers attempt
      to archive the same file at the same time.
+-->
+《マッチ度[85.944919]》スタンバイにおいてWALの継続的アーカイビングが行われる場合、2つのシナリオが考えられます。
+WALアーカイブがプライマリとスタンバイで共有されるケースと、スタンバイが自分のWALアーカイブを持つケースです。
+スタンバイが自分のWALアーカイブを持つケースでは、<varname>archive_mode</varname>を<literal>always</literal>に設定しておくことにより、アーカイブからリストアされたWALセグメントであろうと、ストリーミングレプリケーション由来のWALセグメントであろうと、WALセグメントを受信する度にスタンバイはアーカイブコマンドを呼び出します。
+共有アーカイブのケースも同じように扱えますが、<varname>archive_command</varname>はアーカイブしようとしているファイルがすでに存在していて、それが同一内容かどうかのチェックを行う必要があります。
+このため、<varname>archive_command</varname>はより工夫が必要です。
+というのも、<varname>archive_command</varname>は既存のファイルを異なる内容で置き換えてはいけませんし、またまったく同じ内容のファイルを置き換えた場合には成功したと報告しなければならないからです。
+更に、2つのサーバが同時に同じファイルをアーカイブしようとした時に、競合状態が起きないようにしなければなりません。
    </para>
 
    <para>
@@ -2340,6 +2370,7 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
   </indexterm>
 
    <para>
+<!--
     Hot standby is the term used to describe the ability to connect to
     the server and run read-only queries while the server is in archive
     recovery or standby mode. This
@@ -2348,6 +2379,10 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
     The term hot standby also refers to the ability of the server to move
     from recovery through to normal operation while users continue running
     queries and/or keep their connections open.
+-->
+《マッチ度[92.358079]》ホットスタンバイという単語は、サーバがアーカイブリカバリを実行している最中にサーバに接続し読み取り専用の問い合わせを実行することができる機能を説明するために使われます。
+これは、レプリケーションという目的およびバックアップからのリストアの両方で高い精度で好ましい状態にするために有用です。
+ホットスタンバイという単語はまた、ユーザが問い合わせを実行しながら、または、開いている接続を維持しながら、またはその両方で、サーバをリカバリ状態から通常の動作に移すことができる機能も示すものです。
    </para>
 
    <para>
@@ -2640,11 +2675,16 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
    </para>
 
    <para>
+<!--
     In normal operation, <quote>read-only</quote> transactions are allowed to
     use <command>LISTEN</command> and <command>NOTIFY</command>,
     so hot standby sessions operate under slightly tighter
     restrictions than ordinary read-only sessions.  It is possible that some
     of these restrictions might be loosened in a future release.
+-->
+《マッチ度[92.857143]》通常の操作では、<quote>読み取り専用</quote>トランザクションには<command>LISTEN</command>と<command>NOTIFY</command>の使用が許可されています。
+ホットスタンバイセッションの操作では、通常の読み取り専用セッションよりも少し厳しい制約を受けます。
+将来のリリースではこの制約の一部が緩和されるかもしれません。
    </para>
 
    <para>
@@ -3261,6 +3301,7 @@ HINT:  You can then restart the server after making the necessary configuration 
    </para>
 
    <para>
+<!--
     <function>pg_cancel_backend()</function>
     and <function>pg_terminate_backend()</function> will work on user backends,
     but not the startup process, which performs
@@ -3270,9 +3311,15 @@ HINT:  You can then restart the server after making the necessary configuration 
     recovery. If you wish to resolve in-doubt prepared transactions, view
     <literal>pg_prepared_xacts</literal> on the primary and issue commands to
     resolve transactions there or resolve them after the end of recovery.
+-->
+《マッチ度[93.321300]》<function>pg_cancel_backend()</function>と<function>pg_terminate_backend()</function>は利用者のバックエンドでは実行できますが、リカバリを実行する起動プロセスでは実行できません。
+<structname>pg_stat_activity</structname>はリカバリ中のトランザクションをアクティブとして表示しません。
+その結果、リカバリの間<structname>pg_prepared_xacts</structname>は常に空となります。
+調査が必要な準備されたトランザクションがある場合は、プライマリサーバにおいて<literal>pg_prepared_xacts</literal>を表示し、その場でトランザクションを解決するか、リカバリが終わるのを待ってからトランザクションを解決します。
    </para>
 
    <para>
+<!--
     <structname>pg_locks</structname> will show locks held by backends,
     as normal. <structname>pg_locks</structname> also shows
     a virtual transaction managed by the startup process that owns all
@@ -3281,6 +3328,12 @@ HINT:  You can then restart the server after making the necessary configuration 
     make database changes, and thus locks other than <literal>AccessExclusiveLocks</literal>
     do not show in <structname>pg_locks</structname> for the Startup
     process; they are just presumed to exist.
+-->
+《マッチ度[93.596987]》<structname>pg_locks</structname>は通常通りバックエンドで保持されるロックを示します。
+<structname>pg_locks</structname>はまた、リカバリによって再生されているトランザクションで保持される<literal>AccessExclusiveLocks</literal>のすべてを所有する、起動プロセスで管理される仮想トランザクションも表示します。
+起動プロセスはデータベースの変更を行うためのロックを獲得しません。
+このため起動プロセスにおいて<literal>AccessExclusiveLocks</literal>以外のロックは<structname>pg_locks</structname>では表示されません。
+これらは存在することを想定されているだけです。
    </para>
 
    <para>
@@ -3300,8 +3353,12 @@ HINT:  You can then restart the server after making the necessary configuration 
    </para>
 
    <para>
+<!--
     WAL file control commands will not work during recovery,
     e.g., <function>pg_backup_start</function>, <function>pg_switch_wal</function> etc.
+-->
+《マッチ度[85.714286]》リカバリの間WALの制御コマンドは稼動しません。
+例えば、<function>pg_start_backup</function>や<function>pg_switch_wal</function>などです。
    </para>
 
    <para>
@@ -3514,6 +3571,7 @@ WALの再実行はトリガに基づいたものではありません。
    </listitem>
    <listitem>
     <para>
+<!--
      Valid starting points for standby queries are generated at each
      checkpoint on the primary. If the standby is shut down while the primary
      is in a shutdown state, it might not be possible to re-enter hot standby
@@ -3525,6 +3583,12 @@ WALの再実行はトリガに基づいたものではありません。
      the new primary anyway.  And in situations where the primary is
      being intentionally taken down, coordinating to make sure the standby
      becomes the new primary smoothly is also standard procedure.
+-->
+《マッチ度[92.059219]》スタンバイ問い合わせ用の有効な起動ポイントは、プライマリにおけるチェックポイント毎に生成されます。
+プライマリが停止状態にある時にスタンバイが停止した場合、プライマリが起動し、さらに起動ポイントをWALログに生成するまで再度ホットスタンバイになることができないことがあります。
+この状況は、通常考えられる状態では問題ではありません。
+一般的に、プライマリが停止し利用できなくなった場合、それはスタンバイに対して新しいプライマリに切り替わることを要求するような深刻な失敗が原因であることが多いはずです。
+また、プライマリを意図的に停止させるような状況では、それに伴いスタンバイが新しいプライマリになめらかに切り替わることも普通の手順です。
     </para>
    </listitem>
    <listitem>

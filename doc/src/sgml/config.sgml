@@ -413,6 +413,7 @@ shared_buffers = 128MB
 
      <listitem>
       <para>
+<!--
        The <link linkend="sql-set"><command>SET</command></link> command allows modification of the
        current value of those parameters that can be set locally to a
        session; it has no effect on other sessions.
@@ -422,6 +423,10 @@ shared_buffers = 128MB
        The corresponding SQL function is
        <function>set_config(setting_name, new_value, is_local)</function>
        (see <xref linkend="functions-admin-set"/>).
+-->
+《マッチ度[61.196911]》<link linkend="sql-set"><command>SET</command></link>コマンドでセッション内でローカルに変更できるパラメータの値を変更することができます。他のセッションには影響がありません。
+対応するSQL関数は<function>set_config(setting_name, new_value, is_local)</function>です。
+（<xref linkend="functions-admin-set"/>を参照してください）。
       </para>
      </listitem>
     </itemizedlist>
@@ -2800,14 +2805,20 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
       </term>
       <listitem>
        <para>
+<!--
         Used to compute the maximum amount of memory that hash-based
         operations can use.  The final limit is determined by
         multiplying <varname>work_mem</varname> by
         <varname>hash_mem_multiplier</varname>.  The default value is
         2.0, which makes hash-based operations use twice the usual
         <varname>work_mem</varname> base amount.
+-->
+《マッチ度[68.454259]》ハッシュに基づく操作が利用できる最大のメモリ量を計算するために使用します。
+最終的な制限は<varname>work_mem</varname>に<varname>hash_mem_multiplier</varname>を掛けて決定されます。
+デフォルト値は1.0で、ソートに基づく操作と同じように単に<varname>work_mem</varname>が最大となります。
        </para>
        <para>
+<!--
         Consider increasing <varname>hash_mem_multiplier</varname> in
         environments where spilling by query operations is a regular
         occurrence, especially when simply increasing
@@ -2818,6 +2829,10 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         more may be effective in environments where
         <varname>work_mem</varname> has already been increased to 40MB
         or more.
+-->
+《マッチ度[80.300188]》問い合わせ操作によって日常的にメモリ不足になるような環境、とりわけ単に<varname>work_mem</varname>を増やしたことによってメモリ逼迫（メモリ逼迫が典型的には間欠的なメモリ不足エラーの発生の形で起こる）が起きる場合には<varname>hash_mem_multiplier</varname>を増やすことを考慮してください。
+1.5あるいは2.0が色々なワークロードが混在している場合には効果的かも知れません。
+より大きな2.0から8.0、あるいはそれ以上の設定は<varname>work_mem</varname>がすでに40MB以上に増やしてあるような環境で効果的かも知れません。
        </para>
       </listitem>
      </varlistentry>
@@ -2958,6 +2973,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
       </term>
       <listitem>
        <para>
+<!--
         Specifies the maximum safe depth of the server's execution stack.
         The ideal setting for this parameter is the actual stack size limit
         enforced by the kernel (as set by <literal>ulimit -s</literal> or local
@@ -2970,6 +2986,14 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         it might be too small to allow execution of complex functions.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[80.516129]》サーバの実行スタックの最大安全深度を指定します。
+このパラメータの理想的な設定はカーネルにより強要される実際のスタック容量の（<literal>ulimit -s</literal>もしくはそれと同等の機能で設定された）限界から、1メガバイト程度の安全余裕度を差し引いたものです。
+この安全余裕度は、サーバがすべてのルーチンではスタック深度を検査をせず、再帰を行う可能性のある重要なルーチンでのみ検査をするために必要となるものです。
+この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
+デフォルト設定は2メガバイト（<literal>2MB</literal>）で、かなり控え目、かつクラッシュの危険がなさそうな設定です。
+しかし、複雑な関数の実行を許容するには小さ過ぎるかも知れません。
+スーパーユーザのみがこの設定を変更することができます。
        </para>
 
        <para>
@@ -3038,6 +3062,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
       </term>
       <listitem>
        <para>
+<!--
         Specifies the dynamic shared memory implementation that the server
         should use.  Possible values are <literal>posix</literal> (for POSIX shared
         memory allocated using <literal>shm_open</literal>), <literal>sysv</literal>
@@ -3053,6 +3078,12 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         however, it may be useful for debugging, when the
         <literal>pg_dynshmem</literal> directory is stored on a RAM disk, or when
         other shared memory facilities are not available.
+-->
+《マッチ度[86.556360]》サーバが使う動的共有メモリの実装を指定します。可能な値は<literal>posix</literal> (<literal>shm_open</literal>で獲得するPOSIX共有メモリ)、<literal>sysv</literal>(<literal>shmget</literal>で獲得するSystem V共有メモリ)、<literal>windows</literal> (Windows共有メモリ)、 <literal>mmap</literal>(データディレクトリ内のメモリマップファイルを使ってシミュレートする共有メモリ)です。
+すべての値がすべてのプラットフォームでサポートされているわけではありません。
+そのプラットフォームでの推奨実装がデフォルトになります。
+どのプラットフォームでもデフォルトになっていない<literal>mmap</literal>は、オペレーティングシステムが変更されたページをディスクに継続的に書き込み、I/O負荷を増加させるので一般的には利用が推奨されていません。
+しかし、デバッグ目的のために<literal>pg_dynshmem</literal>ディレクトリがRAMディスク上にある場合や、他の共有メモリ機能が使えない場合は有用かもしれません。
        </para>
       </listitem>
      </varlistentry>
@@ -3115,6 +3146,7 @@ huge pageを自動管理するオペレーティングシステム上でより�
       </term>
       <listitem>
        <para>
+<!--
         Specifies the maximum amount of disk space that a process can use
         for temporary files, such as sort and hash temporary files, or the
         storage file for a held cursor.  A transaction attempting to exceed
@@ -3123,6 +3155,13 @@ huge pageを自動管理するオペレーティングシステム上でより�
         <literal>-1</literal> (the default) means no limit.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[73.951435]》あるプロセスが一時ファイルとして使用できるディスクの最大容量を設定します。
+例えば、ソートやハッシュの一時ファイルであったり、カーソルを保持する格納ファイルです。
+この制限値を超えようとするトランザクションはキャンセルされます。
+この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
+<literal>-1</literal>（デフォルトです）の場合は制限がありません。
+この設定はスーパーユーザのみ変更可能です。
        </para>
        <para>
 <!--
@@ -4149,6 +4188,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
         for point-in-time recovery and standby servers.
        </para>
        <para>
+<!--
         In <literal>logical</literal> level, the same information is logged as
         with <literal>replica</literal>, plus information needed to
         extract logical change sets from the WAL. Using a level of
@@ -4156,6 +4196,10 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
         tables are configured for <literal>REPLICA IDENTITY FULL</literal> and
         many <command>UPDATE</command> and <command>DELETE</command> statements are
         executed.
+-->
+《マッチ度[84.669811]》<literal>logical</literal>レベルでは、<literal>replica</literal>と同じ情報がログされるのに加え、ロジカルチェンジセットをWALから取り出すのに必要な情報が追加されます。
+<literal>logical</literal>を使うとWALの量が増えます。
+とりわけ、多数のテーブルが<literal>REPLICA IDENTITY FULL</literal>と設定されていて(訳注: ALTER TABLE参照)、多くの<command>UPDATE</command>と<command>DELETE</command>文が実行される場合はこのことが言えます。
        </para>
        <para>
 <!--
@@ -4692,10 +4736,14 @@ WALの更新をディスクへ強制するのに使用される方法です。
        </para>
 
        <para>
+<!--
         Enabling compression can reduce the WAL volume without
         increasing the risk of unrecoverable data corruption,
         but at the cost of some extra CPU spent on the compression during
         WAL logging and on the decompression during WAL replay.
+-->
+《マッチ度[79.130435]》このパラメータを有効にすると、回復不可能なデータ破壊のリスクを増やすこと無しにWALの量を減らすことができます。
+しかし、WALロギングの際の圧縮のため、またWALリプレイの際には伸張のために余分なCPUを使用するというコストが発生します。
        </para>
       </listitem>
      </varlistentry>
@@ -4920,6 +4968,7 @@ WALライタがWALを吐き出す頻度を量で指定します。
       </term>
       <listitem>
        <para>
+<!--
         Setting <varname>commit_delay</varname> adds a time delay
         before a WAL flush is initiated.  This can improve
         group commit throughput by allowing a larger number of transactions
@@ -4936,6 +4985,15 @@ WALライタがWALを吐き出す頻度を量で指定します。
         The default <varname>commit_delay</varname> is zero (no delay).
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[80.587618]》<varname>commit_delay</varname>を設定することにより、WALフラッシュを開始する前の時間遅延が追加されます。
+このことにより、もし追加のトランザクションが与えられた時間間隔内でコミットが可能になるほどシステム負荷が充分に高い場合、一回のWALフラッシュでより多くの数のトランザクションをコミットできるようになり、コミット群のスループットを改善できます。
+とは言っても、それぞれのWALフラッシュに対して最大<varname>commit_delay</varname>の待ち時間の増加をきたします。
+コミットの準備が完了したトランザクションが他に存在しない場合、遅延は無駄になるため、遅延はフラッシュが開始されようとしている時点で少なくとも<varname>commit_siblings</varname>だけのトランザクションが活動している場合にだけ機能します。
+同様に、<varname>fsync</varname>が無効の場合も遅延は機能しません。
+この値が単位なしで指定された場合は、マイクロ秒単位であるとみなします。
+デフォルトの<varname>commit_delay</varname>はゼロ（遅延無し）です。
+この設定はスーパーユーザのみ変更可能です。
        </para>
        <para>
 <!--
@@ -5213,6 +5271,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
       </term>
       <listitem>
        <para>
+<!--
         When <varname>archive_mode</varname> is enabled, completed WAL segments
         are sent to archive storage by setting
         <xref linkend="guc-archive-command"/> or
@@ -5224,6 +5283,12 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         mode. In <literal>always</literal> mode, all files restored from the archive
         or streamed with streaming replication will be archived (again). See
         <xref linkend="continuous-archiving-in-standby"/> for details.
+-->
+《マッチ度[83.427762]》<varname>archive_mode</varname>が有効な場合、<xref linkend="guc-archive-command"/>を設定することにより、完了したWALセグメントはアーカイブ格納領域に送信されます。
+無効にするための<literal>off</literal>に加え、2つのモードがあります。<literal>on</literal>と<literal>always</literal>です。
+通常の運用ではこの2つのモードには違いはありませんが、<literal>always</literal>に設定すると、アーカイブリカバリおよびスタンバイモードでWALアーカイバが有効になります。
+<literal>always</literal>モードでは、アーカイブからリストアされたファイルや、ストリーミングレプリケーションでストリームされたファイルもすべて(再び)アーカイブされます。
+詳細は<xref linkend="continuous-archiving-in-standby"/>を参照してください。
        </para>
        <para>
         <varname>archive_mode</varname> is a separate setting from
@@ -5273,6 +5338,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
 詳しくは<xref linkend="backup-archiving-wal"/>を参照ください。
        </para>
        <para>
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.  It is ignored unless
         <varname>archive_mode</varname> was enabled at server start and
@@ -5287,6 +5353,11 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         Windows), effectively disables
         archiving, but also breaks the chain of WAL files needed for
         archive recovery, so it should only be used in unusual circumstances.
+-->
+《マッチ度[76.670318]》このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみ設定可能です。
+サーバ起動時に<varname>archive_mode</varname>が有効でなければ、これは無視されます。
+<varname>archive_command</varname>が空文字列（デフォルト）、かつ、<varname>archive_mode</varname>が有効な場合、WALアーカイブ処理は一時的に無効になりますが、コマンドが後で提供されることを見越して、サーバはWALセグメントの蓄積を続けます。
+例えば、<literal>/bin/true</literal>（Windowsでは<literal>REM</literal>）のように、真を返すだけで何もしないコマンドを<varname>archive_command</varname>に設定すると、実質的にアーカイブ処理が無効になりますが、アーカイブからの復帰に必要なWALファイルの連鎖も同時に断ち切るため、特別な場合のみ使用するようにしなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -7047,6 +7118,7 @@ WALデータがソース(ストリーミングレプリケーション、ロー�
 このパラメータは、<filename>postgresql.conf</filename>ファイルで設定するか、サーバのコマンドラインでのみ指定できます。
        </para>
        <para>
+<!--
         This parameter is useful in configurations where a node in recovery
         needs to control the amount of time to wait for new WAL data to be
         available. For example, in archive recovery, it is possible to
@@ -7056,6 +7128,11 @@ WALデータがソース(ストリーミングレプリケーション、ロー�
         to access WAL archives, something useful for example in cloud
         environments where the number of times an infrastructure is accessed
         is taken into account.
+-->
+《マッチ度[85.945946]》このパラメータは、リカバリ対象のノードにおいて、新しいWALデータが読み込み可能になるまでの待ち時間を制御する必要のある時に有用です。
+たとえば、アーカイブリカバリにおいては、このパラメータの値を小さくすることにより、新しいWALログファイルを検出する際にリカバリの応答を早くすることができます。
+WALの生成頻度が少ないシステムでは、この値を大きくすることにより、WALアーカイブへのアクセス頻度を減らすことができます。
+これは、たとえば基盤へのアクセス回数が課金対象になるクラウド環境において、有用です。
        </para>
       </listitem>
      </varlistentry>
@@ -7395,8 +7472,11 @@ WALデータがソース(ストリーミングレプリケーション、ロー�
       </term>
       <listitem>
        <para>
+<!--
         Enables or disables reordering of keys in a <literal>GROUP BY</literal>
         clause. The default is <literal>on</literal>.
+-->
+《マッチ度[52.136752]》問い合わせプランナがビットマップスキャン計画型を選択することを有効もしくは無効にします。デフォルトは<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -8928,6 +9008,7 @@ SELECT * FROM parent WHERE key = 2400;
 CSV書式のログ出力を生成するためには<xref linkend="guc-logging-collector"/>を有効にする必要があります。
        </para>
        <para>
+<!--
         If <systemitem>jsonlog</systemitem> is included in
         <varname>log_destination</varname>, log entries are output in
         <acronym>JSON</acronym> format, which is convenient for loading logs
@@ -8935,6 +9016,10 @@ CSV書式のログ出力を生成するためには<xref linkend="guc-logging-co
         See <xref linkend="runtime-config-logging-jsonlog"/> for details.
         <xref linkend="guc-logging-collector"/> must be enabled to generate
         JSON-format log output.
+-->
+《マッチ度[69.774011]》<systemitem>csvlog</systemitem>が<varname>log_destination</varname>に含まれる場合、ログ項目はプログラムへの読み込みが簡便な<quote>カンマ区切り値</quote>書式（<acronym>CSV</acronym>）で出力されます。
+詳細は<xref linkend="runtime-config-logging-csvlog"/>を参照してください。
+CSV書式のログ出力を生成するためには<xref linkend="guc-logging-collector"/>を有効にする必要があります。
        </para>
        <para>
         When either <systemitem>stderr</systemitem>,
@@ -9160,11 +9245,15 @@ CSV書式の出力が<varname>log_destination</varname>で有効な場合、タ�
 （<varname>log_filename</varname>が<literal>.log</literal>で終わる場合は後置詞が置き換えられます。）
        </para>
        <para>
+<!--
         If JSON-format output is enabled in <varname>log_destination</varname>,
         <literal>.json</literal> will be appended to the timestamped
         log file name to create the file name for JSON-format output.
         (If <varname>log_filename</varname> ends in <literal>.log</literal>, the suffix is
         replaced instead.)
+-->
+《マッチ度[83.445946]》CSV書式の出力が<varname>log_destination</varname>で有効な場合、タイムスタンプ付きのログファイル名に<literal>.csv</literal>を付与し、最終的なCSV書式出力用のファイル名が作成されます。
+（<varname>log_filename</varname>が<literal>.log</literal>で終わる場合は後置詞が置き換えられます。）
        </para>
        <para>
 <!--
@@ -9322,12 +9411,16 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
 このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインで設定されます。
        </para>
        <para>
+<!--
         Example:  To keep 7 days of logs, one log file per day named
         <literal>server_log.Mon</literal>, <literal>server_log.Tue</literal>,
         etc., and automatically overwrite last week's log with this week's log,
         set <varname>log_filename</varname> to <literal>server_log.%a</literal>,
         <varname>log_truncate_on_rotation</varname> to <literal>on</literal>, and
         <varname>log_rotation_age</varname> to <literal>1440</literal>.
+-->
+《マッチ度[87.864078]》例：7日間のログを保存し、毎日のログを <literal>server_log.Mon</literal>、<literal>server_log.Tue</literal>、等とし、そして自動的に前週のログを今週のログで上書きするには以下のように設定します。
+<varname>log_filename</varname> を <literal>server_log.%a</literal>とし、<varname>log_truncate_on_rotation</varname> を <literal>on</literal>にし、そして<varname>log_rotation_age</varname> を <literal>1440</literal>に設定します。
        </para>
        <para>
 <!--
@@ -9542,6 +9635,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Controls which <link linkend="runtime-config-severity-levels">message
         levels</link> are written to the server log.
         Valid values are <literal>DEBUG5</literal>, <literal>DEBUG4</literal>,
@@ -9555,6 +9649,13 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
         <xref linkend="guc-client-min-messages"/>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[80.413625]》どの<link linkend="runtime-config-severity-levels">メッセージレベル</link>をサーバログに書き込むかを管理します。
+有効な値は<literal>DEBUG5</literal>、<literal>DEBUG4</literal>、<literal>DEBUG3</literal>、<literal>DEBUG2</literal>、<literal>DEBUG1</literal>、<literal>INFO</literal>、<literal>NOTICE</literal>、<literal>WARNING</literal>、<literal>ERROR</literal>、<literal>LOG</literal>、<literal>FATAL</literal>、および<literal>PANIC</literal>です。
+それぞれの階層はその下の全ての階層を含みます。階層を低くする程、より少ないメッセージがログに送られます。
+デフォルトは<literal>WARNING</literal>です。
+ここでの<literal>LOG</literal>の優先順位が<xref linkend="guc-client-min-messages"/>の場合と異なることに注意してください。
+スーパーユーザのみこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -9570,6 +9671,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Controls which SQL statements that cause an error
         condition are recorded in the server log.  The current
         SQL statement is included in the log entry for any message of
@@ -9589,6 +9691,14 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
         set this parameter to <literal>PANIC</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[77.920686]》エラー条件の原因となったどのSQL文をサーバログに記録するかを制御します。
+設定した<link linkend="runtime-config-severity-levels">レベル</link>以上のメッセージについては現在のSQL文がログに記録されます。
+有効な値は、<literal>DEBUG5</literal>、<literal>DEBUG4</literal>、<literal>DEBUG3</literal>、<literal>DEBUG2</literal>、<literal>DEBUG1</literal>、<literal>INFO</literal>、<literal>NOTICE</literal>、<literal>WARNING</literal>、<literal>ERROR</literal>、<literal>LOG</literal>、<literal>FATAL</literal>、<literal>PANIC</literal>です。
+デフォルトは<literal>ERROR</literal>です。
+エラー、ログメッセージ、致命的エラー、パニックを引き起こした文がログに記録されることを意味します。
+失敗した文の記録を実質的に無効にするには、このパラメータを<literal>PANIC</literal>に設定してください。
+スーパーユーザのみがこのオプションを変更することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -9604,6 +9714,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
        <listitem>
         <para>
+<!--
          Causes the duration of each completed statement to be logged
          if the statement ran for at least the specified amount of time.
          For example, if you set it to <literal>250ms</literal>
@@ -9616,6 +9727,14 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
          durations.
          Only superusers and users with the appropriate <literal>SET</literal>
          privilege can change this setting.
+-->
+《マッチ度[75.968992]》文の実行に少なくとも指定した時間かかった場合、それぞれの文の実行に要した時間をログに記録します。
+例えば、<literal>250ms</literal>と設定した場合、250msもしくはそれ以上長くかかった全てのSQL文がログとして残ります。
+このパラメータを有効にすることにより、アプリケーションで最適化されていない問い合わせを追跡するのが便利になります。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+0に設定すれば、すべての文の実行時間が出力されます。
+<literal>-1</literal>（デフォルト）は、文実行時間の記録を無効にします。
+スーパーユーザのみこの設定を変更できます。
         </para>
 
         <para>
@@ -9667,6 +9786,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
        <listitem>
         <para>
+<!--
          Allows sampling the duration of completed statements that ran for
          at least the specified amount of time.  This produces the same
          kind of log entries as
@@ -9683,6 +9803,15 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
          durations.
          Only superusers and users with the appropriate <literal>SET</literal>
          privilege can change this setting.
+-->
+《マッチ度[77.674419]》指定した時間以上で実行完了した文の実行時間のサンプルを許可します。
+これにより<xref linkend="guc-log-min-duration-statement"/>と同様ですが、<xref linkend="guc-log-statement-sample-rate"/>で制御するレートでサンプルされた実行時間のサブセットのログエントリを生成します。
+たとえば、<literal>100ms</literal>に設定すると、100ミリ秒以上かかったSQL文がサンプルの対象となります。
+このパラメータを有効にすることで、トラフィックが多すぎてすべての問い合わせをログできない状況で助けになることもあります。
+この値を単位無しで指定すると、ミリ秒と見なされます。
+これをゼロに設定すると、すべての文の実行時間がサンプルされます。
+<literal>-1</literal>（デフォルトです）とすると、文の実行時間のサンプリングが無効になります。
+スーパーユーザのみがこの設定を変更できます。
         </para>
 
         <para>
@@ -9717,6 +9846,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
        <listitem>
         <para>
+<!--
          Determines the fraction of statements with duration exceeding
          <xref linkend="guc-log-min-duration-sample"/> that will be logged.
          Sampling is stochastic, for example <literal>0.5</literal> means
@@ -9730,6 +9860,12 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
          <literal>-1</literal>.
          Only superusers and users with the appropriate <literal>SET</literal>
          privilege can change this setting.
+-->
+《マッチ度[72.593801]》<xref linkend="guc-log-min-duration-sample"/>を越え、記録対象となる文の割合を決定します。
+サンプリングは確率論的で、たとえば<literal>0.5</literal>は2つの文のうちひとつが統計的に記録対象になることを意味します。
+デフォルトは<literal>1.0</literal>で、サンプルされた文はすべて記録対象となります。
+ゼロに設定すると、<varname>log_min_duration_sample</varname>を<literal>-1</literal>にしたのと同じで、文の実行時間のサンプルを記録しません。
+スーパーユーザのみがこの設定を変更できます。
         </para>
        </listitem>
      </varlistentry>
@@ -9745,6 +9881,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
        <listitem>
         <para>
+<!--
          Sets the fraction of transactions whose statements are all logged,
          in addition to statements logged for other reasons.  It applies to
          each new transaction regardless of its statements' durations.
@@ -9758,6 +9895,14 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
          to <literal>1</literal> logs all statements of all transactions.
          Only superusers and users with the appropriate <literal>SET</literal>
          privilege can change this setting.
+-->
+《マッチ度[76.648352]》他の理由に加え、トランザクションの文のうち、ログの対象となる割合を設定します。
+文の実行時間にかかわらず、新しいトランザクションに適用されます。
+サンプリングは確率論的で、たとえば<literal>0.1</literal>は10のトランザクションのうちひとつが統計的に記録対象になることを意味します。
+デフォルトは<literal>0</literal>で、これは追加のトランザクションのログを取らないことを意味します。
+<literal>1</literal>に設定すると、すべてのトランザクションのすべての文のログを取ります。
+<varname>log_transaction_sample_rate</varname>は、トランザクションのサンプルを調査するのに役立ちます。
+スーパーユーザのみこの設定を変更できます。
         </para>
        <note>
         <para>
@@ -9786,8 +9931,11 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
          disables the feature.  If this value is specified without units,
          it is taken as milliseconds.  This setting is applied separately to
          each operation.
+<!--
          This parameter can only be set in the <filename>postgresql.conf</filename>
          file or on the server command line.
+-->
+このパラメータは、<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定されます。
         </para>
 
         <para>
@@ -10063,6 +10211,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Causes each action executed by autovacuum to be logged if it ran for at
         least the specified amount of time.  Setting this to zero logs
         all autovacuum actions. <literal>-1</literal> disables logging autovacuum
@@ -10077,6 +10226,16 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line; but the setting can be overridden for
         individual tables by changing table storage parameters.
+-->
+《マッチ度[81.407563]》少なくとも指定時間実行した場合、autovacuumで実行される各活動がログに残るようになります。
+これをゼロに設定すると、すべてのautovacuumの活動がログに残ります。
+<literal>-1</literal>（デフォルト）はautovacuum活動のログを無効にします。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+例えば、これを<literal>250ms</literal>に設定すると、250ms以上かかって実行されたautovacuumや解析はすべてログに残ります。
+さらに、<literal>-1</literal>以外の値にこのパラメータが設定された場合、競合するロックや並行して削除されたリレーションによりautovacuum動作が省略されるとメッセージはログに記録されます。
+このパラメータを有効にすることは、autovacuum活動の追跡に役に立ちます。
+このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定されます。
+ただし、この設定はテーブルストレージパラメータの変更により、それぞれのテーブルに対して上書きすることができます。
        </para>
       </listitem>
      </varlistentry>
@@ -10092,11 +10251,17 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Causes checkpoints and restartpoints to be logged in the server log.
         Some statistics are included in the log messages, including the number
         of buffers written and the time spent writing them.
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line. The default is on.
+-->
+《マッチ度[86.915888]》チェックポイントおよびリスタートポイントをサーバログに記録するようにします。
+書き出されたバッファ数や書き出しに要した時間など、いくつかの統計情報がこのログメッセージに含まれます。
+このパラメータは<filename>postgresql.conf</filename>ファイルまたはサーバのコマンドラインでのみ設定可能です。
+デフォルトはoffです。
        </para>
       </listitem>
      </varlistentry>
@@ -10112,6 +10277,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Causes each attempted connection to the server to be logged,
         as well as successful completion of both client authentication (if
         necessary) and authorization.
@@ -10119,6 +10285,10 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
         privilege can change this parameter at session start,
         and it cannot be changed at all within a session.
         The default is <literal>off</literal>.
+-->
+《マッチ度[70.540541]》サーバへの接続試行とともに、クライアント認証の成功終了と（必要ならば）承認をログに残します。
+スーパーユーザだけがセッション開始時にこのパラメータを変更でき、セッションが開始された後は変更できません。
+デフォルトは<literal>off</literal>です。
        </para>
 
        <note>
@@ -10146,6 +10316,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Causes session terminations to be logged.  The log output
         provides information similar to <varname>log_connections</varname>,
         plus the duration of the session.
@@ -10153,6 +10324,11 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
         privilege can change this parameter at session start,
         and it cannot be changed at all within a session.
         The default is <literal>off</literal>.
+-->
+《マッチ度[70.350404]》セッションの終了をログします。
+ログ出力の情報は<varname>log_connections</varname>と同様で、更にセッションの経過時間が追加されます。
+スーパーユーザだけがセッション開始時にこのパラメータを変更でき、セッションが開始された後は変更できません。
+デフォルトは<literal>off</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -10169,10 +10345,15 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Causes the duration of every completed statement to be logged.
         The default is <literal>off</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[58.737864]》すべての完了した文について、その経過時間をログするようにします。
+デフォルトは<literal>off</literal>です。
+スーパーユーザのみがこの設定を変更することができます。
        </para>
 
        <para>
@@ -10215,6 +10396,7 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
       </term>
       <listitem>
        <para>
+<!--
         Controls the amount of detail written in the server log for each
         message that is logged.  Valid values are <literal>TERSE</literal>,
         <literal>DEFAULT</literal>, and <literal>VERBOSE</literal>, each adding more
@@ -10226,6 +10408,12 @@ Unixシステムにおいては、<varname>logging_collector</varname>が有効�
         and line number that generated the error.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[80.649526]》ログ取得されるそれぞれのメッセージに対し、サーバログに書き込まれる詳細の量を制御します。
+有効な値は、<literal>TERSE</literal>、<literal>DEFAULT</literal>、および<literal>VERBOSE</literal>で、それぞれは表示されるメッセージにより多くのフィールドを追加します。
+<literal>TERSE</literal>は<literal>DETAIL</literal>、<literal>HINT</literal>、<literal>QUERY</literal>、および<literal>CONTEXT</literal>エラー情報を除外します。
+<literal>VERBOSE</literal>出力は、<symbol>SQLSTATE</symbol>エラーコード（<xref linkend="errcodes-appendix"/>も参照）、および、ソースコードファイル名、関数名、そしてエラーを生成した行番号を含みます。
+スーパーユーザのみこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -10620,12 +10808,18 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
       </term>
       <listitem>
        <para>
+<!--
         Controls whether a log message is produced when a session waits
         longer than <xref linkend="guc-deadlock-timeout"/> to acquire a
         lock.  This is useful in determining if lock waits are causing
         poor performance.  The default is <literal>off</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[70.655271]》セッションがロックの獲得までの間に<xref linkend="guc-deadlock-timeout"/>より長く待機する場合にログメッセージを生成するかどうかを制御します。
+これは、ロック待ちによって性能がでていないのかどうか確認する時に有用です。
+デフォルトは<literal>off</literal>です。
+スーパーユーザのみこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -10674,6 +10868,7 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
       </term>
       <listitem>
        <para>
+<!--
         If greater than zero, each bind parameter value logged with a
         non-error statement-logging message is trimmed to this many bytes.
         Zero disables logging of bind parameters for non-error statement logs.
@@ -10682,6 +10877,12 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
         If this value is specified without units, it is taken as bytes.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[73.942094]》ゼロよりも大きければ、エラーではない時にバインドパラメータ値が、文とともにこの指定バイト数に短縮されて記録されます。
+ゼロなら、エラーではない時のバインドパラメータ値と文の記録は行われません。
+<literal>-1</literal>（デフォルトです）ならバインドパラメータはすべて記録されます。
+この値が単位なしに指定されると、バイト単位と見なされます。
+スーパーユーザのみがこの設定を変更できます。
        </para>
 
        <para>
@@ -10819,11 +11020,17 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
       </term>
       <listitem>
        <para>
+<!--
         Causes each replication command to be logged in the server log.
         See <xref linkend="protocol-replication"/> for more information about
         replication command. The default value is <literal>off</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[69.407895]》サーバログにレプリケーションコマンドを記録します。
+レプリケーションコマンドの更なる情報は<xref linkend="protocol-replication"/>をご覧ください。
+デフォルト値は<literal>off</literal>です。
+スーパーユーザだけがこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -10839,6 +11046,7 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
       </term>
       <listitem>
        <para>
+<!--
         Controls logging of temporary file names and sizes.
         Temporary files can be
         created for sorts, hashes, and temporary query results.
@@ -10851,6 +11059,15 @@ log_line_prefix = '%m [%p] %q%u@%d/%a '
         The default setting is -1, which disables such logging.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[75.693312]》一時ファイルのファイル名とサイズのログ出力を制御します。
+一時ファイルはソート処理やハッシュ処理、一時的な問い合わせの結果のために作成されます。
+有効にすると、ログの項目はすべての一時ファイルそれぞれについて削除されたときに生成されます。
+0を指定すると、すべての一時ファイル情報のログが残ります。
+正の数を指定すると、指定した以上の容量のファイルのみがログに残ります。
+この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
+デフォルトの設定は-1で、このログ出力を無効にします。
+スーパーユーザのみがこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -11330,6 +11547,7 @@ CSVログファイルをインポートする作業を単純にするために�
       </term>
       <listitem>
        <para>
+<!--
         Enables updating of the process title every time a new SQL command
         is received by the server.
         This setting defaults to <literal>on</literal> on most platforms, but it
@@ -11337,6 +11555,10 @@ CSVログファイルをインポートする作業を単純にするために�
         overhead for updating the process title.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[71.907216]》サーバが新しいSQLコマンドを受け取る時に毎回、プロセスタイトルを更新できるようにします。
+この設定値はたいていのプラットフォームで<literal>on</literal>がデフォルトになっていますが、Windowsではプロセスタイトルを更新するオーバヘッドが大きいため、<literal>off</literal>がデフォルトになっています。
+スーパーユーザのみがこの設定を変更することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -11354,11 +11576,16 @@ CSVログファイルをインポートする作業を単純にするために�
      <title>Cumulative Query and Index Statistics</title>
 
      <para>
+<!--
       These parameters control the server-wide cumulative statistics system.
       When enabled, the data that is collected can be accessed via the
       <structname>pg_stat</structname> and <structname>pg_statio</structname>
       family of system views.  Refer to <xref linkend="monitoring"/> for more
       information.
+-->
+《マッチ度[71.477663]》これらのパラメータは、サーバ全体の統計情報収集機能を制御します。
+統計情報収集が有効ならば、生成されるデータは<structname>pg_stat</structname>と<structname>pg_statio</structname>系のシステムビュー経由でアクセス可能です。
+詳細は<xref linkend="monitoring"/>を参照してください。
      </para>
 
      <variablelist>
@@ -11374,6 +11601,7 @@ CSVログファイルをインポートする作業を単純にするために�
       </term>
       <listitem>
        <para>
+<!--
         Enables the collection of information on the currently
         executing command of each session, along with its identifier and the
         time when that command began execution. This parameter is on by
@@ -11384,6 +11612,12 @@ CSVログファイルをインポートする作業を単純にするために�
         have the privileges of), so it should not represent a security risk.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[74.918567]》各セッションで実行中のコマンドに関する情報と、そのコマンドの識別子および実行開始時刻の収集を有効にします。
+このパラメータはデフォルトで有効です。
+有効な場合であっても、すべてのユーザがこの情報を見ることができず、スーパーユーザ、<literal>pg_read_all_stats</literal>ロール権限を持つロール、報告対象のセッション（権限を持つロールに所属するセッションを含みます）の所有者のみから可視である点に注意してください。
+このためセキュリティ上の危険性はありません。
+スーパーユーザのみがこの設定を変更することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -11426,11 +11660,16 @@ CSVログファイルをインポートする作業を単純にするために�
       </term>
       <listitem>
        <para>
+<!--
         Enables collection of statistics on database activity.
         This parameter is on by default, because the autovacuum
         daemon needs the collected information.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[63.529412]》データベースの活動についての統計情報の収集を有効にします。
+収集される情報を自動バキュームデーモンが必要とするため、このオプションはデフォルトで有効です。
+スーパーユーザのみがこの設定を変更することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -11446,6 +11685,7 @@ CSVログファイルをインポートする作業を単純にするために�
       </term>
       <listitem>
        <para>
+<!--
         Enables timing of database I/O calls.  This parameter is off by
         default, as it will repeatedly query the operating system for
         the current time, which may cause significant overhead on some
@@ -11462,6 +11702,13 @@ CSVログファイルをインポートする作業を単純にするために�
         <xref linkend="pgstatstatements"/>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[72.209821]》データベースによるI/O呼び出しの記録を有効にします。
+このパラメータはデフォルトで無効になっています。その理由は、現時点の時刻をオペレーティングシステムに繰り返し問い合わせるので、プラットフォームによっては深刻な負荷の原因になるからです。
+使用しているシステムにおける負荷のタイミングを計測するため<xref linkend="pgtesttiming"/>ツールが使用できます。
+I/O呼び出し情報は、<link linkend="monitoring-pg-stat-database-view"><structname>pg_stat_database</structname></link>に表示されます。
+<literal>BUFFERS</literal>オプションが設定されている時は<xref linkend="sql-explain"/> の出力として、また<xref linkend="guc-log-autovacuum-min-duration"/>が設定されている時は<xref linkend="pgstatstatements"/>により表示されます。
+スーパーユーザのみこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -11477,6 +11724,7 @@ CSVログファイルをインポートする作業を単純にするために�
       </term>
       <listitem>
        <para>
+<!--
         Enables timing of WAL I/O calls. This parameter is off by default,
         as it will repeatedly query the operating system for the current time,
         which may cause significant overhead on some platforms.
@@ -11487,6 +11735,12 @@ CSVログファイルをインポートする作業を単純にするために�
         <structname>pg_stat_wal</structname></link>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[77.037037]》データベースによるWAL I/O呼び出しの記録を有効にします。
+このパラメータはデフォルトで無効になっています。その理由は、現時点の時刻をオペレーティングシステムに繰り返し問い合わせるので、プラットフォームによっては深刻な負荷の原因になるからです。
+使用しているシステムにおける負荷のタイミングを計測するため<application>pg_test_timing</application>ツールが使用できます。
+I/O呼び出し情報は、<link linkend="monitoring-pg-stat-wal-view"><structname>pg_stat_wal</structname></link>に表示されます。
+スーパーユーザのみこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -11502,6 +11756,7 @@ CSVログファイルをインポートする作業を単純にするために�
       </term>
       <listitem>
        <para>
+<!--
         Enables tracking of function call counts and time used. Specify
         <literal>pl</literal> to track only procedural-language functions,
         <literal>all</literal> to also track SQL and C language functions.
@@ -11509,6 +11764,12 @@ CSVログファイルをインポートする作業を単純にするために�
         statistics tracking.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[72.868217]》関数の呼び出し数と費やされた時間の追跡を有効にします。
+手続き言語関数のみを追跡するためには<literal>pl</literal>と指定してください。
+SQL関数、C言語関数も追跡するためには<literal>all</literal>と指定してください。
+デフォルトは、統計情報追跡機能を無効にする<literal>none</literal>です。
+スーパーユーザのみがこの設定を変更できます。
        </para>
 
        <note>
@@ -11655,6 +11916,7 @@ CSVログファイルをインポートする作業を単純にするために�
       </term>
       <listitem>
        <para>
+<!--
         For each query, output performance statistics of the respective
         module to the server log. This is a crude profiling
         instrument, similar to the Unix <function>getrusage()</function> operating
@@ -11665,6 +11927,13 @@ CSVログファイルをインポートする作業を単純にするために�
         default.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change these settings.
+-->
+《マッチ度[77.397260]》各問い合わせに対し、対応するモジュールの性能に関する統計情報をサーバログに出力します。
+これは、Unixの<function>getrusage()</function>オペレーティングシステム機能に類似した、雑なプロファイリング手段です。
+<varname>log_statement_stats</varname>は文に関する統計情報全体を、この他はモジュール毎の統計情報を報告します。
+<varname>log_statement_stats</varname>とモジュール毎のオプションを一緒に有効にすることはできません。
+デフォルトでこれらのオプションはすべて無効です。
+スーパーユーザのみがこの設定を変更することができます。
        </para>
       </listitem>
      </varlistentry>
@@ -12263,6 +12532,7 @@ vacuumは同時に<filename>pg_xact</filename>サブディレクトリから古�
        <!-- 細かい話ですが、typnameが'funcname'である場合でも、funcname('foo')は一時スキーマを使いません。
             この段落では、関数名とは「pg_proc.pronameあるいは文法生成物のfunc_name」のどちらでも良いという意味で使用しています。-->
        <para>
+<!--
         Likewise, the current session's temporary-table schema,
         <literal>pg_temp_<replaceable>nnn</replaceable></literal>, is always searched if it
         exists.  It can be explicitly listed in the path by using the
@@ -12271,6 +12541,12 @@ vacuumは同時に<filename>pg_xact</filename>サブディレクトリから古�
         the temporary schema is only searched for relation (table, view,
         sequence, etc.) and data type names.  It is never searched for
         function or operator names.
+-->
+《マッチ度[87.454545]》同様に、現在のセッションの一時テーブルスキーマ<literal>pg_temp_<replaceable>nnn</replaceable></literal>も、存在すれば常に検索されます。
+これは<literal>pg_temp</literal><indexterm><primary>pg_temp</primary></indexterm>という別名を使用してパスに明示的に列挙させることができます。
+パスに列挙されていない場合、最初に（<literal>pg_catalog</literal>よりも前であっても）検索されます。
+しかし、一時スキーマはリレーション（テーブル、ビュー、シーケンスなど）とデータ型名に対してのみ検索されます。
+関数や演算子名に対してはまったく検索されません。
        </para>
 
        <para>
@@ -14289,6 +14565,7 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
        </para>
 
        <para>
+<!--
         This parameter can be changed at run time by superusers and users
         with the appropriate <literal>SET</literal> privilege, but a
         setting done that way will only persist until the end of the
@@ -14296,6 +14573,10 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
         development purposes. The recommended way to set this parameter
         is in the <filename>postgresql.conf</filename> configuration
         file.
+-->
+《マッチ度[72.533333]》このパラメータはスーパーユーザによって実行時に変更することができますが、この方法での設定は、そのクライアント接続が終わるまでしか有効になりません。
+ですので、この方法は開発目的でのみ使用すべきです。
+推奨方法はこのパラメータを<filename>postgresql.conf</filename>設定ファイル内で設定することです。
        </para>
       </listitem>
      </varlistentry>
@@ -14360,6 +14641,7 @@ GINインデックス走査により返されるセットのソフトな上限�
       </term>
       <listitem>
        <para>
+<!--
         This is the amount of time to wait on a lock
         before checking to see if there is a deadlock condition. The
         check for deadlock is relatively expensive, so the server doesn't run
@@ -14378,6 +14660,17 @@ GINインデックス走査により返されるセットのソフトな上限�
         the waiter decides to check for deadlock.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[80.863592]》これは、デッドロック状態があるかどうかを調べる前にロックを待つ時間です。
+デッドロックの検査は比較的高価なので、サーバはロックを待つ度にこれを実行するわけではありません。
+楽天的ですがデッドロックは実用レベルのアプリケーションでは頻繁に発生しないと仮定し、デッドロックの検査の前にしばらくはロック待ちをします。
+この値を増やすことにより必要のないデッドロックの検査で無駄にされる時間は減りますが、本当にデッドロックがあった場合の報告が遅れます。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+デフォルトは1秒（<literal>1s</literal>）で、おそらく実用の際にはこれ以上は必要でしょう。
+負荷の大きいサーバではもっと必要かもしれません。
+理想としてはこの設定は通常のトランザクションにかかる時間を超えているべきです。
+そうすればロック待ちトランザクションがデッドロックの検査をする前にロックが解除される可能性が改善されます。
+スーパーユーザのみこの設定を変更できます。
        </para>
 
        <para>
@@ -14689,6 +14982,7 @@ GINインデックス走査により返されるセットのソフトな上限�
       </term>
       <listitem>
        <para>
+<!--
         In <productname>PostgreSQL</productname> releases prior to 9.0, large objects
         did not have access privileges and were, therefore, always readable
         and writable by all users.  Setting this variable to <literal>on</literal>
@@ -14696,6 +14990,11 @@ GINインデックス走査により返されるセットのソフトな上限�
         releases.  The default is <literal>off</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[74.599542]》9.0以前の<productname>PostgreSQL</productname>リリースでは、ラージオブジェクトはアクセス権限が無く、従って全てのユーザが常に読み込み、書き込みが可能でした。
+この変数を<literal>on</literal>にすると、以前のリリースとの互換性のため、新規の権限チェックが無効になります。
+デフォルトは<literal>off</literal>です。
+スーパーユーザのみこの設定を変更できます。
        </para>
        <para>
 <!--
@@ -15050,8 +15349,11 @@ Linuxでは代わりに、オペレーティングシステムに対して、デ
 更に、Linuxのバージョン5.8以前では、ディスクへの書き込み中に発生したI/Oエラーが<productname>PostgreSQL</productname>に報告されないことがあり、関連エラーメッセージはカーネルログにのみ現れるかもしれません。
        </para>
        <para>
+<!--
         This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
+-->
+このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -15578,6 +15880,7 @@ WALディスクブロックの容量を報告します。
     </para>
 
     <para>
+<!--
      Because custom options may need to be set in processes that have not
      loaded the relevant extension module, <productname>PostgreSQL</productname>
      will accept a setting for any two-part parameter name.  Such variables
@@ -15587,6 +15890,9 @@ WALディスクブロックの容量を報告します。
      those definitions.  If there are any unrecognized placeholders
      that begin with its extension name, warnings are issued and those
      placeholders are removed.
+-->
+《マッチ度[79.623288]》カスタムオプションは読み込まれていない関連性のある拡張モジュールのプロセスに設定される必要がある場合があるので、<productname>PostgreSQL</productname>はどんな２つの部分のパラメータ名による設定を受け付けます。これらの変数は代替物として取り扱われ、それらを定義したモジュールが読み込まれるまで機能しません。
+拡張モジュールが読み込まれた時、その変数定義が追加され、それら定義に基づいた代替値が変換され、そしてその拡張名の確認されない代替物に対して警告が発せられます。
     </para>
    </sect1>
 
@@ -15623,6 +15929,7 @@ WALディスクブロックの容量を報告します。
       </term>
       <listitem>
        <para>
+<!--
         Allows tablespaces to be created as directories inside
         <filename>pg_tblspc</filename>, when an empty location string
         is provided to the <command>CREATE TABLESPACE</command> command.  This
@@ -15632,6 +15939,11 @@ WALディスクブロックの容量を報告します。
         links in that location.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[76.300578]》<command>CREATE TABLESPACE</command>コマンドに空の位置文字列が渡された時に、<filename>pg_tblspc</filename>内にテーブル空間をディレクトリとして作ることを可能にします。
+これは、プライマリとスタンバイサーバが同じマシン上で実行されるレプリケーションシナリオをテストするために使用することを意図しています。
+このようなディレクトリは、その場所にシンボリックリンクだけが見つかることを期待しているバックアップツールを混乱させる可能性が高いでしょう。
+スーパーユーザだけがこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -15647,6 +15959,7 @@ WALディスクブロックの容量を報告します。
       </term>
       <listitem>
        <para>
+<!--
         Allows modification of the structure of system tables as well as
         certain other risky actions on system tables.  This is otherwise not
         allowed even for superusers.  Ill-advised use of this setting can
@@ -15654,6 +15967,11 @@ WALディスクブロックの容量を報告します。
         system.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[71.390374]》システムテーブルの構造変更とその他の危険性の高いシステムテーブルに対するアクションを許可します。
+これは通常スーパーユーザにさえ許可されません。
+この設定の無分別な使用は回復不能なデータ喪失やデータベースシステムの重大な破損を招きます。
+スーパーユーザだけがこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -16237,6 +16555,7 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
        </para>
 
        <para>
+<!--
         The default value of this setting is the empty string, which disables
         the feature.  It can be set to <literal>all</literal> to check all
         records, or to a comma-separated list of resource managers to check
@@ -16247,6 +16566,12 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
         <literal>spgist</literal>, <literal>brin</literal>, and <literal>generic</literal>.
         Extensions may define additional resource managers. Only superusers and users with
         the appropriate <literal>SET</literal> privilege can change this setting.
+-->
+《マッチ度[75.344353]》デフォルト値は空文字で、この機能を無効にします。
+すべてのレコードをチェックするために、<literal>all</literal>にすることができます。
+カンマ区切りのリストにすると、対応するリソースマネージャに由来するレコードのみをチェックします。
+今のところ、サポートされているリソースマネージャは、<literal>heap</literal>、<literal>heap2</literal>、<literal>btree</literal>、<literal>hash</literal>、<literal>gin</literal>、<literal>gist</literal>、<literal>sequence</literal>、<literal>spgist</literal>、<literal>brin</literal>、<literal>generic</literal>です。
+スーパーユーザだけがこの設定を変更できます。
        </para>
       </listitem>
      </varlistentry>
@@ -16290,6 +16615,7 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
 <xref linkend="app-initdb-data-checksums"/>が有効の時のみ効果があります。
        </para>
        <para>
+<!--
         Detection of a checksum failure during a read normally causes
         <productname>PostgreSQL</productname> to report an error, aborting the current
         transaction.  Setting <varname>ignore_checksum_failure</varname> to on causes
@@ -16302,6 +16628,13 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
         default setting is <literal>off</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[79.254658]》読み込み過程でチェックサム障害が検出されると、通常<productname>PostgreSQL</productname>はエラーを報告し、現時点のトランザクションを停止します。
+<varname>ignore_checksum_failure</varname>を有効（on）に設定するとシステムはその障害を無視し（しかし警告は報告をします）、処理を継続します。
+この振る舞いはたぶん<emphasis>クラッシュの原因、破損の伝播や隠ぺい、もしくはその他の深刻な問題</emphasis>の原因になることがあります。
+とは言っても、エラーを切り抜け、ブロックヘッダが健全に存在するテーブルにある障害を受けていないタプルの回収は行えます。
+もしヘッダーが破損されたら、オプションが有効になっていたとしても報告はなされます。
+デフォルトの設定は<literal>off</literal>で、スーパーユーザのみが変更可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -16317,6 +16650,7 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
       </term>
       <listitem>
        <para>
+<!--
         Detection of a damaged page header normally causes
         <productname>PostgreSQL</productname> to report an error, aborting the current
         transaction.  Setting <varname>zero_damaged_pages</varname> to on causes
@@ -16333,6 +16667,15 @@ LOG:  CleanUpLock: deleting: lock(0xb7acd844) id(24688,24696,0,0,0,1)
         default setting is <literal>off</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[80.329457]》ページヘッダの障害がわかると、通常<productname>PostgreSQL</productname>はエラーの報告を行い、現在のトランザクションを中断させます。
+<varname>zero_damaged_pages</varname>をonに設定することにより、システムは代わりに警告を報告し、障害のあるメモリ内のページをゼロで埋め、処理を継続します。
+この動作により、障害のあったページ上にある全ての行の<emphasis>データが破壊</emphasis>されます。
+しかし、これによりエラーを確実に無視し、正常なページに存在するテーブル内の行を取り出すことができます。
+ハードウェアまたはソフトウェアのエラーによって破損が発生した場合のデータの復旧時に有用です。
+障害のあるページからのテーブルのデータの復旧をあきらめた場合を除き、通常はこれをonにしてはいけません。
+ゼロで埋められたページはディスクに書き込みを強要されないため、このパラメータを再び無効にする以前にテーブル、またはインデックスを再作成することを勧めます。
+デフォルトは<literal>off</literal>であり、スーパーユーザのみ変更可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -16409,12 +16752,18 @@ LLVMに要求された機能がある場合は、生成した関数を<productna
       </term>
       <listitem>
        <para>
+<!--
         Writes the generated <productname>LLVM</productname> IR out to the
         file system, inside <xref linkend="guc-data-directory"/>. This is only
         useful for working on the internals of the JIT implementation.
         The default setting is <literal>off</literal>.
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
+-->
+《マッチ度[68.465909]》生成された<productname>LLVM</productname> IRを<xref linkend="guc-data-directory"/>内のファイルシステムに出力します。
+これはJITコンパイルのインターナルについて作業するときだけ有用です。
+デフォルト設定は<literal>off</literal>です。
+このパラメータはスーパーユーザだけが変更可能です。
        </para>
       </listitem>
      </varlistentry>

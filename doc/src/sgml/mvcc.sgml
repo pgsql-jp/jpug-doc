@@ -571,6 +571,7 @@ SQL標準では、ある分離レベルで発生しては<emphasis>ならない<
    </para>
 
    <para>
+<!--
     <command>INSERT</command> with an <literal>ON CONFLICT DO UPDATE</literal> clause
     behaves similarly. In Read Committed mode, each row proposed for insertion
     will either insert or update. Unless there are unrelated errors, one of
@@ -579,6 +580,11 @@ SQL標準では、ある分離レベルで発生しては<emphasis>ならない<
     the <command>UPDATE</command> clause will affect that row,
     even though possibly <emphasis>no</emphasis> version of that row is
     conventionally visible to the command.
+-->
+《マッチ度[93.750000]》<literal>ON CONFLICT DO UPDATE</literal>句のある<command>INSERT</command>は同じように動作します。
+リードコミッティドモードでは、挿入を提案された各行は挿入または更新されます。
+無関係なエラーが発生しなければ、それら2つの結果のうち1つが保証されます。
+まだその結果が<command>INSERT</command>に対して可視になっていない他のトランザクションに起因する競合では、慣習的な意味でそのコマンドに対して可視のバージョンの行が存在<emphasis>しない</emphasis>にも関わらず、<command>UPDATE</command>句がその行に対して動作します。
    </para>
 
    <para>
@@ -934,6 +940,7 @@ ERROR:  could not serialize access due to concurrent update
    </indexterm>
 
    <para>
+<!--
     The <firstterm>Serializable</firstterm> isolation level provides
     the strictest transaction isolation.  This level emulates serial
     transaction execution for all committed transactions;
@@ -951,6 +958,12 @@ ERROR:  could not serialize access due to concurrent update
     conditions which could cause a
     <firstterm>serialization anomaly</firstterm> will trigger a
     <firstterm>serialization failure</firstterm>.
+-->
+《マッチ度[92.445328]》<firstterm>シリアライザブル</firstterm>分離レベルは、最も厳しいトランザクションの分離性を提供します。
+このレベルではトランザクションが同時にではなく、次から次へと、あたかも順に実行されているように逐次的なトランザクションの実行を全てのコミットされたトランザクションに対しエミュレートします。
+しかし、このレベルを使ったアプリケーションでは、リピータブルリードレベルと同様に、直列化の失敗によるトランザクションの再実行に備えておく必要があります。
+実際、この分離レベルは、（ある時点で）逐次実行可能なすべてのトランザクションにおいて、シリアライザブルトランザクションの同時実行の組が一貫性のないような振る舞いをしていないか監視することを除き、リピータブルリードと全く同じ動きをします。
+この監視では、リピータブルリードが示すものを越えてブロックすることはありませんが、監視によりいくらかのオーバーヘッドがあり、<firstterm>直列化異常</firstterm>を引き起こすような状態の検知は、<firstterm>直列化の失敗</firstterm>を引き起こすでしょう。
    </para>
 
    <para>
@@ -1421,6 +1434,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
         </para>
 
         <para>
+<!--
          The commands <command>UPDATE</command>,
          <command>DELETE</command>, <command>INSERT</command>, and
          <command>MERGE</command>
@@ -1428,6 +1442,9 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          <literal>ACCESS SHARE</literal> locks on any other referenced
          tables).  In general, this lock mode will be acquired by any
          command that <emphasis>modifies data</emphasis> in a table.
+-->
+《マッチ度[78.512397]》<command>UPDATE</command>、<command>DELETE</command>、および<command>INSERT</command>コマンドは、（参照される他の全てのテーブルに対する<literal>ACCESS SHARE</literal>ロックに加えて）対象となるテーブル上にこのモードのロックを獲得します。
+通常、このロックモードは、テーブルの<emphasis>データを変更する</emphasis>問い合わせにより獲得されます。
         </para>
        </listitem>
       </varlistentry>
@@ -2614,6 +2631,7 @@ DDLコマンドの中には、現在は<link linkend="sql-truncate"><command>TRU
    </para>
 
    <para>
+<!--
     Support for the Serializable transaction isolation level has not yet
     been added to hot standby replication targets (described in
     <xref linkend="hot-standby"/>).  The strictest isolation level currently
@@ -2623,6 +2641,10 @@ DDLコマンドの中には、現在は<link linkend="sql-truncate"><command>TRU
     state, a Repeatable Read transaction run on the standby can sometimes
     see a transient state that is inconsistent with any serial execution
     of the transactions on the primary.
+-->
+《マッチ度[93.162393]》シリアライザブルトランザクション分離レベルのサポートは、まだホットスタンバイレプリケーションは対象に加えられていません(<xref linkend="hot-standby"/>で述べます)。
+ホットスタンバイモードで現在サポートされた最も厳しい分離レベルはリピータブルリードです。
+プライマリ上でシリアライザブルトランザクション中にデータベースに永続的な書き込みを行なえば、スタンバイはすべて最終的に一貫した状態に達するだろうということは保証されるでしょうが、スタンバイ上で実行されたリピータブルリードトランザクションは、時々プライマリのトランザクションの任意の連続する実行と一致しない過渡状態を見ることがあるでしょう。
    </para>
 
    <para>

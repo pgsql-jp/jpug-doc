@@ -905,6 +905,7 @@ WALアーカイブを行わない場合、システムは通常数個のセグ�
    </para>
 
    <para>
+<!--
     When archiving WAL data, we need to capture the contents of each segment
     file once it is filled, and save that data somewhere before the segment
     file is recycled for reuse.  Depending on the application and the
@@ -920,6 +921,14 @@ WALアーカイブを行わない場合、システムは通常数個のセグ�
     completed segment file to wherever it needs to go.  This could be as simple
     as a shell command that uses <literal>cp</literal>, or it could invoke a
     complex C function &mdash; it's all up to you.
+-->
+《マッチ度[88.070829]》WALデータをアーカイブする場合、完成したセグメントファイルのそれぞれの内容を取り出し、再利用のために回収される前にそのデータをどこかに保存することが必要です。
+アプリケーションと利用できるハードウェアに依存しますが、数多くの<quote>データをどこかに保存する</quote>方法があります。
+例えば、NFSでマウントした他のマシンのディレクトリにセグメントファイルをコピーすること、あるいは、テープ装置に書き出すこと（元々のファイル名を識別する手段があることを確認してください）、それらを一度にまとめてCDに焼くこと、そのほか全く異なったなんらかの方法などです。
+柔軟性をデータベース管理者に提供するために、<productname>PostgreSQL</productname>は、どのようにアーカイブがなされたかについて一切想定しないようになっています。
+その代わりに<productname>PostgreSQL</productname>は、管理者に完全なセグメントファイルをどこか必要な場所にコピーするシェルコマンドを指定させます。
+このコマンドは単純な<literal>cp</literal>でも構いませんし、また、複雑なシェルスクリプトを呼び出しても構いません。
+全て管理者に任されています。
    </para>
 
    <para>
@@ -1006,6 +1015,7 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
    </para>
 
    <para>
+<!--
     When the archive command is terminated by a signal (other than
     <systemitem>SIGTERM</systemitem> that is used as part of a server
     shutdown) or an error by the shell with an exit status greater than
@@ -1013,17 +1023,25 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
     <literal>ERROR</literal> or <literal>FATAL</literal>, the archiver process
     aborts and gets restarted by the postmaster. In such cases, the failure is
     not reported in <xref linkend="pg-stat-archiver-view"/>.
+-->
+《マッチ度[75.847458]》アーカイブ用コマンドがシグナル（サーバのシャットダウンの一部として使用される<systemitem>SIGTERM</systemitem>以外）やシェルによる125以上の終了ステータスを持つエラー（command not foundなど）によって終了すると、アーカイバプロセスは中止され、postmasterによって再起動されます。
+このような場合、失敗は<xref linkend="pg-stat-archiver-view"/>では報告されません。
    </para>
 
    <para>
+<!--
     Archive commands and libraries should generally be designed to refuse to overwrite
     any pre-existing archive file.  This is an important safety feature to
     preserve the integrity of your archive in case of administrator error
     (such as sending the output of two different servers to the same archive
     directory).
+-->
+《マッチ度[86.644951]》通常アーカイブ用コマンドは既存のアーカイブ済みファイルの上書きを行わないように設計されなければなりません。
+これは、管理者のミス（例えば2つの異なるサーバの出力を同一のアーカイブ用ディレクトリに送信してしまうなど）といった場合からアーカイブ状況の整合性を保護するための安全策として重要です。
    </para>
 
    <para>
+<!--
     It is advisable to test your proposed archive command or library to ensure that it
     indeed does not overwrite an existing file, <emphasis>and that it returns
     nonzero status or <literal>false</literal>, respectively, in this case</emphasis>.
@@ -1034,9 +1052,15 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
     the right exit status is returned.  (In particular, GNU <command>cp</command>
     will return status zero when <option>-i</option> is used and the target file
     already exists, which is <emphasis>not</emphasis> the desired behavior.)
+-->
+《マッチ度[87.450980]》実際に既存のファイルを上書きしないこと、<emphasis>かつ、その場合に非ゼロのステータスを返すこと</emphasis>を確認するために使用するアーカイブ用コマンドを試験することを勧めます。
+上のUnix用のコマンド例では、別途<command>test</command>という段階を含めることでこれを確認しています。
+いくつかのUnixプラットフォームでは<command>cp</command>コマンドには<option>-i</option> 引数を使うことで煩雑な出力を少なくし使うことができますが、正しい終了コードが返ることを確認せずに使用するべきではありません。
+(具体的にはGNUの<command>cp</command>コマンドは<option>-i</option> オプションを使い、ターゲットファイルがすでに存在している場合、ゼロのステータスを返します。これは<emphasis>期待していない</emphasis>動作です。)
    </para>
 
    <para>
+<!--
     While designing your archiving setup, consider what will happen if
     the archive command or library fails repeatedly because some aspect requires
     operator intervention or the archive runs out of space. For example, this
@@ -1050,9 +1074,17 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
     <productname>PostgreSQL</productname> will do a PANIC shutdown.  No committed
     transactions will be lost, but the database will remain offline until
     you free some space.)
+-->
+《マッチ度[92.660550]》アーカイブ設定を設計する時には、操作者の介入が必要であったり、アーカイブ場所の容量不足の理由でアーカイブ用コマンドが繰り返し失敗した時にどうなるかを考慮してください。
+例えば、これはオートチェンジャ機能のないテープに書き出している場合に発生する可能性があります。
+テープが一杯になった場合、テープを交換するまでアーカイブを行うことができなくなります。
+こうした状況を相応の早さで解消できるよう、適切に操作者に対しエラーや要求を確実に連絡できるようにしなければなりません。
+この状況が解消するまで、WALセグメントファイルは<filename>pg_wal/</filename>ディレクトリ内に格納され続けます。
+（<filename>pg_wal/</filename>を含むファイルシステムがいっぱいになると、<productname>PostgreSQL</productname>はパニック停止します。コミットされたトランザクションは失われませんが、データベースはいくらかの容量を解放するまでオフラインのままです。）
    </para>
 
    <para>
+<!--
     The speed of the archive command or library is unimportant as long as it can keep up
     with the average rate at which your server generates WAL data.  Normal
     operation continues even if the archiving process falls a little behind.
@@ -1062,14 +1094,24 @@ test ! -f /mnt/server/archivedir/00000001000000A900000065 &amp;&amp; cp pg_wal/0
     not-yet-archived segment files, which could eventually exceed available
     disk space. You are advised to monitor the archiving process to ensure that
     it is working as you intend.
+-->
+《マッチ度[91.853035]》サーバのWALデータの生成に要する平均速度に追いついている限り、アーカイブ用コマンドの処理速度は重要ではありません。
+アーカイブプロセスが多少遅れたとしても通常の操作は続けられます。
+アーカイブ処理がかなり遅れると、災害時に損失するデータの量が増加することになります。
+また、これは<filename>pg_wal/</filename>ディレクトリ内に多くのアーカイブ処理待ちのセグメントファイルが格納され、ディスク容量が不足する状況になる可能性があることを意味します。
+アーカイブ処理が確実に意図通りに動作しているかを監視することを推奨します。
    </para>
 
    <para>
+<!--
     In writing your archive command or library, you should assume that the file names to
     be archived can be up to 64 characters long and can contain any
     combination of ASCII letters, digits, and dots.  It is not necessary to
     preserve the original relative path (<literal>%p</literal>) but it is necessary to
     preserve the file name (<literal>%f</literal>).
+-->
+《マッチ度[90.857143]》アーカイブ用コマンドを作成する時、アーカイブされるファイル名は最長64文字までで、ASCII文字と数字とドットのどんな組合せを使用しても構いません。
+元の相対パス（<literal>%p</literal>）を保存する必要はありませんが、ファイル名（<literal>%f</literal>）を保存する必要はあります。
    </para>
 
    <para>
@@ -1091,6 +1133,7 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
    </para>
 
    <para>
+<!--
     The archive command or function is only invoked on completed WAL segments.  Hence,
     if your server generates only little WAL traffic (or has slack periods
     where it does so), there could be a long delay between the completion
@@ -1103,6 +1146,14 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
     short <varname>archive_timeout</varname> &mdash; it will bloat your archive
     storage.  <varname>archive_timeout</varname> settings of a minute or so are
     usually reasonable.
+-->
+《マッチ度[91.782554]》アーカイブコマンドは完全なWALセグメントに対してのみ呼び出されます。
+このため、サーバが少ししかWAL流量がない（処理を行わないなぎの期間がある）場合、トランザクションの完了とアーカイブ格納領域への安全な記録との間に長期にわたる遅延があることになります。
+古い未アーカイブのデータをどうするかについて制限を付けるために、<xref linkend="guc-archive-timeout"/>を設定して、強制的にサーバを新しいWALセグメントにある程度の間隔で切り替えるようにすることができます。
+強制切り替えにより早期にアーカイブされたアーカイブ済みファイルは完全に完了したファイルと同じ大きさを持つことに注意してください。
+そのため、非常に小さな<varname>archive_timeout</varname>を使用することはお勧めしません。
+格納領域を膨張させてしまいます。
+通常ならば分単位の<varname>archive_timeout</varname>設定が合理的です。
    </para>
 
    <para>
@@ -1118,6 +1169,7 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
    </para>
 
    <para>
+<!--
     When <varname>wal_level</varname> is <literal>minimal</literal> some SQL commands
     are optimized to avoid WAL logging, as described in <xref
     linkend="populate-pitr"/>.  If archiving or streaming replication were
@@ -1131,6 +1183,13 @@ WALアーカイブによって<productname>PostgreSQL</productname>データベ�
     string (<literal>''</literal>).
     This will cause WAL files to accumulate in <filename>pg_wal/</filename> until a
     working <varname>archive_command</varname> is re-established.
+-->
+《マッチ度[86.577181]》<varname>wal_level</varname>が<literal>minimal</literal>の場合、<xref linkend="populate-pitr"/>に書かれているように、いくつかのSQLコマンドはWALロギングを回避するため最適化されます。
+アーカイビングもしくはストリーミングレプリケーションがこれら構文の１つを実行中に作動させられると、アーカイブ復旧のための十分な情報をWALが含まなくなります。（クラッシュ復旧は影響を受けません。）
+このことにより、<varname>wal_level</varname>はサーバの起動時のみ変更可能です。
+とは言っても、<varname>archive_command</varname>は構成ファイルを再読み込みすることで変更できます。
+一時的にアーカイビングを停止したい場合、１つの方法は<varname>archive_command</varname>を空文字列（<literal>''</literal>）に設定することです。
+このようにすると、動作する<varname>archive_command</varname>が再構築されるまでWALファイルは<filename>pg_wal/</filename>に蓄積します。
    </para>
   </sect2>
 
@@ -1328,6 +1387,7 @@ SELECT * FROM pg_backup_stop(wait_for_archive => true);
 この切換えの理由は、バックアップ期間中に書き出された最後のWALファイルがアーカイブできるよう準備することです。
     </para>
     <para>
+<!--
      <function>pg_backup_stop</function> will return one row with three
      values. The second of these fields should be written to a file named
      <filename>backup_label</filename> in the root directory of the backup. The
@@ -1335,10 +1395,16 @@ SELECT * FROM pg_backup_stop(wait_for_archive => true);
      <filename>tablespace_map</filename> unless the field is empty. These files are
      vital to the backup working and must be written byte for byte without
      modification, which may require opening the file in binary mode.
+-->
+《マッチ度[89.361702]》<function>pg_stop_backup</function>は3つの値を含んだ1行を返します。
+2番目の値は、バックアップのルートディレクトリ内の<filename>backup_label</filename>という名称のファイルを作成の上、値を書き込む必要があります。
+3番目の値は、空でない限りは<filename>tablespace_map</filename>という名称のファイルを作成の上、値を書き込む必要があります。
+これらのファイルはバックアップが動作するために極めて重要であり、1バイトも変更なしに書き込まれる必要があるため、バイナリモードで開かれる必要があるかもしれません。
     </para>
    </listitem>
    <listitem>
     <para>
+<!--
      Once the WAL segment files active during the backup are archived, you are
      done.  The file identified by <function>pg_backup_stop</function>'s first return
      value is the last segment that is required to form a complete set of
@@ -1361,8 +1427,19 @@ SELECT * FROM pg_backup_stop(wait_for_archive => true);
      <varname>statement_timeout</varname> value, but make note that if
      <function>pg_backup_stop</function> terminates because of this your backup
      may not be valid.
+-->
+《マッチ度[82.098313]》バックアップ中に使用されたWALセグメントファイルがアーカイブされれば完了です。
+<function>pg_stop_backup</function>の返り値の1番目の値で識別されるファイルは、バックアップファイル一式を完結させるのに必要となる最終セグメントです。
+プライマリでは、<varname>archive_mode</varname>が有効で、かつ<literal>wait_for_archive</literal>パラメータが<literal>true</literal>であれば、<function>pg_stop_backup</function> は最終セグメントがアーカイブされるまで戻りません。
+スタンバイでは、<function>pg_stop_backup</function>がアーカイブ完了を待つためには、<varname>archive_mode</varname>は<literal>always</literal>でなければなりません。
+すでに<varname>archive_command</varname>を設定していますので、これらのファイルのアーカイブ操作は自動的に発生します。
+ほとんどの場合、これは瞬時に行われます。
+しかし、バックアップの完了を確認できるよう、アーカイブシステムを監視し、遅延が無いことの確認をお勧めします。
+アーカイブコマンドの失敗によりアーカイブ処理が遅れてしまったとしても、アーカイブが成功し、そしてバックアップが完了するまで再試行を繰り返すようになっています。
+<function>pg_stop_backup</function>実行においての時間期限を設けたい場合、適切な<varname>statement_timeout</varname>の値を設定できますが、この設定値によって<function>pg_stop_backup</function>が中断したときにバックアップが正当ではない可能性があるということを肝に銘じてください。
     </para>
     <para>
+<!--
      If the backup process monitors and ensures that all WAL segment files
      required for the backup are successfully archived then the
      <literal>wait_for_archive</literal> parameter (which defaults to true) can be set
@@ -1373,6 +1450,12 @@ SELECT * FROM pg_backup_stop(wait_for_archive => true);
      must be used with caution: if WAL archiving is not monitored correctly
      then the backup might not include all of the WAL files and will
      therefore be incomplete and not able to be restored.
+-->
+《マッチ度[88.819876]》バックアップに必要なすべてのWALセグメントファイルのアーカイブが成功したことを、バックアップ作業の中で監視して確認するのであれば、<literal>wait_for_archive</literal>パラメータ(デフォルトでtrueです)をfalseに設定し、バックアップレコードがWALに書き込まれたら即座に<function>pg_stop_backup</function>が戻るようにすることができます。
+デフォルトでは、<function>pg_stop_backup</function>はすべてのWALがアーカイブされるのを待つので、少し時間がかかることがあります。
+このオプションは慎重に使わなければなりません。
+WALのアーカイブを適切に監視していない場合、バックアップにはすべてのWALファイルが含まれず、不完全かもしれません。
+そうなると、リストアできません。
     </para>
    </listitem>
   </orderedlist>
@@ -1469,11 +1552,15 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
    </para>
 
    <para>
+<!--
     The contents of the directories <filename>pg_dynshmem/</filename>,
     <filename>pg_notify/</filename>, <filename>pg_serial/</filename>,
     <filename>pg_snapshots/</filename>, <filename>pg_stat_tmp/</filename>,
     and <filename>pg_subtrans/</filename> (but not the directories themselves) can be
     omitted from the backup as they will be initialized on postmaster startup.
+-->
+《マッチ度[52.777778]》ディレクトリ<filename>pg_dynshmem/</filename>、<filename>pg_notify/</filename>、<filename>pg_serial/</filename>、<filename>pg_snapshots/</filename>、<filename>pg_stat_tmp/</filename>、<filename>pg_subtrans/</filename>の中身はバックアップから除外できます。（ただし、ディレクトリ自体は除外できません。）
+というのも、postmaster起動時に初期化されるからです。
    </para>
 
    <para>
@@ -1497,6 +1584,7 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
    </para>
 
    <para>
+<!--
     The backup label
     file includes the label string you gave to <function>pg_backup_start</function>,
     as well as the time at which <function>pg_backup_start</function> was run, and
@@ -1508,15 +1596,27 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
     These files are not merely for your information; their presence and
     contents are critical to the proper operation of the system's recovery
     process.
+-->
+《マッチ度[89.441931]》バックアップラベルファイルには、<function>pg_start_backup</function>に付与したラベル文字列と<function>pg_start_backup</function>が実行された時刻、最初のWALファイルの名前が含まれます。
+したがって、当惑した時にバックアップファイルの中身を検索し、そのダンプファイルがどのバックアップセッションに由来したものかを確認することができます。
+テーブル空間マップファイルにはディレクトリ<filename>pg_tblspc/</filename>に存在するシンボリックリンク名と各シンボリックリンクのフルパスが含まれています。
+このファイルはあなたのためだけの情報ではありません。
+その存在と内容はシステムのリカバリプロセスが適切に動作するために非常に重要です。
    </para>
 
    <para>
+<!--
     It is also possible to make a backup while the server is
     stopped.  In this case, you obviously cannot use
     <function>pg_backup_start</function> or <function>pg_backup_stop</function>, and
     you will therefore be left to your own devices to keep track of which
     backup is which and how far back the associated WAL files go.
     It is generally better to follow the continuous archiving procedure above.
+-->
+《マッチ度[88.010204]》サーバが停止している時にバックアップを作成することも可能です。
+この場合、わかりきったことですが、<function>pg_start_backup</function>や<function>pg_stop_backup</function>を使用することができません。
+そのため、どのバックアップが、どのWALファイルと関連し、どこまで戻せばよいかを独自の方法で残さなければなりません。
+通常は、上述の継続的アーカイブ手順に従う方をお勧めします。
    </para>
    </sect3>
   </sect2>
@@ -1782,11 +1882,16 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
 
    <note>
      <para>
+<!--
       The stop point must be after the ending time of the base backup, i.e.,
       the end time of <function>pg_backup_stop</function>.  You cannot use a base backup
       to recover to a time when that backup was in progress.  (To
       recover to such a time, you must go back to your previous base backup
       and roll forward from there.)
+-->
+《マッチ度[86.495177]》停止時点はバックアップの終了時刻、つまり、<function>pg_stop_backup</function>の最終時刻より後の時点でなければなりません。
+バックアップを行っている最中のある時点までベースバックアップを使用して復旧させることはできません
+（こうした時点まで復旧させるには、その前のベースバックアップまで戻って、そこからロールフォワードしてください）。
      </para>
    </note>
 
