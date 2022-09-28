@@ -1485,7 +1485,7 @@ JSON配列の個々の要素は上の<function>json[b]_populate_record</function
        </para>
        <para>
         <literal>jsonb_set_lax('[{"f1":1,"f2":null},2,null,3]', '{0,f1}', null)</literal>
-        <returnvalue>[{"f1":null,"f2":null},2,null,3]</returnvalue>
+        <returnvalue>[{"f1": null, "f2": null}, 2, null, 3]</returnvalue>
        </para>
        <para>
         <literal>jsonb_set_lax('[{"f1":99,"f2":null},2]', '{0,f3}', null, true, 'return_target')</literal>
@@ -1766,7 +1766,7 @@ JSON値に対するJSONパスによって返される最初のJSON項目を返�
 これらの関数の片割れは不変(immutable)なので、インデックスで使えます。しかし、そうした比較を要求されるとエラーを吐きます。
        </para>
        <para>
-        <literal>jsonb_path_exists_tz('["2015-08-01 12:00:00 -05"]', '$[*] ? (@.datetime() &lt; "2015-08-02".datetime())')</literal>
+        <literal>jsonb_path_exists_tz('["2015-08-01 12:00:00-05"]', '$[*] ? (@.datetime() &lt; "2015-08-02".datetime())')</literal>
         <returnvalue>t</returnvalue>
        </para></entry>
       </row>
@@ -4338,7 +4338,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-        <indexterm>
+        <indexterm id="function-array-to-string">
          <primary>array_to_string</primary>
         </indexterm>
         <function>array_to_string</function> ( <parameter>array</parameter> <type>anyarray</type>, <parameter>delimiter</parameter> <type>text</type> <optional>, <parameter>null_string</parameter> <type>text</type> </optional> )
@@ -4355,6 +4355,7 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 -->
 配列要素をテキスト表現に変換し<parameter>delimiter</parameter>文字列で区切って結合します。
 <literal>NULL</literal>でない<parameter>null_string</parameter>が与えられると、<literal>NULL</literal>配列要素をその文字列で表現します。さもなければ無視されます。
+        See also <link linkend="function-string-to-array"><function>string_to_array</function></link>.
        </para>
        <para>
         <literal>array_to_string(ARRAY[1, 2, 3, NULL, 5], ',', '*')</literal>
@@ -4492,23 +4493,6 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
      </tbody>
     </tgroup>
    </table>
-
-   <note>
-    <para>
-<!--
-     There are two differences in the behavior of <function>string_to_array</function>
-     from pre-9.1 versions of <productname>PostgreSQL</productname>.
-     First, it will return an empty (zero-element) array rather
-     than <literal>NULL</literal> when the input string is of zero length.
-     Second, if the delimiter string is <literal>NULL</literal>, the function
-     splits the input into individual characters, rather than
-     returning <literal>NULL</literal> as before.
--->
-<function>string_to_array</function>は、<productname>PostgreSQL</productname>9.1から、前のバージョンとは2つの異なる振る舞いするようになりました。
-1つ目は、入力した文字列長が0の場合、<literal>NULL</literal>を返すのではなく空の(要素数が0の)配列を返すようになりました。
-2つ目は区切り文字列が<literal>NULL</literal>の場合、以前は<literal>NULL</literal>を返していましたが9.1からは入力文字列を個別の文字に分割するようになりました。
-    </para>
-   </note>
 
    <para>
 <!--
@@ -6278,16 +6262,12 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         <returnvalue><replaceable>same as input type</replaceable></returnvalue>
        </para>
        <para>
-<!--
         Computes the maximum of the non-null input
         values.  Available for any numeric, string, date/time, or enum type,
         as well as <type>inet</type>, <type>interval</type>,
         <type>money</type>, <type>oid</type>, <type>pg_lsn</type>,
-        <type>tid</type>,
+        <type>tid</type>, <type>xid8</type>,
         and arrays of any of these types.
--->
-非NULL入力値の最大を計算します。
-数値、文字列、日時、列挙型および<type>inet</type>、<type>interval</type>、<type>money</type>、<type>oid</type>、<type>pg_lsn</type>、<type>tid</type>、およびこれらすべての配列でも同様に利用できます。
        </para></entry>
 <!--
        <entry>Yes</entry>
@@ -6304,16 +6284,12 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         <returnvalue><replaceable>same as input type</replaceable></returnvalue>
        </para>
        <para>
-<!--
         Computes the minimum of the non-null input
         values.  Available for any numeric, string, date/time, or enum type,
         as well as <type>inet</type>, <type>interval</type>,
         <type>money</type>, <type>oid</type>, <type>pg_lsn</type>,
-        <type>tid</type>,
+        <type>tid</type>, <type>xid8</type>,
         and arrays of any of these types.
--->
-非NULL入力値の最小を計算します。
-数値、文字列、日時、列挙型および<type>inet</type>、<type>interval</type>、<type>money</type>、<type>oid</type>、<type>pg_lsn</type>、<type>tid</type>、およびこれらすべての配列でも同様に利用できます。
        </para></entry>
 <!--
        <entry>Yes</entry>
@@ -6328,6 +6304,11 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         </indexterm>
         <function>range_agg</function> ( <parameter>value</parameter>
          <type>anyrange</type> )
+        <returnvalue>anymultirange</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>range_agg</function> ( <parameter>value</parameter>
+         <type>anymultirange</type> )
         <returnvalue>anymultirange</returnvalue>
        </para>
        <para>

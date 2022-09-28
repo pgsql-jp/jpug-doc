@@ -137,6 +137,9 @@
   need, surprising semantic anomalies may arise when types or collations do
   not match, due to the remote server interpreting query conditions
   differently from the local server.
+-->
+一般的な推奨事項として、可能であれば外部テーブルのカラムを、被参照側のリモートテーブル側のカラムと全く同一のデータ型および照合順序によって定義してください。
+<filename>postgres_fdw</filename>は必要に応じてデータ型の変換を行いますが、リモートサーバがローカルサーバとは異なる問い合わせ条件の解釈を行うため、データ型や照合順序が一致していないと、時には予期しない意味論的に異常な結果を得る事があるかもしれません。
  </para>
 
  <para>
@@ -205,6 +208,7 @@
      </listitem>
      <listitem>
       <para>
+<!--
        <literal>fallback_application_name</literal> (always set to
        <literal>postgres_fdw</literal>)
 -->
@@ -260,7 +264,6 @@ OPTIONS (ADD password_required 'false');
 非特権ユーザが、postgresサーバが動作しているunixユーザの認証権限を悪用して、スーパーユーザ権限へ昇格するのを防ぐため、スーパーユーザのみがユーザーマッピングでこのオプションを設定できます。
     </para>
     <para>
-<!--
     Care is required to ensure that this does not allow the mapped
     user the ability to connect as superuser to the mapped database per
     CVE-2007-3278 and CVE-2007-6601. Don't set
@@ -272,11 +275,6 @@ OPTIONS (ADD password_required 'false');
     system user the postgres server runs as. They can also use any trust
     relationship granted by authentication modes like <literal>peer</literal>
     or <literal>ident</literal> authentication.
--->
-これが、CVE-2007-3278やCVE-2007-6601のように、マップされたユーザがマップされたデータベースにスーパーユーザとして接続するのを許可しないことを確実にするよう注意が必要です。
-<literal>public</literal>ロールでは<literal>password_required=false</literal>を設定しないでください。
-postgresサーバが動作しているシステムユーザのunixのホームディレクトリにある、任意のクライアント証明書や<filename>.pgpass</filename>、<filename>.pg_service.conf</filename>などをマップされたユーザは潜在的には利用可能なことを心に留めておいてください。
-<literal>peer</literal>や<literal>ident</literal>認証のような認証モードで付与された信頼関係を使うこともできます。
    </para>
   </sect3>
 
@@ -307,11 +305,10 @@ postgresサーバが動作しているシステムユーザのunixのホーム�
        This option, which can be specified for a foreign table, gives the
        schema name to use for the foreign table on the remote server.  If this
        option is omitted, the name of the foreign table's schema is used.
-
-       (訳注) to use for the foreign table on... は remote table の間違い。
 -->
 外部テーブルに対して指定できるこのオプションは、リモートサーバ上のリモートテーブルのスキーマ名を与えます。
 省略された場合、外部テーブルのスキーマ名が使用されます。
+      <!-- (訳注: to use for the foreign table on... は remote table の間違い。) -->
       </para>
      </listitem>
     </varlistentry>
@@ -398,6 +395,7 @@ postgresサーバが動作しているシステムユーザのunixのホーム�
      <term><literal>fdw_startup_cost</literal> (<type>floating point</type>)</term>
      <listitem>
       <para>
+<!--
        This option, which can be specified for a foreign server, is a floating
        point value that is added to the estimated startup cost of any
        foreign-table scan on that server.  This represents the additional
@@ -416,6 +414,7 @@ postgresサーバが動作しているシステムユーザのunixのホーム�
      <term><literal>fdw_tuple_cost</literal> (<type>floating point</type>)</term>
      <listitem>
       <para>
+<!--
        This option, which can be specified for a foreign server, is a floating
        point value that is used as extra cost per-tuple for foreign-table
        scans on that server.  This represents the additional overhead of
@@ -699,6 +698,7 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
   </sect3>
 
   <sect3>
+<!--
    <title>Updatability Options</title>
 -->
    <title>更新機能オプション</title>
@@ -841,14 +841,24 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
        If you do so, however, there is a very severe risk that the imported
        table columns' collations will not match the underlying data, resulting
        in anomalous query behavior.
+-->
+このオプションは、列の<literal>COLLATE</literal>オプションが、外部サーバからインポートする外部テーブルの定義に含まれているかどうかを制御します。
+デフォルトは<literal>true</literal>です。
+リモートサーバとローカルサーバで照合順序の名前の集合が異なる場合は、この設定を無効にする必要があるでしょう。
+リモートサーバが異なるOSで動作しているなら、そういうことがありそうです。
+しかし、そうした時には、インポートしたテーブルの列の照合順序が実際のデータと一致せず、問い合わせの振る舞いが結果として異常になる大きなリスクがあります。
       </para>
 
       <para>
+<!--
        Even when this parameter is set to <literal>true</literal>, importing
        columns whose collation is the remote server's default can be risky.
        They will be imported with <literal>COLLATE "default"</literal>, which
        will select the local server's default collation, which could be
        different.
+-->
+このパラメータが<literal>true</literal>のときでさえ、照合順序がリモートサーバのデフォルトである列をインポートするのは危険性があります。
+これらの列は<literal>COLLATE "default"</literal>としてインポートされますが、ローカルサーバのデフォルトの照合順序は異なるかもしれません。
       </para>
      </listitem>
     </varlistentry>
@@ -875,7 +885,7 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
      </listitem>
     </varlistentry>
     <varlistentry>
-     <term><literal>import_generated</literal></term>
+     <term><literal>import_generated</literal> (<type>boolean</type>)</term>
      <listitem>
       <para>
 <!--
@@ -888,18 +898,6 @@ IMMUTABLEで、列挙された拡張に属する関数と演算子は、リモ�
 このオプションは、外部サーバからインポートされた外部テーブルの定義に<literal>GENERATED</literal>列式が含まれるかどうかを制御します。
 デフォルトは<literal>true</literal>です。
 インポートされる生成式がローカルには存在しない関数あるいは演算子を使っていた場合、<command>IMPORT</command>は失敗します。
-      </para>
-     </listitem>
-    </varlistentry>
-    <varlistentry>
-     <term><literal>import_generated</literal> (<type>boolean</type>)</term>
-     <listitem>
-      <para>
-       This option controls whether column <literal>GENERATED</literal> expressions
-       are included in the definitions of foreign tables imported
-       from a foreign server. The default is <literal>true</literal>.
-       The <command>IMPORT</command> will fail altogether if an imported generated
-       expression uses a function or operator that does not exist locally.
       </para>
      </listitem>
     </varlistentry>
@@ -1392,7 +1390,7 @@ postgres=# SELECT postgres_fdw_disconnect_all();
 読み取り専用であれば、8.1以降のバージョンまで可能です。
 一方、<filename>postgres_fdw</filename>は<literal>IMMUTABLE</literal>属性を持った組み込みの演算子と関数が外部テーブルの<literal>WHERE</literal>句に含まれる場合、リモート側で実行しても安全であると仮定します。そのため、リモートサーバのリリース後に追加された関数が実行のために送出されるかもしれず、結果として<quote>関数が見つかりません</quote>あるいは類するエラーを発生させる事になります。
 この種の問題は問い合わせの書き換えによって対処する事ができます。
-例えば、最適化を妨げるため、外部テーブルへの参照を<literal>OFFSET 0</literal>を付けて副問い合わせに埋め込み、問題のある関数や演算子を副問い合わせの外に配置するなどの方法があります。
+例えば、最適化を妨げるため、外部テーブルへの参照を<literal>OFFSET 0</literal>を付けてsub-<literal>SELECT</literal>に埋め込み、問題のある関数や演算子をsub-<literal>SELECT</literal>の外に配置するなどの方法があります。
   </para>
  </sect2>
 
@@ -1497,6 +1495,7 @@ postgres=# SELECT postgres_fdw_disconnect_all();
  </sect2>
 
  <sect2>
+<!--
   <title>Examples</title>
 -->
   <title>例</title>

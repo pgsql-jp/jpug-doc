@@ -2294,9 +2294,9 @@ NULL引数の数を返す。
    </table>
 
   <para>
-<!--
-   The <function>random()</function> function uses a simple linear
-   congruential algorithm.  It is fast but not suitable for cryptographic
+   The <function>random()</function> function uses a deterministic
+   pseudo-random number generator.
+   It is fast but not suitable for cryptographic
    applications; see the <xref linkend="pgcrypto"/> module for a more
    secure alternative.
    If <function>setseed()</function> is called, the series of results of
@@ -2306,11 +2306,6 @@ NULL引数の数を返す。
    Without any prior <function>setseed()</function> call in the same
    session, the first <function>random()</function> call obtains a seed
    from a platform-dependent source of random bits.
--->
-<function>random()</function>関数は単純な線形合同法を使用しています。
-高速ですが、暗号用途には適していません。より安全な代替物として<xref linkend="pgcrypto"/>モジュールを参照してください。
-<function>setseed()</function>が呼び出されると、現在のセッション内での以後の一連の<function>random()</function>の呼び出し結果は<function>setseed()</function>を同じ引数で再実行することによって再現可能となります。
-同じセッション内で<function>setseed()</function>をそれ以前に呼び出していない場合は、最初の<function>random()</function>の呼び出しによってプラットフォーム依存の乱数ビットのソースからシードを入手します。
   </para>
 
   <para>
@@ -3390,28 +3385,26 @@ POSIX正規表現にマッチする最初の部分文字列を返します。<xr
    </table>
 
    <para>
-<!--
-    Additional string manipulation functions are available and are
-    listed in <xref linkend="functions-string-other"/>.  Some of them are used internally to implement the
-    <acronym>SQL</acronym>-standard string functions listed in <xref linkend="functions-string-sql"/>.
--->
-この他、<xref linkend="functions-string-other"/>に列挙する文字列操作関数が使えます。
-そのいくつかは、<xref linkend="functions-string-sql"/>で列挙した標準<acronym>SQL</acronym>の文字列関数を実装するため、内部的に使用されます。
+    Additional string manipulation functions and operators are available
+    and are listed in <xref linkend="functions-string-other"/>.  (Some of
+    these are used internally to implement
+    the <acronym>SQL</acronym>-standard string functions listed in
+    <xref linkend="functions-string-sql"/>.)
+    There are also pattern-matching operators, which are described in
+    <xref linkend="functions-matching"/>, and operators for full-text
+    search, which are described in <xref linkend="textsearch"/>.
    </para>
 
    <table id="functions-string-other">
-<!--
-    <title>Other String Functions</title>
--->
-    <title>その他の文字列関数</title>
+    <title>Other String Functions and Operators</title>
     <tgroup cols="1">
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
 <!--
-        Function
+        Function/Operator
 -->
-関数
+関数/演算子
        </para>
        <para>
 <!--
@@ -3429,6 +3422,25 @@ POSIX正規表現にマッチする最初の部分文字列を返します。<xr
      </thead>
 
      <tbody>
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>character string</primary>
+         <secondary>prefix test</secondary>
+        </indexterm>
+        <type>text</type> <literal>^@</literal> <type>text</type>
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Returns true if the first string starts with the second string
+        (equivalent to the <function>starts_with()</function> function).
+       </para>
+       <para>
+        <literal>'alphabet' ^@ 'alph'</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
@@ -3894,19 +3906,88 @@ NULL引数は無視されます。
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>regexp_count</primary>
+        </indexterm>
+        <function>regexp_count</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type>
+         [, <parameter>start</parameter> <type>integer</type>
+         [, <parameter>flags</parameter> <type>text</type> ] ] )
+        <returnvalue>integer</returnvalue>
+       </para>
+       <para>
+        Returns the number of times the POSIX regular
+        expression <parameter>pattern</parameter> matches in
+        the <parameter>string</parameter>; see
+        <xref linkend="functions-posix-regexp"/>.
+       </para>
+       <para>
+        <literal>regexp_count('123456789012', '\d\d\d', 2)</literal>
+        <returnvalue>3</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>regexp_instr</primary>
+        </indexterm>
+        <function>regexp_instr</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type>
+         [, <parameter>start</parameter> <type>integer</type>
+         [, <parameter>N</parameter> <type>integer</type>
+         [, <parameter>endoption</parameter> <type>integer</type>
+         [, <parameter>flags</parameter> <type>text</type>
+         [, <parameter>subexpr</parameter> <type>integer</type> ] ] ] ] ] )
+        <returnvalue>integer</returnvalue>
+       </para>
+       <para>
+        Returns the position within <parameter>string</parameter> where
+        the <parameter>N</parameter>'th match of the POSIX regular
+        expression <parameter>pattern</parameter> occurs, or zero if there is
+        no such match; see <xref linkend="functions-posix-regexp"/>.
+       </para>
+       <para>
+        <literal>regexp_instr('ABCDEF', 'c(.)(..)', 1, 1, 0, 'i')</literal>
+        <returnvalue>3</returnvalue>
+       </para>
+       <para>
+        <literal>regexp_instr('ABCDEF', 'c(.)(..)', 1, 1, 0, 'i', 2)</literal>
+        <returnvalue>5</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>regexp_like</primary>
+        </indexterm>
+        <function>regexp_like</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type>
+         [, <parameter>flags</parameter> <type>text</type> ] )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+        Checks whether a match of the POSIX regular
+        expression <parameter>pattern</parameter> occurs
+        within <parameter>string</parameter>; see
+        <xref linkend="functions-posix-regexp"/>.
+       </para>
+       <para>
+        <literal>regexp_like('Hello World', 'world$', 'i')</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>regexp_match</primary>
         </indexterm>
         <function>regexp_match</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type> [, <parameter>flags</parameter> <type>text</type> ] )
         <returnvalue>text[]</returnvalue>
        </para>
        <para>
-<!--
-        Returns captured substrings resulting from the first match of a POSIX
-        regular expression to the <parameter>string</parameter>; see
+        Returns substrings within the first match of the POSIX regular
+        expression <parameter>pattern</parameter> to
+        the <parameter>string</parameter>; see
         <xref linkend="functions-posix-regexp"/>.
--->
-<parameter>string</parameter>に対してPOSIX正規表現でマッチし、捕捉された最初の部分文字列を返します。
-より詳細は<xref linkend="functions-posix-regexp"/>を参照してください。
        </para>
        <para>
         <literal>regexp_match('foobarbequebaz', '(bar)(beque)')</literal>
@@ -3923,14 +4004,11 @@ NULL引数は無視されます。
         <returnvalue>setof text[]</returnvalue>
        </para>
        <para>
-<!--
-        Returns captured substrings resulting from the first match of a
-        POSIX regular expression to the <parameter>string</parameter>,
-        or multiple matches if the <literal>g</literal> flag is used;
+        Returns substrings within the first match of the POSIX regular
+        expression <parameter>pattern</parameter> to
+        the <parameter>string</parameter>, or substrings within all
+        such matches if the <literal>g</literal> flag is used;
         see <xref linkend="functions-posix-regexp"/>.
--->
-<parameter>string</parameter>に対してPOSIX正規表現で最初のマッチ、あるいは<literal>g</literal>が指定された場合には複数のマッチの結果から捕捉された部分文字列を返します。
-<xref linkend="functions-posix-regexp"/>を参照してください。
        </para>
        <para>
         <literal>regexp_matches('foobarbequebaz', 'ba.', 'g')</literal>
@@ -3947,22 +4025,40 @@ NULL引数は無視されます。
         <indexterm>
          <primary>regexp_replace</primary>
         </indexterm>
-        <function>regexp_replace</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type>, <parameter>replacement</parameter> <type>text</type> [, <parameter>flags</parameter> <type>text</type> ] )
+        <function>regexp_replace</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type>, <parameter>replacement</parameter> <type>text</type>
+         [, <parameter>start</parameter> <type>integer</type> ]
+         [, <parameter>flags</parameter> <type>text</type> ] )
         <returnvalue>text</returnvalue>
        </para>
        <para>
-<!--
-        Replaces substrings resulting from the first match of a
-        POSIX regular expression, or multiple substring matches
-        if the <literal>g</literal> flag is used; see <xref
-        linkend="functions-posix-regexp"/>.
--->
-POSIX正規表現で最初のマッチ、あるいは<literal>g</literal>が指定された場合には複数のマッチの結果から捕捉された部分文字列を置換します。
-<xref linkend="functions-posix-regexp"/>を参照してください。
+        Replaces the substring that is the first match to the POSIX
+        regular expression <parameter>pattern</parameter>, or all such
+        matches if the <literal>g</literal> flag is used; see
+        <xref linkend="functions-posix-regexp"/>.
        </para>
        <para>
         <literal>regexp_replace('Thomas', '.[mN]a.', 'M')</literal>
         <returnvalue>ThM</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <function>regexp_replace</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type>, <parameter>replacement</parameter> <type>text</type>,
+         <parameter>start</parameter> <type>integer</type>,
+         <parameter>N</parameter> <type>integer</type>
+         [, <parameter>flags</parameter> <type>text</type> ] )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para>
+        Replaces the substring that is the <parameter>N</parameter>'th
+        match to the POSIX regular expression <parameter>pattern</parameter>,
+        or all such matches if <parameter>N</parameter> is zero; see
+        <xref linkend="functions-posix-regexp"/>.
+       </para>
+       <para>
+        <literal>regexp_replace('Thomas', '.', 'X', 3, 2)</literal>
+        <returnvalue>ThoXas</returnvalue>
        </para></entry>
       </row>
 
@@ -4013,6 +4109,35 @@ POSIX正規表現を区切り文字に使って<parameter>string</parameter>を�
  hello
  world
 </programlisting>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>regexp_substr</primary>
+        </indexterm>
+        <function>regexp_substr</function> ( <parameter>string</parameter> <type>text</type>, <parameter>pattern</parameter> <type>text</type>
+         [, <parameter>start</parameter> <type>integer</type>
+         [, <parameter>N</parameter> <type>integer</type>
+         [, <parameter>flags</parameter> <type>text</type>
+         [, <parameter>subexpr</parameter> <type>integer</type> ] ] ] ] )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para>
+        Returns the substring within <parameter>string</parameter> that
+        matches the <parameter>N</parameter>'th occurrence of the POSIX
+        regular expression <parameter>pattern</parameter>,
+        or <literal>NULL</literal> if there is no such match; see
+        <xref linkend="functions-posix-regexp"/>.
+       </para>
+       <para>
+        <literal>regexp_substr('ABCDEF', 'c(.)(..)', 1, 1, 'i')</literal>
+        <returnvalue>CDEF</returnvalue>
+       </para>
+       <para>
+        <literal>regexp_substr('ABCDEF', 'c(.)(..)', 1, 1, 'i', 2)</literal>
+        <returnvalue>EF</returnvalue>
        </para></entry>
       </row>
 
@@ -4189,6 +4314,99 @@ POSIX正規表現を区切り文字に使って<parameter>string</parameter>を�
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>starts_with</primary>
+        </indexterm>
+        <function>starts_with</function> ( <parameter>string</parameter> <type>text</type>, <parameter>prefix</parameter> <type>text</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+<!--
+        Returns true if <parameter>string</parameter> starts
+        with <parameter>prefix</parameter>.
+-->
+<parameter>string</parameter>が<parameter>prefix</parameter>で始まっていれば真を返します。
+       </para>
+       <para>
+        <literal>starts_with('alphabet', 'alph')</literal>
+        <returnvalue>t</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm id="function-string-to-array">
+         <primary>string_to_array</primary>
+        </indexterm>
+        <function>string_to_array</function> ( <parameter>string</parameter> <type>text</type>, <parameter>delimiter</parameter> <type>text</type> <optional>, <parameter>null_string</parameter> <type>text</type> </optional> )
+        <returnvalue>text[]</returnvalue>
+       </para>
+       <para>
+<!--
+        Splits the <parameter>string</parameter> at occurrences
+        of <parameter>delimiter</parameter> and forms the resulting fields
+        into a <type>text</type> array.
+        If <parameter>delimiter</parameter> is <literal>NULL</literal>,
+        each character in the <parameter>string</parameter> will become a
+        separate element in the array.
+        If <parameter>delimiter</parameter> is an empty string, then
+        the <parameter>string</parameter> is treated as a single field.
+        If <parameter>null_string</parameter> is supplied and is
+        not <literal>NULL</literal>, fields matching that string are
+        replaced by <literal>NULL</literal>.
+-->
+<parameter>string</parameter>を<parameter>delimiter</parameter>で区切り、結果のフィールドを<type>text</type>配列に格納します。
+<parameter>delimiter</parameter>が<literal>NULL</literal>なら、<parameter>string</parameter>の各文字が配列の別々の要素になります。
+<parameter>delimiter</parameter>が空文字なら、<parameter>string</parameter>は単一のフィールドとして扱われます。
+<parameter>null_string</parameter>が指定され、<literal>NULL</literal>でなければ、その文字列にマッチするフィールドは<literal>NULL</literal>で置き換えられます。
+        See also <link linkend="function-array-to-string"><function>array_to_string</function></link>.
+       </para>
+       <para>
+        <literal>string_to_array('xx~~yy~~zz', '~~', 'yy')</literal>
+        <returnvalue>{xx,NULL,zz}</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>string_to_table</primary>
+        </indexterm>
+        <function>string_to_table</function> ( <parameter>string</parameter> <type>text</type>, <parameter>delimiter</parameter> <type>text</type> <optional>, <parameter>null_string</parameter> <type>text</type> </optional> )
+        <returnvalue>setof text</returnvalue>
+       </para>
+       <para>
+<!--
+        Splits the <parameter>string</parameter> at occurrences
+        of <parameter>delimiter</parameter> and returns the resulting fields
+        as a set of <type>text</type> rows.
+        If <parameter>delimiter</parameter> is <literal>NULL</literal>,
+        each character in the <parameter>string</parameter> will become a
+        separate row of the result.
+        If <parameter>delimiter</parameter> is an empty string, then
+        the <parameter>string</parameter> is treated as a single field.
+        If <parameter>null_string</parameter> is supplied and is
+        not <literal>NULL</literal>, fields matching that string are
+        replaced by <literal>NULL</literal>.
+-->
+<parameter>string</parameter>を<parameter>delimiter</parameter>で区切り、結果のフィールドを<type>text</type>の行集合として返します。
+<parameter>delimiter</parameter>が<literal>NULL</literal>なら、結果は<parameter>string</parameter>の各文字が別々の行になります。
+<parameter>delimiter</parameter>が空文字なら、<parameter>string</parameter>は単一のフィールドとして扱われます。
+<parameter>null_string</parameter>が指定され、<literal>NULL</literal>でなければ、その文字列にマッチするフィールドは<literal>NULL</literal>で置き換えられます。
+       </para>
+       <para>
+        <literal>string_to_table('xx~^~yy~^~zz', '~^~', 'yy')</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ xx
+ NULL
+ zz
+</programlisting>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>strpos</primary>
         </indexterm>
         <function>strpos</function> ( <parameter>string</parameter> <type>text</type>, <parameter>substring</parameter> <type>text</type> )
@@ -4238,98 +4456,6 @@ POSIX正規表現を区切り文字に使って<parameter>string</parameter>を�
        <para>
         <literal>substr('alphabet', 3, 2)</literal>
         <returnvalue>ph</returnvalue>
-       </para></entry>
-      </row>
-
-      <row>
-       <entry role="func_table_entry"><para role="func_signature">
-        <indexterm>
-         <primary>starts_with</primary>
-        </indexterm>
-        <function>starts_with</function> ( <parameter>string</parameter> <type>text</type>, <parameter>prefix</parameter> <type>text</type> )
-        <returnvalue>boolean</returnvalue>
-       </para>
-       <para>
-<!--
-        Returns true if <parameter>string</parameter> starts
-        with <parameter>prefix</parameter>.
--->
-<parameter>string</parameter>が<parameter>prefix</parameter>で始まっていれば真を返します。
-       </para>
-       <para>
-        <literal>starts_with('alphabet', 'alph')</literal>
-        <returnvalue>t</returnvalue>
-       </para></entry>
-      </row>
-
-      <row>
-       <entry role="func_table_entry"><para role="func_signature">
-        <indexterm>
-         <primary>string_to_array</primary>
-        </indexterm>
-        <function>string_to_array</function> ( <parameter>string</parameter> <type>text</type>, <parameter>delimiter</parameter> <type>text</type> <optional>, <parameter>null_string</parameter> <type>text</type> </optional> )
-        <returnvalue>text[]</returnvalue>
-       </para>
-       <para>
-<!--
-        Splits the <parameter>string</parameter> at occurrences
-        of <parameter>delimiter</parameter> and forms the resulting fields
-        into a <type>text</type> array.
-        If <parameter>delimiter</parameter> is <literal>NULL</literal>,
-        each character in the <parameter>string</parameter> will become a
-        separate element in the array.
-        If <parameter>delimiter</parameter> is an empty string, then
-        the <parameter>string</parameter> is treated as a single field.
-        If <parameter>null_string</parameter> is supplied and is
-        not <literal>NULL</literal>, fields matching that string are
-        replaced by <literal>NULL</literal>.
--->
-<parameter>string</parameter>を<parameter>delimiter</parameter>で区切り、結果のフィールドを<type>text</type>配列に格納します。
-<parameter>delimiter</parameter>が<literal>NULL</literal>なら、<parameter>string</parameter>の各文字が配列の別々の要素になります。
-<parameter>delimiter</parameter>が空文字なら、<parameter>string</parameter>は単一のフィールドとして扱われます。
-<parameter>null_string</parameter>が指定され、<literal>NULL</literal>でなければ、その文字列にマッチするフィールドは<literal>NULL</literal>で置き換えられます。
-       </para>
-       <para>
-        <literal>string_to_array('xx~~yy~~zz', '~~', 'yy')</literal>
-        <returnvalue>{xx,NULL,zz}</returnvalue>
-       </para></entry>
-      </row>
-
-      <row>
-       <entry role="func_table_entry"><para role="func_signature">
-        <indexterm>
-         <primary>string_to_table</primary>
-        </indexterm>
-        <function>string_to_table</function> ( <parameter>string</parameter> <type>text</type>, <parameter>delimiter</parameter> <type>text</type> <optional>, <parameter>null_string</parameter> <type>text</type> </optional> )
-        <returnvalue>setof text</returnvalue>
-       </para>
-       <para>
-<!--
-        Splits the <parameter>string</parameter> at occurrences
-        of <parameter>delimiter</parameter> and returns the resulting fields
-        as a set of <type>text</type> rows.
-        If <parameter>delimiter</parameter> is <literal>NULL</literal>,
-        each character in the <parameter>string</parameter> will become a
-        separate row of the result.
-        If <parameter>delimiter</parameter> is an empty string, then
-        the <parameter>string</parameter> is treated as a single field.
-        If <parameter>null_string</parameter> is supplied and is
-        not <literal>NULL</literal>, fields matching that string are
-        replaced by <literal>NULL</literal>.
--->
-<parameter>string</parameter>を<parameter>delimiter</parameter>で区切り、結果のフィールドを<type>text</type>の行集合として返します。
-<parameter>delimiter</parameter>が<literal>NULL</literal>なら、結果は<parameter>string</parameter>の各文字が別々の行になります。
-<parameter>delimiter</parameter>が空文字なら、<parameter>string</parameter>は単一のフィールドとして扱われます。
-<parameter>null_string</parameter>が指定され、<literal>NULL</literal>でなければ、その文字列にマッチするフィールドは<literal>NULL</literal>で置き換えられます。
-       </para>
-       <para>
-        <literal>string_to_table('xx~^~yy~^~zz', '~^~', 'yy')</literal>
-        <returnvalue></returnvalue>
-<programlisting>
- xx
- NULL
- zz
-</programlisting>
        </para></entry>
       </row>
 
@@ -4861,10 +4987,7 @@ SELECT format('Testing %3$s, %2$s, %s', 'one', 'two', 'three');
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-<!--
         Function/Operator
--->
-関数/演算子
        </para>
        <para>
 <!--
@@ -6507,12 +6630,10 @@ SQL標準によれば、<literal>ESCAPE</literal>を省略することは（デ�
    </para>
 
    <para>
-<!--
-    Also see the prefix operator <literal>^@</literal> and corresponding
-    <function>starts_with</function> function, which are useful in cases
-    where simply matching the beginning of a string is needed.
--->
-単に文字列の先頭からの開始が必要なだけのケースであれば、接頭辞演算子<literal>^@</literal>とそれに対応する<function>starts_with</function>関数もあります。
+    Also see the starts-with operator <literal>^@</literal> and the
+    corresponding <function>starts_with()</function> function, which are
+    useful in cases where simply matching the beginning of a string is
+    needed.
    </para>
   </sect2>
 
@@ -6826,7 +6947,13 @@ substring('foobar' similar '#"o_b#"%' escape '#')    <lineannotation>NULL</linea
     <primary>substring</primary>
    </indexterm>
    <indexterm>
-    <primary>regexp_replace</primary>
+    <primary>regexp_count</primary>
+   </indexterm>
+   <indexterm>
+    <primary>regexp_instr</primary>
+   </indexterm>
+   <indexterm>
+    <primary>regexp_like</primary>
    </indexterm>
    <indexterm>
     <primary>regexp_match</primary>
@@ -6835,10 +6962,16 @@ substring('foobar' similar '#"o_b#"%' escape '#')    <lineannotation>NULL</linea
     <primary>regexp_matches</primary>
    </indexterm>
    <indexterm>
+    <primary>regexp_replace</primary>
+   </indexterm>
+   <indexterm>
     <primary>regexp_split_to_table</primary>
    </indexterm>
    <indexterm>
     <primary>regexp_split_to_array</primary>
+   </indexterm>
+   <indexterm>
+    <primary>regexp_substr</primary>
    </indexterm>
 
    <para>
@@ -7044,63 +7177,120 @@ substring('foobar' from 'o(.)b')   <lineannotation>o</lineannotation>
    </para>
 
     <para>
-<!--
-     The <function>regexp_replace</function> function provides substitution of
-     new text for substrings that match POSIX regular expression patterns.
+     The <function>regexp_count</function> function counts the number of
+     places where a POSIX regular expression pattern matches a string.
      It has the syntax
-     <function>regexp_replace</function>(<replaceable>source</replaceable>,
-     <replaceable>pattern</replaceable>, <replaceable>replacement</replaceable>
-     <optional>, <replaceable>flags</replaceable> </optional>).
-     The <replaceable>source</replaceable> string is returned unchanged if
-     there is no match to the <replaceable>pattern</replaceable>.  If there is a
-     match, the <replaceable>source</replaceable> string is returned with the
-     <replaceable>replacement</replaceable> string substituted for the matching
-     substring.  The <replaceable>replacement</replaceable> string can contain
-     <literal>\</literal><replaceable>n</replaceable>, where <replaceable>n</replaceable> is 1
-     through 9, to indicate that the source substring matching the
-     <replaceable>n</replaceable>'th parenthesized subexpression of the pattern should be
-     inserted, and it can contain <literal>\&amp;</literal> to indicate that the
-     substring matching the entire pattern should be inserted.  Write
-     <literal>\\</literal> if you need to put a literal backslash in the replacement
-     text.
+     <function>regexp_count</function>(<replaceable>string</replaceable>,
+     <replaceable>pattern</replaceable>
+     <optional>, <replaceable>start</replaceable>
+     <optional>, <replaceable>flags</replaceable>
+     </optional></optional>).
+     <replaceable>pattern</replaceable> is searched for
+     in <replaceable>string</replaceable>, normally from the beginning of
+     the string, but if the <replaceable>start</replaceable> parameter is
+     provided then beginning from that character index.
      The <replaceable>flags</replaceable> parameter is an optional text
      string containing zero or more single-letter flags that change the
-     function's behavior.  Flag <literal>i</literal> specifies case-insensitive
-     matching, while flag <literal>g</literal> specifies replacement of each matching
-     substring rather than only the first one.  Supported flags (though
-     not <literal>g</literal>) are
-     described in <xref linkend="posix-embedded-options-table"/>.
--->
-<function>regexp_replace</function>関数は、POSIX正規表現パターンにマッチする部分文字列を新規テキストと置換します。
-構文は、<function>regexp_replace</function>(<replaceable>source</replaceable>, <replaceable>pattern</replaceable>, <replaceable>replacement</replaceable> <optional>, <replaceable>flags</replaceable> </optional>)です。
-<replaceable>pattern</replaceable>にマッチしない場合は、<replaceable>source</replaceable>文字列がそのまま返されます。
-マッチすると、マッチ部分文字列を<replaceable>replacement</replaceable>文字列で置換した<replaceable>source</replaceable>文字列が返されます。
-<replaceable>replacement</replaceable>文字列に<literal>\</literal><replaceable>n</replaceable>（<replaceable>n</replaceable>は1から9までの数字）を入れて、パターン内の<replaceable>n</replaceable>番目の丸括弧つき部分表現にマッチする元の部分文字列を挿入することができます。
-また、<literal>\&amp;</literal>を入れて、パターン全体とマッチする部分文字列を挿入することもできます。
-置換テキスト内にバックスラッシュそのものを挿入する必要がある時は<literal>\\</literal>と記述します。
-<replaceable>flags</replaceable>パラメータは、関数の動作を変更するゼロもしくはそれ以上の1文字フラグを含むオプションのテキスト文字列です。フラグ<literal>i</literal>は大文字小文字を区別しないマッチを指定する一方、フラグ<literal>g</literal>は、最初にマッチしたもののみではなく、それぞれマッチした部分文字列の置換を指定します。
-有効なフラグは(<literal>g</literal>を除く)<xref linkend="posix-embedded-options-table"/>に記述されています。
+     function's behavior.  For example, including <literal>i</literal> in
+     <replaceable>flags</replaceable> specifies case-insensitive matching.
+     Supported flags are described in
+     <xref linkend="posix-embedded-options-table"/>.
     </para>
 
-   <para>
-<!--
+    <para>
+ <!--
     Some examples:
 -->
     例：
 <programlisting>
-regexp_replace('foobarbaz', 'b..', 'X')
-                                   <lineannotation>fooXbaz</lineannotation>
-regexp_replace('foobarbaz', 'b..', 'X', 'g')
-                                   <lineannotation>fooXX</lineannotation>
-regexp_replace('foobarbaz', 'b(..)', 'X\1Y', 'g')
-                                   <lineannotation>fooXarYXazY</lineannotation>
+regexp_count('ABCABCAXYaxy', 'A.')          <lineannotation>3</lineannotation>
+regexp_count('ABCABCAXYaxy', 'A.', 1, 'i')  <lineannotation>4</lineannotation>
 </programlisting>
-   </para>
+    </para>
 
     <para>
-<!--
+     The <function>regexp_instr</function> function returns the starting or
+     ending position of the <replaceable>N</replaceable>'th match of a
+     POSIX regular expression pattern to a string, or zero if there is no
+     such match.  It has the syntax
+     <function>regexp_instr</function>(<replaceable>string</replaceable>,
+     <replaceable>pattern</replaceable>
+     <optional>, <replaceable>start</replaceable>
+     <optional>, <replaceable>N</replaceable>
+     <optional>, <replaceable>endoption</replaceable>
+     <optional>, <replaceable>flags</replaceable>
+     <optional>, <replaceable>subexpr</replaceable>
+     </optional></optional></optional></optional></optional>).
+     <replaceable>pattern</replaceable> is searched for
+     in <replaceable>string</replaceable>, normally from the beginning of
+     the string, but if the <replaceable>start</replaceable> parameter is
+     provided then beginning from that character index.
+     If <replaceable>N</replaceable> is specified
+     then the <replaceable>N</replaceable>'th match of the pattern
+     is located, otherwise the first match is located.
+     If the <replaceable>endoption</replaceable> parameter is omitted or
+     specified as zero, the function returns the position of the first
+     character of the match.  Otherwise, <replaceable>endoption</replaceable>
+     must be one, and the function returns the position of the character
+     following the match.
+     The <replaceable>flags</replaceable> parameter is an optional text
+     string containing zero or more single-letter flags that change the
+     function's behavior.  Supported flags are described
+     in <xref linkend="posix-embedded-options-table"/>.
+     For a pattern containing parenthesized
+     subexpressions, <replaceable>subexpr</replaceable> is an integer
+     indicating which subexpression is of interest: the result identifies
+     the position of the substring matching that subexpression.
+     Subexpressions are numbered in the order of their leading parentheses.
+     When <replaceable>subexpr</replaceable> is omitted or zero, the result
+     identifies the position of the whole match regardless of
+     parenthesized subexpressions.
+    </para>
+
+    <para>
+ <!--
+    Some examples:
+-->
+例を示します。
+<programlisting>
+regexp_instr('number of your street, town zip, FR', '[^,]+', 1, 2)
+                                   <lineannotation>23</lineannotation>
+regexp_instr('ABCDEFGHI', '(c..)(...)', 1, 1, 0, 'i', 2)
+                                   <lineannotation>6</lineannotation>
+</programlisting>
+    </para>
+
+    <para>
+     The <function>regexp_like</function> function checks whether a match
+     of a POSIX regular expression pattern occurs within a string,
+     returning boolean true or false.  It has the syntax
+     <function>regexp_like</function>(<replaceable>string</replaceable>,
+     <replaceable>pattern</replaceable>
+     <optional>, <replaceable>flags</replaceable> </optional>).
+     The <replaceable>flags</replaceable> parameter is an optional text
+     string containing zero or more single-letter flags that change the
+     function's behavior.  Supported flags are described
+     in <xref linkend="posix-embedded-options-table"/>.
+     This function has the same results as the <literal>~</literal>
+     operator if no flags are specified.  If only the <literal>i</literal>
+     flag is specified, it has the same results as
+     the <literal>~*</literal> operator.
+    </para>
+
+    <para>
+ <!--
+    Some examples:
+-->
+例を示します。
+<programlisting>
+regexp_like('Hello World', 'world')       <lineannotation>false</lineannotation>
+regexp_like('Hello World', 'world', 'i')  <lineannotation>true</lineannotation>
+</programlisting>
+    </para>
+
+    <para>
      The <function>regexp_match</function> function returns a text array of
-     captured substring(s) resulting from the first match of a POSIX
+     matching substring(s) within the first match of a POSIX
      regular expression pattern to a string.  It has the syntax
      <function>regexp_match</function>(<replaceable>string</replaceable>,
      <replaceable>pattern</replaceable> <optional>, <replaceable>flags</replaceable> </optional>).
@@ -7118,21 +7308,13 @@ regexp_replace('foobarbaz', 'b(..)', 'X\1Y', 'g')
      containing zero or more single-letter flags that change the function's
      behavior.  Supported flags are described
      in <xref linkend="posix-embedded-options-table"/>.
--->
-<function>regexp_match</function>関数はPOSIX正規表現パターンを文字列にマッチさせた結果、捕捉された最初の部分文字列のテキスト配列を返します。
-<function>regexp_match</function>(<replaceable>string</replaceable>, <replaceable>pattern</replaceable> <optional>, <replaceable>flags</replaceable> </optional>)の構文になります。
-マッチするものがなければ、結果は<literal>NULL</literal>となります。
-マッチする部分があり、かつ<replaceable>pattern</replaceable>が丸括弧で括られた部分文字列を含まない場合、結果はパターン全体にマッチする部分文字列を含む単一要素のテキスト配列となります。
-マッチする部分があり、かつ<replaceable>pattern</replaceable>が丸括弧で括られた部分文字列を含む場合、結果はテキスト配列で、その<replaceable>n</replaceable>番目の要素は<replaceable>pattern</replaceable>の<replaceable>n</replaceable>番目に丸括弧で括られた部分文字列にマッチする部分文字列となります（<quote>捕捉されない</quote>丸括弧は数えません。詳細は以下を参照してください）。
-<replaceable>flags</replaceable>パラメータは、関数の動作を変更するゼロもしくは複数の単一文字フラグを含むオプションのテキスト文字列です。
-有効なフラグは<xref linkend="posix-embedded-options-table"/>に記載されています。
     </para>
 
    <para>
 <!--
     Some examples:
 -->
-例を示します。
+例：
 <programlisting>
 SELECT regexp_match('foobarbequebaz', 'bar.*que');
  regexp_match
@@ -7146,11 +7328,17 @@ SELECT regexp_match('foobarbequebaz', '(bar)(beque)');
  {bar,beque}
 (1 row)
 </programlisting>
-<!--
-    In the common case where you just want the whole matching substring
-    or <literal>NULL</literal> for no match, write something like
--->
-マッチするときはマッチする部分文字列全体、マッチしないときは<literal>NULL</literal>を返したいというよくあるケースは、以下のように書くことができます。
+   </para>
+
+    <tip>
+     <para>
+      In the common case where you just want the whole matching substring
+      or <literal>NULL</literal> for no match, the best solution is to
+      use <function>regexp_substr()</function>.
+      However, <function>regexp_substr()</function> only exists
+      in <productname>PostgreSQL</productname> version 15 and up.  When
+      working in older versions, you can extract the first element
+      of <function>regexp_match()</function>'s result, for example:
 <programlisting>
 SELECT (regexp_match('foobarbequebaz', 'bar.*que'))[1];
  regexp_match
@@ -7158,12 +7346,12 @@ SELECT (regexp_match('foobarbequebaz', 'bar.*que'))[1];
  barbeque
 (1 row)
 </programlisting>
-   </para>
+     </para>
+    </tip>
 
     <para>
-<!--
      The <function>regexp_matches</function> function returns a set of text arrays
-     of captured substring(s) resulting from matching a POSIX regular
+     of matching substring(s) within matches of a POSIX regular
      expression pattern to a string.  It has the same syntax as
      <function>regexp_match</function>.
      This function returns no rows if there is no match, one row if there is
@@ -7177,19 +7365,13 @@ SELECT (regexp_match('foobarbequebaz', 'bar.*que'))[1];
      in <xref linkend="posix-embedded-options-table"/>, plus
      the <literal>g</literal> flag which commands it to return all matches, not
      just the first one.
--->
-<function>regexp_matches</function>関数はPOSIX正規表現パターンを文字列にマッチさせた結果、捕捉された部分文字列のテキスト配列の集合を返します。
-構文は<function>regexp_match</function>と同じです。
-この関数は、マッチするものがないときは行を返しませんが、マッチするものがあり、<literal>g</literal>フラグが指定されていないときは1行だけ、マッチするものが<replaceable>N</replaceable>個あり、<literal>g</literal>フラグが指定されているときは<replaceable>N</replaceable>行を返します。
-返される各行は上で<function>regexp_match</function>について説明したのと全く同じで、マッチする部分文字列全体、または<replaceable>pattern</replaceable>の丸括弧で括られた部分文字列にマッチする部分文字列を含むテキスト配列です。
-<function>regexp_matches</function>は<xref linkend="posix-embedded-options-table"/>に示すすべてのフラグに加え、最初のマッチだけでなくすべてのマッチを返す<literal>g</literal>を受け付けます。
     </para>
 
    <para>
 <!--
     Some examples:
 -->
-例を示します。
+例：
 <programlisting>
 SELECT regexp_matches('foo', 'not there');
  regexp_matches
@@ -7234,6 +7416,67 @@ SELECT col1, (SELECT regexp_matches(col2, '(bar)(beque)')) FROM tab;
    </tip>
 
     <para>
+     The <function>regexp_replace</function> function provides substitution of
+     new text for substrings that match POSIX regular expression patterns.
+     It has the syntax
+     <function>regexp_replace</function>(<replaceable>source</replaceable>,
+     <replaceable>pattern</replaceable>, <replaceable>replacement</replaceable>
+     <optional>, <replaceable>start</replaceable>
+     <optional>, <replaceable>N</replaceable>
+     </optional></optional>
+     <optional>, <replaceable>flags</replaceable> </optional>).
+     (Notice that <replaceable>N</replaceable> cannot be specified
+     unless <replaceable>start</replaceable> is,
+     but <replaceable>flags</replaceable> can be given in any case.)
+     The <replaceable>source</replaceable> string is returned unchanged if
+     there is no match to the <replaceable>pattern</replaceable>.  If there is a
+     match, the <replaceable>source</replaceable> string is returned with the
+     <replaceable>replacement</replaceable> string substituted for the matching
+     substring.  The <replaceable>replacement</replaceable> string can contain
+     <literal>\</literal><replaceable>n</replaceable>, where <replaceable>n</replaceable> is 1
+     through 9, to indicate that the source substring matching the
+     <replaceable>n</replaceable>'th parenthesized subexpression of the pattern should be
+     inserted, and it can contain <literal>\&amp;</literal> to indicate that the
+     substring matching the entire pattern should be inserted.  Write
+     <literal>\\</literal> if you need to put a literal backslash in the replacement
+     text.
+     <replaceable>pattern</replaceable> is searched for
+     in <replaceable>string</replaceable>, normally from the beginning of
+     the string, but if the <replaceable>start</replaceable> parameter is
+     provided then beginning from that character index.
+     By default, only the first match of the pattern is replaced.
+     If <replaceable>N</replaceable> is specified and is greater than zero,
+     then the <replaceable>N</replaceable>'th match of the pattern
+     is replaced.
+     If the <literal>g</literal> flag is given, or
+     if <replaceable>N</replaceable> is specified and is zero, then all
+     matches at or after the <replaceable>start</replaceable> position are
+     replaced.  (The <literal>g</literal> flag is ignored
+     when <replaceable>N</replaceable> is specified.)
+     The <replaceable>flags</replaceable> parameter is an optional text
+     string containing zero or more single-letter flags that change the
+     function's behavior.  Supported flags (though
+     not <literal>g</literal>) are
+     described in <xref linkend="posix-embedded-options-table"/>.
+    </para>
+
+   <para>
+    Some examples:
+<programlisting>
+regexp_replace('foobarbaz', 'b..', 'X')
+                                   <lineannotation>fooXbaz</lineannotation>
+regexp_replace('foobarbaz', 'b..', 'X', 'g')
+                                   <lineannotation>fooXX</lineannotation>
+regexp_replace('foobarbaz', 'b(..)', 'X\1Y', 'g')
+                                   <lineannotation>fooXarYXazY</lineannotation>
+regexp_replace('A PostgreSQL function', 'a|e|i|o|u', 'X', 1, 0, 'i')
+                                   <lineannotation>X PXstgrXSQL fXnctXXn</lineannotation>
+regexp_replace('A PostgreSQL function', 'a|e|i|o|u', 'X', 1, 3, 'i')
+                                   <lineannotation>A PostgrXSQL function</lineannotation>
+</programlisting>
+   </para>
+
+    <para>
 <!--
      The <function>regexp_split_to_table</function> function splits a string using a POSIX
      regular expression pattern as a delimiter.  It has the syntax
@@ -7272,69 +7515,100 @@ SELECT col1, (SELECT regexp_matches(col2, '(bar)(beque)')) FROM tab;
     </para>
 
    <para>
-<!--
     Some examples:
--->
-例：
 <programlisting>
-
 SELECT foo FROM regexp_split_to_table('the quick brown fox jumps over the lazy dog', '\s+') AS foo;
-  foo   
+  foo
 -------
- the    
- quick  
- brown  
- fox    
- jumps 
- over   
- the    
- lazy   
- dog    
+ the
+ quick
+ brown
+ fox
+ jumps
+ over
+ the
+ lazy
+ dog
 (9 rows)
 
 SELECT regexp_split_to_array('the quick brown fox jumps over the lazy dog', '\s+');
-              regexp_split_to_array             
+              regexp_split_to_array
 -----------------------------------------------
  {the,quick,brown,fox,jumps,over,the,lazy,dog}
 (1 row)
 
 SELECT foo FROM regexp_split_to_table('the quick brown fox', '\s*') AS foo;
- foo 
+ foo
 -----
- t         
- h         
- e         
- q         
- u         
- i         
- c         
- k         
- b         
- r         
- o         
- w         
- n         
- f         
- o         
- x         
+ t
+ h
+ e
+ q
+ u
+ i
+ c
+ k
+ b
+ r
+ o
+ w
+ n
+ f
+ o
+ x
 (16 rows)
 </programlisting>
    </para>
 
    <para>
-<!--
     As the last example demonstrates, the regexp split functions ignore
     zero-length matches that occur at the start or end of the string
     or immediately after a previous match.  This is contrary to the strict
     definition of regexp matching that is implemented by
-    <function>regexp_match</function> and
-    <function>regexp_matches</function>, but is usually the most convenient behavior
+    the other regexp functions, but is usually the most convenient behavior
     in practice.  Other software systems such as Perl use similar definitions.
--->
-最後の例が明らかにしているように、regexp分割関数は文字列の最初あるいは終わり、もしくは前のマッチの直後に発生する長さを持たないマッチを無視します。
-<function>regexp_match</function>および<function>regexp_matches</function>で実装されたregexpマッチの厳格な定義にこれは相容れませんが、実務上は最も使い勝手の良い動作です。
-Perlのような他のソフトウェアシステムも似たような定義を使用します。
    </para>
+
+    <para>
+     The <function>regexp_substr</function> function returns the substring
+     that matches a POSIX regular expression pattern,
+     or <literal>NULL</literal> if there is no match.  It has the syntax
+     <function>regexp_substr</function>(<replaceable>string</replaceable>,
+     <replaceable>pattern</replaceable>
+     <optional>, <replaceable>start</replaceable>
+     <optional>, <replaceable>N</replaceable>
+     <optional>, <replaceable>flags</replaceable>
+     <optional>, <replaceable>subexpr</replaceable>
+     </optional></optional></optional></optional>).
+     <replaceable>pattern</replaceable> is searched for
+     in <replaceable>string</replaceable>, normally from the beginning of
+     the string, but if the <replaceable>start</replaceable> parameter is
+     provided then beginning from that character index.
+     If <replaceable>N</replaceable> is specified
+     then the <replaceable>N</replaceable>'th match of the pattern
+     is returned, otherwise the first match is returned.
+     The <replaceable>flags</replaceable> parameter is an optional text
+     string containing zero or more single-letter flags that change the
+     function's behavior.  Supported flags are described
+     in <xref linkend="posix-embedded-options-table"/>.
+     For a pattern containing parenthesized
+     subexpressions, <replaceable>subexpr</replaceable> is an integer
+     indicating which subexpression is of interest: the result is the
+     substring matching that subexpression.
+     Subexpressions are numbered in the order of their leading parentheses.
+     When <replaceable>subexpr</replaceable> is omitted or zero, the result
+     is the whole match regardless of parenthesized subexpressions.
+    </para>
+
+    <para>
+     Some examples:
+<programlisting>
+regexp_substr('number of your street, town zip, FR', '[^,]+', 1, 2)
+                                   <lineannotation> town zip</lineannotation>
+regexp_substr('ABCDEFGHI', '(c..)(...)', 1, 1, 'i', 2)
+                                   <lineannotation>FGH</lineannotation>
+</programlisting>
+    </para>
 
 <!-- derived from the re_syntax.n man page -->
 
@@ -7409,14 +7683,10 @@ Perlのような他のソフトウェアシステムも似たような定義を�
    </para>
 
    <para>
-<!--
     A branch is zero or more <firstterm>quantified atoms</firstterm> or
     <firstterm>constraints</firstterm>, concatenated.
-    It matches a match for the first, followed by a match for the second, etc;
+    It matches a match for the first, followed by a match for the second, etc.;
     an empty branch matches the empty string.
--->
-ブランチはゼロ個以上の<firstterm>量化アトム</firstterm>もしくは<firstterm>制約</firstterm>の連結です。
-最初のものにマッチに、次に第２番目のものにマッチを、というふうにマッチします。なお、空のブランチは空文字列にマッチします。
    </para>
 
    <para>
@@ -9197,13 +9467,26 @@ BREにおいては、<literal>|</literal>、<literal>+</literal>、<literal>?</l
 <!-- end re_syntax.n man page -->
 
    <sect3 id="posix-vs-xquery">
-<!--
-   <title>Differences from XQuery (<literal>LIKE_REGEX</literal>)</title>
--->
-   <title>XQueryとの違い(<literal>LIKE_REGEX</literal>)</title>
+   <title>Differences from SQL Standard and XQuery</title>
 
    <indexterm zone="posix-vs-xquery">
-    <primary><literal>LIKE_REGEX</literal></primary>
+    <primary>LIKE_REGEX</primary>
+   </indexterm>
+
+   <indexterm zone="posix-vs-xquery">
+    <primary>OCCURRENCES_REGEX</primary>
+   </indexterm>
+
+   <indexterm zone="posix-vs-xquery">
+    <primary>POSITION_REGEX</primary>
+   </indexterm>
+
+   <indexterm zone="posix-vs-xquery">
+    <primary>SUBSTRING_REGEX</primary>
+   </indexterm>
+
+   <indexterm zone="posix-vs-xquery">
+    <primary>TRANSLATE_REGEX</primary>
    </indexterm>
 
    <indexterm zone="posix-vs-xquery">
@@ -9214,21 +9497,75 @@ BREにおいては、<literal>|</literal>、<literal>+</literal>、<literal>?</l
    </indexterm>
 
     <para>
-<!--
-     Since SQL:2008, the SQL standard includes
-     a <literal>LIKE_REGEX</literal> operator that performs pattern
+     Since SQL:2008, the SQL standard includes regular expression operators
+     and functions that performs pattern
      matching according to the XQuery regular expression
-     standard.  <productname>PostgreSQL</productname> does not yet
-     implement this operator, but you can get very similar behavior using
-     the <function>regexp_match()</function> function, since XQuery
-     regular expressions are quite close to the ARE syntax described above.
--->
-SQL:2008以降、SQL標準にはXQuery正規表現標準によるパターンマッチングを行う<literal>LIKE_REGEX</literal>演算子が含まれています。
-<productname>PostgreSQL</productname>は今の所この演算子を実装していませんが、<function>regexp_match()</function>を使ってよく似た振る舞いを得ることができます。
-XQueryの正規表現は上で述べたARE構文に非常に近いからです。
+     standard:
+     <itemizedlist>
+      <listitem><para><literal>LIKE_REGEX</literal></para></listitem>
+      <listitem><para><literal>OCCURRENCES_REGEX</literal></para></listitem>
+      <listitem><para><literal>POSITION_REGEX</literal></para></listitem>
+      <listitem><para><literal>SUBSTRING_REGEX</literal></para></listitem>
+      <listitem><para><literal>TRANSLATE_REGEX</literal></para></listitem>
+     </itemizedlist>
+     <productname>PostgreSQL</productname> does not currently implement these
+     operators and functions.  You can get approximately equivalent
+     functionality in each case as shown in <xref
+     linkend="functions-regexp-sql-table"/>.  (Various optional clauses on
+     both sides have been omitted in this table.)
+    </para>
+
+    <table id="functions-regexp-sql-table">
+     <title>Regular Expression Functions Equivalencies</title>
+
+     <tgroup cols="2">
+      <thead>
+       <row>
+        <entry>SQL standard</entry>
+        <entry>PostgreSQL</entry>
+       </row>
+      </thead>
+
+      <tbody>
+       <row>
+        <entry><literal><replaceable>string</replaceable> LIKE_REGEX <replaceable>pattern</replaceable></literal></entry>
+        <entry><literal>regexp_like(<replaceable>string</replaceable>, <replaceable>pattern</replaceable>)</literal> or <literal><replaceable>string</replaceable> ~ <replaceable>pattern</replaceable></literal></entry>
+       </row>
+
+       <row>
+        <entry><literal>OCCURRENCES_REGEX(<replaceable>pattern</replaceable> IN <replaceable>string</replaceable>)</literal></entry>
+        <entry><literal>regexp_count(<replaceable>string</replaceable>, <replaceable>pattern</replaceable>)</literal></entry>
+       </row>
+
+       <row>
+        <entry><literal>POSITION_REGEX(<replaceable>pattern</replaceable> IN <replaceable>string</replaceable>)</literal></entry>
+        <entry><literal>regexp_instr(<replaceable>string</replaceable>, <replaceable>pattern</replaceable>)</literal></entry>
+       </row>
+
+       <row>
+        <entry><literal>SUBSTRING_REGEX(<replaceable>pattern</replaceable> IN <replaceable>string</replaceable>)</literal></entry>
+        <entry><literal>regexp_substr(<replaceable>string</replaceable>, <replaceable>pattern</replaceable>)</literal></entry>
+       </row>
+
+       <row>
+        <entry><literal>TRANSLATE_REGEX(<replaceable>pattern</replaceable> IN <replaceable>string</replaceable> WITH <replaceable>replacement</replaceable>)</literal></entry>
+        <entry><literal>regexp_replace(<replaceable>string</replaceable>, <replaceable>pattern</replaceable>, <replaceable>replacement</replaceable>)</literal></entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
+    <para>
+     Regular expression functions similar to those provided by PostgreSQL are
+     also available in a number of other SQL implementations, whereas the
+     SQL-standard functions are not as widely implemented.  Some of the
+     details of the regular expression syntax will likely differ in each
+     implementation.
     </para>
 
     <para>
+     The SQL-standard operators and functions use XQuery regular expressions,
+     which are quite close to the ARE syntax described above.
 <!--
      Notable differences between the existing POSIX-based
      regular-expression feature and XQuery regular expressions include:

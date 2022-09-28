@@ -41,7 +41,6 @@
   </para>
 
   <para>
-<!--
    To enter single-row mode, call <xref linkend="libpq-PQsetSingleRowMode"/>
    immediately after a successful call of <xref linkend="libpq-PQsendQuery"/>
    (or a sibling function).  This mode selection is effective only for the
@@ -57,19 +56,9 @@
    more rows will arrive.  (But note that it is still necessary to continue
    calling <xref linkend="libpq-PQgetResult"/> until it returns null.)  All of
    these <structname>PGresult</structname> objects will contain the same row
-   description data (column names, types, etc) that an ordinary
+   description data (column names, types, etc.) that an ordinary
    <structname>PGresult</structname> object for the query would have.
    Each object should be freed with <xref linkend="libpq-PQclear"/> as usual.
--->
-単一行モードに入るためには、<xref linkend="libpq-PQsendQuery"/>（または同系列の関数）の呼び出しに成功した直後に<xref linkend="libpq-PQsetSingleRowMode"/>を呼び出してください。
-このモード選択は、現在実行中の問い合わせに対してのみ有効です。
-その後、<xref linkend="libpq-async"/>の説明通りに、NULLを返すようになるまで<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出してください。
-問い合わせが何らかの行を返す場合、<literal>PGRES_TUPLES_OK</literal>ではなく<literal>PGRES_SINGLE_TUPLE</literal>状態コードを持つ以外通常の問い合わせ結果と同じように見える、個々の<structname>PGresult</structname>オブジェクトを返します。
-最後の行の後、または問い合わせがゼロ行を返す場合は即座に、<literal>PGRES_TUPLES_OK</literal>状態のゼロ行のオブジェクトが返されます。
-これはもう行が届かないことを通知するものです。
-（しかしNULLが返るまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければならないことに注意してください。）
-<structname>PGresult</structname>オブジェクトのすべては、その問い合わせに対する通常の<structname>PGresult</structname>と同一の行説明データ（列名、型など）を持ちます。
-各オブジェクトは通常通り<xref linkend="libpq-PQclear"/>で解放しなければなりません。
   </para>
 
   <para>
@@ -304,21 +293,15 @@ int PQrequestCancel(PGconn *conn);
       </para>
 
       <para>
-<!--
        Requests that the server abandon processing of the current
        command.  It operates directly on the
        <structname>PGconn</structname> object, and in case of failure stores the
        error message in the <structname>PGconn</structname> object (whence it can
        be retrieved by <xref linkend="libpq-PQerrorMessage"/>).  Although
-       the functionality is the same, this approach creates hazards for
-       multiple-thread programs and signal handlers, since it is possible
+       the functionality is the same, this approach is not safe within
+       multiple-thread programs or signal handlers, since it is possible
        that overwriting the <structname>PGconn</structname>'s error message will
        mess up the operation currently in progress on the connection.
--->
-サーバに現在のコマンドの廃棄処理を要求します。
-これは<structname>PGconn</structname>オブジェクトを直接扱い、また、失敗した場合エラーメッセージは<structname>PGconn</structname>オブジェクト内に収納されます。
-(<xref linkend="libpq-PQerrorMessage"/>により取り出すことができます。)
-機能的には同一ですが、<structname>PGconn</structname>のエラーメッセージが上書きされることにより、その接続で現在進行中の操作が壊れてしまうため、この方法は複数スレッドプログラムやシグナルハンドラでは問題が起こります。
       </para>
      </listitem>
     </varlistentry>
@@ -744,15 +727,10 @@ typedef struct pgNotify
 
      <listitem>
       <para>
-<!--
        0 indicates the overall copy format is textual (rows separated by
-       newlines, columns separated by separator characters, etc).  1
+       newlines, columns separated by separator characters, etc.).  1
        indicates the overall copy format is binary.  See <xref
        linkend="sql-copy"/> for more information.
--->
-0は、コピー全体の書式がテキスト(改行で区切られた行、区切り文字で区切られた列など)であることを示します。
-1は、コピー全体の書式がバイナリであることを示します。
-詳細は<xref linkend="sql-copy"/>を参照してください。
       </para>
      </listitem>
     </varlistentry>
@@ -1951,6 +1929,7 @@ PGresult *PQcopyResult(const PGresult *src, int flags);
 <literal>PG_COPYRES_NOTICEHOOKS</literal>は元の結果の警告フックのコピーを指定します。
 <literal>PG_COPYRES_EVENTS</literal>は元の結果イベントのコピーを指定します。
 （しかし、元の結果に関連したインスタンスデータはまったくコピーされません。）
+      The event procedures receive <literal>PGEVT_RESULTCOPY</literal> events.
      </para>
     </listitem>
    </varlistentry>
@@ -2353,7 +2332,6 @@ defaultNoticeProcessor(void *arg, const char *message)
   </para>
 
   <para>
-<!--
    Each registered event handler is associated with two pieces of data,
    known to <application>libpq</application> only as opaque <literal>void *</literal>
    pointers.  There is a <firstterm>pass-through</firstterm> pointer that is provided
@@ -2367,22 +2345,12 @@ defaultNoticeProcessor(void *arg, const char *message)
    <xref linkend="libpq-PQinstanceData"/>,
    <xref linkend="libpq-PQsetInstanceData"/>,
    <xref linkend="libpq-PQresultInstanceData"/> and
-   <function>PQsetResultInstanceData</function> functions.  Note that
+   <xref linkend="libpq-PQresultSetInstanceData"/> functions.  Note that
    unlike the pass-through pointer, instance data of a <structname>PGconn</structname>
    is not automatically inherited by <structname>PGresult</structname>s created from
    it.  <application>libpq</application> does not know what pass-through
    and instance data pointers point to (if anything) and will never attempt
    to free them &mdash; that is the responsibility of the event handler.
--->
-それぞれの登録されたイベントハンドラは、<application>libpq</application>からは曖昧とした<literal>void *</literal>ポインタとしてだけ知られる２つのデータの断片と提携します。
-イベントハンドラが<structname>PGconn</structname>で登録された時にアプリケーションが提供する<firstterm>通過地点</firstterm>ポインタがあります。
-通過地点ポインタは<structname>PGconn</structname>やそれから生成されたすべての（複数の）<structname>PGresult</structname>が有効な間決して変わることはありません。
-したがって使用された場合、長期間生存しているデータを指し示します。
-さらに、<firstterm>インスタンスデータ</firstterm>ポインタがあって、それはすべての<structname>PGconn</structname>と<structname>PGresult</structname>で<symbol>NULL</symbol>から開始します。
-ポインタは、<xref linkend="libpq-PQinstanceData"/>、<xref linkend="libpq-PQsetInstanceData"/>、<xref linkend="libpq-PQresultInstanceData"/>および<function>PQsetResultInstanceData</function>関数を使って操作することができます。
-通過地点ポインタとは異なり、<structname>PGconn</structname>のインスタンスデータはそれから作成された<structname>PGresult</structname>により自動的に継承されません。
-<application>libpq</application>は通過地点とインスタンスデータポインタが（もしあったとしても）何を指し示すのか判らず、決して解放しようとは試みません。
-それはイベントハンドラの責任です。
   </para>
 
   <sect2 id="libpq-events-types">
@@ -2410,17 +2378,11 @@ defaultNoticeProcessor(void *arg, const char *message)
      <term><literal>PGEVT_REGISTER</literal></term>
      <listitem>
       <para>
-<!--
        The register event occurs when <xref linkend="libpq-PQregisterEventProc"/>
        is called.  It is the ideal time to initialize any
        <literal>instanceData</literal> an event procedure may need.  Only one
        register event will be fired per event handler per connection.  If the
-       event procedure fails, the registration is aborted.
--->
-登録イベントは<xref linkend="libpq-PQregisterEventProc"/>が呼ばれたとき発生します。
-イベントプロシージャが必要とするかもしれない任意の<literal>instanceData</literal>を初期化するために、これは理想的な時間です。
-接続毎、イベントハンドラ毎でたった１つの登録イベントが発行されます。
-イベントプロシージャが失敗すると、登録は中止されます。
+       event procedure fails (returns zero), the registration is cancelled.
 
 <synopsis>
 typedef struct
@@ -2452,20 +2414,13 @@ typedef struct
      <term><literal>PGEVT_CONNRESET</literal></term>
      <listitem>
       <para>
-<!--
        The connection reset event is fired on completion of
        <xref linkend="libpq-PQreset"/> or <function>PQresetPoll</function>.  In
-       both cases, the event is only fired if the reset was successful.  If
-       the event procedure fails, the entire connection reset will fail; the
-       <structname>PGconn</structname> is put into
-       <literal>CONNECTION_BAD</literal> status and
-       <function>PQresetPoll</function> will return
-       <literal>PGRES_POLLING_FAILED</literal>.
--->
-接続初期化イベントは<xref linkend="libpq-PQreset"/>または<function>PQresetPoll</function>の完了時点で発行されます。
-どちらの場合も、初期化が成功したときのみ発行されます。
-イベントプロシージャが失敗すると、接続初期化全体が失敗します。
-<structname>PGconn</structname>は<literal>CONNECTION_BAD</literal>状態になり、<function>PQresetPoll</function>は<literal>PGRES_POLLING_FAILED</literal>を返します。
+       both cases, the event is only fired if the reset was successful.
+       The return value of the event procedure is ignored
+       in <productname>PostgreSQL</productname> v15 and later.
+       With earlier versions, however, it's important to return success
+       (nonzero) or the connection will be aborted.
 
 <synopsis>
 typedef struct
@@ -2554,25 +2509,17 @@ typedef struct
 } PGEventResultCreate;
 </synopsis>
 
-<!--
        When a <literal>PGEVT_RESULTCREATE</literal> event is received, the
        <parameter>evtInfo</parameter> pointer should be cast to a
        <structname>PGEventResultCreate *</structname>.  The
        <parameter>conn</parameter> is the connection used to generate the
        result.  This is the ideal place to initialize any
        <literal>instanceData</literal> that needs to be associated with the
-       result.  If the event procedure fails, the result will be cleared and
-       the failure will be propagated.  The event procedure must not try to
-       <xref linkend="libpq-PQclear"/> the result object for itself.  When returning a
-       failure code, all cleanup must be performed as no
-       <literal>PGEVT_RESULTDESTROY</literal> event will be sent.
--->
-<literal>PGEVT_RESULTCREATE</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCreate *</structname>にキャストされなければなりません。
-<parameter>conn</parameter>は結果を生成するために使われた接続です。
-これは、結果と関連しなければならないすべての<literal>instanceData</literal>を初期化するために、理想的な場所です。
-イベントプロシージャが失敗すると、結果は消去され、失敗が伝播します。
-イベントプロシージャはそれ自身の結果オブジェクトを<xref linkend="libpq-PQclear"/>しようと試みてはいけません。
-失敗コードを返す時、<literal>PGEVT_RESULTDESTROY</literal>イベントは送られないのですべての消去が行われなくてはなりません。
+       result.  If an event procedure fails (returns zero), that event
+       procedure will be ignored for the remaining lifetime of the result;
+       that is, it will not receive <literal>PGEVT_RESULTCOPY</literal>
+       or <literal>PGEVT_RESULTDESTROY</literal> events for this result or
+       results copied from it.
       </para>
      </listitem>
     </varlistentry>
@@ -2601,26 +2548,18 @@ typedef struct
 } PGEventResultCopy;
 </synopsis>
 
-<!--
        When a <literal>PGEVT_RESULTCOPY</literal> event is received, the
        <parameter>evtInfo</parameter> pointer should be cast to a
        <structname>PGEventResultCopy *</structname>.  The
        <parameter>src</parameter> result is what was copied while the
        <parameter>dest</parameter> result is the copy destination.  This event
        can be used to provide a deep copy of <literal>instanceData</literal>,
-       since <literal>PQcopyResult</literal> cannot do that.  If the event
-       procedure fails, the entire copy operation will fail and the
-       <parameter>dest</parameter> result will be cleared.   When returning a
-       failure code, all cleanup must be performed as no
-       <literal>PGEVT_RESULTDESTROY</literal> event will be sent for the
-       destination result.
--->
-<literal>PGEVT_RESULTCOPY</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCopy *</structname>にキャストされなければなりません。
-<parameter>src</parameter>結果はコピーされるものであり、一方で<parameter>dest</parameter>結果はコピー先です。
-このイベントは<literal>instanceData</literal>のディープコピーを提供するために使用されます。
-<literal>PQcopyResult</literal>ではこれを行うことができないためです。
-もしイベントプロシージャが失敗すると、コピー操作全体は失敗になり、<parameter>dest</parameter>結果は消去されます。
-失敗コードを返す時、<literal>PGEVT_RESULTDESTROY</literal>イベントがコピー先の結果に対し送られないため、すべての消去を行われなければなりません。
+       since <literal>PQcopyResult</literal> cannot do that.  If an event
+       procedure fails (returns zero), that event procedure will be
+       ignored for the remaining lifetime of the new result; that is, it
+       will not receive <literal>PGEVT_RESULTCOPY</literal>
+       or <literal>PGEVT_RESULTDESTROY</literal> events for that result or
+       results copied from it.
       </para>
      </listitem>
     </varlistentry>
@@ -3064,7 +3003,7 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
             /* associate app specific data with result (copy it from conn) */
 --><![CDATA[
             /* アプリ特有のデータを結果と（connから複写して）関連付ける */
-            PQsetResultInstanceData(e->result, myEventProc, res_data);
+            PQresultSetInstanceData(e->result, myEventProc, res_data);
             break;
         }
 
@@ -3078,7 +3017,7 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
             /* associate app specific data with result (copy it from a result) */
 --><![CDATA[
             /* アプリ特有のデータを結果と（結果から複写して）関連付ける */
-            PQsetResultInstanceData(e->dest, myEventProc, dest_data);
+            PQresultSetInstanceData(e->dest, myEventProc, dest_data);
             break;
         }
 

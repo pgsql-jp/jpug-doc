@@ -23,9 +23,13 @@
   <acronym>BRIN</acronym> is designed for handling very large tables
   in which certain columns have some natural correlation with their
   physical location within the table.
+-->
+<acronym>BRIN</acronym>は「ブロックレンジインデックス」(Block Range Index)の略です。
+<acronym>BRIN</acronym>は、ある列がテーブル内の物理的な位置と自然な相関があるような、非常に大規模なテーブルのために設計されています。
  </para>
 
  <para>
+<!--
   <acronym>BRIN</acronym> works in terms of <firstterm>block ranges</firstterm>
   (or <quote>page ranges</quote>).
   A block range is a group of pages that are physically
@@ -112,9 +116,15 @@
    does not automatically acquire a summary tuple;
    those tuples remain unsummarized until a summarization run is
    invoked later, creating the initial summary for that range.
+-->
+インデックスを作成した当初は、すべてのヒープページがスキャンされ、終端が不完全なものも含め、各々のレンジに対してサマリーインデックスタプルが作成されます。
+新しいページにデータが登録されると、新しいタプルのデータを元に、すでにサマリー済みのページレンジのサマリー情報が更新されます。
+最終サマリーレンジに適合しない新しいページが作成されると、そのレンジに対して自動的にはサマリータプルが作成されません。
+これらのタプルは、後でサマリー処理が走って初期サマリー情報が作成されるまではサマリーされません。
   </para>
 
   <para>
+<!--
    There are several ways to trigger the initial summarization of a page range.
    If the table is vacuumed, either manually or by
    <link linkend="autovacuum">autovacuum</link>, all existing unsummarized
@@ -125,24 +135,39 @@
    whenever autovacuum runs in that database, summarization will occur for all
    unsummarized page ranges that have been filled,
    regardless of whether the table itself is processed by autovacuum; see below.
+-->
+ページレンジの初期サマリー処理を起動する複数の方法があります。
+手動あるいは<link linkend="autovacuum">autovacuum</link>のどちらでも良いですが、テーブルがバキュームされるとすべてのまだサマライズされていないページレンジがサマライズされます。
+また、インデックスの<xref linkend="index-reloption-autosummarize"/>パラメータが有効なら、これはデフォルトでは有効ではありませんが、そのデータベースに対してバキュームが実行されると、自動バキュームによってそのテーブル自体が処理されるかどうかにかかわらず、すべての挿入された未サマリーページレンジに対してサマリー処理が実行されます。
+以下を見てください。
   </para>
 
   <para>
+<!--
    Lastly, the following functions can be used:
+-->
+最後に、次の関数が利用できます。
    <simplelist>
     <member>
+<!--
      <function>brin_summarize_new_values(regclass)</function>
      which summarizes all unsummarized ranges;
+-->
+すべての未サマリーレンジをサマライズする<function>brin_summarize_new_values(regclass)</function>
     </member>
     <member>
+<!--
      <function>brin_summarize_range(regclass, bigint)</function>
      which summarizes only the range containing the given page,
      if it is unsummarized.
+-->
+もしまだサマライズされていなければ、指定されたページを含む指定されたレンジのみをサマライズする<function>brin_summarize_range(regclass, bigint)</function>
     </member>
    </simplelist>
   </para>
 
   <para>
+<!--
    When autosummarization is enabled, a request is sent to
    <literal>autovacuum</literal> to execute a targeted summarization
    for a block range when an insertion is detected for the first item
@@ -151,20 +176,31 @@
    worker finishes running in the
    same database.  If the request queue is full, the request is not recorded
    and a message is sent to the server log:
+-->
+自動サマリー機能が有効な場合、次のブロックレンジの最初のページの最初の項目の挿入が検出されると、同じデータベースで実行中の自動バキュームワーカーの次の実行の終了時に処理されるブロックレンジをターゲットとするサマリー機能を実行する要求が<literal>autovacuum</literal>に送信されます。
+もしリクエストキューが満杯ならばそのリクエストは記録されず、次のメッセージがサーバのログに送信されます。
 <screen>
 LOG:  request for BRIN range summarization for index "brin_wi_idx" page 128 was not recorded
 </screen>
+<!--
    When this happens, the range will remain unsummarized until the next
    regular vacuum run on the table, or one of the functions mentioned above
    are invoked.
+-->
+この状態が発生すると、テーブルの次の通常バキュームが実行されるか、上で述べた関数のどれかが実行されるまでは、そのレンジはサマライズされない状態にとどまります。
   </para>
 
   <para>
+<!--
    Conversely, a range can be de-summarized using the
    <function>brin_desummarize_range(regclass, bigint)</function> function,
    which is useful when the index tuple is no longer a very good
    representation because the existing values have changed.
    See <xref linkend="functions-admin-index"/> for details.
+-->
+反対に、レンジは<function>brin_desummarize_range(regclass, bigint)</function>関数で非サマリー化できます。
+これは、既存の値が変更されたためにインデックスタプルがもはや値の表現としては適当でなくなった場合に有効です。
+詳細は<xref linkend="functions-admin-index"/>を見てください。
   </para>
 
  </sect2>
@@ -812,7 +848,10 @@ LOG:  request for BRIN range summarization for index "brin_wi_idx" page 128 was 
    </para>
 
    <para>
+<!--
     bloom operator classes accept these parameters:
+-->
+bloom演算子クラスでは次のパラメータを受け取ります。
    </para>
 
    <variablelist>
@@ -860,7 +899,10 @@ LOG:  request for BRIN range summarization for index "brin_wi_idx" page 128 was 
    </variablelist>
 
    <para>
+<!--
     minmax-multi operator classes accept these parameters:
+-->
+minmax-multi演算子クラスでは次のパラメータを受け取ります。
    </para>
 
    <variablelist>
@@ -933,7 +975,8 @@ LOG:  request for BRIN range summarization for index "brin_wi_idx" page 128 was 
       which has this definition:
 -->
 インデックスが貼られた列の要約データに関する内部情報を返します。
-返却値はpallocされたBrinOpcInfoへのポインタでなければなりません。BrinOpcInfoは以下の定義を持ちます。
+返却値はpallocされた<structname>BrinOpcInfo</structname>へのポインタでなければなりません。
+BrinOpcInfoは以下の定義を持ちます。
 <programlisting>
 typedef struct BrinOpcInfo
 {

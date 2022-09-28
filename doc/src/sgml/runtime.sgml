@@ -107,7 +107,6 @@
   </indexterm>
 
   <para>
-<!--
    Before you can do anything, you must initialize a database storage
    area on disk. We call this a <firstterm>database cluster</firstterm>.
    (The <acronym>SQL</acronym> standard uses the term catalog cluster.) A
@@ -123,17 +122,6 @@
    used as templates for subsequently-created databases; they should not be
    used for actual work.  (See <xref linkend="managing-databases"/> for
    information about creating new databases within a cluster.)
--->
-まず最初に、ディスク上にデータベース格納領域を初期化する必要があります。
-この格納領域を<firstterm>データベースクラスタ</firstterm>と呼びます。（標準<acronym>SQL</acronym>ではカタログクラスタという用語が使用されています）。
-データベースクラスタはデータベースの集合で、稼働しているデータベースサーバのただ一つのインスタンスを通して管理されます。
-初期化が終わると、データベースクラスタには<literal>postgres</literal>という名前のデータベースが含まれています。
-このデータベースは、ユーティリティ、ユーザ、サードパーティ製アプリケーションが使用するデフォルトデータベースになります。
-データベースサーバ自身はこの<literal>postgres</literal>データベースの存在を必要としていませんが、多くの外部ユーティリティはその存在を想定しています。
-初期化中に他にも<literal>template1</literal>というデータベースが各クラスタ内に作成されます。
-その名前から推測できるように、これはその後に作成されるデータベースのテンプレートとして使われます。
-したがって、実際の作業に使用しない方がよいです。
-（クラスタ内における新しいデータベースの作成については<xref linkend="managing-databases"/>を参照してください。）
   </para>
 
   <para>
@@ -781,6 +769,11 @@ WantedBy=multi-user.target
       server that might have to perform crash recovery at startup could take
       much longer to become ready.  The suggested value
       of <literal>infinity</literal> disables the timeout logic.
+-->
+タイムアウトの設定について慎重に検討してください。
+この文書を書いている時点で、<application>systemd</application>のデフォルトのタイムアウトは90秒で、その時間内に準備ができたことを報告しないプロセスは終了させられます。
+しかし、<productname>PostgreSQL</productname>サーバは起動時にクラッシュリカバリを実行せねばならないことがあり、準備ができるまでにそれよりずっと長い時間を要することがあります。
+ここで提案されている<literal>infinity</literal>という値は、そのタイムアウトの仕組みを無効にします。
      </para>
     </listitem>
 
@@ -1935,11 +1928,6 @@ default:\
       kernel is compiled; see
       <filename>/usr/src/linux/Documentation/proc.txt</filename> for
       more information.
--->
-<productname>Linux</productname>では、<filename>/proc/sys/fs/file-max</filename>が、カーネルがサポートするオープンファイル数の最大を決定します。
-この数を変えるためには、そのファイルに別の数を書き込むか、あるいは<filename>/etc/sysctl.conf</filename>に代入式を追加します。
-プロセスごとのファイルの最大制限はカーネルがコンパイルされた時に固定されます。
-詳しい情報については<filename>/usr/src/linux/Documentation/proc.txt</filename>を参照してください。
       </para>
      </listitem>
     </itemizedlist>
@@ -2180,7 +2168,6 @@ export PG_OOM_ADJUST_VALUE=0
    <title>LinuxのHugePages</title>
 
    <para>
-<!--
     Using huge pages reduces overhead when using large contiguous chunks of
     memory, as <productname>PostgreSQL</productname> does, particularly when
     using large values of <xref linkend="guc-shared-buffers"/>.  To use this
@@ -2193,12 +2180,6 @@ export PG_OOM_ADJUST_VALUE=0
     <xref linkend="guc-shared-memory-size-in-huge-pages"/>.  Note that the
     server must be shut down to view this runtime-computed parameter.
     This might look like:
--->
-<productname>PostgreSQL</productname>のように、メモリの大きな連続チャンクを使用するとき、特に<xref linkend="guc-shared-buffers"/>の値が大きい場合に、huge pagesを使用するとオーバーヘッドが減少します。
-<productname>PostgreSQL</productname>でこの機能を有効にするには、<varname>CONFIG_HUGETLBFS=y</varname>および<varname>CONFIG_HUGETLB_PAGE=y</varname>としたカーネルが必要です。
-また、要求される十分な量だけhuge pagesを提供するようにオペレーティングシステムを調整する必要があるでしょう。
-必要なhuge pages数を見積もるには、huge pagesを有効にせずに<productname>PostgreSQL</productname>を起動し、<filename>/proc</filename>と<filename>/sys</filename>ファイルシステムを使用してpostmasterの無名共有セグメントサイズとシステムのhuge pageサイズの値をチェックします。
-これは以下のような感じになるでしょう。
 <programlisting>
 $ <userinput>postgres -D $PGDATA -C shared_memory_size_in_huge_pages</userinput>
 3170
@@ -2208,7 +2189,6 @@ $ <userinput>ls /sys/kernel/mm/hugepages</userinput>
 hugepages-1048576kB  hugepages-2048kB
 </programlisting>
 
-<!--
      In this example the default is 2MB, but you can also explicitly request
      either 2MB or 1GB with <xref linkend="guc-huge-page-size"/> to adapt
      the number of pages calculated by
@@ -2218,12 +2198,6 @@ hugepages-1048576kB  hugepages-2048kB
      a larger setting would be appropriate if other programs on the machine
      also need huge pages.
      We can set this with:
--->
-この例ではデフォルトは2MBです。しかし、<xref linkend="guc-huge-page-size"/>で明示的に2MBあるいは1GBを要求することができます。
-
-<literal>2MB</literal>のhuge pagesを想定すると、<literal>6490428</literal> / <literal>2048</literal>はおおよそ<literal>3169.154</literal>となり、この例では少なくとも<literal>3170</literal>のhuge pagesが必要となります。
-このマシンで他のプログラムもhuge pagesを必要とする場合には、より大きな値を設定するのが適切です。
-以下のようにして設定できます。
 <programlisting>
 # <userinput>sysctl -w vm.nr_hugepages=3170</userinput>
 </programlisting>
@@ -2347,7 +2321,6 @@ $ <userinput>cat /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</userinp
      <term><systemitem>SIGTERM</systemitem><indexterm><primary>SIGTERM</primary></indexterm></term>
      <listitem>
       <para>
-<!--
        This is the <firstterm>Smart Shutdown</firstterm> mode.
        After receiving <systemitem>SIGTERM</systemitem>, the server
        disallows new connections, but lets existing sessions end their
@@ -2355,14 +2328,6 @@ $ <userinput>cat /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</userinp
        If the server is in recovery when a smart
        shutdown is requested, recovery and streaming replication will be
        stopped only after all regular sessions have terminated.
--->
-これは<firstterm>スマートシャットダウン</firstterm>モードです。
-<systemitem>SIGTERM</systemitem>を受け取った後で、サーバは新しい接続を禁止しますが、既に存在するセッションは通常通り動作させます。
-すべてのセッションが通常に終了するまではシャットダウンしません。
-サーバがオンラインバックアップモードである場合、オンラインバックアップモードが活動しなくなるまでさらに待ちます。
-バックアップモードが活動している間、新規接続は依然として許可されますが、スーパーユーザに対してだけです
-（この例外はスーパーユーザがオンラインバックアップモード停止のための接続を許可します）。
-スマートシャットダウンが要求された時にサーバがリカバリ状態である場合、すべての通常のセッションが終了した後のみでリカバリとストリーミングレプリケーションが停止します。
       </para>
      </listitem>
     </varlistentry>
@@ -2371,7 +2336,6 @@ $ <userinput>cat /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</userinp
      <term><systemitem>SIGINT</systemitem><indexterm><primary>SIGINT</primary></indexterm></term>
      <listitem>
       <para>
-<!--
        This is the <firstterm>Fast Shutdown</firstterm> mode.
        The server disallows new connections and sends all existing
        server processes <systemitem>SIGTERM</systemitem>, which will cause them
@@ -2682,7 +2646,6 @@ $ <userinput>kill -INT `head -1 /usr/local/pgsql/data/postmaster.pid`</userinput
    </para>
 
    <para>
-<!--
     It is recommended that you use the <application>pg_dump</application> and
     <application>pg_dumpall</application> programs from the <emphasis>newer</emphasis>
     version of
@@ -2896,7 +2859,6 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
 <!--
     to transfer your data.
 -->
-
    </para>
 
   </sect2>
@@ -3341,7 +3303,6 @@ GSSAPI暗号化接続は、問い合わせ及び返却されるデータを含�
    <title>基本的な設定</title>
 
   <para>
-<!--
    With <acronym>SSL</acronym> support compiled in, the
    <productname>PostgreSQL</productname> server can be started with
    support for encrypted connections using <acronym>TLS</acronym> protocols
@@ -3353,11 +3314,6 @@ GSSAPI暗号化接続は、問い合わせ及び返却されるデータを含�
    default, this is at the client's option; see <xref
    linkend="auth-pg-hba-conf"/> about how to set up the server to require
    use of <acronym>SSL</acronym> for some or all connections.
--->
-<acronym>SSL</acronym>サポートを有効にしてコンパイルされた場合、<productname>PostgreSQL</productname>サーバは、<filename>postgresql.conf</filename>において<xref linkend="guc-ssl"/>パラメータを<literal>on</literal>にすることで、<acronym>SSL</acronym>サポートを有効にして起動することができます。
-サーバは同じTCPポートで通常の接続と<acronym>SSL</acronym>接続の両方を待ち受け、クライアントとの接続に<acronym>SSL</acronym>を使用するかどうかを調停します。
-デフォルトでは、これはクライアント側の選択肢です。
-一部またはすべての接続で<acronym>SSL</acronym>の使用を必要とさせるためのサーバ側の設定方法に関しては<xref linkend="auth-pg-hba-conf"/>を参照してください。
   </para>
 
   <para>
@@ -3555,6 +3511,9 @@ Unixシステムでは、<filename>server.key</filename>の権限は所有者以
    extensions).  Certificate Revocation List (CRL) entries are also
    checked if the parameter <xref linkend="guc-ssl-crl-file"/> or
    <xref linkend="guc-ssl-crl-dir"/> is set.
+-->
+既存のルート証明書に連鎖する中間証明書は、クライアントに保存することを避けたい場合に<xref linkend="guc-ssl-ca-file"/>に含めることができます（ルート証明書と中間証明書が<literal>v3_ca</literal>拡張で作成されている場合）。
+<xref linkend="guc-ssl-crl-file"/>あるいは<xref linkend="guc-ssl-crl-dir"/>パラメータが設定されている場合、証明書失効リスト（CRL）項目も検査されます。
   </para>
 
   <para>

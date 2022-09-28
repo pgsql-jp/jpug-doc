@@ -7,7 +7,6 @@
 6. config.sgmlの変更がなければ、pull requestをマージして終了です。お疲れ様でした！
 -->
 <!-- split-config1-start -->
-
       <varlistentry id="guc-old-snapshot-threshold" xreflabel="old_snapshot_threshold">
        <term><varname>old_snapshot_threshold</varname> (<type>integer</type>)
        <indexterm>
@@ -152,16 +151,12 @@
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
        <para>
-<!--
-        In <literal>minimal</literal> level, no information is logged for
-        permanent relations for the remainder of a transaction that creates or
-        rewrites them.  This can make operations much faster (see
+        The <literal>minimal</literal> level generates the least WAL
+        volume.  It logs no row information for permanent relations
+        in transactions that create or
+        rewrite them.  This can make operations much faster (see
         <xref linkend="populate-pitr"/>).  Operations that initiate this
         optimization include:
--->
-<literal>minimal</literal>レベルでは、永続リレーションを作成あるいは書き換えるトランザクションの差分に関する情報はログされません。
-これにより、それらの操作が大幅に高速になります（<xref linkend="populate-pitr"/>を参照してください）。
-この最適化が適用される操作には以下のものがあげられます。
         <simplelist>
          <member><command>ALTER ... SET TABLESPACE</command></member>
          <member><command>CLUSTER</command></member>
@@ -174,33 +169,24 @@
          <member><command>REINDEX</command></member>
          <member><command>TRUNCATE</command></member>
         </simplelist>
-<!--
-        But minimal WAL does not contain enough information to reconstruct the
-        data from a base backup and the WAL logs, so <literal>replica</literal> or
-        higher must be used to enable WAL archiving
-        (<xref linkend="guc-archive-mode"/>) and streaming replication.
+        However, minimal WAL does not contain sufficient information for
+        point-in-time recovery, so <literal>replica</literal> or
+        higher must be used to enable continuous archiving
+        (<xref linkend="guc-archive-mode"/>) and streaming binary replication.
+        In fact, the server will not even start in this mode if
+        <varname>max_wal_senders</varname> is non-zero.
         Note that changing <varname>wal_level</varname> to
-        <literal>minimal</literal> makes any base backups taken before
-        unavailable for archive recovery and standby server, which may
-        lead to data loss.
--->
-しかしminimal WALはベースバックアップとWALログからデータを再構築するための充分な情報を持ち合わせていません。
-したがって、WALアーカイビング（<xref linkend="guc-archive-mode"/>）とストリーミングレプリケーションを有効にするには、<literal>replica</literal>以上を使用しなければなりません。
-<varname>wal_level</varname>を<literal>minimal</literal>にすると、以前取得したバックアップがアーカイブリカバリおよびスタンバイサーバに使えなくなり、データロスにつながるかもしれないことに注意してください。
+        <literal>minimal</literal> makes previous base backups unusable
+        for point-in-time recovery and standby servers.
        </para>
        <para>
-<!--
         In <literal>logical</literal> level, the same information is logged as
-        with <literal>replica</literal>, plus information needed to allow
-        extracting logical change sets from the WAL. Using a level of
+        with <literal>replica</literal>, plus information needed to
+        extract logical change sets from the WAL. Using a level of
         <literal>logical</literal> will increase the WAL volume, particularly if many
         tables are configured for <literal>REPLICA IDENTITY FULL</literal> and
         many <command>UPDATE</command> and <command>DELETE</command> statements are
         executed.
--->
-<literal>logical</literal>レベルでは、<literal>replica</literal>と同じ情報がログされるのに加え、ロジカルチェンジセットをWALから取り出すのに必要な情報が追加されます。
-<literal>logical</literal>を使うとWALの量が増えます。
-とりわけ、多数のテーブルが<literal>REPLICA IDENTITY FULL</literal>と設定されていて(訳注: ALTER TABLE参照)、多くの<command>UPDATE</command>と<command>DELETE</command>文が実行される場合はこのことが言えます。
        </para>
        <para>
 <!--
@@ -710,7 +696,7 @@ WALの更新をディスクへ強制するのに使用される方法です。
      </varlistentry>
 
      <varlistentry id="guc-wal-compression" xreflabel="wal_compression">
-      <term><varname>wal_compression</varname> (<type>boolean</type>)
+      <term><varname>wal_compression</varname> (<type>enum</type>)
       <indexterm>
        <primary><varname>wal_compression</varname> configuration parameter</primary>
       </indexterm>
@@ -720,29 +706,27 @@ WALの更新をディスクへ強制するのに使用される方法です。
       </term>
       <listitem>
        <para>
-<!--
-        When this parameter is <literal>on</literal>, the <productname>PostgreSQL</productname>
+        This parameter enables compression of WAL using the specified
+        compression method.
+        When enabled, the <productname>PostgreSQL</productname>
         server compresses full page images written to WAL when
         <xref linkend="guc-full-page-writes"/> is on or during a base backup.
         A compressed page image will be decompressed during WAL replay.
+        The supported methods are <literal>pglz</literal>,
+        <literal>lz4</literal> (if <productname>PostgreSQL</productname>
+        was compiled with <option>--with-lz4</option>) and
+        <literal>zstd</literal> (if <productname>PostgreSQL</productname>
+        was compiled with <option>--with-zstd</option>).
         The default value is <literal>off</literal>.
-        Only superusers can change this setting.
--->
-このパラメータが<literal>on</literal>なら、<xref linkend="guc-full-page-writes"/>がonあるいはベースバックアップの際、<productname>PostgreSQL</productname>サーバはWALに書き出すフルページイメージを圧縮します。
-圧縮されたページイメージは、WALリプレイのときに伸張されます。
-デフォルト値は<literal>off</literal>です。
-スーパーユーザだけがこの設定を変更できます。
+        Only superusers and users with the appropriate <literal>SET</literal>
+        privilege can change this setting.
        </para>
 
        <para>
-<!--
-        Turning this parameter on can reduce the WAL volume without
+        Enabling compression can reduce the WAL volume without
         increasing the risk of unrecoverable data corruption,
         but at the cost of some extra CPU spent on the compression during
         WAL logging and on the decompression during WAL replay.
--->
-このパラメータを有効にすると、回復不可能なデータ破壊のリスクを増やすこと無しにWALの量を減らすことができます。
-しかし、WALロギングの際の圧縮のため、またWALリプレイの際には伸張のために余分なCPUを使用するというコストが発生します。
        </para>
       </listitem>
      </varlistentry>
@@ -967,7 +951,6 @@ WALライタがWALを吐き出す頻度を量で指定します。
       </term>
       <listitem>
        <para>
-<!--
         Setting <varname>commit_delay</varname> adds a time delay
         before a WAL flush is initiated.  This can improve
         group commit throughput by allowing a larger number of transactions
@@ -982,16 +965,8 @@ WALライタがWALを吐き出す頻度を量で指定します。
         performed if <varname>fsync</varname> is disabled.
         If this value is specified without units, it is taken as microseconds.
         The default <varname>commit_delay</varname> is zero (no delay).
-        Only superusers can change this setting.
--->
-<varname>commit_delay</varname>を設定することにより、WALフラッシュを開始する前の時間遅延が追加されます。
-このことにより、もし追加のトランザクションが与えられた時間間隔内でコミットが可能になるほどシステム負荷が充分に高い場合、一回のWALフラッシュでより多くの数のトランザクションをコミットできるようになり、コミット群のスループットを改善できます。
-とは言っても、それぞれのWALフラッシュに対して最大<varname>commit_delay</varname>の待ち時間の増加をきたします。
-コミットの準備が完了したトランザクションが他に存在しない場合、遅延は無駄になるため、遅延はフラッシュが開始されようとしている時点で少なくとも<varname>commit_siblings</varname>だけのトランザクションが活動している場合にだけ機能します。
-同様に、<varname>fsync</varname>が無効の場合も遅延は機能しません。
-この値が単位なしで指定された場合は、マイクロ秒単位であるとみなします。
-デフォルトの<varname>commit_delay</varname>はゼロ（遅延無し）です。
-この設定はスーパーユーザのみ変更可能です。
+        Only superusers and users with the appropriate <literal>SET</literal>
+        privilege can change this setting.
        </para>
        <para>
 <!--
@@ -1200,25 +1175,20 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
       </term>
       <listitem>
        <para>
-<!--
         Maximum size to let the WAL grow during automatic
         checkpoints. This is a soft limit; WAL size can exceed
         <varname>max_wal_size</varname> under special circumstances, such as
-        heavy load, a failing <varname>archive_command</varname>, or a high
+        heavy load, a failing <varname>archive_command</varname> or <varname>archive_library</varname>, or a high
         <varname>wal_keep_size</varname> setting.
         If this value is specified without units, it is taken as megabytes.
         The default is 1 GB.
         Increasing this parameter can increase the amount of time needed for
         crash recovery.
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-自動WALチェックポイントの際にWALが増加する最大サイズです。
-これはソフトリミットです。特別な状況下、たとえば高負荷、<varname>archive_command</varname>の失敗、<varname>wal_keep_size</varname>が大きな値に設定されている、などの時には、WALサイズは<varname>max_wal_size</varname>を超えることがあります。
-この値が単位なしで指定された場合は、メガバイト単位であるとみなします。
-デフォルトは1GBです。
-このパラメータを大きくすると、クラッシュリカバリに必要な時間が長くなります。
-このパラメータは、<filename>postgresql.conf</filename>ファイルで設定するか、サーバのコマンドラインでのみ指定できます。
+このパラメータは<filename>postgresql.conf</filename>ファイル、またはサーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -1274,10 +1244,10 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
       </term>
       <listitem>
        <para>
-<!--
         When <varname>archive_mode</varname> is enabled, completed WAL segments
         are sent to archive storage by setting
-        <xref linkend="guc-archive-command"/>. In addition to <literal>off</literal>,
+        <xref linkend="guc-archive-command"/> or
+        <xref linkend="guc-archive-library"/>. In addition to <literal>off</literal>,
         to disable, there are two modes: <literal>on</literal>, and
         <literal>always</literal>. During normal operation, there is no
         difference between the two modes, but when set to <literal>always</literal>
@@ -1285,25 +1255,17 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         mode. In <literal>always</literal> mode, all files restored from the archive
         or streamed with streaming replication will be archived (again). See
         <xref linkend="continuous-archiving-in-standby"/> for details.
--->
-<varname>archive_mode</varname>が有効な場合、<xref linkend="guc-archive-command"/>を設定することにより、完了したWALセグメントはアーカイブ格納領域に送信されます。
-無効にするための<literal>off</literal>に加え、2つのモードがあります。<literal>on</literal>と<literal>always</literal>です。
-通常の運用ではこの2つのモードには違いはありませんが、<literal>always</literal>に設定すると、アーカイブリカバリおよびスタンバイモードでWALアーカイバが有効になります。
-<literal>always</literal>モードでは、アーカイブからリストアされたファイルや、ストリーミングレプリケーションでストリームされたファイルもすべて(再び)アーカイブされます。
-詳細は<xref linkend="continuous-archiving-in-standby"/>を参照してください。
        </para>
        <para>
-<!--
-        <varname>archive_mode</varname> and <varname>archive_command</varname> are
-        separate variables so that <varname>archive_command</varname> can be
-        changed without leaving archiving mode.
+        <varname>archive_mode</varname> is a separate setting from
+        <varname>archive_command</varname> and
+        <varname>archive_library</varname> so that
+        <varname>archive_command</varname> and
+        <varname>archive_library</varname> can be changed without leaving
+        archiving mode.
         This parameter can only be set at server start.
         <varname>archive_mode</varname> cannot be enabled when
         <varname>wal_level</varname> is set to <literal>minimal</literal>.
--->
-アーカイブモードを抜けることなく<varname>archive_command</varname>を変更できるように、<varname>archive_mode</varname>と<varname>archive_command</varname>は分離されました。
-このパラメータはサーバ起動時のみ設定可能です。
-<varname>wal_level</varname>が<literal>minimal</literal>に設定されている場合、<varname>archive_mode</varname>は有効になりません。
        </para>
       </listitem>
      </varlistentry>
@@ -1339,12 +1301,13 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
 詳しくは<xref linkend="backup-archiving-wal"/>を参照ください。
        </para>
        <para>
-<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.  It is ignored unless
-        <varname>archive_mode</varname> was enabled at server start.
+        <varname>archive_mode</varname> was enabled at server start and
+        <varname>archive_library</varname> is set to an empty string.
         If <varname>archive_command</varname> is an empty string (the default) while
-        <varname>archive_mode</varname> is enabled, WAL archiving is temporarily
+        <varname>archive_mode</varname> is enabled (and <varname>archive_library</varname>
+        is set to an empty string), WAL archiving is temporarily
         disabled, but the server continues to accumulate WAL segment files in
         the expectation that a command will soon be provided.  Setting
         <varname>archive_command</varname> to a command that does nothing but
@@ -1352,11 +1315,31 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         Windows), effectively disables
         archiving, but also breaks the chain of WAL files needed for
         archive recovery, so it should only be used in unusual circumstances.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-archive-library" xreflabel="archive_library">
+      <term><varname>archive_library</varname> (<type>string</type>)
+      <indexterm>
+       <primary><varname>archive_library</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        The library to use for archiving completed WAL file segments.  If set to
+        an empty string (the default), archiving via shell is enabled, and
+        <xref linkend="guc-archive-command"/> is used.  Otherwise, the specified
+        shared library is used for archiving.  For more information, see
+        <xref linkend="backup-archiving-wal"/> and
+        <xref linkend="archive-modules"/>.
+       </para>
+       <para>
+<!--
+        This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command line.
 -->
 このパラメータは<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみ設定可能です。
-サーバ起動時に<varname>archive_mode</varname>が有効でなければ、これは無視されます。
-<varname>archive_command</varname>が空文字列（デフォルト）、かつ、<varname>archive_mode</varname>が有効な場合、WALアーカイブ処理は一時的に無効になりますが、コマンドが後で提供されることを見越して、サーバはWALセグメントの蓄積を続けます。
-例えば、<literal>/bin/true</literal>（Windowsでは<literal>REM</literal>）のように、真を返すだけで何もしないコマンドを<varname>archive_command</varname>に設定すると、実質的にアーカイブ処理が無効になりますが、アーカイブからの復帰に必要なWALファイルの連鎖も同時に断ち切るため、特別な場合のみ使用するようにしなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -1372,8 +1355,7 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
       </term>
       <listitem>
        <para>
-<!--
-        The <xref linkend="guc-archive-command"/> is only invoked for
+        The <xref linkend="guc-archive-command"/> or <xref linkend="guc-archive-library"/> is only invoked for
         completed WAL segments. Hence, if your server generates little WAL
         traffic (or has slack periods where it does so), there could be a
         long delay between the completion of a transaction and its safe
@@ -1395,24 +1377,77 @@ WALセグメントファイルが溢れることが原因で起きるチェッ�
         If this value is specified without units, it is taken as seconds.
         This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
--->
-<xref linkend="guc-archive-command"/>は完了したWALセグメントに対してのみ呼び出されます。
-従って、サーバのWAL転送量が少ししかない（あるいは処理が少ないなぎの期間がある）場合、トランザクションの完了とアーカイブ格納領域への安全な記録との間に長期にわたる遅延があることになります。
-データが未アーカイブのままでいられる期間を制限するために、<varname>archive_timeout</varname>を設定して、強制的にサーバを新しいWALセグメントに定期的に切り替えるようにすることができます。
-このパラメータが0より大きければ、サーバは前回のセグメントファイル切り替えから指定時間経過し、かつ単一のチェックポイントを含む何らかのデータベース操作が行われた場合、新しいセグメントファイルに切り替えます。
-（データベースが活動していなければ、チェックポイントはスキップされます。）
-強制切り替えにより早期にクローズされたアーカイブ済みファイルは、完全に完了したファイルと同じ大きさを持つことに注意してください。
-そのため、非常に小さな<varname>archive_timeout</varname>を使用することは賢明ではなく、格納領域を膨張させてしまいます。
-１分程度の<varname>archive_timeout</varname>設定が通常は妥当です。
-もしそれより高速にデータをプライマリサーバからコピーをしてしまいたいのであれば、アーカイブするよりストリーミングレプリケーションの選択を検討すべきです。
-この値が単位なしで指定された場合は、秒単位であるとみなします。
-このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
        </para>
       </listitem>
      </varlistentry>
 
      </variablelist>
     </sect2>
+
+   <sect2 id="runtime-config-wal-recovery">
+
+    <title>Recovery</title>
+
+     <indexterm>
+      <primary>configuration</primary>
+      <secondary>of recovery</secondary>
+      <tertiary>general settings</tertiary>
+     </indexterm>
+
+    <para>
+     This section describes the settings that apply to recovery in general,
+     affecting crash recovery, streaming replication and archive-based
+     replication.
+    </para>
+
+
+    <variablelist>
+     <varlistentry id="guc-recovery-prefetch" xreflabel="recovery_prefetch">
+      <term><varname>recovery_prefetch</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>recovery_prefetch</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Whether to try to prefetch blocks that are referenced in the WAL that
+        are not yet in the buffer pool, during recovery.  Valid values are
+        <literal>off</literal>, <literal>on</literal> and
+        <literal>try</literal> (the default).  The setting
+        <literal>try</literal> enables
+        prefetching only if the operating system provides the
+        <function>posix_fadvise</function> function, which is currently used
+        to implement prefetching.  Note that some operating systems provide the
+        function, but it doesn't do anything.
+       </para>
+       <para>
+        Prefetching blocks that will soon be needed can reduce I/O wait times
+        during recovery with some workloads.
+        See also the <xref linkend="guc-wal-decode-buffer-size"/> and
+        <xref linkend="guc-maintenance-io-concurrency"/> settings, which limit
+        prefetching activity.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-wal-decode-buffer-size" xreflabel="wal_decode_buffer_size">
+      <term><varname>wal_decode_buffer_size</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>wal_decode_buffer_size</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        A limit on how far ahead the server can look in the WAL, to find
+        blocks to prefetch.  If this value is specified without units, it is
+        taken as bytes.
+        The default is 512kB.
+       </para>
+      </listitem>
+     </varlistentry>
+
+    </variablelist>
+   </sect2>
 
   <sect2 id="runtime-config-wal-archive-recovery">
 
@@ -1561,7 +1596,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-このパラメータは<filename>postgresql.conf</filename>ファイル、またはサーバのコマンドラインでのみ設定可能です。
+このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -1673,7 +1708,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
+このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -2552,9 +2587,9 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
       </term>
       <listitem>
        <para>
-<!--
         Specifies the number of transactions by which <command>VACUUM</command> and
-        <acronym>HOT</acronym> updates will defer cleanup of dead row versions. The
+        <link linkend="storage-hot"><acronym>HOT</acronym> updates</link>
+        will defer cleanup of dead row versions. The
         default is zero transactions, meaning that dead row versions can be
         removed as soon as possible, that is, as soon as they are no longer
         visible to any open transaction.  You may wish to set this to a
@@ -2565,15 +2600,11 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         is measured in terms of number of write transactions occurring on the
         primary server, it is difficult to predict just how much additional
         grace time will be made available to standby queries.
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-<command>VACUUM</command> および <acronym>HOT</acronym>更新が不要行バージョンの回収を決めるのを延期するトランザクションの数を指定します。
-デフォルトはゼロトランザクションで、つまり、開いている全てのトランザクションから不可視になった不要行バージョンは速やかに削除されうることを意味します。
-<xref linkend="hot-standby"/>に記載されているように、ホットスタンバイサーバをサポートしている場合、プライマリサーバ上で非ゼロ値に設定したい場合があります。
-そうすることで、スタンバイ上での問い合わせが、行の早期回収によるコンフリクトを被ることなく完了するように時間を与えます。
-しかし、値はプライマリーサーバ上で発生している書き込みトランザクションの観点から計測されるため、スタンバイの問い合わせにたいして猶予時間がどのくらい有効となるかは予測できません。
-このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
+このパラメータは<filename>postgresql.conf</filename>ファイルか、サーバコマンドラインのみ設定可能です。
        </para>
        <para>
 <!--
@@ -2771,8 +2802,7 @@ WAL受信プロセスが実行中にこのパラメータが変更されると�
       </term>
       <listitem>
        <para>
-<!--
-        When Hot Standby is active, this parameter determines how long the
+        When hot standby is active, this parameter determines how long the
         standby server should wait before canceling standby queries that
         conflict with about-to-be-applied WAL entries, as described in
         <xref linkend="hot-standby-conflict"/>.
@@ -2782,15 +2812,11 @@ WAL受信プロセスが実行中にこのパラメータが変更されると�
         The default is 30 seconds.
         A value of -1 allows the standby to wait forever for conflicting
         queries to complete.
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-ホットスタンバイが稼動している場合、このパラメータは<xref linkend="hot-standby-conflict"/>で記載されているように、まさに適用されようとしているWALエントリと衝突するスタンバイサーバの問い合わせをキャンセルするにはどれだけ待機しなければならないかを設定します。
-<varname>max_standby_archive_delay</varname>はWALデータをWALアーカイブ（すなわち最新ではありません）から読み込んでいる時に適用されます。
-この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
-デフォルトは30秒です。
-値-1は衝突する問い合わせが完了するまでスタンバイサーバが待ち続けられるようにします。
-このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
+このパラメータは<filename>postgresql.conf</filename>ファイル、またはサーバコマンドラインからのみ設定可能です。
        </para>
        <para>
 <!--
@@ -2819,8 +2845,7 @@ WAL受信プロセスが実行中にこのパラメータが変更されると�
       </term>
       <listitem>
        <para>
-<!--
-        When Hot Standby is active, this parameter determines how long the
+        When hot standby is active, this parameter determines how long the
         standby server should wait before canceling standby queries that
         conflict with about-to-be-applied WAL entries, as described in
         <xref linkend="hot-standby-conflict"/>.
@@ -2830,15 +2855,11 @@ WAL受信プロセスが実行中にこのパラメータが変更されると�
         The default is 30 seconds.
         A value of -1 allows the standby to wait forever for conflicting
         queries to complete.
+<!--
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-ホットスタンバイが稼動している場合、このパラメータは<xref linkend="hot-standby-conflict"/>で記載されているように、まさに適用されようとしているWALエントリと衝突するスタンバイサーバの問い合わせをキャンセルするにはどれだけ待機しなければならないかを設定します。
-<varname>max_standby_streaming_delay</varname>はWALデータをストリーミングレプリケーションから受け取っている時に適用されます。
-特に指定が無ければ単位はミリ秒です。
-デフォルトは30秒です。
-値-1は衝突する問い合わせが完了するまでスタンバイサーバが待ち続けられるようにします。
-このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
+このパラメータは、<filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定されます。
        </para>
        <para>
 <!--
@@ -3051,7 +3072,6 @@ WALデータがソース(ストリーミングレプリケーション、ロー�
 このパラメータは、<filename>postgresql.conf</filename>ファイルで設定するか、サーバのコマンドラインでのみ指定できます。
        </para>
        <para>
-<!--
         This parameter is useful in configurations where a node in recovery
         needs to control the amount of time to wait for new WAL data to be
         available. For example, in archive recovery, it is possible to
@@ -3059,13 +3079,8 @@ WALデータがソース(ストリーミングレプリケーション、ロー�
         log file by reducing the value of this parameter. On a system with
         low WAL activity, increasing it reduces the amount of requests necessary
         to access WAL archives, something useful for example in cloud
-        environments where the amount of times an infrastructure is accessed
+        environments where the number of times an infrastructure is accessed
         is taken into account.
--->
-このパラメータは、リカバリ対象のノードにおいて、新しいWALデータが読み込み可能になるまでの待ち時間を制御する必要のある時に有用です。
-たとえば、アーカイブリカバリにおいては、このパラメータの値を小さくすることにより、新しいWALログファイルを検出する際にリカバリの応答を早くすることができます。
-WALの生成頻度が少ないシステムでは、この値を大きくすることにより、WALアーカイブへのアクセス頻度を減らすことができます。
-これは、たとえば基盤へのアクセス回数が課金対象になるクラウド環境において、有用です。
        </para>
       </listitem>
      </varlistentry>
@@ -3140,6 +3155,12 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
 その後、スタンバイサーバはそれ以上待たずにリカバリを終了します。
        </para>
        <para>
+        WAL records must be kept on the standby until they are ready to be
+        applied. Therefore, longer delays will result in a greater accumulation
+        of WAL files, increasing disk space requirements for the standby's
+        <filename>pg_wal</filename> directory.
+       </para>
+       <para>
 <!--
         This parameter is intended for use with streaming replication deployments;
         however, if the parameter is specified it will be honored in all cases
@@ -3167,7 +3188,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
         This parameter can only be set in the <filename>postgresql.conf</filename>
         file or on the server command line.
 -->
-このパラメータは、<filename>postgresql.conf</filename>ファイル、もしくはサーバコマンドラインでのみ設定可能です。
+このパラメータは<filename>postgresql.conf</filename>ファイル内、またはサーバのコマンドラインのみで設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -3203,7 +3224,7 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
      <variablelist>
 
      <varlistentry id="guc-max-logical-replication-workers" xreflabel="max_logical_replication_workers">
-      <term><varname>max_logical_replication_workers</varname> (<type>int</type>)
+      <term><varname>max_logical_replication_workers</varname> (<type>integer</type>)
       <indexterm>
        <primary><varname>max_logical_replication_workers</varname> configuration parameter</primary>
       </indexterm>
@@ -3387,6 +3408,20 @@ WALの生成頻度が少ないシステムでは、この値を大きくする�
 -->
 問い合わせプランナがギャザーマージ計画型を選択することを有効もしくは無効にします。
 デフォルトは<literal>on</literal>です。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-enable-groupby-reordering" xreflabel="enable_group_by_reordering">
+      <term><varname>enable_group_by_reordering</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>enable_group_by_reordering</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Enables or disables reordering of keys in a <literal>GROUP BY</literal>
+        clause. The default is <literal>on</literal>.
        </para>
       </listitem>
      </varlistentry>

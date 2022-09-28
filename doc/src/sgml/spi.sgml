@@ -147,6 +147,9 @@ SPIユーティリティ関数の中には、未接続のC関数から呼び出�
        means that transaction control calls (<function>SPI_commit</function>,
        <function>SPI_rollback</function>) are allowed.  Otherwise,
        calling those functions will result in an immediate error.
+-->
+SPI接続を<firstterm>非原子的</firstterm>になるように設定します。これはトランザクション制御呼び出し(<function>SPI_commit</function>、<function>SPI_rollback</function>)が可能であることを意味します。
+このフラグなしで、これら関数を呼び出すと即座にエラーになります。
       </para>
      </listitem>
     </varlistentry>
@@ -1054,17 +1057,6 @@ int SPI_execute_extended(const char *<parameter>command</parameter>,
       return zero tuples)
 -->
 <literal>true</literal>であれば、問い合わせがタプルを返す種類のものでない場合にエラーを発生します(これはたまたま0個のタプルを返す場合を禁止しません)
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
-    <term><literal>bool <parameter>must_return_tuples</parameter></literal></term>
-    <listitem>
-     <para>
-      if <literal>true</literal>, raise error if the query is not of a kind
-      that returns tuples (this does not forbid the case where it happens to
-      return zero tuples)
      </para>
     </listitem>
    </varlistentry>
@@ -2661,17 +2653,6 @@ int SPI_execute_plan_extended(SPIPlanPtr <parameter>plan</parameter>,
       return zero tuples)
 -->
 <literal>true</literal>であれば、問い合わせがタプルを返す種類のものでない場合にエラーを発生します(これはたまたま0個のタプルを返す場合を禁止しません)
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
-    <term><literal>bool <parameter>must_return_tuples</parameter></literal></term>
-    <listitem>
-     <para>
-      if <literal>true</literal>, raise error if the query is not of a kind
-      that returns tuples (this does not forbid the case where it happens to
-      return zero tuples)
      </para>
     </listitem>
    </varlistentry>
@@ -7112,9 +7093,15 @@ void SPI_commit_and_chain(void)
    If there is a failure during commit, the current transaction is instead
    rolled back and a new transaction is started, after which the error is
    thrown in the usual way.
+-->
+<function>SPI_commit</function>は現在のトランザクションをコミットします。
+これはSQLコマンドの<command>COMMIT</command>を実行することと概ね同等です。
+トランザクションがコミットされた後には、新しいトランザクションが自動的にデフォルトのトランザクションの特性を使って開始されます。ですので、呼び出し元はSPIを使い続けることができます。
+コミット中に失敗した場合、現在のトランザクションは代わりにロールバックされ、新しいトランザクションが開始され、その後、通常通りエラーが発生します。
   </para>
 
   <para>
+<!--
    <function>SPI_commit_and_chain</function> is the same, but the new
    transaction is started with the same transaction
    characteristics as the just finished one, like with the SQL command
@@ -7176,8 +7163,13 @@ void SPI_rollback_and_chain(void)
    command <command>ROLLBACK</command>.  After the transaction is rolled back,
    a new transaction is automatically started using default transaction
    characteristics, so that the caller can continue using SPI facilities.
+-->
+<function>SPI_rollback</function>は現在のトランザクションをロールバックします。
+これはSQLコマンドの<command>ROLLBACK</command>を実行することと概ね同等です。
+トランザクションがロールバックされた後には、新しいトランザクションが自動的にデフォルトのトランザクションの特性を使って開始されます。ですので、呼び出し元はSPIを使い続けることができます。
   </para>
   <para>
+<!--
    <function>SPI_rollback_and_chain</function> is the same, but the new
    transaction is started with the same transaction
    characteristics as the just finished one, like with the SQL command
@@ -7208,7 +7200,10 @@ void SPI_rollback_and_chain(void)
 
  <refnamediv>
   <refname>SPI_start_transaction</refname>
+<!--
   <refpurpose>obsolete function</refpurpose>
+-->
+  <refpurpose>廃れた関数</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -7224,12 +7219,16 @@ void SPI_start_transaction(void)
   <title>説明</title>
 
   <para>
+<!--
    <function>SPI_start_transaction</function> does nothing, and exists
    only for code compatibility with
    earlier <productname>PostgreSQL</productname> releases.  It used to
    be required after calling <function>SPI_commit</function>
    or <function>SPI_rollback</function>, but now those functions start
    a new transaction automatically.
+-->
+<function>SPI_start_transaction</function>は何もしません。以前の<productname>PostgreSQL</productname>のリリースとのコードの互換性のためだけに存在します。
+<function>SPI_commit</function>または<function>SPI_rollback</function>の呼び出しの後で要求されていましたが、今はこれらの関数は自動的に新しいトランザクションを開始します。
   </para>
  </refsect1>
 </refentry>

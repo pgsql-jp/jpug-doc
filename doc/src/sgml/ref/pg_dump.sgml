@@ -566,13 +566,6 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
         for each worker job. Without the synchronized snapshot feature, the
         different worker jobs wouldn't be guaranteed to see the same data in
         each connection, which could lead to an inconsistent backup.
--->
-一貫したバックアップのためには、データベースサーバは、同期スナップショットをサポートする必要があります。
-これはプライマリサーバについては<productname>PostgreSQL</productname> 9.2で、スタンバイについてはバージョン10で導入された機能です。
-この機能を用いれば、データベースクライアントは異なる接続を使用していたとしても、確実に同じデータセットを参照することができます。
-<command>pg_dump -j</command>は複数のデータベース接続を使用します。
-リーダープロセスで一度、また、作業用ジョブそれぞれでも一度、データベースと接続します。
-同期スナップショット機能がないと、異なる作業用ジョブがそれぞれの接続で同じデータを参照していることが保証されず、一貫性がないバックアップになってしまいます。
        </para>
       </listitem>
      </varlistentry>
@@ -1009,6 +1002,10 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         the data is restored.  Use this if you have referential
         integrity checks or other triggers on the tables that you
         do not want to invoke during data restore.
+-->
+このオプションは、データのみのダンプを作成する場合にしか適用されません。
+データのリストア中に、対象テーブル上のトリガを一時的に無効にするコマンドを出力するよう<application>pg_dump</application>に指示します。
+このオプションは、データのリストア中には呼び出したくない参照整合性検査やその他のトリガがテーブル上にある場合に使用します。
        </para>
 
        <para>
@@ -1325,9 +1322,13 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
        </para>
 
        <para>
+<!--
         This option is ignored when emitting an archive (non-text) output
         file.  For the archive formats, you can specify the option when you
         call <command>pg_restore</command>.
+-->
+このオプションはアーカイブ（テキストでない）出力ファイルを出力する場合には無視されます。
+アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -1346,13 +1347,9 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
        </para>
 
        <para>
-<!--
         This option is ignored when emitting an archive (non-text) output
         file.  For the archive formats, you can specify the option when you
         call <command>pg_restore</command>.
--->
-このオプションはアーカイブ（テキストでない）出力ファイルを出力する場合には無視されます。
-アーカイブ形式では、<command>pg_restore</command>を呼び出す時にこのオプションを指定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -1382,11 +1379,6 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         definitions (schema) are dumped; it only suppresses dumping the table
         and sequence data. Data in unlogged tables and sequences
         is always excluded when dumping from a standby server.
--->
-ログを取らないテーブルの内容をダンプしません。
-このオプションはテーブル定義（スキーマ）をダンプするかどうかには影響しません。
-そのテーブルデータのダンプを抑制するだけです。
-スタンバイサーバからダンプを行う場合、ログを取らないテーブル内のデータは常に除外されます。
        </para>
       </listitem>
      </varlistentry>
@@ -1865,15 +1857,11 @@ pg_dumpを始めた時に読み書きを行う実行中のトランザクショ�
   </para>
 
   <para>
-<!--
    The database activity of <application>pg_dump</application> is
    normally collected by the cumulative statistics system.  If this is
    undesirable, you can set parameter <varname>track_counts</varname>
    to false via <envar>PGOPTIONS</envar> or the <literal>ALTER
    USER</literal> command.
--->
-通常<application>pg_dump</application>のデータベースに対する活動は統計情報コレクタにより収集されます。
-これを望まない場合、<envar>PGOPTIONS</envar>または<literal>ALTER USER</literal>コマンドを使用して<varname>track_counts</varname>パラメータを偽に設定してください。
   </para>
 
  </refsect1>
@@ -1931,7 +1919,6 @@ CREATE DATABASE foo WITH TEMPLATE template0;
   </para>
 
   <para>
-<!--
    Because <application>pg_dump</application> is used to transfer data
    to newer versions of <productname>PostgreSQL</productname>, the output of
    <application>pg_dump</application> can be expected to load into
@@ -1947,23 +1934,12 @@ CREATE DATABASE foo WITH TEMPLATE template0;
    dump was taken from a server of that version.  Loading a dump file
    into an older server may require manual editing of the dump file
    to remove syntax not understood by the older server.
-   Use of the <option>&#45;-quote-all-identifiers</option> option is recommended
+   Use of the <option>--quote-all-identifiers</option> option is recommended
    in cross-version cases, as it can prevent problems arising from varying
    reserved-word lists in different <productname>PostgreSQL</productname> versions.
--->
-<application>pg_dump</application>は新しいバージョンの<productname>PostgreSQL</productname>へのデータ移行に使用されますので、<application>pg_dump</application>の出力は<application>pg_dump</application>のバージョンより新しいバージョンの<productname>PostgreSQL</productname>データベースへロード可能と想定できるようになっています。
-また、<application>pg_dump</application>は自身より古いバージョンの<productname>PostgreSQL</productname>データベースを読み取ることもできます。
-（現在はバージョン8.0までのサーバをサポートします。）
-しかし、<application>pg_dump</application>はそれ自身のメジャーバージョンより新しい<productname>PostgreSQL</productname>サーバのダンプを取ることはできません。
-無効なダンプを作成するリスクは取らず、ダンプしようとさえしません。
-また、<application>pg_dump</application>の出力がメジャーバージョンが古いサーバにロードできるとは、たとえ同じバージョンのサーバから取得したダンプであっても、保証されていません。
-より古いサーバへのダンプファイルのロードには、古いサーバでは理解できない構文を削除するために、ダンプファイルの手作業による修正が必要になることがあります。
-バージョンをまたがる場合は<option>--quote-all-identifiers</option>オプションの使用が推奨されます。
-これにより、<productname>PostgreSQL</productname>の異なるバージョンで、予約語のリストが変わることによって発生する問題を防ぐことができるからです。
   </para>
 
   <para>
-<!--
    When dumping logical replication subscriptions,
    <application>pg_dump</application> will generate <command>CREATE
    SUBSCRIPTION</command> commands that use the <literal>connect = false</literal>

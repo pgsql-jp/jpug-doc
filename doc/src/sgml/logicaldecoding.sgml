@@ -307,7 +307,6 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      can be interpreted without detailed knowledge of the database's internal
      state.
 -->
-
 ロジカルデコーディングは、データベースのテーブルへの恒久的な更新を、一貫性があって、データベース内部の状態に関する詳細な知識がなくても容易に理解できる形式として取得するプロセスです。
     </para>
 
@@ -318,7 +317,6 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      log</link>, which describe changes on a storage level, into an
      application-specific form such as a stream of tuples or SQL statements.
 -->
-
 <productname>PostgreSQL</productname>においてロジカルデコーディングは、記憶装置のレベルで更新を記述する<link linkend="wal">書き込み先行ログ</link>の内容を、タプルやSQL文のストリームといったアプリケーション固有の形式にデコードすることによって実装されています。
     </para>
    </sect2>
@@ -460,7 +458,6 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
 -->
     <title>スナップショットのエクスポート</title>
     <para>
-<!--
      When a new replication slot is created using the streaming replication
      interface (see <xref linkend="protocol-replication-create-replication-slot"/>), a
      snapshot is exported
@@ -472,12 +469,6 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      the slot was created. This transaction can then be used to dump the
      database's state at that point in time, which afterwards can be updated
      using the slot's contents without losing any changes.
--->
-ストリーミングレプリケーションのインタフェースを使って新しいスロットを作ると(<xref linkend="protocol-replication-create-slot"/>参照)、スナップショットがエクスポートされます(<xref linkend="functions-snapshot-synchronization"/>参照)。
-このスナップショットはまさにその時点でのデータベースの状態を示しており、スナップショット以後のすべての変更は更新ストリームに含まれるようになります。
-このことを利用して、スロットが作られた際のデータベースの状態を<link linkend="sql-set-transaction"><literal>SET TRANSACTION SNAPSHOT</literal></link>を使って読み込むことにより、新しいレプリカを作ることができます。
-このトランザクションは、その時点のデータベースの状態をダンプするために使用することができます。
-また、スロットに含まれるデータを使って、ダンプした後で行われた更新を失うことなくデータベースを更新できます。
     </para>
     <para>
 <!--
@@ -714,7 +705,6 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
 -->
 更新データをデコード、整形、出力するために、出力関数を呼び出すことを含め、出力プラグインはバックエンドの通常のインフラストラクチャのほとんどを利用できます。
 テーブルは、<command>initdb</command>で作られ、<literal>pg_catalog</literal>スキーマに含まれているか、以下のコマンドでユーザ定義のカタログテーブルであると印が付けられている限り、読み込み専用のアクセスが許可されます。
-
 <programlisting>
 ALTER TABLE user_catalog_table SET (user_catalog_table = true);
 CREATE TABLE another_catalog_table(data text) WITH (user_catalog_table = true);
@@ -947,7 +937,6 @@ typedef void (*LogicalDecodeBeginCB) (struct LogicalDecodingContext *ctx,
 -->
 必須である<function>commit_cb</function>コールバックは、トランザクションのコミットがデコードされる際に必ず呼び出されます。
 行が更新された場合は、それぞれの行に対して<function>change_cb</function>コールバックが、<function>commit_cb</function>の前に呼び出されます。
-
 <programlisting>
 typedef void (*LogicalDecodeCommitCB) (struct LogicalDecodingContext *ctx,
                                        ReorderBufferTXN *txn,
@@ -1010,7 +999,6 @@ typedef void (*LogicalDecodeChangeCB) (struct LogicalDecodingContext *ctx,
        logical decoding.
 -->
 unloggedテーブル(<xref linkend="sql-createtable-unlogged"/>参照)と(<xref linkend="sql-createtable-temporary"/>参照)以外のユーザ定義テーブルだけが、ロジカルデコーディングを使って更新データを取得できます。
-
       </para>
      </note>
     </sect3>
@@ -1213,7 +1201,6 @@ typedef bool (*LogicalDecodeFilterPrepareCB) (struct LogicalDecodingContext *ctx
      <title>トランザクション開始準備コールバック</title>
 
      <para>
-<!--
       The required <function>begin_prepare_cb</function> callback is called
       whenever the start of a prepared transaction has been decoded. The
       <parameter>gid</parameter> field, which is part of the
@@ -1221,10 +1208,6 @@ typedef bool (*LogicalDecodeFilterPrepareCB) (struct LogicalDecodingContext *ctx
       check if the plugin has already received this <command>PREPARE</command>
       in which case it can either error out or skip the remaining changes of
       the transaction.
--->
-必須である<function>begin_prepare_cb</function>コールバックは、準備されたトランザクションの開始がデコードされるたびに呼び出されます。
-<parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドをこのコールバックで使用して、プラグインがこの<command>PREPARE</command>を既に受信しているかどうかをチェックできます。
-この場合、エラーになるか、トランザクションの残りの変更をスキップできます。
 <programlisting>
 typedef void (*LogicalDecodeBeginPrepareCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn);
@@ -1734,13 +1717,15 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
     <function>stream_abort_cb</function>, <function>stream_commit_cb</function>
     and <function>stream_change_cb</function>) and two optional callbacks
     (<function>stream_message_cb</function> and <function>stream_truncate_cb</function>).
+-->
+大規模なトランザクションによって発生する適用遅延を軽減するために、出力プラグインは、継続中のトランザクションの増分ストリーミングをサポートする追加のコールバックを提供できます。
+複数の必要なストリーミングコールバック(<function>stream_start_cb</function>、<function>stream_stop_cb</function>、<function>stream_abort_cb</function>、<function>stream_commit_cb</function>および<function>stream_change_cb</function>)と2つのオプションのコールバック(<function>stream_message_cb</function>および<function>stream_truncate_cb</function>)があります。
     Also, if streaming of two-phase commands is to be supported, then additional
     callbacks must be provided. (See <xref linkend="logicaldecoding-two-phase-commits"/>
     for details).
    </para>
 
    <para>
-<!--
     When streaming an in-progress transaction, the changes (and messages) are
     streamed in blocks demarcated by <function>stream_start_cb</function>
     and <function>stream_stop_cb</function> callbacks. Once all the decoded
@@ -1752,12 +1737,6 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
     <command>COMMIT PREPARED</command> using the
     <function>commit_prepared_cb</function> callback or aborted using the
     <function>rollback_prepared_cb</function>.
--->
-継続中のトランザクションをストリーミングする場合、変更(およびメッセージ)は<function>stream_start_cb</function>および<function>stream_stop_cb</function>コールバックで区切られたブロックでストリーミングされます。
-デコードされたすべての変更が送信されると、トランザクションは<function>stream_commit_cb</function>コールバックを使用してコミットできます(または<function>stream_abort_cb</function>コールバックを使用してアボートできます)。
-2相コミットがサポートされている場合、トランザクションは<function>stream_prepare_cb</function>コールバックを使用して準備できます。
-<command>COMMIT PREPARED</command>は<function>commit_prepared_cb</function>コールバックを使用して準備できます。
-または<function>rollback_prepared_cb</function>を使用してアボートできます。
    </para>
 
    <para>
@@ -1833,7 +1812,10 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
   </sect1>
 
   <sect1 id="logicaldecoding-two-phase-commits">
+<!--
    <title>Two-phase Commit Support for Logical Decoding</title>
+-->
+   <title>ロジカルデコーディングための2相コミット</title>
 
    <para>
 <!--

@@ -232,7 +232,6 @@
    </para>
 
    <para>
-<!--
     The overall execution cycle consists of a <firstterm>parse</firstterm> step,
     which creates a prepared statement from a textual query string; a
     <firstterm>bind</firstterm> step, which creates a portal given a prepared
@@ -242,9 +241,6 @@
     the execute step can be told to fetch only
     a limited number of rows, so that multiple execute steps might be needed
     to complete the operation.
--->
-実行サイクル全体は、テキストの問い合わせ文字列からプリペアド文を生成する<firstterm>解析</firstterm>段階、プリペアド文と必要なパラメータ値によりポータルを作成する<firstterm>バインド</firstterm>段階、ポータルの問い合わせを実行する<firstterm>実行</firstterm>段階からなります。
-行を返す問い合わせ（<command>SELECT</command>、<command>SHOW</command>など）の場合、操作を完了させるために複数の実行段階が必要とすることができるように、実行段階に限定された行数のみを取り出すよう指示することができます。
    </para>
 
    <para>
@@ -877,16 +873,11 @@ SQLコマンドが正常に終了しました。
       <term>RowDescription</term>
       <listitem>
        <para>
-<!--
         Indicates that rows are about to be returned in response to
         a <command>SELECT</command>, <command>FETCH</command>, etc. query.
         The contents of this message describe the column layout of the rows.
         This will be followed by a DataRow message for each row being returned
         to the frontend.
--->
-<command>SELECT</command>や<command>FETCH</command>などの問い合わせの応答の行がまさに返されようとしていることを示します。
-このメッセージには、行の列レイアウトに関する説明が含まれます。
-このメッセージの後に、フロントエンドに返される各行に対するDataRowメッセージが続きます。
        </para>
       </listitem>
      </varlistentry>
@@ -895,7 +886,6 @@ SQLコマンドが正常に終了しました。
       <term>DataRow</term>
       <listitem>
        <para>
-<!--
         One of the set of rows returned by
         a <command>SELECT</command>, <command>FETCH</command>, etc. query.
        </para>
@@ -1580,65 +1570,19 @@ Flushを行わないと、バックエンドで返されるメッセージは、
   </sect2>
 
   <sect2 id="protocol-flow-pipelining">
+<!--
    <title>Pipelining</title>
+-->
+   <title>パイプライン化</title>
 
    <indexterm zone="protocol-flow-pipelining">
     <primary>pipelining</primary>
     <secondary>protocol specification</secondary>
    </indexterm>
-
-   <para>
-    Use of the extended query protocol
-    allows <firstterm>pipelining</firstterm>, which means sending a series
-    of queries without waiting for earlier ones to complete.  This reduces
-    the number of network round trips needed to complete a given series of
-    operations.  However, the user must carefully consider the required
-    behavior if one of the steps fails, since later queries will already
-    be in flight to the server.
-   </para>
-
-   <para>
-    One way to deal with that is to make the whole query series be a
-    single transaction, that is wrap it in <command>BEGIN</command> ...
-    <command>COMMIT</command>.  However, this does not help if one wishes
-    for some of the commands to commit independently of others.
-   </para>
-
-   <para>
-    The extended query protocol provides another way to manage this
-    concern, which is to omit sending Sync messages between steps that
-    are dependent.  Since, after an error, the backend will skip command
-    messages until it finds Sync, this allows later commands in a pipeline
-    to be skipped automatically when an earlier one fails, without the
-    client having to manage that explicitly with <command>BEGIN</command>
-    and <command>COMMIT</command>.  Independently-committable segments
-    of the pipeline can be separated by Sync messages.
-   </para>
-
-   <para>
-    If the client has not issued an explicit <command>BEGIN</command>,
-    then each Sync ordinarily causes an implicit <command>COMMIT</command>
-    if the preceding step(s) succeeded, or an
-    implicit <command>ROLLBACK</command> if they failed.  However, there
-    are a few DDL commands (such as <command>CREATE DATABASE</command>)
-    that cannot be executed inside a transaction block.  If one of
-    these is executed in a pipeline, it will, upon success, force an
-    immediate commit to preserve database consistency.
-    A Sync immediately following one of these has no effect except to
-    respond with ReadyForQuery.
-   </para>
-
-   <para>
-    When using this method, completion of the pipeline must be determined
-    by counting ReadyForQuery messages and waiting for that to reach the
-    number of Syncs sent.  Counting command completion responses is
-    unreliable, since some of the commands may not be executed and thus not
-    produce a completion message.
-   </para>
-  </sect2>
-
-  <sect2>
-   <title>Function Call</title>
+   <indexterm zone="protocol-flow-pipelining">
+    <primary>パイプライン化</primary>
+    <secondary>プロトコル定義</secondary>
+   </indexterm>
 
    <para>
 <!--
@@ -2366,6 +2310,7 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
    </para>
 
    <para>
+<!--
     When <acronym>SSL</acronym> encryption can be performed, the server
     is expected to send only the single <literal>S</literal> byte and then
     wait for the frontend to initiate an <acronym>SSL</acronym> handshake.
@@ -2377,9 +2322,15 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
     socket before turning the socket over to their SSL library, or to
     treat it as a protocol violation if they find they have read additional
     bytes.
+-->
+<acronym>SSL</acronym>暗号化が実行可能なら、サーバは<literal>S</literal>バイトだけを送信し、フロントエンドが<acronym>SSL</acronym>ハンドシェイクを開始するのを待つことが期待されます。
+この段階でそれ以上のバイトが読み取り可能であるなら、中間者がバッファスタッフィング攻撃(<ulink url="https://www.postgresql.org/support/security/CVE-2021-23222/">CVE-2021-23222</ulink>)を開始しようとしている可能性が高いです。
+フロントエンドは、ソケットをSSLライブラリに渡す前に正確に1バイトだけをソケットから読み出すべきです。
+でなければ、追加のバイトが読み取られた場合には、プロトコル違反として扱うべきです。
    </para>
 
    <para>
+<!--
     An initial SSLRequest can also be used in a connection that is being
     opened to send a CancelRequest message.
 -->
@@ -2469,6 +2420,7 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
    </para>
 
    <para>
+<!--
     When <acronym>GSSAPI</acronym> encryption can be performed, the server
     is expected to send only the single <literal>G</literal> byte and then
     wait for the frontend to initiate a <acronym>GSSAPI</acronym> handshake.
@@ -2480,9 +2432,15 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
     socket before turning the socket over to their GSSAPI library, or to
     treat it as a protocol violation if they find they have read additional
     bytes.
+-->
+<acronym>GSSAPI</acronym>暗号化が実行可能なら、サーバは<literal>G</literal>バイトだけを送信し、フロントエンドが<acronym>SSL</acronym>ハンドシェイクを開始するのを待つことが期待されます。
+この段階でそれ以上のバイトが読み取り可能であるなら、中間者がバッファスタッフィング攻撃(<ulink url="https://www.postgresql.org/support/security/CVE-2021-23222/">CVE-2021-23222</ulink>)を開始しようとしている可能性が高いです。
+フロントエンドは、ソケットをGSSAPIライブラリに渡す前に正確に1バイトだけをソケットから読み出すべきです。
+でなければ、追加のバイトが読み取られた場合には、プロトコル違反として扱うべきです。
    </para>
 
    <para>
+<!--
     An initial GSSENCRequest can also be used in a connection that is being
     opened to send a CancelRequest message.
 -->
@@ -2526,7 +2484,10 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
  </sect1>
 
  <sect1 id="sasl-authentication">
-  <title>SASL Authentication</title>
+  <!--
+<title>SASL Authentication</title>
+-->
+<title>SASL認証</title>
 
   <para>
    <firstterm>SASL</firstterm> is a framework for authentication in connection-oriented
@@ -2538,7 +2499,10 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
   </para>
 
   <procedure>
-   <title>SASL Authentication Message Flow</title>
+   <!--
+<title>SASL Authentication Message Flow</title>
+-->
+<title>SASL認証のメッセージフロー</title>
 
    <step id="sasl-auth-begin">
     <para>
@@ -2585,7 +2549,10 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
   </para>
 
   <sect2 id="sasl-scram-sha-256">
-   <title>SCRAM-SHA-256 Authentication</title>
+ <!--
+  <title>SCRAM-SHA-256 Authentication</title>
+-->
+  <title>SCRAM-SHA-256 認証</title>
 
    <para>
     The implemented SASL mechanisms at the moment
@@ -2645,7 +2612,10 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
    </para>
 
    <procedure>
-    <title>Example</title>
+    <!--
+<title>Example</title>
+-->
+<title>例</title>
     <step id="scram-begin">
      <para>
       The server sends an AuthenticationSASL message. It includes a list of
@@ -2695,7 +2665,10 @@ CancelRequestメッセージは、接続開始段階でフロントエンドに�
  </sect1>
 
  <sect1 id="protocol-replication">
-  <title>Streaming Replication Protocol</title>
+  <!--
+<title>Streaming Replication Protocol</title>
+-->
+<title>ストリーミングレプリケーションプロトコル</title>
 
   <para>
    To initiate streaming replication, the frontend sends the
@@ -2740,7 +2713,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
   </para>
 
   <para>
-   The commands accepted in replication mode are:
+   <!--
+The commands accepted in replication mode are:
+-->
+レプリケーションモードで受け付けられるコマンドは以下の通りです。
 
    <variablelist>
     <varlistentry id="protocol-replication-identify-system">
@@ -2789,7 +2765,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         <term><literal>dbname</literal> (<type>text</type>)</term>
         <listitem>
          <para>
-          Database connected to or null.
+   <!--
+       Database connected to or null.
+-->
+接続したデータベース名またはNULLです。
          </para>
         </listitem>
        </varlistentry>
@@ -2843,7 +2822,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         <term><literal>filename</literal> (<type>text</type>)</term>
         <listitem>
          <para>
-          File name of the timeline history file, e.g., <filename>00000002.history</filename>.
+   <!--
+       File name of the timeline history file, e.g., <filename>00000002.history</filename>.
+-->
+タイムライン履歴ファイル名、例えば<filename>00000002.history</filename>
          </para>
         </listitem>
        </varlistentry>
@@ -2852,7 +2834,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         <term><literal>content</literal> (<type>text</type>)</term>
         <listitem>
          <para>
-          Contents of the timeline history file.
+   <!--
+       Contents of the timeline history file.
+-->
+タイムライン履歴ファイルの内容
          </para>
         </listitem>
        </varlistentry>
@@ -2971,7 +2956,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
          <term><literal>slot_name</literal> (<type>text</type>)</term>
          <listitem>
           <para>
-           The name of the newly-created replication slot.
+ <!--
+          The name of the newly-created replication slot.
+-->
+新しく作成されたレプリケーションスロットの名前です。
           </para>
          </listitem>
         </varlistentry>
@@ -3138,7 +3126,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Byte1('w')</term>
            <listitem>
             <para>
-             Identifies the message as WAL data.
+   <!--
+          Identifies the message as WAL data.
+-->
+メッセージをWALデータとして識別します。
             </para>
            </listitem>
           </varlistentry>
@@ -3147,7 +3138,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int64</term>
            <listitem>
             <para>
-             The starting point of the WAL data in this message.
+   <!--
+          The starting point of the WAL data in this message.
+-->
+このメッセージ内のWALの開始点。
             </para>
            </listitem>
           </varlistentry>
@@ -3156,7 +3150,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int64</term>
            <listitem>
             <para>
-             The current end of WAL on the server.
+   <!--
+          The current end of WAL on the server.
+-->
+サーバ上の現在のWAL終了点。
             </para>
            </listitem>
           </varlistentry>
@@ -3175,7 +3172,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Byte<replaceable>n</replaceable></term>
            <listitem>
             <para>
-             A section of the WAL data stream.
+   <!--
+          A section of the WAL data stream.
+-->
+WALデータストリームの断片。
             </para>
 
             <para>
@@ -3199,7 +3199,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Byte1('k')</term>
            <listitem>
             <para>
-             Identifies the message as a sender keepalive.
+   <!--
+          Identifies the message as a sender keepalive.
+-->
+このメッセージを送信元キープアライブとして識別します。
             </para>
            </listitem>
           </varlistentry>
@@ -3208,7 +3211,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int64</term>
            <listitem>
             <para>
-             The current end of WAL on the server.
+   <!--
+          The current end of WAL on the server.
+-->
+サーバ上の現在のWAL終端。
             </para>
            </listitem>
           </varlistentry>
@@ -3238,9 +3244,12 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
       </variablelist>
 
       <para>
+<!--
        The receiving process can send replies back to the sender at any time,
        using one of the following message formats (also in the payload of a
        CopyData message):
+-->
+以下のメッセージ書式の1つ（およびCopyDataメッセージのペイロード中のもの）を使用して、受理プロセスは送信者にいつでも応答できます。
       </para>
 
       <variablelist>
@@ -3252,7 +3261,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Byte1('r')</term>
            <listitem>
             <para>
-             Identifies the message as a receiver status update.
+   <!--
+          Identifies the message as a receiver status update.
+-->
+メッセージを受信側の状態更新として識別します。
             </para>
            </listitem>
           </varlistentry>
@@ -3281,7 +3293,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int64</term>
            <listitem>
             <para>
-             The location of the last WAL byte + 1 applied in the standby.
+   <!--
+          The location of the last WAL byte + 1 applied in the standby.
+-->
+スタンバイにおいて適用された最終WALバイト+1の場所。
             </para>
            </listitem>
           </varlistentry>
@@ -3350,7 +3365,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int32</term>
            <listitem>
             <para>
-             The epoch of the global xmin xid on the standby.
+   <!--
+          The epoch of the global xmin xid on the standby.
+-->
+スタンバイのグローバルのxmin xidのエポックです。
             </para>
            </listitem>
           </varlistentry>
@@ -3370,7 +3388,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Int32</term>
            <listitem>
             <para>
-             The epoch of the catalog_xmin xid on the standby.
+   <!--
+          The epoch of the catalog_xmin xid on the standby.
+-->
+スタンバイのcatalog_xmin xidのエポックです。
             </para>
            </listitem>
           </varlistentry>
@@ -3436,7 +3457,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         <term><replaceable class="parameter">XXX/XXX</replaceable></term>
         <listitem>
          <para>
-          The WAL location to begin streaming at.
+ <!--
+         The WAL location to begin streaming at.
+-->
+ストリームを開始するWAL時点。
          </para>
         </listitem>
        </varlistentry>
@@ -3445,7 +3469,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         <term><replaceable class="parameter">option_name</replaceable></term>
         <listitem>
          <para>
-          The name of an option passed to the slot's logical decoding plugin.
+ <!--
+         The name of an option passed to the slot's logical decoding plugin.
+-->
+レプリケーションスロットのロジカルデコーディング出力プラグインに渡すオプション名。
          </para>
         </listitem>
        </varlistentry>
@@ -3911,7 +3938,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         </listitem>
         <listitem>
          <para>
-          <filename>pg_internal.init</filename> (found in multiple directories)
+ <!--
+         <filename>pg_internal.init</filename> (found in multiple directories)
+-->
+         <filename>pg_internal.init</filename>（複数のディレクトリに在ります）
          </para>
         </listitem>
         <listitem>
@@ -4095,7 +4125,6 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
   </para>
 
   <para>
-<!--
    The logical replication protocol sends individual transactions one by one.
    This means that all messages between a pair of Begin and Commit messages
    belong to the same transaction. Similarly, all messages between a pair of
@@ -4119,17 +4148,10 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
 送信されるすべてのトランザクションにはゼロ個以上のDMLメッセージ（Insert、Update、Delete）が含まれます。
 カスケードの設定がされている場合は、Originメッセージを含めることができます。
 Originメッセージはトランザクションの起点が別のレプリケーションノードであることを示します。
-<!--
-訳注：原文が文法的におかしく、構文解析不能でした。
-   "indicated"は"indicates"、"originated"は"originates"であるとして、
-   また、 different"の前に"a"があるものとして訳しました。
--->
-論理レプリケーションのプロトコルという観点では、レプリケーションノードはほぼ何でも良いため、唯一の識別子はOriginの名前です。
-（必要なら）必要に応じてこれを処理するのは下流側の責任です。
-Originメッセージは必ずトランザクション内のどのDMLよりも前に送信されます。
   </para>
 
   <para>
+<!--
    Every DML message contains a relation OID, identifying the publisher's
    relation that was acted on.  Before the first DML message for a given
    relation OID, a Relation message will be sent, describing the schema of
@@ -4137,9 +4159,15 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
    the relation's definition has changed since the last Relation message
    was sent for it.  (The protocol assumes that the client is capable of
    remembering this metadata for as many relations as needed.)
+-->
+すべてのDMLメッセージには、パブリッシャーが処理していたリレーションOIDが含まれています。
+指定されたリレーションOIDの最初DMLメッセージの前に、リレーションのスキーマを記述するリレーションメッセージが送られます。
+最後に送信されたリレーションメッセージ以降にリレーションの定義が変更されていたら、続いて新しいリレーションメッセージが送信されます。
+（必要なだけクライアントはこのメタデータを記憶できるとプロトコルは見なしています。）
   </para>
 
   <para>
+<!--
    Relation messages identify column types by their OIDs.  In the case
    of a built-in type, it is assumed that the client can look up that
    type OID locally, so no additional data is needed.  For a non-built-in
@@ -4149,15 +4177,27 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
    cache the contents of Type messages, and first consult that cache to
    see if the type OID is defined there.  If not, look up the type OID
    locally.
+-->
+リレーションメッセージはOIDによって列型を識別します。
+組み込みの型では、クライアントはローカルに型OIDを検索できると見なされ、追加のデータは必要ありません。
+組み込み以外の型OIDでは、OIDに紐づく型名を提供するために、リレーションメッセージの前に型メッセージが送られます。
+したがって、リレーションの列の型を特に識別する必要のあるクライアントは、型メッセージの内容をキャッシュし、型OIDがキャッシュにあるかどうかまずキャッシュを調べるべきです。
+もしなければ、ローカルでその型OIDを調べます。
   </para>
  </sect2>
 </sect1>
 
  <sect1 id="protocol-message-types">
-  <title>Message Data Types</title>
+  <!--
+<title>Message Data Types</title>
+-->
+<title>メッセージのデータ型</title>
 
   <para>
-   This section describes the base data types used in messages.
+   <!--
+This section describes the base data types used in messages.
+-->
+本節ではメッセージの中で使われる基本的なデータ型を説明します。
   </para>
 
   <variablelist>
@@ -4226,7 +4266,10 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
  </sect1>
 
  <sect1 id="protocol-message-formats">
-  <title>Message Formats</title>
+  <!--
+<title>Message Formats</title>
+-->
+<title>メッセージの書式</title>
 
   <para>
    This section describes the detailed format of each message.  Each is marked to
@@ -6808,7 +6851,10 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
  </sect1>
 
  <sect1 id="protocol-error-fields">
-  <title>Error and Notice Message Fields</title>
+  <!--
+<title>Error and Notice Message Fields</title>
+-->
+<title>エラーおよび警報メッセージフィールド</title>
 
   <para>
    This section describes the fields that can appear in ErrorResponse and
@@ -7046,7 +7092,10 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
  </sect1>
 
  <sect1 id="protocol-logicalrep-message-formats">
-  <title>Logical Replication Message Formats</title>
+  <!--
+<title>Logical Replication Message Formats</title>
+-->
+<title>論理レプリケーションのメッセージ書式</title>
 
   <para>
    This section describes the detailed format of each logical replication
@@ -7260,7 +7309,10 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
      </variablelist>
 
      <para>
-      Note that there can be multiple Origin messages inside a single transaction.
+    <!--
+  Note that there can be multiple Origin messages inside a single transaction.
+-->
+一つのトランザクション内で複数のOriginメッセージがあり得ることに注意してください。
      </para>
     </listitem>
    </varlistentry>
@@ -8229,7 +8281,10 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
   </variablelist>
 
   <para>
-   The following message parts are shared by the above messages.
+   <!--
+The following message parts are shared by the above messages.
+-->
+以下のメッセージ部分は上記のメッセージに共通です。
   </para>
 
   <variablelist>
@@ -8321,7 +8376,10 @@ Originメッセージは必ずトランザクション内のどのDMLよりも�
  </sect1>
 
  <sect1 id="protocol-changes">
-  <title>Summary of Changes since Protocol 2.0</title>
+  <!--
+<title>Summary of Changes since Protocol 2.0</title>
+-->
+<title>プロトコル2.0からの変更点の要約</title>
 
   <para>
    This section provides a quick checklist of changes, for the benefit of
