@@ -600,6 +600,7 @@ SQL標準では、ある分離レベルで発生しては<emphasis>ならない<
    </para>
 
    <para>
+<!--
     <command>MERGE</command> allows the user to specify various
     combinations of <command>INSERT</command>, <command>UPDATE</command>
     and <command>DELETE</command> subcommands. A <command>MERGE</command>
@@ -629,6 +630,13 @@ SQL標準では、ある分離レベルで発生しては<emphasis>ならない<
     <command>MERGE</command> does not attempt to avoid such
     errors by restarting evaluation of <literal>MATCHED</literal>
     conditions.
+-->
+《機械翻訳》<command>MERGE</command>を使用すると、ユーザーは<command>INSERT</command>、<command>UPDATE</command>および<command>DELETE</command>サブコマンドの様々な組み合わせを指定できます。
+<command>INSERT</command>および<command>UPDATE</command>サブコマンドを指定した<command>MERGE</command>コマンドは、<literal>ON CONFLICT DO UPDATE</literal>句を指定した<command>INSERT</command>に似ていますが、<command>INSERT</command>または<command>UPDATE</command>のいずれかが発生することを保証するものではありません。
+<command>MERGE</command>がbutterUPDATEスクリプトまたはframDELETEスクリプトを実行しようとしたときに、行が同時に更新されていても、現在のターゲットと現在のソースタプルに対して結合条件が渡されている場合は、cle MERGEファイルはcurmeUPDATEコマンドまたはcir DELETEコマンドと同じように動作し、更新された行に対してアクションを実行します。
+しかし、dragMERGEスキャンは複数のアクションを指定でき、それらは条件付きである可能性があるため、最初に一致したアクションがアクションリストの後の方に表示される場合でも、各アクションの条件は更新された行に対して最初のアクションから再評価されます。
+一方、行が同時に更新または削除されて結合条件が失敗した場合は、find MERGE起動は次に条件のNOT MATCHED 20アクションを評価し、成功した最初のアクションを実行します。
+MERGEロックがINSERTロックを実行しようとしたときに一意性インデックスが存在し、重複行が同時に挿入された場合、一意性違反エラーが発生します。
    </para>
 
    <para>
@@ -1407,6 +1415,7 @@ ERROR:  could not serialize access due to read/write dependencies among transact
         </para>
 
         <para>
+<!--
          The <command>SELECT</command> command acquires a lock of this mode
          on all tables on which one of the <option>FOR UPDATE</option>,
          <option>FOR NO KEY UPDATE</option>,
@@ -1415,6 +1424,8 @@ ERROR:  could not serialize access due to read/write dependencies among transact
          (in addition to <literal>ACCESS SHARE</literal> locks on any other
          tables that are referenced without any explicit
          <option>FOR ...</option> locking option).
+-->
+《機械翻訳》<command>SELECT</command>コマンドは、<option>FOR UPDATE</option>、<option>FOR NO KEY UPDATE</option>、<option>FOR SHARE</option>、または<option>FOR KEY SHARE</option>オプションのいずれかが指定されているすべてのテーブルでこのモードのロックを取得します(さらに、明示的な<option>FOR.</option>ロックオプションなしで参照される他のすべてのテーブルで<literal>ACCESS SHARE</literal>ロックが取得されます)。
         </para>
        </listitem>
       </varlistentry>
@@ -2547,6 +2558,7 @@ SELECT pg_advisory_lock(q.id) FROM
    </indexterm>
 
    <para>
+<!--
     Both Repeatable Read and Serializable isolation levels can produce
     errors that are designed to prevent serialization anomalies.  As
     previously stated, applications using these levels must be prepared to
@@ -2554,15 +2566,23 @@ SELECT pg_advisory_lock(q.id) FROM
     error's message text will vary according to the precise circumstances,
     but it will always have the SQLSTATE code <literal>40001</literal>
     (<literal>serialization_failure</literal>).
+-->
+《機械翻訳》反復可能読取り分離レベルとシリアライザブル分離レベルはどちらも、シリアライゼーションの異常を防止するように設計されたエラーを生成する可能性があります。
+前述のように、これらのレベルを使用するアプリケーションは、シリアライゼーション・エラーが原因で失敗したトランザクションを再試行するように準備する必要があります。
+このようなエラーのメッセージ・テキストは正確な状況によって異なりますが、常にSQLSTATEコード<literal>40001</literal>(<literal>serialization_failure</literal>)があります。
    </para>
 
    <para>
+<!--
     It may also be advisable to retry deadlock failures.
     These have the SQLSTATE code <literal>40P01</literal>
     (<literal>deadlock_detected</literal>).
+-->
+《機械翻訳》SQLSTATEコード<literal>40P01</literal>(<literal>deadlock_detected</literal>)を持つデッドロック障害を再試行することも推奨されます。
    </para>
 
    <para>
+<!--
     In some cases it is also appropriate to retry unique-key failures,
     which have SQLSTATE code <literal>23505</literal>
     (<literal>unique_violation</literal>), and exclusion constraint
@@ -2582,23 +2602,40 @@ SELECT pg_advisory_lock(q.id) FROM
     more care is needed when retrying these other error codes, since they
     might represent persistent error conditions rather than transient
     failures.
+-->
+《機械翻訳》場合によっては、SQLSTATEコード<literal>23505</literal>(<literal>unique_violation</literal>)を持つ一意キーの失敗、およびSQLSTATEコード<literal>23P01</literal>(<literal>exclusion_violation</literal>)を持つ排他制約の失敗を再試行することも適切です。
+たとえば、現在格納されているキーを検査した後にアプリケーションが主キー列に新しい値を選択した場合、別のアプリケーション・インスタンスが同じ新しいキーを同時に選択したため、一意キーの失敗が発生する可能性があります。
+これは実質的にシリアル化の失敗ですが、挿入された値と以前の読取り間の接続を確認できないため、サーバーはシリアル化の失敗を検出できません。
+また、原則としてシリアル化の問題が根本原因であると判断するのに十分な情報があるにもかかわらず、サーバーが一意キーまたは排他制約のエラーを発行する場合もあります。
+<literal>serialization_failure</literal>エラーを無条件に再試行することをお薦めしますが、これらの他のエラー・コードを再試行する場合は、一時的な失敗ではなく永続的なエラー条件を表す可能性があるため、より注意が必要です。
    </para>
 
    <para>
+<!--
     It is important to retry the complete transaction, including all logic
     that decides which SQL to issue and/or which values to use.
     Therefore, <productname>PostgreSQL</productname> does not offer an
     automatic retry facility, since it cannot do so with any guarantee of
     correctness.
+-->
+《機械翻訳》どのSQLを発行するか、どの値を使用するかを決定するすべてのロジックを含む完全なトランザクションを再試行することが重要です。
+したがって、<productname>PostgreSQL</productname>は自動再試行機能を提供していません。
+なぜなら、自動再試行機能は正当性を保証できないからです。
    </para>
 
    <para>
+<!--
     Transaction retry does not guarantee that the retried transaction will
     complete; multiple retries may be needed.  In cases with very high
     contention, it is possible that completion of a transaction may take
     many attempts.  In cases involving a conflicting prepared transaction,
     it may not be possible to make progress until the prepared transaction
     commits or rolls back.
+-->
+《機械翻訳》トランザクションの再試行は、再試行されたトランザクションが完了することを保証するものではありません。
+複数回の再試行が必要になる場合があります。
+競合が非常に高い場合は、トランザクションの完了に多くの試行が必要になる可能性があります。
+競合する準備済トランザクションが関係する場合は、準備済トランザクションがコミットまたはロールバックされるまで進行できない可能性があります。
    </para>
   </sect1>
 

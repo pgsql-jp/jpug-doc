@@ -41,6 +41,7 @@
   </para>
 
   <para>
+<!--
    To enter single-row mode, call <xref linkend="libpq-PQsetSingleRowMode"/>
    immediately after a successful call of <xref linkend="libpq-PQsendQuery"/>
    (or a sibling function).  This mode selection is effective only for the
@@ -59,6 +60,16 @@
    description data (column names, types, etc.) that an ordinary
    <structname>PGresult</structname> object for the query would have.
    Each object should be freed with <xref linkend="libpq-PQclear"/> as usual.
+-->
+《マッチ度[95.040650]》単一行モードに入るためには、<xref linkend="libpq-PQsendQuery"/>（または同系列の関数）の呼び出しに成功した直後に<xref linkend="libpq-PQsetSingleRowMode"/>を呼び出してください。
+このモード選択は、現在実行中の問い合わせに対してのみ有効です。
+その後、<xref linkend="libpq-async"/>の説明通りに、NULLを返すようになるまで<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出してください。
+問い合わせが何らかの行を返す場合、<literal>PGRES_TUPLES_OK</literal>ではなく<literal>PGRES_SINGLE_TUPLE</literal>状態コードを持つ以外通常の問い合わせ結果と同じように見える、個々の<structname>PGresult</structname>オブジェクトを返します。
+最後の行の後、または問い合わせがゼロ行を返す場合は即座に、<literal>PGRES_TUPLES_OK</literal>状態のゼロ行のオブジェクトが返されます。
+これはもう行が届かないことを通知するものです。
+（しかしNULLが返るまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければならないことに注意してください。）
+<structname>PGresult</structname>オブジェクトのすべては、その問い合わせに対する通常の<structname>PGresult</structname>と同一の行説明データ（列名、型など）を持ちます。
+各オブジェクトは通常通り<xref linkend="libpq-PQclear"/>で解放しなければなりません。
   </para>
 
   <para>
@@ -293,6 +304,7 @@ int PQrequestCancel(PGconn *conn);
       </para>
 
       <para>
+<!--
        Requests that the server abandon processing of the current
        command.  It operates directly on the
        <structname>PGconn</structname> object, and in case of failure stores the
@@ -302,6 +314,11 @@ int PQrequestCancel(PGconn *conn);
        multiple-thread programs or signal handlers, since it is possible
        that overwriting the <structname>PGconn</structname>'s error message will
        mess up the operation currently in progress on the connection.
+-->
+《マッチ度[85.615251]》サーバに現在のコマンドの廃棄処理を要求します。
+これは<structname>PGconn</structname>オブジェクトを直接扱い、また、失敗した場合エラーメッセージは<structname>PGconn</structname>オブジェクト内に収納されます。
+(<xref linkend="libpq-PQerrorMessage"/>により取り出すことができます。)
+機能的には同一ですが、<structname>PGconn</structname>のエラーメッセージが上書きされることにより、その接続で現在進行中の操作が壊れてしまうため、この方法は複数スレッドプログラムやシグナルハンドラでは問題が起こります。
       </para>
      </listitem>
     </varlistentry>
@@ -727,10 +744,15 @@ typedef struct pgNotify
 
      <listitem>
       <para>
+<!--
        0 indicates the overall copy format is textual (rows separated by
        newlines, columns separated by separator characters, etc.).  1
        indicates the overall copy format is binary.  See <xref
        linkend="sql-copy"/> for more information.
+-->
+《マッチ度[86.222222]》0は、コピー全体の書式がテキスト(改行で区切られた行、区切り文字で区切られた列など)であることを示します。
+1は、コピー全体の書式がバイナリであることを示します。
+詳細は<xref linkend="sql-copy"/>を参照してください。
       </para>
      </listitem>
     </varlistentry>
@@ -2332,6 +2354,7 @@ defaultNoticeProcessor(void *arg, const char *message)
   </para>
 
   <para>
+<!--
    Each registered event handler is associated with two pieces of data,
    known to <application>libpq</application> only as opaque <literal>void *</literal>
    pointers.  There is a <firstterm>pass-through</firstterm> pointer that is provided
@@ -2351,6 +2374,16 @@ defaultNoticeProcessor(void *arg, const char *message)
    it.  <application>libpq</application> does not know what pass-through
    and instance data pointers point to (if anything) and will never attempt
    to free them &mdash; that is the responsibility of the event handler.
+-->
+《マッチ度[93.049327]》それぞれの登録されたイベントハンドラは、<application>libpq</application>からは曖昧とした<literal>void *</literal>ポインタとしてだけ知られる２つのデータの断片と提携します。
+イベントハンドラが<structname>PGconn</structname>で登録された時にアプリケーションが提供する<firstterm>通過地点</firstterm>ポインタがあります。
+通過地点ポインタは<structname>PGconn</structname>やそれから生成されたすべての（複数の）<structname>PGresult</structname>が有効な間決して変わることはありません。
+したがって使用された場合、長期間生存しているデータを指し示します。
+さらに、<firstterm>インスタンスデータ</firstterm>ポインタがあって、それはすべての<structname>PGconn</structname>と<structname>PGresult</structname>で<symbol>NULL</symbol>から開始します。
+ポインタは、<xref linkend="libpq-PQinstanceData"/>、<xref linkend="libpq-PQsetInstanceData"/>、<xref linkend="libpq-PQresultInstanceData"/>および<function>PQsetResultInstanceData</function>関数を使って操作することができます。
+通過地点ポインタとは異なり、<structname>PGconn</structname>のインスタンスデータはそれから作成された<structname>PGresult</structname>により自動的に継承されません。
+<application>libpq</application>は通過地点とインスタンスデータポインタが（もしあったとしても）何を指し示すのか判らず、決して解放しようとは試みません。
+それはイベントハンドラの責任です。
   </para>
 
   <sect2 id="libpq-events-types">
