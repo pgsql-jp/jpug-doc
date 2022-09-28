@@ -399,6 +399,9 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 	/* We've done all the critical work, so checkpoints are OK now. */
 	MyProc->delayChkptFlags &= ~DELAY_CHKPT_COMPLETE;
 
+	/* We've done all the critical work, so checkpoints are OK now. */
+	MyProc->delayChkptEnd = false;
+
 	/*
 	 * Update upper-level FSM pages to account for the truncation. This is
 	 * important because the just-truncated pages were likely marked as

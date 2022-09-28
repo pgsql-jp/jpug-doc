@@ -1141,6 +1141,7 @@ tuplesort_begin_cluster(TupleDesc tupDesc,
 	state->abbrevNext = 10;
 
 	state->indexInfo = BuildIndexInfo(indexRel);
+	leading = state->indexInfo->ii_IndexAttrNumbers[0];
 
 	/*
 	 * If we don't have a simple leading attribute, we don't currently

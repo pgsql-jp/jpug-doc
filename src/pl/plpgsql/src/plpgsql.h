@@ -897,6 +897,7 @@ typedef struct PLpgSQL_stmt_execsql
 	bool		mod_stmt_set;	/* is mod_stmt valid yet? */
 	bool		into;			/* INTO supplied? */
 	bool		strict;			/* INTO STRICT flag */
+	bool		mod_stmt_set;	/* is mod_stmt valid yet? */
 	PLpgSQL_variable *target;	/* INTO target (record or row) */
 } PLpgSQL_stmt_execsql;
 

@@ -5268,6 +5268,17 @@ examine_variable(PlannerInfo *root, Node *node, int varRelid,
 			if (vardata->statsTuple)
 				break;
 
+			/*
+			 * When dealing with regular inheritance trees, ignore extended
+			 * stats (which were built without data from child rels, and thus
+			 * do not represent them). For partitioned tables data there's no
+			 * data in the non-leaf relations, so we build stats only for the
+			 * inheritance tree. So for partitioned tables we do consider
+			 * extended stats.
+			 */
+			if (rte->inh && rte->relkind != RELKIND_PARTITIONED_TABLE)
+				break;
+
 			/* skip stats without per-expression stats */
 			if (info->kind != STATS_EXT_EXPRESSIONS)
 				continue;

@@ -233,6 +233,7 @@ struct PGPROC
 	uint8		statusFlags;	/* this backend's status flags, see PROC_*
 								 * above. mirrored in
 								 * ProcGlobal->statusFlags[pgxactoff] */
+	bool		delayChkptEnd;	/* true if this proc delays checkpoint end */
 
 	/*
 	 * Info to allow us to wait for synchronous replication, if needed.

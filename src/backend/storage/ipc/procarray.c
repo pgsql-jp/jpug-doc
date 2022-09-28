@@ -334,6 +334,11 @@ static void DisplayXidCache(void);
 #define xc_slow_answer_inc()		((void) 0)
 #endif							/* XIDCACHE_DEBUG */
 
+static VirtualTransactionId *GetVirtualXIDsDelayingChkptGuts(int *nvxids,
+															 int type);
+static bool HaveVirtualXIDsDelayingChkptGuts(VirtualTransactionId *vxids,
+											 int nvxids, int type);
+
 /* Primitives for KnownAssignedXids array handling for standby */
 static void KnownAssignedXidsCompress(bool force);
 static void KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
@@ -3037,8 +3042,9 @@ GetOldestSafeDecodingTransactionId(bool catalogOnly)
 }
 
 /*
- * GetVirtualXIDsDelayingChkpt -- Get the VXIDs of transactions that are
- * delaying checkpoint because they have critical actions in progress.
+ * GetVirtualXIDsDelayingChkptGuts -- Get the VXIDs of transactions that are
+ * delaying the start or end of a checkpoint because they have critical
+ * actions in progress.
  *
  * Constructs an array of VXIDs of transactions that are currently in commit
  * critical sections, as shown by having specified delayChkptFlags bits set
@@ -3094,6 +3100,26 @@ GetVirtualXIDsDelayingChkpt(int *nvxids, int type)
 }
 
 /*
+ * GetVirtualXIDsDelayingChkpt - Get the VXIDs of transactions that are
+ * delaying the start of a checkpoint.
+ */
+VirtualTransactionId *
+GetVirtualXIDsDelayingChkpt(int *nvxids)
+{
+	return GetVirtualXIDsDelayingChkptGuts(nvxids, DELAY_CHKPT_START);
+}
+
+/*
+ * GetVirtualXIDsDelayingChkptEnd - Get the VXIDs of transactions that are
+ * delaying the end of a checkpoint.
+ */
+VirtualTransactionId *
+GetVirtualXIDsDelayingChkptEnd(int *nvxids)
+{
+	return GetVirtualXIDsDelayingChkptGuts(nvxids, DELAY_CHKPT_COMPLETE);
+}
+
+/*
  * HaveVirtualXIDsDelayingChkpt -- Are any of the specified VXIDs delaying?
  *
  * This is used with the results of GetVirtualXIDsDelayingChkpt to see if any
@@ -3142,6 +3168,28 @@ HaveVirtualXIDsDelayingChkpt(VirtualTransactionId *vxids, int nvxids, int type)
 	LWLockRelease(ProcArrayLock);
 
 	return result;
+}
+
+/*
+ * HaveVirtualXIDsDelayingChkpt -- Are any of the specified VXIDs delaying
+ * the start of a checkpoint?
+ */
+bool
+HaveVirtualXIDsDelayingChkpt(VirtualTransactionId *vxids, int nvxids)
+{
+	return HaveVirtualXIDsDelayingChkptGuts(vxids, nvxids,
+											DELAY_CHKPT_START);
+}
+
+/*
+ * HaveVirtualXIDsDelayingChkptEnd -- Are any of the specified VXIDs delaying
+ * the end of a checkpoint?
+ */
+bool
+HaveVirtualXIDsDelayingChkptEnd(VirtualTransactionId *vxids, int nvxids)
+{
+	return HaveVirtualXIDsDelayingChkptGuts(vxids, nvxids,
+											DELAY_CHKPT_COMPLETE);
 }
 
 /*

@@ -11,12 +11,18 @@ PostgreSQL documentation
  <refmeta>
   <refentrytitle>LISTEN</refentrytitle>
   <manvolnum>7</manvolnum>
+<!--
   <refmiscinfo>SQL - Language Statements</refmiscinfo>
+-->
+  <refmiscinfo>SQL - 言語</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>LISTEN</refname>
+<!--
   <refpurpose>listen for a notification</refpurpose>
+-->
+  <refpurpose>通知を監視する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -26,32 +32,48 @@ LISTEN <replaceable class="parameter">channel</replaceable>
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <command>LISTEN</command> registers the current session as a
    listener on the notification channel named <replaceable
    class="parameter">channel</replaceable>.
    If the current session is already registered as a listener for
    this notification channel, nothing is done.
+-->
+<command>LISTEN</command>は現在のセッションを、通知チャネル<replaceable class="parameter">channel</replaceable>のリスナとして登録します。
+現在のセッションが既に指定した通知チャネルのリスナとして登録されている場合は、何も起こりません。
   </para>
 
   <para>
+<!--
    Whenever the command <command>NOTIFY <replaceable
    class="parameter">channel</replaceable></command> is invoked, either
    by this session or another one connected to the same database, all
    the sessions currently listening on that notification channel are
    notified, and each will in turn notify its connected client
    application.
+-->
+このセッションまたは同一データベースに接続している別のセッションによって<command>NOTIFY <replaceable class="parameter">channel</replaceable></command>が実行されると、現在その通知チャネルを監視している全てのセッションに対して通知されます。
+次に、各セッションは接続中のクライアントアプリケーションにこれを通知します。
   </para>
 
   <para>
+<!--
    A session can be unregistered for a given notification channel with the
    <command>UNLISTEN</command> command.  A session's listen
    registrations are automatically cleared when the session ends.
+-->
+<command>UNLISTEN</command>コマンドを使って、セッションに登録された指定通知チャネルを解除できます。
+また、セッションの監視登録はそのセッションが終了した時点で自動的に削除されます。
   </para>
 
   <para>
+<!--
    The method a client application must use to detect notification events depends on
    which <productname>PostgreSQL</productname> application programming interface it
    uses.  With the <application>libpq</application> library, the application issues
@@ -62,18 +84,31 @@ LISTEN <replaceable class="parameter">channel</replaceable>
    with <application>libpgtcl</application> the application programmer should not even issue
    <command>LISTEN</command> or <command>UNLISTEN</command> directly.  See the
    documentation for the interface you are using for more details.
+-->
+クライアントアプリケーションが通知イベントを検出する方法は、使用している<productname>PostgreSQL</productname>アプリケーションプログラミングインタフェースに依存します。
+<application>libpq</application>ライブラリを使用するアプリケーションでは、<command>LISTEN</command>を通常のSQLコマンドとして発行し、その後、<function>PQnotifies</function>ルーチンを定期的に呼び出して通知イベントが受信されたかどうかを調べる必要があります。
+<application>libpgtcl</application>等の他のインタフェースには、通知イベントを扱うより高レベルな方法が用意されています。
+実際、<application>libpgtcl</application>を使ったアプリケーションの場合、プログラマが<command>LISTEN</command>や<command>UNLISTEN</command>を直接発行する必要すらありません。
+詳細については、使用中のインタフェースのドキュメントを参照してください。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Parameters</title>
+-->
+  <title>パラメータ</title>
+
 
   <variablelist>
    <varlistentry>
     <term><replaceable class="parameter">channel</replaceable></term>
     <listitem>
      <para>
+<!--
       Name of a notification channel (any identifier).
+-->
+通知チャネルの名前です（任意の識別子）。
      </para>
     </listitem>
    </varlistentry>
@@ -81,21 +116,32 @@ LISTEN <replaceable class="parameter">channel</replaceable>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    <command>LISTEN</command> takes effect at transaction commit.
    If <command>LISTEN</command> or <command>UNLISTEN</command> is executed
    within a transaction that later rolls back, the set of notification
    channels being listened to is unchanged.
+-->
+<command>LISTEN</command>はトランザクションのコミット時に有効になります。
+<command>LISTEN</command>または<command>UNLISTEN</command>がトランザクション内で実行され、それがロールバックされた場合、監視している通知チャネルの集合は変更されません。
   </para>
 
   <para>
+<!--
    A transaction that has executed <command>LISTEN</command> cannot be
    prepared for two-phase commit.
+-->
+<command>LISTEN</command>を実行したトランザクションでは二相コミットの準備を行うことはできません。
   </para>
 
   <para>
+<!--
    There is a race condition when first setting up a listening session:
    if concurrently-committing transactions are sending notify events,
    exactly which of those will the newly listening session receive?
@@ -109,22 +155,39 @@ LISTEN <replaceable class="parameter">channel</replaceable>
    subsequent changes to the database state.  The first few received
    notifications might refer to updates already observed in the initial
    database inspection, but this is usually harmless.
+-->
+監視するセッションを最初に設定する時に、競合状態があります。
+同時にコミット中の複数のトランザクションが通知イベントを送った場合、新しく監視を始めたセッションはそのうちのどれをまさに受信するでしょうか。
+答は、トランザクションのコミット段階のある瞬間の後にコミットされたすべてのイベントを受信する、です。
+しかし、これは問い合わせにおいてトランザクションが気づくデータベースの状態よりもわずかに後です。
+ここから<command>LISTEN</command>を使う場合の以下のような規則が導かれます。
+まずそのコマンドを実行する(そしてコミットする！)、それから新しいトランザクションでアプリケーションのロジックの必要に応じてデータベースの状態を検査する、それから通知に基づいてデータベースの状態に対するその後の変更を確認する。
+最初に受信した通知のいくつかはデータベースの最初の検査ですでに確認した更新を参照しているかもしれませんが、これは普通は無害です。
   </para>
 
   <para>
+<!--
    <xref linkend="sql-notify"/>
    contains a more extensive
    discussion of the use of <command>LISTEN</command> and
    <command>NOTIFY</command>.
+-->
+<xref linkend="sql-notify"/>には、<command>LISTEN</command>および<command>NOTIFY</command>についてのより広範な説明があります。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Examples</title>
+-->
+  <title>例</title>
 
   <para>
+<!--
    Configure and execute a listen/notify sequence from
    <application>psql</application>:
+-->
+<application>psql</application>から、監視/通知処理の設定と実行を行います。
 
 <programlisting>
 LISTEN virtual;
@@ -134,16 +197,25 @@ Asynchronous notification "virtual" received from server process with PID 8448.
  </refsect1>
 
  <refsect1>
+<!--
   <title>Compatibility</title>
+-->
+  <title>互換性</title>
 
   <para>
+<!--
    There is no <command>LISTEN</command> statement in the SQL
    standard.
+-->
+標準SQLに<command>LISTEN</command>はありません。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>See Also</title>
+-->
+  <title>関連項目</title>
 
   <simplelist type="inline">
    <member><xref linkend="sql-notify"/></member>

@@ -181,6 +181,21 @@ main(int argc, char *argv[])
 					pg_fatal("oldest transaction ID (-u) must be greater than or equal to %u", FirstNormalTransactionId);
 				break;
 
+			case 'u':
+				set_oldest_xid = strtoul(optarg, &endptr, 0);
+				if (endptr == optarg || *endptr != '\0')
+				{
+					pg_log_error("invalid argument for option %s", "-u");
+					fprintf(stderr, _("Try \"%s --help\" for more information.\n"), progname);
+					exit(1);
+				}
+				if (!TransactionIdIsNormal(set_oldest_xid))
+				{
+					pg_log_error("oldest transaction ID (-u) must be greater than or equal to %u", FirstNormalTransactionId);
+					exit(1);
+				}
+				break;
+
 			case 'x':
 				errno = 0;
 				set_xid = strtoul(optarg, &endptr, 0);

@@ -8,52 +8,82 @@
  </indexterm>
 
  <para>
+<!--
   <filename>unaccent</filename> is a text search dictionary that removes accents
   (diacritic signs) from lexemes.
   It's a filtering dictionary, which means its output is
   always passed to the next dictionary (if any), unlike the normal
   behavior of dictionaries.  This allows accent-insensitive processing
   for full text search.
+-->
+<filename>unaccent</filename>は語彙素からアクセント(発音区分記号)を取り除く全文検索用の辞書です。
+これはフィルタ処理を行う辞書、つまり、標準の動作と異なり、その出力が常に次の辞書（もしあれば）に渡されるものです。
+これにより全文検索においてアクセントを無視した処理を行うことができます。
  </para>
 
  <para>
+<!--
   The current implementation of <filename>unaccent</filename> cannot be used as a
   normalizing dictionary for the <filename>thesaurus</filename> dictionary.
+-->
+現在の<filename>unaccent</filename>の実装では<filename>thesaurus</filename>辞書向けの正規化用辞書として使用することはできません。
  </para>
 
  <para>
+<!--
   This module is considered <quote>trusted</quote>, that is, it can be
   installed by non-superusers who have <literal>CREATE</literal> privilege
   on the current database.
+-->
+このモジュールは<quote>trusted</quote>と見なされます。つまり、現在のデータベースに対して<literal>CREATE</literal>権限を持つ非スーパーユーザがインストールできます。
  </para>
 
  <sect2>
+<!--
   <title>Configuration</title>
+-->
+  <title>設定</title>
 
   <para>
+<!--
    An <literal>unaccent</literal> dictionary accepts the following options:
+-->
+<literal>unaccent</literal>辞書は以下のオプションを受け付けます。
   </para>
   <itemizedlist>
    <listitem>
     <para>
+<!--
      <literal>RULES</literal> is the base name of the file containing the list of
      translation rules.  This file must be stored in
      <filename>$SHAREDIR/tsearch_data/</filename> (where <literal>$SHAREDIR</literal> means
      the <productname>PostgreSQL</productname> installation's shared-data directory).
      Its name must end in <literal>.rules</literal> (which is not to be included in
      the <literal>RULES</literal> parameter).
+-->
+<literal>RULES</literal>は翻訳規則の一覧を含むファイルのベースネームです。
+このファイルは<filename>$SHAREDIR/tsearch_data/</filename>内に格納しなければなりません。（ここで<literal>$SHAREDIR</literal>は<productname>PostgreSQL</productname>インストレーションの共有データディレクトリを意味します。）
+この名前は<literal>.rules</literal>で終わらなければなりません。（<literal>.rules</literal>は<literal>RULES</literal>パラメータには含まれません。）
     </para>
    </listitem>
   </itemizedlist>
   <para>
+<!--
    The rules file has the following format:
+-->
+rulesファイルの書式は以下の通りです。
   </para>
   <itemizedlist>
    <listitem>
     <para>
+<!--
      Each line represents one translation rule, consisting of a character with
      accent followed by a character without accent.  The first is translated
      into the second.  For example,
+-->
+各行は、アクセント付き文字とその後にアクセントを取り除いた文字から構成される、1つの変換規則です。
+一つ目が二つ目に変換されます。
+以下に例を示します。
 <programlisting>
 &Agrave;        A
 &Aacute;        A
@@ -63,40 +93,55 @@
 &Aring;        A
 &AElig;        AE
 </programlisting>
+<!--
      The two characters must be separated by whitespace, and any leading or
      trailing whitespace on a line is ignored.
+-->
+2つの文字は空白で分けられていなければならず、行の先頭や末尾の空白は無視されます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Alternatively, if only one character is given on a line, instances of
      that character are deleted; this is useful in languages where accents
      are represented by separate characters.
+-->
+あるいは、一行に一文字だけ指定された場合、その文字は削除されます。これは、アクセントが分かれた文字で表現される言語では便利です。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      Actually, each <quote>character</quote> can be any string not containing
      whitespace, so <filename>unaccent</filename> dictionaries could be used for
      other sorts of substring substitutions besides diacritic removal.
+-->
+実のところ、各<quote>文字</quote>は空白を含まなければいかなる文字列でも良いので、<filename>unaccent</filename>辞書は発音区別符号の除去に加えて、部分文字列の置換などに使うこともできます。
     </para>
    </listitem>
 
    <listitem>
     <para>
+<!--
      As with other <productname>PostgreSQL</productname> text search configuration files,
      the rules file must be stored in UTF-8 encoding.  The data is
      automatically translated into the current database's encoding when
      loaded.  Any lines containing untranslatable characters are silently
      ignored, so that rules files can contain rules that are not applicable in
      the current encoding.
+-->
+他の<productname>PostgreSQL</productname>テキスト検索設定ファイルと同じように、rulesファイルはUTF-8エンコーディングで保存しなければなりません。
+データはロード時に自動的に現在のデータベースのエンコーディングに変換されます。
+rulesファイルが現在のエンコーディングで適用できない規則も含むことができるように、変換できない文字を含む行は単に無視されます。
     </para>
    </listitem>
   </itemizedlist>
 
   <para>
+<!--
    A more complete example, which is directly useful for most European
    languages, can be found in <filename>unaccent.rules</filename>, which is installed
    in <filename>$SHAREDIR/tsearch_data/</filename> when the <filename>unaccent</filename>
@@ -104,29 +149,47 @@
    to the same characters without accents, and it also expands ligatures
    into the equivalent series of simple characters (for example, &AElig; to
    AE).
+-->
+<filename>unaccent.rules</filename>は、ほとんどの欧州圏の言語で直接使用できる、より複雑な例です。
+これは<filename>unaccent</filename>モジュールをインストールした時に<filename>$SHAREDIR/tsearch_data/</filename>にインストールされます。
+このrulesファイルは、アクセント記号のある文字をアクセント記号のない同じ文字に変換し、また、合字を同等な普通の文字の並びに(例えば、&AElig;をAEに)展開します。
   </para>
  </sect2>
 
  <sect2>
+<!--
   <title>Usage</title>
+-->
+  <title>使用方法</title>
 
   <para>
+<!--
    Installing the <literal>unaccent</literal> extension creates a text
    search template <literal>unaccent</literal> and a dictionary <literal>unaccent</literal>
    based on it.  The <literal>unaccent</literal> dictionary has the default
    parameter setting <literal>RULES='unaccent'</literal>, which makes it immediately
    usable with the standard <filename>unaccent.rules</filename> file.
    If you wish, you can alter the parameter, for example
+-->
+<literal>unaccent</literal>拡張をインストールすることで、<literal>unaccent</literal>全文検索テンプレートとそれに基づくデフォルトのパラメータを持つ<literal>unaccent</literal>辞書が生成されます。
+<literal>unaccent</literal>辞書は<literal>RULES='unaccent'</literal>というデフォルトパラメータ設定を持ちます。これは標準の<filename>unaccent.rules</filename>ファイルを即座に使用可能にします。
+次の例のようにパラメータを変更することができます。
 
 <programlisting>
 mydb=# ALTER TEXT SEARCH DICTIONARY unaccent (RULES='my_rules');
 </programlisting>
 
+<!--
    or create new dictionaries based on the template.
+-->
+また、このテンプレートに基づいた辞書を新規に作成することができます。
   </para>
 
   <para>
+<!--
    To test the dictionary, you can try:
+-->
+以下を行うことで、辞書の動作を確認することができます。
 <programlisting>
 mydb=# select ts_lexize('unaccent','H&ocirc;tel');
  ts_lexize
@@ -137,8 +200,11 @@ mydb=# select ts_lexize('unaccent','H&ocirc;tel');
   </para>
 
   <para>
+<!--
    Here is an example showing how to insert the
    <filename>unaccent</filename> dictionary into a text search configuration:
+-->
+全文検索設定に<filename>unaccent</filename>辞書を組み込む方法を示す例を以下に示します。
 <programlisting>
 mydb=# CREATE TEXT SEARCH CONFIGURATION fr ( COPY = french );
 mydb=# ALTER TEXT SEARCH CONFIGURATION fr
@@ -166,13 +232,20 @@ mydb=# select ts_headline('fr','H&ocirc;tel de la Mer',to_tsquery('fr','Hotels')
  </sect2>
 
  <sect2>
+<!--
  <title>Functions</title>
+-->
+ <title>関数</title>
 
  <para>
+<!--
   The <function>unaccent()</function> function removes accents (diacritic signs) from
   a given string.  Basically, it's a wrapper around
   <filename>unaccent</filename>-type dictionaries, but it can be used outside normal
   text search contexts.
+-->
+<function>unaccent</function>関数は与えられた文字列からアクセント（発音区別符号）を取り除きます。
+基本的にこれは<filename>unaccent</filename>型の辞書のラッパです。しかし通常の全文検索以外の文脈で使用することができます。
  </para>
 
  <indexterm>
@@ -184,14 +257,20 @@ unaccent(<optional><replaceable class="parameter">dictionary</replaceable> <type
 </synopsis>
 
  <para>
+<!--
   If the <replaceable class="parameter">dictionary</replaceable> argument is
   omitted, the text search dictionary named <literal>unaccent</literal> and
   appearing in the same schema as the <function>unaccent()</function>
   function itself is used.
+-->
+引数<replaceable class="parameter">dictionary</replaceable>が省略された場合、<literal>unaccent</literal>という名前で<function>unaccent()</function>関数自体と同じスキーマにある全文検索用の辞書が使われます。
  </para>
 
  <para>
+<!--
   For example:
+-->
+下記は使用例です。
 <programlisting>
 SELECT unaccent('unaccent', 'H&ocirc;tel');
 SELECT unaccent('H&ocirc;tel');

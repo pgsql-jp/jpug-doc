@@ -1437,6 +1437,7 @@ static int
 PQsendQueryInternal(PGconn *conn, const char *query, bool newQuery)
 {
 	PGcmdQueueEntry *entry = NULL;
+	PGcmdQueueEntry *entry2 = NULL;
 
 	if (!PQsendQueryStart(conn, newQuery))
 		return 0;
@@ -1460,6 +1461,12 @@ PQsendQueryInternal(PGconn *conn, const char *query, bool newQuery)
 	entry = pqAllocCmdQueueEntry(conn);
 	if (entry == NULL)
 		return 0;				/* error msg already set */
+	if (conn->pipelineStatus != PQ_PIPELINE_OFF)
+	{
+		entry2 = pqAllocCmdQueueEntry(conn);
+		if (entry2 == NULL)
+			goto sendFailed;
+	}
 
 	/* Send the query message(s) */
 	/* construct the outgoing Query message */
@@ -1491,6 +1498,7 @@ PQsendQueryInternal(PGconn *conn, const char *query, bool newQuery)
 
 sendFailed:
 	pqRecycleCmdQueueEntry(conn, entry);
+	pqRecycleCmdQueueEntry(conn, entry2);
 	/* error message should be set up already */
 	return 0;
 }

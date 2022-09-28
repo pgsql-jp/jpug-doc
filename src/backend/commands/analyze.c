@@ -549,6 +549,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	{
 		MemoryContext col_context,
 					old_context;
+		bool		build_ext_stats;
 
 		pgstat_progress_update_param(PROGRESS_ANALYZE_PHASE,
 									 PROGRESS_ANALYZE_PHASE_COMPUTE_STATS);

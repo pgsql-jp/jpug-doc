@@ -122,6 +122,11 @@ switch_server_cert($node, certfile => 'server-cn-only');
 my $default_ssl_connstr =
   "sslkey=invalid sslcert=invalid sslrootcert=invalid sslcrl=invalid sslcrldir=invalid";
 
+# Set of default settings for SSL parameters in connection string.  This
+# makes the tests protected against any defaults the environment may have
+# in ~/.postgresql/.
+my $default_ssl_connstr = "sslkey=invalid sslcert=invalid sslrootcert=invalid sslcrl=invalid sslcrldir=invalid";
+
 $common_connstr =
   "$default_ssl_connstr user=ssltestuser dbname=trustdb hostaddr=$SERVERHOSTADDR host=common-name.pg-ssltest.test";
 

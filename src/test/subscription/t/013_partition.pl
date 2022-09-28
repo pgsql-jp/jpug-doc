@@ -415,6 +415,12 @@ $node_publisher->safe_psql('postgres',
 	"CREATE TABLE tab4_1_1 PARTITION OF tab4_1 FOR VALUES IN (0, 1)");
 
 $node_publisher->safe_psql('postgres',
+	"CREATE TABLE tab4 (a int PRIMARY KEY) PARTITION BY LIST (a)");
+$node_publisher->safe_psql('postgres',
+	"CREATE TABLE tab4_1 PARTITION OF tab4 FOR VALUES IN (0, 1) PARTITION BY LIST (a)");
+$node_publisher->safe_psql('postgres',
+	"CREATE TABLE tab4_1_1 PARTITION OF tab4_1 FOR VALUES IN (0, 1)");
+$node_publisher->safe_psql('postgres',
 	"ALTER PUBLICATION pub_all SET (publish_via_partition_root = true)");
 # Note: tab3_1's parent is not in the publication, in which case its
 # changes are published using own identity. For tab2, even though both parent
@@ -423,6 +429,12 @@ $node_publisher->safe_psql('postgres',
 $node_publisher->safe_psql('postgres',
 	"CREATE PUBLICATION pub_viaroot FOR TABLE tab2, tab2_1, tab3_1 WITH (publish_via_partition_root = true)"
 );
+$node_publisher->safe_psql('postgres',
+	"CREATE PUBLICATION pub_lower_level FOR TABLE tab4_1 WITH (publish_via_partition_root = true)"
+);
+
+# prepare data for the initial sync
+$node_publisher->safe_psql('postgres', "INSERT INTO tab2 VALUES (1)");
 
 # for tab4, we publish changes through the "middle" partitioned table
 $node_publisher->safe_psql('postgres',
@@ -493,6 +505,11 @@ $node_subscriber2->wait_for_subscription_sync;
 $result = $node_subscriber1->safe_psql('postgres', "SELECT c, a FROM tab2");
 is($result, qq(sub1_tab2|1), 'initial data synced for pub_viaroot');
 
+# check that data is synced correctly
+$result = $node_subscriber1->safe_psql('postgres',
+	"SELECT c, a FROM tab2");
+is( $result, qq(sub1_tab2|1), 'initial data synced for pub_viaroot');
+
 # insert
 $node_publisher->safe_psql('postgres', "INSERT INTO tab1 VALUES (1), (0)");
 $node_publisher->safe_psql('postgres', "INSERT INTO tab1_1 (a) VALUES (3)");
@@ -501,6 +518,8 @@ $node_publisher->safe_psql('postgres',
 	"INSERT INTO tab2 VALUES (0), (3), (5)");
 $node_publisher->safe_psql('postgres',
 	"INSERT INTO tab3 VALUES (1), (0), (3), (5)");
+$node_publisher->safe_psql('postgres',
+	"INSERT INTO tab4 VALUES (0)");
 
 # Insert a row into the leaf partition, should be replicated through the
 # partition root (thanks to the FOR ALL TABLES partition).

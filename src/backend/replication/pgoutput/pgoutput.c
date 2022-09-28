@@ -1361,6 +1361,8 @@ pgoutput_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 
 	update_replication_progress(ctx, false);
 
+	update_replication_progress(ctx);
+
 	if (!is_publishable_relation(relation))
 		return;
 
@@ -2396,6 +2398,39 @@ update_replication_progress(LogicalDecodingContext *ctx, bool skipped_xact)
 	if (ctx->end_xact || ++changes_count >= CHANGES_THRESHOLD)
 	{
 		OutputPluginUpdateProgress(ctx, skipped_xact);
+		changes_count = 0;
+	}
+}
+
+/*
+ * Try to update progress and send a keepalive message if too many changes were
+ * processed.
+ *
+ * For a large transaction, if we don't send any change to the downstream for a
+ * long time (exceeds the wal_receiver_timeout of standby) then it can timeout.
+ * This can happen when all or most of the changes are not published.
+ */
+static void
+update_replication_progress(LogicalDecodingContext *ctx)
+{
+	static int	changes_count = 0;
+
+	/*
+	 * We don't want to try sending a keepalive message after processing each
+	 * change as that can have overhead. Tests revealed that there is no
+	 * noticeable overhead in doing it after continuously processing 100 or so
+	 * changes.
+	 */
+#define CHANGES_THRESHOLD 100
+
+	/*
+	 * If we are at the end of transaction LSN, update progress tracking.
+	 * Otherwise, after continuously processing CHANGES_THRESHOLD changes, we
+	 * try to send a keepalive message if required.
+	 */
+	if (ctx->end_xact || ++changes_count >= CHANGES_THRESHOLD)
+	{
+		OutputPluginUpdateProgress(ctx);
 		changes_count = 0;
 	}
 }

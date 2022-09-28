@@ -1898,6 +1898,18 @@ AdvanceXLInsertBuffer(XLogRecPtr upto, TimeLineID tli, bool opportunistic)
 			NewPage->xlp_info |= XLP_BKP_REMOVABLE;
 
 		/*
+		 * If a record was found to be broken at the end of recovery, and
+		 * we're going to write on the page where its first contrecord was
+		 * lost, set the XLP_FIRST_IS_OVERWRITE_CONTRECORD flag on the page
+		 * header.  See CreateOverwriteContrecordRecord().
+		 */
+		if (missingContrecPtr == NewPageBeginPtr)
+		{
+			NewPage->xlp_info |= XLP_FIRST_IS_OVERWRITE_CONTRECORD;
+			missingContrecPtr = InvalidXLogRecPtr;
+		}
+
+		/*
 		 * If first page of an XLOG segment file, make it a long header.
 		 */
 		if ((XLogSegmentOffset(NewPage->xlp_pageaddr, wal_segment_size)) == 0)
@@ -5463,6 +5475,18 @@ StartupXLOG(void)
 	}
 
 	/*
+	 * Actually, if WAL ended in an incomplete record, skip the parts that
+	 * made it through and start writing after the portion that persisted.
+	 * (It's critical to first write an OVERWRITE_CONTRECORD message, which
+	 * we'll do as soon as we're open for writing new WAL.)
+	 */
+	if (!XLogRecPtrIsInvalid(missingContrecPtr))
+	{
+		Assert(!XLogRecPtrIsInvalid(abortedRecPtr));
+		EndOfLog = missingContrecPtr;
+	}
+
+	/*
 	 * Prepare to write WAL starting at EndOfLog location, and init xlog
 	 * buffer cache using the block containing the last record from the
 	 * previous incarnation.
@@ -5510,6 +5534,17 @@ StartupXLOG(void)
 
 	XLogCtl->LogwrtRqst.Write = EndOfLog;
 	XLogCtl->LogwrtRqst.Flush = EndOfLog;
+
+	LocalSetXLogInsertAllowed();
+
+	/* If necessary, write overwrite-contrecord before doing anything else */
+	if (!XLogRecPtrIsInvalid(abortedRecPtr))
+	{
+		Assert(!XLogRecPtrIsInvalid(missingContrecPtr));
+		CreateOverwriteContrecordRecord(abortedRecPtr);
+		abortedRecPtr = InvalidXLogRecPtr;
+		missingContrecPtr = InvalidXLogRecPtr;
+	}
 
 	/*
 	 * Preallocate additional log files, if wanted.
@@ -6844,6 +6879,53 @@ CreateOverwriteContrecordRecord(XLogRecPtr aborted_lsn, XLogRecPtr pagePtr,
 }
 
 /*
+ * Write an OVERWRITE_CONTRECORD message.
+ *
+ * When on WAL replay we expect a continuation record at the start of a page
+ * that is not there, recovery ends and WAL writing resumes at that point.
+ * But it's wrong to resume writing new WAL back at the start of the record
+ * that was broken, because downstream consumers of that WAL (physical
+ * replicas) are not prepared to "rewind".  So the first action after
+ * finishing replay of all valid WAL must be to write a record of this type
+ * at the point where the contrecord was missing; to support xlogreader
+ * detecting the special case, XLP_FIRST_IS_OVERWRITE_CONTRECORD is also added
+ * to the page header where the record occurs.  xlogreader has an ad-hoc
+ * mechanism to report metadata about the broken record, which is what we
+ * use here.
+ *
+ * At replay time, XLP_FIRST_IS_OVERWRITE_CONTRECORD instructs xlogreader to
+ * skip the record it was reading, and pass back the LSN of the skipped
+ * record, so that its caller can verify (on "replay" of that record) that the
+ * XLOG_OVERWRITE_CONTRECORD matches what was effectively overwritten.
+ */
+static XLogRecPtr
+CreateOverwriteContrecordRecord(XLogRecPtr aborted_lsn)
+{
+	xl_overwrite_contrecord xlrec;
+	XLogRecPtr	recptr;
+
+	/* sanity check */
+	if (!RecoveryInProgress())
+		elog(ERROR, "can only be used at end of recovery");
+
+	xlrec.overwritten_lsn = aborted_lsn;
+	xlrec.overwrite_time = GetCurrentTimestamp();
+
+	START_CRIT_SECTION();
+
+	XLogBeginInsert();
+	XLogRegisterData((char *) &xlrec, sizeof(xl_overwrite_contrecord));
+
+	recptr = XLogInsert(RM_XLOG_ID, XLOG_OVERWRITE_CONTRECORD);
+
+	XLogFlush(recptr);
+
+	END_CRIT_SECTION();
+
+	return recptr;
+}
+
+/*
  * Flush all data in shared memory to disk, and fsync
  *
  * This is the common code shared between regular checkpoints and
@@ -7739,6 +7821,13 @@ xlog_redo(XLogReaderState *record)
 	else if (info == XLOG_OVERWRITE_CONTRECORD)
 	{
 		/* nothing to do here, handled in xlogrecovery_redo() */
+	}
+	else if (info == XLOG_OVERWRITE_CONTRECORD)
+	{
+		xl_overwrite_contrecord xlrec;
+
+		memcpy(&xlrec, XLogRecGetData(record), sizeof(xl_overwrite_contrecord));
+		VerifyOverwriteContrecord(&xlrec, record);
 	}
 	else if (info == XLOG_END_OF_RECOVERY)
 	{

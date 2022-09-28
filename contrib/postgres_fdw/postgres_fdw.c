@@ -5430,7 +5430,7 @@ postgresImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid)
 				attname = PQgetvalue(res, i, 1);
 				typename = PQgetvalue(res, i, 2);
 				attnotnull = PQgetvalue(res, i, 3);
-				attdefault = PQgetisnull(res, i, 4) ? (char *) NULL :
+				attgenerated = PQgetisnull(res, i, 4) ? (char *) NULL :
 					PQgetvalue(res, i, 4);
 				attgenerated = PQgetisnull(res, i, 5) ? (char *) NULL :
 					PQgetvalue(res, i, 5);

@@ -136,11 +136,6 @@ static bool check_exclusion_or_unique_constraint(Relation heap, Relation index,
 static bool index_recheck_constraint(Relation index, Oid *constr_procs,
 									 Datum *existing_values, bool *existing_isnull,
 									 Datum *new_values);
-static bool index_unchanged_by_update(ResultRelInfo *resultRelInfo,
-									  EState *estate, IndexInfo *indexInfo,
-									  Relation indexRelation);
-static bool index_expression_changed_walker(Node *node,
-											Bitmapset *allUpdatedCols);
 
 /* ----------------------------------------------------------------
  *		ExecOpenIndices
@@ -406,11 +401,12 @@ ExecInsertIndexTuples(ResultRelInfo *resultRelInfo,
 		 * There's definitely going to be an index_insert() call for this
 		 * index.  If we're being called as part of an UPDATE statement,
 		 * consider if the 'indexUnchanged' = true hint should be passed.
+		 *
+		 * XXX We always assume that the hint should be passed for an UPDATE.
+		 * This is a workaround for a bug in PostgreSQL 14.  In practice this
+		 * won't make much difference for current users of the hint.
 		 */
-		indexUnchanged = update && index_unchanged_by_update(resultRelInfo,
-															 estate,
-															 indexInfo,
-															 indexRelation);
+		indexUnchanged = update;
 
 		satisfiesConstraint =
 			index_insert(indexRelation, /* index relation */

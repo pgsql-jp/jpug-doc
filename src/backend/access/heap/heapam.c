@@ -1558,6 +1558,25 @@ heap_fetch(Relation relation,
 		   Buffer *userbuf,
 		   bool keep_buf)
 {
+	return heap_fetch_extended(relation, snapshot, tuple, userbuf, false);
+}
+
+/*
+ *	heap_fetch_extended		- fetch tuple even if it fails snapshot test
+ *
+ * If keep_buf is true, then upon finding a tuple that is valid but fails
+ * the snapshot check, we return the tuple pointer in tuple->t_data and the
+ * buffer ID in *userbuf, keeping the buffer pin, just as if it had passed
+ * the snapshot.  (The function result is still "false" though.)
+ * If keep_buf is false then this behaves identically to heap_fetch().
+ */
+bool
+heap_fetch_extended(Relation relation,
+					Snapshot snapshot,
+					HeapTuple tuple,
+					Buffer *userbuf,
+					bool keep_buf)
+{
 	ItemPointer tid = &(tuple->t_self);
 	ItemId		lp;
 	Buffer		buffer;

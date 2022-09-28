@@ -209,6 +209,9 @@ static const char *backend_options = "--single -F -O -j -c search_path=pg_catalo
 /* Additional switches to pass to backend (either boot or standalone) */
 static char *extra_options = "";
 
+/* Additional switches to pass to backend (either boot or standalone) */
+static char *extra_options = "";
+
 static const char *const subdirs[] = {
 	"global",
 	"pg_wal/archive_status",

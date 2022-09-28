@@ -858,6 +858,11 @@ CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt)
 			PublicationAddSchemas(puboid, schemaidlist, true, NULL);
 		}
 	}
+	else if (stmt->for_all_tables)
+	{
+		/* Invalidate relcache so that publication info is rebuilt. */
+		CacheInvalidateRelcacheAll();
+	}
 
 	table_close(rel, RowExclusiveLock);
 

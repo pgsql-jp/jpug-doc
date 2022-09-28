@@ -349,7 +349,7 @@ SELECT t1.id, t2.path, t2 FROM t AS t1 JOIN t AS t2 ON
 
 -- SEARCH clause
 
-create temp table graph0( f int, t int, label text );
+create table graph0( f int, t int, label text );
 
 insert into graph0 values
 	(1, 2, 'arc 1 -> 2'),
@@ -488,6 +488,8 @@ select f, t, label from search_graph;
 select pg_get_viewdef('v_search');
 
 select * from v_search;
+
+drop table graph0 cascade;
 
 --
 -- test cycle detection

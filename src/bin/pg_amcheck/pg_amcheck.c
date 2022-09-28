@@ -1076,7 +1076,7 @@ verify_btree_slot_handler(PGresult *res, PGconn *conn, void *context)
 
 	if (PQresultStatus(res) == PGRES_TUPLES_OK)
 	{
-		int			ntups = PQntuples(res);
+		int                     ntups = PQntuples(res);
 
 		if (ntups > 1)
 		{

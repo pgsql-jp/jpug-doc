@@ -4779,6 +4779,9 @@ psql_completion(const char *text, int start, int end)
 #ifdef HAVE_RL_COMPLETION_SUPPRESS_QUOTE
 		rl_completion_suppress_quote = 1;
 #endif
+#ifdef HAVE_RL_COMPLETION_SUPPRESS_QUOTE
+		rl_completion_suppress_quote = 1;
+#endif
 	}
 
 	/* free storage */
