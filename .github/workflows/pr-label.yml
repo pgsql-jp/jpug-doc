@@ -1,0 +1,41 @@
+on: pull_request_target
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get label length
+        id: getlength
+        env:
+          labels: ${{ toJson(github.event.pull_request.labels) }}
+        run: |
+          echo "$labels"
+          LL=$(echo $labels | jq '. | length' )
+          echo "::set-output name=Label_length::$LL"
+      - name: Add label
+        uses: actions/github-script@v3
+        if: steps.getlength.outputs.Label_length == 0
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['レビュー待ち'] 
+            })
+      - name: Add re-review label
+        uses: actions/github-script@v3
+        if: contains(github.event.pull_request.labels.*.name, '指摘事項あり')
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.removeLabel({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              name: '指摘事項あり'
+            })
+            github.issues.addLabels({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['再レビュー待ち'] 
+            })

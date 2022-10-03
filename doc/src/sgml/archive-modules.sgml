@@ -7,33 +7,49 @@
  </indexterm>
 
  <para>
+<!--
   PostgreSQL provides infrastructure to create custom modules for continuous
   archiving (see <xref linkend="continuous-archiving"/>).  While archiving via
   a shell command (i.e., <xref linkend="guc-archive-command"/>) is much
   simpler, a custom archive module will often be considerably more robust and
   performant.
+-->
+《機械翻訳》PostgreSQLは、継続的アーカイブのためのカスタムモジュールを作成するためのインフラストラクチャを提供します(<xref linkend="continuous-archiving"/>を参照)。
+シェルコマンド(<xref linkend="guc-archive-command"/>など)によるアーカイブは非常に簡単ですが、カスタムアーカイブモジュールはしばしば非常に堅牢でパフォーマンスが高いでしょう。
  </para>
 
  <para>
+<!--
   When a custom <xref linkend="guc-archive-library"/> is configured, PostgreSQL
   will submit completed WAL files to the module, and the server will avoid
   recycling or removing these WAL files until the module indicates that the files
   were successfully archived.  It is ultimately up to the module to decide what
   to do with each WAL file, but many recommendations are listed at
   <xref linkend="backup-archiving-wal"/>.
+-->
+《機械翻訳》カスタム<xref linkend="guc-archive-library"/>が設定されている場合、PostgreSQLは完了したWALファイルをモジュールに送信します。
+サーバは、モジュールがファイルが正常にアーカイブされたことを示すまで、これらのWALファイルの再利用や削除を回避します。
+各WALファイルをどうするかは最終的にモジュール次第ですが、<xref linkend="backup-archiving-wal"/>には多くの推奨事項が記載されています。
  </para>
 
  <para>
+<!--
   Archiving modules must at least consist of an initialization function (see
   <xref linkend="archive-module-init"/>) and the required callbacks (see
   <xref linkend="archive-module-callbacks"/>).  However, archive modules are
   also permitted to do much more (e.g., declare GUCs and register background
   workers).
+-->
+《機械翻訳》アーカイブモジュールは、少なくとも初期化関数(<xref linkend="archive-module-init"/>を参照)と必要なコールバック(<xref linkend="archive-module-callbacks"/>を参照)で構成されている必要があります。
+しかし、アーカイブモジュールはさらに多くのこと(GUCsの宣言やバックグラウンドワーカの登録など)も許可されています。
  </para>
 
  <para>
+<!--
   The <filename>contrib/basic_archive</filename> module contains a working
   example, which demonstrates some useful techniques.
+-->
+《機械翻訳》<filename>contrib/basic_archive</filename>モジュールには、いくつかの有用なテクニックを示す実用的な例が含まれています。
  </para>
 
  <sect1 id="archive-module-init">
@@ -42,6 +58,7 @@
    <primary>_PG_archive_module_init</primary>
   </indexterm>
   <para>
+<!--
    An archive library is loaded by dynamically loading a shared library with the
    <xref linkend="guc-archive-library"/>'s name as the library base name.  The
    normal library search path is used to locate the library.  To provide the
@@ -63,51 +80,77 @@ typedef void (*ArchiveModuleInit) (struct ArchiveModuleCallbacks *cb);
 
    Only the <function>archive_file_cb</function> callback is required.  The
    others are optional.
+-->
+《機械翻訳》アーカイブ・ライブラリは、<xref linkend="guc-archive-library"/>の名前をライブラリ・ベース名として共有ライブラリを動的にロードすることによってロードされます。
+通常のライブラリ検索パスを使用してライブラリが検索されます。
+必要なアーカイブ・モジュール・コールバックを提供し、ライブラリが実際にアーカイブ・モジュールであることを示すには、<function>_PG_archive_module_init</function>という名前の関数を提供する必要があります。
+この関数には、個々のアクション用のコールバック関数ポインタを格納する必要がある構造体が渡されます。
+<programlisting>typedef struct ArchiveModuleCallbacks{ArchiveCheckConfiguredCB check_configured_cb;ArchiveFileCB archive_file_cb;ArchiveShutdownCB shutdown_cb;}ArchiveModuleCallbacks;typedef void(*ArchiveModuleInit)(struct ArchiveModuleCallbacks*cb);</programlisting><function>archive_file_cb</function>コールバックのみが必要です。
+その他はオプションです。
   </para>
  </sect1>
 
  <sect1 id="archive-module-callbacks">
   <title>Archive Module Callbacks</title>
   <para>
+<!--
    The archive callbacks define the actual archiving behavior of the module.
    The server will call them as required to process each individual WAL file.
+-->
+《機械翻訳》アーカイブコールバックは、モジュールの実際のアーカイブ動作を定義します。
+サーバは、個々のWALファイルを処理するために必要に応じてこれらを呼び出します。
   </para>
 
   <sect2 id="archive-module-check">
    <title>Check Callback</title>
    <para>
+<!--
     The <function>check_configured_cb</function> callback is called to determine
     whether the module is fully configured and ready to accept WAL files (e.g.,
     its configuration parameters are set to valid values).  If no
     <function>check_configured_cb</function> is defined, the server always
     assumes the module is configured.
+-->
+《機械翻訳》<function>check_configured_cb</function>コールバックは、モジュールが完全に設定されていて、WALファイルを受け入れる準備ができているかどうかを判断するために呼び出されます。
+<function>check_configured_cb</function>が定義されていない場合、サーバは常にモジュールが設定されていると想定します。
 
 <programlisting>
 typedef bool (*ArchiveCheckConfiguredCB) (void);
 </programlisting>
 
+<!--
     If <literal>true</literal> is returned, the server will proceed with
     archiving the file by calling the <function>archive_file_cb</function>
     callback.  If <literal>false</literal> is returned, archiving will not
     proceed, and the archiver will emit the following message to the server log:
+-->
+《機械翻訳》<literal>true</literal>が返された場合、サーバは<function>archive_file_cb</function>コールバックを呼び出してファイルのアーカイブを続行します。
+<literal>false</literal>が返された場合、アーカイブは続行されず、アーカイバはサーバログに次のメッセージを出力します:
 <screen>
 WARNING:  archive_mode enabled, yet archiving is not configured
 </screen>
+<!--
     In the latter case, the server will periodically call this function, and
     archiving will proceed only when it returns <literal>true</literal>.
+-->
+《機械翻訳》後者の場合、サーバは定期的にこの関数を呼び出し、<literal>true</literal>が返された場合のみアーカイブが続行されます。
    </para>
   </sect2>
 
   <sect2 id="archive-module-archive">
    <title>Archive Callback</title>
    <para>
+<!--
     The <function>archive_file_cb</function> callback is called to archive a
     single WAL file.
+-->
+《機械翻訳》<function>archive_file_cb</function>コールバックは、単一のWALファイルをアーカイブするために呼び出されます。
 
 <programlisting>
 typedef bool (*ArchiveFileCB) (const char *file, const char *path);
 </programlisting>
 
+<!--
     If <literal>true</literal> is returned, the server proceeds as if the file
     was successfully archived, which may include recycling or removing the
     original WAL file.  If <literal>false</literal> is returned, the server will
@@ -115,17 +158,26 @@ typedef bool (*ArchiveFileCB) (const char *file, const char *path);
     <replaceable>file</replaceable> will contain just the file name of the WAL
     file to archive, while <replaceable>path</replaceable> contains the full
     path of the WAL file (including the file name).
+-->
+《機械翻訳》<literal>true</literal>が返された場合、サーバはファイルが正常にアーカイブされたかのように処理を進めます。
+これには元のWALファイルのリサイクルまたは削除が含まれる場合があります。
+<literal>false</literal>が返された場合、サーバは元のWALファイルを保持し、後でアーカイブを再試行します。
+<replaceable>file</replaceable>にはアーカイブするWALファイルのファイル名だけが含まれ、<replaceable>path</replaceable>にはWALファイルのフルパス(ファイル名を含む)が含まれます。
    </para>
   </sect2>
 
   <sect2 id="archive-module-shutdown">
    <title>Shutdown Callback</title>
    <para>
+<!--
     The <function>shutdown_cb</function> callback is called when the archiver
     process exits (e.g., after an error) or the value of
     <xref linkend="guc-archive-library"/> changes.  If no
     <function>shutdown_cb</function> is defined, no special action is taken in
     these situations.
+-->
+《機械翻訳》<function>shutdown_cb</function>コールバックは、アーカイバプロセスが終了したとき(エラー後など)、または<xref linkend="guc-archive-library"/>の値が変更されたときに呼び出されます。
+<function>shutdown_cb</function>が定義されていない場合、このような状況では特別な処理は行われません。
 
 <programlisting>
 typedef void (*ArchiveShutdownCB) (void);

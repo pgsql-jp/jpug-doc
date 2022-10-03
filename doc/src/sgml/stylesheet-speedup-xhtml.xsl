@@ -262,6 +262,7 @@
       <xsl:with-param name="object" select="$object"/>
     </xsl:call-template>
   </xsl:variable>
+<!--
   <xsl:variable name="href.from.uri">
     <xsl:choose>
       <xsl:when test="not($toc-context = .)">
@@ -275,6 +276,12 @@
         </xsl:call-template>
       </xsl:otherwise>
     </xsl:choose>
+  </xsl:variable>
+-->
+  <xsl:variable name="href.from.uri">
+    <xsl:call-template name="href.target.uri">
+      <xsl:with-param name="object" select="$context"/>
+    </xsl:call-template>
   </xsl:variable>
   <xsl:variable name="href.to">
     <xsl:value-of select="$href.to.uri"/>
