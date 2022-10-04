@@ -3554,11 +3554,12 @@ const char *PQsslAttribute(const PGconn *conn, const char *attribute_name);
       <para>
 <!--
        The list of available attributes varies depending on the SSL library
-       being used, and the type of connection. If an attribute is not
-       available, returns NULL.
+       being used and the type of connection.  Returns NULL if the connection
+       does not use SSL or the specified attribute name is not defined for the
+       library in use.
 -->
-利用可能な属性のリストは使用されているSSLライブラリおよび接続の種類に依存して変わります。
-属性が利用可能でないときはNULLが返されます。
+《機械翻訳》使用可能な属性のリストは、使用しているSSLライブラリおよび接続のタイプによって異なります。
+接続でSSLが使用されない場合、または指定した属性名が使用中のライブラリに定義されていない場合は、NULLが戻されます。
       </para>
 
       <para>
@@ -3625,13 +3626,9 @@ const char *PQsslAttribute(const PGconn *conn, const char *attribute_name);
           <listitem>
            <para>
 <!--
-            If SSL compression is in use, returns the name of the compression
-            algorithm, or "on" if compression is used but the algorithm is
-            not known. If compression is not in use, returns "off".
+            Returns "on" if SSL compression is in use, else it returns "off".
 -->
-SSL圧縮が使用されている場合、圧縮アルゴリズムの名前を返します。
-圧縮は使われているがアルゴリズムが不明という場合を"on"を返します。
-圧縮が使われていない場合は"off"を返します。
+《機械翻訳》SSL圧縮が使用されている場合は「on」を戻し、使用されていない場合は「off」を戻します。
            </para>
           </listitem>
          </varlistentry>
@@ -3641,16 +3638,20 @@ SSL圧縮が使用されている場合、圧縮アルゴリズムの名前を�
       <para>
 <!--
        As a special case, the <literal>library</literal> attribute may be
-       queried without an existing connection by passing NULL as the
-       <literal>conn</literal> argument. The historical behavior was to return
-       NULL for any attribute when a NULL <literal>conn</literal> was provided;
-       client programs needing to differentiate between the newer and older
-       implementations may check the
-       <literal>LIBPQ_HAS_SSL_LIBRARY_DETECTION</literal> feature macro.
+       queried without a connection by passing NULL as
+       the <literal>conn</literal> argument.  The result will be the default
+       SSL library name, or NULL if <application>libpq</application> was
+       compiled without any SSL support.  (Prior
+       to <productname>PostgreSQL</productname> version 15, passing NULL as
+       the <literal>conn</literal> argument always resulted in NULL.
+       Client programs needing to differentiate between the newer and older
+       implementations of this case may check the
+       <literal>LIBPQ_HAS_SSL_LIBRARY_DETECTION</literal> feature macro.)
 -->
-《機械翻訳》特殊なケースとして、<literal>ライブラリ</literal>属性は、<literal>conn</literal>引数としてNULLを渡すことにより、既存の接続なしで照会される可能性があります。
-これまでの動作では、NULL<literal>conn</literal>が提供された場合、どの属性に対してもNULLが返されていました。
-新しい実装と古い実装を区別する必要があるクライアントプログラムは、<literal>LIBPQ_HAS_SSL_LIBRARY_DETECTION</literal>機能マクロをチェックできます。
+《機械翻訳》特殊なケースとして、<literal>ライブラリ</literal>属性は、<literal>conn</literal>引数としてNULLを渡すことによって接続なしで照会することができます。
+結果はデフォルトのSSLライブラリ名になります。
+（<application>libpq</application>がSSLサポートなしでコンパイルされた場合はNULLになります(<productname>PostgreSQL</productname>バージョン15より前では、<literal>conn</literal>引数としてNULLを渡すと常にNULLになりました。
+このケースの新しい実装と古い実装を区別する必要があるクライアントプログラムは、<literal>LIBPQ_HAS_SSL_LIBRARY_DETECTION</literal>機能マクロをチェック。）
       </para>
      </listitem>
     </varlistentry>
@@ -3660,10 +3661,11 @@ SSL圧縮が使用されている場合、圧縮アルゴリズムの名前を�
      <listitem>
       <para>
 <!--
-       Return an array of SSL attribute names available. The array is terminated by a NULL pointer.
+       Returns an array of SSL attribute names available.
+       The array is terminated by a NULL pointer.
 -->
-利用可能なSSL属性名の配列を返します。
-配列の最後のメンバにはNULLポインタが入ります。
+《機械翻訳》使用可能なSSL属性名の配列を戻します。
+この配列はNULLポインタで終了します。
 <synopsis>
 const char * const * PQsslAttributeNames(const PGconn *conn);
 </synopsis>
@@ -3676,10 +3678,13 @@ const char * const * PQsslAttributeNames(const PGconn *conn);
      <listitem>
       <para>
 <!--
-       Return a pointer to an SSL-implementation-specific object describing
-       the connection.
+       Returns a pointer to an SSL-implementation-specific object describing
+       the connection.  Returns NULL if the connection is not encrypted
+       or the requested type of object is not available from the connection's
+       SSL implementation.
 -->
-接続を説明するSSLの実装に固有のオブジェクトへのポインタを返します。
+《機械翻訳》接続を記述するSSL実装固有のオブジェクトへのポインタを戻します。
+接続が暗号化されていないか、要求されたタイプのオブジェクトが接続のSSL実装から使用できない場合はNULLを戻します。
 <synopsis>
 void *PQsslStruct(const PGconn *conn, const char *struct_name);
 </synopsis>
@@ -3688,8 +3693,9 @@ void *PQsslStruct(const PGconn *conn, const char *struct_name);
 <!--
        The struct(s) available depend on the SSL implementation in use.
        For <productname>OpenSSL</productname>, there is one struct,
-       available under the name "OpenSSL", and it returns a pointer to the
-       <productname>OpenSSL</productname> <literal>SSL</literal> struct.
+       available under the name <literal>OpenSSL</literal>,
+       and it returns a pointer to
+       <productname>OpenSSL</productname>'s <literal>SSL</literal> struct.
        To use this function, code along the following lines could be used:
 -->
 利用可能な構造体は、使用されるSSLの実装に依存します。
@@ -3733,8 +3739,7 @@ void *PQsslStruct(const PGconn *conn, const char *struct_name);
      <listitem>
       <para>
        <indexterm><primary>SSL</primary><secondary sortas="libpq">in libpq</secondary></indexterm>
-<!--
-       Returns the SSL structure used in the connection, or null
+       Returns the SSL structure used in the connection, or NULL
        if SSL is not in use.
 -->
 接続で使用されているSSLの構造体を返します。
