@@ -90,6 +90,7 @@ postgres  15606  0.0  0.0  58772  3052 ?        Ss   18:07   0:00 postgres: tgl 
 postgres  15610  0.0  0.0  58772  3056 ?        Ss   18:07   0:00 postgres: tgl regression [local] idle in transaction
 </screen>
 
+<!--
    (The appropriate invocation of <command>ps</command> varies across different
    platforms, as do the details of what is shown.  This example is from a
    recent Linux system.)  The first process listed here is the
@@ -101,6 +102,16 @@ postgres  15610  0.0  0.0  58772  3056 ?        Ss   18:07   0:00 postgres: tgl 
    Each of the remaining
    processes is a server process handling one client connection.  Each such
    process sets its command line display in the form
+-->
+《マッチ度[77.777778]》（<command>ps</command>の適切な呼び出し方はプラットフォームによって異なります。
+同様に、何が詳細に表示されるのかも異なります。
+この例は最近のLinuxシステムのものです。）
+この一覧の最初のプロセスはプライマリサーバプロセスです。
+表示されているコマンド引数は、起動時に使用されたものと同じものです。
+次の5つのプロセスは、プライマリプロセスから自動的に起動されるバックグラウンドワーカプロセスです。
+（システムを統計情報コレクタが起動しないように設定していた場合は<quote>統計情報コレクタ</quote>はありません。同様に<quote>自動バキュームランチャ</quote>を無効にできます。）
+残るプロセスはそれぞれ、1つのクライアント接続を取り扱うサーバプロセスです。
+それぞれのプロセスは、次の形式のコマンドライン表示を設定します。
 
 <screen>
 postgres: <replaceable>user</replaceable> <replaceable>database</replaceable> <replaceable>host</replaceable> <replaceable>activity</replaceable>
@@ -370,7 +381,13 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    transaction. This is a feature, not a bug, because it allows you to perform
    several queries on the statistics and correlate the results without
    worrying that the numbers are changing underneath you.
+-->
+《機械翻訳》もう1つの重要なポイントは、サーバー・プロセスが蓄積された統計のいずれかを表示するように要求された場合、アクセスされた値はデフォルト構成で現在のトランザクションが終了するまでキャッシュされることです。
+したがって、現在のトランザクションを続行しているかぎり、統計には静的な情報が表示されます。
+同様に、すべてのセッションの現在の問合せに関する情報は、その情報がトランザクション内で最初に要求されたときに収集され、同じ情報がトランザクション全体にわたって表示されます。
+これはバグではなく機能です。これにより、統計に対して複数の問合せを実行し、結果を相互に関連付ける際に、ユーザーの下で数値が変化することを心配する必要がないためです。
 
+<!--
    When analyzing statistics interactively, or with expensive queries, the
    time delta between accesses to individual statistics can lead to
    significant skew in the cached statistics. To minimize skew,
@@ -380,24 +397,20 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    statistics are only accessed once, caching accessed statistics is
    unnecessary and can be avoided by setting
    <varname>stats_fetch_consistency</varname> to <literal>none</literal>.
+-->
+《機械翻訳》統計を対話的に分析する場合、または高価なクエリーを使用する場合、個々の統計へのアクセス間の時間差によって、キャッシュされた統計に重大なスキューが発生する可能性があります。
+スキューを最小化するには、<varname>stats_fetch_consistency</varname>を<literal>snapshot</literal>に設定します。
+ただし、不要な統計データをキャッシュするためのメモリー使用量が増加します。逆に、統計が一度しかアクセスされないことがわかっている場合は、アクセスされた統計のキャッシュは不要であり、<varname>stats_fetch_consistency</varname>を<literal>none</literal>に設定することで回避できます。
 
+<!--
    You can invoke <function>pg_stat_clear_snapshot</function>() to discard the
    current transaction's statistics snapshot or cached values (if any).  The
    next use of statistical information will (when in snapshot mode) cause a
    new snapshot to be built or (when in cache mode) accessed statistics to be
    cached.
 -->
-《マッチ度[50.505689]》この他の重要なポイントは、いつサーバプロセスが統計情報を表示するように尋ねられるかです。
-サーバプロセスは、まずコレクタプロセスによって発行された最も最近の報告を取り出します。
-そして、現在のトランザクションが終わるまで、全ての統計情報ビューと関数においてこのスナップショットを使用し続けます。
-ですから、現在のトランザクションを続けている間、統計情報は一定の情報を示します。
-同様に、全セッションの現在の問い合わせに関する情報も、そうした情報がトランザクションで最初に要求された時に収集され、そのトランザクションの間同じ情報が表示されます。
-これはバグではなく、特徴です。
-なぜなら、これにより、知らない間に値が変わるのを考慮することなく、統計情報に対して複数の問い合わせを実行し、その結果を相関することができるからです。
-しかし、各問い合わせで新しい結果を取り出したい場合は、確実にトランザクションブロックの外側でその問い合わせを行ってください。
-あるいはまた、<function>pg_stat_clear_snapshot</function>()を呼び出すこともできます。
-これは現在のトランザクションの統計情報スナップショットを（もしあれば）破棄します。
-次に統計情報を使用する場合に新しいスナップショットを取り出すことになります。
+《機械翻訳》<function>pg_stat_clear_snapshot</function>()を呼び出して、現在のトランザクションの統計スナップショットまたはキャッシュされた値(もしあれば)を破棄することができます。
+次に統計情報を使用すると(スナップショットモードの場合)新しいスナップショットが作成され、(キャッシュモードの場合)アクセスされた統計がキャッシュされます。
   </para>
 
   <para>
@@ -499,9 +512,13 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
 
      <row>
       <entry><structname>pg_stat_recovery_prefetch</structname><indexterm><primary>pg_stat_recovery_prefetch</primary></indexterm></entry>
+<!--
       <entry>Only one row, showing statistics about blocks prefetched during recovery.
        See <link linkend="monitoring-pg-stat-recovery-prefetch">
        <structname>pg_stat_recovery_prefetch</structname></link> for details.
+-->
+      <entry>
+《機械翻訳》リカバリ中にプリフェッチされたブロックに関する統計情報を示す1行のみ。詳細は<link linkend="monitoring-pg-stat-recovery-prefetch"><structname>pg_stat_recovery_prefetch</structname></link> を参照してください。
       </entry>
      </row>
 
@@ -989,9 +1006,13 @@ SLRUごとに1行の形で、操作に関する統計情報を示します。
 
      <row>
       <entry><structname>pg_stat_subscription_stats</structname><indexterm><primary>pg_stat_subscription_stats</primary></indexterm></entry>
+<!--
       <entry>One row per subscription, showing statistics about errors.
       See <link linkend="monitoring-pg-stat-subscription-stats">
       <structname>pg_stat_subscription_stats</structname></link> for details.
+-->
+      <entry>
+《機械翻訳》サブスクリプションごとに1行で、エラーに関する統計を表示します。詳細は<link linkend="monitoring-pg-stat-subscription-stats"><structname>pg_stat_subscription_stats</structname></link>を参照してください。
       </entry>
      </row>
 
@@ -3312,15 +3333,24 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>PgStatsDSA</literal></entry>
+<!--
       <entry>Waiting for stats dynamic shared memory allocator access</entry>
+-->
+      <entry>《機械翻訳》統計動的共有メモリアロケータアクセスを待機中</entry>
      </row>
      <row>
       <entry><literal>PgStatsHash</literal></entry>
+<!--
       <entry>Waiting for stats shared memory hash table access</entry>
+-->
+      <entry>《機械翻訳》統計共有メモリハッシュテーブルアクセスを待機中</entry>
      </row>
      <row>
       <entry><literal>PgStatsData</literal></entry>
+<!--
       <entry>Waiting for shared memory stats data access</entry>
+-->
+      <entry>《機械翻訳》 共有メモリの統計データアクセスを待機中</entry>
      </row>
      <row>
       <entry><literal>SerializableXactHash</literal></entry>
@@ -9223,10 +9253,15 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
     <row>
      <entry><literal>performing final cleanup</literal></entry>
      <entry>
+<!--
        <command>VACUUM</command> is performing final cleanup.  During this phase,
        <command>VACUUM</command> will vacuum the free space map, update statistics
        in <literal>pg_class</literal>, and report statistics to the cumulative
        statistics system. When this phase is completed, <command>VACUUM</command> will end.
+-->
+《機械翻訳》<command>VACUUM</command>は最終クリーンアップを実行しています。
+このフェーズ中に、<command>VACUUM</command>は空き領域マップを真空にし、<literal>pg_class</literal>内の統計を更新し、累積統計システムに統計を報告します。
+このフェーズが完了すると、<command>VACUUM</command>は終了します。
      </entry>
     </row>
    </tbody>
@@ -9726,10 +9761,13 @@ WAL送信プロセスはバックアップを開始する準備をしていま�
      <row>
       <entry><literal>waiting for checkpoint to finish</literal></entry>
       <entry>
+<!--
        The WAL sender process is currently performing
        <function>pg_backup_start</function> to prepare to
        take a base backup, and waiting for the start-of-backup
        checkpoint to finish.
+-->
+WAL送信プロセスは、ベースバックアップを取る準備をするために現在<function>pg_backup_start</function>を実行し、バックアップ開始チェックポイントが完了するのを待っています。
       </entry>
      </row>
      <row>
@@ -9755,14 +9793,18 @@ WAL送信プロセスはデータベースファイルをベースバックア�
      <row>
       <entry><literal>waiting for wal archiving to finish</literal></entry>
       <entry>
+<!--
        The WAL sender process is currently performing
        <function>pg_backup_stop</function> to finish the backup,
        and waiting for all the WAL files required for the base backup
        to be successfully archived.
-       If either <literal>--wal-method=none</literal> or
-       <literal>--wal-method=stream</literal> is specified in
+       If either <literal>&#45;-wal-method=none</literal> or
+       <literal>&#45;-wal-method=stream</literal> is specified in
        <application>pg_basebackup</application>, the backup will end
        when this phase is completed.
+-->
+WAL送信プロセスは現在<function>pg_backup_stop</function>を実行してバックアップを終了しており、ベースバックアップに必要なすべてのWALファイルが正常にアーカイブされるのを待機しています。
+<application>pg_basebackup</application>で<literal>--wal-method=none</literal>または<literal>--wal-method=stream</literal>が指定された場合、バックアップはこのフェーズが完了した時点で終了します。
       </entry>
      </row>
      <row>

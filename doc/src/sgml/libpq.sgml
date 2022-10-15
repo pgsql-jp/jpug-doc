@@ -3731,6 +3731,7 @@ void *PQsslStruct(const PGconn *conn, const char *struct_name);
      <listitem>
       <para>
        <indexterm><primary>SSL</primary><secondary sortas="libpq">in libpq</secondary></indexterm>
+<!--
        Returns the SSL structure used in the connection, or NULL
        if SSL is not in use.
 -->
@@ -10192,11 +10193,17 @@ defaultNoticeProcessor(void *arg, const char *message)
      <term><literal>PGEVT_REGISTER</literal></term>
      <listitem>
       <para>
+<!--
        The register event occurs when <xref linkend="libpq-PQregisterEventProc"/>
        is called.  It is the ideal time to initialize any
        <literal>instanceData</literal> an event procedure may need.  Only one
        register event will be fired per event handler per connection.  If the
        event procedure fails (returns zero), the registration is cancelled.
+-->
+《マッチ度[82.282282]》登録イベントは<xref linkend="libpq-PQregisterEventProc"/>が呼ばれたとき発生します。
+イベントプロシージャが必要とするかもしれない任意の<literal>instanceData</literal>を初期化するために、これは理想的な時間です。
+接続毎、イベントハンドラ毎でたった１つの登録イベントが発行されます。
+イベントプロシージャが失敗すると、登録は中止されます。
 
 <synopsis>
 typedef struct
@@ -10228,6 +10235,7 @@ typedef struct
      <term><literal>PGEVT_CONNRESET</literal></term>
      <listitem>
       <para>
+<!--
        The connection reset event is fired on completion of
        <xref linkend="libpq-PQreset"/> or <function>PQresetPoll</function>.  In
        both cases, the event is only fired if the reset was successful.
@@ -10235,6 +10243,12 @@ typedef struct
        in <productname>PostgreSQL</productname> v15 and later.
        With earlier versions, however, it's important to return success
        (nonzero) or the connection will be aborted.
+-->
+《機械翻訳》接続リセットイベントは<xref linkend="libpq-PQreset"/>または<function>PQresetPoll</function>の完了時に発生します。
+どちらの場合も、イベントはリセットが成功した場合にのみ発生します。
+<productname>PostgreSQL</productname>v15以降では、イベントプロシージャの戻り値は無視されます。
+しかし、以前のバージョンでは、成功(ゼロ以外)を返すことが重要です。
+そうしないと接続は中断されます。
 
 <synopsis>
 typedef struct
@@ -10323,6 +10337,7 @@ typedef struct
 } PGEventResultCreate;
 </synopsis>
 
+<!--
        When a <literal>PGEVT_RESULTCREATE</literal> event is received, the
        <parameter>evtInfo</parameter> pointer should be cast to a
        <structname>PGEventResultCreate *</structname>.  The
@@ -10334,6 +10349,13 @@ typedef struct
        that is, it will not receive <literal>PGEVT_RESULTCOPY</literal>
        or <literal>PGEVT_RESULTDESTROY</literal> events for this result or
        results copied from it.
+-->
+《マッチ度[57.208589]》<literal>PGEVT_RESULTCREATE</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCreate *</structname>にキャストされなければなりません。
+<parameter>conn</parameter>は結果を生成するために使われた接続です。
+これは、結果と関連しなければならないすべての<literal>instanceData</literal>を初期化するために、理想的な場所です。
+イベントプロシージャが失敗すると、結果は消去され、失敗が伝播します。
+イベントプロシージャはそれ自身の結果オブジェクトを<xref linkend="libpq-PQclear"/>しようと試みてはいけません。
+失敗コードを返す時、<literal>PGEVT_RESULTDESTROY</literal>イベントは送られないのですべての消去が行われなくてはなりません。
       </para>
      </listitem>
     </varlistentry>
@@ -10362,6 +10384,7 @@ typedef struct
 } PGEventResultCopy;
 </synopsis>
 
+<!--
        When a <literal>PGEVT_RESULTCOPY</literal> event is received, the
        <parameter>evtInfo</parameter> pointer should be cast to a
        <structname>PGEventResultCopy *</structname>.  The
@@ -10374,6 +10397,13 @@ typedef struct
        will not receive <literal>PGEVT_RESULTCOPY</literal>
        or <literal>PGEVT_RESULTDESTROY</literal> events for that result or
        results copied from it.
+-->
+《マッチ度[65.271967]》<literal>PGEVT_RESULTCOPY</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCopy *</structname>にキャストされなければなりません。
+<parameter>src</parameter>結果はコピーされるものであり、一方で<parameter>dest</parameter>結果はコピー先です。
+このイベントは<literal>instanceData</literal>のディープコピーを提供するために使用されます。
+<literal>PQcopyResult</literal>ではこれを行うことができないためです。
+もしイベントプロシージャが失敗すると、コピー操作全体は失敗になり、<parameter>dest</parameter>結果は消去されます。
+失敗コードを返す時、<literal>PGEVT_RESULTDESTROY</literal>イベントがコピー先の結果に対し送られないため、すべての消去を行われなければなりません。
       </para>
      </listitem>
     </varlistentry>

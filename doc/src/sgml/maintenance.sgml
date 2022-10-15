@@ -900,6 +900,7 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
    </para>
 
    <para>
+<!--
     To track the age of the oldest unfrozen XIDs in a database,
     <command>VACUUM</command> stores XID
     statistics in the system tables <structname>pg_class</structname> and
@@ -915,6 +916,13 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
     per-table <structfield>relfrozenxid</structfield> values within the database.
     A convenient way to
     examine this information is to execute queries such as:
+-->
+《マッチ度[78.131868]》データベース内のもっとも古い凍結されていないXIDの年代を追跡するために、<command>VACUUM</command>はシステムテーブル<structname>pg_class</structname>と<structname>pg_database</structname>にXID統計情報を保持します。
+特に、テーブルに対応する<structname>pg_class</structname>行の<structfield>relfrozenxid</structfield>列には、テーブルに対する最後の積極的な<command>VACUUM</command>で使用された凍結切捨てXIDが含まれます。
+この切り捨てXIDよりも古いXIDを持つトランザクションにより挿入されたすべての行は凍結状態であることが保証されています。
+同様に、データベースに対応する<structname>pg_database</structname>行の<structfield>datfrozenxid</structfield>列は、データベース内で現れる凍結されていないXIDの下限値です。
+これは、そのデータベース内のテーブル当たりの<structfield>relfrozenxid</structfield>値の最小値です。
+この情報を検査する簡便な方法は、以下の問い合わせを実行することです。
 
 <programlisting>
 SELECT c.oid::regclass as table_name,
@@ -1256,6 +1264,7 @@ vacuum insert threshold = vacuum base insert threshold + vacuum insert scale fac
 -->
 バキューム挿入閾値 = バキューム基礎挿入閾値 + バキューム挿入規模係数 * タプル数
 </programlisting>
+<!--
     where the vacuum insert base threshold is
     <xref linkend="guc-autovacuum-vacuum-insert-threshold"/>,
     and vacuum insert scale factor is
@@ -1277,6 +1286,15 @@ vacuum insert threshold = vacuum base insert threshold + vacuum insert scale fac
     an aggressive vacuum is performed to freeze old tuples and advance
     <structfield>relfrozenxid</structfield>; otherwise, only pages that have been modified
     since the last vacuum are scanned.
+-->
+《機械翻訳》ここで、真空挿入ベースしきい値は<xref linkend="guc-autovacuum-vacuum-insert-threshold"/>、真空挿入スケールファクタは<xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>です。
+このような真空は、テーブルの一部が<firstterm>すべて可視</firstterm>としてマークされることを可能にし、またタプルが凍結されることを可能にし、後続の真空で必要とされる作業を減らすことができます。
+<command>INSERT</command>操作を受けているが<command>UPDATE</command>/<command>DELETE</command>操作を受けていないかほとんど受けていないテーブルの場合は、以前の真空でタプルを凍結させることができるため、テーブルの<xref linkend="reloption-autovacuum-freeze-min-age"/>を低くすることが有益な場合があります。
+古いタプルの数と挿入されたタプルの数は、累積統計システムから取得されます。
+これは、<command>UPDATE</command>、<command>DELETE</command>および<command>INSERT</command>操作ごとに更新される準正確な数です。
+(重負荷の下で一部の情報が失われる可能性があるため、準正確です。
+)テーブルの<structfield>relfrozenxid</structfield>値が<varname>vacuum_freeze_table_age</varname>個の古いトランザクションより大きい場合は、積極的な真空が実行されて古いタプルが凍結され、<structfield>relfrozenxid</structfield>が進みます。
+そうでない場合は、最後の真空以降に変更されたページのみがスキャンされます。
    </para>
 
    <para>
