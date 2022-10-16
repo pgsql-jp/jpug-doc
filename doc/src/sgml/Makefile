@@ -220,7 +220,7 @@ MAKEINFO = makeinfo
 ##
 
 # Quick syntax check without style processing
-check: postgres.sgml $(ALLSGML) check-tabs
+check: postgres.sgml $(ALLSGML) check-tabs check-ng
 	$(XMLLINT) $(XMLINCLUDE) --noout --valid $<
 
 
@@ -284,6 +284,14 @@ endif # sqlmansectnum != 7
 # tabs are harmless, but it is best to avoid them in SGML files
 check-tabs:
 	@( ! grep '	' $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml $(srcdir)/*.xsl) ) || (echo "Tabs appear in SGML/XML files" 1>&2;  exit 1)
+
+# words to avoid as pgsql-jp
+check-ng:
+	@if git --no-pager grep -f .ng.list *sgml ref/*sgml; \
+	then \
+	  echo "使用NGな語が見つかりました。";\
+	  false;\
+	fi
 
 ##
 ## Clean
