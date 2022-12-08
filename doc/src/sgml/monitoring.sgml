@@ -48,8 +48,8 @@
    and other methods for understanding the behavior of an individual
    query.
 -->
-《マッチ度[92.739726]》データベース活動状況の監視と性能解析用のツールはいくつか存在します。
-本章の大部分は<productname>PostgreSQL</productname>の統計情報コレクタの説明に費されていますが、<command>ps</command>や<command>top</command>、<command>iostat</command>、<command>vmstat</command>などの通常のUnix監視プログラムを無視すべきではありません。
+データベース活動状況の監視と性能解析用のツールはいくつか存在します。
+本章の大部分は<productname>PostgreSQL</productname>の累積統計システムの説明に費されていますが、<command>ps</command>や<command>top</command>、<command>iostat</command>、<command>vmstat</command>などの通常のUnix監視プログラムを無視すべきではありません。
 また、性能が悪い問い合わせであると認知された問い合わせは、その後、<productname>PostgreSQL</productname>の<link linkend="sql-explain"><command>EXPLAIN</command></link>コマンドを使用して調査を行う必要が発生します。
 <xref linkend="using-explain"/>では、個々の問い合わせの振舞いを理解するための、<command>EXPLAIN</command>やその他の方法について記載しています。
   </para>
@@ -103,13 +103,13 @@ postgres  15610  0.0  0.0  58772  3056 ?        Ss   18:07   0:00 postgres: tgl 
    processes is a server process handling one client connection.  Each such
    process sets its command line display in the form
 -->
-《マッチ度[77.777778]》（<command>ps</command>の適切な呼び出し方はプラットフォームによって異なります。
+（<command>ps</command>の適切な呼び出し方はプラットフォームによって異なります。
 同様に、何が詳細に表示されるのかも異なります。
 この例は最近のLinuxシステムのものです。）
 この一覧の最初のプロセスはプライマリサーバプロセスです。
 表示されているコマンド引数は、起動時に使用されたものと同じものです。
-次の5つのプロセスは、プライマリプロセスから自動的に起動されるバックグラウンドワーカプロセスです。
-（システムを統計情報コレクタが起動しないように設定していた場合は<quote>統計情報コレクタ</quote>はありません。同様に<quote>自動バキュームランチャ</quote>を無効にできます。）
+次の4つのプロセスは、プライマリプロセスから自動的に起動されるバックグラウンドワーカプロセスです。
+（自動バキュームが起動しないように設定していた場合は<quote>自動バキュームランチャ</quote>プロセスは表示されません。）
 残るプロセスはそれぞれ、1つのクライアント接続を取り扱うサーバプロセスです。
 それぞれのプロセスは、次の形式のコマンドライン表示を設定します。
 
@@ -194,7 +194,10 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
  </sect1>
 
  <sect1 id="monitoring-stats">
+<!--
   <title>The Cumulative Statistics System</title>
+-->
+  <title>累積統計システム</title>
 
   <indexterm zone="monitoring-stats">
    <primary>statistics</primary>
@@ -213,10 +216,10 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    table are also counted.  If enabled, calls to user-defined functions and
    the total time spent in each one are counted as well.
 -->
-《マッチ度[70.576132]》<productname>PostgreSQL</productname>の<firstterm>統計情報コレクタ</firstterm>はサーバの活動状況に関する情報を収集し、報告するサブシステムです。
+<productname>PostgreSQL</productname>の<firstterm>累積統計システム</firstterm>は、サーバ活動に関する情報の収集と報告をサポートしています。
 現在、コレクタはテーブルとインデックスへのアクセスをディスクブロックおよび個々の行単位で数えることができます。
-またこれは、各テーブル内の総行数、および、各テーブルでのバキュームやアナライズの実施情報を追跡します。
-また、ユーザ定義関数の呼ばれた回数、それぞれの消費した総時間を数えます。
+またこれは、各テーブル内の総行数、および、各テーブルでのバキュームやアナライズの実施情報を数えます。
+有効になっている場合は、ユーザ定義関数の呼ばれた回数、それぞれの消費した総時間を数えます。
   </para>
 
   <para>
@@ -227,8 +230,8 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    which other connections exist in the system.  This facility is independent
    of the cumulative statistics system.
 -->
-《マッチ度[88.787879]》また、<productname>PostgreSQL</productname>は他のサーバプロセスによって現在実行されている正確なコマンドなど現在システム内で起きていること、またシステム内にどんな他の接続が存在するかということについての動的情報を正確に報告する機能を持ちます。
-これはコレクタプロセスから独立している機能です。
+また、<productname>PostgreSQL</productname>は他のサーバプロセスによって現在実行されている正確なコマンドなど現在システム内で起きていること、またシステム内にどんな他の接続が存在するかということについての動的情報を正確に報告する機能を持ちます。
+これは累積統計システムから独立している機能です。
   </para>
 
  <sect2 id="monitoring-stats-setup">
@@ -263,7 +266,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    The parameter <xref linkend="guc-track-counts"/> controls whether
    cumulative statistics are collected about table and index accesses.
 -->
-《マッチ度[89.473684]》<xref linkend="guc-track-counts"/>パラメータは、テーブルおよびインデックスアクセスに関する統計情報を収集するかどうかを制御します。
+<xref linkend="guc-track-counts"/>パラメータは、テーブルおよびインデックスアクセスに関する累積統計を収集するかどうかを制御します。
   </para>
 
   <para>
@@ -317,11 +320,11 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    a server crash, starting from a base backup, and point-in-time recovery),
    all statistics counters are reset.
 -->
-《機械翻訳》累積統計情報は共有メモリに収集されます。
+累積統計情報は共有メモリに収集されます。
 すべての<productname>PostgreSQL</productname>プロセスがローカルで統計情報を収集し、適切な間隔で共有データを更新します。
 物理レプリカを含むサーバがクリーンにシャットダウンすると、統計データの永続的なコピーが<filename>pg_stat</filename>サブディレクトリに保存されます。
 これにより、サーバの再起動後も統計情報を保持できます。
-対照的に、クリーンでないシャットダウンから開始する場合(即時シャットダウン後、サーバクラッシュ、ベースバックアップから開始、ポイントインタイムリカバリなど)、すべての統計カウンタがリセットされます。
+対照的に、クリーンでないシャットダウンから開始する場合（即時シャットダウン後、サーバクラッシュ、ベースバックアップから開始、ポイントインタイムリカバリなど）、すべての統計カウンタがリセットされます。
   </para>
 
  </sect2>
@@ -343,9 +346,9 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    build custom views using the underlying cumulative statistics functions, as
    discussed in <xref linkend="monitoring-stats-functions"/>.
 -->
-《マッチ度[87.387387]》システムの現在の状態を表示するために、いくつかの定義済みのビューがあり、<xref linkend="monitoring-stats-dynamic-views-table"/>に一覧されています。
-また、統計情報の収集結果を表示するために、他にもいくつかのビューがあり、<xref linkend="monitoring-stats-views-table"/>に一覧されています。
-あるいはまた、<xref linkend="monitoring-stats-functions"/>で説明する、基礎的な統計情報関数を使用した独自のビューを構築することもできます。
+システムの現在の状態を表示するために、いくつかの定義済みのビューがあり、<xref linkend="monitoring-stats-dynamic-views-table"/>に一覧されています。
+また、累積統計の収集結果を表示するために、他にもいくつかのビューがあり、<xref linkend="monitoring-stats-views-table"/>に一覧されています。
+あるいはまた、<xref linkend="monitoring-stats-functions"/>で説明する、基礎的な累積統計関数を使用した独自のビューを構築することもできます。
   </para>
 
   <para>
@@ -361,11 +364,9 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    current-query information collected by <varname>track_activities</varname>
    is always up-to-date.
 -->
-《マッチ度[54.545455]》この統計情報を使用して、収集されるデータを監視する場合、この情報は即座に更新されないことを認識することが重要です。
-個別のサーバプロセスは、待機状態になる直前に、新しい統計情報に関する数をコレクタに送信します。
-ですので、実行中の問い合わせやトランザクションは表示上の総和には影響を与えません。
-また、コレクタ自体は<varname>PGSTAT_STAT_INTERVAL</varname>ミリ秒（サーバ構築時に変更しない限り500 ms）に多くても一度新しい報告を出力します。
-ですので、表示上の情報は実際の活動から遅れて表示されます。
+収集したデータを監視するために累積統計ビューや関数を使用する場合、この情報は即座に更新されないことを認識することが重要です。
+個々のサーバプロセスは、待機状態になる直前に、累積統計を共有メモリにフラッシュしますが、<varname>PGSTAT_MIN_INTERVAL</varname>ミリ秒に1回以上の頻度でフラッシュすることはありません（サーバ構築時に変更しない限り1秒）。
+したがって、まだ処理中の問い合わせやトランザクションは表示される合計に影響を与えず、表示される情報は実際のアクティビティより遅くなります。
 しかし、<varname>track_activities</varname>で収集される現在の問い合わせの情報は常に最新です。
   </para>
 
@@ -382,10 +383,11 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    several queries on the statistics and correlate the results without
    worrying that the numbers are changing underneath you.
 -->
-《機械翻訳》もう1つの重要なポイントは、サーバー・プロセスが蓄積された統計のいずれかを表示するように要求された場合、アクセスされた値はデフォルト構成で現在のトランザクションが終了するまでキャッシュされることです。
+もう1つの重要なポイントは、サーバプロセスが累積された統計のいずれかを表示するように要求された場合、アクセスされた値はデフォルト構成で現在のトランザクションが終了するまでキャッシュされることです。
 したがって、現在のトランザクションを続行しているかぎり、統計には静的な情報が表示されます。
 同様に、すべてのセッションの現在の問合せに関する情報は、その情報がトランザクション内で最初に要求されたときに収集され、同じ情報がトランザクション全体にわたって表示されます。
-これはバグではなく機能です。これにより、統計に対して複数の問合せを実行し、結果を相互に関連付ける際に、ユーザーの下で数値が変化することを心配する必要がないためです。
+これはバグではなく特徴です。
+これにより、統計に対して複数の問合せを実行し、結果を相互に関連付ける際に、ユーザーの下で数値が変化することを心配する必要がないためです。
 
 <!--
    When analyzing statistics interactively, or with expensive queries, the
@@ -398,8 +400,8 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    unnecessary and can be avoided by setting
    <varname>stats_fetch_consistency</varname> to <literal>none</literal>.
 -->
-《機械翻訳》統計を対話的に分析する場合、または高価なクエリーを使用する場合、個々の統計へのアクセス間の時間差によって、キャッシュされた統計に重大なスキューが発生する可能性があります。
-スキューを最小化するには、<varname>stats_fetch_consistency</varname>を<literal>snapshot</literal>に設定します。
+統計情報を対話的に分析する場合、または高価な問い合わせを使用する場合、個々の統計へのアクセス間の時間差によって、キャッシュされた統計に大幅な歪みが発生する可能性があります。
+歪みを最小化するには、<varname>stats_fetch_consistency</varname>を<literal>snapshot</literal>に設定します。
 ただし、不要な統計データをキャッシュするためのメモリー使用量が増加します。逆に、統計が一度しかアクセスされないことがわかっている場合は、アクセスされた統計のキャッシュは不要であり、<varname>stats_fetch_consistency</varname>を<literal>none</literal>に設定することで回避できます。
 
 <!--
@@ -409,8 +411,8 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    new snapshot to be built or (when in cache mode) accessed statistics to be
    cached.
 -->
-《機械翻訳》<function>pg_stat_clear_snapshot</function>()を呼び出して、現在のトランザクションの統計スナップショットまたはキャッシュされた値(もしあれば)を破棄することができます。
-次に統計情報を使用すると(スナップショットモードの場合)新しいスナップショットが作成され、(キャッシュモードの場合)アクセスされた統計がキャッシュされます。
+<function>pg_stat_clear_snapshot</function>()を呼び出して、現在のトランザクションの統計スナップショットまたはキャッシュされた値（もしあれば）を破棄することができます。
+次に統計情報を使用すると（スナップショットモードの場合）新しいスナップショットが作成され、（キャッシュモードの場合）アクセスされた統計がキャッシュされます。
   </para>
 
   <para>
@@ -423,8 +425,8 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    <structname>pg_stat_xact_user_functions</structname>.  These numbers do not act as
    stated above; instead they update continuously throughout the transaction.
 -->
-《マッチ度[87.500000]》トランザクションからは、<structname>pg_stat_xact_all_tables</structname>、<structname>pg_stat_xact_sys_tables</structname>、<structname>pg_stat_xact_user_tables</structname>、および<structname>pg_stat_xact_user_functions</structname>を通じて、自身の統計情報(まだコレクタに送られていない)も参照することができます。
-これらの数値はトランザクション中に継続的に更新されていくため上記の様な(静的な情報を示す)振る舞いとはなりません。
+トランザクションはまた、ビューの<structname>pg_stat_xact_all_tables</structname>、<structname>pg_stat_xact_sys_tables</structname>、<structname>pg_stat_xact_user_tables</structname>、および<structname>pg_stat_xact_user_functions</structname>を通じて、自身の統計情報（まだ共有メモリ統計処理にフラッシュされていない）も参照することができます。
+これらの数値はトランザクション中に継続的に更新されていくため上記の様な（静的な情報を示す）振る舞いとはなりません。
   </para>
 
   <para>
@@ -439,11 +441,11 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
    built-in role <literal>pg_read_all_stats</literal> (see also <xref
    linkend="predefined-roles"/>) can see all the information about all sessions.
 -->
-《マッチ度[92.824427]》<xref linkend="monitoring-stats-dynamic-views-table"/>で表示される動的な統計ビューの情報の中にはセキュリティ制限があるものがあります。
+<xref linkend="monitoring-stats-dynamic-views-table"/>で表示される動的な統計ビューの情報の中にはセキュリティ制限があるものがあります。
 一般ユーザは自身のセッション（メンバとなっているロールに属するセッション）に関する全情報だけを参照できます。
 他セッションに関する行では多くの列がNULLになるでしょう。
 しかしながら、セッションの存在とセッションのユーザとデータベースなどの一般的な属性は全ユーザに可視であることに注意してください。
-スーパーユーザと組み込みロール<literal>pg_read_all_stats</literal>（<xref linkend="predefined-roles"/>も参照してください）のメンバも全セッションに関する全情報を参照できます。
+スーパーユーザと組み込みロール<literal>pg_read_all_stats</literal>の権限を持つロール（<xref linkend="predefined-roles"/>も参照してください）は全セッションに関する全情報を参照できます。
   </para>
 
   <table id="monitoring-stats-dynamic-views-table">
@@ -477,7 +479,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
        See <link linkend="monitoring-pg-stat-activity-view">
        <structname>pg_stat_activity</structname></link> for details.
 -->
-サーバプロセスあたり１行の形式で、状態や現在の問い合わせ等のプロセスの現在の活動状況に関連した情報を表示します。
+サーバプロセスあたり1行の形式で、状態や現在の問い合わせ等のプロセスの現在の活動状況に関連した情報を表示します。
 詳細については<link linkend="monitoring-pg-stat-activity-view"><structname>pg_stat_activity</structname></link>を参照してください。
       </entry>
      </row>
@@ -491,7 +493,7 @@ postgres   27093  0.0  0.0  30096  2752 ?        Ss   11:34   0:00 postgres: ser
        <structname>pg_stat_replication</structname></link> for details.
 -->
       <entry>
-WAL送信プロセス毎に１行の形式で、送信サーバが接続したスタンバイサーバへのレプリケーションに関する統計情報を表示します。
+WAL送信プロセス毎に1行の形式で、送信サーバが接続したスタンバイサーバへのレプリケーションに関する統計情報を表示します。
 詳細については<link linkend="monitoring-pg-stat-replication-view"><structname>pg_stat_replication</structname></link>を参照してください。
       </entry>
      </row>
@@ -505,7 +507,7 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
        <structname>pg_stat_wal_receiver</structname></link> for details.
 -->
       <entry>
-１行の形式で、受信サーバが接続したサーバからWAL受信サーバに関する統計情報を表示します。
+1行の形式で、受信サーバが接続したサーバからWAL受信サーバに関する統計情報を表示します。
 詳細については<link linkend="monitoring-pg-stat-wal-receiver-view"><structname>pg_stat_wal_receiver</structname></link>を参照してください。
       </entry>
      </row>
@@ -518,7 +520,8 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
        <structname>pg_stat_recovery_prefetch</structname></link> for details.
 -->
       <entry>
-《機械翻訳》リカバリ中にプリフェッチされたブロックに関する統計情報を示す1行のみ。詳細は<link linkend="monitoring-pg-stat-recovery-prefetch"><structname>pg_stat_recovery_prefetch</structname></link> を参照してください。
+1行の形式で、リカバリ中にプリフェッチされたブロックに関する統計情報を表示します。
+詳細については<link linkend="monitoring-pg-stat-recovery-prefetch"><structname>pg_stat_recovery_prefetch</structname></link> を参照してください。
       </entry>
      </row>
 
@@ -546,7 +549,7 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
 -->
       <entry>
 接続（通常およびレプリケーション）あたり1行の形式で、接続に使われるSSLの情報を表示します。
-詳しくは<link linkend="monitoring-pg-stat-ssl-view"><structname>pg_stat_ssl</structname></link>を参照してください。
+詳細については<link linkend="monitoring-pg-stat-ssl-view"><structname>pg_stat_ssl</structname></link>を参照してください。
       </entry>
      </row>
 
@@ -560,7 +563,7 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
 -->
      <entry>
 接続（通常およびレプリケーション）あたり1行の形式で、接続に使われるGSSAPI認証と暗号化に関する情報を表示します。
-詳しくは<link linkend="monitoring-pg-stat-gssapi-view"><structname>pg_stat_gssapi</structname></link>を参照してください。
+詳細については<link linkend="monitoring-pg-stat-gssapi-view"><structname>pg_stat_gssapi</structname></link>を参照してください。
       </entry>
      </row>
 
@@ -598,7 +601,7 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
        See <xref linkend='vacuum-progress-reporting'/>.
 -->
       <entry>
-<command>VACUUM</command>を実行している（自動バキュームワーカプロセスを含んだ）各バックエンドごとに１行の形式で、現在の進捗を表示します。
+<command>VACUUM</command>を実行している（自動バキュームワーカプロセスを含んだ）各バックエンドごとに1行の形式で、現在の進捗を表示します。
 <xref linkend='vacuum-progress-reporting'/>を参照してください。
       </entry>
      </row>
@@ -672,7 +675,7 @@ WAL送信プロセス毎に１行の形式で、送信サーバが接続した�
        <structname>pg_stat_archiver</structname></link> for details.
 -->
       <entry>
-WALアーカイバプロセスの活動状況に関する統計情報を１行のみで表示します。
+WALアーカイバプロセスの活動状況に関する統計情報を1行のみで表示します。
 詳細については<link linkend="monitoring-pg-stat-archiver-view"><structname>pg_stat_archiver</structname></link>を参照してください。
       </entry>
      </row>
@@ -686,7 +689,7 @@ WALアーカイバプロセスの活動状況に関する統計情報を１行�
        <structname>pg_stat_bgwriter</structname></link> for details.
 -->
       <entry>
-バックグラウンドライタプロセスの活動状況に関する統計情報を１行のみで表示します。
+バックグラウンドライタプロセスの活動状況に関する統計情報を1行のみで表示します。
 詳細については<link linkend="monitoring-pg-stat-bgwriter-view"><structname>pg_stat_bgwriter</structname></link>を参照してください。
      </entry>
      </row>
@@ -712,7 +715,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        <structname>pg_stat_database</structname></link> for details.
 -->
       <entry>
-データベース毎に１行の形式で、データベース全体の統計情報を表示します。
+データベース毎に1行の形式で、データベース全体の統計情報を表示します。
 詳細については<link linkend="monitoring-pg-stat-database-view"><structname>pg_stat_database</structname></link>を参照してください。
       </entry>
      </row>
@@ -726,7 +729,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        See <link linkend="monitoring-pg-stat-database-conflicts-view">
        <structname>pg_stat_database_conflicts</structname></link> for details.
 -->
-データベース毎に１行の形式で、スタンバイサーバにおける復旧との競合のためにキャンセルされた問い合わせについてのデータベース全体の統計情報を表示します。
+データベース毎に1行の形式で、スタンバイサーバにおける復旧との競合のためにキャンセルされた問い合わせについてのデータベース全体の統計情報を表示します。
 詳細については<link linkend="monitoring-pg-stat-database-conflicts-view"><structname>pg_stat_database_conflicts</structname></link>を参照してください。
       </entry>
      </row>
@@ -740,7 +743,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        See <link linkend="monitoring-pg-stat-all-tables-view">
        <structname>pg_stat_all_tables</structname></link> for details.
 -->
-現在のデータベースの各テーブルごとに１行の形式で、特定のテーブルへのアクセスに関する統計情報を示します。
+現在のデータベースの各テーブルごとに1行の形式で、特定のテーブルへのアクセスに関する統計情報を示します。
 詳細については<link linkend="monitoring-pg-stat-all-tables-view"><structname>pg_stat_all_tables</structname></link>を参照してください。
       </entry>
      </row>
@@ -813,7 +816,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        See <link linkend="monitoring-pg-stat-all-indexes-view">
        <structname>pg_stat_all_indexes</structname></link> for details.
 -->
-現在のデータベースのインデックスごとに１行の形式で、特定のインデックスへのアクセスに関する統計情報を示します。
+現在のデータベースのインデックスごとに1行の形式で、特定のインデックスへのアクセスに関する統計情報を示します。
 詳細については<link linkend="monitoring-pg-stat-all-indexes-view"><structname>pg_stat_all_indexes</structname></link>を参照してください。
       </entry>
      </row>
@@ -849,7 +852,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        See <link linkend="monitoring-pg-statio-all-tables-view">
        <structname>pg_statio_all_tables</structname></link> for details.
 -->
-現在のデータベース内のテーブルごとに１行の形式で、特定のテーブルに対するI/Oに関する統計情報を示します。
+現在のデータベース内のテーブルごとに1行の形式で、特定のテーブルに対するI/Oに関する統計情報を示します。
 詳細については<link linkend="monitoring-pg-statio-all-tables-view"><structname>pg_statio_all_tables</structname></link>を参照してください。
       </entry>
      </row>
@@ -885,7 +888,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        See <link linkend="monitoring-pg-statio-all-indexes-view">
        <structname>pg_statio_all_indexes</structname></link> for details.
 -->
-現在のデータベース内のインデックスごとに１行の形式で、特定のインデックスに対するI/Oに関する統計情報を示します。
+現在のデータベース内のインデックスごとに1行の形式で、特定のインデックスに対するI/Oに関する統計情報を表示します。
 詳細については<link linkend="monitoring-pg-statio-all-indexes-view"><structname>pg_statio_all_indexes</structname></link>を参照してください。
       </entry>
      </row>
@@ -921,7 +924,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        See <link linkend="monitoring-pg-statio-all-sequences-view">
        <structname>pg_statio_all_sequences</structname></link> for details.
 -->
-現在のデータベース内のシーケンスごとに１行の形式で、特定のシーケンスに対するI/Oに関する統計情報を示します。
+現在のデータベース内のシーケンスごとに1行の形式で、特定のシーケンスに対するI/Oに関する統計情報を表示します。
 詳細については<link linkend="monitoring-pg-statio-all-sequences-view"><structname>pg_statio_all_sequences</structname></link>を参照してください。
      </entry>
      </row>
@@ -959,7 +962,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
        <link linkend="monitoring-pg-stat-user-functions-view">
        <structname>pg_stat_user_functions</structname></link> for details.
 -->
-追跡された関数ごとに１行の形式で、関数の実行に関する統計情報を示します。
+追跡された関数ごとに1行の形式で、関数の実行に関する統計情報を表示します。
 詳細については<link linkend="monitoring-pg-stat-user-functions-view"><structname>pg_stat_user_functions</structname></link>を参照してください。
       </entry>
      </row>
@@ -986,7 +989,7 @@ WALの活動状況に関する統計情報を1行のみで表示します。
 -->
       <entry>
 SLRUごとに1行の形で、操作に関する統計情報を示します。
-詳細は<link linkend="monitoring-pg-stat-slru-view"><structname>pg_stat_slru</structname></link>を参照してください。
+詳細については<link linkend="monitoring-pg-stat-slru-view"><structname>pg_stat_slru</structname></link>を参照してください。
       </entry>
      </row>
 
@@ -999,7 +1002,7 @@ SLRUごとに1行の形で、操作に関する統計情報を示します。
        <structname>pg_stat_replication_slots</structname></link> for details.
 -->
       <entry>
-レプリケーションスロット毎に1行の形式で、レプリケーションスロットの使用状況に関する統計情報を表示します。
+レプリケーションスロットごとに1行の形式で、レプリケーションスロットの使用状況に関する統計情報を表示します。
 詳細については<link linkend="monitoring-pg-stat-replication-slots-view"> <structname>pg_stat_replication_slots</structname></link>を参照してください。
       </entry>
      </row>
@@ -1012,7 +1015,8 @@ SLRUごとに1行の形で、操作に関する統計情報を示します。
       <structname>pg_stat_subscription_stats</structname></link> for details.
 -->
       <entry>
-《機械翻訳》サブスクリプションごとに1行で、エラーに関する統計を表示します。詳細は<link linkend="monitoring-pg-stat-subscription-stats"><structname>pg_stat_subscription_stats</structname></link>を参照してください。
+サブスクリプションごとに1行の形式で、エラーに関する統計を表示します。
+詳細については<link linkend="monitoring-pg-stat-subscription-stats"><structname>pg_stat_subscription_stats</structname></link>を参照してください。
       </entry>
      </row>
 
@@ -1045,10 +1049,10 @@ SLRUごとに1行の形で、操作に関する統計情報を示します。
    in combination with operating system utilities that allow insight
    into the kernel's handling of I/O.
 -->
-《マッチ度[94.339623]》<structname>pg_statio_</structname>ビューは主に、バッファキャッシュの効率を評価する際に有用です。
+<structname>pg_statio_</structname>ビューは主に、バッファキャッシュの効率を評価する際に有用です。
 実ディスク読み取りの数がバッファヒットの数よりもかなり少ないのであれば、そのキャッシュはカーネル呼び出しを行うことなく、ほとんどの読み取り要求を満足させています。
 しかし、<productname>PostgreSQL</productname>バッファキャッシュに存在しないデータはカーネルのI/Oキャッシュにある可能性があり、そのため、物理的な読み取りを行うことなく取り出される可能性があるという<productname>PostgreSQL</productname>のディスクI/Oの取り扱いのため、これらの統計情報は、完全な論拠を提供しません。
-<productname>PostgreSQL</productname>のI/O動作に関するより詳細な情報を入手したいのであれば、<productname>PostgreSQL</productname>統計情報コレクタとカーネルのI/Oの取り扱いの監視を行うオペレーティングシステムユーティリティを組み合わせることを勧めます。
+<productname>PostgreSQL</productname>のI/O動作に関するより詳細な情報を入手したいのであれば、<productname>PostgreSQL</productname>統計情報ビューとカーネルのI/Oの取り扱いの監視を行うオペレーティングシステムユーティリティを組み合わせることを勧めます。
   </para>
 
  </sect2>
@@ -1066,7 +1070,7 @@ SLRUごとに1行の形で、操作に関する統計情報を示します。
    per server process, showing information related to
    the current activity of that process.
 -->
-<structname>pg_stat_activity</structname>はサーバプロセス毎に、そのプロセスの現在の活動に関連する情報を表示する１行を持ちます。
+<structname>pg_stat_activity</structname>はサーバプロセス毎に、そのプロセスの現在の活動に関連する情報を表示する1行を持ちます。
   </para>
 
   <table id="pg-stat-activity-view" xreflabel="pg_stat_activity">
@@ -2345,7 +2349,10 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>VersionFileWrite</literal></entry>
+<!--
       <entry>Waiting for the version file to be written while creating a database.</entry>
+-->
+      <entry>データベースの作成中にバージョンファイルが作成されるのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>WALBootstrapSync</literal></entry>
@@ -2470,13 +2477,19 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>ArchiveCleanupCommand</literal></entry>
+<!--
       <entry>Waiting for <xref linkend="guc-archive-cleanup-command"/> to
        complete.</entry>
+-->
+      <entry><xref linkend="guc-archive-cleanup-command"/>が完了するのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>ArchiveCommand</literal></entry>
+<!--
       <entry>Waiting for <xref linkend="guc-archive-command"/> to
        complete.</entry>
+-->
+      <entry><xref linkend="guc-archive-command"/>が完了するのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>BackendTermination</literal></entry>
@@ -2772,8 +2785,11 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>RecoveryEndCommand</literal></entry>
+<!--
       <entry>Waiting for <xref linkend="guc-recovery-end-command"/> to
        complete.</entry>
+-->
+      <entry><xref linkend="guc-recovery-end-command"/>が完了するのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>RecoveryPause</literal></entry>
@@ -2800,8 +2816,11 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>RestoreCommand</literal></entry>
+<!--
       <entry>Waiting for <xref linkend="guc-restore-command"/> to
        complete.</entry>
+-->
+      <entry>Waiting for <xref linkend="guc-restore-command"/>が完了するのを待機しています。</entry>
      </row>
      <row>
       <entry><literal>SafeSnapshot</literal></entry>
@@ -3336,21 +3355,21 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
 <!--
       <entry>Waiting for stats dynamic shared memory allocator access</entry>
 -->
-      <entry>《機械翻訳》統計動的共有メモリアロケータアクセスを待機中</entry>
+      <entry>統計動的共有メモリアロケータアクセスを待機しています。</entry>
      </row>
      <row>
       <entry><literal>PgStatsHash</literal></entry>
 <!--
       <entry>Waiting for stats shared memory hash table access</entry>
 -->
-      <entry>《機械翻訳》統計共有メモリハッシュテーブルアクセスを待機中</entry>
+      <entry>統計共有メモリハッシュテーブルアクセスを待機しています。</entry>
      </row>
      <row>
       <entry><literal>PgStatsData</literal></entry>
 <!--
       <entry>Waiting for shared memory stats data access</entry>
 -->
-      <entry>《機械翻訳》 共有メモリの統計データアクセスを待機中</entry>
+      <entry>共有メモリの統計データアクセスを待機しています。</entry>
      </row>
      <row>
       <entry><literal>SerializableXactHash</literal></entry>
@@ -3601,8 +3620,11 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
      </row>
      <row>
       <entry><literal>VacuumTruncate</literal></entry>
+<!--
       <entry>Waiting to acquire an exclusive lock to truncate off any
        empty pages at the end of a table vacuumed.</entry>
+-->
+      <entry>バキュームされたテーブルの最後にある空のロックをオフで切り捨てるために、排他的ページの獲得を待機しています。</entry>
      </row>
     </tbody>
    </tgroup>
@@ -3640,7 +3662,7 @@ SELECT pid, wait_event_type, wait_event FROM pg_stat_activity WHERE wait_event i
    sender's connected standby server.  Only directly connected standbys are
    listed; no information is available about downstream standby servers.
 -->
-<structname>pg_stat_replication</structname>ビューには、WAL送信プロセス毎に、送信処理に接続したスタンバイサーバへのレプリケーションに関する統計情報を示す１行を保持します。
+<structname>pg_stat_replication</structname>ビューには、WAL送信プロセス毎に1行を含み、送信処理に接続したスタンバイサーバへのレプリケーションに関する統計情報を表示します。
 直接接続されたスタンバイサーバのみが一覧表示されます。
 下流のスタンバイサーバに関する情報はありません。
   </para>
@@ -4303,7 +4325,7 @@ WALからの変更をデコードするために論理デコードによって�
    one row, showing statistics about the WAL receiver from that receiver's
    connected server.
 -->
-<structname>pg_stat_wal_receiver</structname>ビューは、１行のみの形式で、受信サーバが接続したサーバからWALレシーバに関する統計情報を表示します。
+<structname>pg_stat_wal_receiver</structname>ビューは、1行のみの形式で、受信サーバが接続したサーバからWALレシーバに関する統計情報を表示します。
   </para>
 
   <table id="pg-stat-wal-receiver-view" xreflabel="pg_stat_wal_receiver">
@@ -4548,12 +4570,15 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
    other columns show cumulative counters that can be reset
    with the <function>pg_stat_reset_shared</function> function.
 -->
-《機械翻訳》<structname>pg_stat_recovery_prefetch</structname>ビューは1行のみを含みます。
+<structname>pg_stat_recovery_prefetch</structname>ビューは1行のみの形式です。
 <structfield>wal_distance</structfield>、<structfield>block_distance</structfield>、<structfield>io_depth</structfield>の列は現在の値を示し、他の列は<function>pg_stat_reset_shared</function>関数でリセット可能な累積カウンタを示します。
   </para>
 
   <table id="pg-stat-recovery-prefetch-view" xreflabel="pg_stat_recovery_prefetch">
+<!--
    <title><structname>pg_stat_recovery_prefetch</structname> View</title>
+-->
+   <title><structname>pg_stat_recovery_prefetch</structname>ビュー</title>
    <tgroup cols="1">
     <thead>
      <row>
@@ -4596,7 +4621,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         Number of blocks prefetched because they were not in the buffer pool
 -->
-《機械翻訳》バッファ・プールになかったためにプリフェッチされたブロックの数
+バッファプールになかったためにプリフェッチされたブロックの数です。
        </para>
       </entry>
      </row>
@@ -4610,7 +4635,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         Number of blocks not prefetched because they were already in the buffer pool
 -->
-《機械翻訳》すでにバッファ・プールにあったためプリフェッチされなかったブロックの数
+すでにバッファプールにあったためプリフェッチされなかったブロックの数です。
        </para>
       </entry>
      </row>
@@ -4624,7 +4649,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         Number of blocks not prefetched because they would be zero-initialized
 -->
-《機械翻訳》0で初期化されるためプリフェッチされなかったブロックの数
+ゼロで初期化されるためプリフェッチされなかったブロックの数です。
        </para>
       </entry>
      </row>
@@ -4638,7 +4663,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         Number of blocks not prefetched because they didn't exist yet
 -->
-《機械翻訳》まだ存在しなかったためにプリフェッチされなかったブロック数
+まだ存在しなかったためにプリフェッチされなかったブロックの数です。
        </para>
       </entry>
      </row>
@@ -4652,7 +4677,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         Number of blocks not prefetched because a full page image was included in the WAL
 -->
-《機械翻訳》フルページイメージがWALに含まれていたためにプリフェッチされなかったブロックの数
+フルページイメージがWALに含まれていたためにプリフェッチされなかったブロックの数です。
        </para>
       </entry>
      </row>
@@ -4666,7 +4691,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         Number of blocks not prefetched because they were already recently prefetched
 -->
-《機械翻訳》プリフェッチされたためにプリフェッチされなかったブロック数
+すでに最近プリフェッチされていたためにプリフェッチされなかったブロックの数です。
        </para>
       </entry>
      </row>
@@ -4680,7 +4705,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         How many bytes ahead the prefetcher is looking
 -->
-《機械翻訳》prefetcherが参照しているバイト数
+プリフェッチャーが参照しているバイト数です。
        </para>
       </entry>
      </row>
@@ -4694,7 +4719,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         How many blocks ahead the prefetcher is looking
 -->
-《機械翻訳》prefetcherが参照している前方のブロック数
+プリフェッチャーが参照している前方のブロック数です。
        </para>
       </entry>
      </row>
@@ -4708,7 +4733,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
         How many prefetches have been initiated but are not yet known to have completed
 -->
-《機械翻訳》開始されたがまだ完了していないプリフェッチの数
+開始されたがまだ完了していないプリフェッチの数です。
        </para>
       </entry>
      </row>
@@ -4877,11 +4902,14 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
    The <structname>pg_stat_subscription_stats</structname> view will contain
    one row per subscription.
 -->
-《機械翻訳》<structname>pg_stat_subscription_stats</structname>ビューにはサブスクリプションごとに1行が含まれます。
+<structname>pg_stat_subscription_stats</structname>ビューにはサブスクリプションごとに1行が含まれます。
   </para>
 
   <table id="pg-stat-subscription-stats" xreflabel="pg_stat_subscription_stats">
+<!--
    <title><structname>pg_stat_subscription_stats</structname> View</title>
+-->
+   <title><structname>pg_stat_subscription_stats</structname>ビュー</title>
    <tgroup cols="1">
     <thead>
      <row>
@@ -4933,7 +4961,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
        Number of times an error occurred while applying changes
 -->
-《機械翻訳》変更の適用中にエラーが発生した回数
+変更の適用中にエラーが発生した回数です。
       </para></entry>
      </row>
 
@@ -4946,7 +4974,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
        Number of times an error occurred during the initial table
        synchronization
 -->
-《機械翻訳》初期テーブル同期中にエラーが発生した回数
+初期テーブル同期中にエラーが発生した回数です。
       </para></entry>
      </row>
 
@@ -5288,7 +5316,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
        Name of the WAL file most recently successfully archived
 -->
-最後に成功したアーカイブのWALファイルの名前です。
+最後にアーカイブに成功したWALファイルの名前です。
       </para></entry>
      </row>
 
@@ -5300,7 +5328,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
        Time of the most recent successful archive operation
 -->
-最後に成功したアーカイブ操作の時刻です。
+最後にアーカイブに成功した操作の時刻です。
       </para></entry>
      </row>
 
@@ -5312,7 +5340,7 @@ WALレシーバーが接続している<productname>PostgreSQL</productname>イ�
 <!--
        Number of failed attempts for archiving WAL files
 -->
-WALファイルのアーカイブに失敗した回数です。
+アーカイブに失敗したWALファイルの回数です。
       </para></entry>
      </row>
 
@@ -5364,7 +5392,7 @@ WALファイルのアーカイブに失敗した回数です。
     <structfield>last_archived_wal</structfield> have also been successfully
     archived.
 -->
-《機械翻訳》通常、WALファイルは古いものから新しいものの順にアーカイブされますが、これは保証されておらず、スタンバイをプロモートしたときやクラッシュリカバリ後のような特別な状況では保持されません。
+通常、WALファイルは古いものから新しいものの順にアーカイブされますが、これは保証されておらず、スタンバイをプロモートしたときやクラッシュリカバリ後のような特別な状況では保持されません。
 したがって、<structfield>last_archived_wal</structfield>より古いすべてのファイルも正常にアーカイブされたと考えるのは安全ではありません。
   </para>
 
@@ -5936,7 +5964,8 @@ WALファイルが<function>issue_xlog_fsync</function>要求によりディス�
        <structname>pg_stat_database_conflicts</structname></link> for details.)
 -->
 データベース内のリカバリで競合したためキャンセルされた問い合わせ数です。
-(競合はスタンバイサーバ上でのみ起こります。詳細については<link linkend="monitoring-pg-stat-database-conflicts-view"><structname>pg_stat_database_conflicts</structname></link>を参照してください。)
+(競合はスタンバイサーバ上でのみ起こります。
+詳細については<link linkend="monitoring-pg-stat-database-conflicts-view"><structname>pg_stat_database_conflicts</structname></link>を参照してください。)
       </para></entry>
      </row>
 
@@ -6170,7 +6199,7 @@ WALファイルが<function>issue_xlog_fsync</function>要求によりディス�
    This view will only contain information on standby servers, since
    conflicts do not occur on primary servers.
 -->
-<structname>pg_stat_database_conflicts</structname>ビューは、データベース毎に１行を保持し、スタンバイサーバでのリカバリと競合するためにキャンセルされた問い合わせに関するデータベース全体の統計情報を示します。
+<structname>pg_stat_database_conflicts</structname>ビューは、データベースごとに1行を保持し、スタンバイサーバでのリカバリと競合するためにキャンセルされた問い合わせに関するデータベース全体の統計情報を示します。
 プライマリサーバでは競合は発生しませんので、スタンバイサーバ上の情報のみが保持されます。
   </para>
 
@@ -6309,7 +6338,7 @@ WALファイルが<function>issue_xlog_fsync</function>要求によりディス�
    contain the same information,
    but filtered to only show user and system tables respectively.
 -->
-<structname>pg_stat_all_tables</structname>ビューは現在のデータベース内のテーブル（TOASTテーブルを含む）毎に１行の形式で、特定のテーブルへのアクセスに関する統計情報を表示します。
+<structname>pg_stat_all_tables</structname>ビューは現在のデータベース内のテーブル（TOASTテーブルを含む）ごと1行の形式で、特定のテーブルへのアクセスに関する統計情報を表示します。
 <structname>pg_stat_user_tables</structname>および<structname>pg_stat_sys_tables</structname>ビューにも同じ情報が含まれますが、それぞれユーザテーブルとシステムテーブルのみにフィルタされています。
   </para>
 
@@ -6642,7 +6671,7 @@ HOT更新（つまりインデックスの更新を別途必要としない）�
    contain the same information,
    but filtered to only show user and system indexes respectively.
 -->
-<structname>pg_stat_all_indexes</structname>ビューは、現在のデータベース内のインデックス毎に、特定のインデックスへのアクセスに関する統計情報を示す１行を保持します。
+<structname>pg_stat_all_indexes</structname>ビューは、現在のデータベース内のインデックスごとに1行の形式で、特定のインデックスへのアクセスに関する統計情報を表示します。
 <structname>pg_stat_user_indexes</structname>と<structname>pg_stat_sys_indexes</structname>も同じ情報を保持しますが、ユーザ向けのインデックスとシステム向けのインデックスに対する行のみを保持するようにフィルタ処理されています。
   </para>
 
@@ -6831,7 +6860,7 @@ HOT更新（つまりインデックスの更新を別途必要としない）�
    contain the same information,
    but filtered to only show user and system tables respectively.
 -->
-<structname>pg_statio_all_tables</structname>ビューは現在のデータベース内のテーブル（TOASTテーブルを含む）ごとに、特定のテーブルのI/Oに関する統計情報を示す１行を保持します。
+<structname>pg_statio_all_tables</structname>ビューは現在のデータベース内のテーブル（TOASTテーブルを含む）ごとに1行の形式で、特定のテーブルのI/Oに関する統計情報を表示します。
 <structname>pg_statio_user_tables</structname>と<structname>pg_statio_sys_tables</structname>には同じ情報が保持されますが、ユーザテーブルとシステムテーブルに関する行のみを持つようにフィルタ処理がなされています。
   </para>
 
@@ -7013,7 +7042,7 @@ HOT更新（つまりインデックスの更新を別途必要としない）�
    contain the same information,
    but filtered to only show user and system indexes respectively.
 -->
-<structname>pg_statio_all_indexes</structname>ビューは、現在のデータベース内のインデックス毎に、特定のインデックスへのI/Oに関する統計情報を持つ１行を保持します。
+<structname>pg_statio_all_indexes</structname>ビューは、現在のデータベース内のインデックスごとに1行の形式で、特定のインデックスへのI/Oに関する統計情報を表示します。
 <structname>pg_statio_user_indexes</structname>と<structname>pg_statio_sys_indexes</structname>も同じ情報を保持しますが、それぞれユーザ向けのインデックスとシステム向けのインデックスに対する行のみを保持するようにフィルタ処理されています。
   </para>
 
@@ -7143,7 +7172,7 @@ HOT更新（つまりインデックスの更新を別途必要としない）�
    one row for each sequence in the current database,
    showing statistics about I/O on that specific sequence.
 -->
-<structname>pg_statio_all_sequences</structname>ビューは現在のデータベース内のシーケンスごとに、特定シーケンスにおけるI/Oに関する統計情報を示す１行を保持します。
+<structname>pg_statio_all_sequences</structname>ビューは現在のデータベース内のシーケンスごとに1行の形式で、特定シーケンスにおけるI/Oに関する統計情報を表示します。
   </para>
 
   <table id="pg-statio-all-sequences-view" xreflabel="pg_statio_all_sequences">
@@ -7249,7 +7278,7 @@ HOT更新（つまりインデックスの更新を別途必要としない）�
    that function.  The <xref linkend="guc-track-functions"/> parameter
    controls exactly which functions are tracked.
 -->
-<structname>pg_stat_user_functions</structname>ビューは追跡された関数毎に、その関数の実行に関する統計情報を１行保持します。
+<structname>pg_stat_user_functions</structname>ビューは追跡された関数ごとに1行の形式で、その関数の実行に関する統計情報を表示します。
 <xref linkend="guc-track-functions"/>パラメータは関数が追跡されるかどうかを正確に制御します。
   </para>
 
@@ -7376,7 +7405,7 @@ HOT更新（つまりインデックスの更新を別途必要としない）�
    to cached pages.
 -->
 <productname>PostgreSQL</productname>は<firstterm>SLRU</firstterm>(simple least-recently-used)キャッシュ経由で特定のディスク上の情報にアクセスします。
-<structname>pg_stat_slru</structname>ビューは、追跡されたSLRUキャッシュ毎にキャッシュされたページへのアクセスに関する統計情報を1行保持します。
+<structname>pg_stat_slru</structname>ビューは、追跡されたSLRUキャッシュごとに1行の形式で、キャッシュされたページへのアクセスに関する統計情報を表示します。
   </para>
 
   <table id="pg-stat-slru-view" xreflabel="pg_stat_slru">
@@ -7552,7 +7581,7 @@ SLRUでの切り詰めの数です。
    Additional functions related to the cumulative statistics system are listed
    in <xref linkend="monitoring-stats-funcs-table"/>.
 -->
-《マッチ度[76.190476]》その他の統計情報収集に関連した関数を<xref linkend="monitoring-stats-funcs-table"/>に示します。
+その他の累積統計システムに関連した関数を<xref linkend="monitoring-stats-funcs-table"/>に示します。
   </para>
 
    <table id="monitoring-stats-funcs-table">
@@ -7630,7 +7659,7 @@ SLRUでの切り詰めの数です。
         <varname>stats_fetch_consistency</varname> is set to
         <literal>snapshot</literal>
 -->
-《機械翻訳》現在の統計スナップショットのタイムスタンプを返します。
+現在の統計スナップショットのタイムスタンプを返します。
 統計スナップショットが取得されていない場合はNULLを返します。
 <varname>stats_fetch_consistency</varname>が<literal>snapshot</literal>に設定されている場合は、トランザクションで累積統計に初めてアクセスしたときにスナップショットが取得されます。
        </para></entry>
@@ -7648,7 +7677,7 @@ SLRUでの切り詰めの数です。
 <!--
         Discards the current statistics snapshot or cached information.
 -->
-《マッチ度[52.380952]》現在の統計情報スナップショットを破棄します。
+現在の統計スナップショットまたはキャッシュされた情報を破棄します。
        </para></entry>
       </row>
 
@@ -7696,8 +7725,8 @@ SLRUでの切り詰めの数です。
         <literal>recovery_prefetch</literal> to reset all the counters shown
         in the <structname>pg_stat_recovery_prefetch</structname> view.
 -->
-《マッチ度[67.894737]》引数に応じて、クラスタ全体の統計情報カウンタの一部をゼロにリセットします。
-引数に<literal>bgwriter</literal>を指定すると、<structname>pg_stat_bgwriter</structname>ビューで示されるカウンタがすべてリセットされ、<literal>archiver</literal>を指定すると<structname>pg_stat_archiver</structname>ビューで示されるカウンタがすべてリセットされ、<literal>wal</literal>を指定すると<structname>pg_stat_wal</structname>ビューで示されるカウンタがすべてリセットされます。
+引数に応じて、クラスタ全体の統計情報カウンタの一部をゼロにリセットします。
+引数に<literal>bgwriter</literal>を指定すると、<structname>pg_stat_bgwriter</structname>ビューで示されるカウンタがすべてリセットされ、<literal>archiver</literal>を指定すると<structname>pg_stat_archiver</structname>ビューで示されるカウンタがすべてリセットされ、<literal>wal</literal>を指定すると<structname>pg_stat_wal</structname>ビューで示されるカウンタがすべてリセットされ、<literal>recovery_prefetch</literal>を指定すると<structname>pg_stat_recovery_prefetch</structname> ビュー示されるカウンタがすべてリセットされます。
        </para>
        <para>
 <!--
@@ -7721,7 +7750,7 @@ SLRUでの切り詰めの数です。
         Resets statistics for a single table or index in the current database
         or shared across all databases in the cluster to zero.
 -->
-《マッチ度[62.096774]》現在のデータベース内にある、ひとつのテーブルあるいはインデックスの統計情報をゼロにリセットします。
+現在のデータベース内にある、ひとつのテーブルまたはインデックス、あるいはクラスタ内のすべてのデータベースで共有されている統計情報をゼロにリセットします。
        </para>
        <para>
 <!--
@@ -7837,7 +7866,7 @@ SLRUでの切り詰めの数です。
         the argument is <literal>NULL</literal>, reset statistics for all
         subscriptions.
 -->
-《機械翻訳》<structname>pg_stat_subscription_stats</structname>ビューに表示されている単一サブスクリプションの統計を0にリセットします。
+<structname>pg_stat_subscription_stats</structname>ビューに表示されている単一サブスクリプションの統計をゼロにリセットします。
 引数が<literal>NULL</literal>の場合は、すべてのサブスクリプションの統計をリセットします。
        </para>
        <para>
@@ -7872,7 +7901,7 @@ SLRUでの切り詰めの数です。
 この情報の一部のみを入手することがより簡便である場合があるかもしれません。
 このような場合、<xref linkend="monitoring-stats-backend-funcs-table"/>に示す、古めのバックエンド単位の統計情報アクセス関数を使用することができます。
 これらのアクセス関数は、１から現在活動中のバックエンドの個数までの値を取る、バックエンドID番号を使用します。
-<function>pg_stat_get_backend_idset</function>関数は、これらの関数を呼び出すために、活動中のバックエンド毎に１行を生成する簡便な方法を提供します。
+<function>pg_stat_get_backend_idset</function>関数は、これらの関数を呼び出すために、活動中のバックエンド毎に1行を生成する簡便な方法を提供します。
 例えば以下はすべてのバックエンドについて<acronym>PID</acronym>と現在の問い合わせを示します。
 
 <programlisting>
@@ -8065,7 +8094,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
         otherwise NULL.  See <xref linkend="wait-event-table"/> for details.
 -->
 バックエンドが現在待機中であれば、待機イベント型名を、さもなくばNULLを返します。
-詳細は<xref linkend="wait-event-table"/>を参照してください。
+詳細については<xref linkend="wait-event-table"/>を参照してください。
        </para></entry>
       </row>
 
@@ -8531,7 +8560,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    below describe the information that will be reported and provide information
    about how to interpret it.
 -->
-<command>CREATE INDEX</command>や<command>REINDEX</command>が実行中であるときにはいつでも、<structname>pg_stat_progress_create_index</structname>ビューには現在インデックスを作成している各バックエンドごとの行が含まれます。
+<command>CREATE INDEX</command>や<command>REINDEX</command>が実行中であるときにはいつでも、<structname>pg_stat_progress_create_index</structname>ビューには現在インデックスを作成している各バックエンドごとに1行が含まれます。
 以下の表は、報告される情報を説明し、どのように解釈するかの情報を提供します。
   </para>
 
@@ -8963,7 +8992,7 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
    rewrite the table, while regular <command>VACUUM</command> only modifies it
    in place. See <xref linkend='cluster-progress-reporting'/>.
 -->
-<command>VACUUM</command>を実行するときはいつでも、<structname>pg_stat_progress_vacuum</structname>ビューは、現在バキューム処理している（自動バキュームワーカプロセスを含む）それぞれのバックエンドごとに１行を格納します。
+<command>VACUUM</command>を実行するときはいつでも、<structname>pg_stat_progress_vacuum</structname>ビューは、現在バキューム処理している（自動バキュームワーカプロセスを含む）それぞれのバックエンドごとに1行含まれます。
 以下の表は、報告される情報を説明し、どのように解釈するかの情報を提供します。
 <command>VACUUM FULL</command>コマンドの進捗は<structname>pg_stat_progress_cluster</structname>でレポートされます。これは、通常の<command>VACUUM</command>はテーブル内を書き換えするのみである一方、<command>VACUUM FULL</command>と<command>CLUSTER</command>はいずれもテーブルを再作成するためです。
 <xref linkend='cluster-progress-reporting'/>を参照してください。
@@ -9259,8 +9288,8 @@ SELECT pg_stat_get_backend_pid(s.backendid) AS pid,
        in <literal>pg_class</literal>, and report statistics to the cumulative
        statistics system. When this phase is completed, <command>VACUUM</command> will end.
 -->
-《機械翻訳》<command>VACUUM</command>は最終クリーンアップを実行しています。
-このフェーズ中に、<command>VACUUM</command>は空き領域マップを真空にし、<literal>pg_class</literal>内の統計を更新し、累積統計システムに統計を報告します。
+<command>VACUUM</command>は最終クリーンアップを実行しています。
+このフェーズ中に、<command>VACUUM</command>は空き領域マップをバキュームし、<literal>pg_class</literal>内の統計を更新し、累積統計システムに統計を報告します。
 このフェーズが完了すると、<command>VACUUM</command>は終了します。
      </entry>
     </row>
@@ -9852,7 +9881,10 @@ WAL送信プロセスはバックアップ中に生成されたWALログをす�
   </para>
 
   <table id="pg-stat-progress-copy-view" xreflabel="pg_stat_progress_copy">
+<!--
    <title><structname>pg_stat_progress_copy</structname> View</title>
+-->
+   <title><structname>pg_stat_progress_copy</structname>ビュー</title>
    <tgroup cols="1">
     <thead>
      <row>
