@@ -175,6 +175,9 @@
           </xsl:if>
 
         </table>
+        <div class="other_version">
+          <a><xsl:attribute name="href">https://www.postgresql.jp/document/</xsl:attribute>他のバージョンの文書</a>
+        </div>
       </xsl:if>
 
       <xsl:if test="$header.rule != 0">
