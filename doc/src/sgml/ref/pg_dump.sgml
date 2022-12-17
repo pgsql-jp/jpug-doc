@@ -568,7 +568,7 @@ tar形式アーカイブを展開すると、有効なディレクトリ形式�
         different worker jobs wouldn't be guaranteed to see the same data in
         each connection, which could lead to an inconsistent backup.
 -->
-《マッチ度[85.562310]》一貫したバックアップのためには、データベースサーバは、同期スナップショットをサポートする必要があります。
+並行ダンプの性能のため、データベースサーバは同期スナップショットをサポートする必要があります。
 これはプライマリサーバについては<productname>PostgreSQL</productname> 9.2で、スタンバイについてはバージョン10で導入された機能です。
 この機能を用いれば、データベースクライアントは異なる接続を使用していたとしても、確実に同じデータセットを参照することができます。
 <command>pg_dump -j</command>は複数のデータベース接続を使用します。
@@ -1329,8 +1329,8 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         With this option, all objects will be created with whichever
         table access method is the default during restore.
 -->
-《マッチ度[75.301205]》テーブル空間を選択するコマンドを出力しません。
-このオプションを使用すると、すべてのオブジェクトはリストア時のデフォルトのテーブル空間の中に作成されます。
+セレクトテーブルアクセスメソッドにコマンドを出力しません。
+このオプションを使用すると、リストア中にどのテーブルアクセスメソッドがデフォルトであっても、すべてのオブジェクトが作成されます。
        </para>
 
        <para>
@@ -1397,9 +1397,9 @@ tarアーカイブ形式では現在圧縮を全くサポートしていませ�
         and sequence data. Data in unlogged tables and sequences
         is always excluded when dumping from a standby server.
 -->
-《マッチ度[74.918567]》ログを取らないテーブルの内容をダンプしません。
-このオプションはテーブル定義（スキーマ）をダンプするかどうかには影響しません。
-そのテーブルデータのダンプを抑制するだけです。
+ログを取らないテーブルとシーケンスの内容をダンプしません。
+このオプションはテーブルとシーケンスの定義（スキーマ）をダンプするかどうかには影響しません。
+そのテーブルとシーケンスのデータのダンプを抑制するだけです。
 スタンバイサーバからダンプを行う場合、ログを取らないテーブル内のデータは常に除外されます。
        </para>
       </listitem>
@@ -1886,7 +1886,7 @@ pg_dumpを始めた時に読み書きを行う実行中のトランザクショ�
    to false via <envar>PGOPTIONS</envar> or the <literal>ALTER
    USER</literal> command.
 -->
-《マッチ度[87.500000]》通常<application>pg_dump</application>のデータベースに対する活動は統計情報コレクタにより収集されます。
+通常<application>pg_dump</application>のデータベースに対する活動は累積された統計情報システムにより収集されます。
 これを望まない場合、<envar>PGOPTIONS</envar>または<literal>ALTER USER</literal>コマンドを使用して<varname>track_counts</varname>パラメータを偽に設定してください。
   </para>
 
@@ -1965,9 +1965,9 @@ CREATE DATABASE foo WITH TEMPLATE template0;
    in cross-version cases, as it can prevent problems arising from varying
    reserved-word lists in different <productname>PostgreSQL</productname> versions.
 -->
-《マッチ度[95.450980]》<application>pg_dump</application>は新しいバージョンの<productname>PostgreSQL</productname>へのデータ移行に使用されますので、<application>pg_dump</application>の出力は<application>pg_dump</application>のバージョンより新しいバージョンの<productname>PostgreSQL</productname>データベースへロード可能と想定できるようになっています。
+<application>pg_dump</application>は新しいバージョンの<productname>PostgreSQL</productname>へのデータ移行に使用されますので、<application>pg_dump</application>の出力は<application>pg_dump</application>のバージョンより新しいバージョンの<productname>PostgreSQL</productname>データベースへロード可能と想定できるようになっています。
 また、<application>pg_dump</application>は自身より古いバージョンの<productname>PostgreSQL</productname>データベースを読み取ることもできます。
-（現在はバージョン8.0までのサーバをサポートします。）
+（現在はバージョン9.2までのサーバをサポートします。）
 しかし、<application>pg_dump</application>はそれ自身のメジャーバージョンより新しい<productname>PostgreSQL</productname>サーバのダンプを取ることはできません。
 無効なダンプを作成するリスクは取らず、ダンプしようとさえしません。
 また、<application>pg_dump</application>の出力がメジャーバージョンが古いサーバにロードできるとは、たとえ同じバージョンのサーバから取得したダンプであっても、保証されていません。
@@ -1994,11 +1994,13 @@ CREATE DATABASE foo WITH TEMPLATE template0;
    subscriber if the subscription had been originally created with
    <literal>two_phase = true</literal> option.
 -->
-《マッチ度[64.102564]》論理レプリケーションのサブスクリプションをダンプするとき、<application>pg_dump</application>は<literal>connect = false</literal>オプションを使用する<command>CREATE SUBSCRIPTION</command>生成するため、サブスクリプションのリストア時には、レプリケーションスロットの作成や初回のテーブルコピーのためのリモート接続が行われません。
+論理レプリケーションのサブスクリプションをダンプするとき、<application>pg_dump</application>は<literal>connect = false</literal>オプションを使用する<command>CREATE SUBSCRIPTION</command>生成するため、サブスクリプションのリストア時には、レプリケーションスロットの作成や初回のテーブルコピーのためのリモート接続が行われません。
 このため、リモートサーバへのネットワーク接続を必要とせずにダンプをリストアできます。
 その後でサブスクリプションを適切な方法で再有効化するのはユーザの責任です。
 関連するホストが変更されたときは、接続情報も変更しなければならないかもしれません。
 新しく完全なテーブルコピーを開始する前に、コピー先のテーブルを空にするのが適切なこともあります。
+ユーザーがリフレッシュ中に最初のデータをコピーする場合は、<literal>two_phase = false</literal>を使用してスロットを作成する必要があります。
+最初の同期後、サブスクリプションが<literal>two_phase = true</literal>オプションを使用して最初に作成された場合は、<literal>two_phase</literal>オプションがサブスクライバーによって自動的に有効になります。
   </para>
  </refsect1>
 
