@@ -47,6 +47,13 @@
                                     or ($next and $navig.showtitles != 0)"/>
 
   <xsl:if test="$suppress.navigation = '0' and $suppress.header.navigation = '0'">
+  <xsl:choose>
+  <xsl:when test="$html.original = 1">
+    <div class="other_version">
+      <a><xsl:attribute name="href">https://www.postgresql.jp/document/</xsl:attribute>バージョンごとのドキュメント一覧</a>
+    </div>
+  </xsl:when>
+  </xsl:choose>
     <div class="navheader">
       <xsl:if test="$row1 or $row2 or $row3">
         <table width="100%" summary="Navigation header">
