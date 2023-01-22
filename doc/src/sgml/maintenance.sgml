@@ -1537,7 +1537,7 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
    period of time.
 -->
 ログ出力は（特により高いデバッグレベルの時に）巨大になる傾向があるので、際限なく保存したくはないでしょう。
-適切な期間を経過した後に、新しいログファイルが開始され、古いログファイルが削除されるように、ログファイルを<emphasis>回転</emphasis>する必要があります。
+適切な期間を経過した後に、新しいログファイルが開始され、古いログファイルが削除されるように、ログファイルを<emphasis>ローテーション</emphasis>する必要があります。
   </para>
 
   <para>
@@ -1566,8 +1566,8 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
    to capture the log data in machine readable <acronym>CSV</acronym>
    (comma-separated values) format.
 -->
-サーバの<systemitem>stderr</systemitem>を何らかのログ回転プログラムに送信する方が良いでしょう。
-組み込みのログ回転機能があり、<filename>postgresql.conf</filename>の<varname>logging_collector</varname>設定パラメータを<literal>true</literal>に設定することでこれを使用することができます。
+サーバの<systemitem>stderr</systemitem>を何らかのログローテーションプログラムに送信する方が良いでしょう。
+組み込みのログローテーション機能があり、<filename>postgresql.conf</filename>の<varname>logging_collector</varname>設定パラメータを<literal>true</literal>に設定することでこれを使用することができます。
 このプログラムを制御するパラメータについては<xref linkend="runtime-config-logging-where"/>で説明します。
 また、この方法を使用して、機械読み取りしやすい<acronym>CSV</acronym>(カンマ区分値)書式でログデータを取り込むことができます。
   </para>
@@ -1586,7 +1586,7 @@ B-tree以外の任意の種類のインデックスを使用する際には、�
    is already redirected to <systemitem>stdout</systemitem>, so you just need a
    pipe command, for example:
 -->
-また、既に他のサーバソフトウェアで使用している外部のログ回転プログラムがあるのであれば、それを使用したいと考えるでしょう。
+また、既に他のサーバソフトウェアで使用している外部のログローテーションプログラムがあるのであれば、それを使用したいと考えるでしょう。
 例えば、<productname>Apache</productname>配布物に含まれる<application>rotatelogs</application>を<productname>PostgreSQL</productname>で使用することができます。
 これを行う一つの方法は、単にサーバの<systemitem>stderr</systemitem>を目的のプログラムにパイプで渡すことです。
 <command>pg_ctl</command>を使用してサーバを起動している場合は<systemitem>stderr</systemitem>は既に<systemitem>stdout</systemitem>にリダイレクトされていますので、以下の例のようにコマンドをパイプする必要があるだけです。
@@ -1615,7 +1615,7 @@ pg_ctl start | rotatelogs /var/log/pgsql_log 86400
 -->
 <productname>PostgreSQL</productname>組み込みのログ収集機構により生成されるログファイルを集めるのに<application>logrotate</application>を設定することで、上の方法を組み合わせることができます。
 この場合、ログ収集機構はログファイルの名前と位置を定義する一方、<application>logrotate</application>は周期的にそのファイルをアーカイブします。
-ログ回転を開始する時に、<application>logrotate</application>はアプリケーションが以降の出力を新しいファイルに送ることを確実にしなければなりません。
+ログローテーションを開始する時に、<application>logrotate</application>はアプリケーションが以降の出力を新しいファイルに送ることを確実にしなければなりません。
 通常これは、アプリケーションに<literal>SIGHUP</literal>シグナルを送る<literal>postrotate</literal>スクリプトにより行なわれ、アプリケーションはその後ログファイルを再度開きます。
 <productname>PostgreSQL</productname>では、その代わりに<command>pg_ctl</command>に<literal>logrotate</literal>オプションを付けて実行できます。
 サーバはこのコマンドを受け取ると、ログ収集の設定に応じて新しいログファイルに切り替えるか、既存のファイルを再度開くかします(<xref linkend="runtime-config-logging-where"/>を参照してください)。
@@ -1634,7 +1634,7 @@ pg_ctl start | rotatelogs /var/log/pgsql_log 86400
     and use a <literal>prerotate</literal> script to ignore open log files.
 -->
 静的なログファイル名を使う場合には、開けるファイルの最大数に達したりファイルテーブルのオーバーフローが起きた場合に、サーバがログファイルを再度開くのに失敗するかもしれません。
-この場合には、ログ回転が成功するまでログメッセージは古いログファイルに送られます。
+この場合には、ログローテーションが成功するまでログメッセージは古いログファイルに送られます。
 <application>logrotate</application>がログファイルを圧縮して削除するよう設定されていれば、サーバはこの期間にログに残そうとしたメッセージを失うかもしれません。
 この問題を避けるため、ログファイル名を動的に割り当てて、開いているログファイルを無視する<literal>prerotate</literal>スクリプトを使うようにログ収集機構を設定できます。
     </para>
@@ -1654,10 +1654,10 @@ pg_ctl start | rotatelogs /var/log/pgsql_log 86400
    configured to work with log files from
    <application>syslog</application>.
 -->
-この他の実運用レベルのログ出力の管理方法は、<application>syslog</application>に送信し、<application>syslog</application>にファイルの回転を行わせることです。
+この他の実運用レベルのログ出力の管理方法は、<application>syslog</application>に送信し、<application>syslog</application>にファイルのローテーションを行わせることです。
 このためには、<filename>postgresql.conf</filename>の<varname>log_destination</varname>設定パラメータを<literal>syslog</literal>（<application>syslog</application>のみにログを出力）に設定してください。
 そして、新しいログファイルへの書き込みを始めたい時に、<application>syslog</application>デーモンに<literal>SIGHUP</literal>シグナルを送信してください。
-ログ回転を自動化させたい場合は、<application>logrotate</application>プログラムを設定することで、<application>syslog</application>からのログファイルを扱うことができます。
+ログローテーションを自動化させたい場合は、<application>logrotate</application>プログラムを設定することで、<application>syslog</application>からのログファイルを扱うことができます。
   </para>
 
   <para>
@@ -1686,7 +1686,7 @@ pg_ctl start | rotatelogs /var/log/pgsql_log 86400
 -->
 上述の手法は全て、新しいログファイルを開始する周期を設定することができますが、古い、既に役に立たなくなったログファイルの削除は扱わないことに注意してください。
 おそらく定期的に古いログファイルを削除するバッチジョブを設定することになるでしょう。
-他に、回転用プログラムを設定して古いログファイルを周期的に上書きさせるという方法もあります。
+他に、ローテーション用プログラムを設定して古いログファイルを周期的に上書きさせるという方法もあります。
   </para>
 
   <para>
