@@ -34,7 +34,10 @@ ALTER PUBLICATION <replaceable class="parameter">name</replaceable> SET ( <repla
 ALTER PUBLICATION <replaceable class="parameter">name</replaceable> OWNER TO { <replaceable>new_owner</replaceable> | CURRENT_ROLE | CURRENT_USER | SESSION_USER }
 ALTER PUBLICATION <replaceable class="parameter">name</replaceable> RENAME TO <replaceable>new_name</replaceable>
 
+<!--
 <phrase>where <replaceable class="parameter">publication_object</replaceable> is one of:</phrase>
+-->
+<phrase>ここで<replaceable class="parameter">publication_object</replaceable>は以下のいずれかです。</phrase>
 
     TABLE [ ONLY ] <replaceable class="parameter">table_name</replaceable> [ * ] [ ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) ] [ WHERE ( <replaceable class="parameter">expression</replaceable> ) ] [, ... ]
     TABLES IN SCHEMA { <replaceable class="parameter">schema_name</replaceable> | CURRENT_SCHEMA } [, ... ]
@@ -71,10 +74,11 @@ ALTER PUBLICATION <replaceable class="parameter">name</replaceable> RENAME TO <r
    <literal>ADD TABLE</literal>, and the combination of <literal>DROP</literal>
    with a <literal>WHERE</literal> clause is not allowed.
 -->
-《マッチ度[52.149945]》最初の3つの構文では、パブリケーションにどのテーブルが含まれるかを変更します。
-<literal>SET TABLE</literal>句は、パブリケーションのテーブルのリストを指定したもので置き換えます。
-<literal>ADD TABLE</literal>句と<literal>DROP TABLE</literal>句はパブリケーションに1つ以上のテーブルを追加または削除します。
-既にサブスクライブされているパブリケーションにテーブルを追加した場合、それを有効にするにはサブスクライブしている側で<literal>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</literal>の操作を行う必要があることに注意してください。
+最初の3つの構文では、パブリケーションにどのテーブル/スキーマが含まれるかを変更します。
+<literal>SET</literal>句は、パブリケーションのテーブル/スキーマのリストを指定したリストで置き換えます。パブリケーション内の既存のテーブル/スキーマは削除されます。
+<literal>ADD</literal>句と<literal>DROP</literal>句はパブリケーションに1つ以上のテーブル/スキーマを追加または削除します。
+既にサブスクライブされているパブリケーションにテーブル/スキーマを追加した場合、それを有効にするにはサブスクライブしている側で<literal>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</literal>の操作を行う必要があることに注意してください。
+<literal>DROP TABLES IN SCHEMA</literal>は<literal>FOR TABLE</literal>/<literal>ADD TABLE</literal>を使って指定されたスキーマテーブルを削除せず、<literal>WHERE</literal>句のついた<literal>DROP</literal>との組み合わせは認められていないことにも注意してください。
   </para>
 
   <para>
@@ -108,11 +112,12 @@ ALTER PUBLICATION <replaceable class="parameter">name</replaceable> RENAME TO <r
    publication must be a superuser. However, a superuser can
    change the ownership of a publication regardless of these restrictions.
 -->
-《マッチ度[70.215827]》<command>ALTER PUBLICATION</command>を使用するには、そのパブリケーションを所有していなければなりません。
+<command>ALTER PUBLICATION</command>を使用するには、そのパブリケーションを所有していなければなりません。
 パブリケーションにテーブルを追加するには、さらにそのテーブルを所有していることが必要です。
+パブリケーションへの<literal>ADD TABLES IN SCHEMA</literal>と<literal>SET TABLES IN SCHEMA</literal>には、実行するユーザーがスーパーユーザであることが必要です。
 所有者を変更するには、新しい所有ロールの直接的あるいは間接的なメンバーでもなければなりません。
 新しい所有者は、データベースに<literal>CREATE</literal>権限を持っていなければなりません。
-また、<literal>FOR ALL TABLES</literal>のパブリケーションの新しい所有者はスーパーユーザでなければなりません。
+また、<literal>FOR ALL TABLES</literal>や<literal>FOR TABLES IN SCHEMA</literal>のパブリケーションの新しい所有者はスーパーユーザでなければなりません。
 しかし、スーパーユーザはこれらの制限に関わらずパブリケーションの所有者を変更できます。
   </para>
 
@@ -121,7 +126,7 @@ ALTER PUBLICATION <replaceable class="parameter">name</replaceable> RENAME TO <r
    Adding/Setting any schema when the publication also publishes a table with a
    column list, and vice versa is not supported.
 -->
-《機械翻訳》パブリケーションがカラム・リストを持つテーブルもパブリッシュする場合、またはその逆の場合のスキーマの追加/設定はサポートされていません。
+パブリケーションが列リストを持つテーブルもパブリッシュする場合、またはその逆の場合のスキーマの追加/設定はサポートされていません。
   </para>
  </refsect1>
 
@@ -170,9 +175,9 @@ ALTER PUBLICATION <replaceable class="parameter">name</replaceable> RENAME TO <r
       <xref linkend="logical-replication-col-list-combining"/> for details of
       potential problems when altering column lists.
 -->
-《機械翻訳》オプションで、列リストを指定できます。
+オプションで、列リストを指定できます。
 詳細は<xref linkend="sql-createpublication"/>を参照してください。
-同じ表が異なる列リストで発行された複数のパブリケーションを持つサブスクリプションはサポートされていないことに注意してください。
+同じテーブルが異なる列リストでパブリッシュされた複数のパブリケーションを持つサブスクリプションはサポートされていないことに注意してください。
 列リストを変更するときに発生する可能性のある問題の詳細は<xref linkend="logical-replication-col-list-combining"/>を参照してください。
      </para>
 
@@ -185,9 +190,9 @@ ALTER PUBLICATION <replaceable class="parameter">name</replaceable> RENAME TO <r
       <replaceable class="parameter">expression</replaceable> is evaluated with
       the role used for the replication connection.
 -->
-《機械翻訳》オプションの<literal>WHERE</literal>句が指定されている場合、<replaceable class="parameter">式</replaceable>がFALSEまたはNULLと評価される行は発行されません。
-式をカッコで囲む必要があることに注意してください。
-<replaceable class="parameter">式</replaceable>は、レプリケーション接続に使用されるロールで評価されます。
+オプションの<literal>WHERE</literal>句が指定されている場合、<replaceable class="parameter">expression</replaceable>が偽またはNULLと評価される行はパブリッシュされません。
+式を括弧で囲む必要があることに注意してください。
+<replaceable class="parameter">expression</replaceable>は、レプリケーション接続に使用されるロールで評価されます。
      </para>
     </listitem>
    </varlistentry>
@@ -199,7 +204,7 @@ ALTER PUBLICATION <replaceable class="parameter">name</replaceable> RENAME TO <r
 <!--
       Name of an existing schema.
 -->
-《機械翻訳》既存のスキーマの名前。
+既存のスキーマの名前。
      </para>
     </listitem>
    </varlistentry>
@@ -273,7 +278,7 @@ ALTER PUBLICATION mypublication ADD TABLE users (user_id, firstname), department
 <!--
    Change the set of columns published for a table:
 -->
-《機械翻訳》テーブルに対して発行された列のセットを変更します。
+テーブルのパブリッシュする列のセットを変更します。
 <programlisting>
 ALTER PUBLICATION mypublication SET TABLE users (user_id, firstname, lastname), TABLE departments;
 </programlisting></para>
@@ -284,7 +289,7 @@ ALTER PUBLICATION mypublication SET TABLE users (user_id, firstname, lastname), 
    <structname>sales</structname> to the publication
    <structname>sales_publication</structname>:
 -->
-《機械翻訳》パブリケーション<structname>sales_publication</structname>にスキーマ<structname>marketing</structname>と<structname>sales</structname>を追加します:
+パブリケーション<structname>sales_publication</structname>にスキーマ<structname>marketing</structname>と<structname>sales</structname>を追加します。
 <programlisting>
 ALTER PUBLICATION sales_publication ADD TABLES IN SCHEMA marketing, sales;
 </programlisting>
@@ -297,7 +302,7 @@ ALTER PUBLICATION sales_publication ADD TABLES IN SCHEMA marketing, sales;
    <structname>production</structname> to the publication
    <structname>production_publication</structname>:
 -->
-《機械翻訳》パブリケーション<structname>production_publication</structname>にテーブル<structname>users</structname>、<structname>departments</structname>、スキーマ<structname>production</structname>を追加します。
+パブリケーション<structname>production_publication</structname>にテーブル<structname>users</structname>、<structname>departments</structname>、スキーマ<structname>production</structname>を追加します。
 <programlisting>
 ALTER PUBLICATION production_publication ADD TABLE users, departments, TABLES IN SCHEMA production;
 </programlisting></para>
