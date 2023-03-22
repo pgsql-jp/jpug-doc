@@ -3391,7 +3391,7 @@ huge pageを自動管理するオペレーティングシステム上でより�
          20.
 -->
 vacuumが、先だって掃除したブロックを変更するのに必要な見積コストです。
-ダーティブロックを再度ディスクに吐き出すのに必要な余分なI/Oを表します。デフォルトの値は20です。
+ダーティブロックを再度ディスクにフラッシュするのに必要な余分なI/Oを表します。デフォルトの値は20です。
         </para>
        </listitem>
       </varlistentry>
@@ -4371,7 +4371,7 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
 -->
 <varname>synchronous_standby_names</varname>が空文字なら、意味のある設定は<literal>on</literal>と<literal>off</literal>だけです。
 <literal>remote_apply</literal>、<literal>remote_write</literal>、<literal>local</literal>はすべて<literal>on</literal>と同じ同期レベルを提供します。
-<literal>off</literal>モード以外のローカルの振る舞いは、WALがディスクにローカルに吐き出されるのを待ちます。
+<literal>off</literal>モード以外のローカルの振る舞いは、WALがディスクにローカルにフラッシュされるのを待ちます。
 <literal>off</literal>モードでは待ちはありません。
 ですから、クライアントに成功が報告されてから、トランザクションが後でサーバクラッシュに対して安全が保証されるまでの間に遅延が生じる可能性があります。
 （遅延は最大で<xref linkend="guc-wal-writer-delay"/>の3倍です。）
@@ -4419,13 +4419,13 @@ SSDやそれ以外のメモリーベースの記憶装置は、多くの同時�
 -->
 <literal>remote_apply</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取って適用し、スタンバイ上で発行されたクエリから見えるようになり、スタンバイ上の永続的な記憶装置に書き込まれたことを報告するまでコミットは待機します。
 WALのリプレイを待つので、今までの設定に比べるとこの設定によってずっと大きなコミットの遅延が発生します。
-<literal>on</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、永続的な記憶装置に吐き出したことを報告するまでコミットは待機します。
+<literal>on</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、永続的な記憶装置にフラッシュしたことを報告するまでコミットは待機します。
 このモードでは、プライマリおよびすべての同期スタンバイがデータベース記憶装置の故障を被った場合を除いて、トランザクションが失われないことが保証されます。
 <literal>remote_write</literal>に設定すると、現在の同期スタンバイがトランザクションのコミットレコードを受け取り、スタンバイのファイルシステムに書き出したことを報告するまでコミットは待機します。
 この設定は仮に<productname>PostgreSQL</productname>のスタンバイインスタンスがクラッシュしたとしても、データ保護を保証するのに充分です。
 しかし、スタンバイがオペレーティングシステムのレベルでクラッシュした場合はこの限りではありません。
 データが必ずしもスタンバイの永続的な記憶装置に到達したとは言えないからです。
-最後に、<literal>local</literal>設定は、コミットがローカルにディスクに吐出されるまで待機しますが、レプリケーションされるまでは待機しません。
+最後に、<literal>local</literal>設定は、コミットがローカルにディスクにフラッシュされるまで待機しますが、レプリケーションされるまでは待機しません。
 これは通常同期レプリケーションが使用されている場合は望ましい設定ではありませんが、完全さのために提供されています。
        </para>
 
@@ -4907,9 +4907,9 @@ WALバッファの内容はトランザクションのコミット毎にディ�
         next higher multiple of 10. This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
 -->
-WALライタがWALを吐き出す頻度を時間で指定します。
-WALを吐き出したとあと、非同期コミットしているトランザクションに起こされない限り、<varname>wal_writer_delay</varname>ミリ秒待機します。
-最後の吐き出しが過去<varname>wal_writer_delay</varname>以内に行われ、かつそれ以降<varname>wal_writer_flush_after</varname>相当のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクには吐出されません。
+WALライタがWALをフラッシュする頻度を時間で指定します。
+WALをフラッシュしたあと、非同期コミットしているトランザクションに起こされない限り、<varname>wal_writer_delay</varname>ミリ秒待機します。
+最後のフラッシュが過去<varname>wal_writer_delay</varname>以内に行われ、かつそれ以降<varname>wal_writer_flush_after</varname>相当のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクにはフラッシュされません。
 この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 デフォルト値は200ミリ秒（<literal>200ms</literal>）です。
 多くのシステムでは、待機間隔の実質的な分解能は10ミリ秒です。
@@ -4944,9 +4944,9 @@ WALを吐き出したとあと、非同期コミットしているトランザ�
         This parameter can only be set in the
         <filename>postgresql.conf</filename> file or on the server command line.
 -->
-WALライタがWALを吐き出す頻度を量で指定します。
-最後の吐き出しが過去<varname>wal_writer_delay</varname>以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</varname>相当のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクには吐出されません。
-<varname>wal_writer_flush_after</varname>が<literal>0</literal>に設定されている場合は、WALが書かれるたびにWALが吐出されます。
+WALライタがWALをフラッシュする頻度を量で指定します。
+最後のフラッシュが過去<varname>wal_writer_delay</varname>以内に起こなわれ、かつそれ以降<varname>wal_writer_flush_after</varname>相当のWALが生成されている場合は、WALはオペレーティングシステムに書き込まれますが、ディスクにはフラッシュされません。
+<varname>wal_writer_flush_after</varname>が<literal>0</literal>に設定されている場合は、WALが書かれるたびにWALがフラッシュされます。
 この値が単位なしで指定された場合は、WALブロック単位であるとみなします。すなわち、<symbol>XLOG_BLCKSZ</symbol>バイト、一般的には8kBです。
 デフォルト値は<literal>1MB</literal>です。
 このパラメータは<filename>postgresql.conf</filename>ファイル内、またはサーバのコマンドラインのみで設定可能です。
@@ -15541,7 +15541,7 @@ onなら、全てのエラーは現在のセッションを中止させます。
         to the file system.  This causes the database server to crash.  This
         parameter can only be set at server start.
 -->
-デフォルトであるoffに設定すると、<productname>PostgreSQL</productname>は変更されたデータファイルのファイルシステムへの吐き出しの失敗に対してPANICレベルのエラーを発生させます。
+デフォルトであるoffに設定すると、<productname>PostgreSQL</productname>は変更されたデータファイルのファイルシステムへのフラッシュの失敗に対してPANICレベルのエラーを発生させます。
 これによりデータベースサーバのクラッシュが引き起こされます。
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
@@ -15567,7 +15567,7 @@ onなら、全てのエラーは現在のセッションを中止させます。
         after investigating the operating system's treatment of buffered data
         in case of write-back failure.
 -->
-onに設定すると、代わりに<productname>PostgreSQL</productname>はエラーを報告して実行を継続し、後のチェックポイントでデータの吐き出しをリトライします。
+onに設定すると、代わりに<productname>PostgreSQL</productname>はエラーを報告して実行を継続し、後のチェックポイントでデータのフラッシュをリトライします。
 書き戻しの失敗が起きたときのオペレーティングシステムのバッファデータの扱いを調査した後でのみonに設定してください。
        </para>
       </listitem>
