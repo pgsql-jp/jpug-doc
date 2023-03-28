@@ -64,7 +64,7 @@
 単一行モードに入るためには、<xref linkend="libpq-PQsendQuery"/>（または同系列の関数）の呼び出しに成功した直後に<xref linkend="libpq-PQsetSingleRowMode"/>を呼び出してください。
 このモード選択は、現在実行中の問い合わせに対してのみ有効です。
 その後、<xref linkend="libpq-async"/>の説明通りに、NULLを返すようになるまで<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出してください。
-問い合わせが何らかの行を返す場合、<literal>PGRES_TUPLES_OK</literal>ではなく<literal>PGRES_SINGLE_TUPLE</literal>状態コードを持つ以外通常の問い合わせ結果と同じように見える、個々の<structname>PGresult</structname>オブジェクトを返します。
+問い合わせが何らかの行を返す場合、<literal>PGRES_TUPLES_OK</literal>ではなく<literal>PGRES_SINGLE_TUPLE</literal>である点を除けば、通常の問い合わせ結果と同じように見える、個々の<structname>PGresult</structname>オブジェクトを返します。
 最後の行の後、または問い合わせがゼロ行を返す場合は即座に、<literal>PGRES_TUPLES_OK</literal>状態のゼロ行のオブジェクトが返されます。
 これはもう行が届かないことを通知するものです。
 （しかしNULLが返るまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければならないことに注意してください。）
@@ -2572,9 +2572,8 @@ typedef struct
 <literal>PGEVT_RESULTCREATE</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCreate *</structname>にキャストされなければなりません。
 <parameter>conn</parameter>は結果を生成するために使われた接続です。
 これは、結果と関連しなければならないすべての<literal>instanceData</literal>を初期化するために、理想的な場所です。
-イベントプロシージャが失敗する（ゼロが返される）と、結果は消去され、失敗が伝播します。
-イベントプロシージャはそれ自身の結果オブジェクトを<xref linkend="libpq-PQclear"/>しようと試みてはいけません。
-失敗コードを返す時、<literal>PGEVT_RESULTCOPY</literal>または<literal>PGEVT_RESULTDESTROY</literal>イベントは送られないのですべての消去が行われなくてはなりません。
+イベントプロシージャが失敗する（ゼロが返される）と、そのイベントプロシージャは結果の残りの存在期間中無視されます。
+つまり、この結果またはそこからコピーされた結果に対して、<literal>PGEVT_RESULTCOPY</literal>または<literal>PGEVT_RESULTDESTROY</literal>イベントを受け取りません。
       </para>
      </listitem>
     </varlistentry>
@@ -2618,11 +2617,11 @@ typedef struct
        results copied from it.
 -->
 <literal>PGEVT_RESULTCOPY</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCopy *</structname>にキャストされなければなりません。
-<parameter>src</parameter>結果はコピーされるものであり、一方で<parameter>dest</parameter>結果はコピー先です。
+<parameter>src</parameter>は結果のコピー元で、<parameter>dest</parameter>結果はコピー先です。
 このイベントは<literal>instanceData</literal>のディープコピーを提供するために使用されます。
 <literal>PQcopyResult</literal>ではこれを行うことができないためです。
-もしイベントプロシージャが失敗する（ゼロが返される）と、コピー操作全体は失敗になり、<parameter>dest</parameter>結果は消去されます。
-失敗コードを返す時、<literal>PGEVT_RESULTDESTROY</literal>イベントがコピー先の結果に対し送られないため、すべての消去を行われなければなりません。
+もしイベントプロシージャが失敗する（ゼロが返される）と、そのイベントプロシージャは新しい結果の残りの存在期間中無視されます。
+つまり、その結果またはそこからコピーされた結果の<literal>PGEVT_RESULTCOPY</literal>または<literal>PGEVT_RESULTDESTROY</literal>イベントを受け取りません。
       </para>
      </listitem>
     </varlistentry>
