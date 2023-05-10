@@ -2709,22 +2709,16 @@ REVOKE ALL ON accounts FROM PUBLIC;
      <term><literal>SELECT</literal></term>
      <listitem>
       <para>
-<!--
        Allows <command>SELECT</command> from
        any column, or specific column(s), of a table, view, materialized
        view, or other table-like object.
        Also allows use of <command>COPY TO</command>.
        This privilege is also needed to reference existing column values in
-       <command>UPDATE</command> or <command>DELETE</command>.
+       <command>UPDATE</command>, <command>DELETE</command>,
+       or <command>MERGE</command>.
        For sequences, this privilege also allows use of the
        <function>currval</function> function.
        For large objects, this privilege allows the object to be read.
--->
-テーブル、ビュー、マテリアライズドビュー、あるいはそれ以外のテーブルのように見えるオブジェクトに対して<command>SELECT</command>をある列、あるいは指定した列（複数可）に許可します。
-また、<command>COPY TO</command>の利用を許可します。
-この権限は<command>UPDATE</command>あるいは<command>DELETE</command>において既存の列を参照する場合にも必要になります。
-シーケンスにおいてはこの権限は<function>currval</function>関数の使用を許可します。
-ラージオブジェクトにおいてはこの権限はオブジェクトの読み出しを許可します。
       </para>
      </listitem>
     </varlistentry>
@@ -3808,7 +3802,7 @@ postgres=&gt; table passwd;
 postgres=&gt; set role alice;
 SET
 postgres=&gt; table passwd;
-ERROR:  permission denied for relation passwd
+ERROR:  permission denied for table passwd
 postgres=&gt; select user_name,real_name,home_phone,extra_info,home_dir,shell from passwd;
  user_name | real_name |  home_phone  | extra_info | home_dir    |   shell
 -----------+-----------+--------------+------------+-------------+-----------
@@ -3818,7 +3812,7 @@ postgres=&gt; select user_name,real_name,home_phone,extra_info,home_dir,shell fr
 (3 rows)
 
 postgres=&gt; update passwd set user_name = 'joe';
-ERROR:  permission denied for relation passwd
+ERROR:  permission denied for table passwd
 <!--
 &#45;- Alice is allowed to change her own real_name, but no others
 -->
@@ -3830,9 +3824,9 @@ UPDATE 0
 postgres=&gt; update passwd set shell = '/bin/xx';
 ERROR:  new row violates WITH CHECK OPTION for "passwd"
 postgres=&gt; delete from passwd;
-ERROR:  permission denied for relation passwd
+ERROR:  permission denied for table passwd
 postgres=&gt; insert into passwd (user_name) values ('xxx');
-ERROR:  permission denied for relation passwd
+ERROR:  permission denied for table passwd
 <!--
 &#45;- Alice can change her own password; RLS silently prevents updating other rows
 -->
@@ -4751,7 +4745,6 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
    <title>使用パターン</title>
 
    <para>
-<!--
     Schemas can be used to organize your data in many ways.
     A <firstterm>secure schema usage pattern</firstterm> prevents untrusted
     users from changing the behavior of other users' queries.  When a database
@@ -4759,66 +4752,43 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
     query that database would take protective action at the beginning of each
     session.  Specifically, they would begin each session by
     setting <varname>search_path</varname> to the empty string or otherwise
-    removing non-superuser-writable schemas
+    removing schemas that are writable by non-superusers
     from <varname>search_path</varname>.  There are a few usage patterns
     easily supported by the default configuration:
--->
-スキーマは様々な方法でデータの編成に使用できます。
-<firstterm>セキュアなスキーマの使用パターン</firstterm>は信頼できないユーザが他のユーザの問い合わせの振る舞いを変えるのを防ぎます。
-データベースがセキュアなスキーマの使用パターンを使わない場合、セキュアにデータベースを問い合わせたいユーザはセッションの開始毎に防御的なアクションを取るようにします。
-とりわけユーザは<varname>search_path</varname>に空文字をセットするか、さもなければ非スーパーユーザが書き込めるスキーマを<varname>search_path</varname>から削除します。
-デフォルト構成で簡単にサポートできるお勧めの使用パターンがいくつかあります。
     <itemizedlist>
      <listitem>
-      <!-- "DROP SCHEMA public" is inferior to this REVOKE, because pg_dump
-           doesn't preserve that DROP.
-
-           A database owner can attack the database's users via "CREATE SCHEMA
+      <para>
+       Constrain ordinary users to user-private schemas.
+       To implement this pattern, first ensure that no schemas have
+       public <literal>CREATE</literal> privileges.  Then, for every user
+       needing to create non-temporary objects, create a schema with the
+       same name as that user, for example
+       <literal>CREATE SCHEMA alice AUTHORIZATION alice</literal>.
+       (Recall that the default search path starts
+       with <literal>$user</literal>, which resolves to the user
+       name. Therefore, if each user has a separate schema, they access
+       their own schemas by default.)  This pattern is a secure schema
+       usage pattern unless an untrusted user is the database owner or
+       holds the <literal>CREATEROLE</literal> privilege, in which case no
+       secure schema usage pattern exists.
+      </para>
+      <!-- A database owner can attack the database's users via "CREATE SCHEMA
            trojan; ALTER DATABASE $mydb SET search_path = trojan, public;".  A
            CREATEROLE user can issue "GRANT $dbowner TO $me" and then use the
            database owner attack. -->
-      <!-- "DROP SCHEMA public"はこのREVOKEに劣ります。なぜなら、pg_dumpはそのDROPを保存しないからです。
 
-      データベース所有者はデータベースユーザを"CREATE SCHEMA
-      trojan; ALTER DATABASE $mydb SET search_path = trojan, public;"で攻撃することができます。
-      CREATEROLEユーザは"GRANT $dbowner TO $me"を発行し、そのデータベース所有者の攻撃を使用できます。
-       -->
       <para>
-<!--
-       Constrain ordinary users to user-private schemas.  To implement this,
-       first issue <literal>REVOKE CREATE ON SCHEMA public FROM
-       PUBLIC</literal>.  Then, for every user needing to create non-temporary
-       objects, create a schema with the same name as that user.  Recall that
-       the default search path starts with <literal>$user</literal>, which
-       resolves to the user name.  Therefore, if each user has a separate
-       schema, they access their own schemas by default.  After adopting this
-       pattern in a database where untrusted users had already logged in,
-       consider auditing the public schema for objects named like objects in
-       schema <literal>pg_catalog</literal>.  This pattern is a secure schema
-       usage pattern unless an untrusted user is the database owner or holds
-       the <literal>CREATEROLE</literal> privilege, in which case no secure
-       schema usage pattern exists.
--->
-通常のユーザをユーザプライベートスキーマに制限します。
-これを実装するには、まず<literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>を発行します。
-次に、一時的でないオブジェクトを作成する必要があるすべてのユーザに対して、そのユーザと同じ名前のスキーマを作成します。
-デフォルトの検索パスは、ユーザ名に置き換えられる<literal>$user</literal>で始まることを思い出してください。
-したがって、各ユーザが別のスキーマを持っている場合、ユーザはデフォルトで自身のスキーマにアクセスします。
-信頼できないユーザがすでにログインしているデータベースでこのパターンを採用した後は、パブリックスキーマ内で、<literal>pg_catalog</literal>スキーマ内のオブジェクトに似た名前のオブジェクトを監査することを検討してください。
-信頼できないユーザがデータベースの所有者であるか<literal>CREATEROLE</literal>権限を持っていない限り（この場合、セキュアなスキーマ使用パターンは存在しません）、このパターンはセキュアなスキーマ使用パターンです。
+       In <productname>PostgreSQL</productname> 15 and later, the default
+       configuration supports this usage pattern.  In prior versions, or
+       when using a database that has been upgraded from a prior version,
+       you will need to remove the public <literal>CREATE</literal>
+       privilege from the <literal>public</literal> schema (issue
+       <literal>REVOKE CREATE ON SCHEMA public FROM PUBLIC</literal>).
+       Then consider auditing the <literal>public</literal> schema for
+       objects named like objects in schema <literal>pg_catalog</literal>.
       </para>
-      <para>
-<!--
-       If the database originated in an upgrade
-       from <productname>PostgreSQL</productname> 14 or earlier,
-       the <literal>REVOKE</literal> is essential.  Otherwise, the default
-       configuration follows this pattern; ordinary users can create only
-       temporary objects until a privileged user furnishes a schema.
--->
-データベースが<productname>PostgreSQL</productname> 14以前からのアップグレードで作成された場合、<literal>REVOKE</literal>は必須です。
-そうでない場合、デフォルトの設定はこのパターンに従います。
-特権ユーザがスキーマを提供するまで、一般ユーザは一時オブジェクトしか作成できません。
-      </para>
+      <!-- "DROP SCHEMA public" is inferior to this REVOKE, because pg_dump
+           doesn't preserve that DROP. -->
      </listitem>
 
      <listitem>
@@ -6076,17 +6046,18 @@ CREATE TABLE measurement_y2008m02 PARTITION OF measurement
     TABLESPACE fasttablespace;
 </programlisting>
 
-<!--
      As an alternative, it is sometimes more convenient to create the
-     new table outside the partition structure, and make it a proper
+     new table outside the partition structure, and attach it as a
      partition later. This allows new data to be loaded, checked, and
      transformed prior to it appearing in the partitioned table.
+     Moreover, the <literal>ATTACH PARTITION</literal> operation requires
+     only <literal>SHARE UPDATE EXCLUSIVE</literal> lock on the
+     partitioned table, as opposed to the <literal>ACCESS
+     EXCLUSIVE</literal> lock that is required by <command>CREATE TABLE
+     ... PARTITION OF</command>, so it is more friendly to concurrent
+     operations on the partitioned table.
      The <literal>CREATE TABLE ... LIKE</literal> option is helpful
      to avoid tediously repeating the parent table's definition:
--->
-別の方法として、新しいテーブルをパーティション構造の外部に作成し、その後でそれを適切なパーティションにする方が便利な場合もあります。
-こうすると、パーティションテーブル内でデータが見えるようになるより前に、新しいデータをロードし、確認し、変換することができます。
-<literal>CREATE TABLE ... LIKE</literal>オプションは親テーブルの定義を長々と繰り返すことを避けることができて有用です。
 
 <programlisting>
 CREATE TABLE measurement_y2008m02
@@ -6105,14 +6076,6 @@ ALTER TABLE measurement_y2008m02 ADD CONSTRAINT y2008m02
 ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
     FOR VALUES FROM ('2008-02-01') TO ('2008-03-01' );
 </programlisting>
-    </para>
-
-    <para>
-<!--
-     The <command>ATTACH PARTITION</command> command requires taking a
-     <literal>SHARE UPDATE EXCLUSIVE</literal> lock on the partitioned table.
--->
-<command>ATTACH PARTITION</command>コマンドは、パーティションテーブルへの<literal>SHARE UPDATE EXCLUSIVE</literal>ロックの取得を必要とします。
     </para>
 
     <para>

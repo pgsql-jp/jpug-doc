@@ -296,30 +296,47 @@ CREATE USER <replaceable>name</replaceable>;
      </varlistentry>
 
      <varlistentry>
-<!--
-      <term>role creation<indexterm><primary>role</primary><secondary>privilege to create</secondary></indexterm></term>
--->
-      <term>ロールの作成<indexterm><primary>ロール</primary><secondary>を作成する権限</secondary></indexterm></term>
+      <term id='role-creation'>role creation<indexterm><primary>role</primary><secondary>privilege to create</secondary></indexterm></term>
       <listitem>
        <para>
-<!--
         A role must be explicitly given permission to create more roles
         (except for superusers, since those bypass all permission
         checks). To create such a role, use <literal>CREATE ROLE
         <replaceable>name</replaceable> CREATEROLE</literal>.
         A role with <literal>CREATEROLE</literal> privilege can alter and drop
         other roles, too, as well as grant or revoke membership in them.
-        However, to create, alter, drop, or change membership of a
-        superuser role, superuser status is required;
-        <literal>CREATEROLE</literal> is insufficient for that.
--->
-あるロールがロールを作成するには、明示的な権限が付与されていなければなりません。
-（スーパーユーザは、すべての権限検査を迂回しますので、例外です。）
-こうしたロールを作成するには、<literal>CREATE ROLE <replaceable>name</replaceable> CREATEROLE</literal>を使用してください。
-<literal>CREATEROLE</literal>権限を持つロールは他のロールを変更したり削除したりすることもできます。
-また、他のロールのメンバ資格を付与したり取り上げたりすることもできます。
-しかし、スーパーユーザロールの変更、削除、メンバ資格の変更を行うにはスーパーユーザ状態が必要です。
-<literal>CREATEROLE</literal>だけでは不足しています。
+        Altering a role includes most changes that can be made using
+        <literal>ALTER ROLE</literal>, including, for example, changing
+        passwords.  It also includes modifications to a role that can
+        be made using the <literal>COMMENT</literal> and
+        <literal>SECURITY LABEL</literal> commands.
+       </para>
+       <para>
+        However, <literal>CREATEROLE</literal> does not convey the ability to
+        create <literal>SUPERUSER</literal> roles, nor does it convey any
+        power over <literal>SUPERUSER</literal> roles that already exist.
+        Furthermore, <literal>CREATEROLE</literal> does not convey the power
+        to create <literal>REPLICATION</literal> users, nor the ability to
+        grant or revoke the <literal>REPLICATION</literal> privilege, nor the
+        ability to modify the role properties of such users.  However, it does
+        allow <literal>ALTER ROLE ... SET</literal> and
+        <literal>ALTER ROLE ... RENAME</literal> to be used on
+        <literal>REPLICATION</literal> roles, as well as the use of
+        <literal>COMMENT ON ROLE</literal>,
+        <literal>SECURITY LABEL ON ROLE</literal>,
+        and <literal>DROP ROLE</literal>.
+        Finally, <literal>CREATEROLE</literal> does not
+        confer the ability to grant or revoke the <literal>BYPASSRLS</literal>
+        privilege.
+       </para>
+       <para>
+        Because the <literal>CREATEROLE</literal> privilege allows a user
+        to grant or revoke membership even in roles to which it does not (yet)
+        have any access, a <literal>CREATEROLE</literal> user can obtain access
+        to the capabilities of every predefined role in the system, including
+        highly privileged roles such as
+        <literal>pg_execute_server_program</literal> and
+        <literal>pg_write_server_files</literal>.
        </para>
       </listitem>
      </varlistentry>
@@ -437,21 +454,6 @@ CREATE USER <replaceable>name</replaceable>;
 ロール属性は、ロールを作成した後でも<command>ALTER ROLE</command><indexterm><primary>ALTER ROLE</primary></indexterm>コマンドで変更できます。
 詳細は<xref linkend="sql-createrole"/>と<xref linkend="sql-alterrole"/>のマニュアルページを参照してください。
    </para>
-
-  <tip>
-   <para>
-<!--
-    It is good practice to create a role that has the <literal>CREATEDB</literal>
-    and <literal>CREATEROLE</literal> privileges, but is not a superuser, and then
-    use this role for all routine management of databases and roles.  This
-    approach avoids the dangers of operating as a superuser for tasks that
-    do not really require it.
--->
-スーパーユーザ以外に<literal>CREATEDB</literal>権限と<literal>CREATEROLE</literal>権限を持つロールを作成することを勧めます。
-そして、このロールを使用して、データベースとロールを管理するためのすべての処理を行ってください。
-この方法によって、実際には不要な処理をスーパーユーザとして行う危険性を避けることができます。
-   </para>
-  </tip>
 
   <para>
 <!--

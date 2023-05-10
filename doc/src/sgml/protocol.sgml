@@ -1643,34 +1643,25 @@ Flushを行わないと、バックエンドで返されるメッセージは、
    </para>
 
    <para>
-<!--
     If the client has not issued an explicit <command>BEGIN</command>,
     then each Sync ordinarily causes an implicit <command>COMMIT</command>
     if the preceding step(s) succeeded, or an
     implicit <command>ROLLBACK</command> if they failed.  However, there
     are a few DDL commands (such as <command>CREATE DATABASE</command>)
     that cannot be executed inside a transaction block.  If one of
-    these is executed in a pipeline, it will, upon success, force an
-    immediate commit to preserve database consistency.
-    A Sync immediately following one of these has no effect except to
+    these is executed in a pipeline, it will fail unless it is the first
+    command in the pipeline.  Furthermore, upon success it will force an
+    immediate commit to preserve database consistency.  Thus a Sync
+    immediately following one of these commands has no effect except to
     respond with ReadyForQuery.
--->
-クライアントが明示的な<command>BEGIN</command>を発行しないと、先行のステップが成功した場合は各々のSyncは通常暗黙的な<command>COMMIT</command>、失敗した場合には暗黙的な<command>ROLLBACK</command>をもたらします。
-しかし、トランザクションブロックの内側で実行できない少数のDDLコマンド（<command>CREATE DATABASE</command>のような）があります。
-そうしたコマンドがパイプラインの中で実行されると、成功した場合にはデータベースの一貫性を保つために強制的に直後にコミットが実行されます。
-こうしたコマンドの直後のSyncは、ReadyForQueryで応答することを除き、何の効果もありません。
    </para>
 
    <para>
-<!--
     When using this method, completion of the pipeline must be determined
     by counting ReadyForQuery messages and waiting for that to reach the
     number of Syncs sent.  Counting command completion responses is
-    unreliable, since some of the commands may not be executed and thus not
+    unreliable, since some of the commands may be skipped and thus not
     produce a completion message.
--->
-この方法を使うときには、パイプラインの終了は、ReadyForQueryメッセージの数が送信したSyncメッセージの数と一致することで決定しなければなりません。
-コマンドのうちいくつかは実行されないかも知れず、その場合は完了メッセージを生成しないので、コマンド完了メッセージを数えるのは信頼性に欠けます。
    </para>
   </sect2>
 
@@ -2983,7 +2974,7 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
     </varlistentry>
 
     <varlistentry id="protocol-replication-create-replication-slot" xreflabel="CREATE_REPLICATION_SLOT">
-     <term><literal>CREATE_REPLICATION_SLOT</literal> <replaceable class="parameter">slot_name</replaceable> [ <literal>TEMPORARY</literal> ] { <literal>PHYSICAL</literal> | <literal>LOGICAL</literal> } [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ]
+     <term><literal>CREATE_REPLICATION_SLOT</literal> <replaceable class="parameter">slot_name</replaceable> [ <literal>TEMPORARY</literal> ] { <literal>PHYSICAL</literal> | <literal>LOGICAL</literal> <replaceable class="parameter">output_plugin</replaceable> } [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ]
       <indexterm><primary>CREATE_REPLICATION_SLOT</primary></indexterm>
      </term>
      <listitem>
@@ -3221,7 +3212,6 @@ trueの場合、この物理的レプリケーションスロットが直ちに<
        containing the following fields:
 -->
 このコマンドへの応答として、サーバは以下のフィールドを含む1行の結果セットを返します。
-
        <variablelist>
         <varlistentry>
          <term><literal>slot_type</literal> (<type>text</type>)</term>
@@ -5899,6 +5889,13 @@ NULLの場合、後続の値用のバイトはありません。
 -->
 <command>UPDATE</command>コマンドの場合、タグは<literal>UPDATE <replaceable>rows</replaceable></literal>です。
 ここで<replaceable>rows</replaceable>は更新された行数です。
+       </para>
+
+       <para>
+        For a <command>MERGE</command> command, the tag is
+        <literal>MERGE <replaceable>rows</replaceable></literal> where
+        <replaceable>rows</replaceable> is the number of rows inserted,
+        updated, or deleted.
        </para>
 
        <para>

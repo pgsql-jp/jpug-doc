@@ -633,7 +633,7 @@ Perl関数からデータベースそのものにアクセスするには以下�
    <variablelist>
     <varlistentry>
      <term>
-      <literal><function>spi_exec_query</function>(<replaceable>query</replaceable> [, <replaceable>max-rows</replaceable>])</literal>
+      <literal><function>spi_exec_query</function>(<replaceable>query</replaceable> [, <replaceable>limit</replaceable>])</literal>
       <indexterm>
        <primary>spi_exec_query</primary>
        <secondary>in PL/Perl</secondary>
@@ -645,17 +645,20 @@ Perl関数からデータベースそのものにアクセスするには以下�
      </term>
      <listitem>
       <para>
-<!--
-       <literal>spi_exec_query</literal> executes an SQL command and
-returns the entire row set as a reference to an array of hash
-references.  <emphasis>You should only use this command when you know
+       <function>spi_exec_query</function> executes an SQL command and
+returns the entire row set as a reference to an array of hash references.
+If <replaceable>limit</replaceable> is specified and is greater than zero,
+then <function>spi_exec_query</function> retrieves at
+most <replaceable>limit</replaceable> rows, much as if the query included
+a <literal>LIMIT</literal> clause.  Omitting <replaceable>limit</replaceable>
+or specifying it as zero results in no row limit.
+      </para>
+
+      <para>
+<emphasis>You should only use this command when you know
 that the result set will be relatively small.</emphasis>  Here is an
 example of a query (<command>SELECT</command> command) with the
 optional maximum number of rows:
--->
-<literal>spi_exec_query</literal>はSQLコマンドを実行し、行セット全体をハッシュへの参照を要素とする配列への参照として返します。
-<emphasis>結果が相対的に小規模であることが分かっている場合にのみこのコマンドを使用してください。</emphasis>
-以下に最大行数オプションを持った問い合わせ（<command>SELECT</command>コマンド）の例を示します。
 
 <programlisting>
 $rv = spi_exec_query('SELECT * FROM my_table', 5);
@@ -901,17 +904,15 @@ SELECT * from lotsa_md5(500);
 $plan = spi_prepare('SELECT * FROM test WHERE id &gt; $1 AND name = $2',
                                                      'INTEGER', 'TEXT');
 </programlisting>
-<!--
     Once a query plan is prepared by a call to <literal>spi_prepare</literal>, the plan can be used instead
     of the string query, either in <literal>spi_exec_prepared</literal>, where the result is the same as returned
     by <literal>spi_exec_query</literal>, or in <literal>spi_query_prepared</literal> which returns a cursor
     exactly as <literal>spi_query</literal> does, which can be later passed to <literal>spi_fetchrow</literal>.
     The optional second parameter to <literal>spi_exec_prepared</literal> is a hash reference of attributes;
-    the only attribute currently supported is <literal>limit</literal>, which sets the maximum number of rows returned by a query.
--->
-<literal>spi_prepare</literal>を呼び出すことで問い合わせ計画が準備されると、<literal>spi_exec_query</literal>により返されるものと同様の結果となる<literal>spi_exec_prepared</literal>や<literal>spi_query</literal>とまったく同じカーソルが返される<literal>spi_query_prepared</literal>(このカーソルは後で<literal>spi_fetchrow</literal>に渡すことができます)の中で、その計画を問い合わせ文字列の代わりに使用することができます。
-<literal>spi_exec_prepared</literal>の省略可能な第二パラメータは属性のハッシュ参照です。
-現在サポートされる唯一の属性は、問い合わせで返される最大行数を設定する<literal>limit</literal>です。
+    the only attribute currently supported is <literal>limit</literal>, which
+    sets the maximum number of rows returned from the query.
+    Omitting <literal>limit</literal> or specifying it as zero results in no
+    row limit.
     </para>
 
     <para>

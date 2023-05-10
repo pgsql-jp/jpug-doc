@@ -2079,6 +2079,10 @@ NULL引数の数を返す。
        <para>
         <literal>round(42.4382, 2)</literal>
         <returnvalue>42.44</returnvalue>
+       </para>
+       <para>
+        <literal>round(1234.56, -1)</literal>
+        <returnvalue>1230</returnvalue>
        </para></entry>
       </row>
 
@@ -13017,17 +13021,11 @@ SELECT timestamp with time zone '2005-04-02 12:00:00-07' + interval '24 hours';
 <screen>
 SELECT EXTRACT(EPOCH FROM timestamptz '2013-07-01 12:00:00') -
        EXTRACT(EPOCH FROM timestamptz '2013-03-01 12:00:00');
-<!--
-<lineannotation>Result: </lineannotation><computeroutput>10537200</computeroutput>
--->
-<lineannotation>結果: </lineannotation><computeroutput>10537200</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>10537200.000000</computeroutput>
 SELECT (EXTRACT(EPOCH FROM timestamptz '2013-07-01 12:00:00') -
         EXTRACT(EPOCH FROM timestamptz '2013-03-01 12:00:00'))
         / 60 / 60 / 24;
-<!--
-<lineannotation>Result: </lineannotation><computeroutput>121.958333333333</computeroutput>
--->
-<lineannotation>結果: </lineannotation><computeroutput>121.958333333333</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>121.9583333333333333</computeroutput>
 SELECT timestamptz '2013-07-01 12:00:00' - timestamptz '2013-03-01 12:00:00';
 <!--
 <lineannotation>Result: </lineannotation><computeroutput>121 days 23:00:00</computeroutput>
@@ -13214,13 +13212,13 @@ SELECT EXTRACT(DOY FROM TIMESTAMP '2001-02-16 20:38:40');
 
 <screen>
 SELECT EXTRACT(EPOCH FROM TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40.12-08');
-<lineannotation>Result: </lineannotation><computeroutput>982384720.12</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>982384720.120000</computeroutput>
 
 SELECT EXTRACT(EPOCH FROM TIMESTAMP '2001-02-16 20:38:40.12');
-<lineannotation>Result: </lineannotation><computeroutput>982355920.12</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>982355920.120000</computeroutput>
 
 SELECT EXTRACT(EPOCH FROM INTERVAL '5 days 3 hours');
-<lineannotation>Result: </lineannotation><computeroutput>442800</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>442800.000000</computeroutput>
 </screen>
 
        <para>
@@ -13410,7 +13408,7 @@ SELECT EXTRACT(MILLENNIUM FROM TIMESTAMP '2001-02-16 20:38:40');
 
 <screen>
 SELECT EXTRACT(MILLISECONDS FROM TIME '17:12:28.5');
-<lineannotation>Result: </lineannotation><computeroutput>28500</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>28500.000</computeroutput>
 </screen>
       </listitem>
      </varlistentry>
@@ -13486,10 +13484,10 @@ SELECT EXTRACT(QUARTER FROM TIMESTAMP '2001-02-16 20:38:40');
 
 <screen>
 SELECT EXTRACT(SECOND FROM TIMESTAMP '2001-02-16 20:38:40');
-<lineannotation>Result: </lineannotation><computeroutput>40</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>40.000000</computeroutput>
 
 SELECT EXTRACT(SECOND FROM TIME '17:12:28.5');
-<lineannotation>Result: </lineannotation><computeroutput>28.5</computeroutput>
+<lineannotation>Result: </lineannotation><computeroutput>28.500000</computeroutput>
 </screen>
       </listitem>
      </varlistentry>
@@ -19872,6 +19870,12 @@ SQL/JSON標準を更に学ぶためには、<xref linkend="sqltr-19075-6"/>を�
 <xref linkend="functions-json-op-table"/>にJSONデータ型(<xref linkend="datatype-json"/>を参照)で使用可能な演算子を示します。
 加えて<xref linkend="functions-comparison-op-table"/>で示す通常の比較演算子が<type>jsonb</type>で利用できますが、<type>json</type>では利用できません。
 比較演算子は<xref linkend="json-indexing"/>で概要が示されているように示すBツリー操作用の順序付け規則にしたがいます。
+   See also <xref linkend="functions-aggregate"/> for the aggregate
+   function <function>json_agg</function> which aggregates record
+   values as JSON, the aggregate function
+   <function>json_object_agg</function> which aggregates pairs of values
+   into a JSON object, and their <type>jsonb</type> equivalents,
+   <function>jsonb_agg</function> and <function>jsonb_object_agg</function>.
   </para>
 
   <table id="functions-json-op-table">
@@ -21639,18 +21643,6 @@ JSON値に対するJSONパスによって返される最初のJSON項目を返�
      </tbody>
     </tgroup>
    </table>
-
-  <para>
-<!--
-    See also <xref linkend="functions-aggregate"/> for the aggregate
-    function <function>json_agg</function> which aggregates record
-    values as JSON, the aggregate function
-    <function>json_object_agg</function> which aggregates pairs of values
-    into a JSON object, and their <type>jsonb</type> equivalents,
-    <function>jsonb_agg</function> and <function>jsonb_object_agg</function>.
--->
-レコードの値をJSONに集約する<function>json_agg</function>集約関数、値の対をJSONオブジェクトに集約する<function>json_object_agg</function>集約関数、およびそれらの<type>jsonb</type>版の<function>jsonb_agg</function>と<function>jsonb_object_agg</function>については<xref linkend="functions-aggregate"/>を参照して下さい。
-  </para>
  </sect2>
 
  <sect2 id="functions-sqljson-path">
@@ -31379,37 +31371,11 @@ OIDで指定されるロール名を返します。
         <returnvalue>text[]</returnvalue>
        </para>
        <para>
-<!--
         Returns an array of the flags associated with the given GUC, or
         <literal>NULL</literal> if it does not exist. The result is
         an empty array if the GUC exists but there are no flags to show.
-        Only the most useful flags are exposed, as of the following:
--->
-指定されたGUCに関連付けられたフラグの配列を返します。
-存在しない場合は<literal>NULL</literal>を返します。
-GUCが存在しても表示するフラグがない場合、結果は空の配列になります。
-次のような最も有用なフラグのみが公開されます:
-        <simplelist>
-         <member>
-          <literal>EXPLAIN</literal>: parameters included in
-          <command>EXPLAIN (SETTINGS)</command> commands.
-         </member>
-         <member>
-          <literal>NO_SHOW_ALL</literal>: parameters excluded from
-          <command>SHOW ALL</command> commands.
-         </member>
-         <member>
-          <literal>NO_RESET_ALL</literal>: parameters excluded from
-          <command>RESET ALL</command> commands.
-         </member>
-         <member>
-          <literal>NOT_IN_SAMPLE</literal>: parameters not included in
-          <filename>postgresql.conf</filename> by default.
-         </member>
-         <member>
-          <literal>RUNTIME_COMPUTED</literal>: runtime-computed parameters.
-         </member>
-        </simplelist>
+        Only the most useful flags listed in
+        <xref linkend="functions-pg-settings-flags"/> are exposed.
        </para></entry>
       </row>
 
@@ -31970,6 +31936,46 @@ SELECT collation for ('foo' COLLATE "de_DE");
       </entry>
 -->
       <entry>アクセスメソッドが<literal>CREATE INDEX</literal>の<literal>INCLUDE</literal>句をサポートしているか</entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+
+  <table id="functions-pg-settings-flags">
+   <title>GUC Flags</title>
+   <tgroup cols="2">
+    <thead>
+     <row><entry>Flag</entry><entry>Description</entry></row>
+    </thead>
+    <tbody>
+     <row>
+      <entry><literal>EXPLAIN</literal></entry>
+      <entry>Parameters with this flag are included in
+       <command>EXPLAIN (SETTINGS)</command> commands.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>NO_SHOW_ALL</literal></entry>
+      <entry>Parameters with this flag are excluded from
+       <command>SHOW ALL</command> commands.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>NO_RESET_ALL</literal></entry>
+      <entry>Parameters with this flag are excluded from
+       <command>RESET ALL</command> commands.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>NOT_IN_SAMPLE</literal></entry>
+      <entry>Parameters with this flag are not included in
+       <filename>postgresql.conf</filename> by default.
+      </entry>
+     </row>
+     <row>
+      <entry><literal>RUNTIME_COMPUTED</literal></entry>
+      <entry>Parameters with this flag are runtime-computed ones.
+      </entry>
      </row>
     </tbody>
    </tgroup>
@@ -35312,14 +35318,10 @@ postgres=# SELECT * FROM pg_walfile_name_offset((pg_backup_stop()).lsn);
         <returnvalue>text</returnvalue>
        </para>
        <para>
-<!--
         Converts a size in bytes into a more easily human-readable format with
-        size units (bytes, kB, MB, GB or TB as appropriate).  Note that the
+        size units (bytes, kB, MB, GB, TB, or PB as appropriate).  Note that the
         units are powers of 2 rather than powers of 10, so 1kB is 1024 bytes,
         1MB is 1024<superscript>2</superscript> = 1048576 bytes, and so on.
--->
-バイトサイズを、サイズ単位(バイト、kB、MB、GB、TBのうちの適切なもの)を使ったより人間が読みやすい形式に変換します。
-単位は10のべき乗ではなく、2のべき乗であることに注意してください。ですから1kBは1024バイトで、1MBは1024<superscript>2</superscript> = 1048576バイト、などとなります。
        </para></entry>
       </row>
 

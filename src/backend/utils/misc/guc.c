@@ -3909,7 +3909,7 @@ static struct config_real ConfigureNamesReal[] =
 		},
 		&CheckPointCompletionTarget,
 		0.9, 0.0, 1.0,
-		NULL, NULL, NULL
+		NULL, assign_checkpoint_completion_target, NULL
 	},
 
 	{
@@ -10476,7 +10476,7 @@ show_all_file_settings(PG_FUNCTION_ARGS)
 	conf = ProcessConfigFileInternal(PGC_SIGHUP, false, DEBUG3);
 
 	/* Build a tuplestore to return our results in */
-	SetSingleFuncCall(fcinfo, 0);
+	InitMaterializedSRF(fcinfo, 0);
 
 	/* Process the results and create a tuplestore */
 	for (seqno = 1; conf != NULL; conf = conf->next, seqno++)
