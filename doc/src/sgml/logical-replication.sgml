@@ -1608,34 +1608,39 @@ test_sub=# SELECT * FROM child ORDER BY a;
 ただし、サブスクライバーが15より前のリリースの場合は、テーブルのすべての列が初期データの同期化時にコピーされ、列リストは無視されます。
   </para>
 
-  <sect2 id="logical-replication-col-list-combining">
-<!--
-   <title>Combining Multiple Column Lists</title>
--->
-   <title>複数列リストの統合</title>
-
-   <warning>
+   <warning id="logical-replication-col-list-combining">
+    <title>Warning: Combining Column Lists from Multiple Publications</title>
     <para>
 <!--
-     It is not supported to have a subscription comprising several publications
-     where the same table has been published with different column lists.
-     This means changing the column lists of the tables being subscribed could
-     cause inconsistency of column lists among publications, in which case
-     the <xref linkend="sql-alterpublication"/> will be successful but later
-     the walsender on the publisher, or the subscriber may throw an error. In
-     this scenario, the user needs to recreate the subscription after adjusting
-     the column list or drop the problematic publication using
-     <literal>ALTER SUBSCRIPTION ... DROP PUBLICATION</literal> and then add it
-     back after adjusting the column list.
+     There's currently no support for subscriptions comprising several
+     publications where the same table has been published with different
+     column lists.  <xref linkend="sql-createsubscription"/> disallows
+     creating such subscriptions, but it is still possible to get into
+     that situation by adding or altering column lists on the publication
+     side after a subscription has been created.
 -->
-同じテーブルが異なる列リストを使用して発行された複数のパブリケーションで構成されるサブスクリプションはサポートされていません。
-これは、サブスクライブされているテーブルの列リストを変更すると、パブリケーション間で列リストの不整合が発生する可能性があることを意味します。
-この場合、<xref linkend="sql-alterpublication"/>は成功しますが、後でパブリッシャーのWAL送信が実行されるか、サブスクライバーがエラーになる可能性があります。
-このシナリオでは、ユーザーが列リストを調整した後にサブスクリプションを再作成するか、<literal>ALTER SUBSCRIPTION.DROP PUBLICATION</literal>を使用して問題のあるパブリケーションを削除し、列リストを調整した後に追加し直す必要があります。
+《機械翻訳》現在、同じテーブルが異なる列リストで発行されている複数のパブリケーションで構成されるサブスクリプションはサポートされていません。
+<xref linkend="sql-createsubscription"/>ではこのようなサブスクリプションの作成はできませんが、サブスクリプションの作成後にパブリケーション側で列リストを追加または変更することで、このような状況になる可能性があります。
+    </para>
+    <para>
+<!--
+     This means changing the column lists of tables on publications that are
+     already subscribed could lead to errors being thrown on the subscriber
+     side.
+-->
+《機械翻訳》つまり、すでに購読されているパブリケーションのテーブルのカラム・リストを変更すると、サブスクライバ側でエラーがスローされる可能性があります。
+    </para>
+    <para>
+<!--
+     If a subscription is affected by this problem, the only way to resume
+     replication is to adjust one of the column lists on the publication
+     side so that they all match; and then either recreate the subscription,
+     or use <literal>ALTER SUBSCRIPTION ... DROP PUBLICATION</literal> to
+     remove one of the offending publications and add it again.
+-->
+《機械翻訳》サブスクリプションがこの問題の影響を受ける場合、レプリケーションを再開する唯一の方法は、パブリケーション側のカラム・リストの1つを調整してすべて一致させてから、サブスクリプションを再作成するか、<literal>ALTER SUBSCRIPTION.DROP PUBLICATION</literal>を使用して問題のパブリケーションの1つを削除し、再度追加することです。
     </para>
    </warning>
-
-  </sect2>
 
   <sect2 id="logical-replication-col-list-examples">
 <!--

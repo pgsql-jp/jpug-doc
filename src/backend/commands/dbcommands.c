@@ -296,7 +296,7 @@ ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
 		CHECK_FOR_INTERRUPTS();
 
 		buf = ReadBufferWithoutRelcache(rnode, MAIN_FORKNUM, blkno,
-										RBM_NORMAL, bstrategy, false);
+										RBM_NORMAL, bstrategy, true);
 
 		LockBuffer(buf, BUFFER_LOCK_SHARE);
 		page = BufferGetPage(buf);
@@ -815,7 +815,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 		}
 		else if (strcmp(defel->defname, "oid") == 0)
 		{
-			dboid = defGetInt32(defel);
+			dboid = defGetObjectId(defel);
 
 			/*
 			 * We don't normally permit new databases to be created with

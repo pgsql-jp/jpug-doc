@@ -1917,6 +1917,14 @@ IP接続、かつ<xref linkend="guc-log-hostname"/>が有効である場合に�
       <entry>ベースバックアップがファイルから読み取るのを待機しています。</entry>
      </row>
      <row>
+      <entry><literal>BaseBackupSync</literal></entry>
+      <entry>Waiting for data written by a base backup to reach durable storage.</entry>
+     </row>
+     <row>
+      <entry><literal>BaseBackupWrite</literal></entry>
+      <entry>Waiting for base backup to write to a file.</entry>
+     </row>
+     <row>
       <entry><literal>BufFileRead</literal></entry>
 <!--
       <entry>Waiting for a read from a buffered file.</entry>
@@ -7668,6 +7676,46 @@ SLRUでの切り詰めの数です。
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>pg_stat_get_xact_blocks_fetched</primary>
+        </indexterm>
+        <function>pg_stat_get_xact_blocks_fetched</function> ( <type>oid</type> )
+        <returnvalue>bigint</returnvalue>
+       </para>
+       <para>
+<!--
+        Returns the number of block read requests for table or index, in the
+        current transaction. This number minus
+        <function>pg_stat_get_xact_blocks_hit</function> gives the number of
+        kernel <function>read()</function> calls; the number of actual
+        physical reads is usually lower due to kernel-level buffering.
+-->
+《機械翻訳》現在トランザクションにおける、テーブルまたはインデックスのブロック読み取り要求数を返します。
+このマイナス数<function>pg_stat_get_xact_blocks_ヒット</function>は、カーネル<function>read()</function>呼び出し数を示します。
+カーネル-レベルバッファリングのため、実際の物理的読み取り数は通常より少なくなります。
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>pg_stat_get_xact_blocks_hit</primary>
+        </indexterm>
+        <function>pg_stat_get_xact_blocks_hit</function> ( <type>oid</type> )
+        <returnvalue>bigint</returnvalue>
+       </para>
+       <para>
+<!--
+        Returns the number of block read requests for table or index, in the
+        current transaction, found in cache (not triggering kernel
+        <function>read()</function> calls).
+-->
+《機械翻訳》現在トランザクションのテーブルまたはインデックスについて、キャッシュで検出されたブロック読み取り要求の数を返します(カーネル<function>read()</function>呼び出しはトリガーされません)。
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>pg_stat_clear_snapshot</primary>
         </indexterm>
         <function>pg_stat_clear_snapshot</function> ()
@@ -7880,6 +7928,22 @@ SLRUでの切り詰めの数です。
      </tbody>
     </tgroup>
    </table>
+
+  <warning>
+   <para>
+<!--
+    Using <function>pg_stat_reset()</function> also resets counters that
+    autovacuum uses to determine when to trigger a vacuum or an analyze.
+    Resetting these counters can cause autovacuum to not perform necessary
+    work, which can cause problems such as table bloat or out-dated
+    table statistics.  A database-wide <command>ANALYZE</command> is
+    recommended after the statistics have been reset.
+-->
+《機械翻訳》<function>pg_stat_リセット)</function>を使用すると、オートバキュームがバキュームまたはANALYZEをいつトリガするかを決定するために使用するカウンタもリセットされます。
+これらのカウンタをリセットすると、オートバキュームが必要な作業を実行できなくなり、テーブルの膨張や期限切れのテーブル統計処理などの問題が発生する可能性があります。
+統計処理がリセットになった後は、データベース全体<command>ANALYZE</command>をお勧めします。
+   </para>
+  </warning>
 
   <para>
 <!--
