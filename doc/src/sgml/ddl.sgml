@@ -7684,14 +7684,16 @@ DROP TABLE products CASCADE;
 
   <para>
 <!--
-   For user-defined functions, <productname>PostgreSQL</productname> tracks
-   dependencies associated with a function's externally-visible properties,
+   For a user-defined function or procedure whose body is defined as a string
+   literal, <productname>PostgreSQL</productname> tracks
+   dependencies associated with the function's externally-visible properties,
    such as its argument and result types, but <emphasis>not</emphasis> dependencies
    that could only be known by examining the function body.  As an example,
    consider this situation:
 -->
-ユーザ定義関数について、<productname>PostgreSQL</productname>は引数や結果の型など、関数の外部に可視な属性に関連した依存性については追跡しますが、関数の実体を検査することによってしかわからない依存性は追跡<emphasis>しません</emphasis>。
+《マッチ度[80.314961]》ユーザ定義関数について、<productname>PostgreSQL</productname>は引数や結果の型など、関数の外部に可視な属性に関連した依存性については追跡しますが、関数の実体を検査することによってしかわからない依存性は追跡<emphasis>しません</emphasis>。
 例えば以下の状況を考えてみます。
+《機械翻訳》ユーザ定義の関数またはプロシージャのボディが文字列リテラルとして定義されている場合、<productname>PostgreSQL</productname>は引数や結果タイプなど、関数の外部可視プロパティに関連付けられた依存関係を追跡しますが、関数ボディを調べることによってのみ認識できる依存関係は<emphasis>追跡しません</emphasis>。例として、次のシチュエーションを検討します
 
 <programlisting>
 CREATE TYPE rainbow AS ENUM ('red', 'orange', 'yellow',
@@ -7725,6 +7727,30 @@ CREATE FUNCTION get_color_note (rainbow) RETURNS text AS
 この方法には不利な点もありますが、同時に利益もあります。
 テーブルがない状態で関数を実行すればエラーを引き起こしますが、それでも関数はある意味で、有効な状態になっています。
 そのため、同じ名前の新しいテーブルを作成することで、関数を再び動作させることができます。
+  </para>
+
+  <para>
+<!--
+   On the other hand, for a SQL-language function or procedure whose body
+   is written in SQL-standard style, the body is parsed at function
+   definition time and all dependencies recognized by the parser are
+   stored.  Thus, if we write the function above as
+-->
+《機械翻訳》一方、本体がSQL標準プロシージャで記述されているSQL-言語機能またはスタイルの場合、本体は関数定義時間に解析され、パーサによって認識されるすべての依存関係が格納されます。
+したがって、上記の関数を
+
+<programlisting>
+CREATE FUNCTION get_color_note (rainbow) RETURNS text
+BEGIN ATOMIC
+  SELECT note FROM my_colors WHERE color = $1;
+END;
+</programlisting>
+
+<!--
+   then the function's dependency on the <structname>my_colors</structname>
+   table will be known and enforced by <command>DROP</command>.
+-->
+《機械翻訳》と記述すると、関数の<structname>my_colors</structname>テーブルへの依存関係が<command>DROP</command>によって認識され、強制されます。
   </para>
  </sect1>
 
