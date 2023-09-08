@@ -7453,8 +7453,12 @@ CREATE FUNCTION execq(text, integer) RETURNS int8
 =&gt; INSERT INTO a VALUES (execq('INSERT INTO a VALUES (0)', 0));
 INSERT 0 1
 =&gt; SELECT execq('SELECT * FROM a', 0);
-INFO:  EXECQ:  0    <lineannotation>-- inserted by execq</lineannotation>
-INFO:  EXECQ:  1    <lineannotation>-- returned by execq and inserted by upper INSERT</lineannotation>
+<!--
+INFO:  EXECQ:  0    <lineannotation>&#45;- inserted by execq</lineannotation>
+INFO:  EXECQ:  1    <lineannotation>&#45;- returned by execq and inserted by upper INSERT</lineannotation>
+-->
+INFO:  EXECQ:  0    <lineannotation>-- execqによって挿入された</lineannotation>
+INFO:  EXECQ:  1    <lineannotation>-- execqによって返され、上位のINSERTによって挿入された</lineannotation>
 
  execq
 -------
@@ -7462,7 +7466,10 @@ INFO:  EXECQ:  1    <lineannotation>-- returned by execq and inserted by upper I
 (1 row)
 
 =&gt; SELECT execq('INSERT INTO a SELECT x + 2 FROM a RETURNING *', 1);
-INFO:  EXECQ:  2    <lineannotation>-- 0 + 2, then execution was stopped by count</lineannotation>
+<!--
+INFO:  EXECQ:  2    <lineannotation>&#45;- 0 + 2, then execution was stopped by count</lineannotation>
+-->
+INFO:  EXECQ:  2    <lineannotation>-- 0 + 2、それから実行はカウントによって止められた</lineannotation>
  execq
 -------
      1
@@ -7475,13 +7482,19 @@ INFO:  EXECQ:  2
 
  execq
 -------
-     3              <lineannotation>-- 10 is the max value only, 3 is the real number of rows</lineannotation>
+<!--
+     3              <lineannotation>&#45;- 10 is the max value only, 3 is the real number of rows</lineannotation>
+-->
+     3              <lineannotation>-- 10は最大値を示すのみで、3が実際の行数</lineannotation>
 (1 row)
 
 =&gt; SELECT execq('INSERT INTO a SELECT x + 10 FROM a', 1);
  execq
 -------
-     3              <lineannotation>-- all rows processed; count does not stop it, because nothing is returned</lineannotation>
+<!--
+     3              <lineannotation>&#45;- all rows processed; count does not stop it, because nothing is returned</lineannotation>
+-->
+     3              <lineannotation>-- すべての行が処理された。何も返されないので、カウントでは止まらない</lineannotation>
 (1 row)
 
 =&gt; SELECT * FROM a;
@@ -7502,7 +7515,10 @@ INSERT 0 1
 =&gt; SELECT * FROM a;
  x
 ---
- 1                  <lineannotation>-- 0 (no rows in a) + 1</lineannotation>
+<!--
+ 1                  <lineannotation>&#45;- 0 (no rows in a) + 1</lineannotation>
+-->
+ 1                  <lineannotation>-- 0 (aには行がない) + 1</lineannotation>
 (1 row)
 
 =&gt; INSERT INTO a VALUES (execq('SELECT * FROM a', 0) + 1);
@@ -7512,16 +7528,29 @@ INSERT 0 1
  x
 ---
  1
- 2                  <lineannotation>-- 1 (there was one row in a) + 1</lineannotation>
+<!--
+ 2                  <lineannotation>&#45;- 1 (there was one row in a) + 1</lineannotation>
+-->
+ 2                  <lineannotation>-- 1 (aには1行ある) + 1</lineannotation>
 (2 rows)
 
-<lineannotation>-- This demonstrates the data changes visibility rule.</lineannotation>
-<lineannotation>-- execq is called twice and sees different numbers of rows each time:</lineannotation>
+<!--
+<lineannotation>&#45;- This demonstrates the data changes visibility rule.</lineannotation>
+<lineannotation>&#45;- execq is called twice and sees different numbers of rows each time:</lineannotation>
+-->
+<lineannotation>-- これはデータ変更に関する可視性規則を説明する。</lineannotation>
+<lineannotation>-- execqは2回呼ばれ、各回で異なる行数を見る。</lineannotation>
 
 =&gt; INSERT INTO a SELECT execq('SELECT * FROM a', 0) * x FROM a;
-INFO:  EXECQ:  1    <lineannotation>-- results from first execq</lineannotation>
+<!--
+INFO:  EXECQ:  1    <lineannotation>&#45;- results from first execq</lineannotation>
+-->
+INFO:  EXECQ:  1    <lineannotation>-- 1回目のexecqの結果</lineannotation>
 INFO:  EXECQ:  2
-INFO:  EXECQ:  1    <lineannotation>-- results from second execq</lineannotation>
+<!--
+INFO:  EXECQ:  1    <lineannotation>&#45;- results from second execq</lineannotation>
+-->
+INFO:  EXECQ:  1    <lineannotation>-- 2回目のexecqの結果</lineannotation>
 INFO:  EXECQ:  2
 INFO:  EXECQ:  2
 INSERT 0 2
@@ -7530,8 +7559,12 @@ INSERT 0 2
 ---
  1
  2
- 2                  <lineannotation>-- 2 rows * 1 (x in first row)</lineannotation>
- 6                  <lineannotation>-- 3 rows (2 + 1 just inserted) * 2 (x in second row)</lineannotation>
+<!--
+ 2                  <lineannotation>&#45;- 2 rows * 1 (x in first row)</lineannotation>
+ 6                  <lineannotation>&#45;- 3 rows (2 + 1 just inserted) * 2 (x in second row)</lineannotation>
+-->
+ 2                  <lineannotation>-- 2 行 * 1 (最初の行のx)</lineannotation>
+ 6                  <lineannotation>-- 3 行 (2 + ちょうど挿入された1) * 2 (2行目のx)</lineannotation>
 (4 rows)
 </programlisting>
   </para>
