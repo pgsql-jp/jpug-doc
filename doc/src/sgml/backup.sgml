@@ -1682,6 +1682,7 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
    </listitem>
    <listitem>
     <para>
+<!--
      If you have the space to do so,
      copy the whole cluster data directory and any tablespaces to a temporary
      location in case you need them later. Note that this precaution will
@@ -1690,6 +1691,11 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
      you should at least save the contents of the cluster's <filename>pg_wal</filename>
      subdirectory, as it might contain WAL files which
      were not archived before the system went down.
+-->
+《マッチ度[90.143737]》もし容量があるのであれば、後で必要になる場合に備えてクラスタデータディレクトリ全体とテーブル空間を全て一時的な場所にコピーしてください。
+この予防措置は、既存のデータベースを2つ分保持できるだけの空き領域を必要とします。
+十分な領域がない場合でも、少なくともクラスタの<filename>pg_wal</filename>サブディレクトリの内容は保存すべきです。
+ここには、システムが停止する前にアーカイブされなかったログファイルが含まれているかも知れないからです。
     </para>
    </listitem>
    <listitem>
@@ -2242,6 +2248,7 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
 
    <listitem>
     <para>
+<!--
      <link linkend="sql-createtablespace"><command>CREATE TABLESPACE</command></link>
      commands are WAL-logged with the literal absolute path, and will
      therefore be replayed as tablespace creations with the same
@@ -2252,12 +2259,19 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
      original tablespace.  To avoid potential gotchas of this sort,
      the best practice is to take a new base backup after creating or
      dropping tablespaces.
+-->
+《マッチ度[90.264026]》<link linkend="sql-createtablespace"><command>CREATE TABLESPACE</command></link>コマンドはリテラルの絶対パス付でWALにログが記録され、したがって、同じ絶対パスでのテーブル空間作成の時に再生されます。
+これは、もしログが異なったマシン上で再生される場合には好ましくありません。
+ログ再生がたとえ同一のマシンであっても、新規のデータディレクトリであれば危険です。
+なぜなら、再生は元のテーブル空間の内容を上書きし続けるからです。
+この種の潜在的な振舞いを防ぐためには、テーブル空間を作成もしくは削除後に新規ベースバックアップを行うのが最良の手段です。
     </para>
    </listitem>
   </itemizedlist>
    </para>
 
    <para>
+<!--
     It should also be noted that the default <acronym>WAL</acronym>
     format is fairly bulky since it includes many disk page snapshots.
     These page snapshots are designed to support crash recovery, since
@@ -2274,6 +2288,16 @@ archive_command = 'local_backup_script.sh "%p" "%f"'
     on.  In the meantime, administrators might wish to reduce the number
     of page snapshots included in WAL by increasing the checkpoint
     interval parameters as much as feasible.
+-->
+《マッチ度[91.916168]》また、デフォルトの<acronym>WAL</acronym>フォーマットは数多くのディスクページのスナップショットを含んでいるため、かなりかさばるものになってしまっていることに触れておくべきでしょう。
+これらのページスナップショットは、クラッシュから回復のために設計されています。
+それというのも、回復処理の際には不完全に書き込まれているディスクページを修復しなければならないことがあるからです。
+システムのハードウェアやソフトウェアによっては、不完全なディスクページの書き込みが起きてしまう危険性は無視してもよい程微小です。
+この場合<xref linkend="guc-full-page-writes"/>パラメータを設定してページスナップショットを無効にすることで、アーカイブされたログの総容量を大幅に縮小できます
+（実際に設定を行う前に、<xref linkend="wal"/>の注意事項と警告を読んでください）。
+ページスナップショットを無効にしても PITR処理の際にログが使用できなくなることはありません。
+将来の課題は、<varname>full_page_writes</varname>がたとえオンになっている場合であっても不要なページを取り除き、アーカイブ済みWALデータの圧縮を行うことでしょう。
+差し当たり管理者は、可能な限りチェックポイント間隔パラメータを大きくすることによって、WALに含まれるページスナップショットの数を削減することができます。
    </para>
   </sect2>
  </sect1>
