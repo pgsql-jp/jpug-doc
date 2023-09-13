@@ -11,12 +11,20 @@ PostgreSQL documentation
  <refmeta>
   <refentrytitle>CREATE RULE</refentrytitle>
   <manvolnum>7</manvolnum>
+<!--
   <refmiscinfo>SQL - Language Statements</refmiscinfo>
+-->
+<refmiscinfo>SQL - 言語</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>CREATE RULE</refname>
+<!--
   <refpurpose>define a new rewrite rule</refpurpose>
+-->
+  <refpurpose>
+新しい書き換えルールを定義する
+  </refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -25,24 +33,35 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     TO <replaceable class="parameter">table_name</replaceable> [ WHERE <replaceable class="parameter">condition</replaceable> ]
     DO [ ALSO | INSTEAD ] { NOTHING | <replaceable class="parameter">command</replaceable> | ( <replaceable class="parameter">command</replaceable> ; <replaceable class="parameter">command</replaceable> ... ) }
 
+<!--
 <phrase>where <replaceable class="parameter">event</replaceable> can be one of:</phrase>
+-->
+<phrase>ここで<replaceable class="parameter">event</replaceable>は以下のうちの1つです。</phrase>
 
     SELECT | INSERT | UPDATE | DELETE
 </synopsis>
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <command>CREATE RULE</command> defines a new rule applying to a specified
    table or view.
    <command>CREATE OR REPLACE RULE</command> will either create a
    new rule, or replace an existing rule of the same name for the same
    table.
+-->
+<command>CREATE RULE</command>により、指定したテーブルまたはビューに適用するルールを新しく定義できます。
+<command>CREATE OR REPLACE RULE</command>を使用すると、新しいルールの作成、または、同じテーブルの同じ名前の既存ルールの置き換えのいずれかを実行します。
   </para>
 
   <para>
+<!--
    The <productname>PostgreSQL</productname> rule system allows one to
    define an alternative action to be performed on insertions, updates,
    or deletions in database tables.  Roughly speaking, a rule causes
@@ -56,9 +75,19 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    If you actually want an operation that fires independently for each
    physical row, you probably want to use a trigger, not a rule.
    More information about the rules system is in <xref linkend="rules"/>.
+-->
+<productname>PostgreSQL</productname>のルールシステムを使用すると、データベーステーブルに対する挿入、更新、削除時に本来の操作の代替として実行するアクションを定義できます。
+簡単に言えば、指定されたテーブルに対して指定されたコマンドが実行された時、ルールによって追加のコマンドが実行されるということです。
+その他にも、<literal>INSTEAD</literal>ルールによって指定されたコマンドを他のコマンドに置き換えたり、まったくコマンドを実行しないようにすることも可能です。
+また、ルールはSQLビューを実装するためにも使われます。
+重要なのは、ルールとは実際にコマンドを変換する仕組み、言い換えれば、コマンドのマクロであることです。
+ルールによる変換はコマンドの実行前に発生します。
+各物理行を個別に操作したい場合、ルールではなくトリガを使用する方が良いでしょう。
+ルールシステムについての詳細は、<xref linkend="rules"/>に記載されています。
   </para>
 
   <para>
+<!--
    Presently, <literal>ON SELECT</literal> rules must be unconditional
    <literal>INSTEAD</literal> rules and must have actions that consist
    of a single <command>SELECT</command> command.  Thus, an
@@ -68,9 +97,14 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    stored in the table (if anything).  It is considered better style
    to write a <command>CREATE VIEW</command> command than to create a
    real table and define an <literal>ON SELECT</literal> rule for it.
+-->
+現時点では、<literal>ON SELECT</literal>ルールは、条件を持たない<literal>INSTEAD</literal>ルールでなければなりません。また、<literal>ON SELECT</literal>ルールが持つアクションは、単独の<command>SELECT</command>コマンドのみで構成される必要があります。
+したがって、<literal>ON SELECT</literal>ルールを使えば、実質的にテーブルをビューにすることができます。このビューでは、元のテーブルの内容ではなく、ルールに含まれる<command>SELECT</command>コマンドが返す行が、ビューの内容として提示されます。
+ただし、実テーブルを作成し、それに<literal>ON SELECT</literal>ルールを定義するよりは、<command>CREATE VIEW</command>コマンドを使用する方をお勧めします。
   </para>
 
   <para>
+<!--
    You can create the illusion of an updatable view by defining
    <literal>ON INSERT</literal>, <literal>ON UPDATE</literal>, and
    <literal>ON DELETE</literal> rules (or any subset of those that's
@@ -78,9 +112,13 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    with appropriate updates on other tables.  If you want to support
    <command>INSERT RETURNING</command> and so on, then be sure to put a suitable
    <literal>RETURNING</literal> clause into each of these rules.
+-->
+<literal>ON INSERT</literal>、<literal>ON UPDATE</literal>、<literal>ON DELETE</literal>ルールを必要に応じて定義し、ビューに対する更新操作を他のテーブルに対する適切な更新操作に置換することで、更新可能なビューという実在しないオブジェクトを作成することができます。
+<command>INSERT RETURNING</command>などをサポートしたければ、これらのルールに適切な<literal>RETURNING</literal>句を確実につけてください。
   </para>
 
   <para>
+<!--
    There is a catch if you try to use conditional rules for complex view
    updates: there <emphasis>must</emphasis> be an unconditional
    <literal>INSTEAD</literal> rule for each action you wish to allow
@@ -96,36 +134,59 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    the cases where they are applied, they add to the default
    <literal>INSTEAD NOTHING</literal> action.  (This method does not
    currently work to support <literal>RETURNING</literal> queries, however.)
+-->
+複雑なビューの更新に条件付きルールを使用しようとする場合、落とし穴があります。
+そのビューに許可するそれぞれの操作に、条件を持たない<literal>INSTEAD</literal>ルールを用意する<emphasis>必要がある</emphasis>ことです。
+ルールが条件付きであったり、<literal>INSTEAD</literal>でない場合、システムは更新操作を拒否します。
+その場合、システムが、場合によっては、ビューのダミーテーブルに対する操作になる可能性があるとみなすからです。
+使用する全てのケースについて条件付きルールを作成する場合は、条件を持たない<literal>DO INSTEAD NOTHING</literal>ルールを追加し、ダミーテーブルに対する更新は呼び出されないことをシステムに明示します。さらに、条件付きルールには、<literal>INSTEAD</literal>と指定しないようにします。
+これらの条件が満たされた場合、デフォルトの<literal>INSTEAD NOTHING</literal>アクションにルールに含まれるアクションが追加されます。
+（しかし現在、この方法では<literal>RETURNING</literal>問い合わせのサポートがうまく動作しません。）
   </para>
 
   <note>
    <para>
+<!--
     A view that is simple enough to be automatically updatable (see <xref
     linkend="sql-createview"/>) does not require a user-created rule in
     order to be updatable.  While you can create an explicit rule anyway,
     the automatic update transformation will generally outperform an
     explicit rule.
+-->
+十分単純であり自動更新可能なビュー（<xref linkend="sql-createview"/>参照）は、更新可能とするためにユーザ作成のルールを必要としません。
+とにかく明示的なルールを作成することもできますが、自動更新による変形は明示的なルールよりも通常高速です。
    </para>
 
    <para>
+<!--
     Another alternative worth considering is to use <literal>INSTEAD OF</literal>
     triggers (see <xref linkend="sql-createtrigger"/>) in place of rules.
+-->
+検討すべき別の方法は、ルールの代わりに<literal>INSTEAD OF</literal>トリガ(<xref linkend="sql-createtrigger"/>参照)を使うことです。
    </para>
   </note>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Parameters</title>
+-->
+  <title>パラメータ</title>
 
   <variablelist>
    <varlistentry>
     <term><replaceable class="parameter">name</replaceable></term>
     <listitem>
      <para>
+<!--
       The name of a rule to create.  This must be distinct from the
       name of any other rule for the same table.  Multiple rules on
       the same table and same event type are applied in alphabetical
       name order.
+-->
+作成するルールの名前です。
+この名前は、同じテーブルの他のルールとは異なる名前にする必要があります。
+同一テーブルにイベントの種類が同じルールが複数あった場合、ルール名の順番（アルファベット順）に適用されます。
      </para>
     </listitem>
    </varlistentry>
@@ -134,6 +195,7 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     <term><replaceable class="parameter">event</replaceable></term>
     <listitem>
      <para>
+<!--
       The event is one of <literal>SELECT</literal>,
       <literal>INSERT</literal>, <literal>UPDATE</literal>, or
       <literal>DELETE</literal>.  Note that an
@@ -141,6 +203,10 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
       CONFLICT</literal> clause cannot be used on tables that have
       either <literal>INSERT</literal> or <literal>UPDATE</literal>
       rules.  Consider using an updatable view instead.
+-->
+イベントとは、<literal>SELECT</literal>、<literal>INSERT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>のいずれかです。
+<literal>ON CONFLICT</literal>句を含む<command>INSERT</command>は、<literal>INSERT</literal>ルールまたは<literal>UPDATE</literal>ルールのあるテーブルに対して使えないことに注意してください。
+代わりに、更新可能ビューを利用することを検討してください。
      </para>
     </listitem>
    </varlistentry>
@@ -149,8 +215,11 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     <term><replaceable class="parameter">table_name</replaceable></term>
     <listitem>
      <para>
+<!--
       The name (optionally schema-qualified) of the table or view the
       rule applies to.
+-->
+ルールを適用するテーブルまたはビューの名前です（スキーマ修飾名も可）。
      </para>
     </listitem>
    </varlistentry>
@@ -159,10 +228,15 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     <term><replaceable class="parameter">condition</replaceable></term>
     <listitem>
      <para>
+<!--
       Any <acronym>SQL</acronym> conditional expression (returning
       <type>boolean</type>).  The condition expression cannot refer
       to any tables except <literal>NEW</literal> and <literal>OLD</literal>, and
       cannot contain aggregate functions.
+-->
+任意の<acronym>SQL</acronym>条件式です（<type>boolean</type>型を返します）。
+条件式では、<literal>NEW</literal>および<literal>OLD</literal>以外のテーブルは参照できません。
+また、集約関数を含めることもできません。
      </para>
     </listitem>
    </varlistentry>
@@ -170,8 +244,11 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    <varlistentry>
     <term><option>INSTEAD</option></term>
     <listitem>
+<!--
      <para><literal>INSTEAD</literal> indicates that the commands should be
       executed <emphasis>instead of</emphasis> the original command.
+-->
+<para><literal>INSTEAD</literal>は、元のコマンドの<emphasis>代わりに</emphasis>このコマンドが実行されることを示します。
      </para>
     </listitem>
    </varlistentry>
@@ -179,15 +256,21 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    <varlistentry>
     <term><option>ALSO</option></term>
     <listitem>
+<!--
      <para><literal>ALSO</literal> indicates that the commands should be
       executed <emphasis>in addition to</emphasis> the original
       command.
+-->
+<para><literal>ALSO</literal>は元のコマンドに<emphasis>加えて</emphasis>このコマンドが実行されることを示します。
      </para>
 
      <para>
+<!--
       If neither <literal>ALSO</literal> nor
       <literal>INSTEAD</literal> is specified, <literal>ALSO</literal>
       is the default.
+-->
+<literal>ALSO</literal>も<literal>INSTEAD</literal>も指定されなかった場合、<literal>ALSO</literal>がデフォルトです。
      </para>
     </listitem>
    </varlistentry>
@@ -196,16 +279,21 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
     <term><replaceable class="parameter">command</replaceable></term>
     <listitem>
      <para>
+<!--
       The command or commands that make up the rule action.  Valid
       commands are <command>SELECT</command>,
       <command>INSERT</command>, <command>UPDATE</command>,
       <command>DELETE</command>, or <command>NOTIFY</command>.
+-->
+ルールのアクションを構成する単一または複数のコマンドです。
+有効なコマンドは、<command>SELECT</command>、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>NOTIFY</command>です。
      </para>
     </listitem>
    </varlistentry>
   </variablelist>
 
   <para>
+<!--
    Within <replaceable class="parameter">condition</replaceable> and
    <replaceable class="parameter">command</replaceable>, the special
    table names <literal>NEW</literal> and <literal>OLD</literal> can
@@ -215,17 +303,28 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    inserted or updated.  <literal>OLD</literal> is valid in
    <literal>ON UPDATE</literal> and <literal>ON DELETE</literal> rules
    to refer to the existing row being updated or deleted.
+-->
+<replaceable class="parameter">condition</replaceable>と<replaceable class="parameter">command</replaceable>の内部では、対象とするテーブルの値を参照するために、特別なテーブル名<literal>NEW</literal>と<literal>OLD</literal>を使用できます。
+<literal>NEW</literal>は、<literal>ON INSERT</literal>と<literal>ON UPDATE</literal>ルールで有効で、挿入または更新される新しい行を参照します。
+<literal>OLD</literal>は、<literal>ON UPDATE</literal>と<literal>ON DELETE</literal>ルールで有効で、更新または削除される既存の行を参照します。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    You must be the owner of a table to create or change rules for it.
+-->
+テーブルにルールを定義する、または、そのルールを変更するためには所有者でなければなりません。
   </para>
 
   <para>
+<!--
    In a rule for <literal>INSERT</literal>, <literal>UPDATE</literal>, or
    <literal>DELETE</literal> on a view, you can add a <literal>RETURNING</literal>
    clause that emits the view's columns.  This clause will be used to compute
@@ -240,15 +339,27 @@ CREATE [ OR REPLACE ] RULE <replaceable class="parameter">name</replaceable> AS 
    <literal>RETURNING</literal> clause to be used to compute the results.)
    <literal>RETURNING</literal> queries on the view will be rejected if
    there is no <literal>RETURNING</literal> clause in any available rule.
+-->
+ビュー上の<literal>INSERT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>ルールでは、<literal>RETURNING</literal>句を追加して、ビューの列を返すことができます。
+ルールが<command>INSERT RETURNING</command>、<command>UPDATE RETURNING</command>、<command>DELETE RETURNING</command>コマンドによって呼び出された場合、この句は出力を計算することに使用されます。
+<literal>RETURNING</literal>なしでルールが呼び出された場合、ルールの<literal>RETURNING</literal>句は無視されます。
+現在の実装では、無条件の<literal>INSTEAD</literal>ルールのみが<literal>RETURNING</literal>を含むことができます。
+さらに、同一イベント用のすべてのルールの中で多くても1つの<literal>RETURNING</literal>句を持つことができます。
+（これにより確実に、結果を計算するために使用される<literal>RETURNING</literal>句の候補が1つのみになります。）
+ビュー上の<literal>RETURNING</literal>問い合わせは、利用可能なルールのどれにも<literal>RETURNING</literal>が存在しない場合に拒絶されます。
   </para>
 
   <para>
+<!--
    It is very important to take care to avoid circular rules.  For
    example, though each of the following two rule definitions are
    accepted by <productname>PostgreSQL</productname>, the
    <command>SELECT</command> command would cause
    <productname>PostgreSQL</productname> to report an error because
    of recursive expansion of a rule:
+-->
+ルールの循環は絶対に避けるよう注意してください。
+例えば、下記の2つのルール定義それぞれは<productname>PostgreSQL</productname>に受け入れられますが、ルールが再帰的に展開されるため、<command>SELECT</command>コマンドが、<productname>PostgreSQL</productname>にエラーを表示させます。
 
 <programlisting>
 CREATE RULE "_RETURN" AS
@@ -266,35 +377,53 @@ SELECT * FROM t1;
   </para>
 
   <para>
+<!--
    Presently, if a rule action contains a <command>NOTIFY</command>
    command, the <command>NOTIFY</command> command will be executed
    unconditionally, that is, the <command>NOTIFY</command> will be
    issued even if there are not any rows that the rule should apply
    to.  For example, in:
+-->
+現在、ルールのアクションに<command>NOTIFY</command>コマンドが含まれる場合、<command>NOTIFY</command>コマンドは無条件に実行されます。
+つまり、ルールを適用すべき行が存在しなかったとしても、<command>NOTIFY</command>が発行されます。
+例えば、
 <programlisting>
 CREATE RULE notify_me AS ON UPDATE TO mytable DO ALSO NOTIFY mytable;
 
 UPDATE mytable SET name = 'foo' WHERE id = 42;
 </programlisting>
+<!--
    one <command>NOTIFY</command> event will be sent during the
    <command>UPDATE</command>, whether or not there are any rows that
    match the condition <literal>id = 42</literal>.  This is an
    implementation restriction that might be fixed in future releases.
+-->
+では、<literal>id = 42</literal>という条件に一致する行があってもなくても、<command>UPDATE</command>の際、1つの<command>NOTIFY</command>イベントが送信されます。
+これは実装上の制限であり、将来のリリースでは修正されるかもしれません。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Compatibility</title>
+-->
+  <title>互換性</title>
 
   <para>
+<!--
    <command>CREATE RULE</command> is a
    <productname>PostgreSQL</productname> language extension, as is the
    entire query rewrite system.
+-->
+<command>CREATE RULE</command>は<productname>PostgreSQL</productname>の言語拡張で、問い合わせ書き換えシステム全体が言語拡張です。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>See Also</title>
+-->
+  <title>関連項目</title>
 
   <simplelist type="inline">
    <member><xref linkend="sql-alterrule"/></member>
