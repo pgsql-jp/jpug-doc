@@ -503,6 +503,7 @@ ALTER ROLE myname SET enable_indexscan TO off;
   </para>
 
   <para>
+<!--
    When a non-superuser creates a role using the <literal>CREATEROLE</literal>
    privilege, the created role is automatically granted back to the creating
    user, just as if the bootstrap superuser had executed the command
@@ -528,6 +529,13 @@ ALTER ROLE myname SET enable_indexscan TO off;
    <literal>CREATEROLE</literal> users. Whichever <literal>CREATEROLE</literal>
    users have <literal>ADMIN OPTION</literal> on a role at any given time
    can administer it.
+-->
+《機械翻訳》非スーパーユーザが<literal>CREATEROLE</literal>権限を使用してロールを作成すると、作成されたロールは自動的に作成元のユーザに再度付与されます。これは、ブートストラップスーパーユーザがコマンド<literal>GRANT created_user TO creating_user WITH ADMIN OPTION, SET FALSE, INHERIT FALSE</literal>を実行した場合と同じです。<literal>CREATEROLE</literal>ユーザは、既存のロールに対して特別な権限を持つ場合にのみ、それに関して特別な権限を行使できるため、この権限は、<literal>CREATEROLE</literal>ユーザが作成したロールを管理するのに十分です。
+<literal>CREATEROLE</literal>ユーザは、既存のロールに関して特別な権限を行使できるのは、そのロールに対する<literal>ADMIN OPTION</literal>権限がある場合のみですので、この権限は、<literal>CREATEROLE</literal>ユーザが作成したロールを管理するのに十分なだけです。
+しかし、ロールに対する<literal>ADMIN OPTION</literal>を持つユーザは、そのロールのメンバシップを他のユーザに付与できるため、<literal>CREATEROLE</literal>ユーザは、そのロールを自分自身に<literal>INHERIT</literal>および/または<literal>SET</literal>オプションで付与するだけで、作成したロールへのアクセス権を獲得できます。
+したがって、権限がデフォルトで継承されないこと、またはデフォルトで<literal>SET ROLE</literal>が付与されないことは、事故に対する安全策であり、セキュリティ機能ではありません。
+また、この自動的なグラントはブートストラップユーザによって与えられるため、<literal>CREATEROLE</literal>ユーザによって削除または変更することはできません。 しかし、スーパーユーザはそれを取り消したり、修正したり、他の<literal>CREATEROLE</literal>ユーザに対してそのようなグラントを追加したりすることができます。
+どの<literal>CREATEROLE</literal>ユーザも、ある時点でロールに対して<literal>ADMIN OPTION</literal>を持っているかどうかに関係なく、それを管理できます。
   </para>
  </sect1>
 
@@ -600,6 +608,7 @@ REVOKE <replaceable>group_role</replaceable> FROM <replaceable>role1</replaceabl
   </para>
 
   <para>
+<!--
    The members of a group role can use the privileges of the role in two
    ways.  First, member roles that have been granted membership with the
    <literal>SET</literal> option can do
@@ -613,6 +622,17 @@ REVOKE <replaceable>group_role</replaceable> FROM <replaceable>role1</replaceabl
    of the privileges of those roles, including any
    privileges inherited by those roles.
    As an example, suppose we have done:
+-->
+《マッチ度[]》1つ目は、グループ内のすべてのメンバは明示的に、一時的にそのグループロールに<quote>なる</quote>ために<link linkend="sql-set-role"><command>SET ROLE</command></link>を行うことができます。
+この状態では、データベースセッションは元々のログインロールの権限ではなくグループの権限でアクセスされます。
+そして、作成されたデータベースオブジェクトの所有者はログインロールではなくグループロールであるとみなされます。
+2つ目は、<literal>INHERIT</literal>属性を持つメンバロールは、それらがメンバとなるロールの権限を自動的に使用します。これには、ロールによって継承されるいかなる権限も含んでいます。
+例えば、以下の状態を想定します。
+《機械翻訳》グループロールのメンバーは、2つの方法でロールの権限を使用できます。
+まず、メンバーシップが<literal>SET</literal>オプションで付与されたメンバーロールは、<link linkend="sql-set-role"><command>SET</command></link>オプションを使用して、一時的に<quote>グループロールになる</quote>ことができます。
+この状態では、データベースセッションは、元のログインロールではなくグループロールの権限にアクセスでき、作成されたデータベースオブジェクトは、ログインロールではなくグループロールによって所有されているとみなされます。
+次に、<literal>INHERIT</literal>オプションでメンバーシップが付与されたメンバーロールは、それらのロールによって継承された権限を含む、それらのロールの権限を自動的に使用できます。
+例として、次のように行いました。
 <programlisting>
 CREATE ROLE joe LOGIN;
 CREATE ROLE admin;
@@ -622,6 +642,7 @@ GRANT admin TO joe WITH INHERIT TRUE;
 GRANT wheel TO admin WITH INHERIT FALSE;
 GRANT island TO joe WITH INHERIT TRUE, SET FALSE;
 </programlisting>
+<!--
    Immediately after connecting as role <literal>joe</literal>, a database
    session will have use of privileges granted directly to <literal>joe</literal>
    plus any privileges granted to <literal>admin</literal> and
@@ -631,12 +652,21 @@ GRANT island TO joe WITH INHERIT TRUE, SET FALSE;
    <literal>joe</literal> is indirectly a member of <literal>wheel</literal>, the
    membership is via <literal>admin</literal> which was granted using
    <literal>WITH INHERIT FALSE</literal>. After:
+-->
+《マッチ度[]》<literal>joe</literal>ロールで接続するとすぐに、<literal>joe</literal>は<literal>admin</literal>権限を<quote>継承</quote>しますので、そのデータベースセッションでは<literal>joe</literal>に直接与えられた権限に加えて、<literal>admin</literal>に与えられた権限を使用することができます。
+しかし、<literal>wheel</literal>に与えられた権限は利用できません。
+<literal>joe</literal>は間接的に<literal>wheel</literal>のメンバですが、<literal>admin</literal>経由のメンバ資格は<literal>NOINHERIT</literal>属性を持っているためです。
+《機械翻訳》ロール<literal>joe</literal>として接続した直後、データベースは<literal>joe</literal>に直接付与された権限に加えて、<literal>admin</literal>と<literal>island</literal>に付与された権限を<quote>継承</quote>するため、これらの権限を使用できます。
+ただし、<literal>wheel</literal>に付与された権限は使用できません。これは、<literal>joe</literal>が間接的に<literal>wheel</literal>のメンバーであるにもかかわらず、メンバーシップは<literal>admin</literal>を介して付与され、<literal>WITH INHERIT FALSE</literal>を使用して付与されたためです。後:
 <programlisting>
 SET ROLE admin;
 </programlisting>
+<!--
    the session would have use of only those privileges granted to
    <literal>admin</literal>, and not those granted to <literal>joe</literal> or
    <literal>island</literal>.  After:
+-->
+《機械翻訳》セッションは、<literal>admin</literal>に付与された権限のみを使用し、<literal>joe</literal>や<literal>island</literal>に付与された権限は使用しません。 後:
 <programlisting>
 SET ROLE wheel;
 </programlisting>
@@ -657,6 +687,7 @@ RESET ROLE;
 
   <note>
    <para>
+<!--
     The <command>SET ROLE</command> command always allows selecting any role
     that the original login role is directly or indirectly a member of,
     provided that there is a chain of membership grants each of which has
@@ -666,6 +697,9 @@ RESET ROLE;
     On the other hand, it is not possible to become <literal>island</literal>
     at all; <literal>joe</literal> can only access those privileges via
     inheritance.
+-->
+《機械翻訳》<command>SET ROLE</command>コマンドは、元のログインロールが直接的または間接的にメンバーであるロールを常に選択できるようにします。 メンバーシップの許可の連鎖が存在し、それぞれが<literal>SET TRUE</literal>(デフォルト)である場合です。
+したがって、上記の例では、<literal>admin</literal>になる前に<literal>wheel</literal>になる必要はありません。 一方、<literal>island</literal>になることはできません。 <literal>joe</literal>は継承を介してのみこれらの権限にアクセスできます。
    </para>
   </note>
 
