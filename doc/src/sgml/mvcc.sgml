@@ -511,6 +511,7 @@ SQL標準では、ある分離レベルで発生しては<emphasis>ならない<
    </indexterm>
 
    <para>
+<!--
     <firstterm>Read Committed</firstterm> is the default isolation
     level in <productname>PostgreSQL</productname>.  When a transaction
     uses this isolation level, a <command>SELECT</command> query
@@ -526,6 +527,12 @@ SQL標準では、ある分離レベルで発生しては<emphasis>ならない<
     though they are within a single transaction, if other transactions
     commit changes after the first <command>SELECT</command> starts and
     before the second <command>SELECT</command> starts.
+-->
+《マッチ度[89.315353]》<productname>PostgreSQL</productname>では<firstterm>リードコミッティド</firstterm>がデフォルトの分離レベルです。
+トランザクションがこの分離レベルを使用すると、<command>SELECT</command>問い合わせ（<literal>FOR UPDATE/SHARE</literal>句を伴わない）はその問い合わせが実行される直前までにコミットされたデータのみを参照し、まだコミットされていないデータや、その問い合わせの実行中に別の同時実行トランザクションがコミットした更新は参照しません。
+結果として、<command>SELECT</command>問い合わせはその問い合わせが実行を開始した時点のデータベースのスナップショットを参照することになります。
+しかし<command>SELECT</command>文は、自分自身のトランザクション内で実行され更新された結果はたとえまだコミットされていなくても参照します。
+単一のトランザクション内であっても、<command>SELECT</command>文を2回連続して発行した場合、最初の<command>SELECT</command>文が開始した後で2番目の<command>SELECT</command>文が開始する前に他のトランザクションが更新をコミットすると、最初とその次に発行した<command>SELECT</command>問い合わせは異なるデータを参照してしまうことにも注意してください。
    </para>
 
    <para>
@@ -755,6 +762,7 @@ COMMIT;
    </indexterm>
 
    <para>
+<!--
     The <firstterm>Repeatable Read</firstterm> isolation level only sees
     data committed before the transaction began; it never sees either
     uncommitted data or changes committed by concurrent transactions during
@@ -768,6 +776,12 @@ COMMIT;
     specifically allowed by the standard, which only describes the
     <emphasis>minimum</emphasis> protections each isolation level must
     provide.
+-->
+《マッチ度[87.596899]》<firstterm>リピータブルリード</firstterm>分離レベルは、トランザクションが開始される前までにコミットされたデータのみを参照します。
+コミットされていないデータや、そのトランザクションの実行中に別のトランザクションでコミットされた変更を参照しません。
+（しかし、その問い合わせと同じトランザクション内で行われた過去の更新は、まだコミットされていませんが、参照します。）
+これは<acronym>SQL</acronym>の標準規格で求められるものよりもより強く保証するもので、直列化異常を除いて、<xref linkend="mvcc-isolevel-table"/>で述べている現象をすべて防ぎます。
+上で述べたように、これは標準規格によって明示的に許容されているもので、標準ではそれぞれの分離レベルが提供しなくてはならない<emphasis>最小</emphasis>の保護のみが示されています。
    </para>
 
    <para>
