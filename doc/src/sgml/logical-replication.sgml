@@ -790,13 +790,13 @@ CREATE PUBLICATION
 《機械翻訳》例1: 購読が<literal>connect = false</literal>と記述されている場合
    </para>
    <para>
-<!--
     <itemizedlist>
      <listitem>
       <para>
+<!--
        Create the subscription.
 -->
-《機械翻訳》<itemizedlist> <listitem> <para> サブスクリプションを作成します。
+《機械翻訳》サブスクリプションを作成します。
 <programlisting>
 test_sub=# CREATE SUBSCRIPTION sub1
 test_sub-# CONNECTION 'host=localhost dbname=test_pub'
@@ -886,7 +886,6 @@ test_pub=# SELECT * FROM pg_create_logical_replication_slot('myslot', 'pgoutput'
 <!--
        On the subscriber, the remaining subscription activation steps are the
        same as before.
-</programlisting>
 -->
 《機械翻訳》サブスクライバでは、残りのサブスクリプションのアクティブ化手順は以前と同じです。
 <programlisting>
@@ -941,7 +940,6 @@ test_pub=# SELECT * FROM pg_create_logical_replication_slot('myslot', 'pgoutput'
 <!--
        On the subscriber, associate the subscription with the slot name just
        created.
-</programlisting>
 -->
 《機械翻訳》サブスクライバで、作成したスロット名にサブスクリプションを関連付けます。
 <programlisting>
@@ -2127,7 +2125,15 @@ CONTEXT:  processing remote data for replication origin "pg_16395" during "INSER
 現在の起点の位置は、<link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link>システムビューで確認できます。
 トランザクション全体をスキップすることは、いかなる制約にも違反しない可能性のある変更をスキップすることを含むことに注意してください。
 これは容易にサブスクライバーを不整合にする可能性があります。
-《機械翻訳》
+《機械翻訳》制約に違反する変更を含むトランザクションのLSNとレプリケーションの起点名は、サーバのログから見つけることができます（上記の例ではLSN 0/14C0378とレプリケーションの起点<literal>pg_16395</literal>）。
+競合を起こしたトランザクションは、終了LSN(つまり、LSN 0/14C0378)を使用して<command>ALTER SUBSCRIPTION ... SKIP</command>を使用することでスキップできます。
+終了LSNは、トランザクションがパブリッシャでコミットまたは準備されたLSNである可能性があります。
+あるいは、トランザクションは<link linkend="pg-replication-origin-advance"> <function>pg_replication_origin_advance()</function></link>関数を呼び出すことによってスキップすることもできます。
+この関数を使用する前に、サブスクリプションを一時的に無効にする必要があります。<command>ALTER SUBSCRIPTION ... DISABLE</command>を使用するか、または、サブスクリプションを<link linkend="sql-createsubscription-with-disable-on-error"><literal>disable_on_error</literal></link>オプションで使用できます。
+次に、<function>pg_replication_origin_advance()</function>関数を、<parameter>node_name</parameter>(<literal>pg_16395</literal>)と、終了LSNの次のLSN(<literal>0/14C0379</literal>)で使用できます。
+現在の起点の位置は、<link linkend="view-pg-replication-origin-status">システムビュー <structname>pg_replication_origin_status</structname></link>で確認できます。
+トランザクション全体をスキップすると、制約に違反しない可能性のある変更もスキップされることに注意してください。
+これにより、サブスクライバが容易に不整合になる可能性があります。
   </para>
 
   <para>

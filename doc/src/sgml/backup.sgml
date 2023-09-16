@@ -1844,7 +1844,12 @@ GNUの <application>tar</application>で1.23以降のバージョンを使用し
 （パス名は現在の作業用ディレクトリ、つまり、クラスタのデータディレクトリから見た相対パスです。）
 コマンド内に<literal>%</literal>文字自体を埋め込む必要があれば<literal>%%</literal>と記載してください。
 最も簡単でよく使われるコマンドは以下のようなものです。
-《機械翻訳》
+《機械翻訳》このすべての重要な部分は、リカバリの設定を設定することです。この設定では、リカバリの方法と、リカバリをどの程度実行するかを指定します。
+絶対に指定する必要があるのは、<varname>restore_command</varname>です。これは、<productname>PostgreSQL</productname>にアーカイブされたWALファイルセグメントを取得する方法を指定します。
+<varname>archive_command</varname>と同様、これはシェルコマンド文字列です。
+<literal>%f</literal>を含むことができます。 これは、目的のWALファイル名で置き換えられます。 <literal>%p</literal>は、WALファイルのコピー先パス名で置き換えられます。
+（パス名は、現在の作業ディレクトリ、つまりクラスタのデータディレクトリに対する相対パスです。） 実際の<literal>%</literal>文字をコマンドに埋め込む必要がある場合は、<literal>%%</literal>を書きます。
+最も単純で役に立つコマンドは、次のようなものです。
 <programlisting>
 restore_command = 'cp /mnt/server/archivedir/%f %p'
 </programlisting>
@@ -2054,6 +2059,16 @@ restore_command = 'cp /mnt/server/archivedir/%f %p'
     timelines, you can recover to <emphasis>any</emphasis> prior state, including
     states in timeline branches that you abandoned earlier.
 -->
+《マッチ度[]》こうした問題を扱うために<productname>PostgreSQL</productname>には<firstterm>タイムライン</firstterm>という概念があります。
+アーカイブ復旧が完了したときはいつでも、その復旧後に生成されたWAL記録を識別するための新しいタイムラインが生成されます。
+タイムラインID番号はWALセグメントファイル名の一部です。
+ですので、新しいタイムラインはこれまでのタイムラインで生成されたWALデータを上書きしません。
+実際、多くの異なるタイムラインをアーカイブすることができます。
+不要な機能と考えるかもしれませんが、命綱になることがしばしばあります。
+どの時点まで復旧すればよいか確実でないといった状況を考えてみてください。
+その時は、過去の履歴からの分岐点として最善の時点を見つけるために、試行錯誤して何度もポイントインタイムの復旧を行う必要があるでしょう。
+タイムラインがないと、この手続きはすぐに管理不能な混乱を招いてしまいます。
+タイムラインを使用して、以前捨てたタイムライン分岐における状態を含む、過去の<emphasis>任意</emphasis>の状態に復旧させることができます。
 《機械翻訳》実際、多くの異なるタイムラインをアーカイブすることは可能です。
 それは役に立たない機能のように見えるかもしれませんが、多くの場合、命の恩人です。
 どのシチュエーションにリカバリするかわからないポイントを考えてみてください。

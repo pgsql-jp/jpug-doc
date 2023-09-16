@@ -530,8 +530,9 @@ CREATE TABLE people (
 -->
 《機械翻訳》親カラムが生成済カラムである場合、その子カラムも生成済カラムである必要があります。
 ただし、子カラムは別の世代式を持つことができます。
-行の挿入時または更新時に実際に適用される世代式は、行が物理的に存在する表に関連付けられたものです(これはカラムのデフォルトの動作とは異なります。
-つまり、クエリの記名的表に関連付けられたデフォルト値が適用されます)。
+行の挿入時または更新時に実際に適用される世代式は、行が物理的に存在する表に関連付けられたものです。
+（これはカラムのデフォルトの動作とは異なります。
+つまり、クエリの記名的表に関連付けられたデフォルト値が適用されます。）
        </para>
       </listitem>
       <listitem>
@@ -583,6 +584,8 @@ CREATE TABLE people (
         expression for the child must be specified explicitly.
 -->
 《マッチ度[54.117647]》多重継承では、一つの親列が生成列なら、すべての親列は同じ式による生成列でなければなりません。
+《機械翻訳》複数の継承の場合、1つの親列が生成された列である場合、すべての親列は生成された列である必要があります。
+それらのすべてが同じ世代式を持っていない場合、子の目的の式を明示的に指定する必要があります。
        </para>
       </listitem>
       <listitem>
@@ -2665,6 +2668,7 @@ ALTER TABLE <replaceable>table_name</replaceable> OWNER TO <replaceable>new_owne
    owning role) and able to <literal>SET ROLE</literal> to the new owning role.
 -->
 《マッチ度[]》スーパーユーザはいつでも所有者を変更できます。通常のロールは、対象オブジェクトの現在の所有者（または所有者ロールのメンバー）であり、かつ新しい所有者ロールのメンバーである場合に限り、所有者を変更できます。
+《機械翻訳》スーパーユーザは常にこれを行うことができます。通常のロールは、現在のオブジェクトの所有者である場合（または所有権を継承する場合）にのみ、また新しい所有権を現在の所有者に<literal>SET ROLE</literal>できる場合にのみ、これを行うことができます。
   </para>
 
   <para>
@@ -4834,7 +4838,12 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 （デフォルトの検索パスは<literal>$user</literal>で始まり、これがユーザ名に解決されることを思い出してください。
 したがって、各ユーザが個別のスキーマを持っている場合、デフォルトでは独自のスキーマにアクセスします。）
 このパターンは、信頼されていないユーザがデータベース所有者であるか、<literal>CREATEROLE</literal>権限を保持していないかぎり、セキュアなスキーマ使用パターンですが、該当する場合はセキュアなスキーマ使用パターンは存在しません。
-《機械翻訳》
+《機械翻訳》通常のユーザをユーザプライベートスキーマに制限する。
+このパターンを実装するには、まず、スキーマに<literal>PUBLIC</literal>権限がないことを確認します。
+次に、非一時オブジェクトを作成する必要があるすべてのユーザに対して、そのユーザと同じ名前のスキーマを作成します。たとえば、<literal>CREATE SCHEMA alice AUTHORIZATION alice</literal>とします。
+（デフォルトの検索パスは<literal>$user</literal>から始まり、ユーザ名に解決されることに注意してください。
+したがって、各ユーザーが独自のスキーマを持っている場合、デフォルトでは、そのユーザーは自分のスキーマにアクセスします。）
+このパターンは、信頼できないユーザがデータベースの所有者であるか、または関連するロールに<literal>ADMIN OPTION</literal>が付与されていない場合を除き、安全なスキーマ使用パターンです。
       </para>
       <!-- A database owner can attack the database's users via "CREATE SCHEMA
            trojan; ALTER DATABASE $mydb SET search_path = trojan, public;". -->
@@ -4879,13 +4888,10 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 修飾されたテーブル名による参照は問題ありませんが、publicスキーマ内の関数呼び出しは<link linkend="typeconv-func">安全ではないか、あるいは信頼性がありません</link>。
 publicスキーマ内に関数や拡張を作る場合は、最初のパターンを代わりに使ってください。
 それ以外では、最初のパターン同様、信頼できないユーザがデータベース所有者である場合や、<literal>CREATEROLE</literal>権限を持っている場合を除き、これはセキュアです。
-《機械翻訳》変更<link linkend="config-setting-configuration-file"><filename>PostgreSQL.conf</filename></link>を使用するか、<literal>ALTERロールALL SET検索_パス=""</literal>を発行して、デフォルト検索パスからパブリックスキーマを削除します。
-次に、パブリックスキーマで作成する権限を付与します。
-パブリックスキーマオブジェクトを選択できるのは修飾された名前のみです。
-修飾されたテーブル参照は問題ありませんが、パブリックスキーマで関数を呼び出すと<link linkend="typeconv-func">安全でないか、信頼できなくなります</link>。
-パブリックスキーマで関数または拡張機能を作成する場合は、代わりに最初のパターンを使用します。
-そうでない場合は、最初のパターンと同様に、信頼できないユーザがデータベース所有者であるか、関連するで<literal>セキュア</literal>が付与されていない限り、これはです。
-アドミンオプションロール
+《機械翻訳》デフォルトの検索パスからパブリックスキーマを削除するには、<link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>を変更するか、<literal>ALTER ROLE ALL SET search_path = "$user"</literal>を発行します。 次に、パブリックスキーマに作成する権限を付与します。
+公開スキーマオブジェクトを選択できるのは、修飾名のみです。
+修飾テーブル参照は問題ありませんが、公開スキーマ内の関数への呼び出しは安全ではなく、信頼できません。 公開スキーマ内で関数や拡張を作成する場合は、代わりに最初のパターンを使用してください。
+そうでなければ、最初のパターンと同様に、信頼できないユーザがデータベースの所有者であるか、関連するロールに<literal>ADMIN OPTION</literal>が付与されていない限り、安全です。
       </para>
      </listitem>
 
