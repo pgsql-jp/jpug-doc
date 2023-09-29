@@ -285,7 +285,7 @@ check-tabs:
 
 # words to avoid as pgsql-jp
 check-ng:
-	@if git --no-pager grep -f .ng.list *sgml ref/*sgml; \
+	@if git --no-pager grep --color=always -f .ng.list *sgml ref/*sgml; \
 	then \
 	  echo "使用NGな語が見つかりました。";\
 	  false;\
