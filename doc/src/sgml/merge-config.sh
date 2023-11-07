@@ -4,8 +4,8 @@
 cat config[0-3].sgml > config.sgml
 patch -p0 config.sgml <<EOF
 
-*** config_cat.sgml	Sun Oct 10 19:33:43 2021
---- config.sgml	Sun Oct 10 19:04:17 2021
+*** config_cat.sgml	2023-10-23 18:14:39.712647422 +0900
+--- config.sgml	2023-10-23 18:11:41.165281060 +0900
 ***************
 *** 1,11 ****
 - <!-- 警告：このファイルは直接編集しないでください！
@@ -21,7 +21,7 @@ patch -p0 config.sgml <<EOF
   <chapter id="runtime-config">
 --- 1,3 ----
 ***************
-*** 3905,3924 ****
+*** 4157,4175 ****
          </listitem>
         </varlistentry>
   
@@ -29,7 +29,6 @@ patch -p0 config.sgml <<EOF
 - &config2;
 - &config3;
   <!-- split-config0-end -->
-- 
 - </chapter>
 - <!-- 警告：このファイルは直接編集しないでください！
 - 1. config.sgmlを編集したら、split-config.shを起動します。
@@ -40,11 +39,11 @@ patch -p0 config.sgml <<EOF
 - 6. config.sgmlの変更がなければ、pull requestをマージして終了です。お疲れ様でした！
 - -->
   <!-- split-config1-start -->
-  
         <varlistentry id="guc-old-snapshot-threshold" xreflabel="old_snapshot_threshold">
---- 3897,3903 ----
+         <term><varname>old_snapshot_threshold</varname> (<type>integer</type>)
+--- 4149,4155 ----
 ***************
-*** 8579,8592 ****
+*** 9103,9116 ****
         </listitem>
        </varlistentry>
   <!-- split-config1-end -->
@@ -59,9 +58,9 @@ patch -p0 config.sgml <<EOF
   <!-- split-config2-start -->
   
        <varlistentry id="guc-join-collapse-limit" xreflabel="join_collapse_limit">
---- 8558,8563 ----
+--- 9083,9088 ----
 ***************
-*** 12311,12324 ****
+*** 13417,13430 ****
        </varlistentry>
   
   <!-- split-config2-end -->
@@ -74,15 +73,13 @@ patch -p0 config.sgml <<EOF
 - 6. config.sgmlの変更がなければ、pull requestをマージして終了です。お疲れ様でした！
 - -->
   <!-- split-config3-start -->
-  
        <varlistentry id="guc-default-transaction-read-only" xreflabel="default_transaction_read_only">
---- 12282,12287 ----
+        <term><varname>default_transaction_read_only</varname> (<type>boolean</type>)
+--- 13389,13394 ----
 ***************
-*** 16210,16212 ****
---- 16173,16177 ----
-    </sect1>
+*** 17773,17775 ****
+--- 17737,17740 ----
   
+    </sect1>
   <!-- split-config3-end -->
-+ 
 + </chapter>
-EOF

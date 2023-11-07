@@ -506,14 +506,10 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         autovacuums.  For more information see <xref
         linkend="vacuum-for-wraparound"/>.
 -->
-《マッチ度[79.520295]》<command>VACUUM</command>がテーブルスキャン時に行バージョンをフリーズするかどうかを決定する際に使用する、カットオフ（トランザクション）年代を指定します。
+<command>VACUUM</command>が、古いXIDを持つページをフリーズするきっかけとするかどうかを決定する、カットオフ年代を（トランザクション単位で）指定します。
 デフォルトは5千万トランザクションです。
 ユーザはこの値を0から10億までの間で任意の値に設定することができますが、<command>VACUUM</command>は警告なく<xref linkend="guc-autovacuum-freeze-max-age"/>の半分までの値に値を制限します。
 このため、強制的なautovacuumの間隔が不合理に短くなることはありません。
-詳細は<xref linkend="vacuum-for-wraparound"/>を参照してください。
-《機械翻訳》古いXIDを持つバキュームをトリガで凍結するかどうかを決定するために、<command>ページ</command>が使用する期限(トランザクション単位)を指定します。
-デフォルトは50,000,000トランザクションです。
-ユーザはこの値をゼロから10億までの範囲で設定できますが、<command>VACUUM</command>は暗黙のうちに有効値を<xref linkend="guc-autovacuum-freeze-max-age"/>の値の半分に制限するため、強制された自動バキュームの間に不当に短い時間が生じることはありません。
 詳細は<xref linkend="vacuum-for-wraparound"/>を参照してください。
        </para>
       </listitem>
@@ -541,7 +537,7 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         already been running for some time, though it's possible for
         the failsafe to trigger during any <command>VACUUM</command>.
 -->
-<command>VACUUM</command>がシステム全体トランザクションID周回障害を避けるために異例の措置を取るようになる、テーブルの<structname>pg_class</structname>.<structfield>relfrozenxid</structfield>フィールドが到達する最大の（トランザクション数単位での）年齢を指定します。
+<command>VACUUM</command>がシステム全体に渡るトランザクションID周回障害を避けるために異例の措置を取るようになる、テーブルの<structname>pg_class</structname>.<structfield>relfrozenxid</structfield>フィールドが到達する最大の（トランザクション数単位での）年齢を指定します。
 これは<command>VACUUM</command>の最後の手段となる戦略です。
 この安全機構は典型的には、トランザクションID周回を防ぐための自動バキュームがすでに走っているときに起動されます。
 しかし、すべての<command>VACUUM</command>の実行中にこの安全機構が起動する可能性があります。
@@ -556,8 +552,8 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         free to make use of all of
         <glossterm linkend="glossary-shared-memory">shared buffers</glossterm>.
 -->
-《機械翻訳》フェイルセーフがトリガーされると、有効なコストベースの遅延は適用されなくなり、それ以降の重要でないメンテナンスタスク(インデックスバキューム処理など)はバイパスされ、使用中の<glossterm linkend="glossary-buffer-access-strategy">バッファアクセスストラテジ</glossterm>はディセーブルになります。
-その結果、<command>バキューム</command>は<glossterm linkend="glossary-shared-memory">共有バッファ</glossterm>のすべてをフリーからmakeで使用することになります。
+この安全機構が起動すると、すべての有効なコストに基づく遅延はもはや適用されず、（インデックスのバキュームのような）必須ではない保守タスクは迂回されます。
+使用中の<glossterm linkend="glossary-buffer-access-strategy">バッファアクセスストラテジ</glossterm>は無効になり、その結果<command>VACUUM</command>は<glossterm linkend="glossary-shared-memory">共有バッファ</glossterm>のすべてを自由に使用することになります。
        </para>
        <para>
 <!--
@@ -629,15 +625,10 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         autovacuums.
         For more information see <xref linkend="vacuum-for-multixact-wraparound"/>.
 -->
-《マッチ度[74.153298]》<command>VACUUM</command>がテーブルをスキャンする際に、マルチトランザクションIDをより新しいトランザクションIDまたはマルチトランザクションIDに置き換えるかどうかを決める下限値をマルチトランザクション単位で指定します。
+<command>VACUUM</command>がテーブルをスキャンする際に、ページを凍結するきっかけとするかどうかを決める下限値をマルチトランザクション単位で指定します。
 デフォルトは500万マルチトランザクションです。
 ユーザは0から10億まで任意の値を設定できますが、強制的な自動バキュームの間隔が短くなり過ぎないように、<command>VACUUM</command>は<xref linkend="guc-autovacuum-multixact-freeze-max-age"/>の半分に暗黙的に実効的な値を制限します。
 詳細は<xref linkend="vacuum-for-multixact-wraparound"/>をご覧ください。
-《機械翻訳》<command>VACUUM</command>が古いマルチトランザクションIDのあるページをトリガで凍らせるかどうかを決定するために使用するカットオフ年齢を(multixactsで)指定します。
-デフォルトは5,000,000 multixactsです。
-ユーザはこの値をゼロから10億までのどこにでも設定できますが、<command>VACUUM</command>は暗黙のうちに有効値を<xref linkend="guc-autovacuum-multixact-freeze-max-age"/>の値の半分に制限します。
-これにより、強制された自動真空の間に不当に短い時間がないようにします。
-詳細は<xref linkend="vacuum-for-multixact-wraparound"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -853,6 +844,10 @@ SET XML OPTION { DOCUMENT | CONTENT };
        <primary><varname>createrole_self_grant</varname></primary>
        <secondary>configuration parameter</secondary>
       </indexterm>
+      <indexterm>
+       <primary><varname>createrole_self_grant</varname></primary>
+       <secondary>設定パラメータ</secondary>
+      </indexterm>
       </term>
       <listitem>
        <para>
@@ -865,9 +860,9 @@ SET XML OPTION { DOCUMENT | CONTENT };
         comma-separated list of these. The default value is an empty string,
         which disables the feature.
 -->
-《機械翻訳》<literal>CREATEROLE</literal>を持ち、<literal>ユーザ</literal>を持たないスーパーユーザがロールを作成し、これが空でない値に設定されている場合、新しく作成されたロールは、指定されたオプションを持つ作成ユーザに付与されます。
+<literal>CREATEROLE</literal>を持ち、<literal>SUPERUSER</literal>を持たないユーザがロールを作成し、これが空でない値に設定されている場合、新しく作成されたロールは、この指定されたオプションを持ち、ロールを作成したユーザに付与されます。
 値は、<literal>set</literal>、<literal>inherit</literal>、またはこれらのリストをカンマで区切ったものである必要があります。
-デフォルト値は空の文字列であるため、機能は無効になります。
+デフォルト値は空の文字列であるため、この機能は無効になります。
        </para>
        <para>
 <!--
@@ -884,10 +879,10 @@ SET XML OPTION { DOCUMENT | CONTENT };
         to produce a similar behavior for <literal>CREATEROLE</literal> users
         for users which they create.
 -->
-《機械翻訳》このオプションの目的は、ユーザではない<literal>CREATEROLE</literal>スーパーユーザが、作成されたユーザを自動的に継承するか、または<literal>SETロール</literal>する権限を自動的に取得できるようにすることです。
-<literal>CREATEROLE</literal>ユーザは、作成されたロールに対して常に暗黙的に付与<literal>アドミンオプション</literal>されるため、そのユーザは、この設定と同じ効果を達成する<literal>GRANT</literal>ステートメントを常に実行できます。
-ただし、付与が自動的に行われる場合は、使用上の理由から便利です。
-スーパーユーザは、すべてのロールの権限を自動的に継承し、どのロールに対しても常に<literal>SETロール</literal>できます。
+このオプションの目的は、<literal>CREATEROLE</literal>が許可されているスーパーユーザではないユーザが、作成されたユーザを自動的に継承するか、または<literal>SET ROLE</literal>権限を自動的に取得できるようにすることです。
+<literal>CREATEROLE</literal>ユーザは、作成されたロールに対して常に暗黙的に<literal>ADMIN OPTION</literal>が付与されるため、そのユーザは、この設定と同じ効果を達成する<literal>GRANT</literal>文を常に実行できます。
+しかし、権限付与が自動的に行われることは、使用上の理由から便利です。
+スーパーユーザは、すべてのロールの権限を自動的に継承し、どのロールに対しても常に<literal>SET ROLE</literal>できます。
 また、この設定を使用して、<literal>CREATEROLE</literal>ユーザが作成したユーザに対して同様の動作を生成できます。
        </para>
       </listitem>
@@ -1286,6 +1281,9 @@ SET XML OPTION { DOCUMENT | CONTENT };
       <indexterm>
        <primary><varname>icu_validation_level</varname> configuration parameter</primary>
       </indexterm>
+      <indexterm>
+       <primary><varname>icu_validation_level</varname>設定パラメータ</primary>
+      </indexterm>
       </term>
       <listitem>
        <para>
@@ -1300,7 +1298,7 @@ SET XML OPTION { DOCUMENT | CONTENT };
         <literal>WARNING</literal>, <literal>ERROR</literal>, and
         <literal>LOG</literal>.
 -->
-《機械翻訳》ICUロケール検証の問題が発生した場合、問題を報告するために使用される<link linkend="runtime-config-severity-levels">メッセージレベル</link>を制御します。
+ICUロケール検証の問題が発生した場合、問題を報告するために使用される<link linkend="runtime-config-severity-levels">メッセージレベル</link>を制御します。
 有効な値は、<literal>DISABLED</literal>、<literal>DEBUG5</literal>、<literal>DEBUG4</literal>、<literal>DEBUG3</literal>、<literal>DEBUG2</literal>、<literal>DEBUG1</literal>、<literal>INFO</literal>、<literal>NOTICE</literal>、<literal>WARNING</literal>、<literal>ERROR</literal>、および <literal>LOG</literal>です。
        </para>
        <para>
@@ -1309,9 +1307,9 @@ SET XML OPTION { DOCUMENT | CONTENT };
         problems at all. Otherwise reports problems at the given message
         level. The default is <literal>WARNING</literal>.
 -->
-《機械翻訳》<literal>DISABLED</literal>に設定すると、レポートバリデーションの問題はまったく発生しません。
+<literal>DISABLED</literal>に設定すると、検証で見つかった問題は全く報告されません。
 それ以外の場合は、指定したメッセージレベルの問題が報告されます。
-デフォルトは<literal>ワーニング</literal>です。
+デフォルトは<literal>WARNING</literal>です。
        </para>
       </listitem>
      </varlistentry>
@@ -1894,23 +1892,13 @@ GINインデックス走査により返されるセットのソフトな上限�
         tables in a single transaction, e.g., query of a parent table with
         many children.  This parameter can only be set at server start.
 -->
-《マッチ度[70.881226]》共有ロックテーブルは、<varname>max_locks_per_transaction</varname> * （<xref linkend="guc-max-connections"/> + <xref linkend="guc-max-prepared-transactions"/>）オブジェクト（例えばテーブル）上のロック追跡します。
+共有ロックテーブルは、プロセスごと、あるいは準備されたトランザクションごとの<varname>max_locks_per_transaction</varname>オブジェクト（たとえばテーブル）空間を持っています。
 したがって、ある時点でこの数以上の個々のオブジェクトをロックすることはできません。
-このパラメータは各トランザクションで割り当てられるオブジェクトロックの平均値を制御します。
+このパラメータは各トランザクションで使用するオブジェクトロックの平均値を制限します。
 個々のトランザクションでは、このロックテーブルにすべてのトランザクションのロックが収まる限りオブジェクトのロックを獲得できます。
 これは、ロックできる行数では<emphasis>ありません</emphasis>。この値には制限がありません。
 デフォルトの64は、経験的に十分であると証明されていますが、単一のトランザクションで数多くの異なるテーブルをいじる問い合わせがいる場合、たとえば、数多くの子テーブルを持つ親テーブルの問い合わせなど、この値を大きくする必要があるかも知れません。
 このパラメータはサーバ起動時のみ設定されます。
-《機械翻訳》共有ロックテーブルには、サーバプロセスまたはプリペアードトランザクションごとに<varname>最大_locks_per_トランザクション</varname>オブジェクト表などのスペースがあります。
-したがって、一度にロックできる個別のオブジェクトの数は、この数を超えません。
-このパラメータは、各トランザクションで使用されるオブジェクトロックの平均数を制限します。
-個々のトランザクションは、すべてのトランザクションのロックがロックテーブルに適合する限り、より多くのオブジェクトをロックできます。
-これは、ロックできる行数<emphasis>ではありません</emphasis>です。
-この値は無制限です。
-デフォルト(64)は歴史的で十分であることが証明されていますが、単一トランザクション内の多くの異なる表にアクセスする問合せがある場合は、この値を大きくする必要があります。
-たとえば、多数の子を持つ親テーブルのクエリなどです。
-このパラメータは、サーバにのみ設定できます。
-スタート
        </para>
 
        <para>
@@ -1919,9 +1907,7 @@ GINインデックス走査により返されるセットのソフトな上限�
         same or higher value as on the primary server. Otherwise, queries
         will not be allowed in the standby server.
 -->
-《マッチ度[84.357542]》スタンバイサーバを運用している場合、このパラメータはプライマリサーバでの設定と同じ、もしくはより高い値に設定しなければなりません。そうしないと問い合わせがスタンバイサーバ内で受け入れられません。
-《機械翻訳》スタンバイサーバを実行する場合は、このパラメータをプライマリーサーバと同じかそれ以上の値に設定する必要があります。
-そうしないと、スタンバイサーバでの問合せは許可されません。
+スタンバイサーバを運用している場合、このパラメータはプライマリサーバでの設定と同じ、もしくはより高い値に設定しなければなりません。そうしないと問い合わせがスタンバイサーバ内で受け入れられません。
        </para>
       </listitem>
      </varlistentry>
@@ -1952,21 +1938,13 @@ GINインデックス走査により返されるセットのソフトな上限�
         tables in a single serializable transaction. This parameter can
         only be set at server start.
 -->
-《マッチ度[67.411301]》共有記述ロックテーブル（shared predicate lock table）は、<varname>max_pred_locks_per_transaction</varname> * (<xref linkend="guc-max-connections"/> + <xref linkend="guc-max-prepared-transactions"/>)オブジェクト（例えば諸テーブル）のロックを追跡します。
-従って、この数以上の明確なオブジェクトは同時にロックされません。
-このパラメータはそれぞれのトランザクションに対して割り当てられたオブジェクトのロックの平均数を管理します。
-個別のトランザクションはロックテーブル内の全てのトランザクションのロックが適合する限り、より多くのオブジェクトをロックできます。
+共有述語ロックテーブルは、プロセスごと、あるいは準備されたトランザクションごとの<varname>max_locks_per_transaction</varname>オブジェクト（たとえばテーブル）空間を持っています。
+したがって、ある時点でこの数以上の個々のオブジェクトをロックすることはできません。
+このパラメータは各トランザクションで使用するオブジェクトロックの平均値を制限します。
+個々のトランザクションでは、このロックテーブルにすべてのトランザクションのロックが収まる限りオブジェクトのロックを獲得できます。
 これはロック可能な行数では<emphasis>ありません</emphasis>。その値は無制限です。
-デフォルトは64で、テストでは一般的に充分ですが、単一のシリアライザブルトランザクションで数多くの異なるテーブルに触れるクライアントが存在する場合、この値を大きくする必要があることがあります。
+デフォルトは64で、過去の経験から十分であることがわかっていますが、単一のシリアライザブルトランザクションで数多くの異なるテーブルに触れるクライアントが存在する場合、この値を大きくする必要があることがあります。
 このパラメータはサーバ起動時のみ設定可能です。
-《機械翻訳》共有述語ロックテーブルには、サーバプロセスまたはプリペアードトランザクションごとに<varname>最大_pred_locks_per_トランザクション</varname>オブジェクト(表など)のスペースがあります。
-したがって、一度にロックできる個別のオブジェクトの数はこの数を超えません。
-このパラメータは、各トランザクションが使用するオブジェクトロックの数を平均に制限します。
-個々のトランザクションは、すべてのトランザクションのロックがロックテーブルに収まる限り、より多くのオブジェクトをロックできます。
-これはロックできる行数<emphasis>ではありません</emphasis>です。
-この値は無制限です。
-デフォルト(64)は歴史的で十分であることが証明されていますが、1つのシリアライザブルトランザクション内の多くの異なる表にアクセスするクライアントがある場合は、この値を大きくする必要があります。
-このパラメータはサーバスタートでのみ設定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -3248,6 +3226,9 @@ WALディスクブロックの容量を報告します。
       <indexterm>
         <primary><varname>debug_io_direct</varname> configuration parameter</primary>
       </indexterm>
+      <indexterm>
+        <primary><varname>debug_io_direct</varname>設定パラメータ</primary>
+      </indexterm>
       </term>
       <listitem>
        <para>
@@ -3257,7 +3238,7 @@ WALディスクブロックの容量を報告します。
         <literal>F_NOCACHE</literal> (macOS) or
         <literal>FILE_FLAG_NO_BUFFERING</literal> (Windows).
 -->
-《機械翻訳》<literal>O_DIRECT</literal>ほとんどのUnixライクなシステム)、<literal>F_NOCACHE</literal>(macOS)、または<literal>カーネル_リレーションデータ_NO_ファイル</literal>(フラグ)を使って、バッファリングファイルとWALファイルのキャッシュ効果を最小にするようWindowsに依頼してください。
+リレーションデータとWALファイルに対して、<literal>O_DIRECT</literal>（ほとんどのUnixライクなシステム）、<literal>F_NOCACHE</literal>（macOS）、<literal>FILE_FLAG_NO_BUFFERING</literal> （Windows）を使って、キャッシュ効果を最小にするようカーネルに依頼します。
        </para>
        <para>
 <!--
@@ -3268,22 +3249,22 @@ WALディスクブロックの容量を報告します。
         <literal>wal_init</literal> for WAL files when being initially
         allocated.
 -->
-《機械翻訳》空の文字列(デフォルト)を設定して直接入出力の使用を無効にすることも、カンマで区切られたリストを設定して直接入出力を使用するようにすることもできます。
-有効なオプションは、メインデータファイルの場合は<literal>データ</literal>、WALファイルの場合は<literal>wal</literal>、最初に割り当てられたWALファイルの場合は<literal>wal_init</literal>です。
+空文字列（デフォルト）を設定してダイレクトI/Oの使用を無効にすることも、カンマで区切られたリストを設定してダイレクトI/Oを使用するようにすることもできます。
+有効なオプションは、メインデータファイルの場合は<literal>data</literal>、WALファイルの場合は<literal>wal</literal>、最初に割り当てられたWALファイルの場合は<literal>wal_init</literal>です。
        </para>
        <para>
 <!--
         Some operating systems and file systems do not support direct I/O, so
         non-default settings may be rejected at startup or cause errors.
 -->
-《機械翻訳》一部のオペレーティングシステムおよびファイルシステムでは、サポートダイレクト入出力が行われないため、デフォルト以外の設定がスタートアップで拒否されたり、エラーが発生したりする場合があります。
+一部のオペレーティングシステムおよびファイルシステムでは、ダイレクトI/Oが行われないため、デフォルト以外の設定が起動時に拒否されたり、エラーが発生したりする場合があります。
        </para>
        <para>
 <!--
         Currently this feature reduces performance, and is intended for
         developer testing only.
 -->
-《機械翻訳》現在、この機能はパフォーマンスを減らし、開発者のテストのみを目的としている。
+今の所、この機能はパフォーマンスを悪くするので、開発者のテストのみを目的としています。
        </para>
       </listitem>
      </varlistentry>
@@ -3292,6 +3273,9 @@ WALディスクブロックの容量を報告します。
       <term><varname>debug_parallel_query</varname> (<type>enum</type>)
       <indexterm>
        <primary><varname>debug_parallel_query</varname> configuration parameter</primary>
+      </indexterm>
+      <indexterm>
+       <primary><varname>debug_parallel_query</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
@@ -3306,10 +3290,8 @@ WALディスクブロックの容量を報告します。
         <literal>on</literal>, but with additional behavior changes as explained
         below).
 -->
-《マッチ度[84.710744]》性能改善が期待できなくても、テスト目的のためにパラレルクエリを利用できるようにします。
-<varname>force_parallel_mode</varname>に設定できる値は、<literal>off</literal>（性能改善が期待できるときにだけパラレルクエリを使用する）、<literal>on</literal>（安全なクエリに対しては常にパラレルクエリを強制する）、<literal>regress</literal>（<literal>on</literal>と同様だが、下記のような振る舞いの変更を伴う）です。
-《機械翻訳》パラレルのメリットが期待できない場合でも、テスト目的でパフォーマンス問合せを使用できます。
-<varname>デバッグ_パラレル_クエリ</varname>に使用できる値は、<literal>オフ</literal>パラレルモードが改善パフォーマンスに到達すると予想される場合にのみパラレルクエリを使用する、<literal>オン</literal>(がセーフであると考えられるすべての問合せに対して強制する)および<literal>regress</literal>(<literal>オン</literal>と同様ですが、次に説明するように動作が変更されます)です。
+性能改善が期待できなくても、テスト目的のためにパラレルクエリを利用できるようにします。
+<varname>debuge_parallel_mode</varname>に設定できる値は、<literal>off</literal>（性能改善が期待できるときにだけパラレルクエリを使用する）、<literal>on</literal>（安全なクエリに対しては常にパラレルクエリを強制する）、<literal>regress</literal>（<literal>on</literal>と同様だが、下記のような振る舞いの変更を伴う）です。
        </para>
 
        <para>
@@ -4086,6 +4068,7 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
         can only be set in the <filename>postgresql.conf</filename> file or on
         the server command line.
 -->
+
 デフォルトである<literal>on</literal>に設定すると、<productname>PostgreSQL</productname>はバックエンドがクラッシュした後に自動的に一時ファイルを削除します。
 無効にすると、ファイルは保存され、たとえばデバッグ目的で使用できます。
 しかしクラッシュを繰り返すと不要なファイルが溜まっていくかもしれません。
@@ -4098,6 +4081,9 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
       <term><varname>send_abort_for_crash</varname> (<type>boolean</type>)
       <indexterm>
        <primary><varname>send_abort_for_crash</varname> configuration parameter</primary>
+      </indexterm>
+      <indexterm>
+       <primary><varname>send_abort_for_crash</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
@@ -4120,14 +4106,14 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
         the <filename>postgresql.conf</filename> file or on the server
         command line.
 -->
-《機械翻訳》デフォルトによって、バックエンドクラッシュの後、postmasterは残りの子プロセスを<systemitem>SIGQUIT</systemitem>シグナルを送ることで停止します。
-これにより、子プロセスは多かれ少なかれ優雅に終了することができます。
-このオプションが<literal>オン</literal>に設定されている場合、代わりに<systemitem>SIGABRT</systemitem>が送信されます。
-これは通常、そのような子プロセスごとにコアダンプファイルの稼働をもたらします。
+デフォルトでは、バックエンドクラッシュの後、postmasterは残りの子プロセスを<systemitem>SIGQUIT</systemitem>シグナルを送ることで停止します。
+これにより、子プロセスは多かれ少なかれ礼儀正しく終了することができます。
+このオプションが<literal>on</literal>に設定されている場合、代わりに<systemitem>SIGABRT</systemitem>が送信されます。
+これにより通常、子プロセスごとにコアダンプファイルを生成します。
 これは、クラッシュの後の他のプロセスの状態を調査するのに便利です。
-また、繰り返されるクラッシュのイベントで多くのディスクスペースを消費する可能性があるので、監視でないシステムではこれを有効にしないでください。
-整理とコアファイルには自動的にサポートが存在しないことに注意してください。
-このパラメータは<filename>PostgreSQL.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
+また、クラッシュが繰り返されるイベントで大量のディスクスペースを消費する可能性があるため、注意深く監視していないシステムではこれを有効にしないでください。
+自動的にコアファイルを削除する機能は提供されていないことに注意してください。
+このパラメータは<filename>postgresql.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -4136,6 +4122,9 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
       <term><varname>send_abort_for_kill</varname> (<type>boolean</type>)
       <indexterm>
        <primary><varname>send_abort_for_kill</varname> configuration parameter</primary>
+      </indexterm>
+      <indexterm>
+       <primary><varname>send_abort_for_kill</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
@@ -4158,13 +4147,13 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
         the <filename>postgresql.conf</filename> file or on the server
         command line.
 -->
-《機械翻訳》デフォルトによって、<systemitem>SIGQUIT</systemitem>で子プロセスを停止しようとした後、postmasterは5秒間待ってから<systemitem>SIGKILL</systemitem>を送信して即時終了を強制します。
-このオプションが<literal>on</literal>に設定されている場合、<systemitem>SIGABRT</systemitem>が代わり<systemitem>SIGKILL</systemitem>に送信されます。
-これにより、通常、そのような子プロセスごとにコアダンプファイルが稼働されます。
+デフォルトでは、<systemitem>SIGQUIT</systemitem>で子プロセスを停止しようとした後、postmasterは5秒間待ってから<systemitem>SIGKILL</systemitem>を送信して即時終了を強制します。
+このオプションが<literal>on</literal>に設定されている場合、<systemitem>SIGKILL</systemitem>の代わりに<systemitem>SIGABRT</systemitem>が送信されます。
+これにより通常、子プロセスごとにコアダンプファイルを生成します。
 これは、<quote>スタックした</quote>子プロセスの状態を調査するのに便利です。
-また、クラッシュが繰り返されるイベントで大量のディスクスペースを消費する可能性があるため、監視でないシステムではこれを有効にしないでください。
-自動的に整理とコアファイルにサポートが存在しないことに注意してください。
-このパラメータは<filename>PostgreSQL.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
+また、クラッシュが繰り返されるイベントで大量のディスクスペースを消費する可能性があるため、注意深く監視していないシステムではこれを有効にしないでください。
+自動的にコアファイルを削除する機能は提供されていないことに注意してください。
+このパラメータは<filename>postgresql.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -4173,6 +4162,9 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
       <term><varname>debug_logical_replication_streaming</varname> (<type>enum</type>)
       <indexterm>
        <primary><varname>debug_logical_replication_streaming</varname> configuration parameter</primary>
+      </indexterm>
+      <indexterm>
+       <primary><varname>debug_logical_replication_streaming</varname>設定パラメータ</primary>
       </indexterm>
       </term>
       <listitem>
@@ -4185,10 +4177,10 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
         <varname>debug_logical_replication_streaming</varname> is different for the
         publisher and subscriber:
 -->
-《機械翻訳》指定できる値は、<literal>buffered</literal>および<literal>immediate</literal>です。
+指定できる値は、<literal>buffered</literal>および<literal>immediate</literal>です。
 デフォルトは<literal>buffered</literal>です。
-このパラメータは、ロジカルデコーディングのテストおよびラージ取引のレプリケーションに使用することを目的としています。
-<varname>デバッグ_ロジカル_レプリケーション_ストリーミング</varname>の効果は、パブリッシャーとサブスクライバーで異なります。
+このパラメータは、大きなトランザクションにおけるロジカルデコーディングおよびレプリケーションのテストに使用することを目的としています。
+<varname>debug_logical_replication_streaming</varname>の効果は、パブリッシャーとサブスクライバーで異なります。
        </para>
 
        <para>
@@ -4203,9 +4195,9 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
         <literal>buffered</literal>, the decoding will stream or serialize
         changes when <varname>logical_decoding_work_mem</varname> is reached.
 -->
-《機械翻訳》パブリッシャー側では、<varname>デバッグ_ロジカル_レプリケーション_ストリーミング</varname>を使用すると、ロジカルデコーディングでただちに変更をストリーミングまたはシリアル化できます。
-<literal>immediate</literal>に設定すると、<link linkend="sql-createsubscription"><command>CREATEサブスクリプション</command></link>の<link linkend="sql-createsubscription-with-streaming"><literal>ストリーミング</literal></link>オプションが有効になっている場合はストリームが各変更をシリアル化し、それ以外の場合は各変更をシリアル化します。
-<literal>buffered</literal>に設定すると、<varname>ロジカル_decoding_work_mem</varname>に達したときにデコードがストリームまたはシリアル化されます。
+パブリッシャー側では、<varname>debug_logical_replication_streaming</varname>を使用すると、ロジカルデコーディングでただちに変更をストリーミングまたはシリアル化できます。
+<literal>immediate</literal>に設定すると、<link linkend="sql-createsubscription"><command>CREATEサブスクリプション</command></link>の<link linkend="sql-createsubscription-with-streaming"><literal>ストリーミング</literal></link>オプションが有効になっている場合は各変更をストリームし、それ以外の場合は各変更をシリアル化します。
+<literal>buffered</literal>に設定すると、<varname>logical_decoding_work_mem</varname>に達したときに、デコーディング処理がストリームまたはシリアル化します。
        </para>
 
        <para>
@@ -4220,9 +4212,9 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
         and notifies the parallel apply workers to read and apply them at the
         end of the transaction.
 -->
-《機械翻訳》サブスクライバー側では、<literal>ストリーミング</literal>オプションが<literal>パラレル</literal>に設定されている場合、<varname>デバッグ_ロジカル_レプリケーション_ストリーミング</varname>を使用して、リーダー適用ワーカーに変更を共有メモリキューに送信するか、すべての変更をファイルにシリアル化するように指示できます。
-<literal>バッファ</literal>に設定されている場合、リーダーは共有メモリキューを介してパラレル適用ワーカーに変更を送信します。
-<literal>即時</literal>に設定されている場合、リーダーはファイルに対するすべての変更をシリアル化し、パラレル適用ワーカーにファイルを読み取ってトランザクションの最後に適用するように通知します。
+サブスクライバー側では、<literal>streaming</literal>オプションが<literal>parallel</literal>に設定されている場合、<varname>debug_logical_replication_streaming</varname>を使用して、リーダー適用ワーカーに変更を共有メモリキューに送信するか、すべての変更をファイルにシリアル化するように指示できます。
+<literal>buffered</literal>に設定されている場合、リーダーは共有メモリキューを介してパラレル適用ワーカーに変更を送信します。
+<literal>immediate</literal>に設定されている場合、リーダーはファイルに対するすべての変更をシリアル化し、パラレル適用ワーカーにファイルを読み取ってトランザクションの最後に適用するように通知します。
        </para>
       </listitem>
      </varlistentry>

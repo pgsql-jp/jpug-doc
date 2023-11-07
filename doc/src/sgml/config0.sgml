@@ -1097,6 +1097,9 @@ dataディレクトリ以外の場所に設定ファイルを格納したいの�
       <indexterm>
        <primary><varname>reserved_connections</varname> configuration parameter</primary>
       </indexterm>
+      <indexterm>
+       <primary><varname>reserved_connections</varname>設定パラメータ</primary>
+      </indexterm>
       </term>
       <listitem>
        <para>
@@ -1114,9 +1117,9 @@ dataディレクトリ以外の場所に設定ファイルを格納したいの�
         slots are available, new connections will be accepted only for
         superusers.
 -->
-《機械翻訳》<link linkend="predefined-roles-table"><literal>pg_use_予約_connections</literal></link>コネクションの権限を持つロールによる接続の予約となるロール<quote>スロット</quote>の数を決定します。
-フリーコネクションスロットの数がより大きい<xref linkend="guc-superuser-reserved-connections"/>であるが、以下から総和<varname>スーパーユーザ_予約_connections</varname>および<varname>予約_connections</varname>までの場合、新しい接続は<literal>pg_use_予約_connections</literal>の権限を持つスーパーユーザおよびロールに対してのみ受け入れられます。
-<varname>スーパーユーザ_予約_connections</varname>以下のコネクションスロットが利用可能な場合、新しい接続はスーパーユーザに対してのみ受け入れられます。
+<link linkend="predefined-roles-table"><literal>pg_use_reserved_connections</literal></link>権限を持つロールによる接続のために予約される接続<quote>スロット</quote>の数を決定します。
+空き接続スロットの数が<xref linkend="guc-superuser-reserved-connections"/>より大きく、かつ<varname>superuser_reserved_connections</varname>と<varname>reserved_connections</varname>の合計以下の場合は常に、新しい接続はスーパーユーザあるいは<literal>pg_use_reserved_connections</literal>権限を持つロールに対してのみ受け入れられます。
+<varname>superuser_reserved_connections</varname>以下の接続スロットが利用可能な場合、新しい接続はスーパーユーザに対してのみ受け入れられます。
        </para>
 
        <para>
@@ -1126,12 +1129,9 @@ dataディレクトリ以外の場所に設定ファイルを格納したいの�
         <varname>superuser_reserved_connections</varname>.  This parameter can
         only be set at server start.
 -->
-《マッチ度[63.106796]》デフォルトの値は3接続です。
-この値は <varname>max_connections</varname>より小さくなくてはなりません。
+デフォルトの値は0接続です。
+この値は <varname>max_connections</varname> - <varname>superuser_reserved_connections</varname>より小さくなくてはなりません。
 このパラメータはサーバ起動時のみ設定可能です。
-《機械翻訳》デフォルト値はゼロ接続です。
-値はより小さい<varname>最大_connections</varname>マイナス<varname>スーパーユーザ_予約_connections</varname>である必要があります。
-このパラメータはサーバスタートでのみ設定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -1162,14 +1162,10 @@ dataディレクトリ以外の場所に設定ファイルを格納したいの�
         use after the slots reserved by
         <xref linkend="guc-reserved-connections"/> have been exhausted.
 -->
-《マッチ度[66.456693]》<productname>PostgreSQL</productname>のスーパーユーザによる接続のために予約されている接続<quote>開口部（スロット）</quote>の数を決定します。
+<productname>PostgreSQL</productname>のスーパーユーザによる接続のために予約されている接続<quote>スロット</quote>の数を決定します。
 最大、<xref linkend="guc-max-connections"/>の数までの接続を同時に有効にすることができます。
-有効な接続数が<varname>max_connections</varname>から<varname>superuser_reserved_connections</varname>を差し引いた数以上のときは、新規接続はスーパーユーザのみが許可され、新たなレプリケーション接続は受け入れられません。
-《機械翻訳》スーパーユーザによる接続のためのコネクションである予約<quote>スロット</quote>の数を決定します。
-多くの場合、アクティブ接続は同時にアクティブになることができます。
-マイナス同時接続の数が少なくとも<varname>max_connections</varname><varname>superuser_reserved_connections</varname>である場合、新しい接続はスーパーユーザに対してのみ受け入れられます。
-このパラメータによるコネクションスロット予約は、<xref linkend="guc-reserved-connections"/>によるスロット予約が使い果たされた後の緊急使用のための最終予約として意図されています。
-<productname>PostgreSQL</productname><xref linkend="guc-max-connections"/>
+有効な同時接続数が<varname>max_connections</varname>から<varname>superuser_reserved_connections</varname>を差し引いた数以上のときは、新規接続はスーパーユーザのみが許可されます。
+このパラメータによる接続スロット予約は、<xref linkend="guc-reserved-connections"/>によるスロット予約が使い果たされた後の緊急使用のための最終的な予備を意図しています。
        </para>
 
        <para>
@@ -1180,7 +1176,7 @@ dataディレクトリ以外の場所に設定ファイルを格納したいの�
         This parameter can only be set at server start.
 -->
 デフォルトの値は3接続です。
-この値は <varname>max_connections</varname>より小さくなくてはなりません。
+この値は <varname>max_connections</varname>から<varname>reserved_connections</varname>を引いたものより小さくなくてはなりません。
 このパラメータはサーバ起動時のみ設定可能です。
        </para>
       </listitem>
@@ -1459,20 +1455,13 @@ Unixドメインソケットは通常のUnixファイルシステムパーミッ
         In sessions connected via a Unix-domain socket, this parameter is
         ignored and always reads as zero.
 -->
-《マッチ度[71.029412]》クライアントとのやり取りがなくなった後、オペレーティングシステムがTCPのkeepaliveパケットをクライアントに送信するまでの時間を指定します。
+クライアントとのやり取りがなくなった後、オペレーティングシステムがTCPのkeepaliveパケットをクライアントに送信するまでの時間を指定します。
 この値が単位なしで指定された場合は、秒単位であるとみなします。
 0（デフォルトです）の場合はオペレーティングシステムのデフォルト値を使用します。
+Windowsでは、システムのデフォルト値を読み取る方法がないため、値0を設定すると、このパラメータは2時間に設定されます。
 このパラメータは<symbol>TCP_KEEPIDLE</symbol>または同等のソケットオプションをサポートするシステムと、Windowsでのみサポートされます。
 その他のシステムではゼロでなければなりません。
 Unixドメインソケット経由で接続されたセッションでは、このパラメータは無視され、常にゼロとして読み取られます。
-《機械翻訳》ネットワークがTCPオペレーティングシステムをクライアントに送信するまでの、キープアライブメッセージアクティビティがない時間を指定します。
-この値をユニットなしで指定すると、秒として解釈されます。
-値0(デフォルト)では、オペレーティングシステムのデフォルトが選択されます。
-Windowsでは、システムのデフォルト値を読み取る方法がないため、値0を設定すると、このパラメータは2時間に設定されます。
-このパラメータは、サポート<symbol>TCP_KEEPIDLE</symbol>または同等のソケットオプション、およびWindowsのシステムでのみサポートされています。
-他のシステムではゼロである必要があります。
-Unix-ドメインソケット経由で接続されたセッションでは、このパラメータは無視され、常にゼロとして読み取られます。
-Windows
        </para>
       </listitem>
      </varlistentry>
@@ -1501,20 +1490,13 @@ Windows
         In sessions connected via a Unix-domain socket, this parameter is
         ignored and always reads as zero.
 -->
-《マッチ度[70.839470]》TCPのkeepaliveメッセージに対してクライアントから応答がない場合に、再送を行うまでの時間を指定します。
+TCPのkeepaliveメッセージに対してクライアントから応答がない場合に、再送を行うまでの時間を指定します。
 この値が単位なしで指定された場合は、秒単位であるとみなします。
 0（デフォルトです）の場合はシステムのデフォルト値を使用します。
+Windowsでは、システムのデフォルト値を読み取る方法がないため、値0を設定すると、このパラメータが1秒に設定されます。
 このパラメータは<symbol>TCP_KEEPINTVL</symbol>または同等のソケットオプションをサポートするシステムと、Windowsでのみサポートされます。
 その他のシステムではゼロでなければなりません。
 Unixドメインソケット経由で接続されたセッションでは、このパラメータは無視され、常にゼロとして読み取られます。
-《機械翻訳》キープアライブメッセージによって確認応答されなかったTCPクライアントが再送信されるまでの時間を指定します。
-この値がユニットなしで指定された場合、秒として解釈されます。
-値0(デフォルト)はオペレーティングシステムのデフォルトを選択します。
-Windowsでは、システムのデフォルト値を読み取る方法がないため、値0を設定すると、このパラメータが1秒に設定されます。
-このパラメータは、サポート<symbol>TCP_KEEPINTVL</symbol>または同等のソケットオプションを持つシステム、およびWindowsでのみサポートされます。
-他のシステムでは、ゼロである必要があります。
-Unix-ドメインソケット経由で接続されたセッションでは、このパラメータは無視され、常にゼロとして読み取られます。
-Windows
        </para>
       </listitem>
      </varlistentry>
@@ -1540,17 +1522,11 @@ Windows
         In sessions connected via a Unix-domain socket, this parameter is
         ignored and always reads as zero.
 -->
-《マッチ度[82.120582]》サーバのクライアントへの接続が切れたと判断されるまでのTCP keepaliveメッセージの数を指定します。
+サーバのクライアントへの接続が切れたと判断されるまでのTCP keepaliveメッセージの数を指定します。
 0（デフォルトです）の場合はオペレーティングシステムのデフォルト値を使用します。
-このパラメータは<symbol>TCP_KEEPCNT</symbol>または同等のソケットオプションをサポートするシステムでのみサポートされます。
+このパラメータは<symbol>TCP_KEEPCNT</symbol>または同等のソケットオプションをサポートするシステムでのみサポートされます（Windowsは含みません）。
 その他のシステムではゼロでなければなりません。
 Unixドメインソケット経由で接続されたセッションでは、このパラメータは無視され、常にゼロとして読み取られます。
-《機械翻訳》前で失われる可能性のあるTCPキープアライブメッセージの数を指定します。
-サーバのコネクションからクライアントまではデッドと見なされます。
-値0(デフォルト)は、オペレーティングシステムのデフォルトを選択します。
-このパラメータは、サポート<symbol>TCP_KEEPCNT</symbol>または同等のソケットオプションinclude Windowsではありません)のシステムでのみサポートされます。
-他のシステムでは、ゼロである必要があります。
-Unix-ドメインソケット経由で接続されたセッションでは、このパラメータは無視され、常にゼロとして読み取られます。
        </para>
       </listitem>
      </varlistentry>
@@ -1576,18 +1552,11 @@ Unix-ドメインソケット経由で接続されたセッションでは、こ
         In sessions connected via a Unix-domain socket, this parameter is
         ignored and always reads as zero.
 -->
-《マッチ度[81.346154]》未確認のデータが残ったままの接続が強制的に閉じられるまでの時間を指定します。
+未応答の送信データが残ったままの接続が強制的に閉じられるまでの時間を指定します。
 この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
 0（デフォルトです）の場合はオペレーティングシステムのデフォルト値を使用します。
-このパラメータは、<symbol>TCP_USER_TIMEOUT</symbol>をサポートするシステムでのみ使用できます。他のシステムでは、0にする必要があります。
+このパラメータは、<symbol>TCP_USER_TIMEOUT</symbol>をサポートするシステム（Windowsは含みません）でのみ使用できます。他のシステムでは、0にする必要があります。
 UNIXドメインソケットで接続しているセッションではこのパラメータは無視され、常に0として扱われます。
-《機械翻訳》送信されたデータが確認応答されない前のままになる時間を指定します。
-TCPコネクションは強制的に閉じたになります。
-この値がユニットなしで指定された場合、ミリ秒として取得されます。
-値0(デフォルト)はオペレーティングシステムのデフォルトを選択します。
-このパラメータはサポート<symbol>TCP_ユーザ_タイムアウト</symbol>のシステムでのみサポートされています(include Windowsではありません)。
-他のシステムではゼロである必要があります。
-Unix-ドメインソケット経由で接続されたセッションでは、このパラメータは無視され、常にゼロとして読み取られます。
        </para>
       </listitem>
      </varlistentry>
@@ -1733,6 +1702,9 @@ Unix-ドメインソケット経由で接続されたセッションでは、こ
       <indexterm>
        <primary><varname>scram_iterations</varname> configuration parameter</primary>
       </indexterm>
+      <indexterm>
+       <primary><varname>scram_iterations</varname>設定パラメータ</primary>
+      </indexterm>
       </term>
       <listitem>
        <para>
@@ -1746,11 +1718,11 @@ Unix-ドメインソケット経由で接続されたセッションでは、こ
         time of encryption. In order to make use of a changed value, a new
         password must be set.
 -->
-《機械翻訳》SCRAM-SHA-256を使用してパスワードを暗号化するときに実行される計算の反復回数。
+SCRAM-SHA-256を使用してパスワードを暗号化するときに実行される計算の反復回数です。
 デフォルトは<literal>4096</literal>です。
 反復回数が多いほど、格納されたパスワードに対するブルートフォース攻撃に対する保護が強化されますが、認証の速度は低下します。
 反復カウントは暗号化時に固定されるため、値を変更してもSCRAM-SHA-256で暗号化された既存のパスワードには影響しません。
-変更された値をオーダーからmakeで使用する場合は、新しいパスワードを設定する必要があります。
+変更された値を有効にするには、新しいパスワードを設定する必要があります。
        </para>
       </listitem>
      </varlistentry>
@@ -1818,6 +1790,9 @@ GSSAPIユーザ名を大文字小文字の区別なく取り扱うかどうか�
       <indexterm>
        <primary><varname>gss_accept_delegation</varname> configuration parameter</primary>
       </indexterm>
+      <indexterm>
+       <primary><varname>gss_accept_delegation</varname>設定パラメータ</primary>
+      </indexterm>
       </term>
       <listitem>
        <para>
@@ -1828,11 +1803,11 @@ GSSAPIユーザ名を大文字小文字の区別なく取り扱うかどうか�
         accept credentials delegated to it from the client. This parameter can only be
         set in the <filename>postgresql.conf</filename> file or on the server command line.
 -->
-《機械翻訳》クライアントからGSSAPI委任を受け入れるかどうかを設定します。
-デフォルトは<literal>オフ</literal>です。
-これは、クライアントからの資格証明が受け入れられる<emphasis>受け入れられない</emphasis>ことを意味します。
-これを<literal>オン</literal>に変更すると、makeサーバは、クライアントから委任された資格証明を受け入れます。
-このパラメータは、<filename>PostgreSQL.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
+クライアントからのGSSAPI委任を受け入れるかどうかを設定します。
+デフォルトは<literal>off</literal>です。
+これは、クライアントからの資格証明が受け入れ<emphasis>られない</emphasis>ことを意味します。
+これを<literal>on</literal>に変更すると、サーバは、クライアントから委任された資格証明を受け入れます。
+このパラメータは、<filename>postgresql.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
        </para>
       </listitem>
      </varlistentry>
@@ -3063,6 +3038,9 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
        <indexterm>
         <primary><varname>vacuum_buffer_usage_limit</varname> configuration parameter</primary>
        </indexterm>
+       <indexterm>
+        <primary><varname>vacuum_buffer_usage_limit</varname>設定パラメータ</primary>
+       </indexterm>
       </term>
       <listitem>
        <para>
@@ -3085,16 +3063,15 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         setting may cause too many other useful pages to be evicted from
         shared buffers.
 -->
-《機械翻訳》<command>バッファ</command>コマンドおよび<command>サイズ</command>コマンドで使用される<glossterm linkend="glossary-buffer-access-strategy">バキュームアクセスストラテジ</glossterm>のANALYZEを指定します。
-<literal>0</literal>を設定すると、オペレーションは任意の数の<varname>shared_buffers</varname>を使用できます。
-それ以外の場合は、有効なサイズは<literal>128キロバイト</literal>から<literal>16ギガバイト</literal>までのレンジです。
+<command>VACUUM</command>コマンドおよび<command>ANALYZE</command>コマンドで使用される<glossterm linkend="glossary-buffer-access-strategy">バッファアクセスストラテジ</glossterm>の大きさを指定します。
+<literal>0</literal>を設定すると、それらの操作で任意の数の<varname>shared_buffers</varname>を使用できることになります。
+それ以外の場合は、有効なサイズは<literal>128 kB</literal>から<literal>16 GB</literal>までの範囲です。
 指定されたサイズが<varname>shared_buffers</varname>のサイズの1/8を超える場合、サイズは黙ってその値に制限されます。
-デフォルト値は<literal>256キロバイト</literal>です。
-この値がunitsなしで指定された場合、キロバイトとして取得されます。
+デフォルト値は<literal>256 kB</literal>です。
+この値が単位なしで指定された場合は、キロバイト単位であるとみなします。
 このパラメータはいつでも設定できます。
-<option>バッファ_USAGE_LIMIT</option>オプションを渡すときに、<xref linkend="sql-vacuum"/>および<xref linkend="sql-analyze"/>に対して上書きできます。
-設定を高くすると、<command>バキューム</command>および<command>ANALYZE</command>の実行速度が速くなりますが、設定を高くしすぎると、他の有用なが共有バッファから削除されすぎてしまう可能性があります。
-ラージページ
+このパラメータは、<option>BUFFER_USAGE_LIMIT</option>オプションを渡すことによって、<xref linkend="sql-vacuum"/>および<xref linkend="sql-analyze"/>に対して上書きできます。
+設定を高くすると、<command>VACUUM</command>および<command>ANALYZE</command>の実行速度が速くなりますが、設定を高くしすぎると、他の多くの有用なページが共有バッファから削除されてしまう可能性があります。
        </para>
       </listitem>
      </varlistentry>
