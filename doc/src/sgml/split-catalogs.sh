@@ -18,7 +18,11 @@ comment='
 
 echo "$comment"|sed -e '/^$/d'  > catalogs0.sgml
 sed -e '/^<!-- split-catalogs1-start -->$/,/^<!-- split-catalogs4-end -->$/d' \
-    -e '/<!-- split-catalogs0-end -->/i&catalogs1;\n&catalogs2;\n&catalogs3;\n&catalogs4;' \
+    -e '/<!-- split-catalogs0-end -->/i\
+&catalogs1;\
+&catalogs2;\
+&catalogs3;\
+&catalogs4;' \
     catalogs.sgml >> catalogs0.sgml
 echo "$comment"|sed -e '/^$/d' > catalogs1.sgml
 sed -n -e '/^<!-- split-catalogs1-start -->$/,/^<!-- split-catalogs1-end -->$/p' catalogs.sgml >> catalogs1.sgml
@@ -26,4 +30,3 @@ echo "$comment"|sed -e '/^$/d' > catalogs2.sgml
 sed -n -e '/^<!-- split-catalogs2-start -->$/,/^<!-- split-catalogs2-end -->$/p' catalogs.sgml >> catalogs2.sgml
 echo "$comment"|sed -e '/^$/d' > catalogs3.sgml
 sed -n -e '/^<!-- split-catalogs3-start -->$/,/^<!-- split-catalogs3-end -->$/p' catalogs.sgml >> catalogs3.sgml
-
