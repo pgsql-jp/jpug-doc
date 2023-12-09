@@ -1,4 +1,5 @@
 on: pull_request_target
+name: label
 
 jobs:
   label:
@@ -12,19 +13,7 @@ jobs:
           echo "$labels"
           LL=$(echo $labels | jq '. | length' )
           echo "Label_length=$LL" >> $GITHUB_OUTPUT
-      - name: Add label
-        uses: actions/github-script@v6
-        if:  ${{ steps.getlength.outputs.Label_length }}" == 0
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            github.rest.issues.addLabels({
-              issue_number: context.payload.pull_request.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['レビュー待ち'] 
-            })
-      - name: Add re-review label
+      - name: re-review
         uses: actions/github-script@v6
         if: contains(github.event.pull_request.labels.*.name, '指摘事項あり')
         with:
@@ -37,5 +26,17 @@ jobs:
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: ['再レビュー待ち'] 
+              labels: ['再レビュー待ち']
+            })
+      - name: review
+        uses: actions/github-script@v6
+        if: steps.re-review.conclusion == 'skipped' && ${{ steps.getlength.outputs.Label_length == '' }}
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['レビュー待ち']
             })
