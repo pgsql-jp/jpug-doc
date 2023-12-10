@@ -18,7 +18,11 @@ comment='
 
 echo "$comment"|sed -e '/^$/d'  > libpq0.sgml
 sed -e '/^<!-- split-libpq1-start -->$/,/^<!-- split-libpq4-end -->$/d' \
-    -e '/<!-- split-libpq0-end -->/i&libpq1;\n&libpq2;\n&libpq3;\n&libpq4;' \
+    -e '/<!-- split-libpq0-end -->/i\
+&libpq1;\
+&libpq2;\
+&libpq3;\
+&libpq4;' \
     libpq.sgml >> libpq0.sgml
 echo "$comment"|sed -e '/^$/d' > libpq1.sgml
 sed -n -e '/^<!-- split-libpq1-start -->$/,/^<!-- split-libpq1-end -->$/p' libpq.sgml >> libpq1.sgml

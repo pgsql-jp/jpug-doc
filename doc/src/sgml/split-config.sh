@@ -18,7 +18,10 @@ comment='
 
 echo "$comment"|sed -e '/^$/d'  > config0.sgml
 sed -e '/^<!-- split-config1-start -->$/,/^<!-- split-config3-end -->$/d' \
-    -e '/<!-- split-config0-end -->/i&config1;\n&config2;\n&config3;' \
+    -e '/<!-- split-config0-end -->/i\
+&config1;\
+&config2;\
+&config3;' \
     config.sgml >> config0.sgml
 echo "$comment"|sed -e '/^$/d' > config1.sgml
 sed -n -e '/^<!-- split-config1-start -->$/,/^<!-- split-config1-end -->$/p' config.sgml >> config1.sgml

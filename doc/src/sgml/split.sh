@@ -18,7 +18,11 @@ comment='
 
 echo "$comment"|sed -e '/^$/d'  > func0.sgml
 sed -e '/^<!-- split-func1-start -->$/,/^<!-- split-func4-end -->$/d' \
-    -e '/<!-- split-func0-end -->/i&func1;\n&func2;\n&func3;\n&func4;' \
+    -e '/<!-- split-func0-end -->/i\
+&func1;\
+&func2;\
+&func3;\
+&func4;' \
     func.sgml >> func0.sgml
 echo "$comment"|sed -e '/^$/d' > func1.sgml
 sed -n -e '/^<!-- split-func1-start -->$/,/^<!-- split-func1-end -->$/p' func.sgml >> func1.sgml
