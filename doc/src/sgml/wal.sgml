@@ -12,7 +12,7 @@
   <productname>PostgreSQL</productname>, including details about the
   Write-Ahead Log.
 -->
-《マッチ度[]》本章では、効率的かつ信頼できる運用を得るためにログ先行書き込みがどのように使用されているかについて説明します。
+本章では、ログ先行書き込みに関する詳細を含めて、<productname>PostgreSQL</productname>の信頼性を制御する方法を説明します。
  </para>
 
  <sect1 id="wal-reliability">
@@ -171,7 +171,9 @@ SCSIドライブであれば<ulink url="http://sg.danny.cz/sg/sdparm.html"><appl
         <literal>fsync_writethrough</literal>, which prevent
         write caching.
 -->
-《機械翻訳》<productname>Windows</productname>で、<varname>wal_sync_method</varname>が<literal>open_datasync</literal>（デフォルト）の場合、<literal>My Computer\Open\<replaceable>disk drive</replaceable>\Properties\Hardware\Properties\Policies\Enable write caching on the disk</literal>のチェックを外すことで、書き込みキャッシュを無効にすることができます。または、 <varname>wal_sync_method</varname>を<literal>fdatasync</literal>（NTFSのみ）、<literal>fsync</literal>、<literal>fsync_writethrough</literal>に設定して、書き込みキャッシュを無効にします。
+<productname>Windows</productname>では、もし<varname>wal_sync_method</varname>
+が<literal>open_datasync</literal>(デフォルト)の場合、<literal>My Computer\Open\<replaceable>disk drive</replaceable>\Properties\Hardware\Properties\Policies\Enable write caching on the disk</literal>のチェックを外すことで、書き込みキャッシュを無効にできます。
+もう一つの方法としては、<varname>wal_sync_method</varname>を<literal>fdatasync</literal>（NTFSのみ）、<literal>fsync</literal>または<literal>fsync_writethrough</literal>に設定し、書き込みキャッシュを使用しないようにします。
       </para>
     </listitem>
 
@@ -461,11 +463,11 @@ CRCの値はそれぞれのWALレコードを書き込む時に設定され、�
     the data pages can be redone from the WAL records.  (This is
     roll-forward recovery, also known as REDO.)
 -->
-《マッチ度[92.682927]》<firstterm>ログ先行書き込み</firstterm>（<acronym>WAL</acronym>）はデータの一貫性を確実にするための標準的な手法です。
+<firstterm>ログ先行書き込み</firstterm>（<acronym>WAL</acronym>）はデータの一貫性を確実にするための標準的な手法です。
 詳細については、トランザクション処理について書かれた(すべてとは言いませんが)たいていの書籍に記載されています。
-簡単に言うと、<acronym>WAL</acronym>の基本的な考え方は、(テーブルやインデックスがある)データファイルへの変更は、ログへの記録、つまり、変更内容を記述したログレコードが永続格納領域にフラッシュされた後にのみ書き出されなければならないということです。
+簡単に言うと、<acronym>WAL</acronym>の基本的な考え方は、(テーブルやインデックスがある)データファイルへの変更は、ログへの記録、つまり、変更内容を記述したWALレコードが永続格納領域にフラッシュされた後にのみ書き出されなければならないということです。
 このような手順に従って処理を行えば、たとえクラッシュが起きてもログを使ってデータベースをリカバリすることができるため、トランザクションのコミットの度にデータページをディスクにフラッシュする必要がなくなります。
-リカバリの時点でデータページに対してまだ行われていない変更分は、ログレコードを使って再実行されます（これがREDOとして知られているロールフォワードリカバリです）。
+リカバリの時点でデータページに対してまだ行われていない変更分は、WALレコードを使って再実行されます（これがREDOとして知られているロールフォワードリカバリです）。
    </para>
 
    <tip>
@@ -503,11 +505,11 @@ CRCの値はそれぞれのWALレコードを書き込む時に設定され、�
     transactions, one <function>fsync</function> of the WAL file may
     suffice to commit many transactions.
 -->
-《マッチ度[91.076923]》<acronym>WAL</acronym>を使用することでディスクへの書き込み回数が大幅に減少します。
-と言うのも、トランザクションがコミットされたことを保証するために、そのトランザクションで変更された全てのデータファイルではなく、ログファイルだけをディスクにフラッシュする必要があるからです。
-ログファイルへの書き込みはシーケンシャルに行われるため、データページをフラッシュするコストに比べログファイルの同期はずっと低コストになります。
+<acronym>WAL</acronym>を使用することでディスクへの書き込み回数が大幅に減少します。
+と言うのも、トランザクションがコミットされたことを保証するために、そのトランザクションで変更された全てのデータファイルではなく、WALファイルだけをディスクにフラッシュする必要があるからです。
+WALファイルへの書き込みはシーケンシャルに行われるため、データページをフラッシュするコストに比べWALの同期はずっと低コストになります。
 これは特に、データ格納領域の様々な部分を変更する小さなトランザクションを多く扱うサーバで顕著に現れます。
-さらに、サーバが小規模なトランザクションを同時に多く処理する時、ログファイルを一度<function>fsync</function>することで、多くのトランザクションをコミットすることができる場合もあります。
+さらに、サーバが小規模なトランザクションを同時に多く処理する時、WALファイルを一度<function>fsync</function>することで、多くのトランザクションをコミットすることができる場合もあります。
    </para>
 
    <para>
@@ -523,9 +525,9 @@ CRCの値はそれぞれのWALレコードを書き込む時に設定され、�
     then replaying the WAL for that period will fix any internal
     inconsistencies.
 -->
-《マッチ度[91.638796]》また、<acronym>WAL</acronym>により、<xref linkend="continuous-archiving"/>で説明するオンラインバックアップとポイントインタイムリカバリをサポートすることができます。
+また、<acronym>WAL</acronym>により、<xref linkend="continuous-archiving"/>で説明するオンラインバックアップとポイントインタイムリカバリをサポートできます。
 WALのデータを保持することにより、そのWALデータが範囲内とする任意の時点に戻すことができます。
-単純にデータベースの主となる物理バックアップをインストールし、WALログを目的の時点まで単に再生することで実現できます。
+単純にデータベースの主となる物理バックアップをインストールし、WALを目的の時点まで単に再生することで実現できます。
 さらに、物理バックアップはインスタンス化可能なデータベース状態のスナップショットである必要もありません。
 ある程度の時間を経過して作成されたバックアップであっても、その期間用のWALを再生することにより、内部の不整合を修復します。
    </para>
@@ -770,13 +772,13 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
    <acronym>WAL</acronym> archiving is being done, the WAL segments must be
    archived before being recycled or removed.)
 -->
-《マッチ度[94.071146]》<firstterm>チェックポイント</firstterm><indexterm><primary>checkpoint</primary></indexterm>は、一連のトランザクションにおいて、そのチェックポイント以前に書かれた全ての情報によりヒープとインデックスファイルがすでに更新されていることを保証する時点です。
-チェックポイント時に、全てのダーティページデータはディスクにフラッシュされ、特殊なチェックポイントレコードがログファイルに書き込まれます。
+<firstterm>チェックポイント</firstterm><indexterm><primary>checkpoint</primary></indexterm>は、一連のトランザクションにおいて、そのチェックポイント以前に書かれた全ての情報によりヒープとインデックスファイルがすでに更新されていることを保証する時点です。
+チェックポイント時に、全てのダーティページデータはディスクにフラッシュされ、特殊なチェックポイントレコードがWALファイルに書き込まれます。
 (変更されたレコードは以前に<acronym>WAL</acronym>ファイルにフラッシュされています。)
-クラッシュした時、クラッシュリカバリ処理は最新のチェックポイントレコードを見つけ、ログの中でどのレコード(これはredoレコードと呼ばれています)からREDOログ操作を開始すべきかを決定します。
+クラッシュした時、クラッシュリカバリ処理は最新のチェックポイントレコードを見つけ、WALの中でどのレコード(これはredoレコードと呼ばれています)からREDOログ操作を開始すべきかを決定します。
 このチェックポイント以前になされたデータファイルの変更は、すでにディスク上にあることが保証されています。
-従って、チェックポイント後、redoレコード内のそのチェックポイント以前のログセグメントは不要となり、再利用または削除することができます。
-(<acronym>WAL</acronym>アーカイブが行われる場合、このログセグメントは削除もしくは再利用される前に保存されなければなりません。)
+従って、チェックポイント後、redoレコード内のそのチェックポイント以前のWALセグメントは不要となり、再利用または削除することができます。
+(<acronym>WAL</acronym>アーカイブが行われる場合、このWALセグメントは削除もしくは再利用される前に保存されなければなりません。)
   </para>
 
   <para>
@@ -832,12 +834,12 @@ WALライタは稼働中に一回ページ全体を書き込むように設計�
    partially negating the goal of using a smaller interval,
    and in any case causing more disk I/O.
 -->
-《マッチ度[94.535519]》<varname>checkpoint_timeout</varname>または<varname>max_wal_size</varname>、あるいはその両者を減少させると、チェックポイントはより頻繁に行われます。
+<varname>checkpoint_timeout</varname>または<varname>max_wal_size</varname>、あるいはその両者を減少させると、チェックポイントはより頻繁に行われます。
 これにより、やり直しに要する処理量が少なくなるので、クラッシュ後の修復は高速になります。
 しかし、変更されたデータページのフラッシュがより頻繁に行われることにより増大するコストとバランスを考えなければなりません。
 <xref linkend="guc-full-page-writes"/>が設定されている（デフォルトです）場合、他に考慮しなければならない点があります。
 データページの一貫性を保証するために、各チェックポイント後の最初に変更されるデータページは、そのページ全体の内容がログに保存されることになります。
-このような場合、チェックポイントの間隔を少なくすることは、WALログへの出力を増加させ、間隔を短くする目的の一部を無意味にします。
+このような場合、チェックポイントの間隔を少なくすることは、WALへの出力を増加させ、間隔を短くする目的の一部を無意味にします。
 また、確実により多くのディスクI/Oが発生します。
   </para>
 
@@ -952,9 +954,9 @@ LinuxおよびPOSIXプラットフォームでは、チェックポイントに�
    even if the system is idle and the WAL usage estimate suggests that little
    WAL is needed.
 -->
-《マッチ度[95.157179]》<filename>pg_wal</filename>ディレクトリ内のWALセグメントファイルの数は、<varname>min_wal_size</varname>、<varname>max_wal_size</varname>、それに前回のチェックポイントで生成されたWALの量に依存します。
-古いログセグメントファイルが不要になると、削除または再利用(連番のうち、今後利用される予定の番号に名前が変更されます)されます。
-ログの出力レートが短期間にピークを迎えたために<varname>max_wal_size</varname>を超えた場合、この制限以下になるまで不要なセグメントファイルが削除されます。
+<filename>pg_wal</filename>ディレクトリ内のWALセグメントファイルの数は、<varname>min_wal_size</varname>、<varname>max_wal_size</varname>、それに前回のチェックポイントで生成されたWALの量に依存します。
+古いWALセグメントファイルが不要になると、削除または再利用(連番のうち、今後利用される予定の番号に名前が変更されます)されます。
+WALの出力レートが短期間にピークを迎えたために<varname>max_wal_size</varname>を超えた場合、この制限以下になるまで不要なセグメントファイルが削除されます。
 この制限以下になると、次のチェックポイントまでは、システムは見積もりを満たすだけのWALファイルを再利用します。
 この見積は、前回のチェックポイントの際に使用されたWALファイルの移動平均に基づいています。
 もし実際の使用量が見積もりを上回ると、移動平均は直ちに増加します。
@@ -1003,7 +1005,7 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    (<varname>max_wal_size</varname> is never a hard limit anyway, so you should
    always leave plenty of headroom to avoid running out of disk space.)
 -->
-《マッチ度[95.423729]》アーカイブリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</firstterm><indexterm><primary>restartpoint</primary></indexterm>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</filename>ファイルを更新します。また<filename>pg_wal</filename>ディレクトリの中の古いログセグメントを再利用できるようにします。
+アーカイブリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</firstterm><indexterm><primary>restartpoint</primary></indexterm>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</filename>ファイルを更新します。また<filename>pg_wal</filename>ディレクトリの中の古いWALセグメントを再利用できるようにします。
 リスタートポイント処理はチェックポイントレコードに対してしか実施されないので、プライマリ側のチェックポイント処理よりも発生頻度が多いということはありません。
 リスタートポイントは、最後のリスタートポイントより少なくとも<varname>checkpoint_timeout</varname>秒が経過しているか、あるいは<varname>max_wal_size</varname>を超えそうな場合に起動されます。
 しかし、リスタートポイントが実施できるための制約事項により、リカバリの際には1回のチェックポイント分のWALを上限に、<varname>max_wal_size</varname>を超えてしまいがちです。
@@ -1037,16 +1039,16 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    setting <varname>wal_buffers</varname> higher will help smooth response times
    during the period immediately following each checkpoint.
 -->
-《マッチ度[94.972067]》よく使われる2つの内部用<acronym>WAL</acronym>関数があります。
+よく使われる2つの内部用<acronym>WAL</acronym>関数があります。
 <function>XLogInsertRecord</function>と<function>XLogFlush</function>です。
 <function>XLogInsertRecord</function>は共有メモリ上の<acronym>WAL</acronym>バッファに新しいレコードを挿入します。
 新しいレコードを挿入する余地がない時は、<function>XLogInsertRecord</function>は、満杯になった<acronym>WAL</acronym>バッファを書き込み（カーネルキャッシュに移動）しなければいけません。
 これは望ましいことではありません。
 なぜなら、データベースへの低レベルの変更（例えば行の挿入）の度に<function>XLogInsertRecord</function>が呼ばれますが、そのような場合には変更を受けたページに対して排他ロックがかかっており、それゆえこの操作は可能な限り高速に実行されなければなりません。
-さらに悪いことには、<acronym>WAL</acronym>バッファへの書き込みの際に、さらに時間がかかる、強制的な新しいログセグメントの生成が必要となるかもしれません。
+さらに悪いことには、<acronym>WAL</acronym>バッファへの書き込みの際に、さらに時間がかかる、強制的な新しいWALセグメントの生成が必要となるかもしれません。
 通常、<acronym>WAL</acronym>の書き込み、フラッシュは<function>XLogFlush</function>要求で実施されます。
 これはたいていの場合、トランザクションコミットの際に永続的な記憶領域にトランザクションレコードがフラッシュされることを保証するために行われます。
-ログ出力が大量に行われるシステムでは、<function>XLogInsertRecord</function>によって必要となる書き込みを防ぐほどには<function>XLogFlush</function>要求が頻繁に起こらないかもしれません。
+WAL出力が大量に行われるシステムでは、<function>XLogInsertRecord</function>によって必要となる書き込みを防ぐほどには<function>XLogFlush</function>要求が頻繁に起こらないかもしれません。
 そういうシステムでは、<xref linkend="guc-wal-buffers"/>パラメータを変更して<acronym>WAL</acronym>バッファの数を増やしてください。
 <xref linkend="guc-full-page-writes"/>が設定され、かつ、システムが高負荷状態である場合、<varname>wal_buffers</varname>を高くすることで、各チェックポイントの直後の応答時間を滑らかにすることができます。
   </para>
@@ -1104,12 +1106,12 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    high can increase transaction latency by so much that total transaction
    throughput suffers.
 -->
-《マッチ度[94.879899]》<varname>commit_delay</varname>の目的は、それぞれのフラッシュ操作のコストを並列にコミット中のトランザクションに（潜在的にはトランザクションの待ち時間と引き換えに）分散させることにあり、うまく設定を行うためには、まずそのコストを測る必要があります。
+<varname>commit_delay</varname>の目的は、それぞれのフラッシュ操作のコストを並列にコミット中のトランザクションに（潜在的にはトランザクションの待ち時間と引き換えに）分散させることにあり、うまく設定を行うためには、まずそのコストを測る必要があります。
 そのコストが高ければ高いほど、トランザクションのスループットがある程度向上するという意味において、<varname>commit_delay</varname>の効果がより増すことが期待できます。
 <xref linkend="pgtestfsync"/>プログラムは、一つのWALフラッシュが必要とするマイクロ秒単位の平均時間を計測するために使用可能です。
 プログラムが報告する単一の8kB書き込み操作のあとのフラッシュ平均時間の２分の１の値は、しばしば<varname>commit_delay</varname>の最も効果的な設定です。
 従って、この値は特定の作業負荷のための最適化を行うときに使用するための手始めとして推奨されます。
-WALログが高遅延の回転ディスクに格納されているときは、<varname>commit_delay</varname>のチューニングは特に有効ですが、半導体ドライブまたはバッテリー・バックアップされている書き込みキャッシュ付きのRAIDアレーのような、特に同期時間が高速な格納メディア上であっても大きなメリットがある場合があります。
+WALが高遅延の回転ディスクに格納されているときは、<varname>commit_delay</varname>のチューニングは特に有効ですが、半導体ドライブまたはバッテリー・バックアップされている書き込みキャッシュ付きのRAIDアレーのような、特に同期時間が高速な格納メディア上であっても大きなメリットがある場合があります。
 しかし、このことは、代表的作業負荷に対してきちんと検証しておくべきです。
 <varname>commit_siblings</varname>の高い値は、これらの状況で使用すべきで、一方より小さな<varname>commit_siblings</varname>の値は高遅延メディア上でしばしば有用です。
 余りにも高い値の<varname>commit_delay</varname>を設定すると、トランザクション遅延を増加させかねないことになり、トランザクションの総スループットが低下します。
@@ -1249,8 +1251,8 @@ WALデータをディスクに書き込むための2つの内部関数があり�
    and that any necessary tuning is done (see <xref
    linkend="wal-configuration"/>).
 -->
-《マッチ度[92.936803]》<acronym>WAL</acronym>は自動的に有効になります。
-<acronym>WAL</acronym>ログが必要とするディスク容量の確保することと、必要なチューニングを実施すること以外は（<xref linkend="wal-configuration"/>を参照）、管理者は何もする必要はありません。
+<acronym>WAL</acronym>は自動的に有効になります。
+<acronym>WAL</acronym>ファイルが必要とするディスク容量を確保することと、必要なチューニングを実施すること（<xref linkend="wal-configuration"/>を参照）以外は、管理者は何もする必要はありません。
   </para>
 
   <para>
@@ -1265,8 +1267,8 @@ WALデータをディスクに書き込むための2つの内部関数があり�
    separates them, so they are used to measure the progress of replication
    and recovery.
 -->
-《マッチ度[94.148936]》新しいレコードが作成されるごとに、<acronym>WAL</acronym>レコードが<acronym>WAL</acronym>ログに追加されます。
-挿入位置はログシーケンス番号(<acronym>LSN</acronym>)によって記録されます。LSNはログのバイトオフセットで、新しいレコードごとに単調増加します。
+新しいレコードが作成されるごとに、<acronym>WAL</acronym>レコードが<acronym>WAL</acronym>ファイルに追加されます。
+挿入位置はログシーケンス番号(<acronym>LSN</acronym>)によって記録されます。LSNはWALのバイトオフセットで、新しいレコードごとに単調増加します。
 <acronym>LSN</acronym>値は、<link linkend="datatype-pg-lsn"><type>pg_lsn</type></link>データ型として返されます。
 2つの<acronym>LSN</acronym>値を比較することで<acronym>WAL</acronym>データの差分量を計算することができるので、レプリケーションやリカバリの進捗状況を測定できます。
   </para>
@@ -1286,9 +1288,9 @@ WALデータをディスクに書き込むための2つの内部関数があり�
    but it will take a very, very long time to exhaust the
    available stock of numbers.
 -->
-《マッチ度[94.211823]》<acronym>WAL</acronym>ログは、データディレクトリ以下の<filename>pg_wal</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズは<application>initdb</application>の<option>--wal-segsize</option>オプションで変更できます)。
+<acronym>WAL</acronym>ファイルは、データディレクトリ以下の<filename>pg_wal</filename>ディレクトリに、通常16メガバイトのサイズを持つセグメントファイルの集合として格納されています(ただし、このサイズは<application>initdb</application>の<option>--wal-segsize</option>オプションで変更できます)。
 各セグメントは通常8キロバイトのページに分割されます(このサイズは<option>--with-wal-blocksize</option>というconfigureオプションで変更できます)。
-ログレコード用のヘッダは<filename>access/xlogrecord.h</filename>に記述されています。レコードの内容は、ログの対象となるイベントの種類によって異なります。
+WALレコード用のヘッダは<filename>access/xlogrecord.h</filename>に記述されています。レコードの内容は、ログの対象となるイベントの種類によって異なります。
 セグメントファイルは名前として<filename>000000010000000000000001</filename>から始まる、常に増加する数が与えられています。
 数字は巡回しませんが、利用可能な数字を使い尽くすには非常に長い時間がかかるはずです。
   </para>
@@ -1301,7 +1303,7 @@ WALデータをディスクに書き込むための2つの内部関数があり�
    is shut down, of course) and creating a symbolic link from the
    original location in the main data directory to the new location.
 -->
-《マッチ度[94.242424]》主要なデータベースファイルが置いてあるディスクとは別のディスクにログを置くと利点があります。
+主要なデータベースファイルが置いてあるディスクとは別のディスクにWALを置くと利点があります。
 これは<filename>pg_wal</filename>ディレクトリを別の場所に（もちろんサーバを終了しておいてから）移動し、主データディレクトリ以下の元々の場所から新しい場所へのシンボリックリンクを張ることによって可能となります。
   </para>
 
@@ -1318,9 +1320,9 @@ WALデータをディスクに書き込むための2つの内部関数があり�
    <acronym>WAL</acronym> files do not make such false reports.
    (See <xref linkend="wal-reliability"/>.)
 -->
-《マッチ度[94.108020]》<acronym>WAL</acronym>の目的である、確実にデータベースレコードが変更される前にログが書き出されることは、実際にはキャッシュにしかデータがなく、ディスクには格納されていない時にディスクドライブ<indexterm><primary>ディスクドライブ</primary></indexterm>が格納に成功したとカーネルに虚偽の報告を行うことによって失われる可能性があります。
+<acronym>WAL</acronym>の目的である、確実にデータベースレコードが変更される前にログが書き出されることは、実際にはキャッシュにしかデータがなく、ディスクには格納されていない時にディスクドライブ<indexterm><primary>ディスクドライブ</primary></indexterm>が格納に成功したとカーネルに虚偽の報告を行うことによって失われる可能性があります。
 そのような状況では、電源が落ちた際に、復旧不可能なデータ破損が起こることがあります。
-管理者は、<productname>PostgreSQL</productname>の<acronym>WAL</acronym>ログを保持しているディスク装置がそのような嘘の報告をしないように保証するべきです。(<xref linkend="wal-reliability"/>を参照して下さい。)
+管理者は、<productname>PostgreSQL</productname>の<acronym>WAL</acronym>ファイルを保持しているディスク装置がそのような嘘の報告をしないように保証するべきです。(<xref linkend="wal-reliability"/>を参照して下さい。)
   </para>
 
   <para>
@@ -1337,10 +1339,10 @@ WALデータをディスクに書き込むための2つの内部関数があり�
    changed since the checkpoint will be restored to a consistent
    state.
 -->
-《マッチ度[93.152866]》チェックポイントが実行され、ログがフラッシュされた後、チェックポイントの位置は<filename>pg_control</filename>に保存されます。
+チェックポイントが実行され、WALがフラッシュされた後、チェックポイントの位置は<filename>pg_control</filename>に保存されます。
 したがって、リカバリの開始時は、サーバはまず<filename>pg_control</filename>を読み、次にチェックポイントレコードを読みます。
-そして、チェックポイントレコード内で示されたログの位置から前方にスキャンしてREDO処理を行います。
-データページの内容全体は、チェックポイント後の最初のページ変更時にログ内に保存されますので(<xref linkend="guc-full-page-writes"/>パラメータが無効にされていないという前提です)、そのチェックポイント以降に変更された全てのページは一貫した状態に復旧されます。
+そして、チェックポイントレコード内で示されたWALの位置から前方にスキャンしてREDO処理を行います。
+データページの内容全体は、チェックポイント後の最初のページ変更時にWAL内に保存されますので(<xref linkend="guc-full-page-writes"/>パラメータが無効にされていないという前提です)、そのチェックポイント以降に変更された全てのページは一貫した状態に復旧されます。
   </para>
 
   <para>
@@ -1356,7 +1358,7 @@ WALデータをディスクに書き込むための2つの内部関数があり�
    theoretically a weak spot, <filename>pg_control</filename> does not
    seem to be a problem in practice.
 -->
-《マッチ度[94.631902]》<filename>pg_control</filename>が壊れた場合に備え、ログセグメントを逆順に読み（すなわち新しいものから古いものへと）、最終チェックポイントを見つける方法を実際には実装した方が良いと思われます。
+<filename>pg_control</filename>が壊れた場合に備え、既存のWALセグメントを逆順に読み（すなわち新しいものから古いものへと）、最終チェックポイントを見つける方法を実際には実装した方が良いと思われます。
 まだこれはできていません。
 <filename>pg_control</filename>はかなり小さなもの（1ディスクページ未満）ですので、一部のみ書き込みされるという問題は起こりません。
 またこの書き込みの時点では、<filename>pg_control</filename>自体の読み込みができないことによるデータベースエラーという報告はありません。
