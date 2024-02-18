@@ -53,6 +53,10 @@ else
 XSLTPROC = $(missing) xsltproc
 endif
 
+ifndef FOPCONF
+FOPCONF = fop.xconf
+endif
+
 override XSLTPROCFLAGS += --stringparam pg.version '$(VERSION)'
 
 
@@ -99,13 +103,13 @@ version.sgml: $(top_srcdir)/configure
 	  echo "<!ENTITY majorversion \"$(MAJORVERSION)\">"; \
 	} > $@
 
-features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl YES $^ > $@
 
-features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl NO $^ > $@
 
-errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt generate-errcodes-table.pl
+errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt.ja generate-errcodes-table.pl
 	$(PERL) $(srcdir)/generate-errcodes-table.pl $< > $@
 
 keywords-table.sgml: $(top_srcdir)/src/include/parser/kwlist.h $(wildcard $(srcdir)/keywords/sql*.txt) generate-keywords-table.pl
@@ -121,7 +125,7 @@ PANDOC = pandoc
 
 INSTALL: % : %.html
 	$(PANDOC) -t plain -o $@.tmp $<
-	$(ICONV) -f utf8 -t us-ascii//TRANSLIT $@.tmp > $@
+	$(ICONV) -f utf8 -t utf8//TRANSLIT $@.tmp > $@
 	rm $@.tmp
 
 INSTALL.html: %.html : stylesheet-text.xsl %.xml
@@ -138,6 +142,10 @@ INSTALL.xml: standalone-profile.xsl standalone-install.xml postgres-full.xml
 
 ifeq ($(STYLE),website)
 XSLTPROC_HTML_FLAGS += --param website.stylesheet 1
+endif
+
+ifdef ORIGINAL
+XSLTPROC_HTML_FLAGS += --param html.original 1
 endif
 
 html: html-stamp
@@ -171,7 +179,7 @@ XSLTPROC_FO_FLAGS += --stringparam img.src.path '$(srcdir)/'
 	$(XSLTPROC) $(XMLINCLUDE) $(XSLTPROCFLAGS) $(XSLTPROC_FO_FLAGS) --stringparam paper.type USletter -o $@ $^
 
 %.pdf: %.fo $(ALL_IMAGES)
-	$(FOP) -fo $< -pdf $@
+	$(FOP) -c $(FOPCONF) -fo $< -pdf $@
 
 
 ##
@@ -210,7 +218,7 @@ MAKEINFO = makeinfo
 ##
 
 # Quick syntax check without style processing
-check: postgres.sgml $(ALLSGML) check-tabs
+check: postgres.sgml $(ALLSGML) check-tabs check-ng
 	$(XMLLINT) $(XMLINCLUDE) --noout --valid $<
 
 
@@ -274,6 +282,14 @@ endif # sqlmansectnum != 7
 # tabs are harmless, but it is best to avoid them in SGML files
 check-tabs:
 	@( ! grep '	' $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml $(srcdir)/*.xsl) ) || (echo "Tabs appear in SGML/XML files" 1>&2;  exit 1)
+
+# words to avoid as pgsql-jp
+check-ng:
+	@if git --no-pager grep -E --color=always -f .ng.list *sgml ref/*sgml; \
+	then \
+	  echo "使用NGな語が見つかりました。";\
+	  false;\
+	fi
 
 ##
 ## Clean
