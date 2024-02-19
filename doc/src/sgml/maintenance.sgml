@@ -1004,18 +1004,26 @@ WARNING:  database "mydb" must be vacuumed within 39985967 transactions
 HINT:  To avoid a database shutdown, execute a database-wide VACUUM in that database.
 </programlisting>
 
+<!--
     (A manual <command>VACUUM</command> should fix the problem, as suggested by the
     hint; but note that the <command>VACUUM</command> should be performed by a
     superuser, else it will fail to process system catalogs, which prevent it from
     being able to advance the database's <structfield>datfrozenxid</structfield>.)
     If these warnings are ignored, the system will refuse to assign new XIDs once
     there are fewer than three million transactions left until wraparound:
+-->
+《マッチ度[81.127983]》（ヒントで示唆されたように手動<command>VACUUM</command>はこの問題を解決します。
+しかし、<command>VACUUM</command>はスーパーユーザで実行されなければなりません。
+さもないとシステムカタログの処理に失敗し、このためデータベースの<structfield>datfrozenxid</structfield>を繰り上げることができません。）
+こうした警告も無視し続け、周回するまでのトランザクションが300万より少なくなると、システムは停止し、新しいトランザクションの起動を拒絶します。
+《機械翻訳》«(A manual <command>VACUUM</command> should fix the problem, as suggested by the hint; but note that the <command>VACUUM</command> should be performed by a superuser, else it will fail to process system catalogs, which prevent it from being able to advance the database's <structfield>datfrozenxid</structfield>.) If these warnings are ignored, the system will refuse to assign new XIDs once there are fewer than three million transactions left until wraparound:»
 
 <programlisting>
 ERROR:  database is not accepting commands to avoid wraparound data loss in database "mydb"
 HINT:  Stop the postmaster and vacuum that database in single-user mode.
 </programlisting>
 
+<!--
     In this condition any transactions already in progress can continue,
     but only read-only transactions can be started. Operations that
     modify database records or truncate relations will fail.
@@ -1023,22 +1031,31 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
     Contrary to what the hint states, it is not necessary or desirable to stop the
     postmaster or enter single user-mode in order to restore normal operation.
     Instead, follow these steps:
+-->
+《機械翻訳》«In this condition any transactions already in progress can continue, but only read-only transactions can be started. Operations that modify database records or truncate relations will fail. The <command>VACUUM</command> command can still be run normally. Contrary to what the hint states, it is not necessary or desirable to stop the postmaster or enter single user-mode in order to restore normal operation. Instead, follow these steps:»
 
     <orderedlist>
      <listitem>
+<!--
       <simpara>Resolve old prepared transactions. You can find these by checking
        <link linkend="view-pg-prepared-xacts">pg_prepared_xacts</link> for rows where
        <literal>age(transactionid)</literal> is large. Such transactions should be
        committed or rolled back.</simpara>
+-->
+<simpara>《機械翻訳》«Resolve old prepared transactions. You can find these by checking <link linkend="view-pg-prepared-xacts">pg_prepared_xacts</link> for rows where <literal>age(transactionid)</literal> is large. Such transactions should be committed or rolled back.»</simpara>
      </listitem>
      <listitem>
+<!--
       <simpara>End long-running open transactions. You can find these by checking
        <link linkend="monitoring-pg-stat-activity-view">pg_stat_activity</link> for rows where
        <literal>age(backend_xid)</literal> or <literal>age(backend_xmin)</literal> is
        large. Such transactions should be committed or rolled back, or the session
        can be terminated using <literal>pg_terminate_backend</literal>.</simpara>
+-->
+<simpara>《機械翻訳》«End long-running open transactions. You can find these by checking <link linkend="monitoring-pg-stat-activity-view">pg_stat_activity</link> for rows where <literal>age(backend_xid)</literal> or <literal>age(backend_xmin)</literal> is large. Such transactions should be committed or rolled back, or the session can be terminated using <literal>pg_terminate_backend</literal>.»</simpara>
      </listitem>
      <listitem>
+<!--
       <simpara>Drop any old replication slots. Use
        <link linkend="monitoring-pg-stat-replication-view">pg_stat_replication</link> to
        find slots where <literal>age(xmin)</literal> or <literal>age(catalog_xmin)</literal>
@@ -1046,8 +1063,11 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
        longer exist, or that have been down for a long time. If you drop a slot for a server
        that still exists and might still try to connect to that slot, that replica may
        need to be rebuilt.</simpara>
+-->
+<simpara>《機械翻訳》«Drop any old replication slots. Use <link linkend="monitoring-pg-stat-replication-view">pg_stat_replication</link> to find slots where <literal>age(xmin)</literal> or <literal>age(catalog_xmin)</literal> is large. In many cases, such slots were created for replication to servers that no longer exist, or that have been down for a long time. If you drop a slot for a server that still exists and might still try to connect to that slot, that replica may need to be rebuilt.»</simpara>
      </listitem>
      <listitem>
+<!--
       <simpara>Execute <command>VACUUM</command> in the target database. A database-wide
        <literal>VACUUM</literal> is simplest; to reduce the time required, it as also possible
        to issue manual <command>VACUUM</command> commands on the tables where
@@ -1056,10 +1076,15 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
        mode, where it will instead consume an XID and thus increase the risk of transaction ID
        wraparound. Do not use <literal>VACUUM FREEZE</literal> either, because it will do
        more than the minimum amount of work required to restore normal operation.</simpara>
+-->
+<simpara>《機械翻訳》«Execute <command>VACUUM</command> in the target database. A database-wide <literal>VACUUM</literal> is simplest; to reduce the time required, it as also possible to issue manual <command>VACUUM</command> commands on the tables where <structfield>relminxid</structfield> is oldest. Do not use <literal>VACUUM FULL</literal> in this scenario, because it requires an XID and will therefore fail, except in super-user mode, where it will instead consume an XID and thus increase the risk of transaction ID wraparound. Do not use <literal>VACUUM FREEZE</literal> either, because it will do more than the minimum amount of work required to restore normal operation.»</simpara>
      </listitem>
      <listitem>
+<!--
       <simpara>Once normal operation is restored, ensure that autovacuum is properly configured
        in the target database in order to avoid future problems.</simpara>
+-->
+<simpara>《機械翻訳》«Once normal operation is restored, ensure that autovacuum is properly configured in the target database in order to avoid future problems.»</simpara>
      </listitem>
     </orderedlist>
    </para>
@@ -1193,25 +1218,34 @@ HINT:  Stop the postmaster and vacuum that database in single-user mode.
      Normal operation when MXIDs are exhausted can be restored in much the same way as
      when XIDs are exhausted. Follow the same steps in the previous section, but with the
      following differences:
+-->
+《機械翻訳》«Normal operation when MXIDs are exhausted can be restored in much the same way as when XIDs are exhausted. Follow the same steps in the previous section, but with the following differences:»
 
     <orderedlist>
      <listitem>
+<!--
       <simpara>Running transactions and prepared transactions can be ignored if there
        is no chance that they might appear in a multixact.</simpara>
+-->
+<simpara>《機械翻訳》«Running transactions and prepared transactions can be ignored if there is no chance that they might appear in a multixact.»</simpara>
      </listitem>
      <listitem>
+<!--
       <simpara>MXID information is not directly visible in system views such as
        <literal>pg_stat_activity</literal>; however, looking for old XIDs is still a good
        way of determining which transactions are causing MXID wraparound problems.</simpara>
+-->
+<simpara>《機械翻訳》«MXID information is not directly visible in system views such as <literal>pg_stat_activity</literal>; however, looking for old XIDs is still a good way of determining which transactions are causing MXID wraparound problems.»</simpara>
      </listitem>
      <listitem>
+<!--
       <simpara>XID exhaustion will block all write transactions, but MXID exhaustion will
        only block a subset of write transactions, specifically those that involve
        row locks that require an MXID.</simpara>
+-->
+<simpara>《機械翻訳》«XID exhaustion will block all write transactions, but MXID exhaustion will only block a subset of write transactions, specifically those that involve row locks that require an MXID.»</simpara>
      </listitem>
     </orderedlist>
--->
-《機械翻訳》«Normal operation when MXIDs are exhausted can be restored in much the same way as when XIDs are exhausted. Follow the same steps in the previous section, but with the following differences: <orderedlist> <listitem> <simpara>Running transactions and prepared transactions can be ignored if there is no chance that they might appear in a multixact.</simpara> </listitem> <listitem> <simpara>MXID information is not directly visible in system views such as <literal>pg_stat_activity</literal>; however, looking for old XIDs is still a good way of determining which transactions are causing MXID wraparound problems.</simpara> </listitem> <listitem> <simpara>XID exhaustion will block all write transactions, but MXID exhaustion will only block a subset of write transactions, specifically those that involve row locks that require an MXID.</simpara> </listitem> </orderedlist>»
    </para>
 
    </sect3>
