@@ -2950,10 +2950,10 @@ WALに記録された操作はすでにプライマリで発生したもので�
     primary.  So it is possible that cleanup on the primary will remove row
     versions that are still visible to a transaction on the standby.
 -->
-スタンバイ側の問い合わせとWAL再生の間でもっともよくあるコンフリクト理由は<quote>早すぎる消去</quote>です。
-通常<productname>PostgreSQL</productname>はMVCC規則にしたがって正確なデータの可視性を確実にするために、古い行バージョンを参照するトランザクションが存在しない場合それらを消去することが許されています。
+スタンバイ側の問い合わせとWAL再生の間でもっともよくあるコンフリクト理由は<quote>早すぎるクリーンアップ</quote>です。
+通常<productname>PostgreSQL</productname>はMVCC規則にしたがって正確なデータの可視性を確実にするために、古い行バージョンを参照するトランザクションが存在しない場合それらをクリーンアップすることが許されています。
 しかし、この規則はプライマリ上で実行するトランザクションのみに適用させることができます。
-したがって、スタンバイ上のトランザクションでまだ可視である行バージョンを、プライマリ上の消去処理が削除してしまう可能性があります。
+したがって、スタンバイ上のトランザクションでまだ可視である行バージョンを、プライマリ上のクリーンアップ処理が削除してしまう可能性があります。
    </para>
 
    <para>
@@ -2969,10 +2969,10 @@ WALに記録された操作はすでにプライマリで発生したもので�
     <command>VACUUM</command> against a table with no updated or deleted rows
     requiring cleanup might lead to conflicts.
 -->
-スタンバイクエリとの競合の潜在的な原因は、行バージョンのクリーンアップだけではありません。
+スタンバイ問い合わせとの競合の潜在的な原因は、行バージョンのクリーンアップだけではありません。
 すべてのインデックスオンリースキャン（スタンバイで実行されるものも含む）は、可視性マップに<quote>同意する</quote><acronym>MVCC</acronym>スナップショットを使用しなければなりません。
 したがって、<command>VACUUM</command>が、すべてのスタンバイの問い合わせに対して1行以上の<emphasis>非</emphasis>可視行を含み、<link linkend="vacuum-for-visibility-map">一つのページがすべて可視であるような可視性マップを設定する時</link>には、必ず競合が必要になります。
-ですから、更新や削除された行を含まないテーブルに対して<command>VACUUM</command>を実行しても競合が発生する可能性があります。
+ですから、クリーンアップが必要で、更新や削除された行を含まないテーブルに対して<command>VACUUM</command>を実行しても競合が発生する可能性があります。
    </para>
 
    <para>
@@ -3011,9 +3011,9 @@ WALに記録された操作はすでにプライマリで発生したもので�
 -->
 スタンバイにおける問い合わせの中断が受け入れがたいほど多い場合、この問題を改善する方法が用意されています。
 １つ目の選択肢は、<varname>hot_standby_feedback</varname>パラメータを設定することです。
-これは<command>VACUUM</command>による最近不要になった行の削除を防止しますので、消去によるコンフリクトが発生しません。
-これを行う場合、プライマリで不要になった行の消去が遅延することに注意が必要です。望まないテーブルの膨張が発生してしまうかもしれません。
-しかし、スタンバイ側で行うべき問い合わせをプライマリサーバ上で直接実行することと比べ、こうした消去に関する問題を優先する価値はありません。
+これは<command>VACUUM</command>による最近不要になった行の削除を防止しますので、クリーンアップによるコンフリクトが発生しません。
+これを行う場合、プライマリで不要になった行のクリーンアップが遅延することに注意が必要です。望まないテーブルの膨張が発生してしまうかもしれません。
+しかし、スタンバイ側で行うべき問い合わせをプライマリサーバ上で直接実行することと比べ、こうしたクリーンアップに関する問題を優先する価値はありません。
 また、スタンバイに実行負荷を分散できるという利点があります。
 スタンバイサーバが接続、切断を頻繁に繰り返す場合、<varname>hot_standby_feedback</varname>によるフィードバックが提供されていなければ、その値を調整したいと思うでしょう。
 例えば、<varname>max_standby_archive_delay</varname>が増大し、切断している期間WALアーカイブのコンフリクト発生による問い合わせの中断が速やかに行われないことを考えてみてください。また、再接続後に速やかに問い合わせが中断されることを避けるために<varname>max_standby_streaming_delay</varname>を大きくすることを考えてみてください。
@@ -3546,7 +3546,7 @@ WALの再実行はトリガに基づいたものではありません。
     <xref linkend="guc-max-standby-archive-delay"/> and
     <xref linkend="guc-max-standby-streaming-delay"/> can be used.
 -->
-《機械翻訳》スタンバイでは、パラメータ<xref linkend="guc-hot-standby"/>、<xref linkend="guc-max-standby-archive-delay"/>、<xref linkend="guc-max-standby-streaming-delay"/>を使用できます。
+スタンバイでは、パラメータ<xref linkend="guc-hot-standby"/>、<xref linkend="guc-max-standby-archive-delay"/>、<xref linkend="guc-max-standby-streaming-delay"/>を使用できます。
    </para>
   </sect2>
 
