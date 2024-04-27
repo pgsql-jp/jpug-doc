@@ -10,8 +10,8 @@
   <productname>PostgreSQL</productname>'s transaction management system.
   The word transaction is often abbreviated as <firstterm>xact</firstterm>.
 -->
-《機械翻訳》この章では、<productname>PostgreSQL</productname>のトランザクション管理システムの内部構造について概説します。
- トランザクションは、しばしば<firstterm>xact</firstterm>と省略されます。
+この章では、<productname>PostgreSQL</productname>のトランザクション制御システムの内部構造について概説します。
+トランザクションという単語は、しばしば<firstterm>xact</firstterm>と省略されます。
  </para>
 
  <sect1 id="transaction-id">
@@ -26,8 +26,8 @@
    statements outside of explicit transactions automatically use
    single-statement transactions.
 -->
-《機械翻訳》トランザクションは、<command>BEGIN</command>または<command>START TRANSACTION</command>を使用して明示的に作成し、<command>COMMIT</command>または<command>ROLLBACK</command>を使用して終了します。
- 明示的なトランザクションの外部のSQL文は、自動的に単一文トランザクションを使用します。
+トランザクションは、<command>BEGIN</command>または<command>START TRANSACTION</command>を使用して明示的に作成し、<command>COMMIT</command>または<command>ROLLBACK</command>を使用して終了します。
+明示的なトランザクションの外側のSQL文は、自動的に単一文トランザクションを使用します。
   </para>
 
   <para>
@@ -42,9 +42,9 @@
    of <literal>4</literal> and a <literal>localXID</literal> of
    <literal>12532</literal>.
 -->
-《機械翻訳》各トランザクションは、一意の<literal>VirtualTransactionId</literal> (または<literal>virtualXID</literal>または<literal>vxid</literal>)で識別されます。
-これは、バックエンドID (または<literal>backendID</literal>)と、各バックエンドに固有のローカル番号で構成される<literal>localXID</literal>と呼ばれる、連続した番号で構成されます。
- たとえば、仮想トランザクションID <literal>4/12532</literal>の<literal>backendID</literal>は<literal>4</literal>で、<literal>localXID</literal>は<literal>12532</literal>です。
+各トランザクションは、一意の<literal>VirtualTransactionId</literal>（あるいは<literal>virtualXID</literal>または<literal>vxid</literal>とも呼ばれます）で識別します。
+これは、バックエンドID（または<literal>backendID</literal>）と、<literal>localXID</literal>と呼ばれる各バックエンドに固有の連続した番号で構成されます。
+たとえば、仮想トランザクションID<literal>4/12532</literal>の<literal>backendID</literal>は<literal>4</literal>で、<literal>localXID</literal>は<literal>12532</literal>です。
   </para>
 
   <para>
@@ -60,10 +60,11 @@
    started, particularly if the transaction started with statements that
    only performed database reads.
 -->
-《機械翻訳》非仮想<literal>TransactionId</literal>(または<type>xid</type>)、例えば<literal>278394</literal>は、<productname>PostgreSQL</productname>クラスタ内のすべてのデータベースでグローバルカウンタが使用するトランザクションから連続的に割り当てられます。
- この割り当ては、トランザクションがデータベースに最初に書き込みを行ったときに行われます。
- これは、トランザクションが最初にデータベースに書き込みを開始した順序とは異なる場合があることに注意してください。
- 特に、トランザクションがデータベース読み取りのみを実行する文で開始した場合、トランザクションが最初のデータベース書き込みを実行するより前に、トランザクションが最初のデータベース書き込みを開始した順序とは異なる場合があります。
+非仮想<literal>TransactionId</literal>（または<type>xid</type>）、例えば<literal>278394</literal>は、<productname>PostgreSQL</productname>クラスタ内のすべてのデータベースが使用するグローバルカウンタからトランザクションに順番に割り当てられます。
+この割り当ては、トランザクションがデータベースに最初に書き込みを行ったときに行われます。
+これは、低い番号のxidが、より大きな番号のxidよりも前に書き込みを開始したことを意味します。
+トランザクションが最初にデータベースに書き込みを行った順序は、トランザクションの開始順序とは異なるかもしれないことに注意してください。
+特に、トランザクションがデータベース読み取りのみを実行する文で開始した場合にはそうなります。
   </para>
 
   <para>
@@ -80,11 +81,11 @@
    linkend="mvcc">MVCC</link> concurrency mechanism and streaming
    replication.
 -->
-《機械翻訳》内部トランザクションID型<type>xid</type>は32ビット幅で、<link linkend="vacuum-for-wraparound">ラップアラウンド</link>ごとに4,000,000,000トランザクション増加します。
-32ビットエポックは各ラップアラウンド中にインクリメントされます。
-また、このエポックを含み、インストールのライフタイム中にラップアラウンドしない64ビット型<type>xid8</type>もあります。
-関数<xref linkend="functions-pg-snapshot"/>は<type>xid8</type>値を返します。
-XIDは<productname>PostgreSQL</productname>の<link linkend="mvcc">MVCC</link>同時実行性メカニズムとストリーミングレプリケーションの基礎として使用されます。
+内部トランザクションID型<type>xid</type>は32ビット幅で、40億トランザクションごとに<link linkend="vacuum-for-wraparound">周回</link>します。
+32ビットエポックは各周回ごとに加算されます。
+また、このエポックを含むために、インストールの寿命中には周回しない64ビット型<type>xid8</type>もあり、キャストでxidに変換できます。
+<xref linkend="functions-pg-snapshot"/>の関数は<type>xid8</type>値を返します。
+XIDは<productname>PostgreSQL</productname>の<link linkend="mvcc">MVCC</link>同時実行機構とストリーミングレプリケーションの基礎として使用されます。
   </para>
 
   <para>
@@ -95,8 +96,8 @@ XIDは<productname>PostgreSQL</productname>の<link linkend="mvcc">MVCC</link>�
    <filename>pg_commit_ts</filename> directory if <xref
    linkend="guc-track-commit-timestamp"/> is enabled.
 -->
-《機械翻訳》（仮想）xidを持つトップレベルのトランザクションがコミットすると、<filename>pg_xact</filename>ディレクトリにコミット済みとしてマークされます。
-<xref linkend="guc-track-commit-timestamp"/>が有効な場合、追加情報は<filename>pg_commit_ts</filename>ディレクトリに記録されます。
+（非仮想）xidを持つトップレベルのトランザクションがコミットすると、<filename>pg_xact</filename>ディレクトリにコミット済みとしてマークされます。
+<xref linkend="guc-track-commit-timestamp"/>が有効な場合、追加情報が<filename>pg_commit_ts</filename>ディレクトリに記録されます。
   </para>
 
   <para>
@@ -108,9 +109,9 @@ XIDは<productname>PostgreSQL</productname>の<link linkend="mvcc">MVCC</link>�
    prepared transactions.  The mapping of GID to xid is shown in <link
    linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>.
 -->
-《機械翻訳》<literal>vxid</literal>と<type>xid</type>に加えて、準備されたトランザクションにはグローバルトランザクション識別子(<acronym>GID</acronym>)も割り当てられます。
-GIDは最大200バイトの文字列リテラルで、現在準備されている他のトランザクションと一意でなければなりません。
-GIDからxidへのマッピングは<link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>に示されています。
+<literal>vxid</literal>と<type>xid</type>に加えて、準備されたトランザクションにはグローバルトランザクション識別子（<acronym>GID</acronym>）も割り当てられます。
+GIDは最大200バイト長の文字列リテラルで、現在準備されている他のトランザクション中で一意でなければなりません。
+GIDからxidへのマッピングは<link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>に表示されます。
   </para>
  </sect1>
 
@@ -128,9 +129,9 @@ GIDからxidへのマッピングは<link linkend="view-pg-prepared-xacts"><stru
    <structfield>transactionid</structfield>s, while both columns will be
    set in read-write transactions.
 -->
-《機械翻訳》現在実行中のトランザクションのトランザクション ID は、<link linkend="view-pg-locks"><structname>pg_locks</structname></link> の <structfield>virtualxid</structfield> と <structfield>transactionid</structfield> に表示されます。
-読み書き両方のトランザクションは <structfield>virtualxid</structfield> がありますが、<structfield>transactionid</structfield> は NULL です。
-読み書きのトランザクションは、両方の列に設定されます。
+現在実行中のトランザクションのトランザクションIDは、<link linkend="view-pg-locks"><structname>pg_locks</structname></link>の<structfield>virtualxid</structfield>と<structfield>transactionid</structfield>に表示されます。
+読み出し専用のトランザクションは<structfield>virtualxid</structfield>はありますが、<structfield>transactionid</structfield>はNULLです。
+一方、読み書きのトランザクションは、両方の列が設定されます。
   </para>
 
   <para>
@@ -143,9 +144,9 @@ GIDからxidへのマッピングは<link linkend="view-pg-prepared-xacts"><stru
    of multixact IDs (<literal>mxid</literal>;  see <xref
    linkend="vacuum-for-multixact-wraparound"/>).
 -->
-《機械翻訳》ロックタイプによっては<structfield>virtualxid</structfield>を待ち、他のタイプは<structfield>transactionid</structfield>を待ちます。
- 行レベルの読み書きロックはロックされた行に直接記録され、<xref linkend="pgrowlocks"/>拡張を使用して検査できます。
- 行レベルの読み取りロックはマルチトランザクションID（<literal>mxid</literal>、<xref linkend="vacuum-for-multixact-wraparound"/>を参照）の割当ても必要とするかもしれません。
+ロックのタイプによって<structfield>virtualxid</structfield>を待ちますが、他のタイプのロックは<structfield>transactionid</structfield>を待ちます。
+行レベルの読み書きロックはロックされた行に直接記録され、<xref linkend="pgrowlocks"/>拡張を使用して検査できます。
+行レベルの読み取りロックはマルチトランザクションID（<literal>mxid</literal>。<xref linkend="vacuum-for-multixact-wraparound"/>を参照）の割当ても必要とするかもしれません。
   </para>
  </sect1>
 
@@ -163,10 +164,10 @@ GIDからxidへのマッピングは<link linkend="view-pg-prepared-xacts"><stru
    The word subtransaction is often abbreviated as
    <firstterm>subxact</firstterm>.
 -->
-《機械翻訳》サブトランザクションはトランザクション内で開始されるため、大きなトランザクションを小さな単位に分割できます。
- サブトランザクションは、親トランザクションに影響を与えることなくコミットまたは中断できるため、親トランザクションを継続できます。
- これにより、エラーの処理が容易になります。
- この用語は、よく<firstterm>subxact</firstterm>と省略されます。
+サブトランザクションはトランザクション内で開始され、大きなトランザクションを小さな単位に分割できます。
+サブトランザクションは、親トランザクションに影響を与えることなくコミットまたは中断できるため、親トランザクションを継続できます。
+これにより、アプリケーションの開発パターンによくあるエラーの処理が容易になります。
+この用語は、しばしば<firstterm>subxact</firstterm>と省略されます。
   </para>
 
   <para>
@@ -197,10 +198,10 @@ PL/PythonとPL/Tclも明示的なサブトランザクションをサポート�
    to be assigned non-virtual transaction ids.  We ensure that a parent
    xid is always lower than any of its child subxids.
 -->
-《機械翻訳》サブトランザクションに仮想トランザクションID以外のIDが割り当てられた場合、そのトランザクションIDは<quote>subxid</quote>と呼ばれます。
- 読取専用のサブトランザクションにはサブxidは割り当てられませんが、書込みを試みると割り当てられます。
- これにより、トップレベルのトランザクションを含むすべての親サブトランザクションに、非仮想トランザクションIDが割り当てられます。
- 親xidは常に子xidのいずれかよりも小さいことを保証します。
+サブトランザクションに仮想トランザクションID以外のIDが割り当てられた場合、そのトランザクションIDは<quote>subxid</quote>と呼ばれます。
+読取専用のサブトランザクションにはsubxidは割り当てられませんが、書込みを試みると割り当てられます。
+これにより、トップレベルのトランザクションを含むすべての親サブトランザクションに、非仮想トランザクションIDが割り当てられます。
+親xidは常に子subxidのいずれよりも小さいことが保証されます。
   </para>
 
   <para>
@@ -210,9 +211,9 @@ PL/PythonとPL/Tclも明示的なサブトランザクションをサポート�
    top-level xids since they do not have a parent, nor is an entry made
    for read-only subtransactions.
 -->
-《機械翻訳》各サブxidの直接の親xidは<filename>pg_subtrans</filename>ディレクトリに記録されます。
- トップレベルのxidには親がないのでエントリは記録されません。
- 読み取り専用のサブトランザクションにもエントリは記録されません。
+各subxidの直接の親xidは<filename>pg_subtrans</filename>ディレクトリに記録されます。
+トップレベルのxidには親がないのでエントリは記録されません。
+読み取り専用のサブトランザクションにもエントリは記録されません。
   </para>
 
   <para>
@@ -222,8 +223,8 @@ PL/PythonとPL/Tclも明示的なサブトランザクションをサポート�
    in that transaction.  When a subtransaction aborts, all of its child
    subtransactions will also be considered aborted.
 -->
-《機械翻訳》サブトランザクションがコミットされると、その子サブトランザクションのうち、すべての子サブトランザクションの xid がコミットされたものとみなされます。
- サブトランザクションが中断された場合、その子サブトランザクションも中断されたものとみなされます。
+サブトランザクションがコミットされると、その子サブトランザクションのすべての子サブトランザクションのxidがコミットされたものとみなされます。
+サブトランザクションが中断された場合、その子サブトランザクションすべても中断されたものとみなされます。
   </para>
 
   <para>
@@ -247,9 +248,9 @@ PL/PythonとPL/Tclも明示的なサブトランザクションをサポート�
    significantly due to additional lookups of subxid entries in
    <filename>pg_subtrans</filename>.
 -->
-《機械翻訳》トランザクションがオープンしたサブトランザクション数が多いほど（ロールバックや解放されない)、トランザクション管理のオーバーヘッドが大きくなります。
- 各バックエンドで最大64個のオープンしたサブトランザクションが共有メモリにキャッシュされます。
- その後、<filename>pg_subtrans</filename>内のサブxidエントリの追加検索により、ストレージI/Oオーバーヘッドが大幅に増加します。
+トランザクションがオープンしたサブトランザクション数が多いほど（ロールバックや解放されない）、トランザクション制御のオーバーヘッドが大きくなります。
+各バックエンドで最大64個のオープンしたサブトランザクションが共有メモリにキャッシュされます。
+その後、<filename>pg_subtrans</filename>内のサブxidエントリの追加検索により、ストレージI/Oオーバーヘッドが大幅に増加します。
   </para>
  </sect1>
 
@@ -269,10 +270,10 @@ PL/PythonとPL/Tclも明示的なサブトランザクションをサポート�
    proposed by the X/Open XA standard, but does not implement some less
    often used aspects.
 -->
-《機械翻訳》<productname>PostgreSQL</productname>は、複数の分散システムがトランザクション方式で連携することを可能にする2フェーズコミット（2PC）プロトコルをサポートしています。
- コマンドは<command>PREPARE TRANSACTION</command>、<command>COMMIT PREPARED</command>、<command>ROLLBACK PREPARED</command>です。
- 2フェーズトランザクションは外部のトランザクション管理システムで使用することを目的としています。
- <productname>PostgreSQL</productname>は、X/Open XA標準で提案されている機能とモデルに従いますが、あまり使用されていないいくつかの側面は実装しません。
+<productname>PostgreSQL</productname>は、複数の分散システムがトランザクション処理として連携することを可能にする2相コミット（2PC）プロトコルをサポートしています。
+そのコマンドは<command>PREPARE TRANSACTION</command>、<command>COMMIT PREPARED</command>、<command>ROLLBACK PREPARED</command>です。
+2相トランザクションは外部のトランザクション制御システムで使用することを意図しています。
+<productname>PostgreSQL</productname>は、X/Open XA標準で提案されている機能とモデルに従いますが、あまり使用されていないいくつかの側面は実装しません。
   </para>
 
   <para>
@@ -289,11 +290,11 @@ PL/PythonとPL/Tclも明示的なサブトランザクションをサポート�
    that are currently prepared can be inspected using <link
    linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>.
 -->
-《機械翻訳》ユーザが<command>PREPARE TRANSACTION</command>を実行すると、次のコマンドとしては<command>COMMIT PREPARED</command>または<command>ROLLBACK PREPARED</command>しか使用できません。
- 一般的に、この準備済み状態は非常に短い期間であることを意図していますが、外部での可用性の問題により、トランザクションがこの状態に長期間とどまる可能性があります。
- 短命な準備済みトランザクションは共有メモリとWALにのみ格納されます。
- チェックポイントをまたいで準備されたトランザクションは<filename>pg_twophase</filename>ディレクトリに記録されます。
- 現在準備済みのトランザクションは<link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>を使用して検査できます。
+ユーザが<command>PREPARE TRANSACTION</command>を実行すると、次のコマンドとしては<command>COMMIT PREPARED</command>または<command>ROLLBACK PREPARED</command>しか使用できません。
+一般的に、この準備済み状態は非常に短い期間であることを意図していますが、外部での可用性の問題により、トランザクションがこの状態に長期間とどまる可能性があります。
+短命な準備済みトランザクションは共有メモリとWALにのみ格納されます。
+チェックポイントをまたいだトランザクションは<filename>pg_twophase</filename>ディレクトリに記録されます。
+現在準備済みのトランザクションは<link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>を使用して検査できます。
   </para>
  </sect1>
 
