@@ -212,18 +212,13 @@ SCSIドライブは<command>camcontrol identify</command>を使用して照会�
    Hopefully file system and disk controller designers will eventually
    address this suboptimal behavior.
 -->
-最近のSATAドライブ(<acronym>ATAPI-6</acronym>またはそれ以降)はドライブキャッシュの書き出しコマンド(<command>FLUSH CACHE EXT</command>)を提供している一方、
-SCSIドライブでは従来から類似の<command>SYNCHRONIZE CACHE</command>コマンドをサポートしていました。
-これらのコマンドは、直接<productname>PostgreSQL</productname>に発行されませんが、いくつかのファイルシステム(例えば<acronym>ZFS</acronym>や<acronym>ext4</acronym>)では、
-それらをwrite-backが有効なドライブへデータを書き出すために使います。
-不幸なことに、このようなwriteバリアを持つファイルシステムは、バッテリバックアップ付き装置
-(<acronym>BBU</acronym>)のディスクコントローラと組み合わせた際に、好ましい動作をしません。
-このような処理の流れにおいて、同期コマンドはコントローラキャッシュにあるデータを全てディスクへ強制的に書き込みを行うため、
-BBUのメリットの大半を失わせています。<xref linkend="pgtestfsync"/>プログラムを
-使うことで、あなたの環境が影響を受けるかどうかを確認できます。もし影響を受けるようであれば、
-ファイルシステムのwriteバリアを無効にするか、(オプションがあれば)ディスクコントローラを再設定することで、
-BBUによる性能上の効果を得ることできるでしょう。もしwriteバリアを無効にした場合は、バッテリが
-動作していることを確認しておきましょう。バッテリの欠陥はデータロスの可能性に繋がります。
+最近のSATAドライブ(<acronym>ATAPI-6</acronym>またはそれ以降)はドライブキャッシュの書き出しコマンド(<command>FLUSH CACHE EXT</command>)を提供している一方、SCSIドライブでは従来から類似の<command>SYNCHRONIZE CACHE</command>コマンドをサポートしていました。
+これらのコマンドは、直接<productname>PostgreSQL</productname>に発行されませんが、いくつかのファイルシステム(例えば<acronym>ZFS</acronym>や<acronym>ext4</acronym>)では、それらをwrite-backが有効なドライブへデータを書き出すために使います。
+不幸なことに、このようなwriteバリアを持つファイルシステムは、バッテリバックアップ付き装置(<acronym>BBU</acronym>)のディスクコントローラと組み合わせた際に、好ましい動作をしません。
+このような処理の流れにおいて、同期コマンドはコントローラキャッシュにあるデータを全てディスクへ強制的に書き込みを行うため、BBUのメリットの大半を失わせています。
+<xref linkend="pgtestfsync"/>プログラムを使うことで、あなたの環境が影響を受けるかどうかを確認できます。
+もし影響を受けるようであれば、ファイルシステムのwriteバリアを無効にするか、(オプションがあれば)ディスクコントローラを再設定することで、BBUによる性能上の効果を再び得ることができるでしょう。
+もしwriteバリアを無効にした場合は、バッテリが動作していることを確認しておきましょう。バッテリの欠陥はデータロスの可能性に繋がります。
 ファイルシステムやディスクコントローラの設計者が、いずれはこの動作を修正してくれることが望まれます。
   </para>
 
@@ -1113,7 +1108,7 @@ WAL出力が大量に行われるシステムでは、<function>XLogInsertRecord
 <xref linkend="pgtestfsync"/>プログラムは、一つのWALフラッシュが必要とするマイクロ秒単位の平均時間を計測するために使用可能です。
 プログラムが報告する単一の8kB書き込み操作のあとのフラッシュ平均時間の２分の１の値は、しばしば<varname>commit_delay</varname>の最も効果的な設定です。
 従って、この値は特定の作業負荷のための最適化を行うときに使用するための手始めとして推奨されます。
-WALが高遅延の回転ディスクに格納されているときは、<varname>commit_delay</varname>のチューニングは特に有効ですが、半導体ドライブまたはバッテリー・バックアップされている書き込みキャッシュ付きのRAIDアレーのような、特に同期時間が高速な格納メディア上であっても大きなメリットがある場合があります。
+WALが高遅延の回転ディスクに格納されているときは、<varname>commit_delay</varname>のチューニングは特に有効ですが、半導体ドライブまたはバッテリバックアップされている書き込みキャッシュ付きのRAIDアレイのような、特に同期時間が高速な格納メディア上であっても大きなメリットがある場合があります。
 しかし、このことは、代表的作業負荷に対してきちんと検証しておくべきです。
 <varname>commit_siblings</varname>の高い値は、これらの状況で使用すべきで、一方より小さな<varname>commit_siblings</varname>の値は高遅延メディア上でしばしば有用です。
 余りにも高い値の<varname>commit_delay</varname>を設定すると、トランザクション遅延を増加させかねないことになり、トランザクションの総スループットが低下します。
