@@ -40,10 +40,23 @@
 
    <para>
 <!--
-    However, if you are upgrading from a version earlier than 16.2,
+    However, a security vulnerability was found in the system
+    views <structname>pg_stats_ext</structname>
+    and <structname>pg_stats_ext_exprs</structname>, potentially allowing
+    authenticated database users to see data they shouldn't.  If this is
+    of concern in your installation, follow the steps in the first
+    changelog entry below to rectify it.
+-->
+《機械翻訳》しかし、システムビュー<structname>pg_stats_ext</structname>と<structname>pg_stats_ext_exprs</structname>にセキュリティ上の脆弱性が見つかり、認証されたデータベースユーザが、本来見るべきでないデータを見ることができる可能性があります。
+これがインストール環境で問題となる場合は、次の最初の変更ログの項目に従って修正してください。
+   </para>
+
+   <para>
+<!--
+    Also, if you are upgrading from a version earlier than 16.2,
     see <xref linkend="release-16-2"/>.
 -->
-《機械翻訳》ただし、16.2より前のバージョンからアップグレードする場合は、<xref linkend="release-16-2"/>を参照してください。
+《機械翻訳》また、16.2より前のバージョンからアップグレードする場合は<xref linkend="release-16-2"/>を参照してください。
    </para>
   </sect2>
 
@@ -54,6 +67,130 @@
    <title>変更点</title>
 
    <itemizedlist>
+
+    <listitem>
+<!--
+Author: Nathan Bossart <nathan@postgresql.org>
+Branch: master [521a7156a] 2024-05-06 09:00:00 -0500
+Branch: REL_16_STABLE [2485a85e9] 2024-05-06 09:00:07 -0500
+Branch: REL_15_STABLE [9cc2b6289] 2024-05-06 09:00:13 -0500
+Branch: REL_14_STABLE [c3425383b] 2024-05-06 09:00:19 -0500
+-->
+     <para>
+<!--
+      Restrict visibility of <structname>pg_stats_ext</structname> and
+      <structname>pg_stats_ext_exprs</structname> entries to the table
+      owner (Nathan Bossart)
+-->
+《機械翻訳》<structname>pg_stats_ext</structname>および<structname>pg_stats_ext_exprs</structname>エントリのテーブル所有者への可視性を制限しました。
+(Nathan Bossart)
+     </para>
+
+     <para>
+<!--
+      These views failed to hide statistics for expressions that involve
+      columns the accessing user does not have permission to read.  View
+      columns such as <structfield>most_common_vals</structfield> might
+      expose security-relevant data.  The potential interactions here are
+      not fully clear, so in the interest of erring on the side of safety,
+      make rows in these views visible only to the owner of the associated
+      table.
+-->
+《機械翻訳》これらのビューは、アクセスするユーザーが読み取る権限を持たない列を含む式の統計を隠すことができませんでした。
+<structfield>most_common_vals</structfield>などの列を表示すると、セキュリティに関連するデータが公開される可能性があります。
+ここでの潜在的な相互作用は完全には明らかではありません。
+したがって、安全性を確保するために、これらのビューの行を、関連するテーブルの所有者のみに表示します。
+     </para>
+
+     <para>
+<!--
+      The <productname>PostgreSQL</productname> Project thanks
+      Lukas Fittl for reporting this problem.
+      (CVE-2024-4317)
+-->
+《機械翻訳》<productname>PostgreSQL</productname>プロジェクトは、この問題を報告してくれたLukas Fittl氏に感謝します(CVE-2024-4317)。
+     </para>
+
+     <para>
+<!--
+      By itself, this fix will only fix the behavior in newly initdb'd
+      database clusters.  If you wish to apply this change in an existing
+      cluster, you will need to do the following:
+-->
+《機械翻訳》この修正は、新しく initdb されたデータベースクラスタでのみ動作します。
+既存のクラスタでこの変更を適用したい場合は、以下を実行する必要があります。
+     </para>
+
+     <procedure>
+      <step>
+       <para>
+<!--
+        Find the SQL script <filename>fix-CVE-2024-4317.sql</filename> in
+        the <replaceable>share</replaceable> directory of
+        the <productname>PostgreSQL</productname> installation (typically
+        located someplace like <filename>/usr/share/postgresql/</filename>).
+        Be sure to use the script appropriate to
+        your <productname>PostgreSQL</productname> major version.
+        If you do not see this file, either your version is not vulnerable
+        (only v14&ndash;v16 are affected) or your minor version is too
+        old to have the fix.
+-->
+《機械翻訳》<productname>PostgreSQL</productname>インストールの<replaceable>share</replaceable>ディレクトリ（<filename>/usr/share/postgresql/</filename>など）にあるSQLスクリプト<filename>fix-CVE-2024-4317.sql</filename>を見つけます。
+必ず、<productname>PostgreSQL</productname>のメジャーバージョンに適したスクリプトを使用してください。
+このファイルが見つからない場合は、あなたのバージョンが脆弱ではない（v14&ndash;v16だけが影響を受ける）か、あなたのマイナーバージョンが修正するには古すぎます。
+       </para>
+      </step>
+
+      <step>
+       <para>
+<!--
+        In <emphasis>each</emphasis> database of the cluster, run
+        the <filename>fix-CVE-2024-4317.sql</filename> script as superuser.
+        In <application>psql</application> this would look like
+-->
+《機械翻訳》クラスタの各データベースで、スーパーユーザとして<filename>fix-CVE-2024-4317.sql</filename>スクリプトを実行します。
+<application>psql</application>では以下のようになります。
+<programlisting>
+\i /usr/share/postgresql/fix-CVE-2024-4317.sql
+</programlisting>
+<!--
+        (adjust the file path as appropriate).  Any error probably indicates
+        that you've used the wrong script version.  It will not hurt to run
+        the script more than once.
+-->
+《機械翻訳》（適宜ファイルパスを調整してください）。
+エラーは、おそらくスクリプトのバージョンが間違っていることを示しています。
+スクリプトを複数回実行しても問題ありません。
+       </para>
+      </step>
+
+      <step>
+       <para>
+<!--
+        Do not forget to include the <literal>template0</literal>
+        and <literal>template1</literal> databases, or the vulnerability
+        will still exist in databases you create later.  To
+        fix <literal>template0</literal>, you'll need to temporarily make
+        it accept connections.  Do that with
+-->
+《機械翻訳》<literal>template0</literal>と<literal>template1</literal>のデータベースを含めることを忘れないでください。
+そうしないと、後で作成するデータベースに脆弱性が残ったままになります。
+<literal>template0</literal>を修正するには、一時的に接続を受け付けるようにする必要があります。
+これは、で行います。
+<programlisting>
+ALTER DATABASE template0 WITH ALLOW_CONNECTIONS true;
+</programlisting>
+<!--
+        and then after fixing <literal>template0</literal>, undo it with
+-->
+《機械翻訳》そして<literal>template0</literal>を修正した後、それを元に戻します。
+<programlisting>
+ALTER DATABASE template0 WITH ALLOW_CONNECTIONS false;
+</programlisting>
+       </para>
+      </step>
+     </procedure>
+    </listitem>
 
     <listitem>
 <!--
