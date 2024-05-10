@@ -40,7 +40,12 @@
 たとえば、ある関数は、とりわけすべてのB-Treeページの中の項目が<quote>論理的な</quote>順序になっていることを検査します。（たとえば<type>text</type>のB-Treeインデックスでは、インデックスタプルは語句の照合順になっていなければなりません。）
 その特定の不変量が何らかの理由で保たれなければ、該当するページで二分探索が不正なインデックス走査をもたらし、SQL問い合わせに誤った答えを返すことになるでしょう。
 構造が適正であると見なされれば、エラーは報告されません。
-《機械翻訳》«The B-Tree checking functions verify various <emphasis>invariants</emphasis> in the structure of the representation of particular relations. The correctness of the access method functions behind index scans and other important operations relies on these invariants always holding. For example, certain functions verify, among other things, that all B-Tree pages have items in <quote>logical</quote> order (e.g., for B-Tree indexes on <type>text</type>, index tuples should be in collated lexical order). If that particular invariant somehow fails to hold, we can expect binary searches on the affected page to incorrectly guide index scans, resulting in wrong answers to SQL queries. If the structure appears to be valid, no error is raised. While these checking functions are run, the <xref linkend="guc-search-path"/> is temporarily changed to <literal>pg_catalog, pg_temp</literal>.»
+《機械翻訳》B-Treeチェック関数は、特定の関係の表現構造におけるさまざまな<emphasis>不変量</emphasis>を検証します。
+インデックススキャンやその他の重要な操作の背後にあるアクセスメソッド関数の正確さは、これらの不変条件が常に保持されることに依存している。
+例えば、ある関数は、とりわけ、すべてのBツリーページが<quote>論理的</quote>順序で項目を持つことを確認します（例えば、<type>text</type>のBツリーインデックスでは、インデックスタプルは照合された語彙順序であるべきです）。
+もしその特定の不変条件が何らかの形で失敗すると、影響を受けたページでのバイナリ検索はインデックススキャンを誤って誘導し、結果としてSQLクエリに誤った答えをもたらすことが予想される。
+構造が有効であると思われる場合、エラーは発生しません。
+これらの検査関数が実行されている間、<xref linkend="guc-search-path"/>は一時的に<literal>pg_catalog, pg_temp</literal>に変更されます。
  </para>
  <para>
 <!--
@@ -173,7 +178,11 @@ ORDER BY c.relpages DESC LIMIT 10;
 このロックモードは、単純な<literal>SELECT</literal>文がリレーションに対して獲得するのと同じものです。
 <function>bt_index_check</function>は、子／親関係に渡る不変量を検査しませんが、<parameter>heapallindexed</parameter>が<literal>true</literal>の場合には、インデックス中のインデックスタプルに対応するすべてのヒープタプルの存在が検証されます。
 実行中の運用環境で定期的、軽量なデータ破損検査が必要な場合、<function>bt_index_check</function>を使うのが、検査の完全性と、アプリケーションの性能と稼働への影響を限定することとの間の最良のトレードオフになることがしばしばあります。
-《機械翻訳》«<function>bt_index_check</function> acquires an <literal>AccessShareLock</literal> on the target index and the heap relation it belongs to. This lock mode is the same lock mode acquired on relations by simple <literal>SELECT</literal> statements. <function>bt_index_check</function> does not verify invariants that span child/parent relationships, but will verify the presence of all heap tuples as index tuples within the index when <parameter>heapallindexed</parameter> is <literal>true</literal>. When <parameter>checkunique</parameter> is <literal>true</literal> <function>bt_index_check</function> will check that no more than one among duplicate entries in unique index is visible. When a routine, lightweight test for corruption is required in a live production environment, using <function>bt_index_check</function> often provides the best trade-off between thoroughness of verification and limiting the impact on application performance and availability.»
+《機械翻訳》<function>bt_index_check</function>は、対象のインデックスとそれが属するヒープリレーションシップに対して<literal>AccessShareLock</literal>を獲得します。
+このロックモードは、単純な<literal>SELECT</literal>文でリレーションに対して取得されるロックモードと同じです。
+<function>bt_index_check</function>は子/親関係にまたがる不変量を検証しませんが、<parameter>heapallindexed</parameter>が<literal>true</literal>の場合、インデックス内のインデックスタプルとしてすべてのヒープタプルの存在を検証します。
+<parameter>checkunique</parameter>が<literal>true</literal>の場合、<function>bt_index_check</function>は、一意インデックスの重複エントリのうち、1つ以上が可視であることをチェックします。
+実稼働環境で破損の軽量テストをルーチンにする必要がある場合、<function>bt_index_check</function>を使用すると、検証の徹底とアプリケーションのパフォーマンスと可用性への影響を制限する間の最良のトレードオフを提供します。
      </para>
     </listitem>
    </varlistentry>
@@ -220,7 +229,14 @@ ORDER BY c.relpages DESC LIMIT 10;
 <function>bt_index_parent_check</function>は、<function>bt_index_check</function>の更なる完璧版であると考えることができます。
 つまり、<function>bt_index_check</function>と違って<function>bt_index_parent_check</function>は、インデックス構造中のダウンリンクに漏れがないことを含め、親／子関係に渡る不変量も検査します。
 <function>bt_index_parent_check</function>は、論理的な非一貫性やその他の問題を発見した場合、一般的な習慣に従ってエラーを報告します。
-《機械翻訳》«<function>bt_index_parent_check</function> tests that its target, a B-Tree index, respects a variety of invariants. Optionally, when the <parameter>heapallindexed</parameter> argument is <literal>true</literal>, the function verifies the presence of all heap tuples that should be found within the index. When <parameter>checkunique</parameter> is <literal>true</literal> <function>bt_index_parent_check</function> will check that no more than one among duplicate entries in unique index is visible. When the optional <parameter>rootdescend</parameter> argument is <literal>true</literal>, verification re-finds tuples on the leaf level by performing a new search from the root page for each tuple. The checks that can be performed by <function>bt_index_parent_check</function> are a superset of the checks that can be performed by <function>bt_index_check</function>. <function>bt_index_parent_check</function> can be thought of as a more thorough variant of <function>bt_index_check</function>: unlike <function>bt_index_check</function>, <function>bt_index_parent_check</function> also checks invariants that span parent/child relationships, including checking that there are no missing downlinks in the index structure. <function>bt_index_parent_check</function> follows the general convention of raising an error if it finds a logical inconsistency or other problem.»
+《機械翻訳》<function>bt_index_parent_check</function>は、対象のBツリーインデックスが様々な不変条件を尊重しているかどうかをテストします。
+オプションで、<parameter>heapallindexed</parameter>引数が<literal>true</literal>の場合、この関数はインデックス内に存在するはずのすべてのヒープタプルの存在を検証します。
+<parameter>checkunique</parameter>が<literal>true</literal>の場合、<function>bt_index_parent_check</function>は、一意インデックスの重複エントリのうち、1つ以上が可視であることをチェックします。
+オプションの引数<parameter>rootdescend</parameter>が<literal>true</literal>の場合、検証は各タプルに対してルートページから新たな検索を行うことで、リーフレベルのタプルを再検索します。
+<function>bt_index_parent_check</function>で実行できるチェックは、<function>bt_index_check</function>で実行できるチェックのスーパーセットです。
+<function>bt_index_parent_check</function>は<function>bt_index_check</function>のより完全な変種と考えることができます。
+<function>bt_index_check</function>とは異なり、<function>bt_index_parent_check</function>は、インデックス構造にダウンリンクがないことのチェックを含む、親/子関係にまたがる不変条件もチェックします。
+<function>bt_index_parent_check</function>は、論理的な矛盾やその他の問題を検出した場合にエラーを発生させるという一般的な規則に従います。
      </para>
      <para>
 <!--

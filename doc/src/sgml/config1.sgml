@@ -804,7 +804,15 @@ WALをフラッシュしたあと、非同期コミットしているトラン�
 多くのシステムでは、待機間隔の実質的な分解能は10ミリ秒です。
 10の倍数以外の値を<varname>wal_writer_delay</varname>に設定しても、その次に大きい10の倍数を設定した場合と同じ結果となります。
 このパラメータは<filename>postgresql.conf</filename>ファイル内、またはサーバのコマンドラインのみで設定可能です。
-《機械翻訳》«Specifies how often the WAL writer flushes WAL, in time terms. After flushing WAL the writer sleeps for the length of time given by <varname>wal_writer_delay</varname>, unless woken up sooner by an asynchronously committing transaction. If the last flush happened less than <varname>wal_writer_delay</varname> ago and less than <varname>wal_writer_flush_after</varname> worth of WAL has been produced since, then WAL is only written to the operating system, not flushed to disk. If this value is specified without units, it is taken as milliseconds. The default value is 200 milliseconds (<literal>200ms</literal>). Note that on some systems, the effective resolution of sleep delays is 10 milliseconds; setting <varname>wal_writer_delay</varname> to a value that is not a multiple of 10 might have the same results as setting it to the next higher multiple of 10. This parameter can only be set in the <filename>postgresql.conf</filename> file or on the server command line.»
+《機械翻訳》WALライタがWALをフラッシュする頻度を時間単位で指定します。
+WALをフラッシュした後、書き込み側は<varname>wal_writer_delay</varname>で指定された時間だけスリープします。
+ただし、非同期コミットトランザクションによって早くウェイクアップされる場合はこの限りではありません。
+最後のフラッシュが<varname>wal_writer_delay</varname>より前に発生し、それ以降に<varname>wal_writer_flush_after</varname>の値分のWALが生成されている場合、WALはオペレーティングシステムにのみ書き込まれ、ディスクにはフラッシュされません。
+この値を単位なしで指定した場合は、ミリ秒が使用されます。
+デフォルト値は200ミリ秒(<literal>200ms</literal>)です。
+システムによっては、スリープ遅延の実効分解能は10ミリ秒であることに注意してください。
+<varname>wal_writer_delay</varname>を10の倍数でない値に設定すると、10の倍数の次の値に設定するのと同じ結果になるかもしれません。
+このパラメータは<filename>postgresql.conf</filename>ファイル内、またはサーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -2106,7 +2114,8 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
      enabled in order to perform an
      <link linkend="backup-incremental-backup">incremental backup</link>.
 -->
-《機械翻訳》«These settings control WAL summarization, a feature which must be enabled in order to perform an <link linkend="backup-incremental-backup">incremental backup</link>.»
+《機械翻訳》これらの設定はWALの要約を制御します。
+<link linkend="backup-incremental-backup">インクリメンタルバックアップ</link>を実行するには、この機能を有効にする必要があります。
     </para>
 
     <variablelist>
@@ -2126,7 +2135,10 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        <filename>postgresql.conf</filename> file or on the server command line.
        The default is <literal>off</literal>.
 -->
-《機械翻訳》«Enables the WAL summarizer process. Note that WAL summarization can be enabled either on a primary or on a standby. WAL summarization cannot be enabled when <varname>wal_level</varname> is set to <literal>minimal</literal>. This parameter can only be set in the <filename>postgresql.conf</filename> file or on the server command line. The default is <literal>off</literal>.»
+《機械翻訳》WALサマライザプロセスを有効にします。
+WALサマライズは、<varname>wal_level</varname>が<literal>minimal</literal>に設定されている場合でも有効にできます。
+このパラメータは、<filename>postgresql.conf</filename>ファイルかサーバのコマンドラインでのみ設定できます。
+デフォルトは<literal>off</literal>です。
       </para>
       </listitem>
      </varlistentry>
@@ -2157,7 +2169,16 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        existing WAL summaries will not be removed regardless of the value of
        this parameter, because the WAL summarizer will not run.
 -->
-《機械翻訳》«Configures the amount of time after which the WAL summarizer automatically removes old WAL summaries. The file timestamp is used to determine which files are old enough to remove. Typically, you should set this comfortably higher than the time that could pass between a backup and a later incremental backup that depends on it. WAL summaries must be available for the entire range of WAL records between the preceding backup and the new one being taken; if not, the incremental backup will fail. If this parameter is set to zero, WAL summaries will not be automatically deleted, but it is safe to manually remove files that you know will not be required for future incremental backups. This parameter can only be set in the <filename>postgresql.conf</filename> file or on the server command line. If this value is specified without units, it is taken as minutes. The default is 10 days. If <literal>summarize_wal = off</literal>, existing WAL summaries will not be removed regardless of the value of this parameter, because the WAL summarizer will not run.»
+《機械翻訳》WALサマリを自動的に削除するまでの時間を設定します。
+ファイルのタイムスタンプを使用して、削除するファイルが古すぎるかどうかを判断します。
+通常は、バックアップとそれに依存する後続のインクリメンタル・バックアップの間に経過する時間よりも、この値を大きく設定する必要があります。
+前のバックアップと新しいバックアップの間のWALレコード全体に対してWAL要約が利用可能でなければなりません。
+そうでない場合、増分バックアップは失敗します。
+このパラメータがゼロに設定されている場合、WAL要約は自動的に削除されませんが、将来の増分バックアップに必要ないことがわかっているファイルを手動で削除しても安全です。
+このパラメータは <filename>postgresql.conf</filename>ファイル、または、サーバのコマンドラインでのみで設定可能です。
+この値を単位なしで指定すると、分が使用されます。
+デフォルトは10日です。
+<literal>summarize_wal = off</literal>の場合、WALサマライザが実行されないため、このパラメータの値に関係なく既存のWALサマリーは削除されません。
       </para>
       </listitem>
      </varlistentry>
@@ -2503,7 +2524,12 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         <varname>standby_slot_names</varname> do not exist or are invalidated.
         Additionally, the replication management functions
 -->
-《機械翻訳》«A comma-separated list of streaming replication standby server slot names that logical WAL sender processes will wait for. Logical WAL sender processes will send decoded changes to plugins only after the specified replication slots confirm receiving WAL. This guarantees that logical replication failover slots do not consume changes until those changes are received and flushed to corresponding physical standbys. If a logical replication connection is meant to switch to a physical standby after the standby is promoted, the physical replication slot for the standby should be listed here. Note that logical replication will not proceed if the slots specified in the <varname>standby_slot_names</varname> do not exist or are invalidated. Additionally, the replication management functions»
+《機械翻訳》論理WAL送信プロセスが待機する、ストリーミングレプリケーションのスタンバイサーバスロット名のコンマ区切りリスト。
+論理WAL送信プロセスは、指定されたレプリケーションスロットがWALを受信したことを確認した後にのみ、デコードされた変更をプラグインに送信します。
+これにより、論理レプリケーション・フェイルオーバー・スロットは、変更が受信されて対応する物理スタンバイにフラッシュされるまで、変更を消費しません。
+論理レプリケーション接続が、スタンバイが昇格された後に物理スタンバイに切り替わるようにする場合は、スタンバイの物理レプリケーションスロットをここにリストします。
+<varname>standby_slot_names</varname>で指定されたスロットが存在しないか無効である場合、論理的な複製は進行しません。
+さらに、レプリケーション管理機能も備えています。
         <link linkend="pg-replication-slot-advance">
         <function>pg_replication_slot_advance</function></link>,
         <link linkend="pg-logical-slot-get-changes">
@@ -2521,7 +2547,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
         <literal>sync_replication_slots = true</literal> so they can receive
         logical failover slot changes from the primary.
 -->
-《機械翻訳》«The standbys corresponding to the physical replication slots in <varname>standby_slot_names</varname> must configure <literal>sync_replication_slots = true</literal> so they can receive logical failover slot changes from the primary.»
+《機械翻訳》<varname>standby_slot_names</varname>の物理的な複製スロットに対応するスタンバイは、プライマリからの論理的なフェイルオーバースロット変更を受け取ることができるように、<literal>sync_replication_slots = true</literal>を設定しなければなりません。
        </para>
       </listitem>
      </varlistentry>
@@ -2815,7 +2841,10 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
 送信サーバが要求するのであれば、パスワードも記述される必要があります。
 パスワードは <varname>primary_conninfo</varname>に記述することもできますし、スタンバイサーバ上の分離されたファイル<filename>~/.pgpass</filename>に記述することもできます (データベース名には <literal>replication</literal> を使います)。
 <varname>primary_conninfo</varname>文字列の中には、データベース名を指定しないでください。
-《機械翻訳》«The connection string should specify the host name (or address) of the sending server, as well as the port number if it is not the same as the standby server's default. Also specify a user name corresponding to a suitably-privileged role on the sending server (see <xref linkend="streaming-replication-authentication"/>). A password needs to be provided too, if the sender demands password authentication. It can be provided in the <varname>primary_conninfo</varname> string, or in a separate <filename>~/.pgpass</filename> file on the standby server (use <literal>replication</literal> as the database name).»
+《機械翻訳》接続文字列には、送信サーバーのホスト名 （またはアドレス） と、待機サーバーのデフォルトと同じでない場合はポート番号を指定します。
+また、送信側サーバ上で適切な特権を持つ役割に対応するユーザ名を指定します（<xref linkend="streaming-replication-authentication"/>を参照）。
+送信者がパスワード認証を要求する場合は、パスワードも指定する必要があります。
+これは<varname>primary_conninfo</varname>文字列か、スタンバイサーバ上の別の<filename>~/.pgpass</filename>ファイル（データベース名として<literal>replication</literal>を使用）に指定できます。
          </para>
          <para>
 <!--
@@ -2825,7 +2854,9 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           in the <varname>primary_conninfo</varname> string. This will only be
           used for slot synchronization. It is ignored for streaming.
 -->
-《機械翻訳》«For replication slot synchronization (see <xref linkend="logicaldecoding-replication-slots-synchronization"/>), it is also necessary to specify a valid <literal>dbname</literal> in the <varname>primary_conninfo</varname> string. This will only be used for slot synchronization. It is ignored for streaming.»
+《機械翻訳》レプリケーションスロット同期（<xref linkend="logicaldecoding-replication-slots-synchronization"/>参照）の場合、<varname>primary_conninfo</varname>文字列に有効な<literal>dbname</literal>を指定する必要があります。
+これはスロット同期にのみ使用されます。
+ストリーミングには無視されます。
          </para>
          <para>
 <!--
@@ -3325,7 +3356,7 @@ WALレコードは、適用される準備が整うまでスタンバイに保�
         from the primary server so that logical subscribers can resume
         replication from the new primary server after failover.
 -->
-《機械翻訳》«It enables a physical standby to synchronize logical failover slots from the primary server so that logical subscribers can resume replication from the new primary server after failover.»
+《機械翻訳》これにより、フィジカル・スタンバイがプライマリ・サーバからの論理フェイルオーバー・スロットを同期化できるようになり、フェイルオーバー後に論理サブスクライバが新しいプライマリ・サーバからレプリケーションを再開できるようになります。
        </para>
        <para>
 <!--
@@ -3333,7 +3364,8 @@ WALレコードは、適用される準備が整うまでスタンバイに保�
         <filename>postgresql.conf</filename> file or on the server command line.
 -->
 《マッチ度[78.102190]》このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
-《機械翻訳》«It is disabled by default. This parameter can only be set in the <filename>postgresql.conf</filename> file or on the server command line.»
+《機械翻訳》デフォルトでは無効になっています。
+このパラメータは<filename>postgresql.conf</filename>ファイル内、またはサーバのコマンドラインでのみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
