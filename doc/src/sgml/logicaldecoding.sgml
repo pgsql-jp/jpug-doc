@@ -443,7 +443,15 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      to the <varname>wal_level</varname> parameter change on the primary won't be
      decoded.
 -->
-《機械翻訳》«A logical replication slot can also be created on a hot standby. To prevent <command>VACUUM</command> from removing required rows from the system catalogs, <varname>hot_standby_feedback</varname> should be set on the standby. In spite of that, if any required rows get removed, the slot gets invalidated. It's highly recommended to use a physical slot between the primary and the standby. Otherwise, <varname>hot_standby_feedback</varname> will work but only while the connection is alive (for example a node restart would break it). Then, the primary may delete system catalog rows that could be needed by the logical decoding on the standby (as it does not know about the <literal>catalog_xmin</literal> on the standby). Existing logical slots on standby also get invalidated if <varname>wal_level</varname> on the primary is reduced to less than <literal>logical</literal>. This is done as soon as the standby detects such a change in the WAL stream. It means that, for walsenders that are lagging (if any), some WAL records up to the <varname>wal_level</varname> parameter change on the primary won't be decoded.»
+《機械翻訳》論理レプリケーションスロットは、ホットスタンバイ上にも作成できます。
+<command>VACUUM</command>がシステムカタログから必要な行を削除しないようにするために、<varname>hot_standby_feedback</varname>をスタンバイ側で設定する必要があります。
+それにもかかわらず、必要な行が削除されると、スロットは無効になります。
+プライマリとスタンバイの間に物理スロットを使用することを強くお勧めします。
+そうでなければ、<varname>hot_standby_feedback</varname>は動作しますが、接続がアクティブな間だけです（例えば、ノードの再起動はそれを壊します）。
+その後、プライマリは、スタンバイ側の論理デコードで必要になる可能性のあるシステムカタログ行を削除します（スタンバイ側の<literal>catalog_xmin</literal>を知らないため）。
+プライマリの<varname>wal_level</varname>が<literal>logical</literal>より小さくなると、スタンバイ上の既存の論理スロットも無効になります。
+これは、スタンバイがWALストリームの変更を検出したときにすぐに行われます。
+これは、遅れているwalsenders（もしあれば）に対して、プライマリ上の<varname>wal_level</varname>パラメータの変更までの一部のWALレコードがデコードされないことを意味します。
     </para>
 
     <para>
@@ -491,7 +499,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      The logical replication slots on the primary can be synchronized to
      the hot standby by using the <literal>failover</literal> parameter of
 -->
-《機械翻訳》«The logical replication slots on the primary can be synchronized to the hot standby by using the <literal>failover</literal> parameter of»
+《機械翻訳》プライマリの論理レプリケーションスロットは、<literal>failover</literal>パラメータを使用してホットスタンバイに同期させることができます。
      <link linkend="pg-create-logical-replication-slot">
      <function>pg_create_logical_replication_slot</function></link>, or by
      using the <link linkend="sql-createsubscription-params-with-failover">
@@ -537,7 +545,11 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      disabled subscription, then the subscription cannot be resumed after
      failover even when it is enabled.
 -->
-《機械翻訳》«The ability to resume logical replication after failover depends upon the <link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>synced</structfield> value for the synchronized slots on the standby at the time of failover. Only persistent slots that have attained synced state as true on the standby before failover can be used for logical replication after failover. Temporary synced slots cannot be used for logical decoding, therefore logical replication for those slots cannot be resumed. For example, if the synchronized slot could not become persistent on the standby due to a disabled subscription, then the subscription cannot be resumed after failover even when it is enabled.»
+《機械翻訳》論理レプリケーションをフェールオーバー後に再開できるかどうかは、<link linkend="view-pg-replication-slots">pg_replication_slots</link>の設定に依存します。
+フェールオーバー時のスタンバイ側の同期スロットの<structfield>synced</structfield>値。
+フェールオーバー前にスタンバイで true として同期状態になった永続スロットだけが、フェールオーバー後の論理レプリケーションに使用できます。
+一時的に同期されたスロットは論理デコードに使用できないため、それらのスロットの論理レプリケーションを再開できません。
+たとえば、同期スロットが無効なためにスタンバイで永続化できなかった場合、そのスロットは有効になっていてもフェールオーバー後に再開できません。
     </para>
 
     <para>
@@ -549,7 +561,9 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      It is recommended that subscriptions are first disabled before promoting
      the standby and are re-enabled after altering the connection string.
 -->
-《機械翻訳》«To resume logical replication after failover from the synced logical slots, the subscription's 'conninfo' must be altered to point to the new primary server. This is done using <link linkend="sql-altersubscription-params-connection"><command>ALTER SUBSCRIPTION ... CONNECTION</command></link>. It is recommended that subscriptions are first disabled before promoting the standby and are re-enabled after altering the connection string.»
+《機械翻訳》同期された論理スロットからフェイルオーバー後に論理レプリケーションを再開するには、サブスクリプションの'conninfo'を変更して新しいプライマリサーバを指すようにする必要があります。
+これは<link linkend="sql-altersubscription-params-connection"><command>ALTER SUBSCRIPTION ... CONNECTION</command></link>を使用して行います。
+サブスクリプションは、スタンバイを昇格させる前に最初に無効にし、接続文字列を変更した後で再度有効にすることをお薦めします。
     </para>
     <caution>
      <para>
@@ -561,7 +575,8 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
       inconsistency issues, preventing the logical subscribers from being
       able to continue replication from the new primary server.
 -->
-《機械翻訳》«There is a chance that the old primary is up again during the promotion and if subscriptions are not disabled, the logical subscribers may continue to receive data from the old primary server even after promotion until the connection string is altered. This might result in data inconsistency issues, preventing the logical subscribers from being able to continue replication from the new primary server.»
+《機械翻訳》プロモーション中に古いプライマリが再び稼働状態になる可能性があり、サブスクリプションが無効化されていない場合、接続文字列が変更されるまで、プロモーション後も古いプライマリ・サーバからデータを受信し続ける可能性があります。
+これにより、データの不整合が発生し、論理サブスクライバが新しいプライマリ・サーバからのレプリケーションを継続できなくなる可能性があります。
      </para>
     </caution>
    </sect2>

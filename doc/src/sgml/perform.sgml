@@ -234,7 +234,11 @@ EXPLAIN SELECT * FROM tenk1;
 とりわけ、結果の行をクライアントに転送するコストは、実際の処理時間の重要な要因となる可能性があるにもかかわらず、考慮されません。
 プランナは、計画をいかに変更しようと、転送コストを変えることはできないため、これを無視します。
 （正しい計画はどんなものであれ、すべて同じ行を結果として出力すると信じています。）
-《機械翻訳》«It's important to understand that the cost of an upper-level node includes the cost of all its child nodes. It's also important to realize that the cost only reflects things that the planner cares about. In particular, the cost does not consider the time spent to convert output values to text form or to transmit them to the client, which could be important factors in the real elapsed time; but the planner ignores those costs because it cannot change them by altering the plan. (Every correct plan will output the same row set, we trust.)»
+《機械翻訳》上位レベルのノードのコストには、そのすべての子ノードのコストが含まれることを理解することが重要です。
+また、コストはプランナーが気にするものだけを反映していることを認識することも重要です。
+特に、コストは、出力値をテキスト形式に変換したり、それらをクライアントに送信したりするために費やされる時間を考慮していない。
+これは、実際の経過時間において重要な要素である可能性があるが、プランナは、プランを変更することによってそれらのコストを変更することができないため、それらのコストを無視する。
+（正しい計画はすべて同じ行セットを出力すると信じています）。
    </para>
 
    <para>
@@ -825,7 +829,9 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
 《マッチ度[82.215743]》これは、プランナが、シーケンシャルスキャンとソートよりインデックススキャンによる<literal>onek</literal>のソート処理がおよそ12%程高価であるとみなしたことを示します。
 当然ながら、次の疑問はこれが正しいかどうかでしょう。
 後で説明する<command>EXPLAIN ANALYZE</command>を使用することで調査することができます。
-《機械翻訳》«which shows that the planner thinks that sorting <literal>onek</literal> by index-scanning is about 12% more expensive than sequential-scan-and-sort. Of course, the next question is whether it's right about that. We can investigate that using <command>EXPLAIN ANALYZE</command>, as discussed <link linkend="using-explain-analyze">below</link>.»
+《機械翻訳》これは、プランナがインデックススキャンによる<literal>onek</literal>のソートは、シーケンシャルスキャンとソートの場合よりも約12%高くつくと考えていることを示しています。
+もちろん、次の疑問は、それが正しいかどうかです。
+これについては、<link linkend="using-explain-analyze">下記</link>で説明するように、<command>EXPLAIN ANALYZE</command>を使用して調査できます。
    </para>
 
    <para>
@@ -838,7 +844,8 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     queries can sometimes be transformed into ordinary join plans, but
     when they cannot be, we get plans like:
 -->
-《機械翻訳》«Some query plans involve <firstterm>subplans</firstterm>, which arise from sub-<literal>SELECT</literal>s in the original query. Such queries can sometimes be transformed into ordinary join plans, but when they cannot be, we get plans like:»
+《機械翻訳》いくつかの問い合わせ計画は、元の問い合わせの<literal>SELECT</literal>の副問い合わせから生じる<firstterm>副計画</firstterm>を含みます。
+このような問い合わせは、時々通常の結合計画に変換できますが、変換できない場合、次のような計画になります。
 
 <screen>
 EXPLAIN VERBOSE SELECT unique1
@@ -867,7 +874,10 @@ WHERE t.ten &lt; ALL (SELECT o.ten FROM onek o WHERE o.four = t.four);
     which refers to the <replaceable>N</replaceable>'th output column of
     the sub-<literal>SELECT</literal>.
 -->
-《機械翻訳》«This rather artificial example serves to illustrate a couple of points: values from the outer plan level can be passed down into a subplan (here, <literal>t.four</literal> is passed down) and the results of the sub-select are available to the outer plan. Those result values are shown by <command>EXPLAIN</command> with notations like <literal>(<replaceable>subplan_name</replaceable>).col<replaceable>N</replaceable></literal>, which refers to the <replaceable>N</replaceable>'th output column of the sub-<literal>SELECT</literal>.»
+《機械翻訳》この人工的な例は、いくつかの点を説明するのに役立ちます。
+外部プランレベルからの値は、サブプラン（<literal>t.four</literal>がここで渡されます）に渡すことができ、サブ選択の結果は外部プランで使用できます。
+これらの結果値は<literal>((<replaceable>subplan_name</replaceable>)</literal>のような表記で<command>EXPLAIN</command>に示されます。
+これは<replaceable>N</replaceable>番目の出力列を参照します。
    </para>
 
    <para>
@@ -881,7 +891,8 @@ WHERE t.ten &lt; ALL (SELECT o.ten FROM onek o WHERE o.four = t.four);
     high estimated cost).  Some queries can use a <firstterm>hashed
     subplan</firstterm> to avoid that:
 -->
-《機械翻訳》«In the example above, the <literal>ALL</literal> operator runs the subplan again for each row of the outer query (which accounts for the high estimated cost). Some queries can use a <firstterm>hashed subplan</firstterm> to avoid that:»
+《機械翻訳》上の例では、<literal>ALL</literal>演算子は外部問い合わせの各行に対して再度副計画を実行します（これが高い見積りコストの原因です）。
+いくつかの問い合わせでは、<firstterm>ハッシュ化された副計画</firstterm>を使用して、以下を回避できます。
 
 <screen>
 EXPLAIN SELECT *
@@ -905,7 +916,8 @@ WHERE t.unique1 NOT IN (SELECT o.unique1 FROM onek o);
     query, and that the <literal>ANY</literal>'s comparison operator be
     amenable to hashing.
 -->
-《機械翻訳》«Here, the subplan is run a single time and its output is loaded into an in-memory hash table, which is then probed by the outer <literal>ANY</literal> operator. This requires that the sub-<literal>SELECT</literal> not reference any variables of the outer query, and that the <literal>ANY</literal>'s comparison operator be amenable to hashing.»
+《機械翻訳》ここでは、サブプランは1回だけ実行され、その出力はインメモリのハッシュテーブルにロードされ、その後、外部の<literal>ANY</literal>演算子によってプローブされます。
+これには、サブ<literal>SELECT</literal>が外部クエリの変数を参照しないことと、<literal>ANY</literal>の比較演算子がハッシュ可能であることが必要です。
    </para>
 
    <para>
@@ -917,7 +929,7 @@ WHERE t.unique1 NOT IN (SELECT o.unique1 FROM onek o);
     the sub-<literal>SELECT</literal> cannot return more than one row,
     it may instead be implemented as an <firstterm>initplan</firstterm>:
 -->
-《機械翻訳》«If, in addition to not referencing any variables of the outer query, the sub-<literal>SELECT</literal> cannot return more than one row, it may instead be implemented as an <firstterm>initplan</firstterm>:»
+《機械翻訳》外部問い合わせの変数を参照しないことに加えて、副<literal>SELECT</literal>が複数行を返せない場合、代わりに<firstterm>initplan</firstterm>として実装されるかもしれません。
 
 <screen>
 EXPLAIN VERBOSE SELECT unique1
@@ -941,7 +953,9 @@ FROM tenk1 t1 WHERE t1.ten = (SELECT (random() * 10)::integer);
     randomly-chosen integer.  That's quite different from what would
     happen without the sub-<literal>SELECT</literal> construct.
 -->
-《機械翻訳》«An initplan is run only once per execution of the outer plan, and its results are saved for re-use in later rows of the outer plan. So in this example <literal>random()</literal> is evaluated only once and all the values of <literal>t1.ten</literal> are compared to the same randomly-chosen integer. That's quite different from what would happen without the sub-<literal>SELECT</literal> construct.»
+《機械翻訳》初期計画は外部計画の実行ごとに一度だけ実行され、その結果は後の外部計画の行で再利用するために保存されます。
+したがって、この例では<literal>random()</literal>は一度だけ評価され、<literal>t1.ten</literal>のすべての値は同じランダムに選択された整数と比較されます。
+これは、副<literal>SELECT</literal>構文がない場合とはまったく異なります。
    </para>
 
   </sect2>
@@ -1321,7 +1335,9 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
     be shown separately, and it's also included in the
     total <literal>Execution time</literal>.
 -->
-《機械翻訳》«The time shown for the top-level node does not include any time needed to convert the query's output data into displayable form or to send it to the client. While <command>EXPLAIN ANALYZE</command> will never send the data to the client, it can be told to convert the query's output data to displayable form and measure the time needed for that, by specifying the <literal>SERIALIZE</literal> option. That time will be shown separately, and it's also included in the total <literal>Execution time</literal>.»
+《機械翻訳》最上位ノードに対して表示される時間には、問合せの出力データを表示可能な形式に変換したり、クライアントに送信したりするために必要な時間は含まれません。
+<command>EXPLAIN ANALYZE</command>はデータをクライアントに送信することはありませんが、<literal>SERIALIZE</literal>オプションを指定することで、問い合わせの出力データを表示可能な形式に変換し、そのために必要な時間を測定するように指示することができます。
+その時間は別々に表示され、<literal>Execution time</literal>の合計にも含まれます。
    </para>
 
   </sect2>
@@ -1349,7 +1365,11 @@ EXPLAIN UPDATE parent SET f2 = f2 + 1 WHERE f1 = 101;
 １つ目は、出力行がクライアントに配信されませんので、ネットワーク転送コストとI/O変換に関するコストが含まれないことです。
 ２つ目は、<command>EXPLAIN ANALYZE</command>によって加わる測定オーバーヘッドが大きくなることが、特に<function>gettimeofday()</function>オペレーティングシステムコールが低速なマシンであり得ることです。
 <xref linkend="pgtesttiming"/>を用いて、使用中のシステムの時間測定にかかるオーバーヘッドを測ることができます。
-《機械翻訳》«There are two significant ways in which run times measured by <command>EXPLAIN ANALYZE</command> can deviate from normal execution of the same query. First, since no output rows are delivered to the client, network transmission costs are not included. I/O conversion costs are not included either unless <literal>SERIALIZE</literal> is specified. Second, the measurement overhead added by <command>EXPLAIN ANALYZE</command> can be significant, especially on machines with slow <function>gettimeofday()</function> operating-system calls. You can use the <xref linkend="pgtesttiming"/> tool to measure the overhead of timing on your system.»
+《機械翻訳》<command>EXPLAIN ANALYZE</command>で測定される実行時間が、同じ問い合わせの通常の実行と異なる2つの重要な方法があります。
+まず、出力行がクライアントに配信されないため、ネットワーク転送コストが含まれません。
+<literal>SERIALIZE</literal>が指定されていない場合、入出力変換コストは含まれません。
+第二に、<command>EXPLAIN ANALYZE</command>によって追加される測定オーバーヘッドは、特に<function>gettimeofday()</function>オペレーティングシステムコールが遅いマシンでは、かなり大きくなる可能性があります。
+システム上のタイミングのオーバーヘッドを測定するには、<xref linkend="pgtesttiming"/>ツールを使用します。
    </para>
 
    <para>
