@@ -40,13 +40,11 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
    <command>UPDATE</command> and <command>DELETE</command> depends on
    the configured replica identity (see <xref linkend="sql-altertable-replica-identity"/>).
 -->
-ストリームに送出される更新データのフォーマットは、使用するプラグインで決まります。
+ストリームに送出される更新データのフォーマットは、使用する出力プラグインで決まります。
 サンプルプラグインがPostgreSQLの配布物に含まれています。
 追加のプラグインを書くことにより、PostgreSQLのコア部分のコードを一切変更することなく、利用可能なフォーマットの選択肢を増やすことができます。
-すべてのプラグインから、
-<command>INSERT</command>によって作成された個々の新しい行と、<command>UPDATE</command>によって作成された新しい個々の行のバージョンにアクセスできます。
-<command>UPDATE</command>と<command>DELETE</command>によって生じた古いバージョンの行へのアクセスが可能かどうかは、
-レプリカアイデンティティ(replica identity)の設定によって決まります(<xref linkend="sql-altertable-replica-identity"/>参照)。
+すべての出力プラグインから、<command>INSERT</command>によって作成された個々の新しい行と、<command>UPDATE</command>によって作成された新しいバージョンの行にアクセスできます。
+<command>UPDATE</command>と<command>DELETE</command>によって生じた古いバージョンの行へのアクセスが可能かどうかは、レプリカアイデンティティ(replica identity)の設定によって決まります（<xref linkend="sql-altertable-replica-identity"/>参照）。
   </para>
 
   <para>
@@ -59,10 +57,8 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
    without modifying core code
    (see <xref linkend="logicaldecoding-writer"/>).
 -->
-変更データの消費は、ストリーミングレプリケーションのプロトコル(<xref linkend="protocol-replication"/>と
-<xref linkend="logicaldecoding-walsender"/>を参照)を使うか、SQL関数(<xref linkend="logicaldecoding-sql"/>)を使って行います。
-また、コア部分に手を入れなくても、レプリケーションスロットの出力を消費する別の方法を実装することもできます
-(<xref linkend="logicaldecoding-writer"/>参照)。
+変更データの消費は、ストリーミングレプリケーションのプロトコル（<xref linkend="protocol-replication"/>と<xref linkend="logicaldecoding-walsender"/>を参照）を使うか、SQLを使って関数を呼び出します（<xref linkend="logicaldecoding-sql"/>を参照）。
+また、コア部分に手を入れなくても、レプリケーションスロットの出力を消費する別の方法を実装することもできます（<xref linkend="logicaldecoding-writer"/>参照）。
   </para>
 
   <sect1 id="logicaldecoding-example">
@@ -92,9 +88,7 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
    </para>
 
 <programlisting>
-<!--
-postgres=# &#45;- Create a slot named 'regression_slot' using the output plugin 'test_decoding'
--->
+postgres=# -- Create a slot named 'regression_slot' using the output plugin 'test_decoding'
 postgres=# -- 出力プラグイン'test_decoding'を使用して'regression_slot'という名前のスロットを作成します。
 postgres=# SELECT * FROM pg_create_logical_replication_slot('regression_slot', 'test_decoding', false, true);
     slot_name    |    lsn
@@ -109,6 +103,7 @@ postgres=# SELECT slot_name, plugin, slot_type, database, active, restart_lsn, c
 (1 row)
 
 postgres=# -- There are no changes to see yet
+postgres=# -- まだ変更はありません
 postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
  lsn | xid | data
 -----+-----+------
@@ -118,6 +113,7 @@ postgres=# CREATE TABLE data(id serial primary key, data text);
 CREATE TABLE
 
 postgres=# -- DDL isn't replicated, so all you'll see is the transaction
+postgres=# -- DDLはレプリケーションされないので、見えるのはトランザクションだけです
 postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
     lsn    |  xid  |     data
 -----------+-------+--------------
@@ -127,6 +123,7 @@ postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NU
 
 postgres=# -- Once changes are read, they're consumed and not emitted
 postgres=# -- in a subsequent call:
+postgres=# -- 変更が読み込まれると、それらは消費され、次の呼び出しで送出されません:
 postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
  lsn | xid | data
 -----+-----+------
@@ -149,6 +146,7 @@ postgres=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NU
 postgres=# INSERT INTO data(data) VALUES('3');
 
 postgres=# -- You can also peek ahead in the change stream without consuming changes
+postgres=# -- 変更を消費せずに変更ストリームを先読みすることもできます
 postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, NULL);
     lsn    |  xid  |                          data
 -----------+-------+---------------------------------------------------------
@@ -158,6 +156,7 @@ postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, N
 (3 rows)
 
 postgres=# -- The next call to pg_logical_slot_peek_changes() returns the same changes again
+postgres=# -- pg_logical_slot_peek_changes()の次の呼び出しでも同じ変更が返されます
 postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, NULL);
     lsn    |  xid  |                          data
 -----------+-------+---------------------------------------------------------
@@ -167,6 +166,7 @@ postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, N
 (3 rows)
 
 postgres=# -- options can be passed to output plugin, to influence the formatting
+postgres=# -- 出力プラグインにオプションを渡すことで、フォーマットに影響を与えることができます
 postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, NULL, 'include-timestamp', 'on');
     lsn    |  xid  |                          data
 -----------+-------+---------------------------------------------------------
@@ -177,6 +177,7 @@ postgres=# SELECT * FROM pg_logical_slot_peek_changes('regression_slot', NULL, N
 
 postgres=# -- Remember to destroy a slot you no longer need to stop it consuming
 postgres=# -- server resources:
+postgres=# -- サーバのリソースの消費を停止するためにもう必要ないスロットを破棄することを忘れないでください
 postgres=# SELECT pg_drop_replication_slot('regression_slot');
  pg_drop_replication_slot
 -----------------------
@@ -268,6 +269,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
 (4 row)
 
 postgres=#-- you can also rollback a prepared transaction
+postgres=#-- 準備されたトランザクションをロールバックすることもできます
 postgres=# BEGIN;
 postgres=*# INSERT INTO data(data) VALUES('6');
 postgres=*# PREPARE TRANSACTION 'test_prepared2';
@@ -442,15 +444,15 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      to the <varname>wal_level</varname> parameter change on the primary won't be
      decoded.
 -->
-《機械翻訳》ロジカルレプリケーションスロットは、ホットスタンバイ上にも作成できます。
+ロジカルレプリケーションスロットは、ホットスタンバイ上でも作成できます。
 システムカタログから必要な行を<command>VACUUM</command>が削除するのを防ぐためには、スタンバイ上で<varname>hot_standby_feedback</varname>を設定する必要があります。
-それでも、必要な行が削除されるとスロットは無効になります。
+それでも、必要な行が削除されると、スロットは無効になります。
 プライマリとスタンバイの間に物理スロットを使用することを強くお勧めします。
-そうしないと、<varname>hot_standby_feedback</varname>は動作しますが、接続が生きている間だけです(例えばノードの再起動で破壊されます)。
-その場合、プライマリはスタンバイ上のロジカルデコーディングが必要とするシステムカタログ行を削除するかもしれません(スタンバイ上のcatalog_xminについては知らないので)。
+そうしないと、<varname>hot_standby_feedback</varname>が動作するのは接続が生きている間だけです（たとえばノードの再起動で破壊されます）。
+その場合、プライマリはスタンバイ上のロジカルデコーディングが必要とするシステムカタログ行を削除するかもしれません（スタンバイ上のcatalog_xminについては知らないため）。
 既存のスタンバイ上のロジカルスロットも、プライマリ上の<varname>wal_level</varname>が<literal>logical</literal>よりも小さくなると無効になります。
 これはスタンバイがWALストリームでそのような変更を検出したときにすぐに行われます。
-これは、遅延しているWAL送信者がある場合に、プライマリ上の<varname>wal_level</varname>パラメータの変更までの間に、一部のWALレコードがデコードされないことを意味します。
+これは、遅れているwalsender（もしあれば）に対して、プライマリでの<varname>wal_level</varname>パラメータの変更までの一部のWALレコードがデコードされないことを意味します。
     </para>
 
     <para>
@@ -463,10 +465,11 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      standby may take noticeable time. This can be sped up by calling the
      <function>pg_log_standby_snapshot</function> function on the primary.
 -->
-《機械翻訳》論理スロットの作成には、現在実行中のすべてのトランザクションに関する情報が必要です。
-プライマリでは、この情報は直接使用できますが、スタンバイでは、この情報をプライマリから取得する必要があります。
-したがって、スロットの作成は、プライマリで何らかのアクティビティが発生するまで待機する必要があります。
-プライマリがアイドル状態の場合、スタンバイで論理スロットを作成するには、<function>pg_log_standby_snapshot</function>関数を呼び出すとかなり時間がかかることがあります。
+ロジカルスロットの作成には、現在実行中のすべてのトランザクションに関する情報が必要です。
+プライマリではこの情報は直接利用できますが、スタンバイではこの情報をプライマリから取得する必要があります。
+したがって、スロットの作成はプライマリで何らかのアクティビティが発生するのを待つ必要があるかもしれません。
+プライマリがアイドル状態の場合、スタンバイ上でのロジカルスロットの作成にはかなりの時間がかかるかもしれません。
+これは、プライマリで<function>pg_log_standby_snapshot</function>関数を呼び出すことで高速化できます。
     </para>
 
     <caution>
@@ -715,10 +718,8 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
      If <function>truncate_cb</function> is not set but a
      <command>TRUNCATE</command> is to be decoded, the action will be ignored.
 -->
-《マッチ度[]》コールバック関数の<function>begin_cb</function>、<function>change_cb</function>、および、<function>commit_cb</function>は必須ですが、<function>startup_cb</function>、<function>filter_by_origin_cb</function>、<function>truncate_cb</function>、および、<function>shutdown_cb</function>は必須ではありません。
+コールバック関数の<function>begin_cb</function>、<function>change_cb</function>、および、<function>commit_cb</function>は必須ですが、<function>startup_cb</function>、<function>truncate_cb</function>、<function>message_cb</function>、<function>filter_by_origin_cb</function>、および、<function>shutdown_cb</function>は必須ではありません。
 <function>truncate_cb</function>が設定されていないけれども、<command>TRUNCATE</command>がデコードされることになった場合、この動作は無視されます。
-《機械翻訳》<function>begin_cb</function>、<function>change_cb</function>のコールバックは必須ですが、<function>startup_cb</function>、<function>truncate_cb</function>、<function>message_cb</function>、<function>filter_by_origin_cb</function>、<function>shutdown_cb</function>はオプションです。
-<function>truncate_cb</function>が設定されていないが、<command>TRUNCATE</command>をデコードする場合、アクションは無視されます。
     </para>
 
     <para>
@@ -732,11 +733,9 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
      <function>stream_prepare_cb</function> is also required if the output
      plugin also support two-phase commits.
 -->
-《マッチ度[71.157495]》出力プラグインは、大きな継続中(in-progress)トランザクションのストリーミングをサポートする関数を定義することもできます。
-<function>stream_start_cb</function>、<function>stream_stop_cb</function>、<function>stream_abort_cb</function>、<function>stream_commit_cb</function>、<function>stream_change_cb</function>、<function>stream_prepare_cb</function>は必須ですが、<function>stream_message_cb</function>と<function>stream_truncate_cb</function>は必須ではありません。
-《機械翻訳》出力プラグインは、大きな進行中のトランザクションのストリーミングをサポートする関数も定義できます。
- <function>stream_start_cb</function>、<function>stream_stop_cb</function>、<function>stream_abort_cb</function>、<function>stream_commit_cb</function>、<function>stream_change_cb</function>は必須ですが、<function>stream_message_cb</function>と<function>stream_truncate_cb</function>はオプションです。
- 出力プラグインが2フェーズコミットもサポートする場合は、<function>stream_prepare_cb</function>も必要です。
+出力プラグインは、大きな継続中(in-progress)トランザクションのストリーミングをサポートする関数を定義することもできます。
+<function>stream_start_cb</function>、<function>stream_stop_cb</function>、<function>stream_abort_cb</function>、<function>stream_commit_cb</function>、<function>stream_change_cb</function>は必須ですが、<function>stream_message_cb</function>と<function>stream_truncate_cb</function>は必須ではありません。
+出力プラグインが2相コミットもサポートする場合は、<function>stream_prepare_cb</function>も必須です。
     </para>
 
     <para>
@@ -749,12 +748,8 @@ typedef void (*LogicalOutputPluginInit) (struct OutputPluginCallbacks *cb);
     The <function>stream_prepare_cb</function> is also required if the output plugin
     also supports the streaming of large in-progress transactions.
 -->
-《マッチ度[65.129151]》出力プラグインは、<command>PREPARE TRANSACTION</command>でアクションをデコードできるようにする2相コミットをサポートする関数を定義することもできます。
-<function>begin_prepare_cb</function>、<function>prepare_cb</function>、<function>stream_prepare_cb</function>、<function>commit_prepared_cb</function>、<function>rollback_prepared_cb</function>コールバックは必須ですが、<function>filter_prepare_cb</function>は必須ではありません。
-《機械翻訳》出力プラグインは、2フェーズコミットをサポートする関数を定義することもできます。
-これにより、<command>PREPARE TRANSACTION</command>でアクションをデコードできます。
-<function>begin_prepare_cb</function>、<function>prepare_cb</function>、<function>commit_prepared_cb</function>、<function>rollback_prepared_cb</function>コールバックが必須です。
-また、<function>filter_prepare_cb</function>もオプションです。
+出力プラグインは、<command>PREPARE TRANSACTION</command>でアクションをデコードできるようにする2相コミットをサポートする関数を定義することもできます。
+<function>begin_prepare_cb</function>、<function>prepare_cb</function>、<function>commit_prepared_cb</function>、<function>rollback_prepared_cb</function>コールバックは必須ですが、<function>filter_prepare_cb</function>は必須ではありません。
 出力プラグインが大きな進行中のトランザクションのストリーミングもサポートしている場合は、<function>stream_prepare_cb</function>も必須です。
     </para>
    </sect2>
@@ -1069,7 +1064,7 @@ typedef void (*LogicalDecodeChangeCB) (struct LogicalDecodingContext *ctx,
        (see <xref linkend="sql-createtable-temporary"/>) can be extracted using
        logical decoding.
 -->
-unloggedテーブル(<xref linkend="sql-createtable-unlogged"/>参照)と一時テーブル(<xref linkend="sql-createtable-temporary"/>参照)以外のユーザ定義テーブルだけが、ロジカルデコーディングを使って更新データを取得できます。
+ユーザ定義テーブルでは、ログを取らないテーブル（<xref linkend="sql-createtable-unlogged"/>参照）ではなく、一時テーブル（<xref linkend="sql-createtable-temporary"/>参照）でもないテーブルが、ロジカルデコーディングを使って更新データを取得できます。
       </para>
      </note>
     </sect3>
@@ -1085,7 +1080,7 @@ unloggedテーブル(<xref linkend="sql-createtable-unlogged"/>参照)と一時�
       The optional <function>truncate_cb</function> callback is called for a
       <command>TRUNCATE</command> command.
 -->
-《マッチ度[]》<function>truncate_cb</function>コールバックは、<command>TRUNCATE</command>コマンドに対して呼ばれます。
+オプションの<function>truncate_cb</function>コールバックは、<command>TRUNCATE</command>コマンドに対して呼ばれます。
 <programlisting>
 typedef void (*LogicalDecodeTruncateCB) (struct LogicalDecodingContext *ctx,
                                          ReorderBufferTXN *txn,
@@ -1111,7 +1106,7 @@ typedef void (*LogicalDecodeTruncateCB) (struct LogicalDecodingContext *ctx,
 <!--
      <title>Origin Filter Callback</title>
 -->
-     <title>オリジンフィルターコールバック</title>
+     <title>オリジンフィルタコールバック</title>
 
      <para>
 <!--
@@ -1120,7 +1115,7 @@ typedef void (*LogicalDecodeTruncateCB) (struct LogicalDecodingContext *ctx,
        from <parameter>origin_id</parameter> is of interest to the
        output plugin.
 -->
-オプションの<function>filter_by_origin_cb</function>コールバックは、<parameter>origin_id</parameter>からリプレイされたデータがアウトプットプラグインの対象となるかどうかを判定するために呼び出されます。
+オプションの<function>filter_by_origin_cb</function>コールバックは、<parameter>origin_id</parameter>からリプレイされたデータが出力プラグインの対象となるかどうかを判定するために呼び出されます。
 <programlisting>
 typedef bool (*LogicalDecodeFilterByOriginCB) (struct LogicalDecodingContext *ctx,
                                                RepOriginId origin_id);
@@ -1149,8 +1144,8 @@ typedef bool (*LogicalDecodeFilterByOriginCB) (struct LogicalDecodingContext *ct
        more efficient.
 -->
 これは、カスケード、あるいは双方向レプリケーションソリューションを実装する際に有用です。
-オリジンでフィルターすることにより、そのような構成で、同じ変更のレプリケーションが往復するのを防ぐことができます。
-トランザクションや変更もオリジンに関する情報を持っていますが、このコールバックでフィルターするほうがずっと効率的です。
+オリジンでフィルタすることにより、そのような構成で、同じ変更のレプリケーションが往復するのを防ぐことができます。
+トランザクションや変更もオリジンに関する情報を持っていますが、このコールバックでフィルタするほうがずっと効率的です。
      </para>
      </sect3>
 
@@ -1385,7 +1380,7 @@ typedef void (*LogicalDecodeRollbackPreparedCB) (struct LogicalDecodingContext *
       The required <function>stream_start_cb</function> callback is called when
       opening a block of streamed changes from an in-progress transaction.
 -->
-《機械翻訳》必要な<function>LogicalDecodeStreamStartCB</function>コールバックは、進行中のトランザクションからストリーム化された変更ブロックを開くときに呼び出されます。
+必須である<function>stream_start_cb</function>コールバックは、進行中のトランザクションからストリーム化された変更ブロックを開くときに呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamStartCB) (struct LogicalDecodingContext *ctx,
                                             ReorderBufferTXN *txn);
@@ -1403,7 +1398,7 @@ typedef void (*LogicalDecodeStreamStartCB) (struct LogicalDecodingContext *ctx,
       The required <function>stream_stop_cb</function> callback is called when
       closing a block of streamed changes from an in-progress transaction.
 -->
-《機械翻訳》必要な<function>stream_stop_cb</function>コールバックは、進行中のトランザクションからのストリーミング変更ブロックを閉じるときに呼び出されます。
+必須である<function>stream_stop_cb</function>コールバックは、進行中のトランザクションからのストリーミング変更ブロックを閉じるときに呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamStopCB) (struct LogicalDecodingContext *ctx,
                                            ReorderBufferTXN *txn);
@@ -1421,7 +1416,7 @@ typedef void (*LogicalDecodeStreamStopCB) (struct LogicalDecodingContext *ctx,
       The required <function>stream_abort_cb</function> callback is called to
       abort a previously streamed transaction.
 -->
-《機械翻訳》必要な<function>stream_abort_cb</function>コールバックは、以前にストリームされたトランザクションを中止するために呼び出されます。
+必須である<function>stream_abort_cb</function>コールバックは、以前にストリームされたトランザクションを中止するために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamAbortCB) (struct LogicalDecodingContext *ctx,
                                             ReorderBufferTXN *txn,
@@ -1442,8 +1437,8 @@ typedef void (*LogicalDecodeStreamAbortCB) (struct LogicalDecodingContext *ctx,
       callback is required when the output plugin supports both the streaming
       of large in-progress transactions and two-phase commits.
 -->
-《機械翻訳》<function>stream_prepare_cb</function>コールバックは、2フェーズコミットの一部としてストリーミングされているトランザクションを準備するために呼び出されます。
- このコールバックは、出力プラグインが大きな進行中のトランザクションと2フェーズコミットの両方をストリーミングする場合に必要です。
+<function>stream_prepare_cb</function>コールバックは、2相コミットの一部としてストリーミングされているトランザクションを準備するために呼び出されます。
+ このコールバックは、出力プラグインが大きな進行中のトランザクションと2相コミットの両方をストリーミングする場合に必要です。
       <programlisting>
 typedef void (*LogicalDecodeStreamPrepareCB) (struct LogicalDecodingContext *ctx,
                                               ReorderBufferTXN *txn,
@@ -1462,7 +1457,7 @@ typedef void (*LogicalDecodeStreamPrepareCB) (struct LogicalDecodingContext *ctx
       The required <function>stream_commit_cb</function> callback is called to
       commit a previously streamed transaction.
 -->
-《機械翻訳》必要な<function>stream_commit_cb</function>コールバックは、以前にストリーミングされたトランザクションをコミットするために呼び出されます。
+必須である<function>stream_commit_cb</function>コールバックは、以前にストリーミングされたトランザクションをコミットするために呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamCommitCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn,
@@ -1484,11 +1479,9 @@ typedef void (*LogicalDecodeStreamCommitCB) (struct LogicalDecodingContext *ctx,
       The actual changes are not displayed as the transaction can abort at a later
       point in time and we don't decode changes for aborted transactions.
 -->
-《マッチ度[60.000000]》<function>stream_change_cb</function>コールバックは、ストリーム化された変更のブロック(<function>stream_start_cb</function>と<function>stream_stop_cb</function>呼び出しで区切られます)で変更を送信するときに呼び出されます。
+必須である<function>stream_change_cb</function>コールバックは、ストリーム化された変更のブロック（<function>stream_start_cb</function>と<function>stream_stop_cb</function>呼び出しで区切られます）で変更を送信するときに呼び出されます。
 実際の変更は表示されません。
 なぜなら、トランザクションは後の時点でアボートする可能性があり、アボートされたトランザクションの変更はデコードされないからです。
-《機械翻訳》ストリーム化された変更のブロック内で変更が送信されるときに、必要な<function>stream_change_cb</function>コールバックが呼び出されます(<function>stream_start_cb</function>と<function>stream_stop_cb</function>の呼び出しによって区切られます)。
- 実際の変更は後で表示される可能性があり、中止された変更の変更をデコードすることはできないため、トランザクションは中止されません。
 <programlisting>
 typedef void (*LogicalDecodeStreamChangeCB) (struct LogicalDecodingContext *ctx,
                                              ReorderBufferTXN *txn,
@@ -1512,11 +1505,9 @@ typedef void (*LogicalDecodeStreamChangeCB) (struct LogicalDecodingContext *ctx,
       can abort at a later point in time and we don't decode changes for aborted
       transactions.
 -->
-《マッチ度[57.603687]》<function>stream_message_cb</function>コールバックは、ストリーム化された変更のブロック(<function>stream_start_cb</function>と<function>stream_stop_cb</function>コールで区切られた)で汎用メッセージを送信するときに呼び出されます。
+オプションの<function>stream_message_cb</function>コールバックは、ストリーム化された変更のブロック（<function>stream_start_cb</function>と<function>stream_stop_cb</function>コールで区切られた）で汎用メッセージを送信するときに呼び出されます。
 トランザクションメッセージのメッセージ内容は表示されません。
 なぜなら、トランザクションは後の時点でアボートする可能性があり、アボートされたトランザクションの変更はデコードされないからです。
-《機械翻訳》オプションの<function>stream_message_cb</function>コールバックは、ブロックされた変更のストリームで一般的なメッセージを送信するときに呼び出されます(<function>stream_start_cb</function>と<function>stream_stop_cb</function>の呼び出しによって区切られます)。
- トランザクションメッセージのメッセージ内容は、後で中止される可能性があるため、トランザクションが中止されるときに表示されず、中止された変更のメッセージをデコードしません。
 <programlisting>
 typedef void (*LogicalDecodeStreamMessageCB) (struct LogicalDecodingContext *ctx,
                                               ReorderBufferTXN *txn,
@@ -1541,7 +1532,7 @@ typedef void (*LogicalDecodeStreamMessageCB) (struct LogicalDecodingContext *ctx
       (demarcated by <function>stream_start_cb</function> and
       <function>stream_stop_cb</function> calls).
 -->
-《マッチ度[]》<function>stream_truncate_cb</function>コールバックは、ストリーム化された変更のブロック(<function>stream_start_cb</function>と<function>stream_stop_cb</function>呼び出しで区切られます)内の<command>TRUNCATE</command>コマンドに対して呼び出されます。
+オプションの<function>stream_truncate_cb</function>コールバックは、ストリーム化された変更のブロック（<function>stream_start_cb</function>と<function>stream_stop_cb</function>呼び出しで区切られます）内の<command>TRUNCATE</command>コマンドに対して呼び出されます。
 <programlisting>
 typedef void (*LogicalDecodeStreamTruncateCB) (struct LogicalDecodingContext *ctx,
                                                ReorderBufferTXN *txn,
@@ -1652,8 +1643,8 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
      replication clients do.
 -->
 <link linkend="streaming-replication">ストリーミングレプリケーション</link>における同期レプリケーションと同じユーザインタフェースで、ロジカルデコーディングを使って<link linkend="synchronous-replication">同期レプリケーション</link>ソリューションを構築することができます。
-そのためには、ストリーミングレプリケーションインタフェース(<xref linkend="logicaldecoding-walsender"/>参照)を使ってデータをストリーム出力します。
-ストリーミングレプリケーションクライアントが行っているのと同じように、<literal>状態の更新</literal>(<xref linkend="protocol-replication"/>参照)メッセージを送信しなければなりません。
+そのためには、ストリーミングレプリケーションインタフェース（<xref linkend="logicaldecoding-walsender"/>参照）を使ってデータをストリーム出力します。
+クライアントは、ストリーミングレプリケーションクライアントと同様に、<literal>スタンバイ状態の更新(F)</literal>メッセージを送信する必要があります（<xref linkend="protocol-replication"/>参照）。
     </para>
 
     <note>
