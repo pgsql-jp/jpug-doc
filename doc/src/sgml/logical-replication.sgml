@@ -223,14 +223,17 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    operations will cause an error on the publisher.  <command>INSERT</command>
    operations can proceed regardless of any replica identity.
 -->
-《マッチ度[65.888104]》パブリッシュされたテーブルは、<command>UPDATE</command>と<command>DELETE</command>をレプリケーションできるようにするために、<quote>レプリカアイデンティティ</quote>の設定を含んでいなければなりません。
+パブリッシュされたテーブルは、<command>UPDATE</command>と<command>DELETE</command>をレプリケーションできるようにするために、<firstterm>レプリカアイデンティティ</firstterm>の設定を含んでいなければなりません。
 そうすることにより、サブスクライバー側で更新または削除する対象の正しい行が特定できるようになります。
 デフォルトでは主キーがあれば、それがレプリカアイデンティティになります。
 他に、ユニークキー（追加の要件を伴います）もレプリカアイデンティティにできます。
-テーブルに適当なキーがなければ、レプリカアイデンティティを<quote>full</quote>にできます。
+テーブルに適当なキーがなければ、レプリカアイデンティティを<literal>FULL</literal>にできます。
 これは、行全体がキーになることを意味します。
-しかし、これは非常に非効率なので、他の解決方法がない場合のみの代替手段にすべきです。
-<quote>full</quote>以外のレプリカアイデンティティがパブリッシャー側に設定されている場合、同じか、より少ない列を含むレプリカアイデンティティがサブスクライバー側に設定されていなければなりません。
+レプリカアイデンティティ<literal>FULL</literal>を指定すると、行の検索にサブスクライバー側でインデックスが使えます。
+候補となるインデックスはBツリーでなければならず、部分的であってはなりません。そして、左端のインデックスのフィールドはパブリッシュされたテーブル列を参照する（式でない）列でなければなりません。
+一意でないインデックスの属性に関するこれらの制限は、主キーに強制される制限の一部に準拠しています。
+そのような適切なインデックスがない場合には、サブスクライバー側での検索は非常に非効率なる可能性があるので、レプリカアイデンティティ<literal>FULL</literal>は他の解決方法がない場合のみの代替手段にすべきです。
+<literal>FULL</literal>以外のレプリカアイデンティティがパブリッシャー側に設定されている場合、同じか、より少ない列を含むレプリカアイデンティティがサブスクライバー側に設定されていなければなりません。
 レプリカアイデンティティを設定する詳細な方法については、<xref linkend="sql-altertable-replica-identity"/>をご覧ください。
 <command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションするパブリケーションに、レプリカアイデンティティがないテーブルが追加されると、以後<command>UPDATE</command>あるいは<command>DELETE</command>操作が行われるとパブリッシャー側でエラーが発生します。
 <command>INSERT</command>操作は、レプリカアイデンティティの設定に関わらず実行されます。
@@ -397,20 +400,14 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    <link linkend="sql-createsubscription-with-binary"><literal>binary</literal></link>
    option of <command>CREATE SUBSCRIPTION</command> for details.
 -->
-《マッチ度[68.913858]》テーブルの列も名前で照合されます。
+テーブルの列も名前で照合されます。
 サブスクライバーのテーブルでの列の順序はパブリッシャーと一致している必要はありません。
 データのテキスト表現列が対象の型に変換可能である限り、列のデータ型も一致している必要がありません。
 例えば、<type>integer</type>型の列から<type>bigint</type>型の列にレプリケーションすることができます。
 対象テーブルはパブリッシュされたテーブルにない追加の列を持つこともできます。
 そうした列には対象テーブルの定義の指定に従ってデフォルト値が挿入されます。
-《機械翻訳》テーブルの列も名前で一致します。
-サブスクライバ・テーブルの列は、パブリッシャ・テーブルの列と一致する必要はありません。
-データ型がテキスト表現に変換できる限り、列のデータ型は一致する必要はありません。
-たとえば、<type>integer</type>型の列から<type>bigint</type>型の列にレプリケートできます。
-ターゲット表には、パブリッシュされたテーブルに指定されていない追加の列を含めることもできます。
-そのような列は、ターゲット表の定義で指定されているデフォルト値で埋められます。
-ただし、バイナリ形式の論理レプリケーションはより制限的です。
-詳細については、<link linkend="sql-createsubscription-with-binary"><command>CREATE SUBSCRIPTION</command></link>の<literal>binary</literal>オプションを参照してください。
+しかしながら、バイナリ形式の論理レプリケーションはより制限的です。
+詳細は、<command>CREATE SUBSCRIPTION</command>の<link linkend="sql-createsubscription-with-binary"><literal>binary</literal></link>オプションを参照してください。
   </para>
 
   <sect2 id="logical-replication-subscription-slot">
@@ -525,7 +522,10 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   </sect2>
 
   <sect2 id="logical-replication-subscription-examples">
+<!--
     <title>Examples: Set Up Logical Replication</title>
+-->
+    <title>例: 論理レプリケーションの設定</title>
 
     <para>
 <!--
@@ -577,9 +577,9 @@ INSERT 0 3
      operations. The publication <literal>pub3b</literal> has a row filter (see
      <xref linkend="logical-replication-row-filter"/>).
 -->
-《機械翻訳》テーブルのパブリケーションを作成します。
-パブリケーション <literal>pub2</literal>と<literal>pub3a</literal>は<link linkend="sql-createpublication-with-publish"><literal>publish</literal></link>操作を許可しません。
-パブリケーション<literal>pub3b</literal>は、行フィルタを持っています（<xref linkend="logical-replication-row-filter"/>を参照）。
+テーブルのパブリケーションを作成します。
+パブリケーション<literal>pub2</literal>と<literal>pub3a</literal>では、一部の<link linkend="sql-createpublication-with-publish"><literal>パブリッシュ</literal></link>操作が許可されません。
+パブリケーション<literal>pub3b</literal>には行フィルタがあります（<xref linkend="logical-replication-row-filter"/>を参照）。
 <programlisting>
 test_pub=# CREATE PUBLICATION pub1 FOR TABLE t1;
 CREATE PUBLICATION
@@ -756,7 +756,10 @@ test_sub=# SELECT * FROM t3;
   </sect2>
 
   <sect2 id="logical-replication-subscription-examples-deferred-slot">
+<!--
    <title>Examples: Deferred Replication Slot Creation</title>
+-->
+   <title>例: レプリケーションスロットの遅延作成</title>
 
    <para>
 <!--
@@ -778,7 +781,7 @@ test_sub=# SELECT * FROM t3;
 <!--
     First, create a publication for the examples to use.
 -->
-《機械翻訳》まず、サンプルで使用するパブリケーションを作成します。
+まず、サンプルで使用するパブリケーションを作成します。
 <programlisting>
 test_pub=# CREATE PUBLICATION pub1 FOR ALL TABLES;
 CREATE PUBLICATION
@@ -787,7 +790,7 @@ CREATE PUBLICATION
 <!--
     Example 1: Where the subscription says <literal>connect = false</literal>
 -->
-《機械翻訳》例1: 購読が<literal>connect = false</literal>と記述されている場合
+例1: サブスクリプションが<literal>connect = false</literal>と記述されている場合
    </para>
    <para>
     <itemizedlist>
@@ -796,7 +799,7 @@ CREATE PUBLICATION
 <!--
        Create the subscription.
 -->
-《機械翻訳》サブスクリプションを作成します。
+サブスクリプションを作成します。
 <programlisting>
 test_sub=# CREATE SUBSCRIPTION sub1
 test_sub-# CONNECTION 'host=localhost dbname=test_pub'
@@ -814,9 +817,8 @@ CREATE SUBSCRIPTION
        specified during <literal>CREATE SUBSCRIPTION</literal>, the name of the
        slot to create is same as the subscription name, e.g. "sub1".
 -->
-《機械翻訳》パブリッシャで、スロットを手動で作成します。
-<literal>CREATE SUBSCRIPTION</literal>中に名前が指定されていないため、作成するスロットの名前はサブスクリプション名と同じになります。
-たとえば、"sub1"です。
+パブリッシャーで、スロットを手動で作成します。
+<literal>CREATE SUBSCRIPTION</literal>時に名前が指定されていないため、作成するスロットの名前はサブスクリプション名と同じになります。たとえば、"sub1"です。
 <programlisting>
 test_pub=# SELECT * FROM pg_create_logical_replication_slot('sub1', 'pgoutput');
  slot_name |    lsn
@@ -831,8 +833,8 @@ test_pub=# SELECT * FROM pg_create_logical_replication_slot('sub1', 'pgoutput');
        On the subscriber, complete the activation of the subscription. After
        this the tables of <literal>pub1</literal> will start replicating.
 -->
-《機械翻訳》サブスクライバで、サブスクリプションのアクティブ化を完了します。
- これにより、<literal>pub1</literal>のテーブルはレプリケーションを開始します。
+サブスクライバーで、サブスクリプションのアクティブ化を完了します。
+これにより、<literal>pub1</literal>のテーブルはレプリケーションを開始します。
 <programlisting>
 test_sub=# ALTER SUBSCRIPTION sub1 ENABLE;
 ALTER SUBSCRIPTION
@@ -850,14 +852,14 @@ ALTER SUBSCRIPTION
     <link linkend="sql-createsubscription-with-slot-name"><literal>slot_name</literal></link>
     option.
 -->
-《機械翻訳》例2: サブスクリプションが<literal>connect=false</literal>と記述されているが、<link linkend="sql-createsubscription-with-slot-name"><literal>connect=false</literal></link>オプションも指定されている場合。
+例2: サブスクリプションが<literal>connect=false</literal>と記述されているが、<link linkend="sql-createsubscription-with-slot-name"><literal>slot_name</literal></link>オプションも指定されている場合。
     <itemizedlist>
      <listitem>
       <para>
 <!--
        Create the subscription.
 -->
-《機械翻訳》サブスクリプションを作成します。
+サブスクリプションを作成します。
 <programlisting>
 test_sub=# CREATE SUBSCRIPTION sub1
 test_sub-# CONNECTION 'host=localhost dbname=test_pub'
@@ -874,8 +876,7 @@ CREATE SUBSCRIPTION
        On the publisher, manually create a slot using the same name that was
        specified during <literal>CREATE SUBSCRIPTION</literal>, e.g. "myslot".
 -->
-《機械翻訳》パブリッシャで、<literal>CREATE SUBSCRIPTION</literal>時に指定したものと同じ名前を使用して、スロットを手動で作成します。
-例えば、"myslot"です。
+パブリッシャーで、<literal>CREATE SUBSCRIPTION</literal>時に指定したものと同じ名前を使用して、スロットを手動で作成します。例えば、"myslot"です。
 <programlisting>
 test_pub=# SELECT * FROM pg_create_logical_replication_slot('myslot', 'pgoutput');
  slot_name |    lsn
@@ -890,7 +891,7 @@ test_pub=# SELECT * FROM pg_create_logical_replication_slot('myslot', 'pgoutput'
        On the subscriber, the remaining subscription activation steps are the
        same as before.
 -->
-《機械翻訳》サブスクライバでは、残りのサブスクリプションのアクティブ化手順は以前と同じです。
+サブスクライバーでは、残りのサブスクリプションのアクティブ化手順は以前と同じです。
 <programlisting>
 test_sub=# ALTER SUBSCRIPTION sub1 ENABLE;
 ALTER SUBSCRIPTION
@@ -905,7 +906,7 @@ ALTER SUBSCRIPTION
 <!--
     Example 3: Where the subscription specifies <literal>slot_name = NONE</literal>
 -->
-《機械翻訳》例3: サブスクリプションが<literal>slot_name = NONE</literal>を指定する場合 
+例3: サブスクリプションが<literal>slot_name = NONE</literal>を指定している場合
     <itemizedlist>
      <listitem>
       <para>
@@ -915,7 +916,7 @@ ALTER SUBSCRIPTION
        <literal>create_slot = false</literal> are also needed.
 -->
 サブスクリプションを作成します。
- <literal>slot_name = NONE</literal>の場合、<literal>enabled = false</literal>で、<literal>create_slot</literal>も<literal>false</literal>である必要があります。
+ <literal>slot_name = NONE</literal>の場合、<literal>enabled = false</literal>と<literal>create_slot = false</literal>も必要です。
 <programlisting>
 test_sub=# CREATE SUBSCRIPTION sub1
 test_sub-# CONNECTION 'host=localhost dbname=test_pub'
@@ -929,7 +930,7 @@ CREATE SUBSCRIPTION
 <!--
        On the publisher, manually create a slot using any name, e.g. "myslot".
 -->
-《機械翻訳》パブリッシャで、myslot などの名前を使用してスロットを手動で作成します。
+パブリッシャーで、"myslot"などの名前を使用してスロットを手動で作成します。
 <programlisting>
 test_pub=# SELECT * FROM pg_create_logical_replication_slot('myslot', 'pgoutput');
  slot_name |    lsn
@@ -944,7 +945,7 @@ test_pub=# SELECT * FROM pg_create_logical_replication_slot('myslot', 'pgoutput'
        On the subscriber, associate the subscription with the slot name just
        created.
 -->
-《機械翻訳》サブスクライバで、作成したスロット名にサブスクリプションを関連付けます。
+サブスクライバーで、先ほど作成したスロット名にサブスクリプションを関連付けます。
 <programlisting>
 test_sub=# ALTER SUBSCRIPTION sub1 SET (slot_name='myslot');
 ALTER SUBSCRIPTION
@@ -955,7 +956,7 @@ ALTER SUBSCRIPTION
 <!--
        The remaining subscription activation steps are same as before.
 -->
-《機械翻訳》残りのサブスクリプションのアクティブ化手順は、以前と同じです。
+残りのサブスクリプションのアクティブ化手順は、以前と同じです。
 <programlisting>
 test_sub=# ALTER SUBSCRIPTION sub1 ENABLE;
 ALTER SUBSCRIPTION
@@ -1016,14 +1017,10 @@ ALTER SUBSCRIPTION
     clause of the <xref linkend="sql-createsubscription"/>). Row filters have
     no effect for <command>TRUNCATE</command> command.
 -->
-《マッチ度[84.517304]》行フィルタは、<emphasis>変更を発行する前に</emphasis>適用されます。
+行フィルタは、<emphasis>変更を発行する前に</emphasis>適用されます。
 行フィルタが<literal>false</literal>または<literal>NULL</literal>と評価される場合、行はレプリケーションされません。
-<literal>WHERE</literal>句の式は、レプリケーション接続に使用されるロールと同じロール(<xref linkend="sql-createsubscription"/>の<literal>CONNECTION</literal>句で指定されたロール)で評価されます。
+<literal>WHERE</literal>句の式は、レプリケーション接続に使用されるロールと同じロール(<xref linkend="sql-createsubscription"/>の<link linkend="sql-createsubscription-connection"><literal>CONNECTION</literal></link>句で指定されたロール)で評価されます。
 <command>TRUNCATE</command>コマンドに対しては、行フィルタは無効です。
-《機械翻訳》行フィルタは、変更を<emphasis>発行</emphasis>する前に適用されます。
-行フィルタが<literal>false</literal>または<literal>NULL</literal>の場合、そのローはレプリケートされません。
-<literal>WHERE</literal>句の式は、レプリケーション接続に使用されるのと同じロールで評価されます（<xref linkend="sql-createsubscription-connection"/>の<xref linkend="sql-createsubscription"/>の<link linkend="sql-createsubscription-connection"><literal>CONNECTION</literal></link>句で指定されたロール）。
-行フィルタは<command>TRUNCATE</command>コマンドには影響しません。
    </para>
 
   </sect2>
@@ -1053,7 +1050,7 @@ ALTER SUBSCRIPTION
     publishes only <command>INSERT</command> operations, the row filter
     <literal>WHERE</literal> clause can use any column.
 -->
-パブリケーションが<command>UPDATE</command>または<command>DELETE</command>操作をパブリッシュする場合、行フィルタ<literal>WHERE</literal>句には、レプリカIDの対象となる列のみを含める必要があります(<xref linkend="sql-altertable-replica-identity"/>を参照)。
+パブリケーションが<command>UPDATE</command>または<command>DELETE</command>操作をパブリッシュする場合、行フィルタ<literal>WHERE</literal>句には、レプリカアイデンティティの対象となる列のみを含める必要があります(<xref linkend="sql-altertable-replica-identity"/>を参照)。
 パブリケーションが<command>INSERT</command>操作のみをパブリッシュする場合、行フィルタ<literal>WHERE</literal>句は任意の列を使用できます。
    </para>
 
@@ -1175,12 +1172,9 @@ ALTER SUBSCRIPTION
     is <literal>false</literal> (default), each <emphasis>partition's</emphasis>
     row filter is used.
 -->
-《マッチ度[81.970260]》パブリケーションにパーティション化テーブルが含まれている場合、パブリケーション・パラメータ<literal>publish_via_partition_root</literal>によって使用される行フィルタが決定されます。
+パブリケーションにパーティション化テーブルが含まれている場合、パブリケーションパラメータ<link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link>によって使用される行フィルタが決定されます。
 <literal>publish_via_partition_root</literal>が<literal>true</literal>の場合、<emphasis>ルートのパーティション化テーブルの</emphasis>行フィルタが使用されます。
 それ以外の場合、<literal>publish_via_partition_root</literal>が<literal>false</literal>(デフォルト)の場合、<emphasis>パーティションの</emphasis>行フィルタがそれぞれ使用されます。
-《機械翻訳》パブリケーションにパーティション化されたテーブルが含まれている場合、パブリケーションパラメータ<link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link>は、どの行フィルタを使用するかを決定します。
-<literal>publish_via_partition_root</literal> <literal>true</literal>の場合、<emphasis>ルートパーティション化されたテーブルの</emphasis>行フィルタが使用されます。
-そうでない場合、<literal>publish_via_partition_root</literal> が <literal>false</literal>（デフォルト）の場合、各 <emphasis>パーティションの</emphasis>行フィルタが使用されます。
    </para>
 
   </sect2>
@@ -1221,11 +1215,8 @@ ALTER SUBSCRIPTION
      <xref linkend="logical-replication-snapshot"/>, and see
      <xref linkend="logical-replication-subscription-examples"/> for examples.
 -->
-《マッチ度[80.451128]》初期データ同期では、既存のテーブルデータをコピーする際に<literal>パブリッシュ</literal>パラメータが考慮されないため、DMLを使用してレプリケーションされない行がコピーされる場合があります。
+初期データ同期では、既存のテーブルデータをコピーする際に<link linkend="sql-createpublication-with-publish"><literal>publish</literal></link>パラメータが考慮されないため、DMLを使用してレプリケーションされない行がコピーされる場合があります。
 <xref linkend="logical-replication-snapshot"/>および<xref linkend="logical-replication-subscription-examples"/>の例を参照してください。
-《機械翻訳》初期データ同期では、既存のテーブルデータをコピーする際に<link linkend="sql-createpublication-with-publish"><literal>publish</literal></link>パラメータが考慮されないため、DMLを使用してレプリケートされない行がコピーされる場合があります。
- 詳細は<xref linkend="logical-replication-snapshot"/>を参照してください。
- また、<xref linkend="logical-replication-subscription-examples"/>も参照してください。
     </para>
    </warning>
 
@@ -1258,8 +1249,8 @@ ALTER SUBSCRIPTION
     <emphasis>any</emphasis> of the expressions will be replicated. This means all
     the other row filters for the same table become redundant if:
 -->
-《機械翻訳》同じテーブルが、異なる行フィルタ（同じ<link linkend="sql-createpublication-with-publish"><literal>publish</literal></link>操作のため）でパブリッシュされている複数のパブリケーションをサブスクリプションに持っている場合、これらの式はOR され、<emphasis>いずれか</emphasis> の式を満たす行がレプリケートされます。
-これは、同じテーブルに対する他のすべての行フィルタが、次の場合に冗長になることを意味します。
+サブスクリプションに複数のパブリケーションがあり、その中で同じテーブルが異なる行フィルタを使用してパブリッシュされている場合（同じ<link linkend="sql-createpublication-with-publish"><literal>パブリッシュ</literal></link>操作の場合）、これらの式はOR結合され、式の<emphasis>いずれか</emphasis>を満たす行がレプリケーションされます。
+これは、次の場合、同じテーブルの他のすべての行フィルタが冗長になることを意味します。
     <itemizedlist>
      <listitem>
       <para>
@@ -1276,10 +1267,8 @@ ALTER SUBSCRIPTION
        <link linkend="sql-createpublication-for-all-tables"><literal>FOR ALL TABLES</literal></link>.
        This clause does not allow row filters.
 -->
-《マッチ度[61.363636]》パブリケーションの1つが<literal>FOR ALL TABLES</literal>を使用して作成された。
+パブリケーションの1つが<link linkend="sql-createpublication-for-all-tables"><literal>FOR ALL TABLES</literal></link>を使用して作成された。
 この句では行フィルタを使用できません。
-《機械翻訳》パブリケーションの 1 つは <link linkend="sql-createpublication-for-all-tables"><literal>FOR ALL TABLES</literal></link> を使用して作成されました。
- この句では行フィルタを指定できません。
       </para>
      </listitem>
      <listitem>
@@ -1290,10 +1279,8 @@ ALTER SUBSCRIPTION
        and the table belongs to the referred schema. This clause does not allow
        row filters.
 -->
-《マッチ度[65.665236]》パブリケーションの1つが<literal>FOR TABLES IN SCHEMA</literal>を使用して作成され、テーブルは参照されたスキーマに属している。
+パブリケーションの1つが<link linkend="sql-createpublication-for-tables-in-schema"><literal>FOR TABLES IN SCHEMA</literal></link>を使用して作成され、テーブルは参照されたスキーマに属している。
 この句では、行フィルタは使用できません。
-《機械翻訳》パブリケーションの 1 つは <link linkend="sql-createpublication-for-tables-in-schema"><literal>FOR TABLES IN SCHEMA</literal></link> を使って作成され、テーブルは参照先スキーマに属しています。
- この句では行フィルタを指定できません。
       </para>
      </listitem>
     </itemizedlist></para>
@@ -1605,8 +1592,7 @@ test_sub=# SELECT * FROM t1;
     determines whether the row filter of the parent or child table will be used
     in the case of partitioned tables.
 -->
-《マッチ度[69.415808]》次の例は、パブリケーションパラメータ<literal>publish_via_partition_root</literal>によって、親テーブルまたは子テーブルの行フィルタがパーティション化されたテーブルで使用されるかどうかがどのように決定されるかを示しています。
-《機械翻訳》次の例は、パーティション化されたテーブルの場合、パブリケーションパラメータ<link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link>が親テーブルまたは子テーブルの行フィルタをどのように使用するかを示しています。
+次の例は、パブリケーションパラメータ<link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link>によって、親テーブルまたは子テーブルの行フィルタがパーティション化されたテーブルで使用されるかどうかがどのように決定されるかを示しています。
    </para>
 
    <para>
@@ -1810,8 +1796,7 @@ test_sub=# SELECT * FROM child ORDER BY a;
    <link linkend="sql-createpublication-for-tables-in-schema"><literal>FOR TABLES IN SCHEMA</literal></link>
    is not supported.
 -->
-《マッチ度[62.500000]》パブリケーションもパブリッシュする場合の列リストの指定<literal>FOR TABLES IN SCHEMA</literal>はサポートされていません。
-《機械翻訳》パブリケーションが<link linkend="sql-createpublication-for-tables-in-schema"><literal>FOR TABLES IN SCHEMA</literal></link>もパブリッシュする場合、列リストを指定することはサポートされていません。
+パブリケーションもパブリッシュする場合の列リストの指定<link linkend="sql-createpublication-for-tables-in-schema"><literal>FOR TABLES IN SCHEMA</literal></link>はサポートされていません。
   </para>
 
   <para>
@@ -1823,12 +1808,9 @@ test_sub=# SELECT * FROM child ORDER BY a;
    used. Otherwise, if <literal>publish_via_partition_root</literal> is
    <literal>false</literal> (the default), each partition's column list is used.
 -->
-《マッチ度[80.753138]》パーティション化テーブルの場合、パブリケーション・パラメータ<literal>publish_via_partition_root</literal>によって使用される列リストが決定されます。
+パーティション化テーブルの場合、パブリケーションパラメータ<link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link>によって使用される列リストが決定されます。
 <literal>publish_via_partition_root</literal>が<literal>true</literal>の場合、ルートのパーティション化テーブルの列リストが使用されます。
 それ以外の場合、<literal>publish_via_partition_root</literal>が<literal>false</literal>（デフォルト）の場合、各パーティションの列リストが使用されます。
-《機械翻訳》パーティション化されたテーブルの場合、パブリケーションパラメータ <link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link> は、どの列リストを使用するかを決定します。
-<literal>publish_via_partition_root</literal> が<literal>true</literal>の場合、ルートパーティション表の列リストが使用されます。
-そうでない場合、<literal>publish_via_partition_root</literal>が<literal>false</literal>(デフォルト)の場合、各パーティションの列リストが使用されます。
   </para>
 
   <para>
@@ -1840,8 +1822,8 @@ test_sub=# SELECT * FROM child ORDER BY a;
    If a publication publishes only <command>INSERT</command> operations, then
    the column list may omit replica identity columns.
 -->
-パブリケーションが<command>UPDATE</command>または<command>DELETE</command>操作をパブリッシュする場合、どの列リストにもテーブルのレプリカID列が含まれている必要があります(<xref linkend="sql-altertable-replica-identity"/>を参照)。
-パブリケーションが<command>INSERT</command>操作のみをパブリッシュする場合列リストでレプリカID列を省略できます。
+パブリケーションが<command>UPDATE</command>または<command>DELETE</command>操作をパブリッシュする場合、どの列リストにもテーブルのレプリカアイデンティティ列が含まれている必要があります(<xref linkend="sql-altertable-replica-identity"/>を参照)。
+パブリケーションが<command>INSERT</command>操作のみをパブリッシュする場合列リストでレプリカアイデンティティ列を省略できます。
   </para>
 
   <para>
@@ -2118,25 +2100,16 @@ CONTEXT:  processing remote data for replication origin "pg_16395" during "INSER
    might not violate any constraint.  This can easily make the subscriber
    inconsistent.
 -->
-《マッチ度[]》制約とレプリケーションの起点名に違反する変更を含むトランザクションのLSNは、サーバーログ(LSN 0/14C0378とレプリケーション起点<literal>pg_16395</literal>)から見つけることができます。
-競合を発生させたトランザクションは、終了LSN(LSN 0/14C0378)で<command>ALTER SUBSCRIPTION.SKIP</command>を使用してスキップできます。
+制約とレプリケーションの起点名に違反する変更を含むトランザクションのLSNは、サーバーログ(LSN 0/14C0378とレプリケーション起点<literal>pg_16395</literal>)から見つけることができます。
+競合を発生させたトランザクションは、終了LSN(LSN 0/14C0378)で<command>ALTER SUBSCRIPTION ... SKIP</command>を使用してスキップできます。
 終了LSNは、パブリッシャーでトランザクションがコミットまたは準備されたLSNにすることができます。
 あるいは、<link linkend="pg-replication-origin-advance"><function>pg_replication_origin_advance()</function></link>関数を呼び出して、トランザクションをスキップすることもできます。
-この関数を使用する前に、<command>ALTER SUBSCRIPTION.DISABLE</command>を使用してサブスクリプションを一時的に無効にする必要があります。
-また、サブスクリプションは<literal>disable_on_error</literal>オプションを使用して使用できます。
+この関数を使用する前に、<command>ALTER SUBSCRIPTION ... DISABLE</command>を使用してサブスクリプションを一時的に無効にする必要があります。
+また、サブスクリプションは<link linkend="sql-createsubscription-with-disable-on-error"><literal>disable_on_error</literal></link>オプションを使用して使用できます。
 次に、<function>pg_replication_origin_advance()</function>関数を<parameter>node_name</parameter>(<literal>pg_16395</literal>)と終了LSNの次のLSN(0/14C0379)と共に使用できます。
 現在の起点の位置は、<link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link>システムビューで確認できます。
 トランザクション全体をスキップすることは、いかなる制約にも違反しない可能性のある変更をスキップすることを含むことに注意してください。
 これは容易にサブスクライバーを不整合にする可能性があります。
-《機械翻訳》制約に違反する変更を含むトランザクションのLSNとレプリケーションの起点名は、サーバのログから見つけることができます（上記の例ではLSN 0/14C0378とレプリケーションの起点<literal>pg_16395</literal>）。
-競合を起こしたトランザクションは、終了LSN(つまり、LSN 0/14C0378)を使用して<command>ALTER SUBSCRIPTION ... SKIP</command>を使用することでスキップできます。
-終了LSNは、トランザクションがパブリッシャでコミットまたは準備されたLSNである可能性があります。
-あるいは、トランザクションは<link linkend="pg-replication-origin-advance"> <function>pg_replication_origin_advance()</function></link>関数を呼び出すことによってスキップすることもできます。
-この関数を使用する前に、サブスクリプションを一時的に無効にする必要があります。<command>ALTER SUBSCRIPTION ... DISABLE</command>を使用するか、または、サブスクリプションを<link linkend="sql-createsubscription-with-disable-on-error"><literal>disable_on_error</literal></link>オプションで使用できます。
-次に、<function>pg_replication_origin_advance()</function>関数を、<parameter>node_name</parameter>(<literal>pg_16395</literal>)と、終了LSNの次のLSN(<literal>0/14C0379</literal>)で使用できます。
-現在の起点の位置は、<link linkend="view-pg-replication-origin-status">システムビュー <structname>pg_replication_origin_status</structname></link>で確認できます。
-トランザクション全体をスキップすると、制約に違反しない可能性のある変更もスキップされることに注意してください。
-これにより、サブスクライバが容易に不整合になる可能性があります。
   </para>
 
   <para>
@@ -2151,9 +2124,9 @@ CONTEXT:  processing remote data for replication origin "pg_16395" during "INSER
    linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION ...
    SKIP</command></link>.
 -->
-《機械翻訳》<link linkend="sql-createsubscription-with-streaming"><literal>streaming</literal></link>モードが<literal>parallel</literal>の場合、失敗したトランザクションの終了LSNはログに書き込まれないことがあります。
- その場合、ストリーミングモードを<literal>on</literal>または<literal>off</literal>に変更し、失敗したトランザクションの終了LSNをサーバのログに書き込むようにする必要があります。
- 終了LSNの使用方法については、<link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION ... SKIP</command></link>を参照してください。
+<link linkend="sql-createsubscription-with-streaming"><literal>streaming</literal></link>モードが<literal>parallel</literal>の場合、失敗したトランザクションの終了LSNはログに書き込まれないことがあります。
+その場合、ストリーミングモードを<literal>on</literal>または<literal>off</literal>に変更し、再度同じコンフリクトを起こすことで、失敗したトランザクションの終了LSNをサーバのログに書き込むようにする必要があるかもしれません。
+終了LSNの使用方法については、<link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION ... SKIP</command></link>を参照してください。
   </para>
  </sect1>
 
@@ -2280,9 +2253,9 @@ CONTEXT:  processing remote data for replication origin "pg_16395" during "INSER
      <link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link>
      parameter of <command>CREATE PUBLICATION</command>).
 -->
-《マッチ度[79.920213]》パーティション化テーブル間でレプリケーションする場合には、実際のレプリケーションは、デフォルトでは、パブリッシャー側の末端のパーティションから開始します。ですので、パブリッシャー側のパーティションがサブスクライバー側にも有効な対象テーブルとして存在していなければなりません。
+パーティション化テーブル間でレプリケーションする場合には、実際のレプリケーションは、デフォルトでは、パブリッシャー側の末端のパーティションから開始します。ですので、パブリッシャー側のパーティションがサブスクライバー側にも有効な対象テーブルとして存在していなければなりません。
 (対象テーブルは、それ自身が末端のパーティションかもしれませんし、さらにサブパーティション化されているかもしれません。独立したテーブルであっても構いません。)
-パブリケーションは、変更が実際に開始された個々の末端のパーティションのIDとスキーマの代わりに、パーティション化されたルートのテーブルのIDとスキーマを使って指定することもできます(<link linkend="sql-createpublication"><command>CREATE PUBLICATION</command></link>を参照してください)。
+パブリケーションは、変更が実際に開始された個々の末端のパーティションのIDとスキーマの代わりに、パーティション化されたルートのテーブルのIDとスキーマを使って指定することもできます(<command>CREATE PUBLICATION</command>の<link linkend="sql-createpublication-with-publish-via-partition-root"><literal>publish_via_partition_root</literal></link>パラメータを参照してください)。
     </para>
    </listitem>
   </itemizedlist>
@@ -2399,10 +2372,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       initial data synchronization does not take this parameter into account
       when copying the existing table data.
 -->
-《マッチ度[74.275362]》パブリケーションの<literal>パブリッシュ</literal>パラメータは、レプリケーションされるDML操作にのみ影響します。
+パブリケーションの<link linkend="sql-createpublication-with-publish"><literal>publish</literal></link>パラメータは、レプリケーションされるDML操作にのみ影響します。
 初期データ同期では、既存のテーブルデータをコピーするときにこのパラメータは考慮されません。
-《機械翻訳》<link linkend="sql-createpublication-with-publish"><literal>publish</literal></link>パラメータは、DML操作が複製されるかどうかにのみ影響します。
- 既存のテーブルデータをコピーする場合、初期データ同期ではこのパラメータは考慮されません。
      </para>
     </note>
   </sect2>
@@ -2449,12 +2420,9 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    transaction is applied in parallel, there may be additional parallel apply
    workers.
 -->
-《マッチ度[57.201646]》有効なサブスクリプションのために通常は一つの適用プロセスが実行中です。
+有効なサブスクリプションのために通常は一つの適用プロセスが実行中です。
 無効なサブスクリプション、あるいはクラッシュしたサブスクリプションはこのビュー中に0個の行を持ちます。
 テーブルの初期データの同期が進行中なら、同期中のテーブルのための追加ワーカーが存在するでしょう。
-《機械翻訳》通常、適用されたサブスクリプションに対しては1つの適用プロセスが実行されます。
-無効なサブスクリプションまたはクラッシュしたサブスクリプションは、このビューに0行を持ちます。
-表の初期データ同期が進行中である場合、同期される表に追加のワーカーが存在します。
 さらに、<link linkend="sql-createsubscription-with-streaming"><literal>streaming</literal></link>トランザクションが並列に適用される場合、追加のパラレル適用ワーカーが存在する可能性があります。
   </para>
  </sect1>
@@ -2525,10 +2493,10 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    <productname>PostgreSQL</productname> in the future to allow for
    finer-grained access control.
 -->
-《機械翻訳》現在、パブリケーションに権限はありません。
-サブスクリプション (接続可能) は、パブリケーションにアクセスできます。
- そのため、行フィルタや列リストを使用したり、テーブル全体をパブリケーションに追加しないなどして、特定のサブスクライバからの情報を非表示にする場合は、同じデータベース内の他のパブリケーションが同じ情報にアクセスできる可能性があることに注意してください。
- パブリケーション権限は、より細かいアクセス制御を可能にするために、将来<productname>PostgreSQL</productname>に追加される可能性があります。
+現在、パブリケーションに権限はありません。
+（接続可能な）サブスクリプションはすべて、パブリケーションにアクセスできます。
+そのため、行フィルタや列リストを使用したり、テーブル全体をパブリケーションに追加しないなどして、特定のサブスクライバからの情報を隠したい場合は、同じデータベース内の他のパブリケーションが同じ情報にアクセスできる可能性があることに注意してください。
+より細かいアクセス制御を可能にするために、パブリケーション権限が将来<productname>PostgreSQL</productname>に追加される可能性があります。
   </para>
 
   <para>
@@ -2537,7 +2505,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    the <literal>pg_create_subscription</literal> role, as well as
    <literal>CREATE</literal> privileges on the database.
 -->
-《機械翻訳》サブスクリプションを作成するには、ユーザは<literal>pg_create_subscription</literal>ロールの権限と、データベースの<literal>CREATE</literal>権限を持っている必要があります。
+サブスクリプションを作成するためには、ユーザは<literal>pg_create_subscription</literal>ロールの権限と、データベースの<literal>CREATE</literal>権限を持っていることが必要です。
   </para>
 
   <para>
@@ -2549,9 +2517,9 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    privileges. This means that the subscription owner needs to be able to
    <literal>SET ROLE</literal> to each role that owns a replicated table.
 -->
-《機械翻訳》サブスクリプションの適用プロセスは、セッション・レベルで、サブスクリプション所有者の権限で実行されます。
-ただし、特定の表に対して挿入、更新、削除または切捨て操作を実行すると、その権限は表の所有者に切り替わり、表の所有者の権限で操作が実行されます。
-つまり、サブスクリプション所有者は、レプリケートされた表を所有する各ロールに対して<literal>SET ROLE</literal>を実行できる必要があります。
+サブスクリプション適用プロセスは、セッションレベルで、サブスクリプション所有者の権限で実行されます。
+ただし、特定のテーブルに対して挿入、更新、削除または切捨て操作を実行すると、テーブルの所有者にロールを切り替え、テーブルの所有者の権限で操作が実行されます。
+つまり、サブスクリプション所有者は、レプリケートされたテーブルを所有する各ロールに対して<literal>SET ROLE</literal>を実行できる必要があります。
   </para>
 
   <para>
@@ -2571,12 +2539,12 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    the privileges of another, this option should be avoided unless user
    security within the database is of no concern.
 -->
-《機械翻訳》サブスクリプションが <literal>run_as_owner = true</literal>で構成されている場合、ユーザの切り替えは発生しません。
+サブスクリプションが <literal>run_as_owner = true</literal>で構成されている場合、ユーザの切り替えは発生しません。
 その代わり、すべての操作は、サブスクリプションの所有者の権限で実行されます。
-この場合、サブスクリプションの所有者は、ターゲットテーブルからの<literal>SELECT</literal>、<literal>INSERT</literal>、<literal>UPDATE</literal>、および<literal>DELETE</literal>権限のみが必要であり、テーブル所有者に対する<literal>SET ROLE</literal>権限は不要です。
+この場合、サブスクリプションの所有者は、対象テーブルからの<literal>SELECT</literal>、<literal>INSERT</literal>、<literal>UPDATE</literal>、および<literal>DELETE</literal>権限のみが必要であり、テーブル所有者に対する<literal>SET ROLE</literal>権限は不要です。
 しかし、これはまた、レプリケーションが行われているテーブルを所有するユーザは、サブスクリプション所有者の権限で任意のコードを実行できることを意味します。
 たとえば、所有するテーブルにトリガーを付加するだけで、これを実行できます。
-通常、あるロールが別のロールの権限を自由に引き受けることは望ましくないので、データベース内のユーザーセキュリティが問題にならない場合は、このオプションを避けるべきです。
+通常、あるロールが別のロールの権限を自由に引き受けることは望ましくないので、データベース内のユーザーセキュリティが問題にならない場合以外は、このオプションを避けるべきです。
   </para>
 
   <para>
@@ -2613,20 +2581,23 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    <varname>max_replication_slots</varname> is used on both the publisher and
    the subscriber, but it has a different meaning for each.
 -->
-《機械翻訳》論理レプリケーションでは、いくつかの構成オプションを設定する必要があります。
-ほとんどのオプションは、レプリケーションの一方の側でのみ関連します。
-ただし、<varname>max_replication_slots</varname>は、パブリッシャとサブスクライバの両方で使用されますが、それぞれに異なる意味を持ちます。
+論理レプリケーションでは、いくつかの構成オプションを設定することが必要です。
+ほとんどのオプションは、レプリケーションの一方の側にのみ関連します。
+ただし、<varname>max_replication_slots</varname>は、パブリッシャーとサブスクライバーの両方で使用されますが、それぞれで異なる意味を持ちます。
   </para>
 
   <sect2 id="logical-replication-config-publisher">
+<!--
    <title>Publishers</title>
+-->
+   <title>パブリッシャー</title>
 
    <para>
 <!--
     <link linkend="guc-wal-level"><varname>wal_level</varname></link> must be
     set to <literal>logical</literal>.
 -->
-《機械翻訳》<link linkend="guc-wal-level"><varname>wal_level</varname></link>は<literal>logical</literal>に設定する必要があります。
+<link linkend="guc-wal-level"><varname>wal_level</varname></link>は<literal>logical</literal>に設定することが必要です。
    </para>
 
    <para>
@@ -2635,7 +2606,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     must be set to at least the number of subscriptions expected to connect,
     plus some reserve for table synchronization.
 -->
-《機械翻訳》<link linkend="guc-max-replication-slots"><varname>max_replication_slots</varname></link>は、接続する予定のサブスクリプション数と、テーブル同期用の予備の数を加えた数以上に設定する必要があります。
+<link linkend="guc-max-replication-slots"><varname>max_replication_slots</varname></link>は、接続する予定のサブスクリプション数と、テーブル同期のために予約された数を加えた数以上に設定することが必要です。
    </para>
 
    <para>
@@ -2645,8 +2616,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     <varname>max_replication_slots</varname>, plus the number of physical
     replicas that are connected at the same time.
 -->
-《機械翻訳》<link linkend="guc-max-wal-senders"><varname>max_wal_senders</varname></link>は、少なくとも<varname>max_replication_slots</varname>と同じ数に設定する必要があります。
- また、同時に接続されている物理レプリカの数にも、同じ数を加える必要があります。
+<link linkend="guc-max-wal-senders"><varname>max_wal_senders</varname></link>は、少なくとも<varname>max_replication_slots</varname>に同時に接続されている物理レプリカの数も加えたものと同じ数に設定することが必要です。
    </para>
 
    <para>
@@ -2654,13 +2624,16 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     Logical replication walsender is also affected by
     <link linkend="guc-wal-sender-timeout"><varname>wal_sender_timeout</varname></link>.
 -->
-《機械翻訳》論理レプリケーションのwalsenderも<link linkend="guc-wal-sender-timeout"><varname>wal_sender_timeout</varname></link>の影響を受けます。
+論理レプリケーションのwalsenderも<link linkend="guc-wal-sender-timeout"><varname>wal_sender_timeout</varname></link>の影響を受けます。
    </para>
 
   </sect2>
 
   <sect2 id="logical-replication-config-subscriber">
+<!--
    <title>Subscribers</title>
+-->
+   <title>サブスクライバー</title>
 
    <para>
 <!--
@@ -2668,7 +2641,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     must be set to at least the number of subscriptions that will be added to
     the subscriber, plus some reserve for table synchronization.
 -->
-《機械翻訳》<link linkend="guc-max-replication-slots-subscriber"><varname>max_replication_slots</varname></link>は、少なくともサブスクライバに追加される予約の数に、テーブル同期用の予約を加えた数以上に設定する必要があります。
+<link linkend="guc-max-replication-slots-subscriber"><varname>max_replication_slots</varname></link>は、少なくともサブスクライバーに追加されるサブスクリプションの数に、テーブル同期用の予約を加えた数以上に設定することが必要です。
    </para>
 
    <para>
@@ -2678,7 +2651,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     workers), plus some reserve for the table synchronization workers and
     parallel apply workers.
 -->
-《機械翻訳》<link linkend="guc-max-logical-replication-workers"><varname>max_logical_replication_workers</varname></link>は、少なくともサブスクリプション数（リーダー適用ワーカー用）に加えて、テーブル同期ワーカーとパラレル適用ワーカー用の予備を加えた数以上に設定する必要があります。
+<link linkend="guc-max-logical-replication-workers"><varname>max_logical_replication_workers</varname></link>は、少なくともサブスクリプション数（リーダー適用ワーカー用）に加えて、テーブル同期ワーカーとパラレル適用ワーカー用に予約された数を加えた数以上に設定することが必要です。
    </para>
 
    <para>
@@ -2689,8 +2662,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     + <literal>1</literal>). Note, some extensions and parallel queries also
     take worker slots from <varname>max_worker_processes</varname>.
 -->
-《機械翻訳》<link linkend="guc-max-worker-processes"><varname>max_worker_processes</varname></link>は、少なくともレプリケーションワーカーに対応するように調整する必要があるかもしれません(<link linkend="guc-max-logical-replication-workers"><varname>max_logical_replication_workers</varname></link> + <literal>1</literal>)。
- なお、一部の拡張機能や並列クエリは<varname>max_worker_processes</varname>からワーカースロットを取得します。
+<link linkend="guc-max-worker-processes"><varname>max_worker_processes</varname></link>は、少なくともレプリケーションワーカーに対応するように調整する必要があるかもしれません(<link linkend="guc-max-logical-replication-workers"><varname>max_logical_replication_workers</varname></link> + <literal>1</literal>)。
+なお、一部の拡張機能やパラレルクエリも<varname>max_worker_processes</varname>からワーカースロットを取得することに注意してください。
    </para>
 
    <para>
@@ -2699,7 +2672,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
      controls the amount of parallelism of the initial data copy during the
      subscription initialization or when new tables are added.
 -->
-《機械翻訳》<link linkend="guc-max-sync-workers-per-subscription"><varname>max_sync_workers_per_subscription</varname></link>は、サブスクリプション初期化時や新しいテーブルが追加されたときの初期データコピーの並列度を制御します。
+<link linkend="guc-max-sync-workers-per-subscription"><varname>max_sync_workers_per_subscription</varname></link>は、サブスクリプション初期化時や新しいテーブルが追加されたときの初期データコピーの並列度を制御します。
    </para>
 
    <para>
@@ -2709,7 +2682,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
      transactions with subscription parameter
      <literal>streaming = parallel</literal>.
 -->
-《機械翻訳》<link linkend="guc-max-parallel-apply-workers-per-subscription"><varname>max_parallel_apply_workers_per_subscription</varname></link>は、サブスクリプションパラメータ<literal>streaming = parallel</literal>を使用して、進行中のトランザクションのストリーミングに対する並列処理の量を制御します。
+<link linkend="guc-max-parallel-apply-workers-per-subscription"><varname>max_parallel_apply_workers_per_subscription</varname></link>は、サブスクリプションパラメータ<literal>streaming = parallel</literal>で進行中のトランザクションのストリーミングに対する並列度を制御します。
    </para>
 
    <para>
@@ -2719,7 +2692,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     <link linkend="guc-wal-receiver-status-interval"><varname>wal_receiver_status_interval</varname></link> and
     <link linkend="guc-wal-retrieve-retry-interval"><varname>wal_retrieve_retry_interval</varname></link>.
 -->
-《機械翻訳》論理レプリケーション・ワーカーも、<link linkend="guc-wal-receiver-timeout"><varname>wal_receiver_timeout</varname></link>、<link linkend="guc-wal-receiver-status-interval"><varname>wal_receiver_status_interval</varname></link>、および<link linkend="guc-wal-retrieve-retry-interval"><varname>wal_retrieve_retry_interval</varname></link>によって影響を受けます。
+論理レプリケーションワーカーも、<link linkend="guc-wal-receiver-timeout"><varname>wal_receiver_timeout</varname></link>、<link linkend="guc-wal-receiver-status-interval"><varname>wal_receiver_status_interval</varname></link>、および<link linkend="guc-wal-retrieve-retry-interval"><varname>wal_retrieve_retry_interval</varname></link>の影響を受けます。
    </para>
 
   </sect2>
