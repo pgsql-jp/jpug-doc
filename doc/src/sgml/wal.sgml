@@ -175,7 +175,8 @@ SCSIドライブは<command>camcontrol identify</command>を使用して照会�
 《マッチ度[80.000000]》<productname>Windows</productname>では、もし<varname>wal_sync_method</varname>
 が<literal>open_datasync</literal>(デフォルト)の場合、<literal>My Computer\Open\<replaceable>disk drive</replaceable>\Properties\Hardware\Properties\Policies\Enable write caching on the disk</literal>のチェックを外すことで、書き込みキャッシュを無効にできます。
 もう一つの方法としては、<varname>wal_sync_method</varname>を<literal>fdatasync</literal>（NTFSのみ）、<literal>fsync</literal>または<literal>fsync_writethrough</literal>に設定し、書き込みキャッシュを使用しないようにします。
-《機械翻訳》«On <productname>Windows</productname>, if <varname>wal_sync_method</varname> is <literal>open_datasync</literal> (the default), write caching can be disabled by unchecking <literal>My Computer\Open\<replaceable>disk drive</replaceable>\Properties\Hardware\Properties\Policies\Enable write caching on the disk</literal>. Alternatively, set <varname>wal_sync_method</varname> to <literal>fdatasync</literal> (NTFS only) or <literal>fsync</literal>, which prevent write caching.»
+《機械翻訳》<productname>Windows</productname>では、<varname>wal_sync_method</varname>が<literal>open_datasync</literal>（デフォルト）の場合、<literal>My Computer\Open\<replaceable>disk drive</replaceable>\Properties\Hardware\Properties\Policies\Enable write caching on the disk</literal>をチェック解除することで、書き込みキャッシュを無効にできます。
+あるいは、<varname>wal_sync_method</varname>を<literal>fdatasync</literal>（NTFSのみ）または<literal>fsync</literal>に設定して、書き込みキャッシングを防ぎます。
       </para>
     </listitem>
 
@@ -1019,7 +1020,20 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
 リスタートポイントは、最後のリスタートポイントより少なくとも<varname>checkpoint_timeout</varname>秒が経過しているか、あるいは<varname>max_wal_size</varname>を超えそうな場合に起動されます。
 しかし、リスタートポイントが実施できるための制約事項により、リカバリの際には1回のチェックポイント分のWALを上限に、<varname>max_wal_size</varname>を超えてしまいがちです。
 (どのみち<varname>max_wal_size</varname>はハードリミットではないので、ディスクスペースを使い尽くしてしまわないように、常に十分な余裕を持っておくべきです)
-《機械翻訳》«In archive recovery or standby mode, the server periodically performs <firstterm>restartpoints</firstterm>,<indexterm><primary>restartpoint</primary></indexterm> which are similar to checkpoints in normal operation: the server forces all its state to disk, updates the <filename>pg_control</filename> file to indicate that the already-processed WAL data need not be scanned again, and then recycles any old WAL segment files in the <filename>pg_wal</filename> directory. Restartpoints can't be performed more frequently than checkpoints on the primary because restartpoints can only be performed at checkpoint records. A restartpoint can be demanded by a schedule or by an external request. The <structfield>restartpoints_timed</structfield> counter in the <link linkend="monitoring-pg-stat-checkpointer-view"><structname>pg_stat_checkpointer</structname></link> view counts the first ones while the <structfield>restartpoints_req</structfield> the second. A restartpoint is triggered by schedule when a checkpoint record is reached if at least <xref linkend="guc-checkpoint-timeout"/> seconds have passed since the last performed restartpoint or when the previous attempt to perform the restartpoint has failed. In the last case, the next restartpoint will be scheduled in 15 seconds. A restartpoint is triggered by request due to similar reasons like checkpoint but mostly if WAL size is about to exceed <xref linkend="guc-max-wal-size"/> However, because of limitations on when a restartpoint can be performed, <varname>max_wal_size</varname> is often exceeded during recovery, by up to one checkpoint cycle's worth of WAL. (<varname>max_wal_size</varname> is never a hard limit anyway, so you should always leave plenty of headroom to avoid running out of disk space.) The <structfield>restartpoints_done</structfield> counter in the <link linkend="monitoring-pg-stat-checkpointer-view"><structname>pg_stat_checkpointer</structname></link> view counts the restartpoints that have really been performed.»
+《機械翻訳》アーカイブの回復またはスタンバイモードでは、サーバは定期的に<firstterm>再起動ポイント</firstterm>を実行します。
+これは通常の動作のチェックポイントと同じです。
+すなわち、サーバはすべての状態をディスクに書き込み、<filename>pg_control</filename>ファイルを更新して、処理済みのWALデータを再びスキャンする必要がないことを示します。
+そして、<filename>pg_wal</filename>ディレクトリにある古いWALセグメントファイルをすべてリサイクルします。
+再開始点はチェックポイントレコードでのみ実行できるため、再開始点は、プライマリ上のチェックポイントよりも頻繁に実行することはできません。
+再始動点は、スケジュールまたは外部要求によって要求することができます。
+<link linkend="monitoring-pg-stat-checkpointer-view"><structname>pg_stat_checkpointer</structname></link>ビューの<structfield>restartpoints_timed</structfield>カウンタは最初のものをカウントし、<structfield>restartpoints_req</structfield>は2番目のものをカウントします。
+再起動ポイントは、最後に実行された再起動ポイントから少なくとも<xref linkend="guc-checkpoint-timeout"/>秒が経過した場合、または前回の再起動ポイントの実行が失敗した場合に、チェックポイントレコードに達したときにスケジュールによってトリガーされます。
+最後のケースでは、次の再起動ポイントは15秒後にスケジュールされます。
+再起動点は、チェックポイントと同様の理由でリクエストによってトリガーされますが、ほとんどの場合、WALサイズが<xref linkend="guc-max-wal-size"/>を超えようとしている場合です。
+しかし、再起動点を実行できる時期には制限があるため、リカバリ中に<varname>max_wal_size</varname>をチェックポイントサイクル分のWALサイズ分上回ってしまうことがよくあります。
+（<varname>max_wal_size</varname>は、いずれにせよ決してハードリミットではありません。
+したがって、ディスク領域不足を避けるために、十分な余裕を残しておく必要があります）。
+<link linkend="monitoring-pg-stat-checkpointer-view"><structname>pg_stat_checkpointer</structname></link>ビューの<structfield>restartpoints_done</structfield>カウンタは、実際に実行された再起動点をカウントします。
   </para>
 
   <para>
@@ -1037,7 +1051,10 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    counter among the restartpoint-related ones indicates that noticeable system
    resources have been spent.
 -->
-《機械翻訳》«In some cases, when the WAL size on the primary increases quickly, for instance during massive INSERT, the <structfield>restartpoints_req</structfield> counter on the standby may demonstrate a peak growth. This occurs because requests to create a new restartpoint due to increased XLOG consumption cannot be performed because the safe checkpoint record since the last restartpoint has not yet been replayed on the standby. This behavior is normal and does not lead to an increase in system resource consumption. Only the <structfield>restartpoints_done</structfield> counter among the restartpoint-related ones indicates that noticeable system resources have been spent.»
+《機械翻訳》場合によっては、プライマリのWALサイズが急速に増加する場合、例えば大量のINSERTの間など、スタンバイ側の<structfield>restartpoints_req</structfield>カウンタがピーク増加を示すことがあります。
+これは、最後の再起動ポイント以降の安全なチェックポイント レコードがまだスタンバイで再生されていないために、XLOG の消費量が増加したために新しい再起動ポイントを作成する要求を実行できないために発生します。
+この動作は正常であり、システムリソースの消費量が増えることはありません。
+再起動ポイント関連のカウンタのうち<structfield>restartpoints_done</structfield>カウンタだけが、顕著なシステムリソースが消費されたことを示します。
   </para>
 
   <para>
