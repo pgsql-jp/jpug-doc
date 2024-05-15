@@ -50,11 +50,11 @@ PostgreSQL documentation
   <application>pg_upgrade</application> (formerly called <application>pg_migrator</application>) allows data
   stored in <productname>PostgreSQL</productname> data files to be upgraded to a later <productname>PostgreSQL</productname>
   major version without the data dump/restore typically required for
-  major version upgrades, e.g., from 9.5.8 to 9.6.4 or from 10.7 to 11.2.
-  It is not required for minor version upgrades, e.g., from 9.6.2 to 9.6.3
-  or from 10.1 to 10.2.
+  major version upgrades, e.g., from 12.14 to 13.10 or from 14.9 to 15.5.
+  It is not required for minor version upgrades, e.g., from 12.7 to 12.8
+  or from 14.1 to 14.5.
 -->
-<application>pg_upgrade</application>(これまでは<application>pg_migrator</application>と呼ばれていました)を使用することで、メジャーバージョンのアップグレード、例えば、9.5.8から9.6.4へ、10.7から11.2へのアップグレードで通常必要とされるデータのダンプ/リストアを行うことなく、<productname>PostgreSQL</productname>データファイル内に格納されたデータをより最新の<productname>PostgreSQL</productname>メジャーバージョンに移行できます。
+《マッチ度[91.973970]》<application>pg_upgrade</application>(これまでは<application>pg_migrator</application>と呼ばれていました)を使用することで、メジャーバージョンのアップグレード、例えば、9.5.8から9.6.4へ、10.7から11.2へのアップグレードで通常必要とされるデータのダンプ/リストアを行うことなく、<productname>PostgreSQL</productname>データファイル内に格納されたデータをより最新の<productname>PostgreSQL</productname>メジャーバージョンに移行できます。
 これは、例えば9.6.2から9.6.3、10.1から10.2などマイナーバージョンのアップグレードでは必要ありません。
  </para>
 
@@ -545,7 +545,7 @@ make prefix=/usr/local/pgsql.new install
 例えばUnixでは以下を使用します。
 
 <programlisting>
-pg_ctl -D /opt/PostgreSQL/9.6 stop
+pg_ctl -D /opt/PostgreSQL/12 stop
 pg_ctl -D /opt/PostgreSQL/&majorversion; stop
 </programlisting>
 
@@ -555,17 +555,18 @@ pg_ctl -D /opt/PostgreSQL/&majorversion; stop
 Windowsでは以下
 
 <programlisting>
-NET STOP postgresql-9.6
+NET STOP postgresql-12
 NET STOP postgresql-&majorversion;
 </programlisting>
     </para>
 
     <para>
 <!--
-     Streaming replication and log-shipping standby servers can
-     remain running until a later step.
+     Streaming replication and log-shipping standby servers must be
+     running during this shutdown so they receive all changes.
 -->
-ストリーミングレプリケーションおよびログシッピングのスタンバイサーバは、後のステップまで実行中のまま残すことができます。
+《マッチ度[55.833333]》ストリーミングレプリケーションおよびログシッピングのスタンバイサーバは、後のステップまで実行中のまま残すことができます。
+《機械翻訳》このシャットダウン中に、すべての変更を受信するように、ストリーミング・レプリケーションおよびログ送信スタンバイ・サーバーが実行されている必要があります。
     </para>
    </step>
 
@@ -582,16 +583,17 @@ NET STOP postgresql-&majorversion;
      servers are caught up by running <application>pg_controldata</application>
      against the old primary and standby clusters.  Verify that the
      <quote>Latest checkpoint location</quote> values match in all clusters.
-     (There will be a mismatch if old standby servers were shut down
-     before the old primary or if the old standby servers are still running.)
      Also, make sure <varname>wal_level</varname> is not set to
      <literal>minimal</literal> in the <filename>postgresql.conf</filename> file on the
      new primary cluster.
 -->
-スタンバイサーバを<xref linkend="pgupgrade-step-replicas"/>の節で示した手順でアップグレードする場合は、<application>pg_controldata</application>を実行して、古いスタンバイサーバが、古いプライマリ及びスタンバイのクラスタに同期していることを確認してください。
+《マッチ度[63.352827]》スタンバイサーバを<xref linkend="pgupgrade-step-replicas"/>の節で示した手順でアップグレードする場合は、<application>pg_controldata</application>を実行して、古いスタンバイサーバが、古いプライマリ及びスタンバイのクラスタに同期していることを確認してください。
 すべてのクラスタで<quote>Latest checkpoint location</quote>（最終チェックポイント位置）の値が一致することを確認してください。
 （古いスタンバイサーバが、古いプライマリより先にシャットダウンされた場合、もしくは古いスタンバイサーバがまだ稼働中の場合は一致しないでしょう。）
 また、新しいプライマリのクラスタの<filename>postgresql.conf</filename>ファイルで<varname>wal_level</varname>を<literal>minimal</literal>に絶対に設定しないようにしてください。
+《機械翻訳》セクション<xref linkend="pgupgrade-step-replicas"/>で説明した方法でスタンバイサーバをアップグレードする場合、古いスタンバイサーバが古いプライマリとスタンバイクラスタに対して<application>pg_controldata</application>を実行することで、キャッチアップされていることを確認してください。
+すべてのクラスタで<quote>最新のチェックポイント位置</quote>の値が一致していることを確認します。
+また、新しいプライマリクラスタの<filename>postgresql.conf</filename>ファイルで<varname>wal_level</varname>が<literal>minimal</literal>に設定されていないことを確認してください。
     </para>
    </step>
 
@@ -671,9 +673,9 @@ SET PATH=%PATH%;C:\Program Files\PostgreSQL\&majorversion;\bin;
 
 <programlisting>
 pg_upgrade.exe
-        --old-datadir "C:/Program Files/PostgreSQL/9.6/data"
+        --old-datadir "C:/Program Files/PostgreSQL/12/data"
         --new-datadir "C:/Program Files/PostgreSQL/&majorversion;/data"
-        --old-bindir "C:/Program Files/PostgreSQL/9.6/bin"
+        --old-bindir "C:/Program Files/PostgreSQL/12/bin"
         --new-bindir "C:/Program Files/PostgreSQL/&majorversion;/bin"
 </programlisting>
 
@@ -878,8 +880,8 @@ rsync --archive --delete --hard-links --size-only --no-inc-recursive old_cluster
 例を示します。
 
 <programlisting>
-rsync --archive --delete --hard-links --size-only --no-inc-recursive /opt/PostgreSQL/9.5 \
-      /opt/PostgreSQL/9.6 standby.example.com:/opt/PostgreSQL
+rsync --archive --delete --hard-links --size-only --no-inc-recursive /opt/PostgreSQL/12 \
+      /opt/PostgreSQL/&majorversion; standby.example.com:/opt/PostgreSQL
 </programlisting>
 
 <!--
@@ -925,8 +927,8 @@ rsync --archive --delete --hard-links --size-only --no-inc-recursive /opt/Postgr
 例を示します。
 
 <programlisting>
-rsync --archive --delete --hard-links --size-only --no-inc-recursive /vol1/pg_tblsp/PG_9.5_201510051 \
-      /vol1/pg_tblsp/PG_9.6_201608131 standby.example.com:/vol1/pg_tblsp
+rsync --archive --delete --hard-links --size-only --no-inc-recursive /vol1/pg_tblsp/PG_12_201909212 \
+      /vol1/pg_tblsp/PG_&majorversion;_202307071 standby.example.com:/vol1/pg_tblsp
 </programlisting>
 
 <!--

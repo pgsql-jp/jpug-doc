@@ -2127,7 +2127,7 @@ GetSnapshotDataReuse(Snapshot snapshot)
 	 * GetSnapshotData() cannot change while ProcArrayLock is held. Snapshot
 	 * contents only depend on transactions with xids and xactCompletionCount
 	 * is incremented whenever a transaction with an xid finishes (while
-	 * holding ProcArrayLock) exclusively). Thus the xactCompletionCount check
+	 * holding ProcArrayLock exclusively). Thus the xactCompletionCount check
 	 * ensures we would detect if the snapshot would have changed.
 	 *
 	 * As the snapshot contents are the same as it was before, it is safe to
@@ -2171,8 +2171,7 @@ GetSnapshotDataReuse(Snapshot snapshot)
  * but since PGPROC has only a limited cache area for subxact XIDs, full
  * information may not be available.  If we find any overflowed subxid arrays,
  * we have to mark the snapshot's subxid data as overflowed, and extra work
- * *may* need to be done to determine what's running (see XidInMVCCSnapshot()
- * in heapam_visibility.c).
+ * *may* need to be done to determine what's running (see XidInMVCCSnapshot()).
  *
  * We also update the following backend-global variables:
  *		TransactionXmin: the oldest xmin of any snapshot in use in the

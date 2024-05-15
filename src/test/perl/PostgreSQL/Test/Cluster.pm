@@ -1972,8 +1972,7 @@ sub psql
 
 Invoke B<psql> on B<$dbname> and return a BackgroundPsql object.
 
-A default timeout of $PostgreSQL::Test::Utils::timeout_default is set up,
-which can be modified later.
+A timeout of $PostgreSQL::Test::Utils::timeout_default is set up.
 
 psql is invoked in tuples-only unaligned mode with reading of B<.psqlrc>
 disabled.  That may be overridden by passing extra psql parameters.
@@ -2039,8 +2038,7 @@ sub background_psql
 Invoke B<psql> on B<$dbname> and return a BackgroundPsql object, which the
 caller may use to send interactive input to B<psql>.
 
-A default timeout of $PostgreSQL::Test::Utils::timeout_default is set up,
-which can be modified later.
+A timeout of $PostgreSQL::Test::Utils::timeout_default is set up.
 
 psql is invoked in tuples-only unaligned mode with reading of B<.psqlrc>
 disabled.  That may be overridden by passing extra psql parameters.
@@ -2050,13 +2048,16 @@ Errors occurring later are the caller's problem.
 
 Be sure to "quit" the returned object when done with it.
 
-The only extra parameter currently accepted is
-
 =over
 
 =item extra_params => ['--single-transaction']
 
 If given, it must be an array reference containing additional parameters to B<psql>.
+
+=item history_file => B<path>
+
+Cause the interactive B<psql> session to write its command history to B<path>.
+If not given, the history is sent to B</dev/null>.
 
 =back
 
@@ -2069,6 +2070,27 @@ sub interactive_psql
 	my ($self, $dbname, %params) = @_;
 
 	local %ENV = $self->_get_env();
+
+	# Since the invoked psql will believe it's interactive, it will use
+	# readline/libedit if available.  We need to adjust some environment
+	# settings to prevent unwanted side-effects.
+
+	# Developers would not appreciate tests adding a bunch of junk to
+	# their ~/.psql_history, so redirect readline history somewhere else.
+	# If the calling script doesn't specify anything, just bit-bucket it.
+	$ENV{PSQL_HISTORY} = $params{history_file} || '/dev/null';
+
+	# Another pitfall for developers is that they might have a ~/.inputrc
+	# file that changes readline's behavior enough to affect the test.
+	# So ignore any such file.
+	$ENV{INPUTRC} = '/dev/null';
+
+	# Unset TERM so that readline/libedit won't use any terminal-dependent
+	# escape sequences; that leads to way too many cross-version variations
+	# in the output.
+	delete $ENV{TERM};
+	# Some versions of readline inspect LS_COLORS, so for luck unset that too.
+	delete $ENV{LS_COLORS};
 
 	my @psql_params = (
 		$self->installed_command('psql'),
@@ -3070,6 +3092,36 @@ $SIG{TERM} = $SIG{INT} = sub {
 
 =pod
 
+=item $node->log_standby_snapshot(self, standby, slot_name)
+
+Log a standby snapshot on primary once the slot restart_lsn is determined on
+the standby.
+
+=cut
+
+sub log_standby_snapshot
+{
+	my ($self, $standby, $slot_name) = @_;
+
+	# Once the slot's restart_lsn is determined, the standby looks for
+	# xl_running_xacts WAL record from the restart_lsn onwards. First wait
+	# until the slot restart_lsn is determined.
+
+	$standby->poll_query_until(
+		'postgres', qq[
+		SELECT restart_lsn IS NOT NULL
+		FROM pg_catalog.pg_replication_slots WHERE slot_name = '$slot_name'
+	])
+	  or die
+	  "timed out waiting for logical slot to calculate its restart_lsn";
+
+	# Then arrange for the xl_running_xacts record for which the standby is
+	# waiting.
+	$self->safe_psql('postgres', 'SELECT pg_log_standby_snapshot()');
+}
+
+=pod
+
 =item $node->create_logical_slot_on_standby(self, primary, slot_name, dbname)
 
 Create logical replication slot on given standby
@@ -3095,21 +3147,9 @@ sub create_logical_slot_on_standby
 		'2>',
 		\$stderr);
 
-	# Once the slot's restart_lsn is determined, the standby looks for
-	# xl_running_xacts WAL record from the restart_lsn onwards. First wait
-	# until the slot restart_lsn is determined.
-
-	$self->poll_query_until(
-		'postgres', qq[
-		SELECT restart_lsn IS NOT NULL
-		FROM pg_catalog.pg_replication_slots WHERE slot_name = '$slot_name'
-	])
-	  or die
-	  "timed out waiting for logical slot to calculate its restart_lsn";
-
-	# Then arrange for the xl_running_xacts record for which pg_recvlogical is
+	# Arrange for the xl_running_xacts record for which pg_recvlogical is
 	# waiting.
-	$primary->safe_psql('postgres', 'SELECT pg_log_standby_snapshot()');
+	$primary->log_standby_snapshot($self, $slot_name);
 
 	$handle->finish();
 

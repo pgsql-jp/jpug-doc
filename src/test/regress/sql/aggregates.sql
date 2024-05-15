@@ -643,6 +643,15 @@ select aggfns(distinct a,b,c order by a,c using ~<~,b)
   from (values (1,3,'foo'),(0,null,null),(2,2,'bar'),(3,1,'baz')) v(a,b,c),
        generate_series(1,2) i;
 
+-- test a more complex permutation that has previous caused issues
+select
+    string_agg(distinct 'a', ','),
+    sum((
+        select sum(1)
+        from (values(1)) b(id)
+        where a.id = b.id
+)) from unnest(array[1]) a(id);
+
 -- check node I/O via view creation and usage, also deparsing logic
 
 create view agg_view1 as
@@ -740,7 +749,7 @@ select string_agg(v, decode('ee', 'hex')) from bytea_test_table;
 drop table bytea_test_table;
 
 -- Test parallel string_agg and array_agg
-create table pagg_test (x int, y int);
+create table pagg_test (x int, y int) with (autovacuum_enabled = off);
 insert into pagg_test
 select (case x % 4 when 1 then null else x end), x % 10
 from generate_series(1,5000) x;

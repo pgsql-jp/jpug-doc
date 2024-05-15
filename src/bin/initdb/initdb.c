@@ -482,6 +482,7 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 	for (i = 0; lines[i]; i++)
 	{
 		const char *where;
+		const char *namestart;
 
 		/*
 		 * Look for a line assigning to guc_name.  Typically it will be
@@ -492,15 +493,19 @@ replace_guc_value(char **lines, const char *guc_name, const char *guc_value,
 		where = lines[i];
 		while (*where == '#' || isspace((unsigned char) *where))
 			where++;
-		if (strncmp(where, guc_name, namelen) != 0)
+		if (pg_strncasecmp(where, guc_name, namelen) != 0)
 			continue;
+		namestart = where;
 		where += namelen;
 		while (isspace((unsigned char) *where))
 			where++;
 		if (*where != '=')
 			continue;
 
-		/* found it -- append the original comment if any */
+		/* found it -- let's use the canonical casing shown in the file */
+		memcpy(&newline->data[mark_as_comment ? 1 : 0], namestart, namelen);
+
+		/* now append the original comment if any */
 		where = strrchr(where, '#');
 		if (where)
 		{
@@ -1223,25 +1228,17 @@ setup_config(void)
 	conflines = replace_guc_value(conflines, "shared_buffers",
 								  repltok, false);
 
-	/*
-	 * Hack: don't replace the LC_XXX GUCs when their value is 'C', because
-	 * replace_guc_value will decide not to quote that, which looks strange.
-	 */
-	if (strcmp(lc_messages, "C") != 0)
-		conflines = replace_guc_value(conflines, "lc_messages",
-									  lc_messages, false);
+	conflines = replace_guc_value(conflines, "lc_messages",
+								  lc_messages, false);
 
-	if (strcmp(lc_monetary, "C") != 0)
-		conflines = replace_guc_value(conflines, "lc_monetary",
-									  lc_monetary, false);
+	conflines = replace_guc_value(conflines, "lc_monetary",
+								  lc_monetary, false);
 
-	if (strcmp(lc_numeric, "C") != 0)
-		conflines = replace_guc_value(conflines, "lc_numeric",
-									  lc_numeric, false);
+	conflines = replace_guc_value(conflines, "lc_numeric",
+								  lc_numeric, false);
 
-	if (strcmp(lc_time, "C") != 0)
-		conflines = replace_guc_value(conflines, "lc_time",
-									  lc_time, false);
+	conflines = replace_guc_value(conflines, "lc_time",
+								  lc_time, false);
 
 	switch (locale_date_order(lc_time))
 	{

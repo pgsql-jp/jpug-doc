@@ -107,9 +107,8 @@ InitPostmasterChild(void)
 
 	/*
 	 * Set reference point for stack-depth checking.  This might seem
-	 * redundant in !EXEC_BACKEND builds; but it's not because the postmaster
-	 * launches its children from signal handlers, so we might be running on
-	 * an alternative stack.
+	 * redundant in !EXEC_BACKEND builds, but it's better to keep the depth
+	 * logic the same with and without that build option.
 	 */
 	(void) set_stack_base();
 
@@ -844,6 +843,14 @@ InitializeSessionUserIdStandalone(void)
 	AuthenticatedUserIsSuperuser = true;
 
 	SetSessionUserId(BOOTSTRAP_SUPERUSERID, true);
+
+	/*
+	 * XXX This should set SetConfigOption("session_authorization"), too.
+	 * Since we don't, C code will get NULL, and current_setting() will get an
+	 * empty string.
+	 */
+	SetConfigOption("is_superuser", "on",
+					PGC_INTERNAL, PGC_S_DYNAMIC_DEFAULT);
 }
 
 /*

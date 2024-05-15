@@ -1784,22 +1784,27 @@ CREATE TABLE posts (
    <para>
 <!--
     A foreign key must reference columns that either are a primary key or
-    form a unique constraint.  This means that the referenced columns always
-    have an index (the one underlying the primary key or unique constraint);
-    so checks on whether a referencing row has a match will be efficient.
-    Since a <command>DELETE</command> of a row from the referenced table
-    or an <command>UPDATE</command> of a referenced column will require
-    a scan of the referencing table for rows matching the old value, it
-    is often a good idea to index the referencing columns too.  Because this
-    is not always needed, and there are many choices available on how
-    to index, declaration of a foreign key constraint does not
-    automatically create an index on the referencing columns.
+    form a unique constraint, or are columns from a non-partial unique index.
+    This means that the referenced columns always have an index to allow
+    efficient lookups on whether a referencing row has a match.  Since a
+    <command>DELETE</command> of a row from the referenced table or an
+    <command>UPDATE</command> of a referenced column will require a scan of
+    the referencing table for rows matching the old value, it is often a good
+    idea to index the referencing columns too.  Because this is not always
+    needed, and there are many choices available on how to index, the
+    declaration of a foreign key constraint does not automatically create an
+    index on the referencing columns.
 -->
-外部キーは主キーであるかまたは一意性制約を構成する列を参照しなければなりません。
+《マッチ度[77.038043]》外部キーは主キーであるかまたは一意性制約を構成する列を参照しなければなりません。
 これは、被参照列は常に（主キーまたは一意性制約の基礎となる）インデックスを持つことを意味します。
 このため、参照行に一致する行があるかどうかのチェックは効率的です。
 被参照テーブルからの行の<command>DELETE</command>や被参照行の<command>UPDATE</command>は、古い値と一致する行に対して参照テーブルのスキャンが必要となるので、参照行にもインデックスを付けるのは大抵は良い考えです。
 これは常に必要という訳ではなく、また、インデックスの方法には多くの選択肢がありますので、外部キー制約の宣言では参照列のインデックスが自動的に作られるということはありません。
+《機械翻訳》外部キーは、主キーまたは一意性制約を形成する列、または部分一意性インデックスの列を参照する必要があります。
+これは、参照されるカラムには常にインデックスがあり、参照する行に一致があるかどうかを効率的に検索できることを意味します。
+参照先テーブルから行を<command>DELETE</command>したり、参照先列を<command>UPDATE</command>したりすると、古い値に一致する行を参照するテーブルのスキャンが必要になるため、参照する列にもインデックスを付けることをお勧めします。
+これは必ずしも必要ではないため、インデックスの作成方法には多くの選択肢があります。
+ 外部キー制約の宣言は、参照する列に自動的にインデックスを作成するわけではありません。
    </para>
 
    <para>
@@ -3379,9 +3384,20 @@ PostgreSQLはあるタイプのオブジェクトが作成された時に、そ�
    </indexterm>
 <!--
    The privileges that have been granted for a particular object are
-   displayed as a list of <type>aclitem</type> entries, where each
-   <type>aclitem</type> describes the permissions of one grantee that
-   have been granted by a particular grantor.  For example,
+   displayed as a list of <type>aclitem</type> entries, each having the
+   format:
+-->
+《機械翻訳》特定のオブジェクトに対して付与された権限は、<type>aclitem</type>エントリのリストとして表示されます。
+ それぞれのエントリは次の形式です。
+<synopsis>
+<replaceable>grantee</replaceable><literal>=</literal><replaceable>privilege-abbreviation</replaceable><optional><literal>*</literal></optional>...<literal>/</literal><replaceable>grantor</replaceable>
+</synopsis>
+<!--
+   Each <type>aclitem</type> lists all the permissions of one grantee that
+   have been granted by a particular grantor.  Specific privileges are
+   represented by one-letter abbreviations from
+   <xref linkend="privilege-abbrevs-table"/>, with <literal>*</literal>
+   appended if the privilege was granted with grant option.  For example,
    <literal>calvin=r*w/hobbes</literal> specifies that the role
    <literal>calvin</literal> has the privilege
    <literal>SELECT</literal> (<literal>r</literal>) with grant option
@@ -3393,11 +3409,17 @@ PostgreSQLはあるタイプのオブジェクトが作成された時に、そ�
    An empty grantee field in an <type>aclitem</type> stands
    for <literal>PUBLIC</literal>.
 -->
-あるオブジェクトに与えられている権限は<type>aclitem</type>エントリのリストとして表示されます。
+《マッチ度[59.702602]》あるオブジェクトに与えられている権限は<type>aclitem</type>エントリのリストとして表示されます。
 そこでは、<type>aclitem</type>はある権限付与者によって与えられている権限授与者の許可を示しています。
 たとえば、<literal>calvin=r*w/hobbes</literal>は、ロール<literal>calvin</literal>が許可オプション（<literal>*</literal>）ありの<literal>SELECT</literal>（<literal>r</literal>）と許可オプションなしの<literal>UPDATE</literal> (<literal>w</literal>)を持ち、それらがロール<literal>hobbes</literal>に与えられていることを示します。
 別の権限付与者によって権限が与えられている同じオブジェクトに対して<literal>calvin</literal>も権限を持っている場合は、別の<type>aclitem</type>エントリとして表示されます。
 <type>aclitem</type>の権限授与者フィールドが空であれば、それは<literal>PUBLIC</literal>を表します。
+《機械翻訳》各<type>aclitem</type>は、特定の許可者によって付与された1人の許可者のすべての権限をリストします。
+特定の権限は<xref linkend="privilege-abbrevs-table"/>の1文字の省略形で表され、権限が付与オプションで付与された場合は<literal>*</literal>が追加されます。
+例えば、<literal>calvin=r*w/hobbes</literal>は、ロール<literal>calvin</literal>が、権限付与オプション(<literal>*</literal>)を持つ<literal>SELECT</literal>(<literal>r</literal>)と、権限付与不可の権限<literal>UPDATE</literal>(<literal>w</literal>)の両方を持つことを指定します。
+ どちらもロール<literal>hobbes</literal>によって付与されます。
+<literal>calvin</literal>が同じオブジェクトに対して別の付与者によって付与された権限も持っている場合、それらは別の<type>aclitem</type>エントリとして表示されます。
+<type>aclitem</type>内の空のgranteeフィールドは<literal>PUBLIC</literal>を表します。
   </para>
 
   <para>
@@ -6224,7 +6246,7 @@ ALTER TABLE measurement ATTACH PARTITION measurement_y2008m02
 <programlisting>
 CREATE INDEX measurement_usls_idx ON ONLY measurement (unitsales);
 
-CREATE INDEX measurement_usls_200602_idx
+CREATE INDEX CONCURRENTLY measurement_usls_200602_idx
     ON measurement_y2006m02 (unitsales);
 ALTER INDEX measurement_usls_idx
     ATTACH PARTITION measurement_usls_200602_idx;
@@ -6392,13 +6414,18 @@ ALTER INDEX measurement_city_id_logdate_key
         Using <literal>ONLY</literal> to add or drop a constraint on only
         the partitioned table is supported as long as there are no
         partitions.  Once partitions exist, using <literal>ONLY</literal>
-        will result in an error.  Instead, constraints on the partitions
+        will result in an error for any constraints other than
+        <literal>UNIQUE</literal> and <literal>PRIMARY KEY</literal>.
+        Instead, constraints on the partitions
         themselves can be added and (if they are not present in the parent
         table) dropped.
 -->
-<literal>ONLY</literal>を使ってパーティションテーブルについてのみ制約を追加または削除することは、パーティションが存在しない場合はサポートされます。
+《マッチ度[67.757009]》<literal>ONLY</literal>を使ってパーティションテーブルについてのみ制約を追加または削除することは、パーティションが存在しない場合はサポートされます。
 ひとたびパーティションが存在すれば、<literal>ONLY</literal>の使用はエラーになります。
 その代わりに、パーティション自身の制約を追加することや（親テーブルに存在しない場合）削除することが可能です。
+《機械翻訳》パーティション化されたテーブルに対してのみ制約を追加または削除する場合、パーティションが存在しない限り、<literal>ONLY</literal>を使用することがサポートされています。
+ パーティションが存在する場合、<literal>ONLY</literal>を使用すると、<literal>UNIQUE</literal>および<literal>PRIMARY KEY</literal>以外の制約に対してエラーが発生します。
+ その代わりに、パーティション自体に制約を追加し、（親テーブルに存在しない場合は）削除することができます。
        </para>
       </listitem>
 
