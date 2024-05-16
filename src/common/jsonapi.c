@@ -173,7 +173,7 @@ typedef struct
 {
 	size_t		len;
 	char	   *prod;
-}			td_entry;
+} td_entry;
 
 #define TD_ENTRY(PROD) { sizeof(PROD) - 1, (PROD) }
 
@@ -181,30 +181,30 @@ static td_entry td_parser_table[JSON_NUM_NONTERMINALS][JSON_NUM_TERMINALS] =
 {
 	/* JSON */
 	[OFS(JSON_NT_JSON)][JSON_TOKEN_STRING] = TD_ENTRY(JSON_PROD_SCALAR_STRING),
-		[OFS(JSON_NT_JSON)][JSON_TOKEN_NUMBER] = TD_ENTRY(JSON_PROD_SCALAR_NUMBER),
-		[OFS(JSON_NT_JSON)][JSON_TOKEN_TRUE] = TD_ENTRY(JSON_PROD_SCALAR_TRUE),
-		[OFS(JSON_NT_JSON)][JSON_TOKEN_FALSE] = TD_ENTRY(JSON_PROD_SCALAR_FALSE),
-		[OFS(JSON_NT_JSON)][JSON_TOKEN_NULL] = TD_ENTRY(JSON_PROD_SCALAR_NULL),
-		[OFS(JSON_NT_JSON)][JSON_TOKEN_ARRAY_START] = TD_ENTRY(JSON_PROD_ARRAY),
-		[OFS(JSON_NT_JSON)][JSON_TOKEN_OBJECT_START] = TD_ENTRY(JSON_PROD_OBJECT),
+	[OFS(JSON_NT_JSON)][JSON_TOKEN_NUMBER] = TD_ENTRY(JSON_PROD_SCALAR_NUMBER),
+	[OFS(JSON_NT_JSON)][JSON_TOKEN_TRUE] = TD_ENTRY(JSON_PROD_SCALAR_TRUE),
+	[OFS(JSON_NT_JSON)][JSON_TOKEN_FALSE] = TD_ENTRY(JSON_PROD_SCALAR_FALSE),
+	[OFS(JSON_NT_JSON)][JSON_TOKEN_NULL] = TD_ENTRY(JSON_PROD_SCALAR_NULL),
+	[OFS(JSON_NT_JSON)][JSON_TOKEN_ARRAY_START] = TD_ENTRY(JSON_PROD_ARRAY),
+	[OFS(JSON_NT_JSON)][JSON_TOKEN_OBJECT_START] = TD_ENTRY(JSON_PROD_OBJECT),
 	/* ARRAY_ELEMENTS */
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_ARRAY_START] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_OBJECT_START] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_STRING] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_NUMBER] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_TRUE] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_FALSE] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_NULL] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_ARRAY_END] = TD_ENTRY(JSON_PROD_EPSILON),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_ARRAY_START] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_OBJECT_START] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_STRING] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_NUMBER] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_TRUE] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_FALSE] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_NULL] = TD_ENTRY(JSON_PROD_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_ARRAY_ELEMENTS)][JSON_TOKEN_ARRAY_END] = TD_ENTRY(JSON_PROD_EPSILON),
 	/* MORE_ARRAY_ELEMENTS */
-		[OFS(JSON_NT_MORE_ARRAY_ELEMENTS)][JSON_TOKEN_COMMA] = TD_ENTRY(JSON_PROD_MORE_ARRAY_ELEMENTS),
-		[OFS(JSON_NT_MORE_ARRAY_ELEMENTS)][JSON_TOKEN_ARRAY_END] = TD_ENTRY(JSON_PROD_EPSILON),
+	[OFS(JSON_NT_MORE_ARRAY_ELEMENTS)][JSON_TOKEN_COMMA] = TD_ENTRY(JSON_PROD_MORE_ARRAY_ELEMENTS),
+	[OFS(JSON_NT_MORE_ARRAY_ELEMENTS)][JSON_TOKEN_ARRAY_END] = TD_ENTRY(JSON_PROD_EPSILON),
 	/* KEY_PAIRS */
-		[OFS(JSON_NT_KEY_PAIRS)][JSON_TOKEN_STRING] = TD_ENTRY(JSON_PROD_KEY_PAIRS),
-		[OFS(JSON_NT_KEY_PAIRS)][JSON_TOKEN_OBJECT_END] = TD_ENTRY(JSON_PROD_EPSILON),
+	[OFS(JSON_NT_KEY_PAIRS)][JSON_TOKEN_STRING] = TD_ENTRY(JSON_PROD_KEY_PAIRS),
+	[OFS(JSON_NT_KEY_PAIRS)][JSON_TOKEN_OBJECT_END] = TD_ENTRY(JSON_PROD_EPSILON),
 	/* MORE_KEY_PAIRS */
-		[OFS(JSON_NT_MORE_KEY_PAIRS)][JSON_TOKEN_COMMA] = TD_ENTRY(JSON_PROD_MORE_KEY_PAIRS),
-		[OFS(JSON_NT_MORE_KEY_PAIRS)][JSON_TOKEN_OBJECT_END] = TD_ENTRY(JSON_PROD_EPSILON),
+	[OFS(JSON_NT_MORE_KEY_PAIRS)][JSON_TOKEN_COMMA] = TD_ENTRY(JSON_PROD_MORE_KEY_PAIRS),
+	[OFS(JSON_NT_MORE_KEY_PAIRS)][JSON_TOKEN_OBJECT_END] = TD_ENTRY(JSON_PROD_EPSILON),
 };
 
 /* the GOAL production. Not stored in the table, but will be the initial contents of the prediction stack */
@@ -2105,7 +2105,7 @@ json_errdetail(JsonParseErrorType error, JsonLexContext *lex)
 	 * A helper for error messages that should print the current token. The
 	 * format must contain exactly one %.*s specifier.
 	 */
-#define token_error(lex, format) \
+#define json_token_error(lex, format) \
 	appendStringInfo((lex)->errormsg, _(format), \
 					 (int) ((lex)->token_terminator - (lex)->token_start), \
 					 (lex)->token_start);
@@ -2124,7 +2124,7 @@ json_errdetail(JsonParseErrorType error, JsonLexContext *lex)
 		case JSON_NESTING_TOO_DEEP:
 			return (_("JSON nested too deep, maximum permitted depth is 6400"));
 		case JSON_ESCAPING_INVALID:
-			token_error(lex, "Escape sequence \"\\%.*s\" is invalid.");
+			json_token_error(lex, "Escape sequence \"\\%.*s\" is invalid.");
 			break;
 		case JSON_ESCAPING_REQUIRED:
 			appendStringInfo(lex->errormsg,
@@ -2132,33 +2132,33 @@ json_errdetail(JsonParseErrorType error, JsonLexContext *lex)
 							 (unsigned char) *(lex->token_terminator));
 			break;
 		case JSON_EXPECTED_END:
-			token_error(lex, "Expected end of input, but found \"%.*s\".");
+			json_token_error(lex, "Expected end of input, but found \"%.*s\".");
 			break;
 		case JSON_EXPECTED_ARRAY_FIRST:
-			token_error(lex, "Expected array element or \"]\", but found \"%.*s\".");
+			json_token_error(lex, "Expected array element or \"]\", but found \"%.*s\".");
 			break;
 		case JSON_EXPECTED_ARRAY_NEXT:
-			token_error(lex, "Expected \",\" or \"]\", but found \"%.*s\".");
+			json_token_error(lex, "Expected \",\" or \"]\", but found \"%.*s\".");
 			break;
 		case JSON_EXPECTED_COLON:
-			token_error(lex, "Expected \":\", but found \"%.*s\".");
+			json_token_error(lex, "Expected \":\", but found \"%.*s\".");
 			break;
 		case JSON_EXPECTED_JSON:
-			token_error(lex, "Expected JSON value, but found \"%.*s\".");
+			json_token_error(lex, "Expected JSON value, but found \"%.*s\".");
 			break;
 		case JSON_EXPECTED_MORE:
 			return _("The input string ended unexpectedly.");
 		case JSON_EXPECTED_OBJECT_FIRST:
-			token_error(lex, "Expected string or \"}\", but found \"%.*s\".");
+			json_token_error(lex, "Expected string or \"}\", but found \"%.*s\".");
 			break;
 		case JSON_EXPECTED_OBJECT_NEXT:
-			token_error(lex, "Expected \",\" or \"}\", but found \"%.*s\".");
+			json_token_error(lex, "Expected \",\" or \"}\", but found \"%.*s\".");
 			break;
 		case JSON_EXPECTED_STRING:
-			token_error(lex, "Expected string, but found \"%.*s\".");
+			json_token_error(lex, "Expected string, but found \"%.*s\".");
 			break;
 		case JSON_INVALID_TOKEN:
-			token_error(lex, "Token \"%.*s\" is invalid.");
+			json_token_error(lex, "Token \"%.*s\" is invalid.");
 			break;
 		case JSON_UNICODE_CODE_POINT_ZERO:
 			return _("\\u0000 cannot be converted to text.");
@@ -2189,7 +2189,7 @@ json_errdetail(JsonParseErrorType error, JsonLexContext *lex)
 			/* fall through to the error code after switch */
 			break;
 	}
-#undef token_error
+#undef json_token_error
 
 	/*
 	 * We don't use a default: case, so that the compiler will warn about

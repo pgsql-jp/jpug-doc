@@ -766,7 +766,6 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 
 	PARALLEL PARAMETER PARSER PARTIAL PARTITION PARTITIONS PASSING PASSWORD PATH
 	PERIOD PLACING PLAN PLANS POLICY
-
 	POSITION PRECEDING PRECISION PRESERVE PREPARE PREPARED PRIMARY
 	PRIOR PRIVILEGES PROCEDURAL PROCEDURE PROCEDURES PROGRAM PUBLICATION
 
@@ -3953,15 +3952,12 @@ ColConstraint:
  * or be part of a_expr NOT LIKE or similar constructs).
  */
 ColConstraintElem:
-			NOT NULL_P opt_no_inherit
+			NOT NULL_P
 				{
 					Constraint *n = makeNode(Constraint);
 
 					n->contype = CONSTR_NOTNULL;
 					n->location = @1;
-					n->is_no_inherit = $3;
-					n->skip_validation = false;
-					n->initially_valid = true;
 					$$ = (Node *) n;
 				}
 			| NULL_P
@@ -4196,20 +4192,6 @@ ConstraintElem:
 								   NULL, NULL, &n->skip_validation,
 								   &n->is_no_inherit, yyscanner);
 					n->initially_valid = !n->skip_validation;
-					$$ = (Node *) n;
-				}
-			| NOT NULL_P ColId ConstraintAttributeSpec
-				{
-					Constraint *n = makeNode(Constraint);
-
-					n->contype = CONSTR_NOTNULL;
-					n->location = @1;
-					n->keys = list_make1(makeString($3));
-					/* no NOT VALID support yet */
-					processCASbits($4, @4, "NOT NULL",
-								   NULL, NULL, NULL,
-								   &n->is_no_inherit, yyscanner);
-					n->initially_valid = true;
 					$$ = (Node *) n;
 				}
 			| UNIQUE opt_unique_null_treatment '(' columnList opt_without_overlaps ')' opt_c_include opt_definition OptConsTableSpace
