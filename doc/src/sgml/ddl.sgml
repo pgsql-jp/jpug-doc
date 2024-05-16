@@ -1174,52 +1174,22 @@ CREATE TABLE products (
     price numeric
 );
 </programlisting>
-<!--
-    An explicit constraint name can also be specified, for example:
--->
-《機械翻訳》明示的な拘束名を指定することもできます。
-たとえば、 と指定します。
-<programlisting>
-CREATE TABLE products (
-    product_no integer NOT NULL,
-    name text <emphasis>CONSTRAINT products_name_not_null</emphasis> NOT NULL,
-    price numeric
-);
-</programlisting>
    </para>
 
    <para>
 <!--
-    A not-null constraint is usually written as a column constraint.  The
-    syntax for writing it as a table constraint is
--->
-《機械翻訳》通常、非NULL制約は列制約として記述されます。
-これをテーブル制約として記述する構文は、です。
-<programlisting>
-CREATE TABLE products (
-    product_no integer,
-    name text,
-    price numeric,
-    <emphasis>NOT NULL product_no</emphasis>,
-    <emphasis>NOT NULL name</emphasis>
-);
-</programlisting>
-<!--
-    But this syntax is not standard and mainly intended for use by
-    <application>pg_dump</application>.
--->
-《機械翻訳》しかし、この構文は標準的なものではなく、主に<application>pg_dump</application>で使用するためのものです。
-   </para>
-
-   <para>
-<!--
-    A not-null constraint is functionally equivalent to creating a check
+    A not-null constraint is always written as a column constraint.  A
+    not-null constraint is functionally equivalent to creating a check
     constraint <literal>CHECK (<replaceable>column_name</replaceable>
     IS NOT NULL)</literal>, but in
     <productname>PostgreSQL</productname> creating an explicit
-    not-null constraint is more efficient.
+    not-null constraint is more efficient.  The drawback is that you
+    cannot give explicit names to not-null constraints created this
+    way.
 -->
-《機械翻訳》非NULL制約は、チェック制約<literal>CHECK(<replaceable>column_name</replaceable> IS NOT NULL)</literal>を作成するのと機能的に同等ですが、<productname>PostgreSQL</productname>では明示的な非NULL制約を作成する方が効率的です。
+《機械翻訳》非NULL制約は常に列制約として記述されます。
+非NULL制約は<literal>CHECK (<replaceable>column_name</replaceable> IS NOT NULL)</literal>という検査制約と機能的には同等ですが、<productname>PostgreSQL</productname>では、明示的に非NULL制約を作成する方がより効果的です。
+このように作成された非NULL制約に明示的な名前を付けられないのが欠点です。
    </para>
 
    <para>
@@ -1242,13 +1212,6 @@ CREATE TABLE products (
 -->
 順序は関係ありません。
 書かれた順序と検査される順序は必ずしも同じではありません。
-   </para>
-
-   <para>
-<!--
-    However, a column can have at most one explicit not-null constraint.
--->
-《機械翻訳》ただし、カラムは最大で 1 つの明示的な NOT NULL 制約を持つことができます。
    </para>
 
    <para>
@@ -1535,22 +1498,18 @@ CREATE TABLE example (
    <para>
 <!--
     A table can have at most one primary key.  (There can be any number
-    of unique constraints, which combined with not-null constraints are functionally almost the
+    of unique and not-null constraints, which are functionally almost the
     same thing, but only one can be identified as the primary key.)
     Relational database theory
     dictates that every table must have a primary key.  This rule is
     not enforced by <productname>PostgreSQL</productname>, but it is
     usually best to follow it.
 -->
-《マッチ度[83.703704]》1つのテーブルは最大1つの主キーを持つことができます。
-（一意性制約および非NULL制約に個数の制限はありません。
-機能的にはほとんど同じものですが、主キーとして識別される制約は1つのみです。）
+《機械翻訳》1つのテーブルは最大1つの主キーを持つことができます。
+（一意性制約および非NULL制約には個数の制限はありません。
+機能的にはほとんど同じものですが、主キーとして識別される制約は1つのみです。
 リレーショナルデータベース理論では、全てのテーブルに主キーが1つ必要とされています。
 この規則は<productname>PostgreSQL</productname>では強制されませんが、たいていの場合はこれに従うことが推奨されます。
-《機械翻訳》テーブルは最大で1つの主キーを持つことができます。
-（NULLでない制約と組み合わせた場合、多くの一意制約は機能的にほとんど同じですが、主キーとして識別できるのは1つだけです。
-リレーショナルデータベース理論では、すべてのテーブルに主キーが必要であると規定しています。
-この規則は<productname>PostgreSQL</productname>では強制されませんが、通常はこれに従うのが最善です。
    </para>
 
    <para>
@@ -2539,23 +2498,14 @@ ALTER TABLE products ADD CHECK (name &lt;&gt; '');
 ALTER TABLE products ADD CONSTRAINT some_name UNIQUE (product_no);
 ALTER TABLE products ADD FOREIGN KEY (product_group_id) REFERENCES product_groups;
 </programlisting>
-   </para>
-
-   <para>
 <!--
-    To add a not-null constraint, which is normally not written as a table
-    constraint, this special syntax is available:
+    To add a not-null constraint, which cannot be written as a table
+    constraint, use this syntax:
 -->
-《マッチ度[62.931034]》非NULL制約はテーブル制約として記述できないので、追加するには次の構文を使用します。
-《機械翻訳》通常はテーブル制約として記述されない非NULL制約を追加するには、次の特別な構文を使用します。
+《機械翻訳》テーブル制約として記述できない非NULL制約を追加するには、次の構文を使用します。
 <programlisting>
 ALTER TABLE products ALTER COLUMN product_no SET NOT NULL;
 </programlisting>
-<!--
-    This command silently does nothing if the column already has a
-    not-null constraint.
--->
-《機械翻訳》このコマンドは、列にすでにnot-null制約がある場合、何もしません。
    </para>
 
    <para>
@@ -2622,21 +2572,18 @@ ALTER TABLE products DROP CONSTRAINT some_name;
 
    <para>
 <!--
-    Simplified syntax is available to drop a not-null constraint:
+    This works the same for all constraint types except not-null
+    constraints. To drop a not-null constraint use:
 -->
-《機械翻訳》簡易構文を使用して、非NULL制約を削除できます。
+《機械翻訳》これは、NOT NULL制約を除くすべての制約タイプに対して同じように機能します。
+NOT NULL制約を削除するには、次のようにします。
 <programlisting>
 ALTER TABLE products ALTER COLUMN product_no DROP NOT NULL;
 </programlisting>
 <!--
-    This mirrors the <literal>SET NOT NULL</literal> syntax for adding a
-    not-null constraint.  This command will silently do nothing if the column
-    does not have a not-null constraint.  (Recall that a column can have at
-    most one not-null constraint, so it is never ambiguous which constraint
-    this command acts on.)
+    (Recall that not-null constraints do not have names.)
 -->
-《機械翻訳》これは、非NULL制約を追加するための<literal>SET NOT NULL</literal>構文を反映しています。
-このコマンドは、列に非NULL制約がない場合、何もしません（列は最大で1つの非NULL制約しか持てないため、このコマンドがどの制約に作用するかは決して曖昧ではありません）。
+《機械翻訳》(非NULL制約には名前がないことを思い出してください。
    </para>
   </sect2>
 
