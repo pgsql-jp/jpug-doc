@@ -40,13 +40,11 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
    <command>UPDATE</command> and <command>DELETE</command> depends on
    the configured replica identity (see <xref linkend="sql-altertable-replica-identity"/>).
 -->
-ストリームに送出される更新データのフォーマットは、使用するプラグインで決まります。
+ストリームに送出される更新データのフォーマットは、使用する出力プラグインで決まります。
 サンプルプラグインがPostgreSQLの配布物に含まれています。
 追加のプラグインを書くことにより、PostgreSQLのコア部分のコードを一切変更することなく、利用可能なフォーマットの選択肢を増やすことができます。
-すべてのプラグインから、
-<command>INSERT</command>によって作成された個々の新しい行と、<command>UPDATE</command>によって作成された新しい個々の行のバージョンにアクセスできます。
-<command>UPDATE</command>と<command>DELETE</command>によって生じた古いバージョンの行へのアクセスが可能かどうかは、
-レプリカアイデンティティ(replica identity)の設定によって決まります(<xref linkend="sql-altertable-replica-identity"/>参照)。
+すべての出力プラグインから、<command>INSERT</command>によって作成された個々の新しい行と、<command>UPDATE</command>によって作成された新しいバージョンの行にアクセスできます。
+<command>UPDATE</command>と<command>DELETE</command>によって生じた古いバージョンの行へのアクセスが可能かどうかは、レプリカアイデンティティ(replica identity)の設定によって決まります（<xref linkend="sql-altertable-replica-identity"/>参照）。
   </para>
 
   <para>
@@ -59,10 +57,8 @@ PostgreSQLは、SQLによって実行された更新結果を外部のコンシ�
    without modifying core code
    (see <xref linkend="logicaldecoding-writer"/>).
 -->
-変更データの消費は、ストリーミングレプリケーションのプロトコル(<xref linkend="protocol-replication"/>と
-<xref linkend="logicaldecoding-walsender"/>を参照)を使うか、SQL関数(<xref linkend="logicaldecoding-sql"/>)を使って行います。
-また、コア部分に手を入れなくても、レプリケーションスロットの出力を消費する別の方法を実装することもできます
-(<xref linkend="logicaldecoding-writer"/>参照)。
+変更データの消費は、ストリーミングレプリケーションのプロトコル（<xref linkend="protocol-replication"/>と<xref linkend="logicaldecoding-walsender"/>を参照）を使うか、SQLを使って関数を呼び出します（<xref linkend="logicaldecoding-sql"/>を参照）。
+また、コア部分に手を入れなくても、レプリケーションスロットの出力を消費する別の方法を実装することもできます（<xref linkend="logicaldecoding-writer"/>参照）。
   </para>
 
   <sect1 id="logicaldecoding-example">
@@ -1011,7 +1007,7 @@ typedef void (*LogicalDecodeChangeCB) (struct LogicalDecodingContext *ctx,
        (see <xref linkend="sql-createtable-temporary"/>) can be extracted using
        logical decoding.
 -->
-unloggedテーブル(<xref linkend="sql-createtable-unlogged"/>参照)と(<xref linkend="sql-createtable-temporary"/>参照)以外のユーザ定義テーブルだけが、ロジカルデコーディングを使って更新データを取得できます。
+ユーザ定義テーブルでは、ログを取らないテーブル（<xref linkend="sql-createtable-unlogged"/>参照）ではなく、一時テーブル（<xref linkend="sql-createtable-temporary"/>参照）でもないテーブルが、ロジカルデコーディングを使って更新データを取得できます。
       </para>
      </note>
     </sect3>
@@ -1062,7 +1058,7 @@ typedef void (*LogicalDecodeTruncateCB) (struct LogicalDecodingContext *ctx,
        from <parameter>origin_id</parameter> is of interest to the
        output plugin.
 -->
-オプションの<function>filter_by_origin_cb</function>コールバックは、<parameter>origin_id</parameter>からリプレイされたデータがアウトプットプラグインの対象となるかどうかを判定するために呼び出されます。
+オプションの<function>filter_by_origin_cb</function>コールバックは、<parameter>origin_id</parameter>からリプレイされたデータが出力プラグインの対象となるかどうかを判定するために呼び出されます。
 <programlisting>
 typedef bool (*LogicalDecodeFilterByOriginCB) (struct LogicalDecodingContext *ctx,
                                                RepOriginId origin_id);
@@ -1091,8 +1087,8 @@ typedef bool (*LogicalDecodeFilterByOriginCB) (struct LogicalDecodingContext *ct
        more efficient.
 -->
 これは、カスケード、あるいは双方向レプリケーションソリューションを実装する際に有用です。
-オリジンでフィルターすることにより、そのような構成で、同じ変更のレプリケーションが往復するのを防ぐことができます。
-トランザクションや変更もオリジンに関する情報を持っていますが、このコールバックでフィルターするほうがずっと効率的です。
+オリジンでフィルタすることにより、そのような構成で、同じ変更のレプリケーションが往復するのを防ぐことができます。
+トランザクションや変更もオリジンに関する情報を持っていますが、このコールバックでフィルタするほうがずっと効率的です。
      </para>
      </sect3>
 
@@ -1587,8 +1583,8 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
      replication clients do.
 -->
 <link linkend="streaming-replication">ストリーミングレプリケーション</link>における同期レプリケーションと同じユーザインタフェースで、ロジカルデコーディングを使って<link linkend="synchronous-replication">同期レプリケーション</link>ソリューションを構築することができます。
-そのためには、ストリーミングレプリケーションインタフェース(<xref linkend="logicaldecoding-walsender"/>参照)を使ってデータをストリーム出力します。
-ストリーミングレプリケーションクライアントが行っているのと同じように、<literal>状態の更新</literal>(<xref linkend="protocol-replication"/>参照)メッセージを送信しなければなりません。
+そのためには、ストリーミングレプリケーションインタフェース（<xref linkend="logicaldecoding-walsender"/>参照）を使ってデータをストリーム出力します。
+クライアントは、ストリーミングレプリケーションクライアントと同様に、<literal>スタンバイ状態の更新(F)</literal>メッセージを送信する必要があります（<xref linkend="protocol-replication"/>参照）。
     </para>
 
     <note>
