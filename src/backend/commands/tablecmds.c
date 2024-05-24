@@ -20269,7 +20269,7 @@ moveSplitTableRows(Relation rel, Relation splitRel, List *partlist, List *newPar
  * (newPartName) like table (modelRel)
  *
  * Emulates command: CREATE [TEMP] TABLE <newPartName> (LIKE <modelRel's name>
- * INCLUDING ALL EXCLUDING INDEXES EXCLUDING IDENTITY)
+ * INCLUDING ALL EXCLUDING INDEXES EXCLUDING IDENTITY EXCLUDING STATISTICS)
  *
  * Also, this function sets the new partition access method same as parent
  * table access methods (similarly to CREATE TABLE ... PARTITION OF).  It
@@ -20313,9 +20313,11 @@ createPartitionTable(RangeVar *newPartName, Relation modelRel,
 
 	/*
 	 * Indexes will be inherited on "attach new partitions" stage, after data
-	 * moving.
+	 * moving.  We also don't copy the extended statistics for consistency
+	 * with CREATE TABLE PARTITION OF.
 	 */
-	tlc->options = CREATE_TABLE_LIKE_ALL & ~(CREATE_TABLE_LIKE_INDEXES | CREATE_TABLE_LIKE_IDENTITY);
+	tlc->options = CREATE_TABLE_LIKE_ALL &
+		~(CREATE_TABLE_LIKE_INDEXES | CREATE_TABLE_LIKE_IDENTITY | CREATE_TABLE_LIKE_STATISTICS);
 	tlc->relationOid = InvalidOid;
 	createStmt->tableElts = lappend(createStmt->tableElts, tlc);
 
@@ -20409,6 +20411,7 @@ ATExecSplitPartition(List **wqueue, AlteredTableInfo *tab, Relation rel,
 		 * against concurrent drop, and mark stmt->relation as
 		 * RELPERSISTENCE_TEMP if a temporary namespace is selected.
 		 */
+		sps->name->relpersistence = rel->rd_rel->relpersistence;
 		namespaceId =
 			RangeVarGetAndCheckCreationNamespace(sps->name, NoLock, NULL);
 
@@ -20601,6 +20604,8 @@ ATExecMergePartitions(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	ListCell   *listptr;
 	List	   *mergingPartitionsList = NIL;
 	Oid			defaultPartOid;
+	Oid			namespaceId;
+	Oid			existingRelid;
 
 	/*
 	 * Lock all merged partitions, check them and create list with partitions
@@ -20617,13 +20622,48 @@ ATExecMergePartitions(List **wqueue, AlteredTableInfo *tab, Relation rel,
 		 */
 		mergingPartition = table_openrv(name, AccessExclusiveLock);
 
-		/*
-		 * Checking that two partitions have the same name was before, in
-		 * function transformPartitionCmdForMerge().
-		 */
-		if (equal(name, cmd->name))
+		/* Store a next merging partition into the list. */
+		mergingPartitionsList = lappend(mergingPartitionsList,
+										mergingPartition);
+	}
+
+	/*
+	 * Look up the namespace in which we are supposed to create the partition,
+	 * check we have permission to create there, lock it against concurrent
+	 * drop, and mark stmt->relation as RELPERSISTENCE_TEMP if a temporary
+	 * namespace is selected.
+	 */
+	cmd->name->relpersistence = rel->rd_rel->relpersistence;
+	namespaceId =
+		RangeVarGetAndCheckCreationNamespace(cmd->name, NoLock, NULL);
+
+	/*
+	 * Check if this name is already taken.  This helps us to detect the
+	 * situation when one of the merging partitions has the same name as the
+	 * new partition.  Otherwise, this would fail later on anyway but catching
+	 * this here allows us to emit a nicer error message.
+	 */
+	existingRelid = get_relname_relid(cmd->name->relname, namespaceId);
+
+	if (OidIsValid(existingRelid))
+	{
+		Relation	sameNamePartition = NULL;
+
+		foreach_ptr(RelationData, mergingPartition, mergingPartitionsList)
 		{
-			/* One new partition can have the same name as merged partition. */
+			if (RelationGetRelid(mergingPartition) == existingRelid)
+			{
+				sameNamePartition = mergingPartition;
+				break;
+			}
+		}
+
+		if (sameNamePartition)
+		{
+			/*
+			 * The new partition has the same name as one of merging
+			 * partitions.
+			 */
 			char		tmpRelName[NAMEDATALEN];
 
 			/* Generate temporary name. */
@@ -20635,7 +20675,7 @@ ATExecMergePartitions(List **wqueue, AlteredTableInfo *tab, Relation rel,
 			 * in the future because we're going to eventually drop the
 			 * existing partition anyway.
 			 */
-			RenameRelationInternal(RelationGetRelid(mergingPartition),
+			RenameRelationInternal(RelationGetRelid(sameNamePartition),
 								   tmpRelName, false, false);
 
 			/*
@@ -20644,10 +20684,12 @@ ATExecMergePartitions(List **wqueue, AlteredTableInfo *tab, Relation rel,
 			 */
 			CommandCounterIncrement();
 		}
-
-		/* Store a next merging partition into the list. */
-		mergingPartitionsList = lappend(mergingPartitionsList,
-										mergingPartition);
+		else
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_DUPLICATE_TABLE),
+					 errmsg("relation \"%s\" already exists", cmd->name->relname)));
+		}
 	}
 
 	/* Detach all merged partitions. */
