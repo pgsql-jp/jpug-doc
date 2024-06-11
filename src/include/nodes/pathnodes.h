@@ -426,7 +426,11 @@ struct PlannerInfo
 	 * items to be proven redundant, implying that there is only one group
 	 * containing all the query's rows.  Hence, if you want to check whether
 	 * GROUP BY was specified, test for nonempty parse->groupClause, not for
-	 * nonempty processed_groupClause.
+	 * nonempty processed_groupClause.  Optimizer chooses specific order of
+	 * group-by clauses during the upper paths generation process, attempting
+	 * to use different strategies to minimize number of sorts or engage
+	 * incremental sort.  See preprocess_groupclause() and
+	 * get_useful_group_keys_orderings() for details.
 	 *
 	 * Currently, when grouping sets are specified we do not attempt to
 	 * optimize the groupClause, so that processed_groupClause will be
@@ -1468,14 +1472,21 @@ typedef struct PathKey
 } PathKey;
 
 /*
- * Combines the information about pathkeys and the associated clauses.
+ * Contains an order of group-by clauses and the corresponding list of
+ * pathkeys.
+ *
+ * The elements of 'clauses' list should have the same order as the head of
+ * 'pathkeys' list.  The tleSortGroupRef of the clause should be equal to
+ * ec_sortref of the pathkey equivalence class.  If there are redundant
+ * clauses with the same tleSortGroupRef, they must be grouped together.
  */
-typedef struct PathKeyInfo
+typedef struct GroupByOrdering
 {
 	NodeTag		type;
+
 	List	   *pathkeys;
 	List	   *clauses;
-} PathKeyInfo;
+} GroupByOrdering;
 
 /*
  * VolatileFunctionStatus -- allows nodes to cache their
