@@ -1353,7 +1353,10 @@ if uuidopt != 'none'
     error('unknown uuid build option value: @0@'.format(uuidopt))
   endif
 
-  if not cc.has_header_symbol(uuidheader, uuidfunc, args: test_c_args, dependencies: uuid)
+  if not cc.has_header_symbol(uuidheader, uuidfunc,
+                              args: test_c_args,
+                              include_directories: postgres_inc,
+                              dependencies: uuid)
     error('uuid library @0@ missing required function @1@'.format(uuidopt, uuidfunc))
   endif
   cdata.set('HAVE_@0@'.format(uuidheader.underscorify().to_upper()), 1)
@@ -1940,6 +1943,38 @@ if cc.get_id() == 'msvc'
   # modules, we only import them dynamically, and they're also noisy.
   ldflags += '/NOEXP'
   ldflags_mod += '/NOIMPLIB'
+endif
+
+
+# Compute flags that are built into Meson.  We need these to
+# substitute into Makefile.global and for pg_config.  We only compute
+# the flags for Unix-style compilers, since that's the only style that
+# would use Makefile.global or pg_config.
+
+# We don't use get_option('warning_level') here, because the other
+# warning levels are not useful with PostgreSQL source code.
+common_builtin_flags = ['-Wall']
+
+if get_option('debug')
+  common_builtin_flags += ['-g']
+endif
+
+optimization = get_option('optimization')
+if optimization == '0'
+  common_builtin_flags += ['-O0']
+elif optimization == '1'
+  common_builtin_flags += ['-O1']
+elif optimization == '2'
+  common_builtin_flags += ['-O2']
+elif optimization == '3'
+  common_builtin_flags += ['-O3']
+elif optimization == 's'
+  common_builtin_flags += ['-Os']
+endif
+
+cflags_builtin = cc.get_supported_arguments(common_builtin_flags)
+if llvm.found()
+  cxxflags_builtin = cpp.get_supported_arguments(common_builtin_flags)
 endif
 
 

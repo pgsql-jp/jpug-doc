@@ -785,7 +785,11 @@ pgstat_drop_entry_internal(PgStatShared_HashEntry *shent,
 	 * backends to release their references.
 	 */
 	if (shent->dropped)
-		elog(ERROR, "can only drop stats once");
+		elog(ERROR,
+			 "trying to drop stats entry already dropped: kind=%s dboid=%u objoid=%u refcount=%u",
+			 pgstat_get_kind_info(shent->key.kind)->name,
+			 shent->key.dboid, shent->key.objoid,
+			 pg_atomic_read_u32(&shent->refcount));
 	shent->dropped = true;
 
 	/* release refcount marking entry as not dropped */
@@ -855,6 +859,17 @@ pgstat_drop_database_and_contents(Oid dboid)
 		pgstat_request_entry_refs_gc();
 }
 
+/*
+ * Drop a single stats entry.
+ *
+ * This routine returns false if the stats entry of the dropped object could
+ * not be freed, true otherwise.
+ *
+ * The callers of this function should call pgstat_request_entry_refs_gc()
+ * if the stats entry could not be freed, to ensure that this entry's memory
+ * can be reclaimed later by a different backend calling
+ * pgstat_gc_entry_refs().
+ */
 bool
 pgstat_drop_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 {
