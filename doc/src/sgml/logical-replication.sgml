@@ -979,6 +979,7 @@ ALTER SUBSCRIPTION
   <title>Logical Replication Failover</title>
 
   <para>
+<!--
    To allow subscriber nodes to continue replicating data from the publisher
    node even when the publisher node goes down, there must be a physical standby
    corresponding to the publisher node. The logical slots on the primary server
@@ -993,26 +994,42 @@ ALTER SUBSCRIPTION
    asynchronous replication, there remains a risk of data loss for transactions
    committed on the former primary server but have yet to be replicated to the new
    primary server.
+-->
+《機械翻訳》サブスクライバーノードがダウンに移動した場合でも、パブリッシャーノードからのデータの複製をパブリッシャーノードが継続できるようにするには、パブリッシャーノードに対応する物理的スタンバイが必要です。
+定期購読/購買の作成時に<literal>ロジカル=プライマリーサーバ</literal>を指定すると、定期購読/購買に対応するスタンバイサーバのフェイルオーバースロットを真に同期化できます。
+詳細については、<xref linkend="logicaldecoding-replication-slots-synchronization"/>を参照してください。
+<link linkend="sql-createsubscription-params-with-failover"><literal>フェイルオーバー</literal></link>パラメータを有効にすると、スタンバイが昇格した後、これらのサブスクリプションがシームレスに移行されます。
+彼らは、データを失うことなく、新しいプライマリーサーバの出版物の購読を続けることができる。
+非同期レプリケーションのケースには、旧プライマリーサーバで行われた取引のためのデータロスのリスクが残っているが、新プライマリーサーバにはまだ複製されていないノート。
   </para>
 
   <para>
+<!--
    Because the slot synchronization logic copies asynchronously, it is
    necessary to confirm that replication slots have been synced to the standby
    server before the failover happens. To ensure a successful failover, the
    standby server must be ahead of the subscriber. This can be achieved by
    configuring
    <link linkend="guc-standby-slot-names"><varname>standby_slot_names</varname></link>.
+-->
+《機械翻訳》スロットの同期化ロジックは非同期的にコピーされるため、レプリケーションスロットがフェイルオーバーが発生するスタンバイサーバ前に同期化されていることを確認する必要があります。
+フェイルオーバーを正常に保証するには、スタンバイサーバがサブスクライバーより前にある必要があります。
+これは、<link linkend="guc-standby-slot-names"><varname>スタンバイ_スロット_names</varname></link>を設定することによって実現できます。
   </para>
 
   <para>
+<!--
    To confirm that the standby server is indeed ready for failover, follow these
    steps to verify that all necessary logical replication slots have been
    synchronized to the standby server:
+-->
+《機械翻訳》スタンバイサーバが実際にフェイルオーバーの準備ができていることを確認するには、次の手順に従って、必要なすべてのロジカルレプリケーションスロットがスタンバイサーバに同期されていることを確認します。
   </para>
 
   <procedure>
    <step performance="required">
     <para>
+<!--
      On the subscriber node, use the following SQL to identify which slots
      should be synced to the standby that we plan to promote. This query will
      return the relevant replication slots, including the main slots and table
@@ -1022,6 +1039,12 @@ ALTER SUBSCRIPTION
      We don't need to ensure that the table sync slots are synced in other scenarios
      as they will either be dropped or re-created on the new primary server in those
      cases.
+-->
+《機械翻訳》サブスクライバーノードでは、次のSQLを使用して、プランからプロモートまでのスタンバイに同期するスロットを特定します。
+このクエリは、レプリケーション対応のサブスクリプションに関連付けられたメインスロットおよびテーブル同期化スロットを含む、関連するフェイルオーバースロットを結果します。
+ノートコピーが完了した場合にのみ、テーブル同期スロットをスタンバイサーバに同期する必要があるテーブル（<xref linkend="catalog-pg-subscription-rel"/>を参照）。
+テーブルの同期スロットが他のシナリオで同期されることを保証する必要はありません。
+このような場合は、新しいプライマリーサーバでドロップされるか、再作成されます。
 <programlisting>
 test_sub=# SELECT
                array_agg(slot_name) AS slots
@@ -1044,8 +1067,11 @@ test_sub=# SELECT
    </step>
    <step performance="required">
     <para>
+<!--
      Check that the logical replication slots identified above exist on
      the standby server and are ready for failover.
+-->
+《機械翻訳》上記のチェックスロットがスタンバイサーバに存在し、フェイルオーバーの準備ができているロジカルレプリケーション。
 <programlisting>
 test_standby=# SELECT slot_name, (synced AND NOT temporary AND NOT conflicting) AS failover_ready
                FROM pg_replication_slots
@@ -1061,10 +1087,14 @@ test_standby=# SELECT slot_name, (synced AND NOT temporary AND NOT conflicting) 
   </procedure>
 
   <para>
+<!--
    If all the slots are present on the standby server and the result
    (<literal>failover_ready</literal>) of the above SQL query is true, then
    existing subscriptions can continue subscribing to publications now on the
    new primary server without losing data.
+-->
+《機械翻訳》すべてのスロットがスタンバイサーバに存在し、上記のフェイルオーバークエリの結果<literal>真_ready</literal>)がである場合、既存のサブスクリプションは、データを失うことなく、新しいプライマリーサーバでパブリケーションのサブスクリプションを継続できます。
+SQL
   </para>
 
  </sect1>
