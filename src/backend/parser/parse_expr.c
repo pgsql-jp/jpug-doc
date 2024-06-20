@@ -88,11 +88,11 @@ static Node *transformJsonArrayQueryConstructor(ParseState *pstate,
 static Node *transformJsonObjectAgg(ParseState *pstate, JsonObjectAgg *agg);
 static Node *transformJsonArrayAgg(ParseState *pstate, JsonArrayAgg *agg);
 static Node *transformJsonIsPredicate(ParseState *pstate, JsonIsPredicate *pred);
-static Node *transformJsonParseExpr(ParseState *pstate, JsonParseExpr *expr);
-static Node *transformJsonScalarExpr(ParseState *pstate, JsonScalarExpr *expr);
+static Node *transformJsonParseExpr(ParseState *pstate, JsonParseExpr *jsexpr);
+static Node *transformJsonScalarExpr(ParseState *pstate, JsonScalarExpr *jsexpr);
 static Node *transformJsonSerializeExpr(ParseState *pstate,
 										JsonSerializeExpr *expr);
-static Node *transformJsonFuncExpr(ParseState *pstate, JsonFuncExpr *p);
+static Node *transformJsonFuncExpr(ParseState *pstate, JsonFuncExpr *func);
 static void transformJsonPassingArgs(ParseState *pstate, const char *constructName,
 									 JsonFormatType format, List *args,
 									 List **passing_values, List **passing_names);
@@ -4418,11 +4418,11 @@ transformJsonFuncExpr(ParseState *pstate, JsonFuncExpr *func)
 
 			coerceJsonExprOutput(pstate, jsexpr);
 
-			if (func->on_empty)
-				jsexpr->on_empty = transformJsonBehavior(pstate,
-														 func->on_empty,
-														 JSON_BEHAVIOR_NULL,
-														 jsexpr->returning);
+			/* Assume NULL ON EMPTY when ON EMPTY is not specified. */
+			jsexpr->on_empty = transformJsonBehavior(pstate, func->on_empty,
+													 JSON_BEHAVIOR_NULL,
+													 jsexpr->returning);
+			/* Assume NULL ON ERROR when ON ERROR is not specified. */
 			jsexpr->on_error = transformJsonBehavior(pstate, func->on_error,
 													 JSON_BEHAVIOR_NULL,
 													 jsexpr->returning);
@@ -4448,11 +4448,11 @@ transformJsonFuncExpr(ParseState *pstate, JsonFuncExpr *func)
 
 			coerceJsonExprOutput(pstate, jsexpr);
 
-			if (func->on_empty)
-				jsexpr->on_empty = transformJsonBehavior(pstate,
-														 func->on_empty,
-														 JSON_BEHAVIOR_NULL,
-														 jsexpr->returning);
+			/* Assume NULL ON EMPTY when ON EMPTY is not specified. */
+			jsexpr->on_empty = transformJsonBehavior(pstate, func->on_empty,
+													 JSON_BEHAVIOR_NULL,
+													 jsexpr->returning);
+			/* Assume NULL ON ERROR when ON ERROR is not specified. */
 			jsexpr->on_error = transformJsonBehavior(pstate, func->on_error,
 													 JSON_BEHAVIOR_NULL,
 													 jsexpr->returning);
@@ -4464,6 +4464,13 @@ transformJsonFuncExpr(ParseState *pstate, JsonFuncExpr *func)
 				jsexpr->returning->typid = exprType(jsexpr->formatted_expr);
 				jsexpr->returning->typmod = -1;
 			}
+
+			/*
+			 * Assume EMPTY ON ERROR when ON ERROR is not specified.
+			 *
+			 * ON EMPTY cannot be specified at the top level but it can be for
+			 * the individual columns.
+			 */
 			jsexpr->on_error = transformJsonBehavior(pstate, func->on_error,
 													 JSON_BEHAVIOR_EMPTY,
 													 jsexpr->returning);

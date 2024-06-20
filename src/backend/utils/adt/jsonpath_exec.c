@@ -318,7 +318,7 @@ static void getJsonPathVariable(JsonPathExecContext *cxt,
 								JsonPathItem *variable, JsonbValue *value);
 static int	countVariablesFromJsonb(void *varsJsonb);
 static JsonbValue *getJsonPathVariableFromJsonb(void *varsJsonb, char *varName,
-												int varNameLen,
+												int varNameLength,
 												JsonbValue *baseObject,
 												int *baseObjectId);
 static int	JsonbArraySize(JsonbValue *jb);
@@ -342,7 +342,6 @@ static void JsonValueListInitIterator(const JsonValueList *jvl,
 									  JsonValueListIterator *it);
 static JsonbValue *JsonValueListNext(const JsonValueList *jvl,
 									 JsonValueListIterator *it);
-static int	JsonbType(JsonbValue *jb);
 static JsonbValue *JsonbInitBinary(JsonbValue *jbv, Jsonb *jb);
 static int	JsonbType(JsonbValue *jb);
 static JsonbValue *getScalar(JsonbValue *scalar, enum jbvType type);
@@ -359,7 +358,7 @@ static JsonTablePlanState *JsonTableInitPlan(JsonTableExecContext *cxt,
 											 List *args,
 											 MemoryContext mcxt);
 static void JsonTableSetDocument(TableFuncScanState *state, Datum value);
-static void JsonTableResetRowPattern(JsonTablePlanState *plan, Datum item);
+static void JsonTableResetRowPattern(JsonTablePlanState *planstate, Datum item);
 static bool JsonTableFetchRow(TableFuncScanState *state);
 static Datum JsonTableGetValue(TableFuncScanState *state, int colnum,
 							   Oid typid, int32 typmod, bool *isnull);
@@ -1606,6 +1605,9 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			{
 				JsonbValue	jbv;
 				char	   *tmp = NULL;
+
+				if (unwrap && JsonbType(jb) == jbvArray)
+					return executeItemUnwrapTargetArray(cxt, jsp, jb, found, false);
 
 				switch (JsonbType(jb))
 				{
@@ -2992,7 +2994,8 @@ GetJsonPathVar(void *cxt, char *varName, int varNameLen,
 	{
 		JsonPathVariable *curvar = lfirst(lc);
 
-		if (!strncmp(curvar->name, varName, varNameLen))
+		if (curvar->namelen == varNameLen &&
+			strncmp(curvar->name, varName, varNameLen) == 0)
 		{
 			var = curvar;
 			break;
@@ -4116,6 +4119,7 @@ JsonTableInitOpaque(TableFuncScanState *state, int natts)
 			JsonPathVariable *var = palloc(sizeof(*var));
 
 			var->name = pstrdup(name->sval);
+			var->namelen = strlen(var->name);
 			var->typid = exprType((Node *) state->expr);
 			var->typmod = exprTypmod((Node *) state->expr);
 

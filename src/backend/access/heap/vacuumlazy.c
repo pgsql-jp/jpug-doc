@@ -246,7 +246,7 @@ static void lazy_vacuum(LVRelState *vacrel);
 static bool lazy_vacuum_all_indexes(LVRelState *vacrel);
 static void lazy_vacuum_heap_rel(LVRelState *vacrel);
 static void lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno,
-								  Buffer buffer, OffsetNumber *offsets,
+								  Buffer buffer, OffsetNumber *deadoffsets,
 								  int num_offsets, Buffer vmbuffer);
 static bool lazy_check_wraparound_failsafe(LVRelState *vacrel);
 static void lazy_cleanup_all_indexes(LVRelState *vacrel);
@@ -2883,13 +2883,19 @@ dead_items_add(LVRelState *vacrel, BlockNumber blkno, OffsetNumber *offsets,
 			   int num_offsets)
 {
 	TidStore   *dead_items = vacrel->dead_items;
+	const int	prog_index[2] = {
+		PROGRESS_VACUUM_NUM_DEAD_ITEM_IDS,
+		PROGRESS_VACUUM_DEAD_TUPLE_BYTES
+	};
+	int64		prog_val[2];
 
 	TidStoreSetBlockOffsets(dead_items, blkno, offsets, num_offsets);
 	vacrel->dead_items_info->num_items += num_offsets;
 
-	/* update the memory usage report */
-	pgstat_progress_update_param(PROGRESS_VACUUM_DEAD_TUPLE_BYTES,
-								 TidStoreMemoryUsage(dead_items));
+	/* update the progress information */
+	prog_val[0] = vacrel->dead_items_info->num_items;
+	prog_val[1] = TidStoreMemoryUsage(dead_items);
+	pgstat_progress_update_multi_param(2, prog_index, prog_val);
 }
 
 /*
