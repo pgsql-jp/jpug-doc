@@ -85,6 +85,7 @@ static void setup_recovery(const struct LogicalRepInfo *dbinfo, const char *data
 						   const char *lsn);
 static void drop_primary_replication_slot(struct LogicalRepInfo *dbinfo,
 										  const char *slotname);
+static void drop_failover_replication_slots(struct LogicalRepInfo *dbinfo);
 static char *create_logical_replication_slot(PGconn *conn,
 											 struct LogicalRepInfo *dbinfo);
 static void drop_replication_slot(PGconn *conn, struct LogicalRepInfo *dbinfo,
@@ -879,47 +880,6 @@ check_publisher(const struct LogicalRepInfo *dbinfo)
 	pg_log_debug("publisher: max_wal_senders: %d", max_walsenders);
 	pg_log_debug("publisher: current wal senders: %d", cur_walsenders);
 
-	/*
-	 * If standby sets primary_slot_name, check if this replication slot is in
-	 * use on primary for WAL retention purposes. This replication slot has no
-	 * use after the transformation, hence, it will be removed at the end of
-	 * this process.
-	 */
-	if (primary_slot_name)
-	{
-		PQExpBuffer str = createPQExpBuffer();
-		char	   *psn_esc = PQescapeLiteral(conn, primary_slot_name, strlen(primary_slot_name));
-
-		appendPQExpBuffer(str,
-						  "SELECT 1 FROM pg_catalog.pg_replication_slots "
-						  "WHERE active AND slot_name = %s",
-						  psn_esc);
-
-		pg_free(psn_esc);
-
-		pg_log_debug("command is: %s", str->data);
-
-		res = PQexec(conn, str->data);
-		if (PQresultStatus(res) != PGRES_TUPLES_OK)
-		{
-			pg_log_error("could not obtain replication slot information: %s",
-						 PQresultErrorMessage(res));
-			disconnect_database(conn, true);
-		}
-
-		if (PQntuples(res) != 1)
-		{
-			pg_log_error("could not obtain replication slot information: got %d rows, expected %d row",
-						 PQntuples(res), 1);
-			disconnect_database(conn, true);
-		}
-		else
-			pg_log_info("primary has replication slot \"%s\"",
-						primary_slot_name);
-
-		PQclear(res);
-	}
-
 	disconnect_database(conn, false);
 
 	if (strcmp(wal_level, "logical") != 0)
@@ -1179,6 +1139,49 @@ drop_primary_replication_slot(struct LogicalRepInfo *dbinfo, const char *slotnam
 }
 
 /*
+ * Drop failover replication slots on subscriber. After the transformation,
+ * they have no use.
+ *
+ * XXX We do not fail here. Instead, we provide a warning so the user can drop
+ * them later.
+ */
+static void
+drop_failover_replication_slots(struct LogicalRepInfo *dbinfo)
+{
+	PGconn	   *conn;
+	PGresult   *res;
+
+	conn = connect_database(dbinfo[0].subconninfo, false);
+	if (conn != NULL)
+	{
+		/* Get failover replication slot names */
+		res = PQexec(conn,
+					 "SELECT slot_name FROM pg_catalog.pg_replication_slots WHERE failover");
+
+		if (PQresultStatus(res) == PGRES_TUPLES_OK)
+		{
+			/* Remove failover replication slots from subscriber */
+			for (int i = 0; i < PQntuples(res); i++)
+				drop_replication_slot(conn, &dbinfo[0], PQgetvalue(res, i, 0));
+		}
+		else
+		{
+			pg_log_warning("could not obtain failover replication slot information: %s",
+						   PQresultErrorMessage(res));
+			pg_log_warning_hint("Drop the failover replication slots on subscriber soon to avoid retention of WAL files.");
+		}
+
+		PQclear(res);
+		disconnect_database(conn, false);
+	}
+	else
+	{
+		pg_log_warning("could not drop failover replication slot");
+		pg_log_warning_hint("Drop the failover replication slots on subscriber soon to avoid retention of WAL files.");
+	}
+}
+
+/*
  * Create a logical replication slot and returns a LSN.
  *
  * CreateReplicationSlot() is not used because it does not provide the one-row
@@ -1309,7 +1312,7 @@ start_standby_server(const struct CreateSubscriberOptions *opt, bool restricted_
 	PQExpBuffer pg_ctl_cmd = createPQExpBuffer();
 	int			rc;
 
-	appendPQExpBuffer(pg_ctl_cmd, "\"%s\" start -D \"%s\" -s",
+	appendPQExpBuffer(pg_ctl_cmd, "\"%s\" start -D \"%s\" -s -o \"-c sync_replication_slots=off\"",
 					  pg_ctl_path, subscriber_dir);
 	if (restricted_access)
 	{
@@ -1360,6 +1363,9 @@ stop_standby_server(const char *datadir)
  *
  * If recovery_timeout option is set, terminate abnormally without finishing
  * the recovery process. By default, it waits forever.
+ *
+ * XXX Is the recovery process still in progress? When recovery process has a
+ * better progress reporting mechanism, it should be added here.
  */
 static void
 wait_for_end_recovery(const char *conninfo, const struct CreateSubscriberOptions *opt)
@@ -1367,9 +1373,6 @@ wait_for_end_recovery(const char *conninfo, const struct CreateSubscriberOptions
 	PGconn	   *conn;
 	int			status = POSTMASTER_STILL_STARTING;
 	int			timer = 0;
-	int			count = 0;		/* number of consecutive connection attempts */
-
-#define NUM_CONN_ATTEMPTS	10
 
 	pg_log_info("waiting for the target server to reach the consistent state");
 
@@ -1377,7 +1380,6 @@ wait_for_end_recovery(const char *conninfo, const struct CreateSubscriberOptions
 
 	for (;;)
 	{
-		PGresult   *res;
 		bool		in_recovery = server_is_in_recovery(conn);
 
 		/*
@@ -1390,28 +1392,6 @@ wait_for_end_recovery(const char *conninfo, const struct CreateSubscriberOptions
 			recovery_ended = true;
 			break;
 		}
-
-		/*
-		 * If it is still in recovery, make sure the target server is
-		 * connected to the primary so it can receive the required WAL to
-		 * finish the recovery process. If it is disconnected try
-		 * NUM_CONN_ATTEMPTS in a row and bail out if not succeed.
-		 */
-		res = PQexec(conn,
-					 "SELECT 1 FROM pg_catalog.pg_stat_wal_receiver");
-		if (PQntuples(res) == 0)
-		{
-			if (++count > NUM_CONN_ATTEMPTS)
-			{
-				stop_standby_server(subscriber_dir);
-				pg_log_error("standby server disconnected from the primary");
-				break;
-			}
-		}
-		else
-			count = 0;			/* reset counter if it connects again */
-
-		PQclear(res);
 
 		/* Bail out after recovery_timeout seconds if this option is set */
 		if (opt->recovery_timeout > 0 && timer >= opt->recovery_timeout)
@@ -2084,12 +2064,7 @@ main(int argc, char **argv)
 	/* Check if the standby server is ready for logical replication */
 	check_subscriber(dbinfo);
 
-	/*
-	 * Check if the primary server is ready for logical replication. This
-	 * routine checks if a replication slot is in use on primary so it relies
-	 * on check_subscriber() to obtain the primary_slot_name. That's why it is
-	 * called after it.
-	 */
+	/* Check if the primary server is ready for logical replication */
 	check_publisher(dbinfo);
 
 	/*
@@ -2133,6 +2108,9 @@ main(int argc, char **argv)
 
 	/* Remove primary_slot_name if it exists on primary */
 	drop_primary_replication_slot(dbinfo, primary_slot_name);
+
+	/* Remove failover replication slots if they exist on subscriber */
+	drop_failover_replication_slots(dbinfo);
 
 	/* Stop the subscriber */
 	pg_log_info("stopping the subscriber");
