@@ -46,7 +46,7 @@
  */
 #define SH_PREFIX		manifest_files
 #define SH_ELEMENT_TYPE	manifest_file
-#define SH_KEY_TYPE		char *
+#define SH_KEY_TYPE		const char *
 #define	SH_KEY			pathname
 #define SH_HASH_KEY(tb, key)	hash_string(key)
 #define SH_EQUAL(tb, a, b)		(strcmp(a, b) == 0)
@@ -60,7 +60,7 @@ static void combinebackup_version_cb(JsonManifestParseContext *context,
 static void combinebackup_system_identifier_cb(JsonManifestParseContext *context,
 											   uint64 manifest_system_identifier);
 static void combinebackup_per_file_cb(JsonManifestParseContext *context,
-									  char *pathname, size_t size,
+									  const char *pathname, size_t size,
 									  pg_checksum_type checksum_type,
 									  int checksum_length,
 									  uint8 *checksum_payload);
@@ -122,7 +122,7 @@ load_backup_manifest(char *backup_directory)
 	{
 		if (errno == ENOENT)
 		{
-			pg_log_warning("\"%s\" does not exist", pathname);
+			pg_log_warning("file \"%s\" does not exist", pathname);
 			return NULL;
 		}
 		pg_fatal("could not open file \"%s\": %m", pathname);
@@ -267,7 +267,7 @@ combinebackup_system_identifier_cb(JsonManifestParseContext *context,
  */
 static void
 combinebackup_per_file_cb(JsonManifestParseContext *context,
-						  char *pathname, size_t size,
+						  const char *pathname, size_t size,
 						  pg_checksum_type checksum_type,
 						  int checksum_length, uint8 *checksum_payload)
 {
