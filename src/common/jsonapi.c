@@ -85,7 +85,7 @@ struct JsonParserStack
 {
 	int			stack_size;
 	char	   *prediction;
-	int			pred_index;
+	size_t		pred_index;
 	/* these two are indexed by lex_level */
 	char	  **fnames;
 	bool	   *fnull;
@@ -211,8 +211,8 @@ static td_entry td_parser_table[JSON_NUM_NONTERMINALS][JSON_NUM_TERMINALS] =
 static char JSON_PROD_GOAL[] = {JSON_TOKEN_END, JSON_NT_JSON, 0};
 
 static inline JsonParseErrorType json_lex_string(JsonLexContext *lex);
-static inline JsonParseErrorType json_lex_number(JsonLexContext *lex, char *s,
-												 bool *num_err, int *total_len);
+static inline JsonParseErrorType json_lex_number(JsonLexContext *lex, const char *s,
+												 bool *num_err, size_t *total_len);
 static inline JsonParseErrorType parse_scalar(JsonLexContext *lex, JsonSemAction *sem);
 static JsonParseErrorType parse_object_field(JsonLexContext *lex, JsonSemAction *sem);
 static JsonParseErrorType parse_object(JsonLexContext *lex, JsonSemAction *sem);
@@ -269,10 +269,10 @@ lex_expect(JsonParseContext ctx, JsonLexContext *lex, JsonTokenType token)
  * str is of length len, and need not be null-terminated.
  */
 bool
-IsValidJsonNumber(const char *str, int len)
+IsValidJsonNumber(const char *str, size_t len)
 {
 	bool		numeric_error;
-	int			total_len;
+	size_t		total_len;
 	JsonLexContext dummy_lex;
 
 	if (len <= 0)
@@ -290,12 +290,12 @@ IsValidJsonNumber(const char *str, int len)
 	 */
 	if (*str == '-')
 	{
-		dummy_lex.input = unconstify(char *, str) + 1;
+		dummy_lex.input = str + 1;
 		dummy_lex.input_length = len - 1;
 	}
 	else
 	{
-		dummy_lex.input = unconstify(char *, str);
+		dummy_lex.input = str;
 		dummy_lex.input_length = len;
 	}
 
@@ -323,8 +323,8 @@ IsValidJsonNumber(const char *str, int len)
  * cleanup.
  */
 JsonLexContext *
-makeJsonLexContextCstringLen(JsonLexContext *lex, char *json,
-							 int len, int encoding, bool need_escapes)
+makeJsonLexContextCstringLen(JsonLexContext *lex, const char *json,
+							 size_t len, int encoding, bool need_escapes)
 {
 	if (lex == NULL)
 	{
@@ -649,8 +649,8 @@ json_count_array_elements(JsonLexContext *lex, int *elements)
 JsonParseErrorType
 pg_parse_json_incremental(JsonLexContext *lex,
 						  JsonSemAction *sem,
-						  char *json,
-						  int len,
+						  const char *json,
+						  size_t len,
 						  bool is_last)
 {
 	JsonTokenType tok;
@@ -888,7 +888,7 @@ pg_parse_json_incremental(JsonLexContext *lex,
 							}
 							else
 							{
-								int			tlen = (lex->token_terminator - lex->token_start);
+								ptrdiff_t	tlen = (lex->token_terminator - lex->token_start);
 
 								pstack->scalar_val = palloc(tlen + 1);
 								memcpy(pstack->scalar_val, lex->token_start, tlen);
@@ -1308,8 +1308,8 @@ parse_array(JsonLexContext *lex, JsonSemAction *sem)
 JsonParseErrorType
 json_lex(JsonLexContext *lex)
 {
-	char	   *s;
-	char	   *const end = lex->input + lex->input_length;
+	const char *s;
+	const char *const end = lex->input + lex->input_length;
 	JsonParseErrorType result;
 
 	if (lex->incremental && lex->inc_state->partial_completed)
@@ -1332,7 +1332,7 @@ json_lex(JsonLexContext *lex)
 		 * recursive call
 		 */
 		StringInfo	ptok = &(lex->inc_state->partial_token);
-		int			added = 0;
+		size_t		added = 0;
 		bool		tok_done = false;
 		JsonLexContext dummy_lex;
 		JsonParseErrorType partial_result;
@@ -1354,7 +1354,7 @@ json_lex(JsonLexContext *lex)
 					break;
 			}
 
-			for (int i = 0; i < lex->input_length; i++)
+			for (size_t i = 0; i < lex->input_length; i++)
 			{
 				char		c = lex->input[i];
 
@@ -1382,7 +1382,7 @@ json_lex(JsonLexContext *lex)
 
 				bool		numend = false;
 
-				for (int i = 0; i < lex->input_length && !numend; i++)
+				for (size_t i = 0; i < lex->input_length && !numend; i++)
 				{
 					char		cc = lex->input[i];
 
@@ -1418,7 +1418,7 @@ json_lex(JsonLexContext *lex)
 			 * {null, false, true} literals as well as any trailing
 			 * alphanumeric junk on non-string tokens.
 			 */
-			for (int i = added; i < lex->input_length; i++)
+			for (size_t i = added; i < lex->input_length; i++)
 			{
 				char		cc = lex->input[i];
 
@@ -1593,7 +1593,7 @@ json_lex(JsonLexContext *lex)
 				break;
 			default:
 				{
-					char	   *p;
+					const char *p;
 
 					/*
 					 * We're not dealing with a string, number, legal
@@ -1671,8 +1671,8 @@ json_lex(JsonLexContext *lex)
 static inline JsonParseErrorType
 json_lex_string(JsonLexContext *lex)
 {
-	char	   *s;
-	char	   *const end = lex->input + lex->input_length;
+	const char *s;
+	const char *const end = lex->input + lex->input_length;
 	int			hi_surrogate = -1;
 
 	/* Convenience macros for error exits */
@@ -1689,7 +1689,7 @@ json_lex_string(JsonLexContext *lex)
 	} while (0)
 #define FAIL_AT_CHAR_END(code) \
 	do { \
-		char	   *term = s + pg_encoding_mblen(lex->input_encoding, s); \
+		const char	   *term = s + pg_encoding_mblen(lex->input_encoding, s); \
 		lex->token_terminator = (term <= end) ? term : end; \
 		return code; \
 	} while (0)
@@ -1854,7 +1854,7 @@ json_lex_string(JsonLexContext *lex)
 		}
 		else
 		{
-			char	   *p = s;
+			const char *p = s;
 
 			if (hi_surrogate != -1)
 				FAIL_AT_CHAR_END(JSON_UNICODE_LOW_SURROGATE);
@@ -1940,8 +1940,8 @@ json_lex_string(JsonLexContext *lex)
  * the distance from lex->input to the token end+1 is returned to *total_len.
  */
 static inline JsonParseErrorType
-json_lex_number(JsonLexContext *lex, char *s,
-				bool *num_err, int *total_len)
+json_lex_number(JsonLexContext *lex, const char *s,
+				bool *num_err, size_t *total_len)
 {
 	bool		error = false;
 	int			len = s - lex->input;
