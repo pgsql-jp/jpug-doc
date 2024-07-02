@@ -26,6 +26,7 @@
 #include "common/restricted_token.h"
 #include "fe_utils/recovery_gen.h"
 #include "fe_utils/simple_list.h"
+#include "fe_utils/string_utils.h"
 #include "getopt_long.h"
 
 #define	DEFAULT_SUB_PORT	"50432"
@@ -237,14 +238,27 @@ usage(void)
 }
 
 /*
+ * Subroutine to append "keyword=value" to a connection string,
+ * with proper quoting of the value.  (We assume keywords don't need that.)
+ */
+static void
+appendConnStrItem(PQExpBuffer buf, const char *keyword, const char *val)
+{
+	if (buf->len > 0)
+		appendPQExpBufferChar(buf, ' ');
+	appendPQExpBufferStr(buf, keyword);
+	appendPQExpBufferChar(buf, '=');
+	appendConnStrVal(buf, val);
+}
+
+/*
  * Validate a connection string. Returns a base connection string that is a
  * connection string without a database name.
  *
  * Since we might process multiple databases, each database name will be
  * appended to this base connection string to provide a final connection
  * string. If the second argument (dbname) is not null, returns dbname if the
- * provided connection string contains it. If option --database is not
- * provided, uses dbname as the only database to setup the logical replica.
+ * provided connection string contains it.
  *
  * It is the caller's responsibility to free the returned connection string and
  * dbname.
@@ -257,7 +271,6 @@ get_base_conninfo(const char *conninfo, char **dbname)
 	PQconninfoOption *conn_opt;
 	char	   *errmsg = NULL;
 	char	   *ret;
-	int			i;
 
 	conn_opts = PQconninfoParse(conninfo, &errmsg);
 	if (conn_opts == NULL)
@@ -268,22 +281,17 @@ get_base_conninfo(const char *conninfo, char **dbname)
 	}
 
 	buf = createPQExpBuffer();
-	i = 0;
 	for (conn_opt = conn_opts; conn_opt->keyword != NULL; conn_opt++)
 	{
-		if (strcmp(conn_opt->keyword, "dbname") == 0 && conn_opt->val != NULL)
-		{
-			if (dbname)
-				*dbname = pg_strdup(conn_opt->val);
-			continue;
-		}
-
 		if (conn_opt->val != NULL && conn_opt->val[0] != '\0')
 		{
-			if (i > 0)
-				appendPQExpBufferChar(buf, ' ');
-			appendPQExpBuffer(buf, "%s=%s", conn_opt->keyword, conn_opt->val);
-			i++;
+			if (strcmp(conn_opt->keyword, "dbname") == 0)
+			{
+				if (dbname)
+					*dbname = pg_strdup(conn_opt->val);
+				continue;
+			}
+			appendConnStrItem(buf, conn_opt->keyword, conn_opt->val);
 		}
 	}
 
@@ -305,13 +313,13 @@ get_sub_conninfo(const struct CreateSubscriberOptions *opt)
 	PQExpBuffer buf = createPQExpBuffer();
 	char	   *ret;
 
-	appendPQExpBuffer(buf, "port=%s", opt->sub_port);
+	appendConnStrItem(buf, "port", opt->sub_port);
 #if !defined(WIN32)
-	appendPQExpBuffer(buf, " host=%s", opt->socket_dir);
+	appendConnStrItem(buf, "host", opt->socket_dir);
 #endif
 	if (opt->sub_username != NULL)
-		appendPQExpBuffer(buf, " user=%s", opt->sub_username);
-	appendPQExpBuffer(buf, " fallback_application_name=%s", progname);
+		appendConnStrItem(buf, "user", opt->sub_username);
+	appendConnStrItem(buf, "fallback_application_name", progname);
 
 	ret = pg_strdup(buf->data);
 
@@ -402,7 +410,7 @@ concat_conninfo_dbname(const char *conninfo, const char *dbname)
 	Assert(conninfo != NULL);
 
 	appendPQExpBufferStr(buf, conninfo);
-	appendPQExpBuffer(buf, " dbname=%s", dbname);
+	appendConnStrItem(buf, "dbname", dbname);
 
 	ret = pg_strdup(buf->data);
 	destroyPQExpBuffer(buf);
@@ -815,6 +823,7 @@ check_publisher(const struct LogicalRepInfo *dbinfo)
 	int			cur_repslots;
 	int			max_walsenders;
 	int			cur_walsenders;
+	int			max_prepared_transactions;
 
 	pg_log_info("checking settings on publisher");
 
@@ -841,23 +850,12 @@ check_publisher(const struct LogicalRepInfo *dbinfo)
 	 * -----------------------------------------------------------------------
 	 */
 	res = PQexec(conn,
-				 "WITH wl AS "
-				 "(SELECT setting AS wallevel FROM pg_catalog.pg_settings "
-				 "WHERE name = 'wal_level'), "
-				 "total_mrs AS "
-				 "(SELECT setting AS tmrs FROM pg_catalog.pg_settings "
-				 "WHERE name = 'max_replication_slots'), "
-				 "cur_mrs AS "
-				 "(SELECT count(*) AS cmrs "
-				 "FROM pg_catalog.pg_replication_slots), "
-				 "total_mws AS "
-				 "(SELECT setting AS tmws FROM pg_catalog.pg_settings "
-				 "WHERE name = 'max_wal_senders'), "
-				 "cur_mws AS "
-				 "(SELECT count(*) AS cmws FROM pg_catalog.pg_stat_activity "
-				 "WHERE backend_type = 'walsender') "
-				 "SELECT wallevel, tmrs, cmrs, tmws, cmws "
-				 "FROM wl, total_mrs, cur_mrs, total_mws, cur_mws");
+				 "SELECT pg_catalog.current_setting('wal_level'),"
+				 " pg_catalog.current_setting('max_replication_slots'),"
+				 " (SELECT count(*) FROM pg_catalog.pg_replication_slots),"
+				 " pg_catalog.current_setting('max_wal_senders'),"
+				 " (SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE backend_type = 'walsender'),"
+				 " pg_catalog.current_setting('max_prepared_transactions')");
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 	{
@@ -871,6 +869,7 @@ check_publisher(const struct LogicalRepInfo *dbinfo)
 	cur_repslots = atoi(PQgetvalue(res, 0, 2));
 	max_walsenders = atoi(PQgetvalue(res, 0, 3));
 	cur_walsenders = atoi(PQgetvalue(res, 0, 4));
+	max_prepared_transactions = atoi(PQgetvalue(res, 0, 5));
 
 	PQclear(res);
 
@@ -879,6 +878,8 @@ check_publisher(const struct LogicalRepInfo *dbinfo)
 	pg_log_debug("publisher: current replication slots: %d", cur_repslots);
 	pg_log_debug("publisher: max_wal_senders: %d", max_walsenders);
 	pg_log_debug("publisher: current wal senders: %d", cur_walsenders);
+	pg_log_debug("publisher: max_prepared_transactions: %d",
+				 max_prepared_transactions);
 
 	disconnect_database(conn, false);
 
@@ -904,6 +905,13 @@ check_publisher(const struct LogicalRepInfo *dbinfo)
 		pg_log_error_hint("Consider increasing max_wal_senders to at least %d.",
 						  cur_walsenders + num_dbs);
 		failed = true;
+	}
+
+	if (max_prepared_transactions != 0)
+	{
+		pg_log_warning("two_phase option will not be enabled for slots");
+		pg_log_warning_detail("Subscriptions will be created with the two_phase option disabled.  "
+							  "Prepared transactions will be replicated at COMMIT PREPARED.");
 	}
 
 	pg_free(wal_level);
@@ -1312,8 +1320,9 @@ start_standby_server(const struct CreateSubscriberOptions *opt, bool restricted_
 	PQExpBuffer pg_ctl_cmd = createPQExpBuffer();
 	int			rc;
 
-	appendPQExpBuffer(pg_ctl_cmd, "\"%s\" start -D \"%s\" -s -o \"-c sync_replication_slots=off\"",
-					  pg_ctl_path, subscriber_dir);
+	appendPQExpBuffer(pg_ctl_cmd, "\"%s\" start -D ", pg_ctl_path);
+	appendShellString(pg_ctl_cmd, subscriber_dir);
+	appendPQExpBuffer(pg_ctl_cmd, " -s -o \"-c sync_replication_slots=off\"");
 	if (restricted_access)
 	{
 		appendPQExpBuffer(pg_ctl_cmd, " -o \"-p %s\"", opt->sub_port);
