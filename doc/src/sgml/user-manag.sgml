@@ -167,14 +167,10 @@ SELECT rolname FROM pg_roles WHERE rolcanlogin;
    <literal>postgres</literal>. In order to create more roles you
    first have to connect as this initial role.
 -->
-《マッチ度[72.707889]》データベースシステム自身を起動するために、初期化されたばかりのシステムは常に定義済みのロールを1つ持ちます。
-このロールは必ず<quote>スーパーユーザ</quote>であり、デフォルトでは（<command>initdb</command>実行時に変更しない限り）そのデータベースクラスタを初期化したオペレーティングシステムユーザと同じ名前となります。
-習慣的にこのロールは<literal>postgres</literal>と名付けられます。
+データベースシステム自身を起動するために、初期化されたばかりのシステムは常に定義済みでログイン可能なロールを1つ持ちます。
+このロールは必ず<quote>スーパーユーザ</quote>であり、異なる名前を指定しない限り、<command>initdb</command>でそのデータベースクラスタを初期化したオペレーティングシステムユーザと同じ名前となります。
+このロールはしばしば<literal>postgres</literal>と名付けられます。
 ロールを追加する場合はまずこの初期ロールで接続しなければいけません。
-《機械翻訳》データベースシステムをブートストラップするために、新しく初期化されたシステムには常に事前定義されたログイン可能なロールが1つ含まれます。
-このロールは常に<quote>スーパーユーザ</quote>であり、異なる名前を指定しない限り、<command>initdb</command>でデータベースクラスタを初期化したオペレーティングシステムユーザと同じ名前になります。
-このロールは通常<literal>postgres</literal>です。
-より多くのロールを作成するには、最初にこの初期ロールに接続する必要があります。
   </para>
 
   <para>
@@ -638,13 +634,11 @@ REVOKE <replaceable>group_role</replaceable> FROM <replaceable>role1</replaceabl
    chain stops at memberships lacking the inherit option.  As an example,
    suppose we have done:
 -->
-《機械翻訳》グループロールのメンバーは、2 つの方法でロールの権限を使用できます。
-まず、<literal>SET</literal>オプションを使ってメンバシップが付与されたメンバロールは<link linkend="sql-set-role"><command>SET ROLE</command></link>を行うことで、一時的に<quote>グループの役割になる</quote>ことができます。
-この状態では、データベース・セッションは元のログイン・ロールではなくグループ・ロールの権限にアクセスできます。
-また、作成されたデータベース・オブジェクトは、ログイン・ロールではなくグループ・ロールによって所有されているとみなされます。
-第二に、<literal>INHERIT</literal>オプションを持つメンバシップが付与されたメンバロールは、直接的または間接的にそれらのメンバの特権を自動的に使用します。
-しかし、継承オプションを持たないメンバシップでは、チェーンは停止します。
-例として、次のようにします。
+グループロールのメンバは、2つの方法でロールの権限を使用できます。
+1つ目として、メンバ資格が<literal>SET</literal>オプションで付与されたメンバロールは、<link linkend="sql-set-role"><command>SET</command></link>オプションを使用して、一時的にグループロール<quote>になる</quote>ことができます。
+この状態では、データベースセッションは、元のログインロールではなくグループロールの権限にアクセスでき、作成されたデータベースオブジェクトは、ログインロールではなくグループロールによって所有されているとみなされます。
+2つ目として、<literal>INHERIT</literal>オプションでメンバ資格が付与されたメンバロールは、直接的または間接的にメンバであるメンバの権限を自動的に使用できます。ただし、この連鎖は継承オプションを持たないメンバ資格で停止します。
+例えば、以下の状態を想定します。
 <programlisting>
 CREATE ROLE joe LOGIN;
 CREATE ROLE admin;
@@ -666,7 +660,7 @@ GRANT island TO joe WITH INHERIT TRUE, SET FALSE;
    <literal>WITH INHERIT FALSE</literal>. After:
 -->
 ロール<literal>joe</literal>として接続した直後、データベースは<literal>joe</literal>に直接付与された権限に加えて、<literal>admin</literal>と<literal>island</literal>に付与された権限を<quote>継承</quote>するため、これらの権限を使用できます。
-ただし、<literal>wheel</literal>に付与された権限は使用できません。これは、<literal>joe</literal>が間接的に<literal>wheel</literal>のメンバーであるにもかかわらず、メンバーシップは<literal>admin</literal>を介して付与され、<literal>WITH INHERIT FALSE</literal>を使用して付与されたためです。
+ただし、<literal>wheel</literal>に付与された権限は使用できません。これは、<literal>joe</literal>が間接的に<literal>wheel</literal>のメンバであるにもかかわらず、メンバシップは<literal>admin</literal>を介して付与され、<literal>WITH INHERIT FALSE</literal>を使用して付与されたためです。
 <programlisting>
 SET ROLE admin;
 </programlisting>
@@ -707,7 +701,7 @@ RESET ROLE;
     at all; <literal>joe</literal> can only access those privileges via
     inheritance.
 -->
-メンバーシップの許可の連鎖が存在し、それぞれが<literal>SET TRUE</literal>（デフォルトです）である場合、<command>SET ROLE</command>コマンドは、元のログインロールが直接的または間接的にメンバーであるロールを常に選択できるようにします。
+メンバシップの許可の連鎖が存在し、それぞれが<literal>SET TRUE</literal>（デフォルトです）である場合、<command>SET ROLE</command>コマンドは、元のログインロールが直接的または間接的にメンバであるロールを常に選択できるようにします。
 したがって、上記の例では、<literal>admin</literal>になる前に<literal>wheel</literal>になる必要はありません。
 一方、<literal>island</literal>になることはできません。 <literal>joe</literal>は継承を介してのみこれらの権限にアクセスできます。
    </para>
