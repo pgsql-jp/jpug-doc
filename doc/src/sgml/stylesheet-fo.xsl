@@ -21,6 +21,7 @@
 <xsl:attribute-set name="monospace.verbatim.properties"
                    use-attribute-sets="verbatim.properties monospace.properties">
   <xsl:attribute name="wrap-option">wrap</xsl:attribute>
+  <xsl:attribute name="font-size">90%</xsl:attribute>
 </xsl:attribute-set>
 
 <xsl:attribute-set name="nongraphical.admonition.properties">

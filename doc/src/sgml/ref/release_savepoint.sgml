@@ -12,16 +12,26 @@ PostgreSQL documentation
   <primary>savepoints</primary>
   <secondary>releasing</secondary>
  </indexterm>
+ <indexterm zone="sql-release-savepoint">
+  <primary>セーブポイント</primary>
+  <secondary>の解放</secondary>
+ </indexterm>
 
  <refmeta>
   <refentrytitle>RELEASE SAVEPOINT</refentrytitle>
   <manvolnum>7</manvolnum>
+<!--
   <refmiscinfo>SQL - Language Statements</refmiscinfo>
+-->
+  <refmiscinfo>SQL - 言語</refmiscinfo>
  </refmeta>
 
  <refnamediv>
   <refname>RELEASE SAVEPOINT</refname>
+<!--
   <refpurpose>release a previously defined savepoint</refpurpose>
+-->
+  <refpurpose>設定済みのセーブポイントを解放する</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -31,9 +41,13 @@ RELEASE [ SAVEPOINT ] <replaceable>savepoint_name</replaceable>
  </refsynopsisdiv>
 
  <refsect1>
+<!--
   <title>Description</title>
+-->
+  <title>説明</title>
 
   <para>
+<!--
    <command>RELEASE SAVEPOINT</command> releases the named savepoint and
    all active savepoints that were created after the named savepoint,
    and frees their resources.  All changes made since the creation of
@@ -41,18 +55,28 @@ RELEASE [ SAVEPOINT ] <replaceable>savepoint_name</replaceable>
    the transaction or savepoint that was active when the named savepoint
    was created.  Changes made after <command>RELEASE SAVEPOINT</command>
    will also be part of this active transaction or savepoint.
+-->
+<command>RELEASE SAVEPOINT</command>は指定されたセーブポイントと、指定されたセーブポイントの後に作成されたすべての有効なセーブポイントを解放し、そのリソースを解放します。
+セーブポイントの作成後に行われたすべての変更で、まだロールバックされていないものは、指定されたセーブポイントが作成されたときに実行中のトランザクションまたは有効なセーブポイントにマージされます。
+<command>RELEASE SAVEPOINT</command>の後に行われた変更も、この実行中のトランザクションまたは有効なセーブポイントの一部になります。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Parameters</title>
+-->
+  <title>パラメータ</title>
 
   <variablelist>
    <varlistentry>
     <term><replaceable>savepoint_name</replaceable></term>
     <listitem>
      <para>
+<!--
       The name of the savepoint to release.
+-->
+解放するセーブポイントの名前です。
      </para>
     </listitem>
    </varlistentry>
@@ -60,30 +84,50 @@ RELEASE [ SAVEPOINT ] <replaceable>savepoint_name</replaceable>
  </refsect1>
 
  <refsect1>
+<!--
   <title>Notes</title>
+-->
+  <title>注釈</title>
 
   <para>
+<!--
    Specifying a savepoint name that was not previously defined is an error.
+-->
+設定されていないセーブポイント名を指定するとエラーになります。
   </para>
 
   <para>
+<!--
    It is not possible to release a savepoint when the transaction is in
    an aborted state;  to do that, use <xref linkend="sql-rollback-to"/>.
+-->
+トランザクションがアボート状態の時には、セーブポイントを解放することはできません。
+そのためには、<xref linkend="sql-rollback-to"/>を使用してください。
   </para>
 
   <para>
+<!--
    If multiple savepoints have the same name, only the most recently defined
    unreleased one is released.  Repeated commands will release progressively
    older savepoints.
+-->
+同じ名前のセーブポイントが複数存在する場合、最後に設定されたセーブポイントのみが解放されます。
+コマンドを繰り返すと、より以前のセーブポイントが順次解放されます。
   </para>
 
  </refsect1>
 
  <refsect1>
+<!--
   <title>Examples</title>
+-->
+  <title>例</title>
 
   <para>
+<!--
    To establish and later release a savepoint:
+-->
+セーブポイントを設定し、その後、解放します。
 <programlisting>
 BEGIN;
     INSERT INTO table1 VALUES (3);
@@ -92,11 +136,17 @@ BEGIN;
     RELEASE SAVEPOINT my_savepoint;
 COMMIT;
 </programlisting>
+<!--
    The above transaction will insert both 3 and 4.
+-->
+上記のトランザクションでは、3と4の両方が挿入されます。
   </para>
 
   <para>
+<!--
    A more complex example with multiple nested subtransactions:
+-->
+複数の入れ子になったサブトランザクションを持つ、より複雑な例。
 <programlisting>
 BEGIN;
     INSERT INTO table1 VALUES (1);
@@ -105,8 +155,12 @@ BEGIN;
     SAVEPOINT sp2;
     INSERT INTO table1 VALUES (3);
     RELEASE SAVEPOINT sp2;
-    INSERT INTO table1 VALUES (4))); -- generates an error
+<!--
+    INSERT INTO table1 VALUES (4))); &#45;- generates an error
+-->
+    INSERT INTO table1 VALUES (4))); -- エラーになる
 </programlisting>
+<!--
    In this example, the application requests the release of the savepoint
    <literal>sp2</literal>, which inserted 3.  This changes the insert's
    transaction context to <literal>sp1</literal>.  When the statement
@@ -115,30 +169,49 @@ BEGIN;
    and value 3 is in the same transaction context.  The application can
    now only choose one of these two commands, since all other commands
    will be ignored:
+-->
+この例では、アプリケーションがセーブポイント<literal>sp2</literal>の解放を要求し、そこでは3が挿入されています。
+これにより、挿入のトランザクションコンテキストが<literal>sp1</literal>に変更されます。
+値4を挿入しようとする文がエラーになると、同じロールバックされたセーブポイントにあるため、2と4の挿入は失われます。値3は同じトランザクションコンテキストにあります。
+他のコマンドはすべて無視されるため、アプリケーションは今や以下の2つのコマンドのうち1つのみを選択できます。
 <programlisting>
 ROLLBACK;
 ROLLBACK TO SAVEPOINT sp1;
 </programlisting>
+<!--
    Choosing <command>ROLLBACK</command> will abort everything, including
    value 1, whereas <command>ROLLBACK TO SAVEPOINT sp1</command> will retain
    value 1 and allow the transaction to continue.
+-->
+<command>ROLLBACK</command>を選択すると、値1を含むすべてのコマンドがアボートされますが、<command>ROLLBACK TO SAVEPOINT sp1</command>を選択すると、値1が保持され、トランザクションの続行が可能になります。
   </para>
 
  </refsect1>
 
  <refsect1>
+<!--
   <title>Compatibility</title>
+-->
+  <title>互換性</title>
 
   <para>
+<!--
    This command conforms to the <acronym>SQL</acronym> standard.  The standard
    specifies that the key word <literal>SAVEPOINT</literal> is
    mandatory, but <productname>PostgreSQL</productname> allows it to
    be omitted.
+-->
+このコマンドは標準<acronym>SQL</acronym>に準拠しています。
+SQL:2003標準では、<literal>SAVEPOINT</literal>は必須であると規定されています。
+<productname>PostgreSQL</productname>では<literal>SAVEPOINT</literal>キーワードを省略することができます。
   </para>
  </refsect1>
 
  <refsect1>
+<!--
   <title>See Also</title>
+-->
+  <title>関連項目</title>
 
   <simplelist type="inline">
    <member><xref linkend="sql-begin"/></member>

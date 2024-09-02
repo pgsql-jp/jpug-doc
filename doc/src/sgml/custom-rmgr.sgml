@@ -1,7 +1,10 @@
 <!-- doc/src/sgml/custom-rmgr.sgml -->
 
 <sect1 id="custom-rmgr">
+<!--
  <title>Custom WAL Resource Managers</title>
+-->
+ <title>カスタムWALリソースマネージャ</title>
 
  <para>
   This section explains the interface between the core
@@ -16,12 +19,16 @@
   linkend="logicaldecoding">Logical Decoding</link>.
  </para>
  <para>
+<!--
   To create a new custom WAL resource manager, first define an
   <structname>RmgrData</structname> structure with implementations for the
   resource manager methods. Refer to
   <filename>src/backend/access/transam/README</filename> and
   <filename>src/include/access/xlog_internal.h</filename> in the
   <productname>PostgreSQL</productname> source.
+-->
+新しいカスタムWALリソースマネージャを作成するためには、まずリソースマネージャメソッドの実装を持つ<structname>RmgrData</structname>構造体を定義します。
+<productname>PostgreSQL</productname>ソースの<filename>src/backend/access/transam/README</filename>と<filename>src/include/access/xlog_internal.h</filename>を参照してください。
 <programlisting>
 /*
  * Method table for resource managers.
@@ -40,6 +47,23 @@
  * RmgrTable[] is indexed by RmgrId values (see rmgrlist.h). If rm_name is
  * NULL, the corresponding RmgrTable entry is considered invalid.
  */
+/*
+ * （日本語訳）
+ * テーブルのリソースマネージャの方法。
+ *
+ * この構造体は、rmgr.cのPG_RMGR定義と同期している必要があります。
+ *
+ * rm_identifyは、xl_info（rmidへの参照なし）に基づくレコードの名前を返す必要があります。
+ * 例えば、XLOG_BTREE_VACUUMは"VACUUM"になります。
+ * その後、rm_descを呼び出して、可能であれば（最後のブロックなど）、
+ * レコードの追加の詳細を取得できます。
+ *
+ * rm_maskリソースマネージャによって変更されたページを入力として受け取り、
+ * wal_consistency_checkingによってフラグが立てられないビットをマスクします。
+ *
+ * RmgrTable[]はRmgrId値によってインデックス化されます(rmgrlist.hを参照)。
+ * rm_nameがNULLの場合、対応するRmgrTableエントリは無効と見なされます。
+ */
 typedef struct RmgrData
 {
     const char *rm_name;
@@ -56,14 +80,20 @@ typedef struct RmgrData
  </para>
 
   <para>
+<!--
    The <filename>src/test/modules/test_custom_rmgrs</filename> module
    contains a working example, which demonstrates usage of custom WAL
    resource managers.
+-->
+実例として<filename>src/test/modules/test_custom_rmgrs</filename>モジュールがあります。そこではカスタムWALリソースマネージャの使い方を示しています。
   </para>
 
  <para>
+<!--
   Then, register your new resource
   manager.
+-->
+次に、新しいリソースマネージャを登録します。
 
 <programlisting>
 /*
@@ -75,8 +105,18 @@ typedef struct RmgrData
  * developers. During development, use RM_EXPERIMENTAL_ID to avoid needlessly
  * reserving a new ID.
  */
+/*
+ * （日本語訳）
+ * カスタムWALリソースマネージャの登録。
+ *
+ * リソースマネージャIDは、すべての拡張にわたってグローバルにユニークである必要があります。
+ * https://wiki.postgresql.org/wiki/CustomWALResourceManagers を参照して、
+ * 拡張のユニークRmgrIdを予約し、他の拡張開発者との競合を回避します。
+ * 開発時には、RM_EXPERIMENTAL_IDを使用して、新しいIDが不必要に予約されないようにします。
+ */
 extern void RegisterCustomRmgr(RmgrId rmid, const RmgrData *rmgr);
 </programlisting>
+<!--
   <function>RegisterCustomRmgr</function> must be called from the
   extension module's <link linkend="xfunc-c-dynload">_PG_init</link> function.
   While developing a new extension, use <literal>RM_EXPERIMENTAL_ID</literal>
@@ -84,12 +124,19 @@ extern void RegisterCustomRmgr(RmgrId rmid, const RmgrData *rmgr);
   to users, reserve a new resource manager ID at the <ulink
   url="https://wiki.postgresql.org/wiki/CustomWALResourceManagers">Custom WAL
   Resource Manager</ulink> page.
+-->
+<function>RegisterCustomRmgr</function>は拡張モジュールの<link linkend="xfunc-c-dynload">_PG_init</link>関数から呼び出される必要があります。
+新しい拡張を開発する際には、<parameter>rmid</parameter>に<literal>RM_EXPERIMENTAL_ID</literal>を使用してください。
+拡張をユーザにリリースする準備ができたら、<ulink url="https://wiki.postgresql.org/wiki/CustomWALResourceManagers">Custom WAL Resource Manager</ulink>のページで新しいリソースマネージャIDを予約してください。
  </para>
 
  <para>
+<!--
   Place the extension module implementing the custom resource manager in <xref
   linkend="guc-shared-preload-libraries"/> so that it will be loaded early
   during <productname>PostgreSQL</productname> startup.
+-->
+カスタムリソースマネージャを実装する拡張モジュールを<xref linkend="guc-shared-preload-libraries"/>に配置して、<productname>PostgreSQL</productname>の起動の初期にロードされるようにします。
  </para>
  <note>
    <para>
