@@ -268,6 +268,7 @@ typedef struct IndexAmRoutine
   </para>
 
   <para>
+<!--
    Some of the flag fields of <structname>IndexAmRoutine</structname> have nonobvious
    implications.  The requirements of <structfield>amcanunique</structfield>
    are discussed in <xref linkend="index-unique-checks"/>.
@@ -306,6 +307,26 @@ typedef struct IndexAmRoutine
    <structfield>amsearchnulls</structfield>, indicating that it supports
    <literal>IS NULL</literal> and <literal>IS NOT NULL</literal> clauses as search
    conditions.
+-->
+《マッチ度[94.352562]》<structname>IndexAmRoutine</structname>のフラグフィールドの中には、意味がわかりにくいものがあります。
+<structfield>amcanunique</structfield>の必要条件は<xref linkend="index-unique-checks"/>で説明されています。
+<structfield>amcanmulticol</structfield>フラグはアクセスメソッドが複数キー列に対するインデックスをサポートすることを表し、<structfield>amoptionalkey</structfield>は、インデックス可能な制限句が最初のインデックス列に指定されていないスキャンを許可することを表します。
+<structfield>amcanmulticol</structfield>が偽の場合、<structfield>amoptionalkey</structfield>は基本的に、アクセスメソッドが制限句なしで完全なインデックススキャンをサポートするかどうかを表します。
+複数列に対するインデックスをサポートするアクセスメソッドは、最初の列以降のすべてまたは一部の列に関する制限がなくてもスキャンをサポート<emphasis>しなければなりません</emphasis>。
+しかし、最初のインデックス列にいくつかの制限を要求することは認められています。
+これは、<structfield>amoptionalkey</structfield>を偽に設定することで通知されます。
+インデックスアクセスメソッドが<structfield>amoptionalkey</structfield>を偽にする１つの理由は、NULLをインデックス付けしない場合です。
+ほとんどのインデックス可能な演算子は厳密で、NULL値の入力に対して真を返すことができませんので、NULLに対してインデックス項目を格納しないことは一見魅力的です。
+これはインデックススキャンによって何も返しません。
+しかし、最初のインデックス列に対する制限がないインデックススキャンでは、この引数は失敗します。
+プランナがこうしたスキャンキーをまったく持たないインデックスを使用することを決定する可能性がありますので、実際これは、<structfield>amoptionalkey</structfield>が真のインデックスはNULLインデックスを持たなければならないことを意味します。
+関連する制限として、プランナはこれらの列を制限しない問い合わせでインデックスを使用できることを前提とするため、複数のインデックス列をサポートするインデックスアクセスメソッドは1番目の後の列でNULL値のインデックスをサポート<emphasis></emphasis>しなければならないということがあります。
+例えば、(a,b)に対するインデックスに、<literal>WHERE a = 4</literal>という条件で問い合わせを行うことを考えてみます。
+システムは、このインデックスを<literal>a = 4</literal>を持つ行をスキャンすることに使用できるものと仮定します。
+これはもし、<literal>b</literal>がNULLの場合の行をインデックスが省略する場合は間違っています。
+しかし、最初のインデックス列がNULLの場合に行を省略することは問題ありません
+また、NULLをインデックス付けするインデックスアクセスメソッドは<structfield>amsearchnulls</structfield>を設定する可能性があります。
+これは検索条件として<literal>IS NULL</literal>および<literal>IS NOT NULL</literal>句をサポートすることを示します。
   </para>
 
   <para>
@@ -368,6 +389,7 @@ ambuild (Relation heapRelation,
          Relation indexRelation,
          IndexInfo *indexInfo);
 </programlisting>
+<!--
    Build a new index.  The index relation has been physically created,
    but is empty.  It must be filled in with whatever fixed data the
    access method requires, plus entries for all tuples already existing
@@ -381,6 +403,13 @@ ambuild (Relation heapRelation,
    the system will attempt to allocate parallel workers for the build.
    Access methods supporting only non-parallel index builds should leave
    this flag set to <literal>false</literal>.
+-->
+《マッチ度[57.243816]》新しいインデックスを構築します。
+空のインデックスリレーションが物理的に作成されます。
+これは、アクセスメソッドが必要とする何らかの固定データと、テーブル内に既に存在するすべてのタプルに対応する項目が書き込まれなければなりません。
+通常、<function>ambuild</function>関数は<function>table_index_build_scan()</function>を呼び出し、既存のタプルをテーブルからスキャンし、インデックスに挿入しなければならないキーを計算します。
+この関数は、新しいインデックスに関する統計情報を含むpallocされた構造体を返さなければなりません。
+《機械翻訳》«Build a new index. The index relation has been physically created, but is empty. It must be filled in with whatever fixed data the access method requires, plus entries for all tuples already existing in the table. Ordinarily the <function>ambuild</function> function will call <function>table_index_build_scan()</function> to scan the table for existing tuples and compute the keys that need to be inserted into the index. The function must return a palloc'd struct containing statistics about the new index. The <structfield>amcanbuildparallel</structfield> flag indicates whether the access method supports parallel index builds. When set to <literal>true</literal>, the system will attempt to allocate parallel workers for the build. Access methods supporting only non-parallel index builds should leave this flag set to <literal>false</literal>.»
   </para>
 
   <para>
@@ -484,6 +513,7 @@ aminsert (Relation indexRelation,
   </para>
 
   <para>
+<!--
    If the index AM wishes to cache data across successive index insertions
    within an SQL statement, it can allocate space
    in <literal>indexInfo-&gt;ii_Context</literal> and store a pointer to the
@@ -491,6 +521,9 @@ aminsert (Relation indexRelation,
    initially).  If resources other than memory have to be released after
    index insertions, <function>aminsertcleanup</function> may be provided,
    which will be called before the memory is released.
+-->
+《マッチ度[57.986871]》SQL文の中で、インデックスAMがインデックスへの連続的な挿入をまたがってデータをキャッシュすることが望ましい場合は、<literal>indexInfo-&gt;ii_Context</literal>にメモリを確保し、そのデータへのポインタを<literal>indexInfo-&gt;ii_AmCache</literal>（初期値はNULLです）に格納することができます。
+《機械翻訳》«If the index AM wishes to cache data across successive index insertions within an SQL statement, it can allocate space in <literal>indexInfo-&gt;ii_Context</literal> and store a pointer to the data in <literal>indexInfo-&gt;ii_AmCache</literal> (which will be NULL initially). If resources other than memory have to be released after index insertions, <function>aminsertcleanup</function> may be provided, which will be called before the memory is released.»
   </para>
 
   <para>
@@ -499,10 +532,13 @@ void
 aminsertcleanup (Relation indexRelation,
                  IndexInfo *indexInfo);
 </programlisting>
+<!--
    Clean up state that was maintained across successive inserts in
    <literal>indexInfo-&gt;ii_AmCache</literal>. This is useful if the data
    requires additional cleanup steps (e.g., releasing pinned buffers), and
    simply releasing the memory is not sufficient.
+-->
+《機械翻訳》«Clean up state that was maintained across successive inserts in <literal>indexInfo-&gt;ii_AmCache</literal>. This is useful if the data requires additional cleanup steps (e.g., releasing pinned buffers), and simply releasing the memory is not sufficient.»
   </para>
 
   <para>
@@ -1135,10 +1171,13 @@ amestimateparallelscan (int nkeys,
   </para>
 
   <para>
+<!--
    The <literal>nkeys</literal> and <literal>norderbys</literal>
    parameters indicate the number of quals and ordering operators that will be
    used in the scan; the same values will be passed to <function>amrescan</function>.
    Note that the actual values of the scan keys aren't provided yet.
+-->
+《機械翻訳》«The <literal>nkeys</literal> and <literal>norderbys</literal> parameters indicate the number of quals and ordering operators that will be used in the scan; the same values will be passed to <function>amrescan</function>. Note that the actual values of the scan keys aren't provided yet.»
   </para>
 
   <para>

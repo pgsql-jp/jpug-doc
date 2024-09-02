@@ -1159,6 +1159,7 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
 <title>ビューの更新について</title>
 
 <para>
+<!--
     What happens if a view is named as the target relation for an
     <command>INSERT</command>, <command>UPDATE</command>,
     <command>DELETE</command>, or <command>MERGE</command>?  Doing the
@@ -1170,9 +1171,16 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     in the underlying table for the view, execute a user-defined trigger,
     or rewrite the query per a user-defined rule.
     These options are discussed below.
+-->
+《マッチ度[89.233038]》ビューが<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>などの目的リレーションとして名付けられた場合はどうなるのでしょうか？
+上で説明したような置換をすると、結果リレーションが副問い合わせの範囲テーブル項目を指す問い合わせツリーができてしまい、それは上手く機能しません。しかし、いくつかのケースでは<productname>PostgreSQL</productname>はビューの更新をサポートする事ができます。
+ユーザーエクスペリエンスの複雑さの順に、ビューから参照されているテーブルでの自動的な置換、ユーザ定義トリガの実行、ユーザ定義ルールごとの問い合わせの書き換えがあります。
+これらのオプションについては、以下で説明します。
+《機械翻訳》«What happens if a view is named as the target relation for an <command>INSERT</command>, <command>UPDATE</command>, <command>DELETE</command>, or <command>MERGE</command>? Doing the substitutions described above would give a query tree in which the result relation points at a subquery range-table entry, which will not work. There are several ways in which <productname>PostgreSQL</productname> can support the appearance of updating a view, however. In order of user-experienced complexity those are: automatically substitute in the underlying table for the view, execute a user-defined trigger, or rewrite the query per a user-defined rule. These options are discussed below.»
 </para>
 
 <para>
+<!--
     If the subquery selects from a single base relation and is simple
     enough, the rewriter can automatically replace the subquery with the
     underlying base relation so that the <command>INSERT</command>,
@@ -1182,9 +1190,14 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     are called <firstterm>automatically updatable</firstterm>.  For detailed
     information on the kinds of view that can be automatically updated, see
     <xref linkend="sql-createview"/>.
+-->
+《マッチ度[88.536155]》副問い合わせが単一の基底リレーションを参照しかつ十分に単純である時、リライタは副問い合わせを基となる基底リレーションに自動的に置き換え、したがって、<command>INSERT</command>、<command>UPDATE</command>あるいは<command>DELETE</command>を適切な方法で基底リレーションに適用する事ができます。
+この場合の<quote>十分に単純</quote>なビューは<firstterm>自動的に更新可能</firstterm>であると呼ばれます。自動的に更新可能なビューに関するより詳細な情報については、<xref linkend="sql-createview"/>を参照してください。
+《機械翻訳》«If the subquery selects from a single base relation and is simple enough, the rewriter can automatically replace the subquery with the underlying base relation so that the <command>INSERT</command>, <command>UPDATE</command>, <command>DELETE</command>, or <command>MERGE</command> is applied to the base relation in the appropriate way. Views that are <quote>simple enough</quote> for this are called <firstterm>automatically updatable</firstterm>. For detailed information on the kinds of view that can be automatically updated, see <xref linkend="sql-createview"/>.»
 </para>
 
 <para>
+<!--
     Alternatively, the operation may be handled by a user-provided
     <literal>INSTEAD OF</literal> trigger on the view
     (see <xref linkend="sql-createtrigger"/>).
@@ -1197,9 +1210,17 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     attempt to update, delete, or merge.  So the view is expanded as normal,
     but another unexpanded range-table entry is added to the query
     to represent the view in its capacity as the result relation.
+-->
+《マッチ度[87.603306]》もう一つの方法として、ビューに対するユーザ定義の<literal>INSTEAD OF</literal>トリガによってこれらのコマンドを処理する事ができます。この場合、書き換えは少々違う形で行われます
+（<xref linkend="sql-createtrigger"/>を参照してください）。
+<command>INSERT</command>に対しては、リライタはビューに全く何もせず、問い合わせの結果リレーションをそのままにします。
+<command>UPDATE</command>と<command>DELETE</command>に対しては、コマンドが更新もしくは削除しようとする<quote>古い</quote>行を生成するためにビュー問い合わせを展開する必要がまだあります。
+そのため、ビューは通常通り展開されますが、もう一つの展開されない範囲テーブル項目が結果リレーションとしてビューを表す問い合わせに追加されます。
+《機械翻訳》«Alternatively, the operation may be handled by a user-provided <literal>INSTEAD OF</literal> trigger on the view (see <xref linkend="sql-createtrigger"/>). Rewriting works slightly differently in this case. For <command>INSERT</command>, the rewriter does nothing at all with the view, leaving it as the result relation for the query. For <command>UPDATE</command>, <command>DELETE</command>, and <command>MERGE</command>, it's still necessary to expand the view query to produce the <quote>old</quote> rows that the command will attempt to update, delete, or merge. So the view is expanded as normal, but another unexpanded range-table entry is added to the query to represent the view in its capacity as the result relation.»
 </para>
 
 <para>
+<!--
     The problem that now arises is how to identify the rows to be
     updated in the view. Recall that when the result relation
     is a table, a special <acronym>CTID</acronym> entry is added to the target
@@ -1213,9 +1234,17 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     value to supply the <quote>old</quote> row to the
     <literal>INSTEAD OF</literal> trigger.  It is up to the trigger to work
     out what to update based on the old and new row values.
+-->
+《マッチ度[90.697674]》ここで起こる問題はビューで更新される行をどのように特定するかということです。
+結果リレーションがテーブルの場合、更新する行の物理的な位置を特定するために特別な<acronym>CTID</acronym>項目が目的リストに追加されることを思い出して下さい。
+ビューの行には実際の物理的な位置がないため、ビューには<acronym>CTID</acronym>がありませんので、これは結果リレーションがビューの場合には上手くいきません。
+その代わり、<command>UPDATE</command>や<command>DELETE</command>操作では、特別な<literal>行全体</literal>の項目が目的リストに追加されていて、それはビューからすべての列を含むように展開されています。
+エグゼキュータはこの値を使って<quote>古い</quote>行を<literal>INSTEAD OF</literal>トリガに提供します。
+新旧の行の値に基づいて更新するものを計算するのはトリガの責任です。
 </para>
 
 <para>
+<!--
     Another possibility is for the user to define <literal>INSTEAD</literal>
     rules that specify substitute actions for <command>INSERT</command>,
     <command>UPDATE</command>, and <command>DELETE</command> commands on
@@ -1224,6 +1253,11 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
     of <xref linkend="rules-update"/>.  Note that this will not work with
     <command>MERGE</command>, which currently does not support rules on
     the target relation other than <command>SELECT</command> rules.
+-->
+《マッチ度[65.579710]》別の方法としては、ビューに対する<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>コマンドに代替の動作を指定する<literal>INSTEAD</literal>ルールを定義する事です。
+これらのルールは、ビューではなくコマンドを、通常は1つもしくは複数のテーブルを更新するコマンドに書き換えます。
+それが<xref linkend="rules-update"/>の論題になります。
+《機械翻訳》«Another possibility is for the user to define <literal>INSTEAD</literal> rules that specify substitute actions for <command>INSERT</command>, <command>UPDATE</command>, and <command>DELETE</command> commands on a view. These rules will rewrite the command, typically into a command that updates one or more tables, rather than views. That is the topic of <xref linkend="rules-update"/>. Note that this will not work with <command>MERGE</command>, which currently does not support rules on the target relation other than <command>SELECT</command> rules.»
 </para>
 
 <para>
@@ -1240,12 +1274,16 @@ SELECT t1.a, t2.b, t1.ctid FROM t1, t2 WHERE t1.a = t2.a;
 </para>
 
 <para>
+<!--
     Automatic rewriting of an <command>INSERT</command>,
     <command>UPDATE</command>, <command>DELETE</command>, or
     <command>MERGE</command> query on a
     simple view is always tried last. Therefore, if a view has rules or
     triggers, they will override the default behavior of automatically
     updatable views.
+-->
+《マッチ度[82.828283]》単純なビューに対する<command>INSERT</command>、<command>UPDATE</command>あるいは<command>DELETE</command>コマンドの自動書き換えは常に最後に試みられます。したがって、ビューがルールもしくはトリガを持っていた場合、これらは更新可能ビューのデフォルト動作を上書きします。
+《機械翻訳》«Automatic rewriting of an <command>INSERT</command>, <command>UPDATE</command>, <command>DELETE</command>, or <command>MERGE</command> query on a simple view is always tried last. Therefore, if a view has rules or triggers, they will override the default behavior of automatically updatable views.»
 </para>
 
 <para>

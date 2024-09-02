@@ -614,6 +614,7 @@ CREATE [ OR REPLACE ] FUNCTION
 
     <listitem>
      <para>
+<!--
       <literal>PARALLEL UNSAFE</literal> indicates that the function
       can't be executed in parallel mode; the presence of such a
       function in an SQL statement forces a serial execution plan.  This is
@@ -622,9 +623,17 @@ CREATE [ OR REPLACE ] FUNCTION
       group leader process.  <literal>PARALLEL SAFE</literal>
       indicates that the function is safe to run in parallel mode without
       restriction, including in parallel worker processes.
+-->
+《マッチ度[74.257426]》
+<literal>PARALLEL UNSAFE</literal>は、その関数が並列モードでは実行できないこと、そしてそのような関数がSQL文の中にある場合は順次の実行プランが強制されることを意味します。
+これがデフォルトです。
+<literal>PARALLEL RESTRICTED</literal>はその関数が並列モードで実行できますが、その実行は並列グループのリーダーに制限されることを意味します。
+<literal>PARALLEL SAFE</literal>はその関数が並列モードで制限なく実行することについて安全であることを意味します。
+《機械翻訳》«<literal>PARALLEL UNSAFE</literal> indicates that the function can't be executed in parallel mode; the presence of such a function in an SQL statement forces a serial execution plan. This is the default. <literal>PARALLEL RESTRICTED</literal> indicates that the function can be executed in parallel mode, but only in the parallel group leader process. <literal>PARALLEL SAFE</literal> indicates that the function is safe to run in parallel mode without restriction, including in parallel worker processes.»
      </para>
 
      <para>
+<!--
       Functions should be labeled parallel unsafe if they modify any database
       state, change the transaction state (other than by using a
       subtransaction for error recovery), access sequences (e.g., by
@@ -644,6 +653,14 @@ CREATE [ OR REPLACE ] FUNCTION
       likely cases the result will be no worse than for any other function.
       If in doubt, functions should be labeled as <literal>UNSAFE</literal>, which is
       the default.
+-->
+《マッチ度[80.555556]》関数がデータベースの状態に何らかの変更を行う、サブトランザクションを使うなどトランザクションを変更する、シーケンスにアクセスするか設定に恒久的な変更をする（例えば<literal>setval</literal>）という場合はparallel unsafe（並列は安全でない）という印をつけるべきです。
+一時テーブル、クライアントの接続状態、カーソル、プリペアド文、その他並列モードでシステムが同期できない様々なバックエンド独自の状態に関数がアクセスする場合、parallel restricted（並列は制限される）という印をつけるべきです（例えば、<literal>setseed</literal>はグループのリーダー以外では実行できません。なぜなら他のプロセスでなされた変更がリーダーに反映されないからです）。
+一般的に、restrictedあるいはunsafeな関数がsafeとラベル付けされた場合、あるいはunsafeな関数がrestrictedとラベル付けされた場合、それがパラレルクエリ内で使用されると、エラーが発生したり、誤った結果が生成されたりします。
+C言語の関数は、ラベルが間違っていると、理論的には全く予想できない動作をすることがあります。
+これは任意のCプログラムに対してシステムが自分を保護する手段がないからですが、多くの場合、その結果は他の関数と同程度の悪さでしょう。
+よくわからない場合は、デフォルトの<literal>UNSAFE</literal>で関数にラベル付けしてください。
+《機械翻訳》«Functions should be labeled parallel unsafe if they modify any database state, change the transaction state (other than by using a subtransaction for error recovery), access sequences (e.g., by calling <literal>currval</literal>) or make persistent changes to settings. They should be labeled parallel restricted if they access temporary tables, client connection state, cursors, prepared statements, or miscellaneous backend-local state which the system cannot synchronize in parallel mode (e.g., <literal>setseed</literal> cannot be executed other than by the group leader because a change made by another process would not be reflected in the leader). In general, if a function is labeled as being safe when it is restricted or unsafe, or if it is labeled as being restricted when it is in fact unsafe, it may throw errors or produce wrong answers when used in a parallel query. C-language functions could in theory exhibit totally undefined behavior if mislabeled, since there is no way for the system to protect itself against arbitrary C code, but in most likely cases the result will be no worse than for any other function. If in doubt, functions should be labeled as <literal>UNSAFE</literal>, which is the default.»
      </para>
     </listitem>
    </varlistentry>
