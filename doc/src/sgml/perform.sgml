@@ -234,7 +234,11 @@ EXPLAIN SELECT * FROM tenk1;
 とりわけ、結果の行をクライアントに転送するコストは、実際の処理時間の重要な要因となる可能性があるにもかかわらず、考慮されません。
 プランナは、計画をいかに変更しようと、転送コストを変えることはできないため、これを無視します。
 （正しい計画はどんなものであれ、すべて同じ行を結果として出力すると信じています。）
-《機械翻訳》«It's important to understand that the cost of an upper-level node includes the cost of all its child nodes. It's also important to realize that the cost only reflects things that the planner cares about. In particular, the cost does not consider the time spent to convert output values to text form or to transmit them to the client, which could be important factors in the real elapsed time; but the planner ignores those costs because it cannot change them by altering the plan. (Every correct plan will output the same row set, we trust.)»
+《機械翻訳》上部コストノードのレベルには、そのすべての子ノードのコストが含まれることを理解することが重要です。
+また、コストはプランナが気にかけていることだけを反映していることを認識することも重要です。
+特に、コストでは、出力値をテキストフォームに変換したり、クライアントに送信したりするために費やされる時間は考慮されていない。
+これは、実際の経過時間の重要な要素となる可能性があるが、プランナでは、プランを変更しても出力値を変更できないため、これらのコストは無視される。
+（正しいプランはすべて、同じ行セットを出力します。）
    </para>
 
    <para>
@@ -780,7 +784,9 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
 この計画では、正確な順序で行をアクセスするために<literal>tenk1</literal>データがインデックススキャンを用いてソートされます。
 しかし、このテーブルの中でより多くの行がアクセスされるため、<literal>onek</literal>ではシーケンシャルスキャンとソートが好まれています。
 （多くの行をソートする場合、インデックススキャンでは非シーケンシャルなディスクアクセスが必要となるため、シーケンシャルスキャンとソートの方がインデックススキャンより優れています。）
-《機械翻訳》«Merge join requires its input data to be sorted on the join keys. In this example each input is sorted by using an index scan to visit the rows in the correct order; but a sequential scan and sort could also be used. (Sequential-scan-and-sort frequently beats an index scan for sorting many rows, because of the nonsequential disk access required by the index scan.)»
+《機械翻訳》マージ結合では、入力されたデータを結合キーでソートする必要があります。
+この例では、各入力はインデックススキャンを使用して正しいオーダーの行にアクセスすることによってソートされますが、シーケンシャルスキャンとソートも使用できます（シーケンシャル-スキャン-and-ソートは、並べ替えの多くの行でインデックススキャンよりも頻繁に優先されます。
+これは、インデックススキャンで必要とされるディスク・アクセスが連続していないためです）。
    </para>
 
    <para>
@@ -797,7 +803,9 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
 （非常に原始的なツールですが、利用価値があります。
 <xref linkend="explicit-joins"/>も参照してください。）
 例えば、前の例にて<literal>onek</literal>テーブルを扱う最善の方法がシーケンシャルスキャンとソートであると納得できなければ、以下を試みることができます。
-《機械翻訳》«One way to look at variant plans is to force the planner to disregard whatever strategy it thought was the cheapest, using the enable/disable flags described in <xref linkend="runtime-config-query-enable"/>. (This is a crude tool, but useful. See also <xref linkend="explicit-joins"/>.) For example, if we're unconvinced that merge join is the best join type for the previous example, we could try»
+《機械翻訳》バリエーションプランを見る1つの方法は、<xref linkend="runtime-config-query-enable"/>で説明されている有効/無効フラグを使用して、プランナが最も安いと思ったストラテジを無視するように強制することです（これは粗雑なツールですが、便利です。
+<xref linkend="explicit-joins"/>も参照してください）。
+例の場合、マージ結合が前の例のベスト結合タイプであると確信できない場合は、トライを使用できます。
 
 <screen>
 SET enable_mergejoin = off;
@@ -828,7 +836,9 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
 《マッチ度[57.096774]》これは、プランナが、シーケンシャルスキャンとソートよりインデックススキャンによる<literal>onek</literal>のソート処理がおよそ12%程高価であるとみなしたことを示します。
 当然ながら、次の疑問はこれが正しいかどうかでしょう。
 後で説明する<command>EXPLAIN ANALYZE</command>を使用することで調査することができます。
-《機械翻訳》«which shows that the planner thinks that hash join would be nearly 50% more expensive than merge join for this case. Of course, the next question is whether it's right about that. We can investigate that using <command>EXPLAIN ANALYZE</command>, as discussed <link linkend="using-explain-analyze">below</link>.»
+《機械翻訳》これは、このケースではハッシュ結合がマージ結合よりも50%近く高くなるとプランナが考えていることを示しています。
+もちろん、次の問題は、それが正しいかどうかということです。
+<link linkend="using-explain-analyze">以下で</link>説明するように、<command>EXPLAIN ANALYZE</command>を使って調べることができます。
    </para>
 
    <para>
@@ -841,7 +851,8 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     queries can sometimes be transformed into ordinary join plans, but
     when they cannot be, we get plans like:
 -->
-《機械翻訳》«Some query plans involve <firstterm>subplans</firstterm>, which arise from sub-<literal>SELECT</literal>s in the original query. Such queries can sometimes be transformed into ordinary join plans, but when they cannot be, we get plans like:»
+《機械翻訳》一部のクエリ・プランには、オリジナルクエリのサブ<literal>セレクト</literal>から発生する<firstterm>サブプラン</firstterm>が含まれています。
+このようなクエリは、通常の結合プランに変換できる場合もありますが、変換できない場合は、次のようなプランが生成されます。
 
 <screen>
 EXPLAIN VERBOSE SELECT unique1
@@ -870,7 +881,10 @@ WHERE t.ten &lt; ALL (SELECT o.ten FROM onek o WHERE o.four = t.four);
     which refers to the <replaceable>N</replaceable>'th output column of
     the sub-<literal>SELECT</literal>.
 -->
-《機械翻訳》«This rather artificial example serves to illustrate a couple of points: values from the outer plan level can be passed down into a subplan (here, <literal>t.four</literal> is passed down) and the results of the sub-select are available to the outer plan. Those result values are shown by <command>EXPLAIN</command> with notations like <literal>(<replaceable>subplan_name</replaceable>).col<replaceable>N</replaceable></literal>, which refers to the <replaceable>N</replaceable>'th output column of the sub-<literal>SELECT</literal>.»
+《機械翻訳》このかなり人工的な例は、いくつかの点を説明するのに役立ちます。
+外側のプランレベルからの値はダウンをサブプランに渡すことができ（ここでは、<literal>t.four</literal>はダウンを渡します）、サブ-セレクトの結果は外側のプランで利用できます。
+これらの結果値は、<literal><replaceable>サブプラン_名前</replaceable>).col<replaceable>N</replaceable></literal>のような表記で<command>EXPLAIN</command>によって表示されます。
+これは、サブ<literal>セレクト</literal>の<replaceable>N</replaceable>番目の出力カラムを参照します。
    </para>
 
    <para>
@@ -884,7 +898,8 @@ WHERE t.ten &lt; ALL (SELECT o.ten FROM onek o WHERE o.four = t.four);
     high estimated cost).  Some queries can use a <firstterm>hashed
     subplan</firstterm> to avoid that:
 -->
-《機械翻訳》«In the example above, the <literal>ALL</literal> operator runs the subplan again for each row of the outer query (which accounts for the high estimated cost). Some queries can use a <firstterm>hashed subplan</firstterm> to avoid that:»
+《機械翻訳》上の例では、<literal>ALL</literal>演算子は、外側のクエリの各行に対してサブプランを再び実行します（外側のコストは、高い推定値を占めます）。
+一部のクエリーでは、それを回避するために<firstterm>ハッシュされたサブプラン</firstterm>を使用できます:。
 
 <screen>
 EXPLAIN SELECT *
@@ -908,7 +923,8 @@ WHERE t.unique1 NOT IN (SELECT o.unique1 FROM onek o);
     query, and that the <literal>ANY</literal>'s comparison operator be
     amenable to hashing.
 -->
-《機械翻訳》«Here, the subplan is run a single time and its output is loaded into an in-memory hash table, which is then probed by the outer <literal>ANY</literal> operator. This requires that the sub-<literal>SELECT</literal> not reference any variables of the outer query, and that the <literal>ANY</literal>'s comparison operator be amenable to hashing.»
+《機械翻訳》ここでは、サブプランが1回実行され、その出力がメモリ内のハッシュテーブルにロードされ、次に外部<literal>ANY</literal>演算子によってプローブされます。
+これには、サブ-<literal>セレクト</literal>が外部クエリの変数をリファレンスしないこと、および<literal>ANY</literal>の比較演算子がハッシュに従うことが必要です。
    </para>
 
    <para>
@@ -920,7 +936,7 @@ WHERE t.unique1 NOT IN (SELECT o.unique1 FROM onek o);
     the sub-<literal>SELECT</literal> cannot return more than one row,
     it may instead be implemented as an <firstterm>initplan</firstterm>:
 -->
-《機械翻訳》«If, in addition to not referencing any variables of the outer query, the sub-<literal>SELECT</literal> cannot return more than one row, it may instead be implemented as an <firstterm>initplan</firstterm>:»
+《機械翻訳》外部参照の変数をクエリしないことに加えて、サブ<literal>セレクト</literal>が複数の行を結果できない場合は、代わりに<firstterm>initplan</firstterm>:として実装できます。
 
 <screen>
 EXPLAIN VERBOSE SELECT unique1
@@ -944,7 +960,9 @@ FROM tenk1 t1 WHERE t1.ten = (SELECT (random() * 10)::integer);
     randomly-chosen integer.  That's quite different from what would
     happen without the sub-<literal>SELECT</literal> construct.
 -->
-《機械翻訳》«An initplan is run only once per execution of the outer plan, and its results are saved for re-use in later rows of the outer plan. So in this example <literal>random()</literal> is evaluated only once and all the values of <literal>t1.ten</literal> are compared to the same randomly-chosen integer. That's quite different from what would happen without the sub-<literal>SELECT</literal> construct.»
+《機械翻訳》initplanは外部プランの実行ごとに1回だけ実行され、その結果は外部プランの後の行で再利用するために保存されます。
+したがって、この例では<literal>ランダム)</literal>は1回だけ評価され、<literal>t1.10</literal>のすべての値がランダムに選択された同じ整数と比較されます。
+これは、サブ<literal>セレクト</literal>コンストラクトがない場合とは大きく異なります。
    </para>
 
   </sect2>
@@ -1251,7 +1269,7 @@ ROLLBACK;
     inheritance hierarchy, the output might look like this:
 -->
 《マッチ度[85.869565]》<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>コマンドが継承階層に影響する場合には、出力は以下のようになるでしょう。
-《機械翻訳》«When an <command>UPDATE</command>, <command>DELETE</command>, or <command>MERGE</command> command affects a partitioned table or inheritance hierarchy, the output might look like this:»
+《機械翻訳》<command>更新</command>、<command>削除</command>、または<command>マージ</command>コマンドが、分割されたテーブルまたは継承の階層に影響を与える場合、出力は次のようになります。
 
 <screen>
 EXPLAIN UPDATE gtest_parent SET f1 = CURRENT_DATE WHERE f2 = 101;
@@ -1282,7 +1300,9 @@ EXPLAIN UPDATE gtest_parent SET f1 = CURRENT_DATE WHERE f2 = 101;
 《マッチ度[78.512397]》この例では、Updateノードは元々言及されている親テーブルに加えて3つの子テーブルを考慮することが必要です。
 そのため、テーブル毎に1つ、4つの入力スキャン副計画があります。
 明確にするため、Updateノードには対応する副計画と同じ順に更新される特定の対象テーブルを示す注釈が付けられています。
-《機械翻訳》«In this example the Update node needs to consider three child tables, but not the originally-mentioned partitioned table (since that never stores any data). So there are three input scanning subplans, one per table. For clarity, the Update node is annotated to show the specific target tables that will be updated, in the same order as the corresponding subplans.»
+《機械翻訳》この例では、更新ノードニーズは3つの子テーブルを考慮しますが、最初に説明したパーティション化されたテーブルは考慮しません（データを格納しないため）。
+したがって、テーブルごとに1つずつ、3つの入力スキャンサブプランがあります。
+明確にするために、更新ノードには、対応するサブプランと同じオーダーで、更新される特定のターゲットテーブルを示す注釈が付けられています。
    </para>
 
    <para>
@@ -1329,7 +1349,9 @@ EXPLAIN UPDATE gtest_parent SET f1 = CURRENT_DATE WHERE f2 = 101;
     be shown separately, and it's also included in the
     total <literal>Execution time</literal>.
 -->
-《機械翻訳》«The time shown for the top-level node does not include any time needed to convert the query's output data into displayable form or to send it to the client. While <command>EXPLAIN ANALYZE</command> will never send the data to the client, it can be told to convert the query's output data to displayable form and measure the time needed for that, by specifying the <literal>SERIALIZE</literal> option. That time will be shown separately, and it's also included in the total <literal>Execution time</literal>.»
+《機械翻訳》トップ-レベルノードに表示される時間は、クエリの出力データを表示可能なフォームに変換したり、クライアントに送信したりするために必要な時間ではありません。
+include<command>EXPLAIN ANALYZE</command>はデータをクライアントに送信することはありませんが、<literal>SERIALIZE</literal>オプションを指定することで、クエリの出力データを表示可能なフォームに変換し、そのために必要な時間を測定するように指示できます。
+その時間は別に表示され、合計<literal>実行時間</literal>にも含まれます。
    </para>
 
   </sect2>
@@ -1357,7 +1379,11 @@ EXPLAIN UPDATE gtest_parent SET f1 = CURRENT_DATE WHERE f2 = 101;
 １つ目は、出力行がクライアントに配信されませんので、ネットワーク転送コストとI/O変換に関するコストが含まれないことです。
 ２つ目は、<command>EXPLAIN ANALYZE</command>によって加わる測定オーバーヘッドが大きくなることが、特に<function>gettimeofday()</function>オペレーティングシステムコールが低速なマシンであり得ることです。
 <xref linkend="pgtesttiming"/>を用いて、使用中のシステムの時間測定にかかるオーバーヘッドを測ることができます。
-《機械翻訳》«There are two significant ways in which run times measured by <command>EXPLAIN ANALYZE</command> can deviate from normal execution of the same query. First, since no output rows are delivered to the client, network transmission costs are not included. I/O conversion costs are not included either unless <literal>SERIALIZE</literal> is specified. Second, the measurement overhead added by <command>EXPLAIN ANALYZE</command> can be significant, especially on machines with slow <function>gettimeofday()</function> operating-system calls. You can use the <xref linkend="pgtesttiming"/> tool to measure the overhead of timing on your system.»
+《機械翻訳》<command>EXPLAIN ANALYZE</command>によって測定される実行時間が、同じクエリの通常の実行から逸脱する可能性がある重要な方法が2つあります。
+第1に、出力行はクライアントに配信されないため、ネットワークの伝送コストは含まれない。
+<literal>SERIALIZE</literal>が指定されていない限り、入出力変換コストも含まれません。
+第2に、<command>EXPLAINオーバーヘッド</command>によって追加された計測ANALYZEは、特に<function>gettimeofday()</function>操作システム呼び出しが遅いマシンでは重要になります。
+<xref linkend="pgtesttiming"/>ツールを使用して、システムのタイミングのオーバーヘッドを計測できます。
    </para>
 
    <para>
@@ -1663,7 +1689,8 @@ WHERE tablename = 'road';
 -->
 《マッチ度[72.272727]》同じ列に対して2行が表示されていることに注意してください。
 1つは<literal>road</literal>テーブルが始まる継承階層(<literal>inherited</literal>=<literal>t</literal>)全体に相当し、もう1つは<literal>road</literal>テーブル自身(<literal>inherited</literal>=<literal>f</literal>)のみを含むものです。
-《機械翻訳》«Note that two rows are displayed for the same column, one corresponding to the complete inheritance hierarchy starting at the <literal>road</literal> table (<literal>inherited</literal>=<literal>t</literal>), and another one including only the <literal>road</literal> table itself (<literal>inherited</literal>=<literal>f</literal>). (For brevity, we have only shown the first ten most-common values for the <literal>name</literal> column.)»
+《機械翻訳》同じノートに対して2つの行が表示されるカラム。
+1つは<literal>road</literal>継承<literal>inherited</literal>=<literal>t</literal>)で始まる完全なテーブル階層に対応し、もう1つは<literal>road</literal>テーブル自分自身(<literal>inherited</literal>=<literal>f</literal>)のみを含みます（簡潔にするために、<literal>名前</literal>カラムの最も一般的な値の最初の10個のみを示しました）。
   </para>
 
   <para>
