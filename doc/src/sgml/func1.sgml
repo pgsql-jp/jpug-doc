@@ -919,18 +919,33 @@ NULLを比較可能な値とした上で、等しい。
     <literal>IS NULL</literal> and <literal>IS NOT NULL</literal> do not always return
     inverse results for row-valued expressions; in particular, a row-valued
     expression that contains both null and non-null fields will return false
-    for both tests.  In some cases, it may be preferable to
+    for both tests.  For example:
+-->
+《機械翻訳》<replaceable>expression</replaceable>が行値の場合、行式自体がNULLであるか、または行のすべてのフィールドがNULLである場合、<literal>IS NULL</literal>は真です。
+一方、行式自体が非NULLであり、かつ行のすべてのフィールドが非NULLである場合、<literal>IS NOT NULL</literal>は真です。
+この振る舞いのため、<literal>IS NULL</literal>と<literal>IS NOT NULL</literal>は行値式に対して必ずしも逆の結果を返すとは限りません。
+特に、nullと非nullの両方のフィールドを含む行値式は、両方のテストに対して偽を返します。
+たとえば、
+
+<programlisting>
+SELECT ROW(1,2.5,'this is a test') = ROW(1, 3, 'not the same');
+
+SELECT ROW(table.*) IS NULL FROM table;  -- detect all-null rows
+
+SELECT ROW(table.*) IS NOT NULL FROM table;  -- detect all-non-null rows
+
+SELECT NOT(ROW(table.*) IS NOT NULL) FROM TABLE; -- detect at least one null in rows
+</programlisting>
+
+<!--
+    In some cases, it may be preferable to
     write <replaceable>row</replaceable> <literal>IS DISTINCT FROM NULL</literal>
     or <replaceable>row</replaceable> <literal>IS NOT DISTINCT FROM NULL</literal>,
     which will simply check whether the overall row value is null without any
     additional tests on the row fields.
 -->
-<replaceable>expression</replaceable>が行値の場合、行式自体がNULLまたは、行のフィールドすべてがNULLの場合に<literal>IS NULL</literal>は真となります。
-一方<literal>IS NOT NULL</literal>は、行式自体が非NULLかつ、行のフィールドすべてが非NULLの場合に真となります。
-この動作により、<literal>IS NULL</literal>および<literal>IS NOT NULL</literal>は行値評価式に対し常に反対の結果を返すわけではありません。
-特に、NULLと非NULLの値の両方を含む行値式はどちらの試験でも偽を返します。
-場合によっては、<replaceable>row</replaceable> <literal>IS DISTINCT FROM NULL</literal>あるいは<replaceable>row</replaceable> <literal>IS NOT DISTINCT FROM NULL</literal>と記述する方が望ましいことがあるでしょう。
-これらは単に行全体の値がNULLかどうかを検査し、行のフィールドについての追加的検査を全く行わないからです。
+《機械翻訳》場合によっては、<replaceable>row</replaceable> <literal>IS DISTINCT FROM NULL</literal>または<replaceable>row</replaceable> <literal>IS NOT DISTINCT FROM NULL</literal>を書く方が好ましい場合があります。
+これは単に、行フィールドに対する追加のテストなしに、全体の行値がNULLかどうかをチェックするだけです。
    </para>
 
    <para>
@@ -2318,6 +2333,43 @@ NULL引数の数を返す。
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>random</primary>
+        </indexterm>
+        <function>random</function> ( <parameter>min</parameter> <type>integer</type>, <parameter>max</parameter> <type>integer</type> )
+        <returnvalue>integer</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>random</function> ( <parameter>min</parameter> <type>bigint</type>, <parameter>max</parameter> <type>bigint</type> )
+        <returnvalue>bigint</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>random</function> ( <parameter>min</parameter> <type>numeric</type>, <parameter>max</parameter> <type>numeric</type> )
+        <returnvalue>numeric</returnvalue>
+       </para>
+       <para>
+<!--
+        Returns a random value in the range
+        <parameter>min</parameter> &lt;= x &lt;= <parameter>max</parameter>.
+        For type <type>numeric</type>, the result will have the same number of
+        fractional decimal digits as <parameter>min</parameter> or
+        <parameter>max</parameter>, whichever has more.
+-->
+《機械翻訳》<parameter>min</parameter> &lt;= x <parameter>max</parameter> の範囲の乱数を返します。
+型が<type>numeric</type>の場合、結果は<parameter>min</parameter> または<parameter>max</parameter> のいずれか大きい方と同じ小数桁数の小数部を持ちます。
+       </para>
+       <para>
+        <literal>random(1, 10)</literal>
+        <returnvalue>7</returnvalue>
+       </para>
+       <para>
+        <literal>random(-0.499, 0.499)</literal>
+        <returnvalue>0.347</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>random_normal</primary>
         </indexterm>
 
@@ -2367,25 +2419,30 @@ NULL引数の数を返す。
 
   <para>
 <!--
-   The <function>random()</function> function uses a deterministic
-   pseudo-random number generator.
+   The <function>random()</function> and <function>random_normal()</function>
+   functions listed in <xref linkend="functions-math-random-table"/> use a
+   deterministic pseudo-random number generator.
    It is fast but not suitable for cryptographic
    applications; see the <xref linkend="pgcrypto"/> module for a more
    secure alternative.
    If <function>setseed()</function> is called, the series of results of
-   subsequent <function>random()</function> calls in the current session
+   subsequent calls to these functions in the current session
    can be repeated by re-issuing <function>setseed()</function> with the same
    argument.
    Without any prior <function>setseed()</function> call in the same
-   session, the first <function>random()</function> call obtains a seed
+   session, the first call to any of these functions obtains a seed
    from a platform-dependent source of random bits.
-   These remarks hold equally for <function>random_normal()</function>.
 -->
-<function>random()</function>関数は決定論的疑似乱数発生器を使用しています。
+《マッチ度[64.812239]》<function>random()</function>関数は決定論的疑似乱数発生器を使用しています。
 高速ですが、暗号用途には適していません。より安全な代替物として<xref linkend="pgcrypto"/>モジュールを参照してください。
 <function>setseed()</function>が呼び出されると、現在のセッション内での以後の一連の<function>random()</function>の呼び出し結果は<function>setseed()</function>を同じ引数で再実行することによって再現可能となります。
 同じセッション内で<function>setseed()</function>をそれ以前に呼び出していない場合は、最初の<function>random()</function>の呼び出しによってプラットフォーム依存の乱数ビットのソースからシードを入手します。
 これらの注意点は<function>random_normal()</function>にも適用されます。
+《機械翻訳》<xref linkend="functions-math-random-table"/>にリストされている<function>random()</function>と<function>random_normal()</function>関数は、決定論的な擬似乱数生成器を使用します。
+これは高速ですが、暗号化アプリケーションには適していません。
+より安全な代替手段については<xref linkend="pgcrypto"/>モジュールを参照してください。
+<function>setseed()</function>が呼び出されると、現在のセッションでこれらの関数の後続の呼び出しの結果のシーケンスは、同じ引数を持つ<function>setseed()</function>を再度呼び出すことで繰り返すことができます。
+同じセッションで<function>setseed()</function>を事前に呼び出さない場合、これらの関数のいずれかを最初に呼び出すと、プラットフォームに依存する乱数源からシードが取得されます。
   </para>
 
   <para>
@@ -3566,6 +3623,26 @@ POSIX正規表現にマッチする最初の部分文字列を返します。<xr
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>unicode_assigned</primary>
+        </indexterm>
+        <function>unicode_assigned</function> ( <type>text</type> )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para>
+<!--
+        Returns <literal>true</literal> if all characters in the string are
+        assigned Unicode codepoints; <literal>false</literal> otherwise. This
+        function can only be used when the server encoding is
+        <literal>UTF8</literal>.
+-->
+《機械翻訳》文字列中のすべての文字がUnicodeコードポイントに割り当てられている場合は<literal>true</literal>を返し、そうでない場合は<literal>false</literal>を返します。
+この関数はサーバのエンコーディングが<literal>UTF8</literal>の場合にのみ使用できます。
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>upper</primary>
         </indexterm>
         <function>upper</function> ( <type>text</type> )
@@ -4626,6 +4703,36 @@ POSIX正規表現<parameter>pattern</parameter>の<parameter>N</parameter>番目
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>to_bin</primary>
+        </indexterm>
+        <function>to_bin</function> ( <type>integer</type> )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>to_bin</function> ( <type>bigint</type> )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para>
+<!--
+        Converts the number to its equivalent two's complement binary
+        representation.
+-->
+《マッチ度[63.636364]》数を同等の16進数表現に変換します。
+《機械翻訳》数値を 2 の補数で表現したバイナリ表現に変換します。
+       </para>
+       <para>
+        <literal>to_bin(2147483647)</literal>
+        <returnvalue>1111111111111111111111111111111</returnvalue>
+       </para>
+       <para>
+        <literal>to_bin(-1234)</literal>
+        <returnvalue>11111111111111111111101100101110</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>to_hex</primary>
         </indexterm>
         <function>to_hex</function> ( <type>integer</type> )
@@ -4637,13 +4744,49 @@ POSIX正規表現<parameter>pattern</parameter>の<parameter>N</parameter>番目
        </para>
        <para>
 <!--
-        Converts the number to its equivalent hexadecimal representation.
+        Converts the number to its equivalent two's complement hexadecimal
+        representation.
 -->
-数を同等の16進数表現に変換します。
+《マッチ度[69.512195]》数を同等の16進数表現に変換します。
+《機械翻訳》数値をその等価な 2 の補数の 16 進表現に変換します。
        </para>
        <para>
         <literal>to_hex(2147483647)</literal>
         <returnvalue>7fffffff</returnvalue>
+       </para>
+       <para>
+        <literal>to_hex(-1234)</literal>
+        <returnvalue>fffffb2e</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
+         <primary>to_oct</primary>
+        </indexterm>
+        <function>to_oct</function> ( <type>integer</type> )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para role="func_signature">
+        <function>to_oct</function> ( <type>bigint</type> )
+        <returnvalue>text</returnvalue>
+       </para>
+       <para>
+<!--
+        Converts the number to its equivalent two's complement octal
+        representation.
+-->
+《マッチ度[65.789474]》数を同等の16進数表現に変換します。
+《機械翻訳》数値を 2 の補数の 8 進数に変換します。
+       </para>
+       <para>
+        <literal>to_oct(2147483647)</literal>
+        <returnvalue>17777777777</returnvalue>
+       </para>
+       <para>
+        <literal>to_oct(-1234)</literal>
+        <returnvalue>37777775456</returnvalue>
        </para></entry>
       </row>
 
@@ -6637,7 +6780,7 @@ cast(-44 as bit(12))           <lineannotation>111111010100</lineannotation>
 <!--
     Some examples:
 -->
-例：
+例を示します。
 <programlisting>
 'abc' LIKE 'abc'    <lineannotation>true</lineannotation>
 'abc' LIKE 'a%'     <lineannotation>true</lineannotation>
@@ -7012,7 +7155,7 @@ substring(<replaceable>string</replaceable>, <replaceable>pattern</replaceable>,
 -->
 <literal>SIMILAR TO</literal>と同様、指定したパターンがデータ文字列全体に一致する必要があります。一致しない場合、関数は失敗し、NULLを返します。
 マッチするデータのうちの対象とする部分文字列に対応するパターンの部分を示すために、エスケープ文字の後に二重引用符（<literal>"</literal>）を繋げたものを2つパターンに含める必要があります。<!-- " font-lock sanity -->
-マッチが成功すると、これらの印で括られたパターンの一部に一致するテキストが返されます。
+マッチが成功すると、これらの区切り文字で囲まれたパターンの部分に一致するテキストが返されます。
    </para>
 
    <para>
@@ -7249,7 +7392,7 @@ substring('foobar' similar '#"o_b#"%' escape '#')    <lineannotation>NULL</linea
 <!--
      Some examples:
 -->
-例：
+例を示します。
 <programlisting>
 'abcd' ~ 'bc'     <lineannotation>true</lineannotation>
 'abcd' ~ 'a.c'    <lineannotation>true &mdash; dot matches any character</lineannotation>
@@ -7296,7 +7439,7 @@ substring('foobar' similar '#"o_b#"%' escape '#')    <lineannotation>NULL</linea
 <!--
     Some examples:
 -->
-例：
+例を示します。
 <programlisting>
 substring('foobar' from 'o.b')     <lineannotation>oob</lineannotation>
 substring('foobar' from 'o(.)b')   <lineannotation>o</lineannotation>
@@ -7337,7 +7480,7 @@ substring('foobar' from 'o(.)b')   <lineannotation>o</lineannotation>
 <!--
      Some examples:
 -->
-    例：
+例を示します。
 <programlisting>
 regexp_count('ABCABCAXYaxy', 'A.')          <lineannotation>3</lineannotation>
 regexp_count('ABCABCAXYaxy', 'A.', 1, 'i')  <lineannotation>4</lineannotation>
@@ -7484,7 +7627,7 @@ regexp_like('Hello World', 'world', 'i')  <lineannotation>true</lineannotation>
 <!--
     Some examples:
 -->
-例：
+例を示します。
 <programlisting>
 SELECT regexp_match('foobarbequebaz', 'bar.*que');
  regexp_match
@@ -7553,7 +7696,7 @@ SELECT (regexp_match('foobarbequebaz', 'bar.*que'))[1];
 <!--
     Some examples:
 -->
-例：
+例を示します。
 <programlisting>
 SELECT regexp_matches('foo', 'not there');
  regexp_matches
@@ -7663,7 +7806,7 @@ SELECT col1, (SELECT regexp_matches(col2, '(bar)(beque)')) FROM tab;
 <!--
     Some examples:
 -->
-例：
+例を示します。
 <programlisting>
 regexp_replace('foobarbaz', 'b..', 'X')
                                    <lineannotation>fooXbaz</lineannotation>
@@ -7828,7 +7971,7 @@ Perlのような他のソフトウェアシステムも似たような定義を�
 <!--
      Some examples:
 -->
-例：
+例を示します。
 <programlisting>
 regexp_substr('number of your street, town zip, FR', '[^,]+', 1, 2)
                                    <lineannotation> town zip</lineannotation>

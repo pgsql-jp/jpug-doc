@@ -53,6 +53,14 @@ JSONデータを処理、生成する関数と演算子
 SQL/JSONパス言語
      </para>
     </listitem>
+    <listitem>
+     <para>
+<!--
+      the SQL/JSON query functions
+-->
+《機械翻訳》SQL/JSONクエリ関数。
+     </para>
+    </listitem>
    </itemizedlist>
   </para>
 
@@ -603,8 +611,11 @@ JSON値が配列でなければエラーが生じます。
        <para>
 <!--
         Does JSON path return any item for the specified JSON value?
+        (This is useful only with SQL-standard JSON path expressions, not
+        <link linkend="functions-sqljson-check-expressions">predicate check
+        expressions</link>, since those always return a value.)
 -->
-JSONパスは指定したJSON値の要素を返すか？
+《機械翻訳》JSONパスは指定されたJSON値に対して何らかの項目を返しますか?（これはSQL標準のJSONパス式でのみ有用であり、<link linkend="functions-sqljson-check-expressions">述語チェック式</link>では値を返しません。）
        </para>
        <para>
         <literal>'{"a":[1,2,3,4,5]}'::jsonb @? '$.a[*] ? (@ > 2)'</literal>
@@ -620,13 +631,15 @@ JSONパスは指定したJSON値の要素を返すか？
        <para>
 <!--
         Returns the result of a JSON path predicate check for the
-        specified JSON value.  Only the first item of the result is taken into
-        account.  If the result is not Boolean, then <literal>NULL</literal>
-        is returned.
+        specified JSON value.
+        (This is useful only
+        with <link linkend="functions-sqljson-check-expressions">predicate
+        check expressions</link>, not SQL-standard JSON path expressions,
+        since it will return <literal>NULL</literal> if the path result is
+        not a single boolean value.)
 -->
-指定したJSON値に対するJSONパス述語チェックの結果を返します。
-結果の最初の項目だけが考慮されます。
-結果が論理値でなければ<literal>NULL</literal>が返ります。
+《機械翻訳》指定されたJSON値に対するJSONパス述部のチェックの結果を返します（これは、SQL標準のJSONパス式ではなく、<link linkend="functions-sqljson-check-expressions">述部チェック式</link>でのみ有用です。
+パス結果が単一のブール値でない場合は<literal>NULL</literal>を返すためです）。
        </para>
        <para>
         <literal>'{"a":[1,2,3,4,5]}'::jsonb @@ '$.a[*] > 2'</literal>
@@ -1018,6 +1031,93 @@ variadic引数リストからJSONオブジェクトを作成します。
         <returnvalue>{"a": "1", "b": "2"}</returnvalue>
        </para></entry>
       </row>
+      <row>
+       <entry role="func_table_entry">
+        <para role="func_signature">
+         <indexterm><primary>json constructor</primary></indexterm>
+         <function>json</function> (
+         <replaceable>expression</replaceable>
+         <optional> <literal>FORMAT JSON</literal> <optional> <literal>ENCODING UTF8</literal> </optional></optional>
+         <optional> { <literal>WITH</literal> | <literal>WITHOUT</literal> } <literal>UNIQUE</literal> <optional> <literal>KEYS</literal> </optional></optional> )
+         <returnvalue>json</returnvalue>
+        </para>
+        <para>
+<!--
+         Converts a given expression specified as <type>text</type> or
+         <type>bytea</type> string (in UTF8 encoding) into a JSON
+         value.  If <replaceable>expression</replaceable> is NULL, an
+         <acronym>SQL</acronym> null value is returned.
+         If <literal>WITH UNIQUE</literal> is specified, the
+         <replaceable>expression</replaceable> must not contain any duplicate
+         object keys.
+-->
+《機械翻訳》指定された<type>text</type>または<type>bytea</type>文字列（UTF8エンコーディング）をJSON値に変換します。
+<replaceable>expression</replaceable>がNULLの場合、<acronym>SQL</acronym>のNULL値が返されます。
+<literal>WITH UNIQUE</literal>が指定された場合、<replaceable>expression</replaceable>は重複するオブジェクトキーを含んではなりません。
+        </para>
+        <para>
+         <literal>json('{"a":123, "b":[true,"foo"], "a":"bar"}')</literal>
+         <returnvalue>{"a":123, "b":[true,"foo"], "a":"bar"}</returnvalue>
+        </para>
+       </entry>
+      </row>
+      <row>
+       <entry role="func_table_entry">
+        <para role="func_signature">
+<!--
+        <indexterm><primary>json_scalar</primary></indexterm>
+        <function>json_scalar</function> ( <replaceable>expression</replaceable> )
+-->
+《機械翻訳》<indexterm><primary>json_scalar</primary></indexterm> <function>json_scalar</function> ( <replaceable>expression</replaceable> )
+       </para>
+       <para>
+<!--
+        Converts a given SQL scalar value into a JSON scalar value.
+        If the input is NULL, an <acronym>SQL</acronym> null is returned. If
+        the input is number or a boolean value, a corresponding JSON number
+        or boolean value is returned. For any other value, a JSON string is
+        returned.
+-->
+《機械翻訳》指定されたSQLスカラー値をJSONスカラー値に変換します。
+入力がNULLの場合、<acronym>SQL</acronym>のNULLが返されます。
+入力が数値またはブール値の場合、対応するJSONの数値またはブール値が返されます。
+それ以外の場合は、JSONの文字列が返されます。
+       </para>
+       <para>
+        <literal>json_scalar(123.45)</literal>
+        <returnvalue>123.45</returnvalue>
+       </para>
+       <para>
+        <literal>json_scalar(CURRENT_TIMESTAMP)</literal>
+        <returnvalue>"2022-05-10T10:51:04.62128-04:00"</returnvalue>
+      </para></entry>
+     </row>
+     <row>
+      <entry role="func_table_entry">
+       <para role="func_signature">
+        <function>json_serialize</function> (
+        <replaceable>expression</replaceable> <optional> <literal>FORMAT JSON</literal> <optional> <literal>ENCODING UTF8</literal> </optional> </optional>
+        <optional> <literal>RETURNING</literal> <replaceable>data_type</replaceable> <optional> <literal>FORMAT JSON</literal> <optional> <literal>ENCODING UTF8</literal> </optional> </optional> </optional> )
+       </para>
+       <para>
+<!--
+        Converts an SQL/JSON expression into a character or binary string. The
+        <replaceable>expression</replaceable> can be of any JSON type, any
+        character string type, or <type>bytea</type> in UTF8 encoding.
+        The returned type used in <literal> RETURNING</literal> can be any
+        character string type or <type>bytea</type>. The default is
+        <type>text</type>.
+-->
+《機械翻訳》SQL/JSON式を文字列またはバイナリ文字列に変換します。
+<replaceable>expression</replaceable>は、任意のJSON型、任意の文字列型、またはUTF8エンコーディングの<type>bytea</type>です。
+<literal>RETURNING</literal>で使用される戻り型は、任意の文字列型または<type>bytea</type>です。
+デフォルトは<type>text</type>です。
+       </para>
+       <para>
+        <literal>json_serialize('{ "a" : 1 } ' RETURNING bytea)</literal>
+        <returnvalue>\x7b20226122203a2031207d20</returnvalue>
+      </para></entry>
+     </row>
      </tbody>
     </tgroup>
    </table>
@@ -1562,6 +1662,62 @@ JSON値を出力列のSQL型に変換する際に以下のルールが順に適�
       <row>
        <entry role="func_table_entry"><para role="func_signature">
         <indexterm>
+         <primary>jsonb_populate_record_valid</primary>
+        </indexterm>
+        <function>jsonb_populate_record_valid</function> ( <parameter>base</parameter> <type>anyelement</type>, <parameter>from_json</parameter> <type>json</type> )
+        <returnvalue>boolean</returnvalue>
+       </para>
+       <para>
+<!--
+        Function for testing <function>jsonb_populate_record</function>.  Returns
+        <literal>true</literal> if the input <function>jsonb_populate_record</function>
+        would finish without an error for the given input JSON object; that is, it's
+        valid input, <literal>false</literal> otherwise.
+-->
+《機械翻訳》<function>jsonb_populate_record</function>をテストする関数。
+与えられた入力JSONオブジェクトに対して<function>jsonb_populate_record</function>がエラーなしで終了する場合は<literal>true</literal>を、そうでない場合は<literal>false</literal>を返します。
+       </para>
+       <para>
+        <literal>create type jsb_char2 as (a char(2));</literal>
+       </para>
+       <para>
+        <literal>select jsonb_populate_record_valid(NULL::jsb_char2, '{"a": "aaa"}');</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ jsonb_populate_record_valid
+-----------------------------
+ f
+(1 row)
+</programlisting>
+
+        <literal>select * from jsonb_populate_record(NULL::jsb_char2, '{"a": "aaa"}') q;</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ERROR:  value too long for type character(2)
+</programlisting>
+        <literal>select jsonb_populate_record_valid(NULL::jsb_char2, '{"a": "aa"}');</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ jsonb_populate_record_valid
+-----------------------------
+ t
+(1 row)
+</programlisting>
+
+        <literal>select * from jsonb_populate_record(NULL::jsb_char2, '{"a": "aa"}') q;</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ a
+----
+ aa
+(1 row)
+</programlisting>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <indexterm>
          <primary>json_populate_recordset</primary>
         </indexterm>
         <function>json_populate_recordset</function> ( <parameter>base</parameter> <type>anyelement</type>, <parameter>from_json</parameter> <type>json</type> )
@@ -1850,6 +2006,9 @@ pathについての演算子について言うと、<parameter>path</parameter>�
 <!--
         Checks whether the JSON path returns any item for the specified JSON
         value.
+        (This is useful only with SQL-standard JSON path expressions, not
+        <link linkend="functions-sqljson-check-expressions">predicate check
+        expressions</link>, since those always return a value.)
         If the <parameter>vars</parameter> argument is specified, it must
         be a JSON object, and its fields provide named values to be
         substituted into the <type>jsonpath</type> expression.
@@ -1857,9 +2016,14 @@ pathについての演算子について言うと、<parameter>path</parameter>�
         is <literal>true</literal>, the function suppresses the same errors
         as the <literal>@?</literal> and <literal>@@</literal> operators do.
 -->
-JSONパスが指定したJSON値に対して項目を返すかどうかをチェックします。
+《マッチ度[65.015480]》JSONパスが指定したJSON値に対して項目を返すかどうかをチェックします。
 <parameter>vars</parameter>が指定されるなら、それはJSONオブジェクトでなければならず、そのフィールドは<type>jsonpath</type>式に置き換えられる名前を持つ値を提供します。
 <parameter>silent</parameter>引数が指定されていて<literal>true</literal>なら、この関数は<literal>@?</literal>と<literal>@@</literal>演算子が生成するのと同じエラーを抑止します。
+《機械翻訳》JSON パスが指定された JSON 値に対して項目を返すかどうかを確認します。
+（これは、<link linkend="functions-sqljson-check-expressions">述語チェック式</link>ではなく、SQL標準のJSONパス式でのみ有用です。
+なぜなら、それらは常に値を返すからです。）
+<parameter>vars</parameter>引数が指定された場合、それはJSONオブジェクトでなければならず、そのフィールドは<type>jsonpath</type>式に代入される名前付き値を提供します。
+<parameter>silent</parameter>引数が指定され、<literal>true</literal>の場合、関数は<literal>@?</literal>演算子と<literal>@@</literal>演算子が行うのと同じエラーを抑制します。
        </para>
        <para>
         <literal>jsonb_path_exists('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2, "max":4}')</literal>
@@ -1878,16 +2042,22 @@ JSONパスが指定したJSON値に対して項目を返すかどうかをチェ
        <para>
 <!--
         Returns the result of a JSON path predicate check for the specified
-        JSON value.  Only the first item of the result is taken into account.
-        If the result is not Boolean, then <literal>NULL</literal> is returned.
+        JSON value.
+        (This is useful only
+        with <link linkend="functions-sqljson-check-expressions">predicate
+        check expressions</link>, not SQL-standard JSON path expressions,
+        since it will either fail or return <literal>NULL</literal> if the
+        path result is not a single boolean value.)
         The optional <parameter>vars</parameter>
         and <parameter>silent</parameter> arguments act the same as
         for <function>jsonb_path_exists</function>.
 -->
-指定したJSON値のJSONパス述語チェックの結果を返します。
+《マッチ度[55.623722]》指定したJSON値のJSONパス述語チェックの結果を返します。
 結果の最初の項目だけが考慮されます。
 結果がBooleanでないなら、<literal>null</literal>が返ります。
 オプションの<parameter>vars</parameter>と<parameter>silent</parameter>引数は<function>jsonb_path_exists</function>と同じように働きます。
+《機械翻訳》指定されたJSON値に対するJSONパス述部のチェック結果を返します（これは、パス結果が単一のブール値でない場合、失敗するか<literal>NULL</literal>を返すため、SQL標準のJSONパス述部ではなく、<link linkend="functions-sqljson-check-expressions">述部チェック式</link>でのみ有用です）。
+オプションの<parameter>vars</parameter>と<parameter>silent</parameter>引数は、<function>jsonb_path_exists</function>と同じように動作します。
        </para>
        <para>
         <literal>jsonb_path_match('{"a":[1,2,3,4,5]}', 'exists($.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max))', '{"min":2, "max":4}')</literal>
@@ -1907,12 +2077,21 @@ JSONパスが指定したJSON値に対して項目を返すかどうかをチェ
 <!--
         Returns all JSON items returned by the JSON path for the specified
         JSON value.
+        For SQL-standard JSON path expressions it returns the JSON
+        values selected from <parameter>target</parameter>.
+        For <link linkend="functions-sqljson-check-expressions">predicate
+        check expressions</link> it returns the result of the predicate
+        check: <literal>true</literal>, <literal>false</literal>,
+        or <literal>null</literal>.
         The optional <parameter>vars</parameter>
         and <parameter>silent</parameter> arguments act the same as
         for <function>jsonb_path_exists</function>.
 -->
-JSON値に対するJSONパスによって返されるすべてのJSON項目を返します。
-オプションの<parameter>vars</parameter>と<parameter>silent</parameter>引数は<function>jsonb_path_exists</function>と同じように働きます。
+《機械翻訳》指定されたJSON値のJSONパスによって戻されるすべてのJSON項目を戻します。
+SQL標準のJSONパス式の場合、<parameter>target</parameter>から選択されたJSON値を返します。
+<link linkend="functions-sqljson-check-expressions">述語チェック式</link>の場合、述語チェックの結果を返します。
+結果は<literal>true</literal>、<literal>false</literal>、<literal>null</literal>のいずれかです。
+オプションの<parameter>vars</parameter>と<parameter>silent</parameter>引数は<function>jsonb_path_exists</function>と同じように動作します。
        </para>
        <para>
         <literal>select * from jsonb_path_query('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2, "max":4}')</literal>
@@ -1939,12 +2118,11 @@ JSON値に対するJSONパスによって返されるすべてのJSON項目を�
 <!--
         Returns all JSON items returned by the JSON path for the specified
         JSON value, as a JSON array.
-        The optional <parameter>vars</parameter>
-        and <parameter>silent</parameter> arguments act the same as
-        for <function>jsonb_path_exists</function>.
+        The parameters are the same as
+        for <function>jsonb_path_query</function>.
 -->
-JSON値に対するJSONパスによって返されるすべてのJSON項目をJSON配列として返します。
-オプションの<parameter>vars</parameter>と<parameter>silent</parameter>引数は<function>jsonb_path_exists</function>と同じように働きます。
+《機械翻訳》指定されたJSON値のJSONパスによって返されるすべてのJSON項目を、JSON配列として返します。
+パラメータは<function>jsonb_path_query</function>と同じです。
        </para>
        <para>
         <literal>jsonb_path_query_array('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2, "max":4}')</literal>
@@ -1963,15 +2141,14 @@ JSON値に対するJSONパスによって返されるすべてのJSON項目をJS
        <para>
 <!--
         Returns the first JSON item returned by the JSON path for the
-        specified JSON value.  Returns <literal>NULL</literal> if there are no
+        specified JSON value, or <literal>NULL</literal> if there are no
         results.
-        The optional <parameter>vars</parameter>
-        and <parameter>silent</parameter> arguments act the same as
-        for <function>jsonb_path_exists</function>.
+        The parameters are the same as
+        for <function>jsonb_path_query</function>.
 -->
-JSON値に対するJSONパスによって返される最初のJSON項目を返します。
-結果がなければ<literal>NULL</literal>が返ります。
-オプションの<parameter>vars</parameter>と<parameter>silent</parameter>引数は<function>jsonb_path_exists</function>と同じように働きます。
+《機械翻訳》指定されたJSON値のJSONパスによって返される最初のJSON項目を返します。
+結果がない場合は<literal>NULL</literal>です。
+パラメータは<function>jsonb_path_query</function>と同じです。
        </para>
        <para>
         <literal>jsonb_path_query_first('{"a":[1,2,3,4,5]}', '$.a[*] ? (@ >= $min &amp;&amp; @ &lt;= $max)', '{"min":2, "max":4}')</literal>
@@ -2132,15 +2309,18 @@ JSON値に対するJSONパスによって返される最初のJSON項目を返�
 
   <para>
 <!--
-   SQL/JSON path expressions specify the items to be retrieved
-   from the JSON data, similar to XPath expressions used
-   for SQL access to XML. In <productname>PostgreSQL</productname>,
+   SQL/JSON path expressions specify item(s) to be retrieved
+   from a JSON value, similarly to XPath expressions used
+   for access to XML content. In <productname>PostgreSQL</productname>,
    path expressions are implemented as the <type>jsonpath</type>
    data type and can use any elements described in
    <xref linkend="datatype-jsonpath"/>.
 -->
-SQL/JSONパス式は、XMLへのSQLアクセスで使用されるXPath同様、JSONデータから取り出す項目を指定します。
+《マッチ度[86.280488]》SQL/JSONパス式は、XMLへのSQLアクセスで使用されるXPath同様、JSONデータから取り出す項目を指定します。
 <productname>PostgreSQL</productname>ではパス式は<type>jsonpath</type>データ型として実装されており、<xref linkend="datatype-jsonpath"/>で説明されているすべての要素を使うことができます。
+《機械翻訳》SQL/JSONパス式は、JSON値から取得する項目を指定します。
+XPath式は、XMLコンテンツへのアクセスに使用されるものと同様です。
+<productname>PostgreSQL</productname>では、パス式は<type>jsonpath</type>データ型として実装され、<xref linkend="datatype-jsonpath"/>で説明されている任意の要素を使用できます。
   </para>
 
   <para>
@@ -2149,12 +2329,18 @@ SQL/JSONパス式は、XMLへのSQLアクセスで使用されるXPath同様、J
    pass the provided path expression to the <firstterm>path engine</firstterm>
    for evaluation. If the expression matches the queried JSON data,
    the corresponding JSON item, or set of items, is returned.
+   If there is no match, the result will be <literal>NULL</literal>,
+   <literal>false</literal>, or an error, depending on the function.
    Path expressions are written in the SQL/JSON path language
    and can include arithmetic expressions and functions.
 -->
-JSON問い合わせ関数と演算子は与えられたパス式を<firstterm>path engine</firstterm>に渡して評価します。
+《マッチ度[69.728601]》JSON問い合わせ関数と演算子は与えられたパス式を<firstterm>path engine</firstterm>に渡して評価します。
 式が問い合わせ対象のJSONデータにマッチすれば、関連するSQL/JSON項目が返却されます。
 パス式はSQL/JSONパス言語で書かれ、算術式と関数を含むことができます。
+《機械翻訳》JSONクエリ関数と演算子は、<firstterm>パスエンジン</firstterm>に渡され、評価されます。
+クエリされたJSONデータとパス式が一致する場合、対応するJSON項目または項目のセットが返されます。
+一致しない場合、結果は<literal>NULL</literal>、<literal>false</literal>、または関数によって異なるエラーになります。
+パス式はSQL/JSONパス言語で記述され、算術式と関数を含むことができます。
   </para>
 
   <para>
@@ -2176,16 +2362,22 @@ JSON問い合わせ関数と演算子は与えられたパス式を<firstterm>pa
 <!--
    To refer to the JSON value being queried (the
    <firstterm>context item</firstterm>), use the <literal>$</literal> variable
-   in the path expression. It can be followed by one or more
+   in the path expression. The first element of a path must always
+   be <literal>$</literal>. It can be followed by one or more
    <link linkend="type-jsonpath-accessors">accessor operators</link>,
    which go down the JSON structure level by level to retrieve sub-items
-   of the context item. Each operator that follows deals with the
-   result of the previous evaluation step.
+   of the context item. Each accessor operator acts on the
+   result(s) of the previous evaluation step, producing zero, one, or more
+   output items from each input item.
 -->
-問い合わせ対象（<firstterm>context item</firstterm>）のJSONデータを参照するには、パス式内で<literal>$</literal>値を使います。
+《マッチ度[67.279412]》問い合わせ対象（<firstterm>context item</firstterm>）のJSONデータを参照するには、パス式内で<literal>$</literal>値を使います。
 複数の<link linkend="type-jsonpath-accessors">アクセサ演算子</link>をその後に記述することもできます。
 それによってJSON構造をレベル順に訪れて文脈項目の副項目の内容を取り出します。
 後続の個々の演算子はその前の評価段階の結果を処理します。
+《機械翻訳》クエリ対象のJSON値（<firstterm>コンテキスト項目</firstterm>）を参照するには、パス式の中で<literal>$</literal>変数を使用します。
+パスの最初の要素は常に<literal>$</literal>でなければなりません。
+この後に、JSON構造のレベルを1つずつ下ってコンテキスト項目のサブ項目を取得する<link linkend="type-jsonpath-accessors">アクセス子演算子</link>を1つ以上指定することができます。
+各アクセス演算子は、前の評価ステップの結果に作用し、各入力項目から0個、1個、または複数の出力項目を生成します。
   </para>
 
   <para>
@@ -2195,7 +2387,7 @@ JSON問い合わせ関数と演算子は与えられたパス式を<firstterm>pa
 -->
 たとえば、次のようなパースしたいGPSトラッカーからのJSONデータがあるとします。
 <programlisting>
-{
+SELECT '{
   "track": {
     "segments": [
       {
@@ -2210,34 +2402,71 @@ JSON問い合わせ関数と演算子は与えられたパス式を<firstterm>pa
       }
     ]
   }
-}
+}' AS json \gset
 </programlisting>
+<!--
+   (The above example can be copied-and-pasted
+   into <application>psql</application> to set things up for the following
+   examples.  Then <application>psql</application> will
+   expand <literal>:'json'</literal> into a suitably-quoted string
+   constant containing the JSON value.)
+-->
+《機械翻訳》（上記の例は、<application>psql</application>にコピー&amp;ペーストして、以下の例の設定を行うことができます。
+そうすると、<application>psql</application>は<literal>:'json'</literal>を適切に引用符付けされた文字列定数に展開し、JSON値を含めます。）
   </para>
 
   <para>
 <!--
    To retrieve the available track segments, you need to use the
    <literal>.<replaceable>key</replaceable></literal> accessor
-   operator to descend through surrounding JSON objects:
+   operator to descend through surrounding JSON objects, for example:
 -->
-存在するトラックセグメントを取り出すには、<literal>.<replaceable>key</replaceable></literal>アクセサ演算子を使用して、周辺のJSONオブジェクトを下っていく必要があります。
-<programlisting>
-$.track.segments
-</programlisting>
+《マッチ度[88.297872]》存在するトラックセグメントを取り出すには、<literal>.<replaceable>key</replaceable></literal>アクセサ演算子を使用して、周辺のJSONオブジェクトを下っていく必要があります。
+《機械翻訳》使用可能なトラックセグメントを取得するには、<literal>.<replaceable>key</replaceable></literal>アクセス子演算子を使用して、周囲のJSONオブジェクトを下に移動する必要があります。
+例:
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments');</userinput>
+                                                                         jsonb_path_query
+-----------------------------------------------------------&zwsp;-----------------------------------------------------------&zwsp;---------------------------------------------
+ [{"HR": 73, "location": [47.763, 13.4034], "start time": "2018-10-14 10:05:14"}, {"HR": 135, "location": [47.706, 13.2635], "start time": "2018-10-14 10:39:21"}]
+</screen>
   </para>
 
   <para>
 <!--
    To retrieve the contents of an array, you typically use the
-   <literal>[*]</literal> operator. For example,
-   the following path will return the location coordinates for all
+   <literal>[*]</literal> operator.
+   The following example will return the location coordinates for all
    the available track segments:
 -->
-配列の内容を取り出すには、典型的には<literal>[*]</literal>演算子を使います。
+《マッチ度[83.068783]》配列の内容を取り出すには、典型的には<literal>[*]</literal>演算子を使います。
 たとえば次のパスはすべての存在するトラックセグメントの位置座標を返します。
-<programlisting>
-$.track.segments[*].location
-</programlisting>
+《機械翻訳》配列の内容を取得するには、通常<literal>[*]</literal>演算子を使用します。
+次の例は、使用可能なすべてのトラックセグメントの位置座標を返します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments[*].location');</userinput>
+ jsonb_path_query
+-------------------
+ [47.763, 13.4034]
+ [47.706, 13.2635]
+</screen>
+<!--
+   Here we started with the whole JSON input value (<literal>$</literal>),
+   then the <literal>.track</literal> accessor selected the JSON object
+   associated with the <literal>"track"</literal> object key, then
+   the <literal>.segments</literal> accessor selected the JSON array
+   associated with the <literal>"segments"</literal> key within that
+   object, then the <literal>[*]</literal> accessor selected each element
+   of that array (producing a series of items), then
+   the <literal>.location</literal> accessor selected the JSON array
+   associated with the <literal>"location"</literal> key within each of
+   those objects.  In this example, each of those objects had
+   a <literal>"location"</literal> key; but if any of them did not,
+   the <literal>.location</literal> accessor would have simply produced no
+   output for that input item.
+-->
+《機械翻訳》ここでは、JSON入力値(<literal>$</literal>)全体から始め、<literal>.track</literal>アクセサが<literal>"track"</literal>オブジェクトキーに関連付けられたJSONオブジェクトを選択し、<literal>.segments</literal>アクセサがそのオブジェクト内の<literal>"segments"</literal>キーに関連付けられたJSON配列を選択し、<literal>[*]</literal>アクセサがその配列の各要素（一連の項目を生成）を選択し、<literal>.location</literal>アクセサがそれらのオブジェクトのそれぞれの中の<literal>"location"</literal>キーに関連付けられたJSON配列を選択しました。
+この例では、それらのオブジェクトのそれぞれに<literal>"location"</literal>キーがありましたが、もしそうでなければ、<literal>.location</literal>アクセッサは単にその入力項目に対して何の出力も生成しなかったでしょう。
   </para>
 
   <para>
@@ -2248,25 +2477,31 @@ $.track.segments[*].location
 -->
 最初のセグメントの座標だけを返すには、<literal>[]</literal>アクセサ演算子の中で対応する添え字を指定することができます。
 JSON配列インデックスは0スタートであることに注意してください。
-<programlisting>
-$.track.segments[0].location
-</programlisting>
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments[0].location');</userinput>
+ jsonb_path_query
+-------------------
+ [47.763, 13.4034]
+</screen>
   </para>
 
   <para>
 <!--
    The result of each path evaluation step can be processed
-   by one or more <type>jsonpath</type> operators and methods
+   by one or more of the <type>jsonpath</type> operators and methods
    listed in <xref linkend="functions-sqljson-path-operators"/>.
    Each method name must be preceded by a dot. For example,
    you can get the size of an array:
 -->
-各段階でのパス評価結果は<xref linkend="functions-sqljson-path-operators"/>に列挙されている一つ以上の<type>jsonpath</type>演算子とメソッドで処理することができます。
+《マッチ度[92.000000]》各段階でのパス評価結果は<xref linkend="functions-sqljson-path-operators"/>に列挙されている一つ以上の<type>jsonpath</type>演算子とメソッドで処理することができます。
 各々のメソッド名の前にピリオドを付けなければなりません。
 たとえば配列の大きさを得ることができます。
-<programlisting>
-$.track.segments.size()
-</programlisting>
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments.size()');</userinput>
+ jsonb_path_query
+------------------
+ 2
+</screen>
 <!--
    More examples of using <type>jsonpath</type> operators
    and methods within path expressions appear below in
@@ -2277,17 +2512,19 @@ $.track.segments.size()
 
   <para>
 <!--
-   When defining a path, you can also use one or more
+   A path can also contain
    <firstterm>filter expressions</firstterm> that work similarly to the
    <literal>WHERE</literal> clause in SQL. A filter expression begins with
    a question mark and provides a condition in parentheses:
 -->
-パスを定義する際にはSQLの<literal>WHERE</literal>節のように働く一つ以上の<firstterm>フィルター式</firstterm>が利用できます。
+《マッチ度[79.638009]》パスを定義する際にはSQLの<literal>WHERE</literal>節のように働く一つ以上の<firstterm>フィルター式</firstterm>が利用できます。
 フィルター式はクェスチョンマークで始まり、カッコ内に条件を記述します。
+《機械翻訳》パスには、SQLの<literal>WHERE</literal>句と同様に動作する<firstterm>フィルタ式</firstterm>を含めることもできます。
+フィルタ式は、疑問符で始まり、括弧内に条件を指定します。
 
-<programlisting>
+<synopsis>
 ? (<replaceable>condition</replaceable>)
-</programlisting>
+</synopsis>
   </para>
 
   <para>
@@ -2295,14 +2532,15 @@ $.track.segments.size()
    Filter expressions must be written just after the path evaluation step
    to which they should apply. The result of that step is filtered to include
    only those items that satisfy the provided condition. SQL/JSON defines
-   three-valued logic, so the condition can be <literal>true</literal>, <literal>false</literal>,
+   three-valued logic, so the condition can
+   produce <literal>true</literal>, <literal>false</literal>,
    or <literal>unknown</literal>. The <literal>unknown</literal> value
    plays the same role as SQL <literal>NULL</literal> and can be tested
    for with the <literal>is unknown</literal> predicate. Further path
    evaluation steps use only those items for which the filter expression
    returned <literal>true</literal>.
 -->
-フィルター式はそれを適用するパス評価段階の直後に指定しなければなりません。
+《マッチ度[94.711538]》フィルター式はそれを適用するパス評価段階の直後に指定しなければなりません。
 この段階の結果は、指定した条件を満たす項目だけが含まれるようにフィルターされます。
 SQL/JSONは3値論理を定義しており、条件は<literal>true</literal>、<literal>false</literal>、<literal>unknown</literal>のどれかです。
 <literal>unknown</literal>は値はSQLの<literal>NULL</literal>と同じ役割を果たし、<literal>is unknown</literal>述語で評価できます。
@@ -2314,11 +2552,11 @@ SQL/JSONは3値論理を定義しており、条件は<literal>true</literal>、
    The functions and operators that can be used in filter expressions are
    listed in <xref linkend="functions-sqljson-filter-ex-table"/>.  Within a
    filter expression, the <literal>@</literal> variable denotes the value
-   being filtered (i.e., one result of the preceding path step).  You can
+   being considered (i.e., one result of the preceding path step).  You can
    write accessor operators after <literal>@</literal> to retrieve component
    items.
 -->
-フィルター式内で利用できる関数と演算子は<xref linkend="functions-sqljson-filter-ex-table"/>にリストされています。
+《マッチ度[92.896175]》フィルター式内で利用できる関数と演算子は<xref linkend="functions-sqljson-filter-ex-table"/>にリストされています。
 フィルター式内では、フィルターする必要のある値は<literal>@</literal>変数で示します。（つまり以前のパスステップの結果の一つです。）
 コンポーネント項目を取得するためにアクセサ演算子を<literal>@</literal>の後に記述することができます。
   </para>
@@ -2326,39 +2564,52 @@ SQL/JSONは3値論理を定義しており、条件は<literal>true</literal>、
   <para>
 <!--
    For example, suppose you would like to retrieve all heart rate values higher
-   than 130. You can achieve this using the following expression:
+   than 130. You can achieve this as follows:
 -->
-たとえば130より高いすべての心拍数を取り出したいとします。次の式を使ってそれを得ることができます。
-<programlisting>
-$.track.segments[*].HR ? (@ &gt; 130)
-</programlisting>
+《マッチ度[77.310924]》たとえば130より高いすべての心拍数を取り出したいとします。次の式を使ってそれを得ることができます。
+《機械翻訳》たとえば、130 より高い心拍数の値をすべて取得する場合を考えます。
+これを実現するには、次のようにします。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments[*].HR ? (@ &gt; 130)');</userinput>
+ jsonb_path_query
+------------------
+ 135
+</screen>
   </para>
 
   <para>
 <!--
    To get the start times of segments with such values, you have to
-   filter out irrelevant segments before returning the start times, so the
+   filter out irrelevant segments before selecting the start times, so the
    filter expression is applied to the previous step, and the path used
    in the condition is different:
 -->
-そうした値を持つセグメントの開始時刻を得たい場合は、開始時刻を返す前に無関係のセグメントを取り除く必要があります。
+《マッチ度[92.796610]》そうした値を持つセグメントの開始時刻を得たい場合は、開始時刻を返す前に無関係のセグメントを取り除く必要があります。
 そうすることにより前の段階にフィルター式が適用されるので、その条件で適用されるパスは異なります。
-<programlisting>
-$.track.segments[*] ? (@.HR &gt; 130)."start time"
-</programlisting>
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments[*] ? (@.HR &gt; 130)."start time"');</userinput>
+   jsonb_path_query
+-----------------------
+ "2018-10-14 10:39:21"
+</screen>
   </para>
 
   <para>
 <!--
-   You can use several filter expressions in sequence, if required. For
-   example, the following expression selects start times of all segments that
+   You can use several filter expressions in sequence, if required.
+   The following example selects start times of all segments that
    contain locations with relevant coordinates and high heart rate values:
 -->
-必要なら複数のフィルター式を順に使用することができます。
+《マッチ度[84.422111]》必要なら複数のフィルター式を順に使用することができます。
 たとえば次の式は指定した座標と高い心拍数値を持つ位置を持つすべてのセグメントを選択します。
-<programlisting>
-$.track.segments[*] ? (@.location[1] &lt; 13.4) ? (@.HR &gt; 130)."start time"
-</programlisting>
+《機械翻訳》必要に応じて、複数のフィルタ式を連続して使用できます。
+次の例では、関連する座標と高い心拍数値を持つ位置を含むすべてのセグメントの開始時間を選択します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments[*] ? (@.location[1] &lt; 13.4) ? (@.HR &gt; 130)."start time"');</userinput>
+   jsonb_path_query
+-----------------------
+ "2018-10-14 10:39:21"
+</screen>
   </para>
 
   <para>
@@ -2369,66 +2620,105 @@ $.track.segments[*] ? (@.location[1] &lt; 13.4) ? (@.HR &gt; 130)."start time"
 -->
 異なる入れ子レベルに対してフィルター式を適用することもできます。
 次の例では、まず位置ですべてのセグメントをフィルターし、もしあれば高い心拍数値を返します。
-<programlisting>
-$.track.segments[*] ? (@.location[1] &lt; 13.4).HR ? (@ &gt; 130)
-</programlisting>
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments[*] ? (@.location[1] &lt; 13.4).HR ? (@ &gt; 130)');</userinput>
+ jsonb_path_query
+------------------
+ 135
+</screen>
   </para>
 
   <para>
 <!--
-   You can also nest filter expressions within each other:
+   You can also nest filter expressions within each other.
+   This example returns the size of the track if it contains any
+   segments with high heart rate values, or an empty sequence otherwise:
 -->
-フィルター式をお互いに入れ子にすることもできます。
-<programlisting>
-$.track ? (exists(@.segments[*] ? (@.HR &gt; 130))).segments.size()
-</programlisting>
-<!--
-   This expression returns the size of the track if it contains any
-   segments with high heart rate values, or an empty sequence otherwise.
--->
-この式は高い心拍数値を含むトラックがあればそのすべてのサイズを返します。もしなければ空のシーケンスが返ります。
+《マッチ度[69.518717]》この式は高い心拍数値を含むトラックがあればそのすべてのサイズを返します。もしなければ空のシーケンスが返ります。
+《機械翻訳》フィルタ式をネストして、フィルタ式を相互にネストすることもできます。
+次の例では、トラックにハイ心拍数値のセグメントが含まれている場合はそのサイズを返し、それ以外の場合は空のシーケンスを返します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track ? (exists(@.segments[*] ? (@.HR &gt; 130))).segments.size()');</userinput>
+ jsonb_path_query
+------------------
+ 2
+</screen>
   </para>
 
-  <para>
+  <sect3 id="functions-sqljson-deviations">
+  <title>Deviations from the SQL Standard</title>
+   <para>
 <!--
-   <productname>PostgreSQL</productname>'s implementation of the SQL/JSON path
-   language has the following deviations from the SQL/JSON standard:
+    <productname>PostgreSQL</productname>'s implementation of the SQL/JSON path
+    language has the following deviations from the SQL/JSON standard.
 -->
-<productname>PostgreSQL</productname>のSQL/JSONパス言語の実装はSQL/JSON標準と次の点が異なります。
-  </para>
+《マッチ度[95.035461]》<productname>PostgreSQL</productname>のSQL/JSONパス言語の実装はSQL/JSON標準と次の点が異なります。
+   </para>
 
-  <itemizedlist>
-   <listitem>
+   <sect4 id="functions-sqljson-check-expressions">
+   <title>Boolean Predicate Check Expressions</title>
     <para>
 <!--
-     A path expression can be a Boolean predicate, although the SQL/JSON
-     standard allows predicates only in filters.  This is necessary for
-     implementation of the <literal>@@</literal> operator. For example,
-     the following <type>jsonpath</type> expression is valid in
-     <productname>PostgreSQL</productname>:
+     As an extension to the SQL standard,
+     a <productname>PostgreSQL</productname> path expression can be a
+     Boolean predicate, whereas the SQL standard allows predicates only within
+     filters. While SQL-standard path expressions return the relevant
+     element(s) of the queried JSON value, predicate check expressions
+     return the single three-valued result of the
+     predicate: <literal>true</literal>,
+     <literal>false</literal>, or <literal>unknown</literal>.
+     For example, we could write this SQL-standard filter expression:
 -->
-SQL/JSON標準ではフィルター内でのみ述語が使えますが、パス式はBoolean述語でも構いません。
-これは<literal>@@</literal>演算子を実装するために必要です。
-たとえば、次の<type>jsonpath</type>式は<productname>PostgreSQL</productname>では有効です。
-<programlisting>
-$.track.segments[*].HR &lt; 70
-</programlisting>
-    </para>
-   </listitem>
-
-   <listitem>
-    <para>
+《機械翻訳》SQL標準の拡張として、<productname>PostgreSQL</productname>パス式はブール述語になりますが、SQL標準では述語はフィルタ内でのみ許されます。
+SQL標準のパス式は、問い合わせられたJSON値の関連する要素を返しますが、述語チェック式は述語の単一の3値結果<literal>true</literal>、<literal>false</literal>、<literal>unknown</literal>を返します。
+たとえば、次の SQL 標準フィルタ式を記述できます。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments ?(@[*].HR &gt; 130)');</userinput>
+                                jsonb_path_query
+-----------------------------------------------------------&zwsp;----------------------
+ {"HR": 135, "location": [47.706, 13.2635], "start time": "2018-10-14 10:39:21"}
+</screen>
 <!--
-     There are minor differences in the interpretation of regular
-     expression patterns used in <literal>like_regex</literal> filters, as
-     described in <xref linkend="jsonpath-regular-expressions"/>.
+     The similar predicate check expression simply
+     returns <literal>true</literal>, indicating that a match exists:
 -->
-<xref linkend="jsonpath-regular-expressions"/>で述べるように、<literal>like_regex</literal>フィルターで使用される正規表現パターンの解釈には些細な違いがあります。
-    </para>
-   </listitem>
-  </itemizedlist>
+《機械翻訳》類似述語チェック式は単に<literal>true</literal>を返し、一致が存在することを示します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', '$.track.segments[*].HR &gt; 130');</userinput>
+ jsonb_path_query
+------------------
+ true
+</screen>
+     </para>
 
-   <sect3 id="strict-and-lax-modes">
+     <note>
+      <para>
+<!--
+       Predicate check expressions are required in the
+       <literal>@@</literal> operator (and the
+       <function>jsonb_path_match</function> function), and should not be used
+       with the <literal>@?</literal> operator (or the
+       <function>jsonb_path_exists</function> function).
+-->
+《機械翻訳》述語チェック式は<literal>@@</literal>演算子（および<function>jsonb_path_match</function>関数）で必要であり、<literal>@?</literal>演算子（または<function>jsonb_path_exists</function>関数）では使用すべきではありません。
+      </para>
+     </note>
+    </sect4>
+
+    <sect4 id="functions-sqljson-regular-expression-deviation">
+    <title>Regular Expression Interpretation</title>
+     <para>
+<!--
+      There are minor differences in the interpretation of regular
+      expression patterns used in <literal>like_regex</literal> filters, as
+      described in <xref linkend="jsonpath-regular-expressions"/>.
+-->
+《マッチ度[92.146597]》<xref linkend="jsonpath-regular-expressions"/>で述べるように、<literal>like_regex</literal>フィルターで使用される正規表現パターンの解釈には些細な違いがあります。
+     </para>
+    </sect4>
+   </sect3>
+
+   <sect3 id="functions-sqljson-strict-and-lax-modes">
 <!--
    <title>Strict and Lax Modes</title>
 -->
@@ -2437,13 +2727,16 @@ $.track.segments[*].HR &lt; 70
 <!--
      When you query JSON data, the path expression may not match the
      actual JSON data structure. An attempt to access a non-existent
-     member of an object or element of an array results in a
+     member of an object or element of an array is defined as a
      structural error. SQL/JSON path expressions have two modes
      of handling structural errors:
 -->
-JSONデータを問い合わせる際、パス式は実際のJSONデータ構造に一致しないかも知れません。
-存在しないオブジェクトのメンバあるいは配列要素にアクセスしようとすると、構造上のエラーとなります。
+《マッチ度[88.043478]》JSONデータを問い合わせる際、パス式は実際のJSONデータ構造に一致しないかも知れません。
+存在しないオブジェクトのメンバーあるいは配列要素にアクセスしようとすると、構造上のエラーとなります。
 SQL/JSONパス式には構造上のエラーを扱うための2つのモードがあります。
+《機械翻訳》JSONデータを問い合せる場合、パス式は実際のJSONデータ構造と一致しない場合があります。
+オブジェクトまたは配列の要素に存在しないメンバーにアクセスしようとすると、構造エラーとして定義されます。
+SQL/JSONのパス式には、構造エラーを処理する2つのモードがあります。
     </para>
 
    <itemizedlist>
@@ -2452,11 +2745,13 @@ SQL/JSONパス式には構造上のエラーを扱うための2つのモード�
 <!--
       lax (default) &mdash; the path engine implicitly adapts
       the queried data to the specified path.
-      Any remaining structural errors are suppressed and converted
-      to empty SQL/JSON sequences.
+      Any structural errors that cannot be fixed as described below
+      are suppressed, producing no match.
 -->
-非厳密(lax)モード（デフォルト）&mdash; パスエンジンは指定したパスを問い合わせデータに暗黙的に適合させます。
+《マッチ度[54.922280]》非厳密(lax)モード（デフォルト）&mdash; パスエンジンは指定したパスを問い合わせデータに暗黙的に適合させます。
 構造上のエラーは抑止され、空のSQL/JSONシーケンスへと変換されます。
+《機械翻訳》緩い （デフォルト） - パスエンジンは、照会されたデータを指定されたパスに暗黙的に適合させます。
+以下に説明するように修正できない構造エラーは抑制され、一致は生成されません。
      </para>
     </listitem>
     <listitem>
@@ -2471,21 +2766,26 @@ SQL/JSONパス式には構造上のエラーを扱うための2つのモード�
 
    <para>
 <!--
-    The lax mode facilitates matching of a JSON document structure and path
-    expression if the JSON data does not conform to the expected schema.
+    Lax mode facilitates matching of a JSON document and path
+    expression when the JSON data does not conform to the expected schema.
     If an operand does not match the requirements of a particular operation,
-    it can be automatically wrapped as an SQL/JSON array or unwrapped by
+    it can be automatically wrapped as an SQL/JSON array, or unwrapped by
     converting its elements into an SQL/JSON sequence before performing
-    this operation. Besides, comparison operators automatically unwrap their
-    operands in the lax mode, so you can compare SQL/JSON arrays
+    the operation. Also, comparison operators automatically unwrap their
+    operands in lax mode, so you can compare SQL/JSON arrays
     out-of-the-box. An array of size 1 is considered equal to its sole element.
-    Automatic unwrapping is not performed only when:
+    Automatic unwrapping is not performed when:
 -->
-非厳密モードは、JSONデータが期待されるスキーマに沿わないときにJSON文書構造とパス式のマッチングを助けます。
+《マッチ度[87.521368]》非厳密モードは、JSONデータが期待されるスキーマに沿わないときにJSON文書構造とパス式のマッチングを助けます。
 あるオペランドが操作の要件に合わないときにはそれをSQL/JSON配列にまとめたり、あるいは操作を行う前にそれをSQL/JSONシーケンスに展開することもできます。
 また非厳密モードにおいては、比較演算子は自動的にオペランドを展開し、SQL/JSON配列をそのまま比較することができます。
 大きさ1の配列はその単独要素と同じものとして扱われます。
 自動展開は以下の場合にのみ行われません。
+《機械翻訳》ラックスモードは、JSONデータが期待されるスキーマに準拠していない場合に、JSONドキュメントとパス表現のマッチングを容易にする。
+オペランドが特定の操作の要件に一致しない場合、オペランドをSQL/JSON配列として自動的にラップしたり、操作を実行する前にその要素をSQL/JSONシーケンスに変換してラップ解除したりすることができます。
+また、比較演算子はラップされていないモードでオペランドを自動的にアンラップするため、SQL/JSON配列をすぐに比較できます。
+サイズ1の配列は、その要素と同じとみなされます。
+次の場合、自動アンラップは実行されません。
     <itemizedlist>
      <listitem>
       <para>
@@ -2517,57 +2817,128 @@ SQL/JSONパス式には構造上のエラーを扱うための2つのモード�
 <!--
     For example, when querying the GPS data listed above, you can
     abstract from the fact that it stores an array of segments
-    when using the lax mode:
+    when using lax mode:
 -->
-たとえば、上述のGPSデータに問い合わせする際、非厳密モードでは配列のセグメントを含んでいることを抽象化できます。
-<programlisting>
-lax $.track.segments.location
-</programlisting>
+《マッチ度[88.652482]》たとえば、上述のGPSデータに問い合わせする際、非厳密モードでは配列のセグメントを含んでいることを抽象化できます。
+《機械翻訳》たとえば、上記のGPSデータをクエリする場合、ラフモードを使用するときに、セグメントの配列を格納するという事実から抽出できます。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'lax $.track.segments.location');</userinput>
+ jsonb_path_query
+-------------------
+ [47.763, 13.4034]
+ [47.706, 13.2635]
+</screen>
    </para>
 
    <para>
 <!--
-    In the strict mode, the specified path must exactly match the structure of
-    the queried JSON document to return an SQL/JSON item, so using this
-    path expression will cause an error. To get the same result as in
-    the lax mode, you have to explicitly unwrap the
+    In strict mode, the specified path must exactly match the structure of
+    the queried JSON document, so using this path
+    expression will cause an error:
+-->
+《機械翻訳》厳密モードでは、指定されたパスはクエリされた JSON ドキュメントの構造と正確に一致する必要があるため、このパス式を使用するとエラーが発生します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'strict $.track.segments.location');</userinput>
+ERROR:  jsonpath member accessor can only be applied to an object
+</screen>
+<!--
+    To get the same result as in lax mode, you have to explicitly unwrap the
     <literal>segments</literal> array:
 -->
-厳密モードでは、指定したパスはSQL/JSON項目を返す問い合わせ対象のJSON文書の構造に正確に一致していなければなりません。ですから、このパス式を使うとエラーになります。
-非厳密モードと同じ結果を得るためには、<literal>segments</literal>配列を明示的に展開する必要があります。
-<programlisting>
-strict $.track.segments[*].location
-</programlisting>
+《機械翻訳》ラグモードと同じ結果を得るには、<literal>segments</literal>配列を明示的にアンラップする必要があります。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'strict $.track.segments[*].location');</userinput>
+ jsonb_path_query
+-------------------
+ [47.763, 13.4034]
+ [47.706, 13.2635]
+</screen>
    </para>
 
    <para>
 <!--
-    The <literal>.**</literal> accessor can lead to surprising results
-    when using the lax mode. For instance, the following query selects every
-    <literal>HR</literal> value twice:
+    The unwrapping behavior of lax mode can lead to surprising results. For
+    instance, the following query using the <literal>.**</literal> accessor
+    selects every <literal>HR</literal> value twice:
 -->
-<literal>.**</literal>アクセサを非厳密モードで使うと驚くべき結果をもたらすことがあります。
-たとえば、次の問い合わせはすべての<literal>HR</literal>値を2回検索します。
-<programlisting>
-lax $.**.HR
-</programlisting>
+《機械翻訳》ラップモードのアンラップ動作は、驚くべき結果をもたらす可能性があります。
+たとえば、<literal>.**</literal>アクセサを使用する次のクエリは、すべての<literal>HR</literal>値を2回選択します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'lax $.**.HR');</userinput>
+ jsonb_path_query
+------------------
+ 73
+ 135
+ 73
+ 135
+</screen>
 <!--
     This happens because the <literal>.**</literal> accessor selects both
     the <literal>segments</literal> array and each of its elements, while
     the <literal>.HR</literal> accessor automatically unwraps arrays when
-    using the lax mode. To avoid surprising results, we recommend using
-    the <literal>.**</literal> accessor only in the strict mode. The
+    using lax mode. To avoid surprising results, we recommend using
+    the <literal>.**</literal> accessor only in strict mode. The
     following query selects each <literal>HR</literal> value just once:
 -->
-これは<literal>.**</literal>アクセサが<literal>segments</literal>とその各々の要素の両方を検索するからです。
+《マッチ度[92.039801]》これは<literal>.**</literal>アクセサが<literal>segments</literal>とその各々の要素の両方を検索するからです。
 一方、<literal>.HR</literal>アクセサは非厳密モードでは自動的に配列を展開します。
 予期しない結果を避けるには、<literal>.**</literal>アクセサを厳密モードでのみ使うことをお勧めします。
 次の問い合わせは<literal>HR</literal>の各値を一度だけ検索します。
-<programlisting>
-strict $.**.HR
-</programlisting>
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'strict $.**.HR');</userinput>
+ jsonb_path_query
+------------------
+ 73
+ 135
+</screen>
    </para>
 
+   <para>
+<!--
+    The unwrapping of arrays can also lead to unexpected results. Consider this
+    example, which selects all the <literal>location</literal> arrays:
+-->
+《機械翻訳》配列のアンラップは予期しない結果をもたらす可能性もあります。
+次の例を考えてみましょう。
+これは<literal>location</literal>配列をすべて選択します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'lax $.track.segments[*].location');</userinput>
+ jsonb_path_query
+-------------------
+ [47.763, 13.4034]
+ [47.706, 13.2635]
+(2 rows)
+</screen>
+<!--
+    As expected it returns the full arrays. But applying a filter expression
+    causes the arrays to be unwrapped to evaluate each item, returning only the
+    items that match the expression:
+-->
+《機械翻訳》予想どおり、配列全体が返されます。
+しかし、フィルタ式を適用すると、配列がアンラップされ、各項目が評価されて、式に一致する項目のみが返されます。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'lax $.track.segments[*].location ?(@[*] &gt; 15)');</userinput>
+ jsonb_path_query
+------------------
+ 47.763
+ 47.706
+(2 rows)
+</screen>
+<!--
+    This despite the fact that the full arrays are selected by the path
+    expression. Use strict mode to restore selecting the arrays:
+-->
+《機械翻訳》これは、完全な配列がpath式によって選択されるという事実にもかかわらずです。
+厳密モードを使用して、配列の選択を復元します。
+<screen>
+<prompt>=&gt;</prompt> <userinput>select jsonb_path_query(:'json', 'strict $.track.segments[*].location ?(@[*] &gt; 15)');</userinput>
+ jsonb_path_query
+-------------------
+ [47.763, 13.4034]
+ [47.706, 13.2635]
+(2 rows)
+</screen>
+   </para>
    </sect3>
 
    <sect3 id="functions-sqljson-path-operators">
@@ -2582,10 +2953,17 @@ strict $.**.HR
     methods available in <type>jsonpath</type>.  Note that while the unary
     operators and methods can be applied to multiple values resulting from a
     preceding path step, the binary operators (addition etc.) can only be
-    applied to single values.
+    applied to single values.  In lax mode, methods applied to an array will be
+    executed for each value in the array.  The exceptions are
+    <literal>.type()</literal> and <literal>.size()</literal>, which apply to
+    the array itself.
 -->
-<xref linkend="functions-sqljson-op-table"/>に<type>jsonpath</type>で利用可能な演算子とメソッドを示します。
+《マッチ度[57.425743]》<xref linkend="functions-sqljson-op-table"/>に<type>jsonpath</type>で利用可能な演算子とメソッドを示します。
 単項演算子とメソッドは以前のパスステップから生じた複数の値に適用できますが、二項演算子（加算など）は単一の値にしか適用できないことに注意してください。
+《機械翻訳》<xref linkend="functions-sqljson-op-table"/>は、<type>jsonpath</type>で使用可能な演算子とメソッドを示しています。
+ノートでは、単項演算子とメソッドは先行するマルチプルステップから生じるパス値に適用できるが、二項演算子（加算など）は単一の値にしか適用できない。
+緩いモードでは、配列に適用されるメソッドは配列内の各値に対して実行されます。
+例外は<literal>.タイプ()</literal>と<literal>.サイズ()</literal>で、配列自分自身に適用されます。
    </para>
 
    <table id="functions-sqljson-op-table">
@@ -2776,6 +3154,44 @@ JSON項目の大きさ（配列の要素数。配列でなければ1）
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>value</replaceable> <literal>.</literal> <literal>boolean()</literal>
+        <returnvalue><replaceable>boolean</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Boolean value converted from a JSON boolean, number, or string
+-->
+《機械翻訳》JSONのブール値、数値、または文字列から変換されたブール値。
+       </para>
+       <para>
+        <literal>jsonb_path_query_array('[1, "yes", false]', '$[*].boolean()')</literal>
+        <returnvalue>[true, true, false]</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>value</replaceable> <literal>.</literal> <literal>string()</literal>
+        <returnvalue><replaceable>string</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        String value converted from a JSON boolean, number, string, or datetime
+-->
+《機械翻訳》JSONのブール値、数値、文字列、または日時から変換された文字列値。
+       </para>
+       <para>
+        <literal>jsonb_path_query_array('[1.23, "xyz", false]', '$[*].string()')</literal>
+        <returnvalue>["1.23", "xyz", "false"]</returnvalue>
+       </para>
+       <para>
+        <literal>jsonb_path_query('"2023-08-15"', '$.datetime().string()')</literal>
+        <returnvalue>"2023-08-15"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
         <replaceable>value</replaceable> <literal>.</literal> <literal>double()</literal>
         <returnvalue><replaceable>number</replaceable></returnvalue>
        </para>
@@ -2845,6 +3261,75 @@ JSON数値あるいは文字列から変換した概算の浮動小数点数
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>value</replaceable> <literal>.</literal> <literal>bigint()</literal>
+        <returnvalue><replaceable>bigint</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Big integer value converted from a JSON number or string
+-->
+《機械翻訳》JSON の数値または文字列から変換された大きな整数値。
+       </para>
+       <para>
+        <literal>jsonb_path_query('{"len": "9876543219"}', '$.len.bigint()')</literal>
+        <returnvalue>9876543219</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>value</replaceable> <literal>.</literal> <literal>decimal( [ <replaceable>precision</replaceable> [ , <replaceable>scale</replaceable> ] ] )</literal>
+        <returnvalue><replaceable>decimal</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Rounded decimal value converted from a JSON number or string. <literal>precision</literal> and <literal>scale</literal> must be integer values.
+-->
+《機械翻訳》JSONの数値または文字列から変換された小数点以下の丸められた値。
+<literal>precision</literal>と<literal>scale</literal>は整数値でなければなりません。
+       </para>
+       <para>
+        <literal>jsonb_path_query('1234.5678', '$.decimal(6, 2)')</literal>
+        <returnvalue>1234.57</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>value</replaceable> <literal>.</literal> <literal>integer()</literal>
+        <returnvalue><replaceable>integer</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Integer value converted from a JSON number or string
+-->
+《機械翻訳》JSONの数値または文字列から変換された整数値。
+       </para>
+       <para>
+        <literal>jsonb_path_query('{"len": "12345"}', '$.len.integer()')</literal>
+        <returnvalue>12345</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>value</replaceable> <literal>.</literal> <literal>number()</literal>
+        <returnvalue><replaceable>numeric</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Numeric value converted from a JSON number or string
+-->
+《機械翻訳》JSONの数値または文字列から変換された数値。
+       </para>
+       <para>
+        <literal>jsonb_path_query('{"len": "123.45"}', '$.len.number()')</literal>
+        <returnvalue>123.45</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
         <replaceable>string</replaceable> <literal>.</literal> <literal>datetime()</literal>
         <returnvalue><replaceable>datetime_type</replaceable></returnvalue>
         (see note)
@@ -2877,6 +3362,172 @@ JSON数値あるいは文字列から変換した概算の浮動小数点数
        <para>
         <literal>jsonb_path_query_array('["12:30", "18:40"]', '$[*].datetime("HH24:MI")')</literal>
         <returnvalue>["12:30:00", "18:40:00"]</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>date()</literal>
+        <returnvalue><replaceable>date</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Date value converted from a string
+-->
+《マッチ度[61.764706]》文字列から変換した日時値
+《機械翻訳》文字列から変換された日付値。
+       </para>
+       <para>
+        <literal>jsonb_path_query('"2023-08-15"', '$.date()')</literal>
+        <returnvalue>"2023-08-15"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>time()</literal>
+        <returnvalue><replaceable>time without time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Time without time zone value converted from a string
+-->
+《マッチ度[67.307692]》文字列から変換した日時値
+《機械翻訳》時間帯のない時刻を文字列から変換した値
+       </para>
+       <para>
+        <literal>jsonb_path_query('"12:34:56"', '$.time()')</literal>
+        <returnvalue>"12:34:56"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>time(<replaceable>precision</replaceable>)</literal>
+        <returnvalue><replaceable>time without time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Time without time zone value converted from a string, with fractional
+        seconds adjusted to the given precision.
+-->
+《機械翻訳》時間帯値を持たない時間を、文字列から変換し、小数秒を指定された精度に調整したもの。
+       </para>
+       <para>
+        <literal>jsonb_path_query('"12:34:56.789"', '$.time(2)')</literal>
+        <returnvalue>"12:34:56.79"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>time_tz()</literal>
+        <returnvalue><replaceable>time with time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Time with time zone value converted from a string
+-->
+《マッチ度[69.387755]》文字列から変換した日時値
+《機械翻訳》文字列から変換されたタイムゾーン値を持つ時間。
+       </para>
+       <para>
+        <literal>jsonb_path_query('"12:34:56 +05:30"', '$.time_tz()')</literal>
+        <returnvalue>"12:34:56+05:30"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>time_tz(<replaceable>precision</replaceable>)</literal>
+        <returnvalue><replaceable>time with time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Time with time zone value converted from a string, with fractional
+        seconds adjusted to the given precision.
+-->
+《機械翻訳》文字列から変換されたタイムゾーン値を持つ時間。
+小数秒は指定された精度に調整されます。
+       </para>
+       <para>
+        <literal>jsonb_path_query('"12:34:56.789 +05:30"', '$.time_tz(2)')</literal>
+        <returnvalue>"12:34:56.79+05:30"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>timestamp()</literal>
+        <returnvalue><replaceable>timestamp without time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Timestamp without time zone value converted from a string
+-->
+《マッチ度[63.157895]》文字列から変換した日時値
+《機械翻訳》タイムスタンプ（文字列から変換されたタイムゾーンなしの値）
+       </para>
+       <para>
+        <literal>jsonb_path_query('"2023-08-15 12:34:56"', '$.timestamp()')</literal>
+        <returnvalue>"2023-08-15T12:34:56"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>timestamp(<replaceable>precision</replaceable>)</literal>
+        <returnvalue><replaceable>timestamp without time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Timestamp without time zone value converted from a string, with
+        fractional seconds adjusted to the given precision.
+-->
+《機械翻訳》タイムスタンプ。
+文字列から変換されたタイムゾーンなしの値。
+小数秒は指定された精度に調整されます。
+       </para>
+       <para>
+        <literal>jsonb_path_query('"2023-08-15 12:34:56.789"', '$.timestamp(2)')</literal>
+        <returnvalue>"2023-08-15T12:34:56.79"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>timestamp_tz()</literal>
+        <returnvalue><replaceable>timestamp with time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Timestamp with time zone value converted from a string
+-->
+《マッチ度[66.666667]》文字列から変換した日時値
+《機械翻訳》文字列から変換されたタイムゾーン値を持つタイムスタンプ。
+       </para>
+       <para>
+        <literal>jsonb_path_query('"2023-08-15 12:34:56 +05:30"', '$.timestamp_tz()')</literal>
+        <returnvalue>"2023-08-15T12:34:56+05:30"</returnvalue>
+       </para></entry>
+      </row>
+
+      <row>
+       <entry role="func_table_entry"><para role="func_signature">
+        <replaceable>string</replaceable> <literal>.</literal> <literal>timestamp_tz(<replaceable>precision</replaceable>)</literal>
+        <returnvalue><replaceable>timestamp with time zone</replaceable></returnvalue>
+       </para>
+       <para>
+<!--
+        Timestamp with time zone value converted from a string, with fractional
+        seconds adjusted to the given precision.
+-->
+《機械翻訳》文字列から変換されたタイムゾーン値を持つタイムスタンプ。
+小数秒は指定された精度に調整されます。
+       </para>
+       <para>
+        <literal>jsonb_path_query('"2023-08-15 12:34:56.789 +05:30"', '$.timestamp_tz(2)')</literal>
+        <returnvalue>"2023-08-15T12:34:56.79+05:30"</returnvalue>
        </para></entry>
       </row>
 
@@ -2961,12 +3612,22 @@ JSON数値あるいは文字列から変換した概算の浮動小数点数
       <type>timestamptz</type>, and <type>time</type> to <type>timetz</type>.
       However, all but the first of these conversions depend on the current
       <xref linkend="guc-timezone"/> setting, and thus can only be performed
-      within timezone-aware <type>jsonpath</type> functions.
+      within timezone-aware <type>jsonpath</type> functions.  Similarly, other
+      date/time-related methods that convert strings to date/time types
+      also do this casting, which may involve the current
+      <xref linkend="guc-timezone"/> setting. Therefore, these conversions can
+      also only be performed within timezone-aware <type>jsonpath</type>
+      functions.
 -->
-異なる日時型の比較が必要なら、暗黙的なキャストが適用されます。
+《マッチ度[58.453473]》異なる日時型の比較が必要なら、暗黙的なキャストが適用されます。
 <type>date</type>値は<type>timestamp</type>あるいは<type>timestamptz</type>にキャストできます。
 <type>timestamp</type>は<type>timestamptz</type>に、<type>time</type>は<type>timetz</type>にキャストできます。
 しかし、これらの変換の最初のものは現在の<xref linkend="guc-timezone"/>設定に依存します。ですから時間帯を認識する<type>jsonpath</type>関数中でのみ実行可能です。
+《機械翻訳》異なる日付/時刻型を比較する必要がある場合は、暗黙的なキャストが適用されます。
+<type>date</type>値は<type>timestamp</type>または<type>timestamptz</type>に、<type>timestamp</type>は<type>timestamptz</type>に、<type>time</type>は<type>timetz</type>に変換できます。
+しかし、これらの変換のうち最初のものを除くすべては、現在の<xref linkend="guc-timezone"/>設定に依存するため、timezone対応の<type>jsonpath</type>関数内でのみ実行できます。
+同様に、文字列を日付/時刻型に変換する他の日付/時刻関連のメソッドも、現在の<xref linkend="guc-timezone"/>設定を含む可能性があるこのキャストを行います。
+したがって、これらの変換は、timezoneを意識した<type>jsonpath</type>関数内でのみ実行できます。
      </para>
     </note>
 
@@ -3399,6 +4060,1005 @@ $.* ? (@ like_regex "^\\d+$")
 </programlisting>
     </para>
    </sect3>
+  </sect2>
+
+   <sect2 id="sqljson-query-functions">
+    <title>SQL/JSON Query Functions</title>
+  <para>
+<!--
+   SQL/JSON functions <literal>JSON_EXISTS()</literal>,
+   <literal>JSON_QUERY()</literal>, and <literal>JSON_VALUE()</literal>
+   described in <xref linkend="functions-sqljson-querying"/> can be used
+   to query JSON documents.  Each of these functions apply a
+   <replaceable>path_expression</replaceable> (an SQL/JSON path query) to a
+   <replaceable>context_item</replaceable> (the document).  See
+   <xref linkend="functions-sqljson-path"/> for more details on what
+   the <replaceable>path_expression</replaceable> can contain. The
+   <replaceable>path_expression</replaceable> can also reference variables,
+   whose values are specified with their respective names in the
+   <literal>PASSING</literal> clause that is supported by each function.
+   <replaceable>context_item</replaceable> can be a <type>jsonb</type> value
+   or a character string that can be successfully cast to <type>jsonb</type>.
+-->
+《機械翻訳》<xref linkend="functions-sqljson-querying"/>で記述されたSQL/JSON関数<literal>JSON_EXISTS()</literal>、<literal>JSON_クエリ)</literal>、<literal>JSON_VALUE()</literal>は、JSON文書のクエリに使用できます。
+これらの各関数は、<replaceable>パス_式</replaceable>（SQL/JSONパスクエリ）を<replaceable>コンテキスト_アイテム</replaceable>（ドキュメント）に適用します。
+<replaceable>パス_式</replaceable>の内容の詳細については、<xref linkend="functions-sqljson-path"/>を参照してください。
+<replaceable>パス_式</replaceable>はリファレンス変数にすることもできます。
+その値は、各関数でサポートされている<literal>PASSING</literal>句でそれぞれの名前で指定されます。
+<replaceable>コンテキスト_アイテム</replaceable>には、<type>jsonb</type>の値、または<type>文字の並び</type>にキャストできるjsonbを指定できます。
+  </para>
+
+  <table id="functions-sqljson-querying">
+   <title>SQL/JSON Query Functions</title>
+   <tgroup cols="1">
+    <thead>
+     <row>
+      <entry role="func_table_entry"><para role="func_signature">
+<!--
+        Function signature
+-->
+関数の呼び出し形式
+       </para>
+       <para>
+<!--
+        Description
+-->
+説明
+       </para>
+       <para>
+<!--
+        Example(s)
+-->
+例
+      </para></entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry role="func_table_entry"><para role="func_signature">
+<!--
+        <indexterm><primary>json_exists</primary></indexterm>
+-->
+《機械翻訳》<indexterm><primary>JSON_が存在する</primary></indexterm>。
+<synopsis>
+<function>JSON_EXISTS</function> (
+<replaceable>context_item</replaceable>, <replaceable>path_expression</replaceable>
+<optional> <literal>PASSING</literal> { <replaceable>value</replaceable> <literal>AS</literal> <replaceable>varname</replaceable> } <optional>, ...</optional></optional>
+<optional>{ <literal>TRUE</literal> | <literal>FALSE</literal> |<literal> UNKNOWN</literal> | <literal>ERROR</literal> } <literal>ON ERROR</literal> </optional>) <returnvalue>boolean</returnvalue>
+</synopsis>
+       </para>
+     <itemizedlist>
+      <listitem>
+       <para>
+<!--
+        Returns true if the SQL/JSON <replaceable>path_expression</replaceable>
+        applied to the <replaceable>context_item</replaceable> yields any
+        items, false otherwise.
+-->
+《機械翻訳》<replaceable>真_式</replaceable>に適用されたSQL/JSON<replaceable>パス_アイテム</replaceable>が任意の項目を生成する場合は偽を返し、それ以外の場合は品川を返します。
+コンテキスト
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        The <literal>ON ERROR</literal> clause specifies the behavior if
+        an error occurs during <replaceable>path_expression</replaceable>
+        evaluation.  Specifying <literal>ERROR</literal> will cause an error to
+        be thrown with the appropriate message.  Other options include
+        returning <type>boolean</type> values <literal>FALSE</literal> or
+        <literal>TRUE</literal> or the value <literal>UNKNOWN</literal> which
+        is actually an SQL NULL. The default when no <literal>ON ERROR</literal>
+        clause is specified is to return the <type>boolean</type> value
+        <literal>FALSE</literal>.
+-->
+《機械翻訳》<literal>ONエラー</literal>句は、<replaceable>パス_エラー</replaceable>の評価中に式が発生した場合の動作を指定します。
+<literal>エラー</literal>を指定すると、適切なエラーとともにメッセージがスローされます。
+その他のオプションinclude。
+<type>ブーリアン</type>の値<literal>偽</literal>または<literal>真</literal>、または実際にはSQL nullである<literal>UNKNOWN</literal>の値を返します。
+<literal>ONデフォルト</literal>句が指定されていない場合のエラーは、結果<type>ブーリアン</type>の値<literal>偽</literal>になります。
+       </para>
+      </listitem>
+      </itemizedlist>
+       <para>
+<!--
+        Examples:
+-->
+例：
+       </para>
+       <para>
+        <literal>JSON_EXISTS(jsonb '{"key1": [1,2,3]}', 'strict $.key1[*] ? (@ > $x)' PASSING 2 AS x)</literal>
+        <returnvalue>t</returnvalue>
+       </para>
+       <para>
+        <literal>JSON_EXISTS(jsonb '{"a": [1,2,3]}', 'lax $.a[5]' ERROR ON ERROR)</literal>
+        <returnvalue>f</returnvalue>
+       </para>
+       <para>
+        <literal>JSON_EXISTS(jsonb '{"a": [1,2,3]}', 'strict $.a[5]' ERROR ON ERROR)</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ERROR:  jsonpath array subscript is out of bounds
+</programlisting>
+      </para></entry>
+     </row>
+     <row>
+      <entry role="func_table_entry"><para role="func_signature">
+<!--
+        <indexterm><primary>json_query</primary></indexterm>
+-->
+《機械翻訳》<indexterm><primary>JSON_クエリ</primary></indexterm>。
+<synopsis>
+<function>JSON_QUERY</function> (
+<replaceable>context_item</replaceable>, <replaceable>path_expression</replaceable>
+<optional> <literal>PASSING</literal> { <replaceable>value</replaceable> <literal>AS</literal> <replaceable>varname</replaceable> } <optional>, ...</optional></optional>
+<optional> <literal>RETURNING</literal> <replaceable>data_type</replaceable> <optional> <literal>FORMAT JSON</literal> <optional> <literal>ENCODING UTF8</literal> </optional> </optional> </optional>
+<optional> { <literal>WITHOUT</literal> | <literal>WITH</literal> { <literal>CONDITIONAL</literal> | <optional><literal>UNCONDITIONAL</literal></optional> } } <optional> <literal>ARRAY</literal> </optional> <literal>WRAPPER</literal> </optional>
+<optional> { <literal>KEEP</literal> | <literal>OMIT</literal> } <literal>QUOTES</literal> <optional> <literal>ON SCALAR STRING</literal> </optional> </optional>
+<optional> { <literal>ERROR</literal> | <literal>NULL</literal> | <literal>EMPTY</literal> { <optional> <literal>ARRAY</literal> </optional> | <literal>OBJECT</literal> } | <literal>DEFAULT</literal> <replaceable>expression</replaceable> } <literal>ON EMPTY</literal> </optional>
+<optional> { <literal>ERROR</literal> | <literal>NULL</literal> | <literal>EMPTY</literal> { <optional> <literal>ARRAY</literal> </optional> | <literal>OBJECT</literal> } | <literal>DEFAULT</literal> <replaceable>expression</replaceable> } <literal>ON ERROR</literal> </optional>) <returnvalue>jsonb</returnvalue>
+</synopsis>
+      </para>
+     <itemizedlist>
+      <listitem>
+       <para>
+<!--
+        Returns the result of applying the SQL/JSON
+        <replaceable>path_expression</replaceable> to the
+        <replaceable>context_item</replaceable>.
+-->
+《機械翻訳》SQL/JSON<replaceable>パス_式</replaceable>を<replaceable>コンテキスト_アイテム</replaceable>に適用した結果を返します。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+         By default, the result is returned as a value of type <type>jsonb</type>,
+         though the <literal>RETURNING</literal> clause can be used to return
+         as some other type to which it can be successfully coerced.
+-->
+《機械翻訳》デフォルトでは、結果はタイプ<type>jsonb</type>の値として返されますが、<literal>RETURNING</literal>句は、結果が正常に強制される他のタイプとして使用できます。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        If the path expression may return multiple values, it might be necessary
+        to wrap those values using the <literal>WITH WRAPPER</literal> clause to
+        make it a valid JSON string, because the default behavior is to not wrap
+        them, as if <literal>WITHOUT WRAPPER</literal> were specified. The
+        <literal>WITH WRAPPER</literal> clause is by default taken to mean
+        <literal>WITH UNCONDITIONAL WRAPPER</literal>, which means that even a
+        single result value will be wrapped. To apply the wrapper only when
+        multiple values are present, specify <literal>WITH CONDITIONAL WRAPPER</literal>.
+        Getting multiple values in result will be treated as an error if
+        <literal>WITHOUT WRAPPER</literal> is specified.
+-->
+《機械翻訳》パス式が結果マルチプル値である場合、それらの値を<literal>WITHラッパ</literal>句を使用してmakeにラップする必要があります。
+これは有効なJSON文字列です。
+なぜなら、デフォルトの動作は、<literal>WITHOUTラッパ</literal>が指定されているかのようにラップしないからです。
+<literal>WITHラッパ</literal>句は、デフォルトによって<literal>WITH UNCONDITIONALラッパ</literal>を意味すると解釈されます。
+これは、単一の結果値であってもラップされることを意味します。
+ラッパ値が存在する場合にのみマルチプルを適用するには、<literal>WITH CONDITIONALラッパ</literal>を指定します。
+<literal>WITHOUTマルチプル</literal>が指定されている場合、結果内のエラー値の取得はラッパとして扱われます。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        If the result is a scalar string, by default, the returned value will
+        be surrounded by quotes, making it a valid JSON value.  It can be made
+        explicit by specifying <literal>KEEP QUOTES</literal>.  Conversely,
+        quotes can be omitted by specifying <literal>OMIT QUOTES</literal>.
+        To ensure that the result is a valid JSON value, <literal>OMIT QUOTES</literal>
+        cannot be specified when <literal>WITH WRAPPER</literal> is also
+        specified.
+-->
+《機械翻訳》結果がスカラ文字列、デフォルトの場合、戻り値は引用符で囲まれ、有効なJSON値になります。
+これは、<literal>KEEP QUOTES</literal>を指定することで明示的にできます。
+逆に、<literal>OMIT QUOTES</literal>を指定することで引用符を省略できます。
+結果が有効なJSON値である保証には、<literal>WITHラッパ</literal>も指定されている場合、<literal>OMIT QUOTES</literal>は指定できません。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        The <literal>ON EMPTY</literal> clause specifies the behavior if
+        evaluating <replaceable>path_expression</replaceable> yields an empty
+        set. The <literal>ON ERROR</literal> clause specifies the behavior
+        if an error occurs when evaluating <replaceable>path_expression</replaceable>,
+        when coercing the result value to the <literal>RETURNING</literal> type,
+        or when evaluating the <literal>ON EMPTY</literal> expression if the
+        <replaceable>path_expression</replaceable> evaluation returns an empty
+        set.
+-->
+《機械翻訳》<literal>ON EMPTY</literal>句は、<replaceable>パス_式</replaceable>を評価すると空のセットが生成される場合の動作を指定します。
+<literal>ONエラー</literal>句は、<replaceable>パス_式</replaceable>を評価するとき、結果値を<literal>RETURNING</literal>タイプに強制するとき、または<replaceable>パス_式</replaceable>評価で空のセットが返される場合に<literal>ON EMPTY</literal>式を評価するときにエラーが発生する場合の動作を指定します。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        For both <literal>ON EMPTY</literal> and <literal>ON ERROR</literal>,
+        specifying <literal>ERROR</literal> will cause an error to be thrown with
+        the appropriate message. Other options include returning an SQL NULL, an
+        empty array (<literal>EMPTY <optional>ARRAY</optional></literal>),
+        an empty object (<literal>EMPTY OBJECT</literal>), or a user-specified
+        expression (<literal>DEFAULT</literal> <replaceable>expression</replaceable>)
+        that can be coerced to jsonb or the type specified in <literal>RETURNING</literal>.
+        The default when <literal>ON EMPTY</literal> or <literal>ON ERROR</literal>
+        is not specified is to return an SQL NULL value.
+-->
+《機械翻訳》<literal>ON EMPTY</literal>と<literal>ONエラー</literal>の両方で、<literal>エラー</literal>を指定すると、適切なエラーとともにメッセージがスローされます。
+SQL includeを返す他のオプションnull、空の配列（<literal>EMPTY<optional>配列</optional></literal>）、空のオブジェクト（<literal>EMPTYオブジェクト</literal>）、ユーザ指定の式（<literal>デフォルト</literal><replaceable>式</replaceable>）で、jsonbまたは<literal>RETURNING</literal>で指定されたタイプに強制できるもの。
+<literal>ON EMPTY</literal>または<literal>ONデフォルト</literal>が指定されていない場合のエラーは、結果およびSQL NULL値です。
+       </para>
+      </listitem>
+     </itemizedlist>
+       <para>
+<!--
+        Examples:
+-->
+例：
+       </para>
+       <para>
+        <literal>JSON_QUERY(jsonb '[1,[2,3],null]', 'lax $[*][$off]' PASSING 1 AS off WITH CONDITIONAL WRAPPER)</literal>
+        <returnvalue>[3]</returnvalue>
+       </para>
+       <para>
+        <literal>JSON_QUERY(jsonb '{"a": "[1, 2]"}', 'lax $.a' OMIT QUOTES)</literal>
+        <returnvalue>[1, 2]</returnvalue>
+       </para>
+       <para>
+        <literal>JSON_QUERY(jsonb '{"a": "[1, 2]"}', 'lax $.a' RETURNING int[] OMIT QUOTES ERROR ON ERROR)</literal>
+        <returnvalue></returnvalue>
+<programlisting>
+ERROR:  malformed array literal: "[1, 2]"
+DETAIL:  Missing "]" after array dimensions.
+</programlisting>
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry role="func_table_entry"><para role="func_signature">
+<!--
+        <indexterm><primary>json_value</primary></indexterm>
+-->
+《機械翻訳》<indexterm><primary>JSONの値</primary></indexterm>。
+<synopsis>
+<function>JSON_VALUE</function> (
+<replaceable>context_item</replaceable>, <replaceable>path_expression</replaceable>
+<optional> <literal>PASSING</literal> { <replaceable>value</replaceable> <literal>AS</literal> <replaceable>varname</replaceable> } <optional>, ...</optional></optional>
+<optional> <literal>RETURNING</literal> <replaceable>data_type</replaceable> </optional>
+<optional> { <literal>ERROR</literal> | <literal>NULL</literal> | <literal>DEFAULT</literal> <replaceable>expression</replaceable> } <literal>ON EMPTY</literal> </optional>
+<optional> { <literal>ERROR</literal> | <literal>NULL</literal> | <literal>DEFAULT</literal> <replaceable>expression</replaceable> } <literal>ON ERROR</literal> </optional>) <returnvalue>text</returnvalue>
+</synopsis>
+       </para>
+     <itemizedlist>
+      <listitem>
+       <para>
+<!--
+        Returns the result of applying the SQL/JSON
+        <replaceable>path_expression</replaceable> to the
+        <replaceable>context_item</replaceable>.
+-->
+《機械翻訳》SQL/JSON<replaceable>パス_式</replaceable>を<replaceable>コンテキスト_アイテム</replaceable>に適用した結果を返します。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        Only use <function>JSON_VALUE()</function> if the extracted value is
+        expected to be a single <acronym>SQL/JSON</acronym> scalar item;
+        getting multiple values will be treated as an error. If you expect that
+        extracted value might be an object or an array, use the
+        <function>JSON_QUERY</function> function instead.
+-->
+《機械翻訳》<function>JSON_VALUE)</function>を使用するのは、抽出された値が単一の<acronym>SQL/JSON</acronym>スカラアイテムであると予想される場合のみです。
+マルチプル値の取得はエラーとして扱われます。
+抽出された値がオブジェクトまたは配列であると予想される場合は、代わりに<function>JSON_クエリ</function>関数を使用します。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        By default, the result, which must be a single scalar value, is
+        returned as a value of type <type>text</type>, though the
+        <literal>RETURNING</literal> clause can be used to return as some
+        other type to which it can be successfully coerced.
+-->
+《機械翻訳》デフォルトでは、結果は単一のスカラ値である必要があり、タイプ<type>テキスト</type>の値として返されます。
+ただし、<literal>RETURNING</literal>句は、結果が正常に強制できる他のタイプとして使用できます。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        The <literal>ON ERROR</literal> and <literal>ON EMPTY</literal>
+        clauses have similar semantics as mentioned in the description of
+        <function>JSON_QUERY</function>, except the set of values returned in
+        lieu of throwing an error is different.
+-->
+《機械翻訳》<literal>ONエラー</literal>句と<literal>ON EMPTY</literal>句のセマンティクスは、<function>JSON_クエリ</function>の説明で説明したものと似ていますが、エラーをスローする代わりに返される値のセットが異なります。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+<!--
+        Note that scalar strings returned by <function>JSON_VALUE</function>
+        always have their quotes removed, equivalent to specifying
+        <literal>OMIT QUOTES</literal> in <function>JSON_QUERY</function>.
+-->
+《機械翻訳》<function>ノート_VALUE</function>によって返されるスカラ文字列のJSONは、<function>JSON_クエリ</function>で<literal>OMIT QUOTES</literal>を指定するのと同じように、常に引用符が削除されます。
+       </para>
+      </listitem>
+     </itemizedlist>
+       <para>
+<!--
+        Examples:
+-->
+例：
+       </para>
+       <para>
+        <literal>JSON_VALUE(jsonb '"123.45"', '$' RETURNING float)</literal>
+        <returnvalue>123.45</returnvalue>
+       </para>
+       <para>
+        <literal>JSON_VALUE(jsonb '"03:04 2015-02-01"', '$.datetime("HH24:MI&nbsp;YYYY-MM-DD")' RETURNING date)</literal>
+        <returnvalue>2015-02-01</returnvalue>
+       </para>
+       <para>
+        <literal>JSON_VALUE(jsonb '[1,2]', 'strict $[$off]' PASSING 1 as off)</literal>
+        <returnvalue>2</returnvalue>
+       </para>
+       <para>
+        <literal>JSON_VALUE(jsonb '[1,2]', 'strict $[*]' DEFAULT 9 ON ERROR)</literal>
+        <returnvalue>9</returnvalue>
+       </para>
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+  <note>
+   <para>
+<!--
+    The <replaceable>context_item</replaceable> expression is converted to
+    <type>jsonb</type> by an implicit cast if the expression is not already of
+    type <type>jsonb</type>. Note, however, that any parsing errors that occur
+    during that conversion are thrown unconditionally, that is, are not
+    handled according to the (specified or implicit) <literal>ON ERROR</literal>
+    clause.
+-->
+《機械翻訳》<replaceable>コンテキスト_アイテム</replaceable>式は、jsonbがまだタイプ<type>jsonb</type>でない場合、暗黙キャストによって<type>パース</type>に変換されます。
+ただし、ノートでは、その変換中に発生したエラーは無条件にスローされます。
+つまり、（指定または暗黙的な）<literal>ONエラー</literal>句に従って処理されません。
+式
+   </para>
+  </note>
+  <note>
+   <para>
+<!--
+    <function>JSON_VALUE()</function> returns an SQL NULL if
+    <replaceable>path_expression</replaceable> returns a JSON
+    <literal>null</literal>, whereas <function>JSON_QUERY()</function> returns
+    the JSON <literal>null</literal> as is.
+-->
+《機械翻訳》<replaceable>JSON_式</replaceable>がSQL<literal>null</literal>を返す場合、<function>パス_VALUE)</function>はJSONを返します。
+一方、<function>JSON_クエリ)</function>はJSON<literal>null</literal>をそのまま返します。
+null
+   </para>
+  </note>
+  </sect2>
+
+ <sect2 id="functions-sqljson-table">
+  <title>JSON_TABLE</title>
+  <indexterm>
+   <primary>json_table</primary>
+  </indexterm>
+
+  <para>
+<!--
+   <function>JSON_TABLE</function> is an SQL/JSON function which
+   queries <acronym>JSON</acronym> data
+   and presents the results as a relational view, which can be accessed as a
+   regular SQL table. You can use <function>JSON_TABLE</function> inside
+   the <literal>FROM</literal> clause of a <literal>SELECT</literal>,
+   <literal>UPDATE</literal>, or <literal>DELETE</literal> and as data source
+   in a <literal>MERGE</literal> statement.
+-->
+《機械翻訳》<function>JSON_TABLE</function>は<acronym>JSON</acronym>データを問い合わせ、結果をリレーショナルビューとして表示するSQL/JSON関数です。
+この関数は<literal>SELECT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>の<literal>FROM</literal>句内で使用できます。
+また、<literal>MERGE</literal>文のデータソースとしても使用できます。
+  </para>
+
+  <para>
+<!--
+   Taking JSON data as input, <function>JSON_TABLE</function> uses a JSON path
+   expression to extract a part of the provided data to use as a
+   <firstterm>row pattern</firstterm> for the constructed view.  Each SQL/JSON
+   value given by the row pattern serves as source for a separate row in the
+   constructed view.
+-->
+《機械翻訳》JSONデータを入力として、<function>JSON_TABLE</function>はJSONパス式を使用して、提供されたデータの一部を抽出し、構築されたビューの<firstterm>行パターン</firstterm>として使用します。
+行パターンで指定された各SQL/JSON値は、構築されたビューの別々の行のソースとして機能します。
+  </para>
+
+  <para>
+<!--
+   To split the row pattern into columns, <function>JSON_TABLE</function>
+   provides the <literal>COLUMNS</literal> clause that defines the
+   schema of the created view. For each column, a separate JSON path expression
+   can be specified to be evaluated against the row pattern to get an SQL/JSON
+   value that will become the value for the specified column in a given output
+   row.
+-->
+《機械翻訳》行パターンを列に分割するために、<function>JSON_TABLE</function>は作成されたビューのスキーマを定義する<literal>COLUMNS</literal>句を提供します。
+各列に対して、個別のJSONパス式を指定して、行パターンに対して評価されるようにできます。
+これは、指定された出力行の特定の列の値になります。
+  </para>
+
+  <para>
+<!--
+   JSON data stored at a nested level of the row pattern can be extracted using
+   the <literal>NESTED PATH</literal> clause.  Each
+   <literal>NESTED PATH</literal> clause can be used to generate one or more
+   columns using the data from a nested level of the row pattern.  Those
+   columns can be specified using a <literal>COLUMNS</literal> clause that
+   looks similar to the top-level COLUMNS clause.  Rows constructed from
+   NESTED COLUMNS are called <firstterm>child rows</firstterm> and are joined
+   against the row constructed from the columns specified in the parent
+   <literal>COLUMNS</literal> clause to get the row in the final view.  Child
+   columns themselves may contain a <literal>NESTED PATH</literal>
+   specification thus allowing to extract data located at arbitrary nesting
+   levels.  Columns produced by multiple <literal>NESTED PATH</literal>s at the
+   same level are considered to be <firstterm>siblings</firstterm> of each
+   other and their rows after joining with the parent row are combined using
+   UNION.
+-->
+《機械翻訳》行パターンのネストされたレベルに格納されたJSONデータは、<literal>NESTED PATH</literal>句を使用して抽出できます。
+各<literal>NESTED PATH</literal>句は、行パターンのネストされたレベルからのデータを使用して1つ以上の列を生成するために使用できます。
+これらの列は、最上位のCOLUMNS句と同様の<literal>COLUMNS</literal>句を使用して指定できます。
+NESTED COLUMNSから構成される行は<firstterm>子行</firstterm>と呼ばれ、親の<literal>COLUMNS</literal>句で指定された列から構成される行に対して結合され、最終的なビューの行が得られます。
+子列自体は<literal>NESTED PATH</literal>指定を含むことができ、任意のネストレベルにあるデータを抽出することができます。
+同じレベルにある複数の<literal>NESTED PATH</literal>によって生成された列は、互いに<firstterm>兄弟</firstterm>と見なされ、親行と結合された後の行はUNIONを使用して結合されます。
+  </para>
+
+  <para>
+<!--
+   The rows produced by <function>JSON_TABLE</function> are laterally
+   joined to the row that generated them, so you do not have to explicitly join
+   the constructed view with the original table holding <acronym>JSON</acronym>
+   data.
+-->
+《機械翻訳》<function>JSON_TABLE</function>が生成する行は、それを生成した行に横方向に結合されるため、<acronym>JSON</acronym>データを保持する元のテーブルに構築されたビューを明示的に結合する必要はありません。
+  </para>
+
+  <para>
+<!--
+   The syntax is:
+-->
+《機械翻訳》構文は次のとおりです。
+  </para>
+
+<synopsis>
+JSON_TABLE (
+    <replaceable>context_item</replaceable>, <replaceable>path_expression</replaceable> <optional> AS <replaceable>json_path_name</replaceable> </optional> <optional> PASSING { <replaceable>value</replaceable> AS <replaceable>varname</replaceable> } <optional>, ...</optional> </optional>
+    COLUMNS ( <replaceable class="parameter">json_table_column</replaceable> <optional>, ...</optional> )
+    <optional> { <literal>ERROR</literal> | <literal>EMPTY</literal> <optional>ARRAY</optional>} <literal>ON ERROR</literal> </optional>
+)
+
+<phrase>
+where <replaceable class="parameter">json_table_column</replaceable> is:
+</phrase>
+  <replaceable>name</replaceable> FOR ORDINALITY
+  | <replaceable>name</replaceable> <replaceable>type</replaceable>
+        <optional> FORMAT JSON <optional>ENCODING <literal>UTF8</literal></optional></optional>
+        <optional> PATH <replaceable>path_expression</replaceable> </optional>
+        <optional> { WITHOUT | WITH { CONDITIONAL | <optional>UNCONDITIONAL</optional> } } <optional> ARRAY </optional> WRAPPER </optional>
+        <optional> { KEEP | OMIT } QUOTES <optional> ON SCALAR STRING </optional> </optional>
+        <optional> { ERROR | NULL | EMPTY { <optional>ARRAY</optional> | OBJECT } | DEFAULT <replaceable>expression</replaceable> } ON EMPTY </optional>
+        <optional> { ERROR | NULL | EMPTY { <optional>ARRAY</optional> | OBJECT } | DEFAULT <replaceable>expression</replaceable> } ON ERROR </optional>
+  | <replaceable>name</replaceable> <replaceable>type</replaceable> EXISTS <optional> PATH <replaceable>path_expression</replaceable> </optional>
+        <optional> { ERROR | TRUE | FALSE | UNKNOWN } ON ERROR </optional>
+  | NESTED <optional> PATH </optional> <replaceable>path_expression</replaceable> <optional> AS <replaceable>json_path_name</replaceable> </optional> COLUMNS ( <replaceable>json_table_column</replaceable> <optional>, ...</optional> )
+</synopsis>
+
+  <para>
+<!--
+   Each syntax element is described below in more detail.
+-->
+《機械翻訳》各シンタックス要素について、以下でさらに詳しく説明する。
+  </para>
+
+  <variablelist>
+   <varlistentry>
+    <term>
+     <literal><replaceable>context_item</replaceable>, <replaceable>path_expression</replaceable> <optional> <literal>AS</literal> <replaceable>json_path_name</replaceable> </optional> <optional> <literal>PASSING</literal> { <replaceable>value</replaceable> <literal>AS</literal> <replaceable>varname</replaceable> } <optional>, ...</optional></optional></literal>
+    </term>
+    <listitem>
+    <para>
+<!--
+     The <replaceable>context_item</replaceable> specifies the input document
+     to query, the <replaceable>path_expression</replaceable> is an SQL/JSON
+     path expression defining the query, and <replaceable>json_path_name</replaceable>
+     is an optional name for the <replaceable>path_expression</replaceable>.
+     The optional <literal>PASSING</literal> clause provides data values for
+     the variables mentioned in the <replaceable>path_expression</replaceable>.
+     The result of the input data evaluation using the aforementioned elements
+     is called the <firstterm>row pattern</firstterm>, which is used as the
+     source for row values in the constructed view.
+-->
+《機械翻訳》<replaceable>コンテキスト_アイテム</replaceable>はクエリへの入力ドキュメントを指定し、<replaceable>パス_式</replaceable>はクエリを定義するSQL/JSONパス式で、<replaceable>JSON_パス_名前</replaceable>は<replaceable>_</replaceable>のオプショナルです。
+名前パス式オプショナル<literal>PASSING</literal>句は、<replaceable>データ_式</replaceable>で説明されている変数のパス値を提供します。
+これらの要素を用いた入力データ評価の結果は<firstterm>行パターン</firstterm>と呼ばれ、構築されたビューにおける行値のソースとして用いられる。
+    </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term>
+     <literal>COLUMNS</literal> ( <replaceable>json_table_column</replaceable> <optional>, ...</optional> )
+    </term>
+    <listitem>
+
+    <para>
+<!--
+     The <literal>COLUMNS</literal> clause defining the schema of the
+     constructed view. In this clause, you can specify each column to be
+     filled with an SQL/JSON value obtained by applying a JSON path expression
+     against the row pattern.  <replaceable>json_table_column</replaceable> has
+     the following variants:
+-->
+《機械翻訳》構築されたビューのスキーマを定義する<literal>COLUMNS</literal>句。
+この句では、各列に対して、行パターンに対してJSONパス式を適用することによって得られるSQL/JSON値を指定できます。
+<replaceable>json_table_column</replaceable>には、次のバリアントがあります。
+    </para>
+
+  <variablelist>
+   <varlistentry>
+    <term>
+     <replaceable>name</replaceable> <literal>FOR ORDINALITY</literal>
+    </term>
+    <listitem>
+    <para>
+<!--
+     Adds an ordinality column that provides sequential row numbering starting
+     from 1.  Each <literal>NESTED PATH</literal> (see below) gets its own
+     counter for any nested ordinality columns.
+-->
+《機械翻訳》1から始まる連続した行番号を提供する序数列を追加します。
+各<literal>NESTED PATH</literal>（下記参照）は、ネストされた序数列に対してそれぞれ独自のカウンタを持ちます。
+    </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term>
+     <literal><replaceable>name</replaceable> <replaceable>type</replaceable>
+          <optional><literal>FORMAT JSON</literal> <optional>ENCODING <literal>UTF8</literal></optional></optional>
+          <optional> <literal>PATH</literal> <replaceable>path_expression</replaceable> </optional></literal>
+    </term>
+    <listitem>
+    <para>
+<!--
+     Inserts an SQL/JSON value obtained by applying
+     <replaceable>path_expression</replaceable> against the row pattern into
+     the view's output row after coercing it to specified
+     <replaceable>type</replaceable>.
+-->
+《機械翻訳》指定された<replaceable>type</replaceable>に強制変換した後、ビューの出力行に<replaceable>path_expression</replaceable>を適用して得られたSQL/JSON値を挿入します。
+    </para>
+    <para>
+<!--
+     Specifying <literal>FORMAT JSON</literal> makes it explicit that you
+     expect the value to be a valid <type>json</type> object.  It only
+     makes sense to specify <literal>FORMAT JSON</literal> if
+     <replaceable>type</replaceable> is one of <type>bpchar</type>,
+     <type>bytea</type>, <type>character varying</type>, <type>name</type>,
+     <type>json</type>, <type>jsonb</type>, <type>text</type>, or a domain over
+     these types.
+-->
+《機械翻訳》<literal>FORMAT JSON</literal>を指定すると、値が有効な<type>json</type>オブジェクトであることが明示的に指定されます。
+<literal>FORMAT JSON</literal>を指定するのは、<replaceable>type</replaceable>が<type>bpchar</type>、<type>bytea</type>、<type>character varying</type>、<type>name</type>、<type>json</type>、<type>jsonb</type>、<type>text</type>、またはこれらの型のドメインのいずれかである場合に限られます。
+    </para>
+    <para>
+<!--
+     Optionally, you can specify <literal>WRAPPER</literal> and
+     <literal>QUOTES</literal> clauses to format the output. Note that
+     specifying <literal>OMIT QUOTES</literal> overrides
+     <literal>FORMAT JSON</literal> if also specified, because unquoted
+     literals do not constitute valid <type>json</type> values.
+-->
+《機械翻訳》オプションで、<literal>WRAPPER</literal>と<literal>QUOTES</literal>句を指定して出力をフォーマットすることもできます。
+引用符なしのリテラルは有効な<type>json</type>値を構成しないため、<literal>QUOTES</literal>を指定すると、<literal>FORMAT JSON</literal>が上書きされることに注意してください。
+    </para>
+    <para>
+<!--
+     Optionally, you can use <literal>ON EMPTY</literal> and
+     <literal>ON ERROR</literal> clauses to specify whether to throw the error
+     or return the specified value when the result of JSON path evaluation is
+     empty and when an error occurs during JSON path evaluation or when
+     coercing the SQL/JSON value to the specified type, respectively.  The
+     default for both is to return a <literal>NULL</literal> value.
+-->
+《機械翻訳》オプションで、<literal>ON EMPTY</literal>と<literal>ON ERROR</literal>句を使用して、JSONパス評価の結果が空の場合にエラーをスローするか、JSONパス評価中にエラーが発生した場合に指定された値をスローするかを指定できます。
+どちらもデフォルトは<literal>NULL</literal>です。
+    </para>
+    <note>
+     <para>
+<!--
+      This clause is internally turned into and has the same semantics as
+      <function>JSON_VALUE</function> or <function>JSON_QUERY</function>.
+      The latter if the specified type is not a scalar type or if either of
+      <literal>FORMAT JSON</literal>, <literal>WRAPPER</literal>, or
+      <literal>QUOTES</literal> clause is present.
+-->
+《機械翻訳》この句は内部的に<function>JSON_VALUE</function>または<function>JSON_QUERY</function>と同じ意味になります。
+後者は、指定された型がスカラー型でない場合、または<literal>FORMAT JSON</literal>、<literal>WRAPPER</literal>、または<literal>QUOTES</literal>句のいずれかが存在する場合です。
+     </para>
+    </note>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term>
+       <replaceable>name</replaceable> <replaceable>type</replaceable>
+       <literal>EXISTS</literal> <optional> <literal>PATH</literal> <replaceable>path_expression</replaceable> </optional>
+    </term>
+    <listitem>
+    <para>
+<!--
+     Inserts a boolean value obtained by applying
+     <replaceable>path_expression</replaceable> against the row pattern
+     into the view's output row after coercing it to specified
+     <replaceable>type</replaceable>.
+-->
+《機械翻訳》指定された<replaceable>type</replaceable>に強制変換した後、ビューの出力行に<replaceable>path_expression</replaceable>を適用して得られたブール値を挿入します。
+    </para>
+    <para>
+<!--
+     The value corresponds to whether applying the <literal>PATH</literal>
+     expression to the row pattern yields any values.
+-->
+《機械翻訳》この値は、<literal>PATH</literal>式を行パターンに適用した結果、値が生成されるかどうかに対応します。
+    </para>
+    <para>
+<!--
+     The specified <replaceable>type</replaceable> should have a cast from the
+     <type>boolean</type> type.
+-->
+《機械翻訳》指定された<replaceable>type</replaceable>は<type>boolean</type>型からのキャストを持つべきです。
+    </para>
+    <para>
+<!--
+     Optionally, you can use <literal>ON ERROR</literal> to specify whether to
+     throw the error or return the specified value when an error occurs during
+     JSON path evaluation or when coercing SQL/JSON value to the specified
+     type.  The default is to return a boolean value
+     <literal>FALSE</literal>.
+-->
+《機械翻訳》オプションで<literal>ON ERROR</literal>を使用して、JSONパス評価中にエラーが発生した場合、またはSQL/JSON値を指定された型に強制変換した場合に、エラーをスローするか、指定された値を返すかを指定できます。
+デフォルトは、ブール値<literal>FALSE</literal>を返します。
+    </para>
+    <note>
+     <para>
+<!--
+      This clause is internally turned into and has the same semantics as
+      <function>JSON_EXISTS</function>.
+-->
+《機械翻訳》この句は内部的には<function>JSON_EXISTS</function>と同じ意味に変換されます。
+     </para>
+    </note>
+      </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term>
+      <literal>NESTED <optional> PATH </optional></literal> <replaceable>path_expression</replaceable> <optional> <literal>AS</literal> <replaceable>json_path_name</replaceable> </optional>
+          <literal>COLUMNS</literal> ( <replaceable>json_table_column</replaceable> <optional>, ...</optional> )
+    </term>
+    <listitem>
+
+    <para>
+<!--
+     Extracts SQL/JSON values from nested levels of the row pattern,
+     generates one or more columns as defined by the <literal>COLUMNS</literal>
+     subclause, and inserts the extracted SQL/JSON values into those
+     columns.  The <replaceable>json_table_column</replaceable>
+     expression in the <literal>COLUMNS</literal> subclause uses the same
+     syntax as in the parent <literal>COLUMNS</literal> clause.
+-->
+《機械翻訳》行パターンのネストされたレベルからSQL/JSON値を抽出し、<literal>COLUMNS</literal>副句で定義された1つ以上の列を生成し、それらの列に抽出されたSQL/JSON値を挿入します。
+<literal>COLUMNS</literal>副句の<replaceable>json_table_column</replaceable>式は、親の<literal>COLUMNS</literal>句と同じ構文を使用します。
+    </para>
+
+    <para>
+<!--
+     The <literal>NESTED PATH</literal> syntax is recursive,
+     so you can go down multiple nested levels by specifying several
+     <literal>NESTED PATH</literal> subclauses within each other.
+     It allows to unnest the hierarchy of JSON objects and arrays
+     in a single function invocation rather than chaining several
+     <function>JSON_TABLE</function> expressions in an SQL statement.
+-->
+《機械翻訳》<literal>NESTED PATH</literal>構文は再帰的です。
+したがって、複数の<literal>NESTED PATH</literal>副構文を互いに指定することで、複数のネストされたレベルを下に移動できます。
+これにより、SQL文内で複数の<function>JSON_TABLE</function>式を連鎖させるのではなく、単一の関数呼び出しでJSONオブジェクトと配列の階層をネスト解除できます。
+    </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+   <note>
+     <para>
+<!--
+      In each variant of <replaceable>json_table_column</replaceable> described
+      above, if the <literal>PATH</literal> clause is omitted, path expression
+      <literal>$.<replaceable>name</replaceable></literal> is used, where
+      <replaceable>name</replaceable> is the provided column name.
+-->
+《機械翻訳》上記の<replaceable>json_table_column</replaceable>の各バリアントにおいて、<literal>PATH</literal>句が省略された場合、パス式<literal>$.<replaceable>name</replaceable></literal>が使用されます。
+ここで、<replaceable>name</replaceable>は指定された列名です。
+     </para>
+    </note>
+
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term>
+     <literal>AS</literal> <replaceable>json_path_name</replaceable>
+    </term>
+    <listitem>
+
+    <para>
+<!--
+     The optional <replaceable>json_path_name</replaceable> serves as an
+     identifier of the provided <replaceable>path_expression</replaceable>.
+     The name must be unique and distinct from the column names.
+-->
+《機械翻訳》オプションの<replaceable>json_path_name</replaceable>は、指定された<replaceable>path_expression</replaceable>の識別子として機能します。
+名前は一意でなければならず、列名と区別する必要があります。
+    </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term>
+     { <literal>ERROR</literal> | <literal>EMPTY</literal> } <literal>ON ERROR</literal>
+    </term>
+    <listitem>
+
+    <para>
+<!--
+     The optional <literal>ON ERROR</literal> can be used to specify how to
+     handle errors when evaluating the top-level
+     <replaceable>path_expression</replaceable>.  Use <literal>ERROR</literal>
+     if you want the errors to be thrown and <literal>EMPTY</literal> to
+     return an empty table, that is, a table containing 0 rows.  Note that
+     this clause does not affect the errors that occur when evaluating
+     columns, for which the behavior depends on whether the
+     <literal>ON ERROR</literal> clause is specified against a given column.
+-->
+《機械翻訳》オプションの<literal>ON ERROR</literal>は、最上位の<replaceable>path_expression</replaceable>を評価する際のエラー処理方法を指定するために使用できます。
+エラーをスローする場合は<literal>ERROR</literal>を使用し、空のテーブル、つまり0行を含むテーブルを返す場合は<literal>EMPTY</literal>を使用します。
+この句は、列の評価時に発生するエラーには影響しないことに注意してください。
+この場合の動作は、<literal>ON ERROR</literal>句が指定された列に対して指定されているかどうかによって異なります。
+    </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>Examples</para>
+
+     <para>
+<!--
+      In the examples that follow, the following table containing JSON data
+      will be used:
+-->
+《機械翻訳》以下の例では、次の表に JSON データを含めます。
+
+<programlisting>
+CREATE TABLE my_films ( js jsonb );
+
+INSERT INTO my_films VALUES (
+'{ "favorites" : [
+   { "kind" : "comedy", "films" : [
+     { "title" : "Bananas",
+       "director" : "Woody Allen"},
+     { "title" : "The Dinner Game",
+       "director" : "Francis Veber" } ] },
+   { "kind" : "horror", "films" : [
+     { "title" : "Psycho",
+       "director" : "Alfred Hitchcock" } ] },
+   { "kind" : "thriller", "films" : [
+     { "title" : "Vertigo",
+       "director" : "Alfred Hitchcock" } ] },
+   { "kind" : "drama", "films" : [
+     { "title" : "Yojimbo",
+       "director" : "Akira Kurosawa" } ] }
+  ] }');
+</programlisting>
+
+     </para>
+     <para>
+<!--
+      The following query shows how to use <function>JSON_TABLE</function> to
+      turn the JSON objects in the <structname>my_films</structname> table
+      to a view containing columns for the keys <literal>kind</literal>,
+      <literal>title</literal>, and <literal>director</literal> contained in
+      the original JSON along with an ordinality column:
+-->
+《機械翻訳》次のクエリは、<function>JSON_TABLE</function>を使用して、<structname>my_films</structname>テーブル内のJSONオブジェクトを、元のJSONに含まれるキー<literal>kind</literal>、<literal>title</literal>、および<literal>director</literal>の列を含むビューに変換する方法を示しています。
+
+<programlisting>
+SELECT jt.* FROM
+ my_films,
+ JSON_TABLE (js, '$.favorites[*]' COLUMNS (
+   id FOR ORDINALITY,
+   kind text PATH '$.kind',
+   title text PATH '$.films[*].title' WITH WRAPPER,
+   director text PATH '$.films[*].director' WITH WRAPPER)) AS jt;
+</programlisting>
+
+<screen>
+ id |   kind   |             title              |             director
+----+----------+--------------------------------+----------------------------------
+  1 | comedy   | ["Bananas", "The Dinner Game"] | ["Woody Allen", "Francis Veber"]
+  2 | horror   | ["Psycho"]                     | ["Alfred Hitchcock"]
+  3 | thriller | ["Vertigo"]                    | ["Alfred Hitchcock"]
+  4 | drama    | ["Yojimbo"]                    | ["Akira Kurosawa"]
+(4 rows)
+</screen>
+
+     </para>
+     <para>
+<!--
+      The following is a modified version of the above query to show the
+      usage of <literal>PASSING</literal> arguments in the filter specified in
+      the top-level JSON path expression and the various options for the
+      individual columns:
+-->
+《機械翻訳》上記のクエリを次のように変更すると、トップレベルのJSONパス式で指定されたフィルタで<literal>PASSING</literal>引数の使用方法と、個々の列に対するさまざまなオプションが表示されます。
+
+<programlisting>
+SELECT jt.* FROM
+ my_films,
+ JSON_TABLE (js, '$.favorites[*] ? (@.films[*].director == $filter)'
+   PASSING 'Alfred Hitchcock' AS filter, 'Vertigo' AS filter2
+     COLUMNS (
+     id FOR ORDINALITY,
+     kind text PATH '$.kind',
+     title text FORMAT JSON PATH '$.films[*].title' OMIT QUOTES,
+     director text PATH '$.films[*].director' KEEP QUOTES)) AS jt;
+</programlisting>
+
+<screen>
+ id |   kind   |  title  |      director
+----+----------+---------+--------------------
+  1 | horror   | Psycho  | "Alfred Hitchcock"
+  2 | thriller | Vertigo | "Alfred Hitchcock"
+(2 rows)
+</screen>
+
+     </para>
+     <para>
+<!--
+      The following is a modified version of the above query to show the usage
+      of <literal>NESTED PATH</literal> for populating title and director
+      columns, illustrating how they are joined to the parent columns id and
+      kind:
+-->
+《機械翻訳》以下は、タイトルとディレクターの列を生成するために<literal>NESTED PATH</literal>を使用する上記のクエリの修正版で、親の列idとkindにどのように結合されるかを示しています。
+
+<programlisting>
+SELECT jt.* FROM
+ my_films,
+ JSON_TABLE ( js, '$.favorites[*] ? (@.films[*].director == $filter)'
+   PASSING 'Alfred Hitchcock' AS filter
+   COLUMNS (
+    id FOR ORDINALITY,
+    kind text PATH '$.kind',
+    NESTED PATH '$.films[*]' COLUMNS (
+      title text FORMAT JSON PATH '$.title' OMIT QUOTES,
+      director text PATH '$.director' KEEP QUOTES))) AS jt;
+</programlisting>
+
+<screen>
+ id |   kind   |  title  |      director
+----+----------+---------+--------------------
+  1 | horror   | Psycho  | "Alfred Hitchcock"
+  2 | thriller | Vertigo | "Alfred Hitchcock"
+(2 rows)
+</screen>
+
+     </para>
+
+     <para>
+<!--
+      The following is the same query but without the filter in the root
+      path:
+-->
+《機械翻訳》次のクエリは、ルート パスにフィルタを指定しない場合と同じです。
+
+<programlisting>
+SELECT jt.* FROM
+ my_films,
+ JSON_TABLE ( js, '$.favorites[*]'
+   COLUMNS (
+    id FOR ORDINALITY,
+    kind text PATH '$.kind',
+    NESTED PATH '$.films[*]' COLUMNS (
+      title text FORMAT JSON PATH '$.title' OMIT QUOTES,
+      director text PATH '$.director' KEEP QUOTES))) AS jt;
+</programlisting>
+
+<screen>
+ id |   kind   |      title      |      director
+----+----------+-----------------+--------------------
+  1 | comedy   | Bananas         | "Woody Allen"
+  1 | comedy   | The Dinner Game | "Francis Veber"
+  2 | horror   | Psycho          | "Alfred Hitchcock"
+  3 | thriller | Vertigo         | "Alfred Hitchcock"
+  4 | drama    | Yojimbo         | "Akira Kurosawa"
+(5 rows)
+</screen>
+
+     </para>
+
+     <para>
+<!--
+      The following shows another query using a different <type>JSON</type>
+      object as input.  It shows the UNION "sibling join" between
+      <literal>NESTED</literal> paths <literal>$.movies[*]</literal> and
+      <literal>$.books[*]</literal> and also the usage of
+      <literal>FOR ORDINALITY</literal> column at <literal>NESTED</literal>
+      levels (columns <literal>movie_id</literal>, <literal>book_id</literal>,
+      and <literal>author_id</literal>):
+-->
+《機械翻訳》次に、異なる<type>JSON</type>オブジェクトを入力として使用する別の問い合わせを示します。
+これは、<literal>NESTED</literal>パス<literal>$.movies[*]</literal>と<literal>$.books[*]</literal>の間の<literal>SIBLING JOIN</literal>と、<literal>NESTED</literal>レベルでの<literal>FOR ORDINALITY</literal>列（列<literal>movie_id</literal>、<literal>book_id</literal>、および<literal>author_id</literal>）の使用を示しています。
+
+<programlisting>
+SELECT * FROM JSON_TABLE (
+'{"favorites":
+    {"movies":
+      [{"name": "One", "director": "John Doe"},
+       {"name": "Two", "director": "Don Joe"}],
+     "books":
+      [{"name": "Mystery", "authors": [{"name": "Brown Dan"}]},
+       {"name": "Wonder", "authors": [{"name": "Jun Murakami"}, {"name":"Craig Doe"}]}]
+}}'::json, '$.favorites[*]'
+COLUMNS (
+  user_id FOR ORDINALITY,
+  NESTED '$.movies[*]'
+    COLUMNS (
+    movie_id FOR ORDINALITY,
+    mname text PATH '$.name',
+    director text),
+  NESTED '$.books[*]'
+    COLUMNS (
+      book_id FOR ORDINALITY,
+      bname text PATH '$.name',
+      NESTED '$.authors[*]'
+        COLUMNS (
+          author_id FOR ORDINALITY,
+          author_name text PATH '$.name'))));
+</programlisting>
+
+<screen>
+ user_id | movie_id | mname | director | book_id |  bname  | author_id | author_name
+---------+----------+-------+----------+---------+---------+-----------+--------------
+       1 |        1 | One   | John Doe |         |         |           |
+       1 |        2 | Two   | Don Joe  |         |         |           |
+       1 |          |       |          |       1 | Mystery |         1 | Brown Dan
+       1 |          |       |          |       2 | Wonder  |         1 | Jun Murakami
+       1 |          |       |          |       2 | Wonder  |         2 | Craig Doe
+(5 rows)
+</screen>
+
+     </para>
   </sect2>
  </sect1>
 
@@ -6105,11 +7765,9 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
        </para>
        <para>
 <!--
-        Expands a multirange into a set of ranges.
-        The ranges are read out in storage order (ascending).
+        Expands a multirange into a set of ranges in ascending order.
 -->
-多重範囲を範囲の集合に拡張します。
-範囲は格納順で読み出されます（昇順）。
+《機械翻訳》複数範囲を昇順のセットに展開します。
        </para>
        <para>
         <literal>unnest('{[1,2), [3,4)}'::int4multirange)</literal>
@@ -6184,6 +7842,16 @@ nullあるいは空の配列の結合は無処理です。そうでない場合�
 <firstterm>部分モード</firstterm>をサポートする集約関数は並列集約など、様々な最適化に有用です。
   </para>
 
+  <para>
+<!--
+   While all aggregates below accept an optional
+   <literal>ORDER BY</literal> clause (as outlined in <xref
+   linkend="syntax-aggregates"/>), the clause has only been added to
+   aggregates whose output is affected by ordering.
+-->
+《機械翻訳》以下の集約では、オプションの<literal>ORDER BY</literal>句を受け付けます（<xref linkend="syntax-aggregates"/>で概説）、この句は出力が順序に影響される集約にのみ追加されました。
+  </para>
+
    <table id="functions-aggregate-table">
 <!--
     <title>General-Purpose Aggregate Functions</title>
@@ -6239,7 +7907,7 @@ NULL以外の入力値から任意の値を返します。
         <indexterm>
          <primary>array_agg</primary>
         </indexterm>
-        <function>array_agg</function> ( <type>anynonarray</type> )
+        <function>array_agg</function> ( <type>anynonarray</type> <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>anyarray</returnvalue>
        </para>
        <para>
@@ -6256,7 +7924,7 @@ NULLも含めてすべての入力値を収集して配列に格納します。
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-        <function>array_agg</function> ( <type>anyarray</type> )
+        <function>array_agg</function> ( <type>anyarray</type> <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>anyarray</returnvalue>
        </para>
        <para>
@@ -6523,14 +8191,14 @@ NULLも含めてすべての入力値を収集して配列に格納します。
         <indexterm>
          <primary>json_agg</primary>
         </indexterm>
-        <function>json_agg</function> ( <type>anyelement</type> )
+        <function>json_agg</function> ( <type>anyelement</type> <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>json</returnvalue>
        </para>
        <para role="func_signature">
         <indexterm>
          <primary>jsonb_agg</primary>
         </indexterm>
-        <function>jsonb_agg</function> ( <type>anyelement</type> )
+        <function>jsonb_agg</function> ( <type>anyelement</type> <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>jsonb</returnvalue>
        </para>
        <para>
@@ -6583,7 +8251,8 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         </indexterm>
         <function>json_object_agg</function> ( <parameter>key</parameter>
          <type>"any"</type>, <parameter>value</parameter>
-         <type>"any"</type> )
+         <type>"any"</type>
+         <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>json</returnvalue>
        </para>
        <para role="func_signature">
@@ -6592,7 +8261,8 @@ NULLも含めてすべての入力値を収集し、JSON配列に格納します
         </indexterm>
         <function>jsonb_object_agg</function> ( <parameter>key</parameter>
          <type>"any"</type>, <parameter>value</parameter>
-         <type>"any"</type> )
+         <type>"any"</type>
+         <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>jsonb</returnvalue>
        </para>
        <para>
@@ -6906,7 +8576,8 @@ NULLをスキップして、すべての入力値をJSON配列に収集します
        </para>
        <para role="func_signature">
         <function>string_agg</function> ( <parameter>value</parameter>
-         <type>bytea</type>, <parameter>delimiter</parameter> <type>bytea</type> )
+         <type>bytea</type>, <parameter>delimiter</parameter> <type>bytea</type>
+         <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>bytea</returnvalue>
        </para>
        <para>
@@ -6977,7 +8648,7 @@ NULLをスキップして、すべての入力値をJSON配列に収集します
         <indexterm>
          <primary>xmlagg</primary>
         </indexterm>
-        <function>xmlagg</function> ( <type>xml</type> )
+        <function>xmlagg</function> ( <type>xml</type> <literal>ORDER BY</literal> <literal>input_sort_columns</literal> )
         <returnvalue>xml</returnvalue>
        </para>
        <para>

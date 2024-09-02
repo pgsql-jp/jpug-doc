@@ -8,11 +8,9 @@
 -->
 <!-- split-libpq2-start -->
 
+ <!-- keep this not-too-apropos sect1 ID for stability of doc URLs -->
  <sect1 id="libpq-single-row-mode">
-<!--
-  <title>Retrieving Query Results Row-by-Row</title>
--->
-  <title>１行１行問い合わせ結果を受け取る</title>
+  <title>Retrieving Query Results in Chunks</title>
 
   <indexterm zone="libpq-single-row-mode">
    <primary>libpq</primary>
@@ -23,6 +21,11 @@
    <secondary>単一行モード</secondary>
   </indexterm>
 
+  <indexterm zone="libpq-single-row-mode">
+   <primary>libpq</primary>
+   <secondary>chunked mode</secondary>
+  </indexterm>
+
   <para>
 <!--
    Ordinarily, <application>libpq</application> collects an SQL command's
@@ -30,28 +33,39 @@
    <structname>PGresult</structname>.  This can be unworkable for commands
    that return a large number of rows.  For such cases, applications can use
    <xref linkend="libpq-PQsendQuery"/> and <xref linkend="libpq-PQgetResult"/> in
-   <firstterm>single-row mode</firstterm>.  In this mode, the result row(s) are
-   returned to the application one at a time, as they are received from the
-   server.
+   <firstterm>single-row mode</firstterm> or <firstterm>chunked
+   mode</firstterm>.  In these modes, result row(s) are returned to the
+   application as they are received from the server, one at a time for
+   single-row mode or in groups for chunked mode.
 -->
-通常、<application>libpq</application>はSQLコマンドの結果全体を収集し、それを１つの<structname>PGresult</structname>としてアプリケーションに返します。
+《マッチ度[76.381910]》通常、<application>libpq</application>はSQLコマンドの結果全体を収集し、それを１つの<structname>PGresult</structname>としてアプリケーションに返します。
 これは、多くの行数を返すコマンドでは動作しなくなるかもしれません。
 こうした場合、アプリケーションは<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を<firstterm>単一行モード</firstterm>で使用することができます。
 このモードでは、結果行は、サーバから受け取ったかのように、アプリケーションに１度に１行返されます。
+《機械翻訳》通常、<application>libpq</application>はSQLコマンドの結果全体を収集し、それを単一の<structname>PGresult</structname>としてアプリケーションに返します。
+これは、多数の行を返すコマンドには使用できません。
+このような場合、アプリケーションは<firstterm>シングルローモード</firstterm>または<firstterm>チャンクモード</firstterm>で<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を使用することができます。
+これらのモードでは、結果の行は、サーバから受信されると、一度に1行ずつ、またはチャンクでグループ化されてアプリケーションに返されます。
   </para>
 
   <para>
 <!--
-   To enter single-row mode, call <xref linkend="libpq-PQsetSingleRowMode"/>
+   To enter one of these modes, call <xref linkend="libpq-PQsetSingleRowMode"/>
+    or <xref linkend="libpq-PQsetChunkedRowsMode"/>
    immediately after a successful call of <xref linkend="libpq-PQsendQuery"/>
    (or a sibling function).  This mode selection is effective only for the
    currently executing query.  Then call <xref linkend="libpq-PQgetResult"/>
    repeatedly, until it returns null, as documented in <xref
    linkend="libpq-async"/>.  If the query returns any rows, they are returned
-   as individual <structname>PGresult</structname> objects, which look like
+   as one or more <structname>PGresult</structname> objects, which look like
    normal query results except for having status code
-   <literal>PGRES_SINGLE_TUPLE</literal> instead of
-   <literal>PGRES_TUPLES_OK</literal>.  After the last row, or immediately if
+   <literal>PGRES_SINGLE_TUPLE</literal> for single-row mode or
+   <literal>PGRES_TUPLES_CHUNK</literal> for chunked mode, instead of
+   <literal>PGRES_TUPLES_OK</literal>.  There is exactly one result row in
+   each <literal>PGRES_SINGLE_TUPLE</literal> object, while
+   a <literal>PGRES_TUPLES_CHUNK</literal> object contains at least one
+   row but not more than the specified number of rows per chunk.
+   After the last row, or immediately if
    the query returns zero rows, a zero-row object with status
    <literal>PGRES_TUPLES_OK</literal> is returned; this is the signal that no
    more rows will arrive.  (But note that it is still necessary to continue
@@ -61,7 +75,7 @@
    <structname>PGresult</structname> object for the query would have.
    Each object should be freed with <xref linkend="libpq-PQclear"/> as usual.
 -->
-単一行モードに入るためには、<xref linkend="libpq-PQsendQuery"/>（または同系列の関数）の呼び出しに成功した直後に<xref linkend="libpq-PQsetSingleRowMode"/>を呼び出してください。
+《マッチ度[73.358586]》単一行モードに入るためには、<xref linkend="libpq-PQsendQuery"/>（または同系列の関数）の呼び出しに成功した直後に<xref linkend="libpq-PQsetSingleRowMode"/>を呼び出してください。
 このモード選択は、現在実行中の問い合わせに対してのみ有効です。
 その後、<xref linkend="libpq-async"/>の説明通りに、NULLを返すようになるまで<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出してください。
 問い合わせが何らかの行を返す場合、<literal>PGRES_TUPLES_OK</literal>ではなく<literal>PGRES_SINGLE_TUPLE</literal>である点を除けば、通常の問い合わせ結果と同じように見える、個々の<structname>PGresult</structname>オブジェクトを返します。
@@ -70,16 +84,27 @@
 （しかしNULLが返るまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければならないことに注意してください。）
 <structname>PGresult</structname>オブジェクトのすべては、その問い合わせに対する通常の<structname>PGresult</structname>と同一の行説明データ（列名、型など）を持ちます。
 各オブジェクトは通常通り<xref linkend="libpq-PQclear"/>で解放しなければなりません。
+《機械翻訳》これらのモードのいずれかに入るには、<xref linkend="libpq-PQsendQuery"/> （またはその兄弟関数） の呼び出し直後に<xref linkend="libpq-PQsetSingleRowMode"/>または<xref linkend="libpq-PQsetChunkedRowsMode"/>を呼び出します。
+このモード選択は、現在実行中のクエリに対してのみ有効です。
+次に、<xref linkend="libpq-PQgetResult"/>を<xref linkend="libpq-async"/>で説明されているように、NULLが返されるまで繰り返し呼び出します。
+問い合わせが何行かの行を返すと、それらは1つ以上の<structname>PGresult</structname>オブジェクトとして返されます。
+これらは通常の問い合わせ結果と同じように見えますが、<literal>PGRES_SINGLE_TUPLE</literal>がシングル行モードの場合は<literal>PGRES_TUPLES_OK</literal>ではなく、チャンクモードの場合は<literal>PGRES_TUPLES_CHUNK</literal>が付きます。
+各<literal>PGRES_SINGLE_TUPLE</literal>オブジェクトには1行の結果がありますが、<literal>PGRES_TUPLES_CHUNK</literal>オブジェクトには少なくとも1行、チャンクあたり指定された行数以上の結果があります。
+最後の行の後、またはクエリがゼロ行を返す場合は直ちに、ステータス<literal>PGRES_TUPLES_OK</literal>を持つゼロ行オブジェクトが返されます。
+これは、これ以上行が到着しないというシグナルです。
+（ただし、NULL を返すまでは、<xref linkend="libpq-PQgetResult"/>を呼び出し続ける必要があることに注意してください。）
+これらの<structname>PGresult</structname>オブジェクトはすべて、問い合わせの通常の<structname>PGresult</structname>オブジェクトと同じ行記述データ（列名、型など）を含みます。
+各オブジェクトは通常通り<xref linkend="libpq-PQclear"/>で解放する必要があります。
   </para>
 
   <para>
 <!--
-   When using pipeline mode, single-row mode needs to be activated for each
-   query in the pipeline before retrieving results for that query
-   with <function>PQgetResult</function>.
+   When using pipeline mode, single-row or chunked mode needs to be
+   activated for each query in the pipeline before retrieving results for
+   that query with <function>PQgetResult</function>.
    See <xref linkend="libpq-pipeline-mode"/> for more information.
 -->
-パイプラインモードを使用する場合、単一行モードは、<function>PQgetResult</function>でその問い合わせの結果を取得する前に、パイプラインの各問い合わせに対してアクティブにする必要があります。
+《マッチ度[90.763052]》パイプラインモードを使用する場合、単一行モードは、<function>PQgetResult</function>でその問い合わせの結果を取得する前に、パイプラインの各問い合わせに対してアクティブにする必要があります。
 詳細は<xref linkend="libpq-pipeline-mode"/>を参照してください。
   </para>
 
@@ -119,6 +144,52 @@ int PQsetSingleRowMode(PGconn *conn);
       </para>
      </listitem>
     </varlistentry>
+
+    <varlistentry id="libpq-PQsetChunkedRowsMode">
+     <term><function>PQsetChunkedRowsMode</function><indexterm><primary>PQsetChunkedRowsMode</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Select chunked mode for the currently-executing query.
+-->
+《マッチ度[70.370370]》現在実行中の問い合わせについて単一行モードを選択します。
+《機械翻訳》現在実行中のクエリに対してチャンク・モードを選択します。
+
+<synopsis>
+int PQsetChunkedRowsMode(PGconn *conn, int chunkSize);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       This function is similar to
+       <xref linkend="libpq-PQsetSingleRowMode"/>, except that it
+       specifies retrieval of up to <replaceable>chunkSize</replaceable> rows
+       per <structname>PGresult</structname>, not necessarily just one row.
+       This function can only be called immediately after
+       <xref linkend="libpq-PQsendQuery"/> or one of its sibling functions,
+       before any other operation on the connection such as
+       <xref linkend="libpq-PQconsumeInput"/> or
+       <xref linkend="libpq-PQgetResult"/>.  If called at the correct time,
+       the function activates chunked mode for the current query and
+       returns 1.  Otherwise the mode stays unchanged and the function
+       returns 0.  In any case, the mode reverts to normal after
+       completion of the current query.
+-->
+《マッチ度[60.220994]》この関数は<xref linkend="libpq-PQsendQuery"/>またはその系列の関数のいずれかの後即座に、<xref linkend="libpq-PQconsumeInput"/>や<xref linkend="libpq-PQgetResult"/>など接続に対する何らかの他の操作を行う前のみに呼び出すことができます。
+正しい時点で呼び出された場合、この関数は現在の問い合わせに対して単一行モードを有効にし、１を返します。
+この他の場合、モードは変更されず、関数はゼロを返します。
+いずれの場合でも、現在の問い合わせが完了した後に通常モードに戻ります。
+《機械翻訳》この関数は<xref linkend="libpq-PQsetSingleRowMode"/>と似ていますが、<structname>PGresult</structname>ごとに最大<replaceable>chunkSize</replaceable>行を取得する点が異なります。
+必ずしも1行だけではありません。
+この関数は、<xref linkend="libpq-PQsendQuery"/>またはその兄弟関数の直後、および<xref linkend="libpq-PQconsumeInput"/>や<xref linkend="libpq-PQgetResult"/>などの接続上の他の操作の直前にのみ呼び出すことができます。
+正しい時間に呼び出されると、この関数は現在のクエリに対してチャンク・モードをアクティブにし、1を返します。
+それ以外の場合、モードは変更されず、この関数は0を返します。
+いずれの場合も、現在のクエリが完了すると、モードは通常に戻ります。
+      </para>
+     </listitem>
+    </varlistentry>
    </variablelist>
   </para>
 
@@ -128,19 +199,25 @@ int PQsetSingleRowMode(PGconn *conn);
     While processing a query, the server may return some rows and then
     encounter an error, causing the query to be aborted.  Ordinarily,
     <application>libpq</application> discards any such rows and reports only the
-    error.  But in single-row mode, those rows will have already been
-    returned to the application.  Hence, the application will see some
-    <literal>PGRES_SINGLE_TUPLE</literal> <structname>PGresult</structname>
+    error.  But in single-row or chunked mode, some rows may have already
+    been returned to the application. Hence, the application will see some
+    <literal>PGRES_SINGLE_TUPLE</literal> or <literal>PGRES_TUPLES_CHUNK</literal>
+    <structname>PGresult</structname>
     objects followed by a <literal>PGRES_FATAL_ERROR</literal> object.  For
     proper transactional behavior, the application must be designed to
     discard or undo whatever has been done with the previously-processed
     rows, if the query ultimately fails.
 -->
-問い合わせを処理している間、サーバはいくつか行を返した後にエラーになり、問い合わせがアボートする可能性があります。
+《マッチ度[85.390071]》問い合わせを処理している間、サーバはいくつか行を返した後にエラーになり、問い合わせがアボートする可能性があります。
 通常の<application>libpq</application>では、こうした行を破棄しエラーのみを報告します。
 しかし単一行モードでは、これらの行はすでにアプリケーションに返されています。
 このためアプリケーションは<literal>PGRES_SINGLE_TUPLE</literal>状態の<structname>PGresult</structname>オブジェクトをいくつか見た後に<literal>PGRES_FATAL_ERROR</literal>オブジェクトを見るかもしれません。
 適切な振る舞いのトランザクションのために、最終的に問い合わせが失敗した場合、アプリケーションはこれまで処理した行を破棄するまたは取り消すように設計しなければなりません。
+《機械翻訳》クエリの処理中に、サーバが一部の行を返し、エラーが発生してクエリが中止されることがあります。
+通常、<application>libpq</application>はこのような行を破棄し、エラーのみを報告します。
+しかし、単一行モードまたはチャンク・モードでは、一部の行がすでにアプリケーションに戻されている可能性があります。
+したがって、アプリケーションは<literal>PGRES_SINGLE_TUPLE</literal>または<literal>PGRES_TUPLES_CHUNK</literal>の<structname>PGresult</structname>オブジェクトの後に<literal>PGRES_FATAL_ERROR</literal>オブジェクトを見ることになります。
+トランザクションの動作を適切にするために、クエリが最終的に失敗した場合、以前に処理された行で行われたすべての操作を破棄または元に戻すようにアプリケーションを設計する必要があります。
    </para>
   </caution>
 
@@ -153,21 +230,627 @@ int PQsetSingleRowMode(PGconn *conn);
   <title>処理中の問い合わせのキャンセル</title>
 
   <indexterm zone="libpq-cancel">
-   <primary>canceling</primary>
-   <secondary>SQL command</secondary>
+   <primary>canceling SQL queries</primary>
   </indexterm>
   <indexterm zone="libpq-cancel">
-   <primary>キャンセル</primary>
-   <secondary>SQLコマンドの</secondary>
+   <primary>query cancellation</primary>
   </indexterm>
 
-  <para>
+  <sect2 id="libpq-cancel-functions">
+   <title>Functions for Sending Cancel Requests</title>
+   <variablelist>
+    <varlistentry id="libpq-PQcancelCreate">
+     <term><function>PQcancelCreate</function><indexterm><primary>PQcancelCreate</primary></indexterm></term>
+
+     <listitem>
+      <para>
 <!--
-   A client application can request cancellation of a command that is
-   still being processed by the server, using the functions described in
-   this section.
+       Prepares a connection over which a cancel request can be sent.
 -->
-本節で説明する関数を使用して、クライアントアプリケーションはサーバで処理中のコマンドをキャンセルする要求を行うことができます。
+《機械翻訳》キャンセル要求を送信できる接続を準備します。
+<synopsis>
+PGcancelConn *PQcancelCreate(PGconn *conn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQcancelCreate"/> creates a
+       <structname>PGcancelConn</structname><indexterm><primary>PGcancelConn</primary></indexterm>
+       object, but it won't instantly start sending a cancel request over this
+       connection. A cancel request can be sent over this connection in a
+       blocking manner using <xref linkend="libpq-PQcancelBlocking"/> and in a
+       non-blocking manner using <xref linkend="libpq-PQcancelStart"/>.
+       The return value can be passed to <xref linkend="libpq-PQcancelStatus"/>
+       to check if the <structname>PGcancelConn</structname> object was
+       created successfully. The <structname>PGcancelConn</structname> object
+       is an opaque structure that is not meant to be accessed directly by the
+       application. This <structname>PGcancelConn</structname> object can be
+       used to cancel the query that's running on the original connection in a
+       thread-safe way.
+-->
+《機械翻訳》<xref linkend="libpq-PQcancelCreate"/>は<structname>PGcancelConn</structname><indexterm><primary>PGcancelConn</primary></indexterm>オブジェクトを作成しますが、この接続を介して直ちにキャンセルリクエストを送信し始めることはありません。
+キャンセル要求は、<xref linkend="libpq-PQcancelBlocking"/>を使用してブロッキング方式で、<xref linkend="libpq-PQcancelStart"/>を使用して非ブロッキング方式でこの接続を介して送信できます。
+返り値は<xref linkend="libpq-PQcancelStatus"/>に渡して、<structname>PGcancelConn</structname>オブジェクトが正常に作成されたかどうかを調べることができます。
+<structname>PGcancelConn</structname>オブジェクトは、アプリケーションが直接アクセスすることを意図していない不透明な構造体です。
+この<structname>PGcancelConn</structname>オブジェクトは、スレッドセーフな方法で元の接続で実行中の問い合わせをキャンセルするために使用できます。
+      </para>
+
+      <para>
+<!--
+       Many connection parameters of the original client will be reused when
+       setting up the connection for the cancel request. Importantly, if the
+       original connection requires encryption of the connection and/or
+       verification of the target host (using <literal>sslmode</literal> or
+       <literal>gssencmode</literal>), then the connection for the cancel
+       request is made with these same requirements. Any connection options
+       that are only used during authentication or after authentication of the
+       client are ignored though, because cancellation requests do not require
+       authentication and the connection is closed right after the cancellation
+       request is submitted.
+-->
+《機械翻訳》元のクライアントの多くの接続パラメータは、キャンセル要求の接続を設定するときに再利用されます。
+重要な点として、元の接続が接続の暗号化とターゲットホストの検証（<literal>sslmode</literal>または<literal>gssencmode</literal>を使用）を必要とする場合、キャンセル要求の接続はこれらの同じ要件を使用して作成されます。
+ただし、クライアントの認証中または認証後にのみ使用される接続オプションは無視されます。
+取り消し要求では認証は必要なく、接続は取り消し要求が送信された直後に閉じられるためです。
+      </para>
+
+      <para>
+<!--
+       Note that when <function>PQcancelCreate</function> returns a non-null
+       pointer, you must call <xref linkend="libpq-PQcancelFinish"/> when you
+       are finished with it, in order to dispose of the structure and any
+       associated memory blocks. This must be done even if the cancel request
+       failed or was abandoned.
+-->
+《マッチ度[59.735974]》<function>PQconnectStart</function>や<xref linkend="libpq-PQconnectStartParams"/>が非NULLポインタを返した場合、処理を終了する際には、構造体や関連するメモリブロックを始末するために、<xref linkend="libpq-PQfinish"/>を呼び出さなくてはならないことに注意してください。
+この処理は、接続試行が失敗した場合やその試行を中断する場合にも、必ず実行されなければいけません。
+《機械翻訳》<function>PQcancelCreate</function>がNULL以外のポインタを返した場合、構造体と関連するメモリブロックを処理するために、<xref linkend="libpq-PQcancelFinish"/>を呼び出す必要があります。
+これは、キャンセル要求が失敗したか、あるいは放棄された場合でも必要です。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcancelBlocking">
+     <term><function>PQcancelBlocking</function><indexterm><primary>PQcancelBlocking</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Requests that the server abandons processing of the current command
+       in a blocking manner.
+-->
+《マッチ度[67.415730]》サーバに現在のコマンドの廃棄処理を要求します。
+《機械翻訳》サーバがブロック方式で現在のコマンドの処理を中止するように要求します。
+<synopsis>
+int PQcancelBlocking(PGcancelConn *cancelConn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       The request is made over the given <structname>PGcancelConn</structname>,
+       which needs to be created with <xref linkend="libpq-PQcancelCreate"/>.
+       The return value of <xref linkend="libpq-PQcancelBlocking"/>
+       is 1 if the cancel request was successfully
+       dispatched and 0 if not. If it was unsuccessful, the error message can be
+       retrieved using <xref linkend="libpq-PQcancelErrorMessage"/>.
+-->
+《機械翻訳》この要求は、<xref linkend="libpq-PQcancelCreate"/>で作成する必要がある指定された<structname>PGcancel</structname>を介して行われます。
+取り消し要求が正常にディスパッチされた場合、<xref linkend="libpq-PQcancelBlocking"/>の値は1です。
+失敗した場合、エラーメッセージは<xref linkend="libpq-PQcancelErrorMessage"/>を使用して取得できます。
+      </para>
+
+      <para>
+<!--
+       Successful dispatch of the cancellation is no guarantee that the request
+       will have any effect, however. If the cancellation is effective, the
+       command being canceled will terminate early and return an error result.
+       If the cancellation fails (say, because the server was already done
+       processing the command), then there will be no visible result at all.
+-->
+《マッチ度[78.917379]》しかし、要求の受け入れが成功したとしても、その要求の効果が出ることは全く保証していません。
+もしキャンセル操作が有効であれば、現在のコマンドは間もなく中断され、エラーが結果として返ります。
+キャンセル操作に失敗した場合（例えばバックエンドがすでにコマンド処理を終了していたため）、目に見える結果は何も出てこなくなります。
+《機械翻訳》キャンセルの送信が成功しても、要求が有効になるとは限りません。
+キャンセルが有効な場合、キャンセルされるコマンドは早期に終了し、エラー結果を返します。
+キャンセルが失敗した場合 （サーバーがコマンドの処理をすでに完了していた場合など）、目に見える結果はまったくありません。
+      </para>
+
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcancelStart">
+     <term><function>PQcancelStart</function><indexterm><primary>PQcancelStart</primary></indexterm></term>
+     <term><function>PQcancelPoll</function><indexterm><primary>PQcancelPoll</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Requests that the server abandons processing of the current command
+       in a non-blocking manner.
+-->
+《マッチ度[64.516129]》サーバに現在のコマンドの廃棄処理を要求します。
+《機械翻訳》サーバが非ブロッキング方式で現在のコマンドの処理を中止するように要求します。
+<synopsis>
+int PQcancelStart(PGcancelConn *cancelConn);
+
+PostgresPollingStatusType PQcancelPoll(PGcancelConn *cancelConn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       The request is made over the given <structname>PGcancelConn</structname>,
+       which needs to be created with <xref linkend="libpq-PQcancelCreate"/>.
+       The return value of <xref linkend="libpq-PQcancelStart"/>
+       is 1 if the cancellation request could be started and 0 if not.
+       If it was unsuccessful, the error message can be
+       retrieved using <xref linkend="libpq-PQcancelErrorMessage"/>.
+-->
+《機械翻訳》この要求は、<xref linkend="libpq-PQcancelCreate"/>を使用して作成する必要がある指定された<structname>PGcancel</structname>を介して行われます。
+取り消し要求が開始できた場合、<xref linkend="libpq-PQcancelStart"/>の値は1です。
+開始できなかった場合、エラーメッセージは<xref linkend="libpq-PQcancelErrorMessage"/>を使用して取得できます。
+      </para>
+
+      <para>
+<!--
+       If <function>PQcancelStart</function> succeeds, the next stage
+       is to poll <application>libpq</application> so that it can proceed with
+       the cancel connection sequence.
+       Use <xref linkend="libpq-PQcancelSocket"/> to obtain the descriptor of the
+       socket underlying the database connection.
+       (Caution: do not assume that the socket remains the same
+       across <function>PQcancelPoll</function> calls.)
+       Loop thus: If <function>PQcancelPoll(cancelConn)</function> last returned
+       <symbol>PGRES_POLLING_READING</symbol>, wait until the socket is ready to
+       read (as indicated by <function>select()</function>,
+       <function>poll()</function>, or similar system function).
+       Then call <function>PQcancelPoll(cancelConn)</function> again.
+       Conversely, if <function>PQcancelPoll(cancelConn)</function> last returned
+       <symbol>PGRES_POLLING_WRITING</symbol>, wait until the socket is ready
+       to write, then call <function>PQcancelPoll(cancelConn)</function> again.
+       On the first iteration, i.e., if you have yet to call
+       <function>PQcancelPoll(cancelConn)</function>, behave as if it last returned
+       <symbol>PGRES_POLLING_WRITING</symbol>.  Continue this loop until
+       <function>PQcancelPoll(cancelConn)</function> returns
+       <symbol>PGRES_POLLING_FAILED</symbol>, indicating the connection procedure
+       has failed, or <symbol>PGRES_POLLING_OK</symbol>, indicating cancel
+       request was successfully dispatched.
+-->
+《マッチ度[74.797943]》<function>PQconnectStart</function>あるいは<xref linkend="libpq-PQconnectStartParams"/>が成功したら、次は接続シーケンスを進めるために、<application>libpq</application>をポーリングします。
+データベース接続の背後にあるソケットの記述子を取り出すには、<function>PQsocket(conn)</function>を使用します。
+（注意：複数の<function>PQconnectPoll</function>呼び出しでソケットが同じままであると思わないでください。）
+以下の繰り返しです。
+直前の<function>PQconnectPoll(conn)</function>が<symbol>PGRES_POLLING_READING</symbol>の場合、（<function>select()</function>や<function>poll()</function>などのシステム関数で示されて）ソケットの読み込み準備が整うまで待機します。
+そして、再度<function>PQconnectPoll(conn)</function>を呼び出します。
+反対に直前の<function>PQconnectPoll(conn)</function>が<symbol>PGRES_POLLING_WRITING</symbol>の場合、ソケットの書き込み準備が整うまで待機し、その後、<function>PQconnectPoll(conn)</function>を再度呼び出します。
+繰り返しの最初、すなわち、未だ<function>PQconnectPoll</function>を呼び出していない場合、最後に<symbol>PGRES_POLLING_WRITING</symbol>を返したかのように振舞います。
+この繰り返しを<function>PQconnectPoll(conn)</function>が、接続手続きの失敗を示す<symbol>PGRES_POLLING_FAILED</symbol>、もしくは、接続確立に成功したことを示す<symbol>PGRES_POLLING_OK</symbol>を返すまで継続します。
+《機械翻訳》<function>PQcancelStart</function>が成功した場合、次の段階は<application>libpq</application>をポーリングして、接続解除シーケンスを続行できるようにすることです。
+データベース接続の基礎となるソケットの記述子を取得するには、<xref linkend="libpq-PQcancelSocket"/>を使用します。
+（注意: ソケットは<function>PQcancelPoll</function>呼び出しの間は同じままだと仮定しないでください）。
+ループを次のように実行します。
+<function>PQcancelPoll(cancelConn)</function>が最後に<symbol>PGRES_POLLING_READING</symbol>を返した場合、ソケットが読み込みの準備ができるまで待ちます(<function>select()</function>や<function>poll()</function>などのシステム関数で指定します)。
+その後、再度<function>PQcancelPoll(cancelConn)</function>を呼び出します。
+逆に、<function>PQcancelPoll(cancelConn)</function>が最後に<symbol>PGRES_POLLING_WRITING</symbol>を返した場合、ソケットが書き込み可能になるまで待ってから、再度<function>PQcancelPoll(cancelConn)</function>を呼び出します。
+最初の反復では、つまり<function>PQcancelPoll(cancelConn)</function>をまだ呼び出していない場合は、最後に<symbol>PGRES_POLLING_WRITING</symbol>を返したかのように振る舞います。
+接続手続きが失敗したことを示す<symbol>PGRES_POLLING_FAILED</symbol>を返すか、または、<symbol>PGRES_POLLING_OK</symbol>を返して、キャンセル要求が正常にディスパッチされたことを示すまで、このループを続けます。
+      </para>
+
+      <para>
+<!--
+       Successful dispatch of the cancellation is no guarantee that the request
+       will have any effect, however. If the cancellation is effective, the
+       command being canceled will terminate early and return an error result.
+       If the cancellation fails (say, because the server was already done
+       processing the command), then there will be no visible result at all.
+-->
+《マッチ度[78.917379]》しかし、要求の受け入れが成功したとしても、その要求の効果が出ることは全く保証していません。
+もしキャンセル操作が有効であれば、現在のコマンドは間もなく中断され、エラーが結果として返ります。
+キャンセル操作に失敗した場合（例えばバックエンドがすでにコマンド処理を終了していたため）、目に見える結果は何も出てこなくなります。
+《機械翻訳》キャンセルの送信が成功しても、要求が有効になるとは限りません。
+キャンセルが有効な場合、キャンセルされるコマンドは早期に終了し、エラー結果を返します。
+キャンセルが失敗した場合 （サーバーがコマンドの処理をすでに完了していた場合など）、目に見える結果はまったくありません。
+      </para>
+
+      <para>
+<!--
+       At any time during connection, the status of the connection can be
+       checked by calling <xref linkend="libpq-PQcancelStatus"/>.
+       If this call returns <symbol>CONNECTION_BAD</symbol>, then
+       the cancel procedure has failed; if the call returns
+       <function>CONNECTION_OK</function>, then cancel request was
+       successfully dispatched.
+       Both of these states are equally detectable from the return value of
+       <function>PQcancelPoll</function>, described above.
+       Other states might also occur during (and only during) an asynchronous
+       connection procedure.
+       These indicate the current stage of the connection procedure and might
+       be useful to provide feedback to the user for example.
+       These statuses are:
+-->
+《マッチ度[85.043988]》接続している間は、いつでも<xref linkend="libpq-PQstatus"/>を呼び出すことで、接続の状態を検査することができます。
+この関数呼び出しが<symbol>CONNECTION_BAD</symbol>を返す場合、接続手続きは失敗しており、<symbol>CONNECTION_OK</symbol>を返す場合、接続が確立しています。
+上述のように、このいずれの状態も、<function>PQconnectPoll</function>の戻り値から同様に検出できます。
+これ以外の状態は、非同期の接続手続きの間（のみに）現れることがあります。
+これらは、接続手続きの現在の段階を示すものであり、例えばユーザへのフィードバックを提供することに使用できます。
+以下の状態があります。
+《機械翻訳》接続中はいつでも、<xref linkend="libpq-PQcancelStatus"/>を呼び出すことで接続の状態を確認できます。
+この呼び出しが<symbol>CONNECTION_BAD</symbol>を返した場合、キャンセルプロシージャは失敗です。
+この呼び出しが<function>CONNECTION_OK</function>を返した場合、キャンセル要求は正常にディスパッチされました。
+これらの状態はどちらも、上記の<function>PQcancelPoll</function>の戻り値から等しく検出できます。
+他の状態は、非同期接続手順の間（およびその間のみ）に発生することもあります。
+これらは、接続手順の現在の段階を示し、例えばユーザにフィードバックを提供するのに有用である。
+これらのステータスは次のとおりです。
+
+       <variablelist>
+        <varlistentry id="libpq-cancel-connection-allocated">
+         <term><symbol>CONNECTION_ALLOCATED</symbol></term>
+         <listitem>
+          <para>
+<!--
+           Waiting for a call to <xref linkend="libpq-PQcancelStart"/> or
+           <xref linkend="libpq-PQcancelBlocking"/>, to actually open the
+           socket. This is the connection state right after
+           calling <xref linkend="libpq-PQcancelCreate"/>
+           or <xref linkend="libpq-PQcancelReset"/>. No connection to the
+           server has been initiated yet at this point. To actually start
+           sending the cancel request use <xref linkend="libpq-PQcancelStart"/> or
+           <xref linkend="libpq-PQcancelBlocking"/>.
+-->
+《機械翻訳》<xref linkend="libpq-PQcancelStart"/>または<xref linkend="libpq-PQcancelBlocking"/>を呼び出して、実際にソケットをオープンするのを待機しています。
+これは、<xref linkend="libpq-PQcancelCreate"/>または<xref linkend="libpq-PQcancelReset"/>を呼び出した直後の接続状態です。
+この時点ではまだサーバへの接続は開始されていません。
+実際にキャンセル要求を送信するには、<xref linkend="libpq-PQcancelStart"/>または<xref linkend="libpq-PQcancelBlocking"/>を使用してください。
+          </para>
+         </listitem>
+        </varlistentry>
+
+        <varlistentry id="libpq-cancel-connection-started">
+         <term><symbol>CONNECTION_STARTED</symbol></term>
+         <listitem>
+          <para>
+<!--
+           Waiting for connection to be made.
+-->
+接続の確立待ち状態です。
+          </para>
+         </listitem>
+        </varlistentry>
+
+        <varlistentry id="libpq-cancel-connection-made">
+         <term><symbol>CONNECTION_MADE</symbol></term>
+         <listitem>
+          <para>
+<!--
+           Connection OK; waiting to send.
+-->
+接続はOKです。送信待ち状態です。
+          </para>
+         </listitem>
+        </varlistentry>
+
+        <varlistentry id="libpq-cancel-connection-awaiting-response">
+         <term><symbol>CONNECTION_AWAITING_RESPONSE</symbol></term>
+         <listitem>
+          <para>
+<!--
+           Waiting for a response from the server.
+-->
+サーバからの応答待ち状態です。
+          </para>
+         </listitem>
+        </varlistentry>
+
+        <varlistentry id="libpq-cancel-connection-ssl-startup">
+         <term><symbol>CONNECTION_SSL_STARTUP</symbol></term>
+         <listitem>
+          <para>
+<!--
+           Negotiating SSL encryption.
+-->
+SSL暗号化の調停状態です。
+          </para>
+         </listitem>
+        </varlistentry>
+
+        <varlistentry id="libpq-cancel-connection-gss-startup">
+         <term><symbol>CONNECTION_GSS_STARTUP</symbol></term>
+         <listitem>
+          <para>
+<!--
+           Negotiating GSS encryption.
+-->
+《マッチ度[51.851852]》SSL暗号化の調停状態です。
+《機械翻訳》GSS 暗号化のネゴシエーション。
+          </para>
+         </listitem>
+        </varlistentry>
+       </variablelist>
+
+<!--
+       Note that, although these constants will remain (in order to maintain
+       compatibility), an application should never rely upon these occurring in a
+       particular order, or at all, or on the status always being one of these
+       documented values. An application might do something like this:
+-->
+これらの定数は（互換性を保つため）なくなることはありませんが、アプリケーションは、これらが特定の順で出現したり、本書に書いてある値のどれかに必ずステータス値が該当するということを決して当てにしてはいけません。
+アプリケーションは、以下に示すようにするべきです。
+<programlisting>
+switch(PQcancelStatus(conn))
+{
+        case CONNECTION_STARTED:
+            feedback = "Connecting...";
+            break;
+
+        case CONNECTION_MADE:
+            feedback = "Connected to server...";
+            break;
+.
+.
+.
+        default:
+            feedback = "Connecting...";
+}
+</programlisting>
+      </para>
+
+      <para>
+<!--
+       The <literal>connect_timeout</literal> connection parameter is ignored
+       when using <function>PQcancelPoll</function>; it is the application's
+       responsibility to decide whether an excessive amount of time has elapsed.
+       Otherwise, <function>PQcancelStart</function> followed by a
+       <function>PQcancelPoll</function> loop is equivalent to
+       <xref linkend="libpq-PQcancelBlocking"/>.
+-->
+《マッチ度[82.795699]》<function>PQconnectPoll</function>を使用する場合、<literal>connect_timeout</literal>接続パラメータは無視されます。
+経過時間が長過ぎるかどうかの判定はアプリケーションの責任で行ないます。
+さもないと、<function>PQconnectStart</function>の後の<function>PQconnectPoll</function>の繰り返しが<xref linkend="libpq-PQconnectdb"/>と同じになります。
+《機械翻訳》<function>PQcancelPoll</function>を使用する場合、<literal>connect_timeout</literal>接続パラメータは無視されます。
+過度の時間が経過したかどうかはアプリケーション側で判断します。
+そうでない場合、<function>PQcancelStart</function>とそれに続く<function>PQcancelPoll</function>ループは<xref linkend="libpq-PQcancelBlocking"/>と同等です。
+      </para>
+
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcancelStatus">
+     <term><function>PQcancelStatus</function><indexterm><primary>PQcancelStatus</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the status of the cancel connection.
+-->
+《マッチ度[68.181818]》接続の状態を返します。
+《機械翻訳》接続解除のステータスを返します。
+<synopsis>
+ConnStatusType PQcancelStatus(const PGcancelConn *cancelConn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       The status can be one of a number of values.  However, only three of
+       these are seen outside of an asynchronous cancel procedure:
+       <literal>CONNECTION_ALLOCATED</literal>,
+       <literal>CONNECTION_OK</literal> and
+       <literal>CONNECTION_BAD</literal>. The initial state of a
+       <function>PGcancelConn</function> that's successfully created using
+       <xref linkend="libpq-PQcancelCreate"/> is <literal>CONNECTION_ALLOCATED</literal>.
+       A cancel request that was successfully dispatched
+       has the status <literal>CONNECTION_OK</literal>.  A failed
+       cancel attempt is signaled by status
+       <literal>CONNECTION_BAD</literal>.  An OK status will
+       remain so until <xref linkend="libpq-PQcancelFinish"/> or
+       <xref linkend="libpq-PQcancelReset"/> is called.
+-->
+《機械翻訳》ステータスは、いくつかの値のいずれかになります。
+しかし、非同期キャンセル手続きの外で見られるのは、<literal>CONNECTION_ALLOCATED</literal>、<literal>CONNECTION_OK</literal>、<literal>CONNECTION_BAD</literal>の3つだけです。
+<xref linkend="libpq-PQcancelCreate"/>を使用して正常に作成された<function>PGcancelConn</function>の初期状態は<literal>CONNECTION_ALLOCATED</literal>です。
+正常にディスパッチされたキャンセル要求は<literal>CONNECTION_OK</literal>の状態になります。
+キャンセルが失敗した場合、状態<literal>CONNECTION_BAD</literal>が通知されます。
+<xref linkend="libpq-PQcancelFinish"/>または<xref linkend="libpq-PQcancelReset"/>が呼び出されるまで、OK状態はそのまま残ります。
+      </para>
+
+      <para>
+<!--
+       See the entry for <xref linkend="libpq-PQcancelStart"/> with regards
+       to other status codes that might be returned.
+-->
+《機械翻訳》返される可能性がある他の状態コードについては<xref linkend="libpq-PQcancelStart"/>の項目を参照してください。
+      </para>
+
+      <para>
+<!--
+       Successful dispatch of the cancellation is no guarantee that the request
+       will have any effect, however. If the cancellation is effective, the
+       command being canceled will terminate early and return an error result.
+       If the cancellation fails (say, because the server was already done
+       processing the command), then there will be no visible result at all.
+-->
+《マッチ度[78.917379]》しかし、要求の受け入れが成功したとしても、その要求の効果が出ることは全く保証していません。
+もしキャンセル操作が有効であれば、現在のコマンドは間もなく中断され、エラーが結果として返ります。
+キャンセル操作に失敗した場合（例えばバックエンドがすでにコマンド処理を終了していたため）、目に見える結果は何も出てこなくなります。
+《機械翻訳》キャンセルの送信が成功しても、要求が有効になるとは限りません。
+キャンセルが有効な場合、キャンセルされるコマンドは早期に終了し、エラー結果を返します。
+キャンセルが失敗した場合 （サーバーがコマンドの処理をすでに完了していた場合など）、目に見える結果はまったくありません。
+      </para>
+
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcancelSocket">
+     <term><function>PQcancelSocket</function><indexterm><primary>PQcancelSocket</primary></indexterm></term>
+
+     <listitem>
+      <para>
+<!--
+       Obtains the file descriptor number of the cancel connection socket to
+       the server.
+-->
+《機械翻訳》サーバへのキャンセル接続ソケットのファイル記述子番号を取得する。
+<synopsis>
+int PQcancelSocket(const PGcancelConn *cancelConn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       A valid descriptor will be greater than or equal to 0;
+       a result of -1 indicates that no server connection is currently open.
+       This might change as a result of calling any of the functions
+       in this section on the <structname>PGcancelConn</structname>
+       (except for <xref linkend="libpq-PQcancelErrorMessage"/> and
+       <function>PQcancelSocket</function> itself).
+-->
+《機械翻訳》有効なディスクリプタは 0 以上です。
+-1 の結果は、現在オープンしているサーバ接続がないことを示します。
+このセクションの関数を<structname>PGcancelConn</structname>（<xref linkend="libpq-PQcancelErrorMessage"/>と<function>PQcancelSocket</function>自身を除く）で呼び出すと、この値が変わる可能性があります。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcancelErrorMessage">
+     <term>
+      <function>PQcancelErrorMessage</function><indexterm><primary>PQcancelErrorMessage</primary></indexterm>
+      <indexterm><primary>error message</primary><secondary>in <structname>PGcancelConn</structname></secondary></indexterm>
+     </term>
+
+     <listitem>
+      <para>
+<!--
+       Returns the error message most recently generated by an
+       operation on the cancel connection.
+-->
+《機械翻訳》接続解除操作で最後に生成されたエラー・メッセージを戻します。
+<synopsis>
+char *PQcancelErrorMessage(const PGcancelConn *cancelconn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Nearly all <application>libpq</application> functions that take a
+       <structname>PGcancelConn</structname> will set a message for
+       <xref linkend="libpq-PQcancelErrorMessage"/> if they fail.
+       Note that by <application>libpq</application> convention,
+       a nonempty <xref linkend="libpq-PQcancelErrorMessage"/> result
+       can consist of multiple lines, and will include a trailing newline.
+       The caller should not free the result directly.
+       It will be freed when the associated
+       <structname>PGcancelConn</structname> handle is passed to
+       <xref linkend="libpq-PQcancelFinish"/>.  The result string should not be
+       expected to remain the same across operations on the
+       <literal>PGcancelConn</literal> structure.
+-->
+《マッチ度[77.664234]》ほとんどすべての<application>libpq</application>関数は、失敗時に<xref linkend="libpq-PQerrorMessage"/>用のメッセージを設定します。
+<application>libpq</application>での決まりとして、空でない<xref linkend="libpq-PQerrorMessage"/>の結果は複数行に渡ることも可能で、最後に改行が含まれることがある点に注意してください。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGconn</structname>ハンドルが<xref linkend="libpq-PQfinish"/>に渡された時にこれは解放されます。
+<literal>PGconn</literal>構造体への操作を跨って、この結果文字列が同一であると想定してはいけません。
+《機械翻訳》<structname>PGcancelConn</structname>を取得する<application>libpq</application>関数のほとんどは、失敗した場合に<xref linkend="libpq-PQcancelErrorMessage"/>にメッセージを設定します。
+<application>libpq</application>の規則では、空でない<xref linkend="libpq-PQcancelErrorMessage"/>結果は複数行からなり、最後に改行を含むことに注意してください。
+呼び出し元は、結果を直接解放しないでください。
+関連する<structname>PGcancelConn</structname>ハンドルが<xref linkend="libpq-PQcancelFinish"/>に渡されると解放されます。
+結果の文字列は<literal>PGcancelConn</literal>構造体に対する操作を通じて同じままになることは期待されません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcancelFinish">
+     <term><function>PQcancelFinish</function><indexterm><primary>PQcancelFinish</primary></indexterm></term>
+     <listitem>
+      <para>
+<!--
+       Closes the cancel connection (if it did not finish sending the
+       cancel request yet). Also frees memory used by the
+       <structname>PGcancelConn</structname> object.
+-->
+《マッチ度[55.974843]》サーバとの接続を閉ざします。
+また、<structname>PGconn</structname>オブジェクトが占めるメモリも解放します。
+《機械翻訳》接続のキャンセルを閉じます（キャンセル要求の送信がまだ完了していない場合）。
+また、<structname>PGcancelConn</structname>オブジェクトが使用するメモリを解放します。
+<synopsis>
+void PQcancelFinish(PGcancelConn *cancelConn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       Note that even if the cancel attempt fails (as
+       indicated by <xref linkend="libpq-PQcancelStatus"/>), the
+       application should call <xref linkend="libpq-PQcancelFinish"/>
+       to free the memory used by the <structname>PGcancelConn</structname>
+       object.
+       The <structname>PGcancelConn</structname> pointer must not be used
+       again after <xref linkend="libpq-PQcancelFinish"/> has been called.
+-->
+《マッチ度[78.364116]》たとえサーバへの接続試行が失敗しても（<xref linkend="libpq-PQstatus"/>で調べます）、アプリケーションは<xref linkend="libpq-PQfinish"/>を呼び出し<structname>PGconn</structname>オブジェクトが占めるメモリを解放するべきです。
+そして<xref linkend="libpq-PQfinish"/>を呼び出したら、もう<structname>PGconn</structname>へのポインタを使ってはいけません。
+《機械翻訳》取り消しの試みが失敗した場合（<xref linkend="libpq-PQcancelStatus"/>で示されるように）でも、アプリケーションは<xref linkend="libpq-PQcancelFinish"/>を呼び出して<structname>PGcancelConn</structname>オブジェクトが使用したメモリを解放するようにしてください。
+<structname>PGcancelConn</structname>ポインタは<xref linkend="libpq-PQcancelFinish"/>が呼び出された後は再度使用してはなりません。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry id="libpq-PQcancelReset">
+     <term><function>PQcancelReset</function><indexterm><primary>PQcancelReset</primary></indexterm></term>
+     <listitem>
+      <para>
+<!--
+       Resets the <symbol>PGcancelConn</symbol> so it can be reused for a new
+       cancel connection.
+-->
+《機械翻訳》新しいキャンセル接続に再利用できるように<symbol>PGcancelConn</symbol>をリセットします。
+<synopsis>
+void PQcancelReset(PGcancelConn *cancelConn);
+</synopsis>
+      </para>
+
+      <para>
+<!--
+       If the <symbol>PGcancelConn</symbol> is currently used to send a cancel
+       request, then this connection is closed. It will then prepare the
+       <symbol>PGcancelConn</symbol> object such that it can be used to send a
+       new cancel request.
+-->
+《機械翻訳》<symbol>PGcancelConn</symbol>が現在キャンセル要求を送信するために使用されている場合、この接続は閉じられます。
+次に、新しいキャンセル要求を送信するために使用できるように<symbol>PGcancelConn</symbol>オブジェクトを準備します。
+      </para>
+
+      <para>
+<!--
+       This can be used to create one <structname>PGcancelConn</structname>
+       for a <structname>PGconn</structname> and reuse it multiple times
+       throughout the lifetime of the original <structname>PGconn</structname>.
+-->
+《機械翻訳》これは<structname>PGconn</structname>に対して1つの<structname>PGcancelConn</structname>を作成し、元の<structname>PGconn</structname>の存続期間中に何度も再利用することができます。
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </sect2>
+
+  <sect2 id="libpq-cancel-deprecated">
+   <title>Obsolete Functions for Sending Cancel Requests</title>
+
+   <para>
+<!--
+    These functions represent older methods of sending cancel requests.
+    Although they still work, they are deprecated due to not sending the cancel
+    requests in an encrypted manner, even when the original connection
+    specified <literal>sslmode</literal> or <literal>gssencmode</literal> to
+    require encryption. Thus these older methods are heavily discouraged from
+    being used in new code, and it is recommended to change existing code to
+    use the new functions instead.
+-->
+《機械翻訳》これらの関数は古い方法でキャンセル要求を送信するものです。
+これらはまだ動作しますが、元の接続が暗号化を要求するために<literal>sslmode</literal>または<literal>gssencmode</literal>を指定した場合でも、キャンセル要求を暗号化された方法で送信しないため、推奨されません。
+したがって、これらの古い方法は新しいコードではほとんど使用されず、既存のコードを変更して新しい関数を使用することをお勧めします。
+   </para>
 
    <variablelist>
     <varlistentry id="libpq-PQgetCancel">
@@ -177,9 +860,10 @@ int PQsetSingleRowMode(PGconn *conn);
       <para>
 <!--
        Creates a data structure containing the information needed to cancel
-       a command issued through a particular database connection.
+       a command using <xref linkend="libpq-PQcancel"/>.
 -->
-特定のデータベース接続を通して発行されたコマンドをキャンセルするために必要な情報を持つデータ構造を作成します。
+《マッチ度[55.084746]》特定のデータベース接続を通して発行されたコマンドをキャンセルするために必要な情報を持つデータ構造を作成します。
+《機械翻訳》<xref linkend="libpq-PQcancel"/>を使用してコマンドをキャンセルするために必要な情報を含むデータ構造体を作成します。
 <synopsis>
 PGcancel *PQgetCancel(PGconn *conn);
 </synopsis>
@@ -188,18 +872,23 @@ PGcancel *PQgetCancel(PGconn *conn);
       <para>
 <!--
        <xref linkend="libpq-PQgetCancel"/> creates a
-       <structname>PGcancel</structname><indexterm><primary>PGcancel</primary></indexterm> object
-       given a <structname>PGconn</structname> connection object.  It will return
-       <symbol>NULL</symbol> if the given <parameter>conn</parameter> is <symbol>NULL</symbol> or an invalid
-       connection.  The <structname>PGcancel</structname> object is an opaque
+       <structname>PGcancel</structname><indexterm><primary>PGcancel</primary></indexterm>
+       object given a <structname>PGconn</structname> connection object.
+       It will return <symbol>NULL</symbol> if the given <parameter>conn</parameter>
+       is <symbol>NULL</symbol> or an invalid connection.
+       The <structname>PGcancel</structname> object is an opaque
        structure that is not meant to be accessed directly by the
        application; it can only be passed to <xref linkend="libpq-PQcancel"/>
        or <xref linkend="libpq-PQfreeCancel"/>.
 -->
-<xref linkend="libpq-PQgetCancel"/>は、与えられた<structname>PGconn</structname>接続オブジェクトの<structname>PGcancel</structname><indexterm><primary>PGcancel</primary></indexterm>オブジェクトを作成します。
+《マッチ度[89.511754]》<xref linkend="libpq-PQgetCancel"/>は、与えられた<structname>PGconn</structname>接続オブジェクトの<structname>PGcancel</structname><indexterm><primary>PGcancel</primary></indexterm>オブジェクトを作成します。
 与えられた<parameter>conn</parameter>が<symbol>NULL</symbol>もしくは無効な接続であった場合、<symbol>NULL</symbol>が返されます。
 <structname>PGcancel</structname>オブジェクトは不透明な構造体であり、アプリケーションから直接アクセスすることができません。
 これは<xref linkend="libpq-PQcancel"/>もしくは<xref linkend="libpq-PQfreeCancel"/>に渡すことしかできません。
+《機械翻訳》<xref linkend="libpq-PQgetCancel"/>は<structname>PGconn</structname>接続オブジェクトを与えられた<structname>PGcancel</structname><indexterm><primary>PGcancel</primary></indexterm>オブジェクトを作成します。
+指定された<parameter>conn</parameter>が<symbol>NULL</symbol>か、または無効な接続である場合、<symbol>NULL</symbol>を返します。
+<structname>PGcancel</structname>オブジェクトは、アプリケーションが直接アクセスするためのものではありません。
+これは<xref linkend="libpq-PQcancel"/>または<xref linkend="libpq-PQfreeCancel"/>に渡すことができるだけです。
       </para>
      </listitem>
     </varlistentry>
@@ -234,9 +923,11 @@ void PQfreeCancel(PGcancel *cancel);
      <listitem>
       <para>
 <!--
-       Requests that the server abandon processing of the current command.
+       <xref linkend="libpq-PQcancel"/> is a deprecated and insecure
+       variant of <xref linkend="libpq-PQcancelBlocking"/>, but one that can be
+       used safely from within a signal handler.
 -->
-サーバに現在のコマンドの廃棄処理を要求します。
+《機械翻訳》<xref linkend="libpq-PQcancel"/>は、<xref linkend="libpq-PQcancelBlocking"/>の非推奨で安全でない変種ですが、シグナルハンドラ内から安全に使用できます。
 <synopsis>
 int PQcancel(PGcancel *cancel, char *errbuf, int errbufsize);
 </synopsis>
@@ -244,44 +935,46 @@ int PQcancel(PGcancel *cancel, char *errbuf, int errbufsize);
 
       <para>
 <!--
-       The return value is 1 if the cancel request was successfully
-       dispatched and 0 if not.  If not, <parameter>errbuf</parameter> is filled
-       with an explanatory error message.  <parameter>errbuf</parameter>
-       must be a char array of size <parameter>errbufsize</parameter> (the
-       recommended size is 256 bytes).
+       <xref linkend="libpq-PQcancel"/> only exists because of backwards
+       compatibility reasons. <xref linkend="libpq-PQcancelBlocking"/> should be
+       used instead. The only benefit that <xref linkend="libpq-PQcancel"/> has
+       is that it can be safely invoked from a signal handler, if the
+       <parameter>errbuf</parameter> is a local variable in the signal handler.
+       However, this is generally not considered a big enough benefit to be
+       worth the security issues that this function has.
 -->
-キャンセル要求の受け入れが成功すれば1を、そうでなければ0を返します。
+《機械翻訳》<xref linkend="libpq-PQcancel"/>が存在するのは、下位互換性のためだけです。
+代わりに<xref linkend="libpq-PQcancelBlocking"/>を使用してください。
+<xref linkend="libpq-PQcancel"/>の唯一の利点は、<parameter>errbuf</parameter>がシグナルハンドラ内のローカル変数である場合に、シグナルハンドラから安全に呼び出すことができることです。
+しかし、一般的には、この関数が持つセキュリティ問題に見合うほど大きな利点とは考えられていません。
+      </para>
+
+      <para>
+<!--
+       The <structname>PGcancel</structname> object is read-only as far as
+       <xref linkend="libpq-PQcancel"/> is concerned, so it can also be invoked
+       from a thread that is separate from the one manipulating the
+       <structname>PGconn</structname> object.
+-->
+《機械翻訳》<structname>PGcancel</structname>オブジェクトは<xref linkend="libpq-PQcancel"/>に関しては読み取り専用であるため、<structname>PGconn</structname>オブジェクトを操作するスレッドとは別のスレッドからも呼び出すことができます。
+      </para>
+
+      <para>
+<!--
+       The return value of <xref linkend="libpq-PQcancel"/> is 1 if the
+       cancel request was successfully dispatched and 0 if not.
+       If not, <parameter>errbuf</parameter> is filled with an explanatory
+       error message.
+       <parameter>errbuf</parameter> must be a char array of size
+       <parameter>errbufsize</parameter> (the recommended size is 256 bytes).
+-->
+《マッチ度[78.143713]》キャンセル要求の受け入れが成功すれば1を、そうでなければ0を返します。
 失敗した場合、<parameter>errbuf</parameter>にそれを説明するエラーメッセージが収納されます。
 <parameter>errbuf</parameter>は<parameter>errbufsize</parameter>サイズの文字配列でなければなりません。
 (推奨サイズは256バイトです。)
-      </para>
-
-      <para>
-<!--
-       Successful dispatch is no guarantee that the request will have
-       any effect, however.  If the cancellation is effective, the current
-       command will terminate early and return an error result.  If the
-       cancellation fails (say, because the server was already done
-       processing the command), then there will be no visible result at
-       all.
--->
-しかし、要求の受け入れが成功したとしても、その要求の効果が出ることは全く保証していません。
-もしキャンセル操作が有効であれば、現在のコマンドは間もなく中断され、エラーが結果として返ります。
-キャンセル操作に失敗した場合（例えばバックエンドがすでにコマンド処理を終了していたため）、目に見える結果は何も出てこなくなります。
-      </para>
-
-      <para>
-<!--
-       <xref linkend="libpq-PQcancel"/> can safely be invoked from a signal
-       handler, if the <parameter>errbuf</parameter> is a local variable in the
-       signal handler.  The <structname>PGcancel</structname> object is read-only
-       as far as <xref linkend="libpq-PQcancel"/> is concerned, so it can
-       also be invoked from a thread that is separate from the one
-       manipulating the <structname>PGconn</structname> object.
--->
-<parameter>errbuf</parameter>がシグナルハンドラ内のローカル変数であれば、<xref linkend="libpq-PQcancel"/>はシグナルハンドラから起動しても問題ありません。
-<xref linkend="libpq-PQcancel"/>の実行中、<structname>PGcancel</structname>は読み取りのみです。
-従って、<structname>PGconn</structname>オブジェクトを操作するスレッドと別のスレッドからこの関数を呼び出すこともできます。
+《機械翻訳》取り消し要求が正常にディスパッチされた場合、<xref linkend="libpq-PQcancel"/>の戻り値は1です。
+ディスパッチされなかった場合、<parameter>errbuf</parameter>に説明的なエラーメッセージが入ります。
+<parameter>errbuf</parameter>は<parameter>errbufsize</parameter>のサイズ（推奨サイズは256バイト）の文字配列でなければなりません。
       </para>
      </listitem>
     </varlistentry>
@@ -294,13 +987,27 @@ int PQcancel(PGcancel *cancel, char *errbuf, int errbufsize);
      <listitem>
       <para>
 <!--
-       <xref linkend="libpq-PQrequestCancel"/> is a deprecated variant of
-       <xref linkend="libpq-PQcancel"/>.
+       <xref linkend="libpq-PQrequestCancel"/> is a deprecated and insecure
+       variant of <xref linkend="libpq-PQcancelBlocking"/>.
 -->
-<xref linkend="libpq-PQrequestCancel"/>は<xref linkend="libpq-PQcancel"/>の廃止予定の変形版です。
+《マッチ度[71.074380]》<xref linkend="libpq-PQrequestCancel"/>は<xref linkend="libpq-PQcancel"/>の廃止予定の変形版です。
+《機械翻訳》<xref linkend="libpq-PQrequestCancel"/>は、<xref linkend="libpq-PQcancelBlocking"/>の非推奨で安全でない変種です。
 <synopsis>
 int PQrequestCancel(PGconn *conn);
 </synopsis>
+      </para>
+
+      <para>
+<!--
+       <xref linkend="libpq-PQrequestCancel"/> only exists because of backwards
+       compatibility reasons. <xref linkend="libpq-PQcancelBlocking"/> should be
+       used instead. There is no benefit to using
+       <xref linkend="libpq-PQrequestCancel"/> over
+       <xref linkend="libpq-PQcancelBlocking"/>.
+-->
+《機械翻訳》<xref linkend="libpq-PQrequestCancel"/>は下位互換性のために存在します。
+代わりに<xref linkend="libpq-PQcancelBlocking"/>を使用してください。
+<xref linkend="libpq-PQrequestCancel"/>を<xref linkend="libpq-PQcancelBlocking"/>よりも使用することはありません。
       </para>
 
       <para>
@@ -323,8 +1030,7 @@ int PQrequestCancel(PGconn *conn);
      </listitem>
     </varlistentry>
    </variablelist>
-  </para>
-
+  </sect2>
  </sect1>
 
  <sect1 id="libpq-fastpath">
@@ -1788,6 +2494,65 @@ char *PQencryptPasswordConn(PGconn *conn, const char *passwd, const char *user, 
     </listitem>
    </varlistentry>
 
+   <varlistentry id="libpq-PQchangePassword">
+    <term><function>PQchangePassword</function><indexterm><primary>PQchangePassword</primary></indexterm></term>
+
+    <listitem>
+     <para>
+<!--
+      Changes a <productname>PostgreSQL</productname> password.
+-->
+《機械翻訳》<productname>PostgreSQL</productname>のパスワードを変更します。
+<synopsis>
+PGresult *PQchangePassword(PGconn *conn, const char *user, const char *passwd);
+</synopsis>
+<!--
+      This function uses <function>PQencryptPasswordConn</function>
+      to build and execute the command <literal>ALTER USER ... PASSWORD
+      '...'</literal>, thereby changing the user's password. It exists for
+      the same reason as <function>PQencryptPasswordConn</function>, but
+      is more convenient as it both builds and runs the command for you.
+      <xref linkend="libpq-PQencryptPasswordConn"/> is passed a
+      <symbol>NULL</symbol> for the algorithm argument, hence encryption is
+      done according to the server's <xref linkend="guc-password-encryption"/>
+      setting.
+-->
+《機械翻訳》この関数は<function>PQencryptPasswordConn</function>を使用して、コマンド<literal>ALTER USER .パスワード '...'</literal>,.これにより、ユーザーのパスワードが変更されます。
+これは<function>PQencryptPasswordConn</function>と同じ理由で存在しますが、コマンドを構築して実行するのでより便利です。
+<xref linkend="libpq-PQencryptPasswordConn"/>はアルゴリズム引数に<symbol>NULL</symbol>を渡すので、サーバの<xref linkend="guc-password-encryption"/>設定に従って暗号化が行われます。
+     </para>
+
+     <para>
+<!--
+      The <parameter>user</parameter> and <parameter>passwd</parameter> arguments
+      are the SQL name of the target user, and the new cleartext password.
+-->
+《機械翻訳》<parameter>user</parameter>と<parameter>passwd</parameter>引数は、対象ユーザのSQL名と新しい平文パスワードです。
+     </para>
+
+     <para>
+<!--
+      Returns a <structname>PGresult</structname> pointer representing
+      the result of the <literal>ALTER USER</literal> command, or
+      a null pointer if the routine failed before issuing any command.
+      The <xref linkend="libpq-PQresultStatus"/> function should be called
+      to check the return value for any errors (including the value of a null
+      pointer, in which case it will return
+      <symbol>PGRES_FATAL_ERROR</symbol>). Use
+      <xref linkend="libpq-PQerrorMessage"/> to get more information about
+      such errors.
+-->
+《マッチ度[58.859470]》戻り値は<structname>PGresult</structname>へのポインタ、場合によってはNULLポインタです。
+メモリ不足の状態、あるいはサーバへのコマンド送信が不可能といった深刻なエラーの場合を除けば、通常非NULLのポインタが返ります。
+<xref linkend="libpq-PQresultStatus"/>関数を呼び出して、何かエラー（NULLポインタ値を含むエラー。この場合は<symbol>PGRES_FATAL_ERROR</symbol>が返されます）がないか戻り値を検査しなければなりません。
+こうしたエラーの詳しい情報は<xref linkend="libpq-PQerrorMessage"/>で得ることができます。
+《機械翻訳》<literal>ALTER USER</literal>コマンドの結果を表す<structname>PGresult</structname>ポインタ、またはコマンドを発行する前にルーチンが失敗した場合はNULLポインタを返します。
+エラーの結果（NULLポインタの場合は<symbol>PGRES_FATAL_ERROR</symbol>を返します）を確認するには、<xref linkend="libpq-PQresultStatus"/>関数を呼び出す必要があります。
+このようなエラーについての詳細は<xref linkend="libpq-PQerrorMessage"/>を参照してください。
+     </para>
+    </listitem>
+   </varlistentry>
+
    <varlistentry id="libpq-PQencryptPassword">
     <term><function>PQencryptPassword</function><indexterm><primary>PQencryptPassword</primary></indexterm></term>
 
@@ -2084,11 +2849,13 @@ size_t PQresultMemorySize(const PGresult *res);
 <!--
       This value is the sum of all <function>malloc</function> requests
       associated with the <structname>PGresult</structname> object, that is,
-      all the space that will be freed by <xref linkend="libpq-PQclear"/>.
+      all the memory that will be freed by <xref linkend="libpq-PQclear"/>.
       This information can be useful for managing memory consumption.
 -->
-この値は<structname>PGresult</structname>オブジェクトに関連する<function>malloc</function>要求すべての和、すなわち<xref linkend="libpq-PQclear"/>で解放される空間全体です。
+《マッチ度[88.888889]》この値は<structname>PGresult</structname>オブジェクトに関連する<function>malloc</function>要求すべての和、すなわち<xref linkend="libpq-PQclear"/>で解放される空間全体です。
 この情報はメモリ消費を管理するのに有用でしょう。
+《機械翻訳》この値は、<structname>PGresult</structname>オブジェクトに関連する全ての<function>malloc</function>要求、つまり<xref linkend="libpq-PQclear"/>で解放される全てのメモリの合計です。
+この情報はメモリ消費量を管理するのに役立ちます。
      </para>
     </listitem>
    </varlistentry>
@@ -2171,6 +2938,32 @@ int PQlibVersion(void);
 この関数の呼び出しがバージョン9.1以降とのリンク依存性を作成するためです。
       </para>
      </note>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="libpq-PQgetCurrentTimeUSec">
+    <term><function>PQgetCurrentTimeUSec</function><indexterm><primary>PQgetCurrentTimeUSec</primary></indexterm></term>
+
+    <listitem>
+     <para>
+<!--
+      Retrieves the current time, expressed as the number of microseconds
+      since the Unix epoch (that is, <type>time_t</type> times 1 million).
+-->
+《機械翻訳》現在時間を取得します。
+これは、Unixエポックからの経過時間をマイクロ秒単位で表したものです<type>time_t</type>×100万)。
+<synopsis>
+pg_usec_time_t PQgetCurrentTimeUSec(void);
+</synopsis>
+     </para>
+
+     <para>
+<!--
+      This is primarily useful for calculating timeout values to use with
+      <xref linkend="libpq-PQsocketPoll"/>.
+-->
+《機械翻訳》これは主に、<xref linkend="libpq-PQsocketPoll"/>で使用するタイムアウト値を計算する場合に便利です。
+     </para>
     </listitem>
    </varlistentry>
 
@@ -2420,12 +3213,16 @@ defaultNoticeProcessor(void *arg, const char *message)
        is called.  It is the ideal time to initialize any
        <literal>instanceData</literal> an event procedure may need.  Only one
        register event will be fired per event handler per connection.  If the
-       event procedure fails (returns zero), the registration is cancelled.
+       event procedure fails (returns zero), the registration is canceled.
 -->
-登録イベントは<xref linkend="libpq-PQregisterEventProc"/>が呼ばれたとき発生します。
+《マッチ度[88.253012]》登録イベントは<xref linkend="libpq-PQregisterEventProc"/>が呼ばれたとき発生します。
 イベントプロシージャが必要とするかもしれない任意の<literal>instanceData</literal>を初期化するために、これは理想的な機会です。
 接続毎、イベントハンドラ毎でただ１つの登録イベントが発行されます。
 イベントプロシージャが失敗する（ゼロが返される）と、登録はキャンセルされます。
+《機械翻訳》レジスタイベントは、<xref linkend="libpq-PQregisterEventProc"/>が呼び出された時に発生します。
+イベントプロシージャが必要とする<literal>instanceData</literal>を初期化するのに理想的な時間です。
+接続ごとにイベントハンドラごとに1つのレジスタイベントしか発生しません。
+イベントプロシージャが失敗した場合（0を返す場合）、登録はキャンセルされます。
 
 <synopsis>
 typedef struct
@@ -3155,6 +3952,20 @@ myEventProc(PGEventId evtId, void *evtInfo, void *passThrough)
       linkend="libpq-connect-host"/> connection parameter.
 -->
 <envar>PGHOST</envar>は<xref linkend="libpq-connect-host"/>接続パラメータと同様に動作します。
+     </para>
+    </listitem>
+
+    <listitem>
+     <para>
+      <indexterm>
+       <primary><envar>PGSSLNEGOTIATION</envar></primary>
+      </indexterm>
+<!--
+      <envar>PGSSLNEGOTIATION</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslnegotiation"/> connection parameter.
+-->
+《マッチ度[79.032258]》<envar>PGGSSDELEGATION</envar>は<xref linkend="libpq-connect-gssdelegation"/>接続パラメータと同様に動作します。
+《機械翻訳》<envar>PGSSLNEGOTIATION</envar>は<xref linkend="libpq-connect-sslnegotiation"/>接続パラメータと同様に動作します。
      </para>
     </listitem>
 

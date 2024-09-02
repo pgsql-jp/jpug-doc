@@ -279,7 +279,7 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
 <!--
         The timeout is measured from the time a command arrives at the
         server until it is completed by the server.  If multiple SQL
-        statements appear in a single simple-Query message, the timeout
+        statements appear in a single simple-query message, the timeout
         is applied to each statement separately.
         (<productname>PostgreSQL</productname> versions before 13 usually
         treated the timeout as applying to the whole query string.)
@@ -287,10 +287,14 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
         query-related message (Parse, Bind, Execute, Describe) arrives, and
         it is canceled by completion of an Execute or Sync message.
 -->
-タイムアウトは、コマンドがサーバに到着したときから、サーバがそのコマンドの実行を完了するまでを基準にします。
+《マッチ度[86.422018]》タイムアウトは、コマンドがサーバに到着したときから、サーバがそのコマンドの実行を完了するまでを基準にします。
 複数のSQL文が一つの単純問い合わせメッセージに含まれる場合、タイムアウトは個々のSQL文に別々に適用されます。
 （13よりも前の<productname>PostgreSQL</productname>バージョンでは、通常SQL文字列全体に対してタイムアウトが適用されていました。）
 拡張問い合わせでは、タイムアウトは問い合わせに関するメッセージ（Parse、Bind、Execute、Describe）が到着したときに開始し、ExecuteあるいはSyncメッセージが完了した時にキャンセルされます。
+《機械翻訳》タイムアウトは、コマンドがサーバに到着してからサーバで完成するまでの時間で測られます。
+マルチプルSQLステートメントが1つのシンプル-クエリメッセージに表示される場合、タイムアウトは各ステートメントに個別に適用されます。
+（<productname>PostgreSQL</productname>バージョン前13では、通常、タイムアウトがクエリー文字列全体に適用されるものとして扱われていました。）
+拡張クエリプロトコルでは、クエリ関係のメッセージ（解析、バインド、実行、Describe）が到着した時点でタイムアウトが運転を開始し、実行やSyncメッセージの完成により運休する。
        </para>
 
        <para>
@@ -301,6 +305,61 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
 -->
 すべてのセッションに影響することがあるので、<filename>postgresql.conf</filename>内で<varname>statement_timeout</varname>を設定することは推奨されません。
        </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-transaction-timeout" xreflabel="transaction_timeout">
+      <term><varname>transaction_timeout</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>transaction_timeout</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        Terminate any session that spans longer than the specified amount of
+        time in a transaction. The limit applies both to explicit transactions
+        (started with <command>BEGIN</command>) and to an implicitly started
+        transaction corresponding to a single statement.
+        If this value is specified without units, it is taken as milliseconds.
+        A value of zero (the default) disables the timeout.
+-->
+《マッチ度[51.842105]》開いているトランザクションが、指定された時間を超えてアイドルだった場合（つまりクライアントからの問い合わせを待っている場合）に、セッションを終了します。
+この値が単位なしで指定された場合は、ミリ秒単位であるとみなします。
+値がゼロ（デフォルト）の場合はタイムアウトは無効になります。
+《機械翻訳》セッション内で指定した時間より長いトランザクションを終了します。
+この制限は、明示的なトランザクション<command>BEGIN</command>で開始と、単一のトランザクションに対応する暗黙的に開始されたステートメントの両方に適用されます。
+この値を単位なしで指定すると、ミリ秒として解釈されます。
+ゼロ（デフォルト）の値は、タイムアウトを使用不可にします。
+       </para>
+
+       <para>
+<!--
+        If <varname>transaction_timeout</varname> is shorter or equal to
+        <varname>idle_in_transaction_session_timeout</varname> or <varname>statement_timeout</varname>
+        then the longer timeout is ignored.
+-->
+《機械翻訳》<varname>トランザクション_タイムアウト</varname>が短い場合、または等しい<varname>idle_in_トランザクション_セッション_タイムアウト</varname>または<varname>ステートメント_タイムアウト</varname>の場合、長いタイムアウトは無視されます。
+       </para>
+
+       <para>
+<!--
+        Setting <varname>transaction_timeout</varname> in
+        <filename>postgresql.conf</filename> is not recommended because it would
+        affect all sessions.
+-->
+《マッチ度[76.223776]》すべてのセッションに影響することがあるので、<filename>postgresql.conf</filename>内で<varname>statement_timeout</varname>を設定することは推奨されません。
+《機械翻訳》<filename>トランザクション.conf</filename>で<varname>PostgreSQL_タイムアウト</varname>を設定すると、すべてのセッションに影響するため、お勧めしません。
+       </para>
+
+       <note>
+        <para>
+<!--
+         Prepared transactions are not subject to this timeout.
+-->
+《機械翻訳》準備されたトランザクションは、このタイムアウトへのサブジェクトではありません。
+        </para>
+       </note>
       </listitem>
      </varlistentry>
 
@@ -886,6 +945,32 @@ SET XML OPTION { DOCUMENT | CONTENT };
 また、この設定を使用して、<literal>CREATEROLE</literal>ユーザが作成したユーザに対して同様の動作を生成できます。
        </para>
       </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-event-triggers" xreflabel="event_triggers">
+      <term><varname>event_triggers</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>event_triggers</varname></primary>
+       <secondary>configuration parameter</secondary>
+     </indexterm>
+     </term>
+     <listitem>
+      <para>
+<!--
+       Allow temporarily disabling execution of event triggers in order to
+       troubleshoot and repair faulty event triggers. All event triggers will
+       be disabled by setting it to <literal>false</literal>. Setting the value
+       to <literal>true</literal> allows all event triggers to fire, this
+       is the default value. Only superusers and users with the appropriate
+       <literal>SET</literal> privilege can change this setting.
+-->
+《機械翻訳》オーダーでのイベント・トリガーの実行を一時的に無効化して、障害のあるイベント・トリガーのトラブルシューティングおよび修復を可能にします。
+すべてのイベント・トリガーは、<literal>偽</literal>に設定することで無効になります。
+値を<literal>真</literal>に設定すると、すべてのイベント・トリガーが起動します。
+これがデフォルト値です。
+スーパーユーザおよび適切な<literal>SET</literal>権限を持つユーザのみがこの設定を変更できます。
+      </para>
+     </listitem>
      </varlistentry>
 
      <varlistentry id="guc-restrict-nonsystem-relation-kind" xreflabel="restrict_nonsystem_relation_kind">
@@ -2381,6 +2466,78 @@ GINインデックス走査により返されるセットのソフトな上限�
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-allow-alter-system" xreflabel="allow_alter_system">
+      <term><varname>allow_alter_system</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>allow_alter_system</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        When <literal>allow_alter_system</literal> is set to
+        <literal>off</literal>, an error is returned if the <command>ALTER
+        SYSTEM</command> command is executed. This parameter can only be set in
+        the <filename>postgresql.conf</filename> file or on the server command
+        line. The default value is <literal>on</literal>.
+-->
+《マッチ度[52.884615]》サーバのSSL暗号設定をクライアントに優先して使うかどうかを指定します。
+このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
+デフォルトは<literal>on</literal>です。
+《機械翻訳》<literal>allow_alter_システム</literal>が<literal>オフ</literal>に設定されている場合、<command>ALTERエラー</command>コマンドが実行されるとシステムが返されます。
+このパラメータは、<filename>PostgreSQL.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
+デフォルト値は<literal>on</literal>です。
+       </para>
+
+       <para>
+<!--
+        Note that this setting must not be regarded as a security feature. It
+        only disables the <literal>ALTER SYSTEM</literal> command. It does not
+        prevent a superuser from changing the configuration using other SQL
+        commands. A superuser has many ways of executing shell commands at
+        the operating system level, and can therefore modify
+        <literal>postgresql.auto.conf</literal> regardless of the value of
+        this setting.
+-->
+《機械翻訳》ノートは、この設定をセキュリティ機能とみなしてはなりません。
+これは<literal>ALTERシステム</literal>コマンドを無効にするだけです。
+スーパーユーザが他のSQLコマンドを使用して設定を変更することを妨げるものではありません。
+スーパーユーザにはオペレーティングシステムレベルでシェルコマンドを実行する多くの方法があるため、この設定の値に関係なく<literal>PostgreSQL.auto.conf</literal>を変更できます。
+       </para>
+
+       <para>
+<!--
+        Turning this setting off is intended for environments where the
+        configuration of <productname>PostgreSQL</productname> is managed by
+        some external tool.
+        In such environments, a well intentioned superuser might
+        <emphasis>mistakenly</emphasis> use <command>ALTER SYSTEM</command>
+        to change the configuration instead of using the external tool.
+        This might result in unintended behavior, such as the external tool
+        overwriting the change at some later point in time when it updates the
+        configuration.
+        Setting this parameter to <literal>off</literal> can
+        help avoid such mistakes.
+-->
+《機械翻訳》この設定をオフにすることは、<productname>PostgreSQL</productname>の設定が外部のツールによって管理されている環境を対象としています。
+このような環境では、善意のスーパーユーザが<emphasis>誤って</emphasis><command>ALTERシステム</command>を使用し、外部設定を使用してツール代わりを変更する可能性があります。
+これにより、外部ツールがポイントを更新したときに、後の設定で変更を上書きするなど、意図しない動作が発生する可能性があります。
+このパラメータを<literal>オフ</literal>に設定すると、ヘルプはそのような間違いを避けることができます。
+       </para>
+
+       <para>
+<!--
+        This parameter only controls the use of <command>ALTER SYSTEM</command>.
+        The settings stored in <filename>postgresql.auto.conf</filename>
+        take effect even if <literal>allow_alter_system</literal> is set to
+        <literal>off</literal>.
+-->
+《機械翻訳》このパラメータは<command>ALTERシステム</command>の使用のみを制御します。
+<filename>PostgreSQL.auto.conf</filename>に保存された設定は、<literal>allow_alter_システム</literal>が<literal>オフ</literal>に設定されていても有効になります。
+       </para>
+      </listitem>
+     </varlistentry>
+
      </variablelist>
     </sect2>
    </sect1>
@@ -2529,7 +2686,7 @@ onに設定すると、代わりに<productname>PostgreSQL</productname>はエ�
        <para>
 <!--
         On Linux, <literal>syncfs</literal> may be used instead, to ask the
-        operating system to synchronize the whole file systems that contain the
+        operating system to synchronize the file systems that contain the
         data directory, the WAL files and each tablespace (but not any other
         file systems that may be reachable through symbolic links).  This may
         be a lot faster than the <literal>fsync</literal> setting, because it
@@ -2541,10 +2698,14 @@ onに設定すると、代わりに<productname>PostgreSQL</productname>はエ�
         <productname>PostgreSQL</productname>, and relevant error messages may
         appear only in kernel logs.
 -->
-Linuxでは代わりに、オペレーティングシステムに対して、データディレクトリ、WALファイル、各々のテーブル空間（しかし、シンボリックリンクを通じて到達可能な他のファイルシステムを含みません）を含むファイルシステム全体を同期することを依頼する<literal>syncfs</literal>が使えるかもしれません。
+《マッチ度[86.369594]》Linuxでは代わりに、オペレーティングシステムに対して、データディレクトリ、WALファイル、各々のテーブル空間（しかし、シンボリックリンクを通じて到達可能な他のファイルシステムを含みません）を含むファイルシステム全体を同期することを依頼する<literal>syncfs</literal>が使えるかもしれません。
 これは各々のファイルを一つ一つ開けることが必要ないため、<literal>fsync</literal>を設定するよりもずっと速いかもしれません。
 一方で、そのファイルシステムが多くのファイルを変更するアプリケーションも利用している場合、これらのファイルもディスクに書かれるので、遅くなるかもしれません。
 更に、Linuxのバージョン5.8以前では、ディスクへの書き込み中に発生したI/Oエラーが<productname>PostgreSQL</productname>に報告されないことがあり、関連エラーメッセージはカーネルログにのみ現れるかもしれません。
+《機械翻訳》リナックスでは、<literal>syncfs</literal>を代わりに使用して、オペレーティングシステム、WALファイル、および各ファイルを含むデータディレクトリシステムを同期させるようにテーブルスペースに要求できます（ただし、シンボリックリンクを介して到達可能な他のファイルシステムは同期されません）。
+これは、各ファイルを1つずつオープンする必要がないため、<literal>fsync</literal>設定よりもはるかに高速になる可能性があります。
+一方、多くのファイルを変更する他のアプリケーションによってファイルシステムが共有されている場合は、それらのファイルもディスクに書き込まれるため、速度が低下する可能性があります。
+さらに、リナックス前5.8のバージョンでは、データからディスクへの書き込み中に発生したI/Oエラーが<productname>PostgreSQL</productname>に報告されず、関連するエラーメッセージがカーネルログにのみ表示される場合があります。
        </para>
        <para>
 <!--
@@ -2683,6 +2844,30 @@ Linuxでは代わりに、オペレーティングシステムに対して、デ
 <productname>PostgreSQL</productname>がアサーションを有効にしてビルドされているかどうかを報告します。
 これは、<symbol>USE_ASSERT_CHECKING</symbol>マクロが<productname>PostgreSQL</productname>をビルドされた際に定義されている場合(つまり、<command>configure</command>オプションの<option>--enable-cassert</option>が適用されている)に該当します。
 デフォルトでは<productname>PostgreSQL</productname>は、アサーションなしにビルドされます。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-huge-pages-status" xreflabel="huge_pages_status">
+      <term><varname>huge_pages_status</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>huge_pages_status</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        Reports the state of huge pages in the current instance:
+        <literal>on</literal>, <literal>off</literal>, or
+        <literal>unknown</literal> (if displayed with
+        <literal>postgres -C</literal>).
+        This parameter is useful to determine whether allocation of huge pages
+        was successful under <literal>huge_pages=try</literal>.
+        See <xref linkend="guc-huge-pages"/> for more information.
+-->
+《機械翻訳》現在インスタンスのhuge pagesの状態を報告します:<literal>オン</literal>、<literal>オフ</literal>、または<literal>不明</literal><literal>POSTGRES-C</literal>で表示される場合。
+このパラメータは、<literal>huge_ページ=トライ</literal>でhuge pagesのアロケーションが成功したかどうかを判断するのに役立ちます。
+詳細については、<xref linkend="guc-huge-pages"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -3462,44 +3647,6 @@ WALディスクブロックの容量を報告します。
       </listitem>
      </varlistentry>
 
-     <varlistentry id="guc-trace-recovery-messages" xreflabel="trace_recovery_messages">
-      <term><varname>trace_recovery_messages</varname> (<type>enum</type>)
-      <indexterm>
-       <primary><varname>trace_recovery_messages</varname> configuration parameter</primary>
-      </indexterm>
-      <indexterm>
-       <primary><varname>trace_recovery_messages</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        Enables logging of recovery-related debugging output that otherwise
-        would not be logged. This parameter allows the user to override the
-        normal setting of <xref linkend="guc-log-min-messages"/>, but only for
-        specific messages. This is intended for use in debugging hot standby.
-        Valid values are <literal>DEBUG5</literal>, <literal>DEBUG4</literal>,
-        <literal>DEBUG3</literal>, <literal>DEBUG2</literal>, <literal>DEBUG1</literal>, and
-        <literal>LOG</literal>.  The default, <literal>LOG</literal>, does not affect
-        logging decisions at all.  The other values cause recovery-related
-        debug messages of that priority or higher to be logged as though they
-        had <literal>LOG</literal> priority; for common settings of
-        <varname>log_min_messages</varname> this results in unconditionally sending
-        them to the server log.
-        This parameter can only be set in the <filename>postgresql.conf</filename>
-        file or on the server command line.
--->
-ロギングされないリカバリ関連のデバッグ出力のロギングを使用可能にします。このパラメータにより、ユーザーは<xref linkend="guc-log-min-messages"/>の通常の設定を上書きできますが、特定のメッセージに対してのみ使用できます。
-これはホット・スタンバイのデバッグに使用します。
-有効な値は、<literal>DEBUG5</literal>、<literal>DEBUG4</literal>、<literal>DEBUG3</literal>、<literal>DEBUG2</literal>、<literal>DEBUG1</literal>および<literal>LOG</literal>です。
-デフォルトの<literal>LOG</literal>はロギングの決定にまったく影響しません。
-その他の値を指定すると、その優先度以上のリカバリ関連のデバッグ・メッセージが<literal>LOG</literal>優先であるかのようにロギングされます。
-<varname>log_min_messages</varname>の一般的な設定では、無条件にサーバー・ログに送信されます。
-このパラメータは<filename>postgresql.conf</filename>ファイル内、またはサーバのコマンドラインのみで設定可能です。
-       </para>
-      </listitem>
-     </varlistentry>
-
      <varlistentry id="guc-trace-sort" xreflabel="trace_sort">
       <term><varname>trace_sort</varname> (<type>boolean</type>)
       <indexterm>
@@ -4217,9 +4364,12 @@ JITコンパイルが有効な時にタプルデフォーミングがJITコン�
         <literal>buffered</literal>, the decoding will stream or serialize
         changes when <varname>logical_decoding_work_mem</varname> is reached.
 -->
-パブリッシャー側では、<varname>debug_logical_replication_streaming</varname>を使用すると、ロジカルデコーディングでただちに変更をストリーミングまたはシリアル化できます。
+《マッチ度[86.776860]》パブリッシャー側では、<varname>debug_logical_replication_streaming</varname>を使用すると、ロジカルデコーディングでただちに変更をストリーミングまたはシリアル化できます。
 <literal>immediate</literal>に設定すると、<link linkend="sql-createsubscription"><command>CREATE SUBSCRIPTION</command></link>の<link linkend="sql-createsubscription-params-with-streaming"><literal>ストリーミング</literal></link>オプションが有効になっている場合は各変更をストリームし、それ以外の場合は各変更をシリアル化します。
 <literal>buffered</literal>に設定すると、<varname>logical_decoding_work_mem</varname>に達したときに、デコーディング処理がストリームまたはシリアル化します。
+《機械翻訳》パブリッシャー側では、<varname>デバッグ_ロジカル_レプリケーション_ストリーミング</varname>を使用すると、ロジカルデコーディングで変更を即座にストリーミングまたは直列化できます。
+<literal>immediate</literal>に設定すると、<link linkend="sql-createsubscription"><command>ストリームを作成</command></link>の<link linkend="sql-createsubscription-params-with-streaming"><literal>ストリーミング</literal></link>オプションが有効になっている場合は各変更をサブスクリプションし、それ以外の場合は各変更を直列化します。
+<literal>buffered</literal>に設定すると、デコードは<varname>ストリーム_decoding_work_mem</varname>に達したときに変更をロジカルまたはシリアライズします。
        </para>
 
        <para>

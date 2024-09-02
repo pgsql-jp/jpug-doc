@@ -652,19 +652,11 @@
        </row>
        <row>
         <entry><literal>TZ</literal></entry>
-<!--
-        <entry>upper case time-zone abbreviation
-         (only supported in <function>to_char</function>)</entry>
--->
-        <entry>大文字による時間帯省略名（<function>to_char</function>内でのみサポートされる）</entry>
+        <entry>upper case time-zone abbreviation</entry>
        </row>
        <row>
         <entry><literal>tz</literal></entry>
-<!--
-        <entry>lower case time-zone abbreviation
-         (only supported in <function>to_char</function>)</entry>
--->
-        <entry>小文字による時間帯省略名（<function>to_char</function>内でのみサポートされる）</entry>
+        <entry>lower case time-zone abbreviation</entry>
        </row>
        <row>
        <entry><literal>TZH</literal></entry>
@@ -682,11 +674,8 @@
        </row>
        <row>
         <entry><literal>OF</literal></entry>
-<!--
-        <entry>time-zone offset from UTC
-         (only supported in <function>to_char</function>)</entry>
--->
-        <entry>UTCからの時間帯オフセット（<function>to_char</function>内でのみサポートされる）</entry>
+        <entry>time-zone offset from UTC (<replaceable>HH</replaceable>
+         or <replaceable>HH</replaceable><literal>:</literal><replaceable>MM</replaceable>)</entry>
        </row>
       </tbody>
      </tgroup>
@@ -1606,6 +1595,12 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
        <row>
         <entry><literal>to_char(current_timestamp, 'FMDay,&nbsp;FMDD&nbsp;&nbsp;HH12:MI:SS')</literal></entry>
         <entry><literal>'Tuesday,&nbsp;6&nbsp;&nbsp;05:39:18'</literal></entry>
+       </row>
+       <row>
+        <entry><literal>to_char(current_timestamp AT TIME ZONE
+        'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')</literal></entry>
+        <entry><literal>'2022-12-06T05:39:18Z'</literal>,
+        <acronym>ISO</acronym> 8601 extended format</entry>
        </row>
        <row>
         <entry><literal>to_char(-0.1, '99.99')</literal></entry>
@@ -2583,9 +2578,10 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
         </para>
         <para>
 <!--
-         Test for finite interval (currently always true)
+         Test for finite interval (not +/-infinity)
 -->
-時間間隔が有限かどうかの検査（今の所常に真）
+《マッチ度[64.285714]》日付が有限（+/-無限でない）かどうかの検査
+《機械翻訳》有限間隔のテスト（±無限大ではない）
         </para>
         <para>
          <literal>isfinite(interval '4 hours')</literal>
@@ -2776,7 +2772,7 @@ ISO 8601週番号年の文脈では、<quote>月</quote>、あるいは<quote>�
          Create interval from years, months, weeks, days, hours, minutes and
          seconds fields, each of which can default to zero
 -->
-年、月、週、日、時間、分、秒フィールドから時間間隔を作成
+年、月、週、日、時間、分、秒フィールドから時間間隔を作成。それぞれがデフォルトでゼロになる
         </para>
         <para>
          <literal>make_interval(days =&gt; 10)</literal>
@@ -3701,13 +3697,21 @@ SELECT EXTRACT(MINUTES FROM INTERVAL '80 minutes');
      When the input value is +/-Infinity, <function>extract</function> returns
      +/-Infinity for monotonically-increasing fields (<literal>epoch</literal>,
      <literal>julian</literal>, <literal>year</literal>, <literal>isoyear</literal>,
-     <literal>decade</literal>, <literal>century</literal>, and <literal>millennium</literal>).
+     <literal>decade</literal>, <literal>century</literal>, and <literal>millennium</literal>
+     for <type>timestamp</type> inputs; <literal>epoch</literal>, <literal>hour</literal>,
+     <literal>day</literal>, <literal>year</literal>, <literal>decade</literal>,
+     <literal>century</literal>, and <literal>millennium</literal> for
+     <type>interval</type> inputs).
      For other fields, NULL is returned.  <productname>PostgreSQL</productname>
      versions before 9.6 returned zero for all cases of infinite input.
 -->
-入力値が+/-無限大の場合、<function>extract</function>は単調増加するフィールド（<literal>epoch</literal>、<literal>julian</literal>、<literal>year</literal>、<literal>isoyear</literal>、<literal>decade</literal>、<literal>century</literal>、<literal>millennium</literal>）に対し、+/-無限大を返します。
+《マッチ度[61.785216]》入力値が+/-無限大の場合、<function>extract</function>は単調増加するフィールド（<literal>epoch</literal>、<literal>julian</literal>、<literal>year</literal>、<literal>isoyear</literal>、<literal>decade</literal>、<literal>century</literal>、<literal>millennium</literal>）に対し、+/-無限大を返します。
 その他のフィールドに対してはNULLが返されます。
 <productname>PostgreSQL</productname>の9.6より前のバージョンでは、入力が無限大のすべての場合に対してゼロを返していました。
+《機械翻訳》入力値が+/-Infinityの場合、<function>extract</function>は、単調に増加するフィールド（<type>timestamp</type>入力の場合は<literal>epoch</literal>、<literal>julian</literal>、<literal>year</literal>、<literal>isoyear</literal>、<literal>decade</literal>、<literal>century</literal>、<literal>millennium</literal>）に対して+/Infinityを返します。
+<literal>epoch</literal>、<literal>hour</literal>、<literal>day</literal>、<literal>year</literal>、<literal>decade</literal>、<literal>century</literal>、および<literal>millennium</literal>に対しては<literal>interval</literal>入力の場合に対しては<literal>/+/Infinity</literal>を返します。
+その他のフィールドではNULLが返されます。
+<productname>PostgreSQL</productname>の9.6より前のバージョンでは、無限入力の場合はすべてゼロを返していました。
     </para>
    </note>
 
@@ -3933,7 +3937,7 @@ SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-0
   </sect2>
 
   <sect2 id="functions-datetime-zoneconvert">
-   <title><literal>AT TIME ZONE</literal></title>
+   <title><literal>AT TIME ZONE and AT LOCAL</literal></title>
 
    <indexterm>
     <primary>time zone</primary>
@@ -3946,6 +3950,10 @@ SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-0
 
    <indexterm>
     <primary>AT TIME ZONE</primary>
+   </indexterm>
+
+   <indexterm>
+    <primary>AT LOCAL</primary>
    </indexterm>
 
    <para>
@@ -3962,10 +3970,7 @@ SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-0
    </para>
 
     <table id="functions-datetime-zoneconvert-table">
-<!--
-     <title><literal>AT TIME ZONE</literal> Variants</title>
--->
-     <title><literal>AT TIME ZONE</literal>の種類</title>
+     <title><literal>AT TIME ZONE</literal> and <literal>AT LOCAL</literal> Variants</title>
      <tgroup cols="1">
       <thead>
        <row>
@@ -4012,6 +4017,26 @@ SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-0
 
        <row>
         <entry role="func_table_entry"><para role="func_signature">
+         <type>timestamp without time zone</type> <literal>AT LOCAL</literal>
+         <returnvalue>timestamp with time zone</returnvalue>
+        </para>
+        <para>
+<!--
+         Converts given time stamp <emphasis>without</emphasis> time zone to
+         time stamp <emphasis>with</emphasis> the session's
+         <varname>TimeZone</varname> value as time zone.
+-->
+《マッチ度[61.445783]》与えられた<emphasis>時間帯なし</emphasis>タイムスタンプを指定された時間帯にあるとして<emphasis>時間帯あり</emphasis>タイムスタンプに変換します。
+《機械翻訳》与えられたタイムスタンプを、タイムゾーンを持たないタイムスタンプから、セッションの<varname>TimeZone</varname>値をタイムゾーンとして持つタイムスタンプに変換します。
+        </para>
+        <para>
+         <literal>timestamp '2001-02-16 20:38:40' at local</literal>
+         <returnvalue>2001-02-17 03:38:40+00</returnvalue>
+        </para></entry>
+       </row>
+
+       <row>
+        <entry role="func_table_entry"><para role="func_signature">
          <type>timestamp with time zone</type> <literal>AT TIME ZONE</literal> <replaceable>zone</replaceable>
          <returnvalue>timestamp without time zone</returnvalue>
         </para>
@@ -4025,6 +4050,27 @@ SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-0
         </para>
         <para>
          <literal>timestamp with time zone '2001-02-16 20:38:40-05' at time zone 'America/Denver'</literal>
+         <returnvalue>2001-02-16 18:38:40</returnvalue>
+        </para></entry>
+       </row>
+
+       <row>
+        <entry role="func_table_entry"><para role="func_signature">
+         <type>timestamp with time zone</type> <literal>AT LOCAL</literal>
+         <returnvalue>timestamp without time zone</returnvalue>
+        </para>
+        <para>
+<!--
+         Converts given time stamp <emphasis>with</emphasis> time zone to
+         time stamp <emphasis>without</emphasis> time zone, as the time would
+         appear with the session's <varname>TimeZone</varname> value as time zone.
+-->
+《マッチ度[63.768116]》与えられた<emphasis>時間帯付き</emphasis>時刻を、時刻がその時間帯にあるものとして<emphasis>時間帯なし</emphasis>タイムスタンプに変換します。
+《機械翻訳》与えられたタイムスタンプ<emphasis>と</emphasis>タイムゾーンを、タイムゾーンを持たないタイムスタンプに変換します。
+タイムゾーンは、セッションの<varname>TimeZone</varname>値をタイムゾーンとして表示します。
+        </para>
+        <para>
+         <literal>timestamp with time zone '2001-02-16 20:38:40-05' at local</literal>
          <returnvalue>2001-02-16 18:38:40</returnvalue>
         </para></entry>
        </row>
@@ -4045,6 +4091,34 @@ SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-0
         </para>
         <para>
          <literal>time with time zone '05:34:17-05' at time zone 'UTC'</literal>
+         <returnvalue>10:34:17+00</returnvalue>
+        </para></entry>
+       </row>
+
+       <row>
+        <entry role="func_table_entry"><para role="func_signature">
+         <type>time with time zone</type> <literal>AT LOCAL</literal>
+         <returnvalue>time with time zone</returnvalue>
+        </para>
+        <para>
+<!--
+         Converts given time <emphasis>with</emphasis> time zone to a new time
+         zone.  Since no date is supplied, this uses the currently active UTC
+         offset for the session's <varname>TimeZone</varname> value.
+-->
+《マッチ度[68.020305]》与えられた時刻<emphasis>with</emphasis> time zoneを新しい時間帯に変換します。
+判断するためのデータがないので、現在の有効なUTCオフセットを目的の時間帯のために使用します。
+《機械翻訳》与えられた時間帯<emphasis>と</emphasis>時間帯を新しい時間帯に変換します。
+日付が与えられていないので、セッションの<varname>TimeZone</varname>値に現在有効なUTCオフセットを使用します。
+        </para>
+        <para>
+<!--
+         Assuming the session's <varname>TimeZone</varname> is set to <literal>UTC</literal>:
+-->
+《機械翻訳》セッションの<varname>TimeZone</varname>が<literal>UTC</literal>に設定されていると仮定します。
+        </para>
+        <para>
+         <literal>time with time zone '05:34:17-05' at local</literal>
          <returnvalue>10:34:17+00</returnvalue>
         </para></entry>
        </row>
@@ -4069,6 +4143,17 @@ SELECT date_bin('15 minutes', TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-0
 
    <para>
 <!--
+    The syntax <literal>AT LOCAL</literal> may be used as shorthand for
+    <literal>AT TIME ZONE <replaceable>local</replaceable></literal>, where
+    <replaceable>local</replaceable> is the session's
+    <varname>TimeZone</varname> value.
+-->
+《機械翻訳》構文<literal>AT LOCAL</literal>は、<literal>AT TIME ZONE <replaceable>local</replaceable></literal>の省略形として使用できます。
+ここで、<replaceable>local</replaceable>はセッションの<varname>TimeZone</varname>値です。
+   </para>
+
+   <para>
+<!--
     Examples (assuming the current <xref linkend="guc-timezone"/> setting
     is <literal>America/Los_Angeles</literal>):
 -->
@@ -4080,6 +4165,10 @@ SELECT TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40-05' AT TIME ZONE 'America/D
 <lineannotation>Result: </lineannotation><computeroutput>2001-02-16 18:38:40</computeroutput>
 SELECT TIMESTAMP '2001-02-16 20:38:40' AT TIME ZONE 'Asia/Tokyo' AT TIME ZONE 'America/Chicago';
 <lineannotation>Result: </lineannotation><computeroutput>2001-02-16 05:38:40</computeroutput>
+SELECT TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40-05' AT LOCAL;
+<lineannotation>Result: </lineannotation><computeroutput>2001-02-16 17:38:40</computeroutput>
+SELECT TIME WITH TIME ZONE '20:38:40-05' AT LOCAL;
+<lineannotation>Result: </lineannotation><computeroutput>17:38:40</computeroutput>
 </screen>
 <!--
     The first example adds a time zone to a value that lacks it, and
@@ -4088,12 +4177,33 @@ SELECT TIMESTAMP '2001-02-16 20:38:40' AT TIME ZONE 'Asia/Tokyo' AT TIME ZONE 'A
     to the specified time zone, and returns the value without a time zone.
     This allows storage and display of values different from the current
     <varname>TimeZone</varname> setting.  The third example converts
-    Tokyo time to Chicago time.
+    Tokyo time to Chicago time.  The fourth example shifts the time stamp
+    with time zone value to the time zone currently specified by the
+    <varname>TimeZone</varname> setting and returns the value without a
+    time zone.
 -->
-最初の例は、時間帯のない値に時間帯を追加し、現在の<varname>TimeZone</varname>設定を使ってその値を表示します。
+《マッチ度[65.640194]》最初の例は、時間帯のない値に時間帯を追加し、現在の<varname>TimeZone</varname>設定を使ってその値を表示します。
 2番目の例は、time stamp with time zone値を指定した時間帯に変換し、その値をwithout a time zoneで返しています。
 これは、<varname>TimeZone</varname>設定とは異なる値の格納と表示を可能にします。
 3番目の例は、東京時間をシカゴ時間に変換します。
+《機械翻訳》最初の例は、タイムゾーンを追加しない値にタイムゾーンを追加し、現在の<varname>TimeZone</varname>設定を使用して値を表示します。
+2 番目の例では、タイム スタンプを指定されたタイム ゾーンにシフトし、タイム ゾーンを含めずに値を返します。
+これにより、現在の<varname>TimeZone</varname>設定とは異なる値を格納し、表示することができます。
+3 番目の例では、東京時間をシカゴ時間に変換します。
+4番目の例は、タイムスタンプを<varname>TimeZone</varname>設定で指定された現在のタイムゾーンにシフトし、タイムゾーンなしで値を返します。
+   </para>
+
+   <para>
+<!--
+    The fifth example is a cautionary tale. Due to the fact that there is no
+    date associated with the input value, the conversion is made using the
+    current date of the session. Therefore, this static example may show a wrong
+    result depending on the time of the year it is viewed because
+    <literal>'America/Los_Angeles'</literal> observes Daylight Savings Time.
+-->
+《機械翻訳》第5の例は教訓的な話である。
+入力値に日付が関連付けられていないため、変換はセッションの現在の日付を使用して行われます。
+したがって、この静的な例は、<literal>'America/Los_Angeles'</literal>がサマータイムを使用しているため、表示される年の時期によっては誤った結果を示す可能性があります。
    </para>
 
    <para>
@@ -4104,6 +4214,36 @@ SELECT TIMESTAMP '2001-02-16 20:38:40' AT TIME ZONE 'Asia/Tokyo' AT TIME ZONE 'A
     <replaceable>zone</replaceable></literal>.
 -->
 関数<literal><function>timezone</function>(<replaceable>zone</replaceable>, <replaceable>timestamp</replaceable>)</literal>は、SQL準拠の構文<literal><replaceable>timestamp</replaceable> AT TIME ZONE <replaceable>zone</replaceable></literal>と等価です。
+   </para>
+
+   <para>
+<!--
+    The function <literal><function>timezone</function>(<replaceable>zone</replaceable>,
+    <replaceable>time</replaceable>)</literal> is equivalent to the SQL-conforming construct
+    <literal><replaceable>time</replaceable> AT TIME ZONE
+    <replaceable>zone</replaceable></literal>.
+-->
+《マッチ度[90.370370]》関数<literal><function>timezone</function>(<replaceable>zone</replaceable>, <replaceable>timestamp</replaceable>)</literal>は、SQL準拠の構文<literal><replaceable>timestamp</replaceable> AT TIME ZONE <replaceable>zone</replaceable></literal>と等価です。
+   </para>
+
+   <para>
+<!--
+    The function <literal><function>timezone</function>(<replaceable>timestamp</replaceable>)</literal>
+    is equivalent to the SQL-conforming construct <literal><replaceable>timestamp</replaceable>
+    AT LOCAL</literal>.
+-->
+《マッチ度[57.819905]》関数<literal><function>timezone</function>(<replaceable>zone</replaceable>, <replaceable>timestamp</replaceable>)</literal>は、SQL準拠の構文<literal><replaceable>timestamp</replaceable> AT TIME ZONE <replaceable>zone</replaceable></literal>と等価です。
+《機械翻訳》関数<literal><function>timezone</function>(<replaceable>timestamp</replaceable>)</literal>は、SQL準拠の構文<literal><replaceable>timestamp AT LOCAL</replaceable></literal>と同等です。
+   </para>
+
+   <para>
+<!--
+    The function <literal><function>timezone</function>(<replaceable>time</replaceable>)</literal>
+    is equivalent to the SQL-conforming construct <literal><replaceable>time</replaceable>
+    AT LOCAL</literal>.
+-->
+《マッチ度[50.746269]》関数<literal><function>timezone</function>(<replaceable>zone</replaceable>, <replaceable>timestamp</replaceable>)</literal>は、SQL準拠の構文<literal><replaceable>timestamp</replaceable> AT TIME ZONE <replaceable>zone</replaceable></literal>と等価です。
+《機械翻訳》関数<literal><function>timezone</function>(<replaceable>time</replaceable>)</literal>は、SQL準拠の構文<literal><replaceable>time AT LOCAL</replaceable></literal>と等価です。
    </para>
   </sect2>
 
@@ -4182,7 +4322,7 @@ LOCALTIMESTAMP(<replaceable>precision</replaceable>)
 <!--
     Some examples:
 -->
-例：
+例を示します。
 <screen>
 SELECT CURRENT_TIME;
 <lineannotation>Result: </lineannotation><computeroutput>14:39:53.662522-05</computeroutput>
@@ -7009,27 +7149,6 @@ MACアドレス型である<type>macaddr</type>と<type>macaddr8</type>は、<xr
 
       <row>
        <entry role="func_table_entry"><para role="func_signature">
-        <type>tsvector</type> <literal>@@@</literal> <type>tsquery</type>
-        <returnvalue>boolean</returnvalue>
-       </para>
-       <para role="func_signature">
-        <type>tsquery</type> <literal>@@@</literal> <type>tsvector</type>
-        <returnvalue>boolean</returnvalue>
-       </para>
-       <para>
-<!--
-        This is a deprecated synonym for <literal>@@</literal>.
--->
-<literal>@@</literal>に対する廃止予定の同義語です。
-       </para>
-       <para>
-        <literal>to_tsvector('fat cats ate rats') @@@ to_tsquery('cat &amp; rat')</literal>
-        <returnvalue>t</returnvalue>
-       </para></entry>
-      </row>
-
-      <row>
-       <entry role="func_table_entry"><para role="func_signature">
         <type>tsvector</type> <literal>||</literal> <type>tsvector</type>
         <returnvalue>tsvector</returnvalue>
        </para>
@@ -8226,6 +8345,14 @@ OIDで指定したパーサが認識できるトークンの型を記述する�
    <primary>gen_random_uuid</primary>
   </indexterm>
 
+  <indexterm>
+   <primary>uuid_extract_timestamp</primary>
+  </indexterm>
+
+  <indexterm>
+   <primary>uuid_extract_version</primary>
+  </indexterm>
+
   <para>
 <!--
    <productname>PostgreSQL</productname> includes one function to generate a UUID:
@@ -8248,6 +8375,42 @@ OIDで指定したパーサが認識できるトークンの型を記述する�
    implement other standard algorithms for generating UUIDs.
 -->
 <xref linkend="uuid-ossp"/>モジュールはUUID生成のための他の標準アルゴリズムを実装した追加の関数を提供します。
+  </para>
+
+  <para>
+<!--
+   There are also functions to extract data from UUIDs:
+-->
+《機械翻訳》また、UUID からデータを抽出する関数もあります。
+<synopsis>
+<function>uuid_extract_timestamp</function> (uuid) <returnvalue>timestamp with time zone</returnvalue>
+</synopsis>
+<!--
+   This function extracts a <type>timestamp with time zone</type> from UUID
+   version 1.  For other versions, this function returns null.  Note that the
+   extracted timestamp is not necessarily exactly equal to the time the UUID
+   was generated; this depends on the implementation that generated the UUID.
+-->
+《機械翻訳》この関数はUUIDバージョン1から<type>timestamp with time zone</type>を抽出します。
+他のバージョンでは、この関数はNULLを返します。
+抽出されたタイムスタンプは必ずしもUUIDが生成された時間と正確に同じではありません。
+これはUUIDが生成された実装に依存します。
+  </para>
+
+  <para>
+<synopsis>
+<function>uuid_extract_version</function> (uuid) <returnvalue>smallint</returnvalue>
+</synopsis>
+<!--
+   This function extracts the version from a UUID of the variant described by
+   <ulink url="https://datatracker.ietf.org/doc/html/rfc4122">RFC 4122</ulink>.  For
+   other variants, this function returns null.  For example, for a UUID
+   generated by <function>gen_random_uuid</function>, this function will
+   return 4.
+-->
+《機械翻訳》この関数は、<ulink url="https://datatracker.ietf.org/doc/html/rfc4122">RFC 4122</ulink>に記述されているバリアントのUUIDからバージョンを抽出します。
+他のバリアントについては、この関数はNULLを返します。
+例えば、<function>gen_random_uuid</function>によって生成されたUUIDに対して、この関数は4を返します。
   </para>
 
   <para>
@@ -8310,6 +8473,43 @@ OIDで指定したパーサが認識できるトークンの型を記述する�
 SQLデータからXML内容を生成するために関数と擬似関数式の一式が提供されています。
 そのようなものとして、クライアントアプリケーションが問い合わせ結果を処理のためXML文書に書式化するのにこれらは特に適しています。
    </para>
+
+  <sect3 id="functions-producing-xml-xmltext">
+    <title><literal>xmltext</literal></title>
+
+    <indexterm>
+     <primary>xmltext</primary>
+    </indexterm>
+
+<synopsis>
+<function>xmltext</function> ( <type>text</type> ) <returnvalue>xml</returnvalue>
+</synopsis>
+
+    <para>
+<!--
+     The function <function>xmltext</function> returns an XML value with a single
+     text node containing the input argument as its content. Predefined entities
+     like ampersand (<literal><![CDATA[&]]></literal>), left and right angle brackets
+     (<literal><![CDATA[< >]]></literal>), and quotation marks (<literal><![CDATA[""]]></literal>)
+     are escaped.
+-->
+《機械翻訳》関数<function>xmltext</function>は、入力引数を内容とする単一のテキストノードを持つXML値を返します。
+アンパサンド(<literal><![CDATA[&]]></literal>)、左右の山カッコ(<literal><![CDATA[< >]]></literal>)、引用符(<literal><![CDATA[""]]></literal>)などの定義済みのエンティティはエスケープされます。
+    </para>
+
+    <para>
+<!--
+     Example:
+-->
+例：
+<screen><![CDATA[
+SELECT xmltext('< foo & bar >');
+         xmltext
+-------------------------
+ &lt; foo &amp; bar &gt;
+]]></screen>
+    </para>
+   </sect3>
 
    <sect3 id="functions-producing-xml-xmlcomment">
     <title><literal>xmlcomment</literal></title>
@@ -8968,7 +9168,7 @@ SQL標準では<function>xmlexists</function>関数はXML問い合わせ言語�
 <!--
      Examples:
 -->
-例:
+例：
 
 <screen><![CDATA[
 SET xmloption TO DOCUMENT;
@@ -9086,7 +9286,7 @@ SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/stuf
 <!--
      Example:
 -->
-例：
+例:
 <screen><![CDATA[
 SELECT xpath('/my:a/text()', '<my:a xmlns:my="http://example.com">test</my:a>',
              ARRAY[ARRAY['my', 'http://example.com']]);
@@ -9145,7 +9345,7 @@ SELECT xpath('//mydefns:b/text()', '<a xmlns="http://example.com"><b>test</b></a
 <!--
      Example:
 -->
-例:
+例：
 <screen><![CDATA[
 SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</my:a>',
                      ARRAY[ARRAY['my', 'http://example.com']]);
@@ -9436,7 +9636,7 @@ XPath 1.0 <function>string</function>関数が、他のXMLノード型と非XML�
 <!--
      Examples:
 -->
-例:
+例：
   <screen><![CDATA[
 CREATE TABLE xmldata AS SELECT
 xml $$

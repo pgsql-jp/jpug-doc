@@ -1116,20 +1116,43 @@ void PQinitSSL(int do_ssl);
 
   <para>
 <!--
-   <application>libpq</application> is reentrant and thread-safe by default.
-   You might need to use special compiler command-line
-   options when you compile your application code.  Refer to your
-   system's documentation for information about how to build
-   thread-enabled applications, or look in
-   <filename>src/Makefile.global</filename> for <literal>PTHREAD_CFLAGS</literal>
-   and <literal>PTHREAD_LIBS</literal>.  This function allows the querying of
-   <application>libpq</application>'s thread-safe status:
+   As of version 17, <application>libpq</application> is always reentrant and thread-safe.
+   However, one restriction is that no two threads attempt to manipulate
+   the same <structname>PGconn</structname> object at the same time. In particular,
+   you cannot issue concurrent commands from different threads through
+   the same connection object. (If you need to run concurrent commands,
+   use multiple connections.)
 -->
-デフォルトで<application>libpq</application>は再入可能、かつ、スレッドセーフです。
-アプリケーションコードをコンパイルする時にコンパイラの特殊なコマンドラインオプションを使う必要があるかもしれません。
-スレッドを有効にしたアプリケーションの構築方法についての情報は、使用するシステムの文書を参照してください。
-また、<literal>PTHREAD_CFLAGS</literal>と<literal>PTHREAD_LIBS</literal>に関して<filename>src/Makefile.global</filename>も一読してください。
-以下の関数により、<application>libpq</application>のスレッドセーフ状態を確認することができます。
+《マッチ度[75.124378]》スレッドに関する1つの制限として、異なるスレッドから同時に同一の<structname>PGconn</structname>オブジェクトを操作することはできません。
+具体的には、異なるスレッドから同一接続オブジェクトを介してコマンドを同時に発行することができません。
+(コマンドの同時実行が必要な場合、接続を複数使用してください。)
+《機械翻訳》バージョン17以降、<application>libpq</application>は常に再入可能でスレッドセーフです。
+ただし、1つの制限として、2つのスレッドが同じ<structname>PGconn</structname>オブジェクトを同時に操作することはできません。
+特に、異なるスレッドから同じ接続オブジェクトを介して同時にコマンドを実行することはできません（同時にコマンドを実行する必要がある場合は、複数の接続を使用してください）。
+  </para>
+
+  <para>
+<!--
+   <structname>PGresult</structname> objects are normally read-only after creation,
+   and so can be passed around freely between threads.  However, if you use
+   any of the <structname>PGresult</structname>-modifying functions described in
+   <xref linkend="libpq-misc"/> or <xref linkend="libpq-events"/>, it's up
+   to you to avoid concurrent operations on the same <structname>PGresult</structname>,
+   too.
+-->
+<structname>PGresult</structname>オブジェクトは生成後、読み込み専用であり、そのためスレッド間で自由に渡すことができます。
+しかし<xref linkend="libpq-misc"/>や<xref linkend="libpq-events"/>で説明する<structname>PGresult</structname>を変更する関数のいずれかを使用している場合、同一の<structname>PGresult</structname>に対する同時操作を防ぐことも、作成者の責任です。
+  </para>
+
+  <para>
+<!--
+   In earlier versions, <application>libpq</application> could be compiled
+   with or without thread support, depending on compiler options. This
+   function allows the querying of <application>libpq</application>'s
+   thread-safe status:
+-->
+《機械翻訳》以前のバージョンでは、<application>libpq</application>はコンパイラオプションに応じてスレッドサポート付きでコンパイルすることも、スレッドサポートなしでコンパイルすることもできました。
+この関数は<application>libpq</application>のスレッドセーフステータスを照会することができます。
   </para>
 
   <variablelist>
@@ -1151,9 +1174,11 @@ int PQisthreadsafe();
      <para>
 <!--
       Returns 1 if the <application>libpq</application> is thread-safe
-      and 0 if it is not.
+      and 0 if it is not. Always returns 1 on version 17 and above.
 -->
-<application>libpq</application>がスレッドセーフの場合1が、さもなくば0が返ります。
+《マッチ度[59.523810]》<application>libpq</application>がスレッドセーフの場合1が、さもなくば0が返ります。
+《機械翻訳》<application>libpq</application>がスレッドセーフである場合は1を、そうでない場合は0を返します。
+バージョン17以降では常に1を返します。
      </para>
     </listitem>
    </varlistentry>
@@ -1161,40 +1186,14 @@ int PQisthreadsafe();
 
   <para>
 <!--
-   One thread restriction is that no two threads attempt to manipulate
-   the same <structname>PGconn</structname> object at the same time. In particular,
-   you cannot issue concurrent commands from different threads through
-   the same connection object. (If you need to run concurrent commands,
-   use multiple connections.)
--->
-スレッドに関する1つの制限として、異なるスレッドから同時に同一の<structname>PGconn</structname>オブジェクトを操作することはできません。
-具体的には、異なるスレッドから同一接続オブジェクトを介してコマンドを同時に発行することができません。
-(コマンドの同時実行が必要な場合、接続を複数使用してください。)
-  </para>
-
-  <para>
-<!--
-   <structname>PGresult</structname> objects are normally read-only after creation,
-   and so can be passed around freely between threads.  However, if you use
-   any of the <structname>PGresult</structname>-modifying functions described in
-   <xref linkend="libpq-misc"/> or <xref linkend="libpq-events"/>, it's up
-   to you to avoid concurrent operations on the same <structname>PGresult</structname>,
-   too.
--->
-<structname>PGresult</structname>オブジェクトは生成後、読み込み専用であり、そのためスレッド間で自由に渡すことができます。
-しかし<xref linkend="libpq-misc"/>や<xref linkend="libpq-events"/>で説明する<structname>PGresult</structname>を変更する関数のいずれかを使用している場合、同一の<structname>PGresult</structname>に対する同時操作を防ぐことも、作成者の責任です。
-  </para>
-
-  <para>
-<!--
    The deprecated functions <xref linkend="libpq-PQrequestCancel"/> and
    <xref linkend="libpq-PQoidStatus"/> are not thread-safe and should not be
    used in multithread programs.  <xref linkend="libpq-PQrequestCancel"/>
-   can be replaced by <xref linkend="libpq-PQcancel"/>.
+   can be replaced by <xref linkend="libpq-PQcancelBlocking"/>.
    <xref linkend="libpq-PQoidStatus"/> can be replaced by
    <xref linkend="libpq-PQoidValue"/>.
 -->
-非推奨の関数、<xref linkend="libpq-PQrequestCancel"/>や<xref linkend="libpq-PQoidStatus"/>はスレッドセーフではありませんので、マルチスレッドプログラムでは使用してはなりません。
+《マッチ度[92.582418]》非推奨の関数、<xref linkend="libpq-PQrequestCancel"/>や<xref linkend="libpq-PQoidStatus"/>はスレッドセーフではありませんので、マルチスレッドプログラムでは使用してはなりません。
 <xref linkend="libpq-PQrequestCancel"/>は<xref linkend="libpq-PQcancel"/>に、<xref linkend="libpq-PQoidStatus"/>は<xref linkend="libpq-PQoidValue"/>に置き換えることができます。
   </para>
 
