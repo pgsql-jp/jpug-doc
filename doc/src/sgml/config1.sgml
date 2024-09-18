@@ -805,13 +805,13 @@ WALをフラッシュしたあと、非同期コミットしているトラン�
 10の倍数以外の値を<varname>wal_writer_delay</varname>に設定しても、その次に大きい10の倍数を設定した場合と同じ結果となります。
 このパラメータは<filename>postgresql.conf</filename>ファイル内、またはサーバのコマンドラインのみで設定可能です。
 《機械翻訳》WALライタがWALをフラッシュする頻度を時間で指定します。
-WALをフラッシュした後、ライタは<varname>wal_ライタ_遅延</varname>で指定された長さの時間だけスリープします。
+WALをフラッシュした後、ライタは<varname>wal_writer_delay</varname>で指定された長さの時間だけスリープします。
 ただし、非同期的にコミットしているトランザクションによって早く起こされた場合は除きます。
-最後のフラッシュがより小さい<varname>wal_ライタ_遅延</varname>より前に発生し、その後により小さい<varname>wal_ライタ_フラッシュ_after</varname>分のWALが生成された場合、WALはオペレーティングシステムに書き込まれるだけでディスクにはフラッシュされません。
-この値を単位なしで指定すると、ミリ秒として解釈されます。
+最後のフラッシュがより小さい<varname>wal_writer_delay</varname>より前に発生し、その後により小さい<varname>wal_writer_flush_after</varname>分のWALが生成された場合、WALはオペレーティングシステムに書き込まれるだけでディスクにはフラッシュされません。
+この値が単位なしで指定されると、ミリ秒として解釈されます。
 デフォルト値は200ミリ秒<literal>200 ms</literal>です。
 ノート一部のシステムでは、スリープ遅延の実効分解能は10ミリ秒です。
-<varname>wal_ライタ_遅延</varname>をマルチプル10以外の値に設定すると、次に高いマルチプル10に設定した場合と同じ結果になる可能性があります。
+<varname>wal_writer_delay</varname>をマルチプル10以外の値に設定すると、次に高いマルチプル10に設定した場合と同じ結果になる可能性があります。
 このパラメータは<filename>PostgreSQL.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
        </para>
       </listitem>
@@ -2138,7 +2138,7 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
 《機械翻訳》WALサマライズプロセスを有効にします。
 ノートでは、WALサマライズはプライマリまたはスタンバイのいずれかで有効にできます。
 このパラメータは<filename>PostgreSQL.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
-デフォルトは<literal>オフ</literal>です。
+デフォルトは<literal>off</literal>です。
       </para>
       <para>
 <!--
@@ -2149,8 +2149,8 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
        but refuse to generate summary files for any WAL generated with
        <literal>wal_level=minimal</literal>.
 -->
-《機械翻訳》<literal>wal_サーバ</literal>が<literal>minimal</literal>に設定されている場合、レベルを<literal>summarize_wal=on</literal>で起動することはできません。
-サーバスタートアップの後に<literal>wal_レベル=minimal</literal>に<literal>summarize_wal=on</literal>が設定されている場合、サマライザは動作しますが、<literal>wal_レベル=minimal</literal>で生成されたWALの要約ファイルの生成は拒否します。
+《機械翻訳》<literal>wal_level</literal>が<literal>minimal</literal>に設定されている場合、レベルを<literal>summarize_wal=on</literal>で起動することはできません。
+サーバスタートアップの後に<literal>wal_level=minimal</literal>に<literal>summarize_wal=on</literal>が設定されている場合、サマライザは動作しますが、<literal>wal_level=minimal</literal>で生成されたWALの要約ファイルの生成は拒否します。
       </para>
       </listitem>
      </varlistentry>
@@ -2188,7 +2188,7 @@ WALサマリは、前のレンジと新しいバックアップの間のWALレ�
 そうでない場合、インクリメンタルバックアップは失敗します。
 このパラメータがゼロに設定されている場合、WAL要約は自動的に削除されませんが、将来の増分バックアップに必要でないことが分かっているファイルを手動で削除するのはセーフです。
 このパラメータは、<filename>PostgreSQL.conf</filename>ファイルまたはサーバコマンドラインでのみ設定できます。
-この値を単位なしで指定すると、分として解釈されます。
+この値が単位なしで指定されると、分として解釈されます。
 デフォルトは10日間です。
 <literal>summarize_wal=オフ</literal>の場合、WALサマライザが動作しないため、このパラメータの値に関わらず、既存のWALサマリは削除されません。
       </para>
@@ -2540,7 +2540,7 @@ WALサマリは、前のレンジと新しいバックアップの間のWALレ�
 ロジカルWAL送信プロセスは、指定されたレプリケーションスロットがWALの受信を確認した後にのみ、デコードされた変更をプラグインに送信します。
 これにより、ロジカルレプリケーションフェイルオーバースロットは、変更が受信され、対応する物理的スタンバイにフラッシュされるまで、変更を消費しないことが保証される。
 ロジカルレプリケーションコネクションが昇格した後にスイッチから物理的スタンバイに移動する場合は、スタンバイの物理的レプリケーションスロットがここに表示されます。
-スタンバイ<varname>synchronized_ノート_slots</varname>で指定されたスロットが存在しないか、無効になっている場合、ロジカルレプリケーションが続行しないスタンバイ。
+スタンバイ<varname>synchronized_standby_slots</varname>で指定されたスロットが存在しないか、無効になっている場合、ロジカルレプリケーションが続行しないスタンバイ。
 また、レプリケーション管理が機能する。
         <link linkend="pg-replication-slot-advance">
         <function>pg_replication_slot_advance</function></link>,
@@ -2559,7 +2559,7 @@ WALサマリは、前のレンジと新しいバックアップの間のWALレ�
         <literal>sync_replication_slots = true</literal> so they can receive
         logical failover slot changes from the primary.
 -->
-《機械翻訳》<varname>synchronized_スタンバイ_slots</varname>内の物理的レプリケーションスロットに対応するスタンバイは、<literal>sync_レプリケーション_slots=真</literal>を設定して、プライマリからロジカルフェイルオーバースロットの変更を受信できるようにする必要があります。
+《機械翻訳》<varname>synchronized_standby_slots</varname>内の物理的レプリケーションスロットに対応するスタンバイは、<literal>sync_replication_slots = true</literal>を設定して、プライマリからロジカルフェイルオーバースロットの変更を受信できるようにする必要があります。
        </para>
       </listitem>
      </varlistentry>
@@ -2856,7 +2856,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
 《機械翻訳》コネクション文字列は、送信サーバのホストネーム（またはアドレス）と、もしそれがスタンバイサーバのデフォルトと同じでないなら、ポートナンバーを指定するべきです。
 また、送信ユーザ上の適切に特権を与えられた名前に対応するロールサーバを指定します（<xref linkend="streaming-replication-authentication"/>を参照）。
 送信者がパスワード認証を要求した場合は、パスワードニーズも提供されます。
-これは<varname>プライマリ_conninfo</varname>文字列で提供することも、スタンバイサーバの別の<filename>~/.pgpass</filename>ファイルで提供することもできます（<literal>レプリケーション</literal>をデータベース名前として使用します）。
+これは<varname>primary_conninfo</varname>文字列で提供することも、スタンバイサーバの別の<filename>~/.pgpass</filename>ファイルで提供することもできます（<literal>replication</literal>をデータベース名前として使用します）。
          </para>
          <para>
 <!--
@@ -2866,7 +2866,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
           in the <varname>primary_conninfo</varname> string. This will only be
           used for slot synchronization. It is ignored for streaming.
 -->
-《機械翻訳》レプリケーションスロットの同期化（<xref linkend="logicaldecoding-replication-slots-synchronization"/>を参照）の場合は、<varname>プライマリ_conninfo</varname>文字列に有効な<literal>dbname</literal>を指定する必要もあります。
+《機械翻訳》レプリケーションスロットの同期化（<xref linkend="logicaldecoding-replication-slots-synchronization"/>を参照）の場合は、<varname>primary_conninfo</varname>文字列に有効な<literal>dbname</literal>を指定する必要もあります。
 これはスロットの同期化にのみ使用されます。
 ストリーミングでは無視されます。
          </para>
@@ -3688,11 +3688,10 @@ WALレコードは、適用される準備が整うまでスタンバイに保�
         if any. When enabled, the planner will try to produce a more
         efficient plan. The default value is <literal>on</literal>.
 -->
-《機械翻訳》クエリプランナが、プランの子グループのキーのオーダーでソートされた<literal>ノードBY</literal>キーを提供するインデックススキャンを生成するかどうかを制御します。
-無効にすると、クエリプランナは、<literal>グループBY</literal>キーがある場合にマッチ<literal>オーダーBY</literal>句にのみソートされたプランを生成します。
+《機械翻訳》クエリプランナが、プランの子グループのキーのオーダーでソートされた<literal>GROUP BY</literal>キーを提供するインデックススキャンを生成するかどうかを制御します。
+無効にすると、クエリプランナは、<literal>GROUP BY</literal>キーがある場合にマッチ<literal>ORDER BY</literal>句にのみソートされたプランを生成します。
 有効にすると、プランナはトライでより効率的なを生成します。
-は<literal>オン</literal>です。
-プランデフォルト値プラン
+デフォルト値は<literal>on</literal>です。
        </para>
       </listitem>
      </varlistentry>
