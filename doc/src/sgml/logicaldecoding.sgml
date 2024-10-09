@@ -198,7 +198,7 @@ postgres=# SELECT pg_drop_replication_slot('regression_slot');
     transactions.  Before you use two-phase commands, you must set
     <xref linkend="guc-max-prepared-transactions"/> to at least 1.
 -->
-《マッチ度[92.914654]》以下はPostgreSQLに付属するプログラム<xref linkend="app-pgrecvlogical"/>を用いてロジカルデコーディングをストリーミングレプリケーションのプロトコルによって制御する例です。
+以下はPostgreSQLに付属するプログラム<xref linkend="app-pgrecvlogical"/>を用いてロジカルデコーディングをストリーミングレプリケーションのプロトコルによって制御する例です。
 この方法を使うには、レプリケーション接続を許すようにクライアント認証を設定し(<xref linkend="streaming-replication-authentication"/>参照)、<varname>max_wal_senders</varname>を十分に大きくして追加の接続ができるようにしておかなければなりません。
 2番目の例は、2相トランザクションをストリームする例です。
 2相コマンドを使用する前に、<xref linkend="guc-max-prepared-transactions"/>を少なくとも1に設定する必要があります。
@@ -445,12 +445,12 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      to the <varname>wal_level</varname> parameter change on the primary won't be
      decoded.
 -->
-《マッチ度[90.770609]》ロジカルレプリケーションスロットは、ホットスタンバイ上でも作成できます。
+ロジカルレプリケーションスロットは、ホットスタンバイ上でも作成できます。
 システムカタログから必要な行を<command>VACUUM</command>が削除するのを防ぐためには、スタンバイ上で<varname>hot_standby_feedback</varname>を設定する必要があります。
 それでも、必要な行が削除されると、スロットは無効になります。
 プライマリとスタンバイの間に物理スロットを使用することを強くお勧めします。
 そうしないと、<varname>hot_standby_feedback</varname>が動作するのは接続が生きている間だけです（たとえばノードの再起動で破壊されます）。
-その場合、プライマリはスタンバイ上のロジカルデコーディングが必要とするシステムカタログ行を削除するかもしれません（スタンバイ上のcatalog_xminについては知らないため）。
+その場合、プライマリはスタンバイ上のロジカルデコーディングが必要とするシステムカタログ行を削除するかもしれません（スタンバイ上の<literal>catalog_xmin</literal>については知らないため）。
 既存のスタンバイ上のロジカルスロットも、プライマリ上の<varname>wal_level</varname>が<literal>logical</literal>よりも小さくなると無効になります。
 これはスタンバイがWALストリームでそのような変更を検出したときにすぐに行われます。
 これは、遅れているwalsender（もしあれば）に対して、プライマリでの<varname>wal_level</varname>パラメータの変更までの一部のWALレコードがデコードされないことを意味します。
@@ -496,7 +496,10 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
    </sect2>
 
    <sect2 id="logicaldecoding-replication-slots-synchronization">
+<!--
     <title>Replication Slot Synchronization</title>
+-->
+    <title>レプリケーションスロットの同期</title>
     <para>
 <!--
      The logical replication slots on the primary can be synchronized to
@@ -532,15 +535,15 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      in <varname>synchronized_standby_slots</varname>, have confirmed
      receiving the WAL up to the latest flushed position on the primary server.
 -->
-《機械翻訳》プライマリのロジカルレプリケーションスロットをホットスタンバイに同期させるには、<link linkend="pg-create-logical-replication-slot"><function>pg_create_logical_replication_slot</function></link>の<literal>failover</literal>パラメータを使用するか、スロットの作成時に<command>CREATE SUBSCRIPTION</command>の<link linkend="sql-createsubscription-params-with-failover"><literal>failover</literal></link>オプションを使用して、スタンバイで<link linkend="pg-sync-replication-slots"><function>pg_sync_replication_slots</function></link>を呼び出します。
-レプリケーションに<link linkend="guc-sync-replication-slots"><varname>sync_replication_slots</varname></link>を設定することで、フェイルオーバースロットをslotsyncワーカーで定期的に同期させることができます。
-同期を機能させるには、プライマリとスタンバイの間に物理的レプリケーションスロットが必要です（スタンバイでは<link linkend="guc-primary-slot-name"><varname>primary_slot_name</varname></link>が設定されている必要があります）。
-スタンバイでは<link linkend="guc-hot-standby-feedback"><varname>hot_standby_feedback</varname></link>が有効になっている必要があります。
+プライマリ上のロジカルレプリケーションスロットは、ホットスタンバイと同期させることができます。
+これは、スロットの作成時に<link linkend="pg-create-logical-replication-slot"><function>pg_create_logical_replication_slot</function></link>の<literal>failover</literal>パラメータを指定するか、<command>CREATE SUBSCRIPTION</command>の<link linkend="sql-createsubscription-params-with-failover"><literal>failover</literal></link>オプションを指定したうえで、スタンバイで<link linkend="pg-sync-replication-slots"><function>pg_sync_replication_slots</function></link>を呼び出すことで可能です。
+スタンバイで<link linkend="guc-sync-replication-slots"><varname>sync_replication_slots</varname></link>を設定すると、フェイルオーバースロットをスロット同期ワーカーによって定期的に同期させることができます。
+同期を機能させるには、プライマリとスタンバイの間に物理レプリケーションスロットが必要であり（つまり、スタンバイで<link linkend="guc-primary-slot-name"><varname>primary_slot_name</varname></link>が設定されている必要があります）、スタンバイでは<link linkend="guc-hot-standby-feedback"><varname>hot_standby_feedback</varname></link>が有効になっている必要があります。
 また、<link linkend="guc-primary-conninfo"><varname>primary_conninfo</varname></link>に有効な<literal>dbname</literal>を指定する必要があります。
-この物理的レプリケーションスロットは、プライマリの<link linkend="guc-synchronized-standby-slots"><varname>synchronized_standby_slots</varname></link>リストのスタンバイであることを強くお勧めします。
+この物理レプリケーションスロットを、プライマリの<link linkend="guc-synchronized-standby-slots"><varname>synchronized_standby_slots</varname></link>リスト内に指定することを強くお勧めします。
 これは、サブスクライバーがホットスタンバイよりも早く変更を消費しないようにするためです。
-正しく設定されていても、<link linkend="guc-synchronized-standby-slots">synchronized_</link>内のスロット記名的で待機しているため、ロジカル加入者に変更を送信するときに一部のスタンバイが予想されます。
-<varname>synchronized_standby_slots</varname>が使用されている場合、<varname>synchronized_standby_slots</varname>で指定されたダウンレプリケーションスロットに関連付けられた対応するスタンバイが、プライマリサーバ上の最新のフラッシュされた位置までWALを受信することを確認するまで、スタンバイは完全にはを閉じません。
+正しく設定されていても、<link linkend="guc-synchronized-standby-slots"><varname>synchronized_standby_slots</varname></link>内に指定されたスロットを待つため、サブスクライバに変更を送信するときに多少の遅延が予想されます。
+<varname>synchronized_standby_slots</varname>が使用されている場合、<varname>synchronized_standby_slots</varname>で指定された物理レプリケーションスロットに関連付けられた対応するスタンバイが、プライマリサーバ上の最新のフラッシュされた位置までWALを受信することを確認するまで、プライマリサーバは完全にはシャットダウンしません。
     </para>
 
     <para>
@@ -556,10 +559,10 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      disabled subscription, then the subscription cannot be resumed after
      failover even when it is enabled.
 -->
-《機械翻訳》フェイルオーバー後にロジカルレプリケーションを再開できるかどうかは、フェイルオーバー時のレプリケーションの同期スロットの<link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>synced</structfield>の値に依存します。
-スタンバイ前フェイルオーバーの真として同期状態になった永続スロットのみが、フェイルオーバー後のロジカルレプリケーションに使用できます。
-一時的同期スロットはロジカルデコーディングには使用できないため、それらのスロットのロジカルレプリケーションは再開できません。
-例の場合、同期化されたスロットが無効なスタンバイのためにサブスクリプションで永続的にならなかった場合、サブスクリプションは有効になっていてもフェイルオーバー後に再開できません。
+フェイルオーバー後にロジカルレプリケーションを再開できるかどうかは、フェイルオーバー時のスタンバイ上で同期されていたスロットの持つ<link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>synced</structfield>の値によって決まります。
+フェイルオーバー前に、スタンバイで同期状態が真となっている永続スロットだけが、フェイルオーバー後の論理レプリケーションに使用できます。
+同期されていた一時スロットはロジカルデコーディングには使用できないため、これらのスロットによるロジカルレプリケーションは再開できません。
+例えば、サブスクリプション無効になっているため、同期されたスロットがスタンバイ上で永続化できなかった場合、フェイルオーバー後にサブスクリプションを有効にしても、そのサブスクリプションは再利用できません。
     </para>
 
     <para>
@@ -571,9 +574,9 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      It is recommended that subscriptions are first disabled before promoting
      the standby and are re-enabled after altering the connection string.
 -->
-《機械翻訳》同期されたロジカルスロットからフェイルオーバーの後にロジカルレプリケーションを再開するには、サブスクリプションの'conninfo'をポイントから新しいプライマリサーバに変更する必要があります。
-これは<link linkend="sql-altersubscription-params-connection"><command>ALTER SUBSCRIPTION ... CONNECTION</command></link>を使用して行われます。
-最初にスタンバイを促進する前を無効にし、コネクション文字列を変更した後に再度有効にすることをお勧めします。
+同期されたロジカルスロットからフェイルオーバーの後にロジカルレプリケーションを再開するには、サブスクリプションの'conninfo'オプションを新しいプライマリサーバを指すように変更する必要があります。
+これは<link linkend="sql-altersubscription-params-connection"><command>ALTER SUBSCRIPTION ... CONNECTION</command></link>を使用して行います。
+スタンバイが昇格する前に先にサブスクリプションを無効にし、接続文字列を変更した後に再度有効にすることをお勧めします。
     </para>
     <caution>
      <para>
@@ -585,9 +588,9 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
       inconsistency issues, preventing the logical subscribers from being
       able to continue replication from the new primary server.
 -->
-《機械翻訳》プロモーション中に古いプライマリが再び起動する可能性があります。
-サブスクリプションが無効になっていない場合、ロジカルのサブスクライバは、プライマリサーバの文字列が変更されるまで、プロモーション後も古いコネクションからデータを受信し続ける可能性があります。
-これにより、データの不一致の問題が発生し、ロジカルのサブスクライバが新しいプライマリサーバからレプリケーションを継続できなくなる可能性があります。
+昇格中に古いプライマリが再度起動する場合があります。
+このときサブスクリプションが無効なっていない場合、サブスクライバは昇格後も接続文字列が変更されるまで、古いプライマリサーバからデータを受信し続ける可能性があります。
+これによりデータの不整合の問題が生じ、サブスクライバが新しいプライマリからのレプリケーションを継続できなくなる可能性があります。
      </para>
     </caution>
    </sect2>
@@ -1843,7 +1846,7 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
      Note that these commands can cause deadlocks not only for the system
      catalog tables listed above but for other catalog tables.
 -->
-《機械翻訳》ノート:これらのコマンドは、上記のシステムカタログテーブルだけでなく、他のカタログテーブルでもデッドロックを引き起こす可能性があります。
+これらのコマンドは、上記のシステムカタログテーブルだけでなく、他のカタログテーブルにもデッドロックを引き起こす可能性があることに注意してください。
     </para>
    </sect2>
   </sect1>
