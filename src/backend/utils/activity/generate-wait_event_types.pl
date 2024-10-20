@@ -100,7 +100,8 @@ if ($gen_code)
 foreach my $line (@lines_sorted)
 {
 	die "unable to parse wait_event_names.txt for line $line\n"
-	  unless $line =~ /^(\w+)\t+(\w+)\t+("\w.*\.")$/;
+	  # unless $line =~ /^(\w+)\t+(\w+)\t+("\w.*\.")$/;
+	  unless $line =~ /^(\w+)\t+(\w+)\t+(.*")$/;
 
 	(my $waitclassname, my $waiteventname, my $waitevendocsentence) =
 	  split(/\t/, $line);
@@ -298,15 +299,20 @@ elsif ($gen_docs)
 		my $lastlc = lc $last;
 
 		printf $s "  <table id=\"wait-event-%s-table\">\n", $lastlc;
+		#printf $s
+		#  "   <title>Wait Events of Type <literal>%s</literal></title>\n",
 		printf $s
-		  "   <title>Wait Events of Type <literal>%s</literal></title>\n",
+		  "   <title><literal>%s</literal>型の待機イベント</title>\n",
 		  ucfirst($lastlc);
 		printf $s "   <tgroup cols=\"2\">\n";
 		printf $s "    <thead>\n";
 		printf $s "     <row>\n";
+		#printf $s
+		#  "      <entry><literal>$last</literal> Wait Event</entry>\n";
+		#printf $s "      <entry>Description</entry>\n";
 		printf $s
-		  "      <entry><literal>$last</literal> Wait Event</entry>\n";
-		printf $s "      <entry>Description</entry>\n";
+		  "      <entry><literal>$last</literal>待機イベント</entry>\n";
+		printf $s "      <entry>説明</entry>\n";
 		printf $s "     </row>\n";
 		printf $s "    </thead>\n\n";
 		printf $s "    <tbody>\n";
