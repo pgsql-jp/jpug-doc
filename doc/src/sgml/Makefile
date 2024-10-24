@@ -113,7 +113,7 @@ errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt.ja generate-er
 keywords-table.sgml: $(top_srcdir)/src/include/parser/kwlist.h $(wildcard $(srcdir)/keywords/sql*.txt) generate-keywords-table.pl
 	$(PERL) $(srcdir)/generate-keywords-table.pl $(srcdir) > $@
 
-wait_event_types.sgml: $(top_srcdir)/src/backend/utils/activity/wait_event_names.txt $(top_srcdir)/src/backend/utils/activity/generate-wait_event_types.pl
+wait_event_types.sgml: $(top_srcdir)/src/backend/utils/activity/wait_event_names.txt.ja $(top_srcdir)/src/backend/utils/activity/generate-wait_event_types.pl
 	$(PERL) $(top_srcdir)/src/backend/utils/activity/generate-wait_event_types.pl --docs $<
 
 targets-meson.sgml: targets-meson.txt $(srcdir)/generate-targets-meson.pl
