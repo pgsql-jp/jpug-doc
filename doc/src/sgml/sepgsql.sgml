@@ -149,8 +149,10 @@ Policy from config file:        targeted
    This will install functions needed for security label management, and
    assign initial security labels.
 -->
-このモジュールを利用するには、<filename>postgresql.conf</filename>の<xref linkend="guc-shared-preload-libraries"/>パラメータに <literal>sepgsql</literal>を含める必要があります。これ以外の方法でロードされた場合、このモジュールは正しく機能しません。
-このモジュールのロード後、各データベースに対して<filename>sepgsql.sql</filename>を実行し、セキュリティラベル管理のための関数のインストールや、初期セキュリティラベルの設定を行うべきです。
+このモジュールを利用するには、<filename>postgresql.conf</filename>の<xref linkend="guc-shared-preload-libraries"/>パラメータに<literal>sepgsql</literal>を含める必要があります。
+これ以外の方法でロードされた場合、このモジュールは正しく機能しません。
+このモジュールのロード後、各データベースに対して<filename>sepgsql.sql</filename>を実行してください。
+これにより、セキュリティラベル管理のための関数のインストールや、初期セキュリティラベルが割り当てられます。
   </para>
 
   <para>
@@ -275,7 +277,7 @@ $ for DBNAME in template0 template1 postgres; do
 <filename>sepgsql-regtest</filename>ポリシーはリグレッションテストの実行に必要な一連のルールを含む特別な目的のポリシーパッケージです。
 ポリシーのソースファイルである<filename>sepgsql-regtest.te</filename>から、SELinuxの提供するMakefileを用いて<command>make</command>コマンドでビルドする事ができます。
 この時、インストール先システムにおいて、適切な<filename>Makefile</filename>の位置を指定する必要があります。以下の例で示されているパスは一例です。
-(このMakefileは通常<filename>selinux-policy-devel</filename>や<filename>selinux-policy</filename>パッケージで提供されています。)
+（このMakefileは通常<filename>selinux-policy-devel</filename>や<filename>selinux-policy</filename>パッケージで提供されています。）
 ビルドが完了したら、<command>semodule</command>を用いてこのポリシーパッケージをインストールする事ができます。このコマンドは、指定されたポリシーパッケージをリンクし、カーネル空間にロードする役割を果たします。
 インストールが正常終了したら、<literal><command>semodule</command> -l</literal>により有効なパッケージの一覧として<literal>sepgsql-regtest</literal>が表示されるはずです。
   </para>
@@ -510,8 +512,8 @@ $ sudo semodule -r sepgsql-regtest
     sequences, views, and functions, it is the containing schema; for columns,
     it is the containing table.
 -->
-新しいデータベースオブジェクトのラベルは、タイプ遷移と呼ばれる異なったラベルを設定するための特別なルールがセキュリティポリシーに設定されている場合を除き、親関係にあるオブジェクトのラベルを引き継ぎます。
-スキーマの親オブジェクトはデータベースであり、テーブル、シーケンス、ビュー、および関数はその属するスキーマが、カラムはその属するテーブルが親オブジェクトという事になります。
+新しいデータベースオブジェクトのセキュリティラベルは、タイプ遷移と呼ばれる異なったラベルを設定するための特別なルールがセキュリティポリシーに設定されている場合を除き、親関係にあるオブジェクトのラベルを引き継ぎます。
+スキーマの親オブジェクトはデータベースであり、テーブル、シーケンス、ビュー、および関数はその属するスキーマが、列はその属するテーブルが親オブジェクトという事になります。
    </para>
   </sect3>
 
@@ -636,7 +638,8 @@ UPDATE t1 SET x = 2, y = func1(y) WHERE z = 100;
     toast tables.  These operations are prohibited when
     <filename>sepgsql</filename> is enabled.
 -->
-データベーススーパーユーザに対して、デフォルトのデータベース権限システムはDMLを用いたシステムカタログの更新と、TOASTテーブルの参照および更新を許していますが、<filename>sepgsql</filename>が有効なとき、これらの操作は禁止されます。
+データベーススーパーユーザに対して、デフォルトのデータベース権限システムはDMLを用いたシステムカタログの更新と、TOASTテーブルの参照および更新を許しています。
+しかし、<filename>sepgsql</filename>が有効なとき、これらの操作は禁止されます。
    </para>
   </sect3>
 
@@ -704,7 +707,8 @@ UPDATE t1 SET x = 2, y = func1(y) WHERE z = 100;
       requires <literal>install</literal> permission.  (This permission is also
       checked when <literal>LEAKPROOF</literal> is set for an existing function.)
 -->
-<literal>LEAKPROOF</literal>属性を持った関数の作成は<literal>install</literal>権限を要求します。（これはまた、既存の関数に<literal>LEAKPROOF</literal>属性を設定する時にも要求されます）
+<literal>LEAKPROOF</literal>属性を持った関数の作成は<literal>install</literal>権限を要求します。
+（これはまた、既存の関数に<literal>LEAKPROOF</literal>属性を設定する時にも要求されます。）
      </para>
     </listitem>
    </itemizedlist>
@@ -767,7 +771,7 @@ UPDATE t1 SET x = 2, y = func1(y) WHERE z = 100;
       This is currently not done due to implementation restrictions.)
 -->
 <link linkend="sql-security-label"><command>SECURITY LABEL</command></link>コマンドの実行時、ラベル付けされるオブジェクトの古いラベルに対して<literal>setattr</literal>権限と<literal>relabelfrom</literal>権限が、入力された新しいラベルに対して<literal>relabelto</literal>権限がチェックされます。
-（複数のラベルプロバイダがインストールされており、利用者が<productname>SELinux</productname>の管理下にないラベルを設定しようとした場合、<literal>setattr</literal>権限だけがチェックされるべきです。しかし実装上の制約により、現在はこれをチェックしていません。）
+（複数のラベルプロバイダがインストールされており、利用者が<productname>SELinux</productname>の管理下にないセキュリティラベルを設定しようとした場合、<literal>setattr</literal>権限だけがチェックされるべきです。しかし実装上の制約により、現在はこれをチェックしていません。）
      </para>
     </listitem>
    </itemizedlist>
@@ -791,7 +795,7 @@ UPDATE t1 SET x = 2, y = func1(y) WHERE z = 100;
     security policy.  For example:
 -->
 トラステッドプロシージャはSECURITY DEFINER関数やSet-UIDコマンドに似ています。
-通常、機密データに対する高度にコントロールされたアクセス手段(例えば行を削除したり、保存された値の精度をさげたりします)を提供する目的で、<productname>SELinux</productname>は利用者のものとは異なるセキュリティラベルで信頼済みのコードを実行するための機能を持っています。
+通常、機密データに対する高度にコントロールされたアクセス手段（例えば行を削除したり、保存された値の精度をさげたりします）を提供する目的で、<productname>SELinux</productname>は利用者のものとは異なるセキュリティラベルで信頼済みのコードを実行するための機能を持っています。
 関数がトラステッドプロシージャとして振舞うかどうかは、関数のセキュリティラベルおよびオペレーティングシステムのセキュリティポリシーに従って決まります。
 例えば：
    </para>
@@ -858,7 +862,7 @@ postgres=# SELECT cid, cname, show_credit(cid) FROM customer;
     The client domain needs the <literal>setcurrent</literal> permission and also
     <literal>dyntransition</literal> from the old to the new domain.
 -->
-セキュリティポリシーによって許可されている場合、SELinuxの動的ドメイン遷移機能を用いて、利用者のラベルを新しいものに切り替える事ができます。
+セキュリティポリシーによって許可されている場合、SELinuxの動的ドメイン遷移機能を用いて、利用者のセキュリティラベルを新しいものに切り替える事ができます。
 利用者のドメインは<literal>setcurrent</literal>権限および、古いドメインから新しいドメインに遷移するための<literal>dyntransition</literal>権限を有している必要があります。
    </para>
    <para>
@@ -991,7 +995,7 @@ ERROR:  SELinux: security policy violation
 <!--
         Returns the client domain, the current security label of the client.
 -->
-利用者のドメイン、つまり、現在の利用者ラベルを返却します。
+利用者のドメイン、つまり現在の利用者のセキュリティラベルを返します。
        </para></entry>
       </row>
 
