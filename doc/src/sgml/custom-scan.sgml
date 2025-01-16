@@ -64,9 +64,8 @@
     Gather and Gather Merge paths, which are made after this call so that
     they can use partial paths added by the hook):
 -->
-《マッチ度[90.062112]》カスタムスキャンプロバイダは、典型的には、以下のフックを設定することでベースリレーションのためのパスを追加します。
-このフックはコアのコードがそのリレーションへのすべてのアクセスパスを生成した後で呼び出されます。
-（フックの呼び出しの後に作成されるギャザーパス(Gather path)を除きます。フックが追加した部分パスをギャザーパスが利用できるようにするためです。）
+カスタムスキャンプロバイダは、典型的には、以下のフックを設定することでベースリレーションのためのパスを追加します。
+このフックはコアのコードがそのリレーションへのすべてのアクセスパスを生成した後で呼び出されます（フックが追加した部分パスを利用できるようにするためにフックの呼び出しの後に作成される、ギャザーパス(Gather path)とギャザーマージパス(Gather Merge path)を除きます）。
 <programlisting>
 typedef void (*set_rel_pathlist_hook_type) (PlannerInfo *root,
                                             RelOptInfo *rel,
@@ -86,12 +85,9 @@ extern PGDLLIMPORT set_rel_pathlist_hook_type set_rel_pathlist_hook;
     custom scan provider is responsible for initializing the
     <structname>CustomPath</structname> object, which is declared like this:
 -->
-《マッチ度[81.488934]》このフックはコアシステムが生成したパスを検査し、修正し、あるいは削除するために使うことができますが、カスタムスキャンプロバイダは、典型的には<structname>CustomPath</structname>オブジェクトを生成し、<function>add_path</function>を使ってそれを<literal>rel</literal>に追加することのみを行います。
+このフックはコアシステムが生成したパスを検査し、修正し、あるいは削除するために使うことができますが、カスタムスキャンプロバイダは、典型的には<structname>CustomPath</structname>オブジェクトを生成し、<function>add_path</function>、または、部分パスであるなら<function>add_partial_path</function>を使って、それを<literal>rel</literal>に追加することのみを行います。
 カスタムスキャンプロバイダは<structname>CustomPath</structname>オブジェクトの初期化を担当します。
 このオブジェクトは以下のように宣言されています。
-《機械翻訳》このフック関数は、経路によって生成されたコアシステムを検査、変更、または削除するために使用できますが、カスタムスキャンプロバイダは通常、自分自身を生成する<structname>CustomPath</structname>オブジェクトに限定し、<function>add_path</function>を使用して、または<function>add_partial_path</function>を使用して<literal>rel</literal>に追加します。
-カスタムスキャンプロバイダは、<structname>CustomPath</structname>オブジェクトを初期化する責任があります。
-これは、次のように宣言されます。
 <programlisting>
 typedef struct CustomPath
 {
@@ -134,30 +130,19 @@ typedef struct CustomPath
     point to a (usually statically allocated) object implementing the required
     custom path methods, which are further detailed below.
 -->
-《マッチ度[80.526021]》<structfield>path</structfield>は、他のすべてのパスと同じく、行数の推定値、開始とトータルのコスト、このパスで提供されるソート順を含めて初期化される必要があります。
+<structfield>path</structfield>は、他のすべてのパスと同じく、行数の推定値、開始とトータルのコスト、このパスで提供されるソート順を含めて初期化される必要があります。
 <structfield>flags</structfield>はビットマスクで、スキャンプロバイダが特定のオプションをサポートできるかどうかを指定します。
 カスタムパスが逆向きスキャンをサポートできるなら<literal>CUSTOMPATH_SUPPORT_BACKWARD_SCAN</literal>を、マークとリストアをサポートできるなら<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</literal>を、プロジェクションを実行できるなら<literal>CUSTOMPATH_SUPPORT_PROJECTION</literal>を<structfield>flags</structfield>に含めます。
 (<literal>CUSTOMPATH_SUPPORT_PROJECTION</literal>が設定されていなければ、スキャンノードはスキャンされるリレーションのVarを生成するよう依頼されるだけです。一方、そのフラグが設定されていれば、スキャンノードはこのVarのスカラ式を評価できないといけません。)
 オプションの<structfield>custom_paths</structfield>はこのカスタムパスのノードで使用される<structname>Path</structname>のノードのリストです。
 プランナがこれを<structname>Plan</structname>のノードに変換します。
+後述するように、結合リレーションに対してもカスタムパスを作成できます。
+このような場合には、カスタムパスが置き換える結合に適用する結合句の集合を格納するために、<structfield>custom_restrictinfo</structfield>を使用する必要があります。
+それ以外の場合はNILです。
 <structfield>custom_private</structfield>はカスタムパスのプライベートデータを格納するために使うことができます。
 プライベートデータは<literal>nodeToString</literal>が処理できるような形式で格納してください。
 そうすることで、カスタムパスを出力するデバッグルーチンが設計通りに動作します。
 <structfield>methods</structfield>は要求されるカスタムパスのメソッドのオブジェクト（通常は静的に割り当てられる）を指している必要があり、以下でさらに詳しく説明します。
-《機械翻訳》<structfield>path</structfield>は、このパスによって提供される行-カウントの推定値、スタートおよび総コスト、ソート順序付けを含む他のパスと同様に初期化する必要があります。
-<structfield>flags</structfield>はビットマスクで、スキャンプロバイダが特定のオプショナル機能をサポートできるかどうかを指定します。
-<structfield>flags</structfield>は、カスタムパスが後方スキャンをincludeできる場合は<literal>CUSTOMPATH_SUPPORT_BACKWARD_SCAN</literal>、サポートマークとリストアをサポートできる場合は<literal>CUSTOMPATH_SUPPORT_MARK_RESTORE</literal>、投影を実行できる場合は<literal>CUSTOMPATH_SUPPORT_PROJECTION</literal>になります。
-<literal>CUSTOMPATH_SUPPORT_PROJECTION</literal>が設定されていない場合、スキャンノードはスキャンされたリレーションの変数を生成するように要求されるだけです。
-一方、そのフラグが設定されている場合、スキャンノードはこれらの変数に対してスカラ式を評価できる必要があります。
-オプショナル<structfield>custom_paths</structfield>は、このカスタム-パスノードによって使用される<structname>Path</structname>ノードのリストであり、これらはプランナによって<structname>Plan</structname>ノードに変換される。
-後述するように、結合経路に対してもカスタムリレーションを作成することができる。
-このようなケースでは、<structfield>カスタム_restrictinfo</structfield>を使用して、結合パスが置き換える結合に適用する一連のカスタム句を保存する必要があります。
-それ以外の場合はNILです。
-<structfield>custom_private</structfield>は、カスタムパスのプライベートデータを格納するために使用できます。
-プライベートデータは、<literal>nodeToString</literal>で処理できるフォームに格納する必要があります。
-これにより、カスタムパスをプリントしようとするデバッグルーチンが設計どおりに動作します。
-<structfield>methods</structfield>は、必要なポイントオブジェクトメソッドを実装する（通常は静的に割り当てられた）カスタムにパスする必要があります。
-詳細については、以下を参照してください。
   </para>
 
   <para>
@@ -201,9 +186,8 @@ extern PGDLLIMPORT set_join_pathlist_hook_type set_join_pathlist_hook;
    <structname>CustomPath</structname> path into a plan, if it is selected
    by the planner as the best path for the <literal>joinrel</literal>.
 -->
-《機械翻訳》ノートまた、<literal>extra-&gt;restrictlist</literal>として渡される結合に適用される結合条項のセットは、内部リレーションと外部地域の組み合わせによって異なります。
-<literal>joinrel</literal>に対して生成される<structname>CustomPath</structname>パスには、使用する結合句のセットが含まれている必要があります。
-プランナが<literal>joinrel</literal>のベストパスとして選択した場合、<structname>CustomPath</structname>パスをプランに変換するためにプランナによって使用されます。
+<literal>extra-&gt;restrictlist</literal>として渡される結合に適用される結合句のセットは、内部と外部のリレーションの組み合わせによって異なることにも注意してください。
+<literal>joinrel</literal>に対して生成される<structname>CustomPath</structname>パスには、使用する結合句の集合が含まれていなければなりません。このパスをプランナが<literal>joinrel</literal>に対する最適パスとして選択した場合、これらは<structname>CustomPath</structname>パスをプランに変換するためにプランナによって使用されます。
   </para>
 
   <sect2 id="custom-scan-path-callbacks">
