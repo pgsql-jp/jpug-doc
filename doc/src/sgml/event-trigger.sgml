@@ -1549,7 +1549,7 @@ CREATE EVENT TRIGGER no_rewrite_allowed
       will make it inaccessible.
 -->
 <literal>login</literal>イベントのイベントトリガは、ユーザログインの記録、接続の検証と現在の状況に応じたロールの割り当て、あるいは、セッションデータの初期設定に有用です。
-<literal>login</literal>イベントを使用するイベントトリガは、データベースが書き込みを実行する前のリカバリ中であるかどうかを確認することが非常に重要です。
+<literal>login</literal>イベントを使用するイベントトリガは、書き込みを実行する前にデータベースがリカバリ中であるかどうかを確認することが非常に重要です。
 スタンバイサーバに書き込むとアクセスできなくなります。
     </para>
 
@@ -1560,6 +1560,7 @@ CREATE EVENT TRIGGER no_rewrite_allowed
 以下は、これらの機能付加を示す例です。
 <programlisting>
 -- create test tables and roles
+-- テスト用のテーブルとロールを作成
 CREATE TABLE user_login_log (
   "user" text,
   "session_start" timestamp with time zone
@@ -1568,6 +1569,7 @@ CREATE ROLE day_worker;
 CREATE ROLE night_worker;
 
 -- the example trigger function
+-- トリガ関数の例
 CREATE OR REPLACE FUNCTION init_session()
   RETURNS event_trigger SECURITY DEFINER
   LANGUAGE plpgsql AS
@@ -1577,6 +1579,7 @@ DECLARE
   rec boolean;
 BEGIN
 -- 1. Forbid logging in between 2AM and 4AM.
+-- 1. AM2時から4時までのログインを禁止する。
 IF hour BETWEEN 2 AND 4 THEN
   RAISE EXCEPTION 'Login forbidden';
 END IF;
@@ -1584,6 +1587,8 @@ END IF;
 -- The checks below cannot be performed on standby servers so
 -- ensure the database is not in recovery before we perform any
 -- operations.
+-- これより先のチェックはスタンバイサーバでは実行できないので、
+-- 操作を実行する前にデータベースがリカバリ中でないことを確認する。
 SELECT pg_is_in_recovery() INTO rec;
 IF rec THEN
   RETURN;
@@ -1591,6 +1596,8 @@ END IF;
 
 -- 2. Assign some roles. At daytime, grant the day_worker role, else the
 -- night_worker role.
+-- 2. ロールを割り当てる。
+-- 日中はday_workerロール、さもなくば night_workerロール。
 IF hour BETWEEN 8 AND 20 THEN
   EXECUTE 'REVOKE night_worker FROM ' || quote_ident(session_user);
   EXECUTE 'GRANT day_worker TO ' || quote_ident(session_user);
@@ -1600,10 +1607,12 @@ ELSE
 END IF;
 
 -- 3. Initialize user session data
+-- 3. ユーザのセッションデータを初期化する。
 CREATE TEMP TABLE session_storage (x float, y integer);
 ALTER TABLE session_storage OWNER TO session_user;
 
 -- 4. Log the connection time
+-- 4. 接続時刻を記録する。
 INSERT INTO public.user_login_log VALUES (session_user, current_timestamp);
 
 END;
