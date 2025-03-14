@@ -71,7 +71,7 @@
     because <command>ANALYZE</command>'s statistics are random samples rather
     than exact, and because costs are inherently somewhat platform-dependent.
 -->
-《マッチ度[93.750000]》本節の例は、9.3の開発版ソースを用いて<command>VACUUM ANALYZE</command>を実行した後でリグレッションテストデータベースから取り出したものです。
+本節の例は、v17の開発版ソースを用いて<command>VACUUM ANALYZE</command>を実行した後でリグレッションテストデータベースから取り出したものです。
 実際にこの例を試すと、似たような結果になるはずですが、おそらく推定コストや行数は多少異なることになるでしょう。
 <command>ANALYZE</command>による統計情報は厳密なものではなくランダムなサンプリングを行った結果であり、また、コストは本質的にプラットフォームに何かしら依存するためです。
    </para>
@@ -229,16 +229,11 @@ EXPLAIN SELECT * FROM tenk1;
     ignores those costs because it cannot change them by altering the
     plan.  (Every correct plan will output the same row set, we trust.)
 -->
-《マッチ度[82.994455]》上位ノードのコストには、すべての子ノードのコストもその中に含まれていることを理解することは重要です。
+上位ノードのコストには、すべての子ノードのコストもその中に含まれていることを理解することは重要です。
 このコストはプランナが関与するコストのみ反映する点もまた重要です。
-とりわけ、結果の行をクライアントに転送するコストは、実際の処理時間の重要な要因となる可能性があるにもかかわらず、考慮されません。
-プランナは、計画をいかに変更しようと、転送コストを変えることはできないため、これを無視します。
-（正しい計画はどんなものであれ、すべて同じ行を結果として出力すると信じています。）
-《機械翻訳》上部コストノードのレベルには、そのすべての子ノードのコストが含まれることを理解することが重要です。
-また、コストはプランナが気にかけていることだけを反映していることを認識することも重要です。
-特に、コストでは、出力値をテキストフォームに変換したり、クライアントに送信したりするために費やされる時間は考慮されていない。
-これは、実際の経過時間の重要な要素となる可能性があるが、プランナでは、プランを変更しても出力値を変更できないため、これらのコストは無視される。
-（正しいプランはすべて、同じ行セットを出力します。）
+とりわけ、出力値をテキストフォームに変換したり、クライアントに送信したりするために要する時間はこのコストでは考慮されません。
+これらは実際の経過時間の重要な要素となる可能性がありますが、計画を変更しても変えることができないため、プランナはこれらのコストを無視します。
+（全ての正しい計画は同じ行セットを出力するものと期待されます。）
    </para>
 
    <para>
@@ -289,10 +284,10 @@ SELECT relpages, reltuples FROM pg_class WHERE relname = 'tenk1';
     <varname>seq_page_cost</varname> is 1.0 and <varname>cpu_tuple_cost</varname> is 0.01,
     so the estimated cost is (345 * 1.0) + (10000 * 0.01) = 445.
 -->
-《マッチ度[91.773779]》<classname>tenk1</classname>には358のディスクページと10000の行があることがわかります。
+<classname>tenk1</classname>には345のディスクページと10000の行があることがわかります。
 推定コストは（ディスクページ読み取り * <xref linkend="guc-seq-page-cost"/>）+（スキャンした行 * <xref linkend="guc-cpu-tuple-cost"/>）と計算されます。
 デフォルトでは、<varname>seq_page_cost</varname>は1.0、<varname>cpu_tuple_cost</varname>は0.01です。
-ですから、推定コストは(358 * 1.0) + (10000 * 0.01) = 458となります。
+ですから、推定コストは(345 * 1.0) + (10000 * 0.01) = 445となります。
    </para>
 
    <para>
@@ -339,9 +334,9 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 7000;
     statistics produced by <command>ANALYZE</command> are taken from a
     randomized sample of the table.
 -->
-《マッチ度[90.792839]》この問い合わせが選択する実際の行数は7000です。
+この問い合わせが選択する実際の行数は7000です。
 しかし、<literal>rows</literal>の推定行数は概算値に過ぎません。
-この実験を2回実行した場合、おそらく多少異なる推定値を得るでしょう。
+この実験を2回実行した場合、多少異なる推定値を得るかもしれません。
 もっと言うと、これは<command>ANALYZE</command>コマンドを行う度に変化することがあり得ます。
 なぜなら、<command>ANALYZE</command>で生成される統計情報は、テーブルのランダムな標本から取り出されるからです。
    </para>
@@ -412,8 +407,8 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 &lt; 100 AND stringu1 = 'xxx';
     the rows retrieved using the index.  Thus the cost has actually gone up
     slightly to reflect this extra checking.
 -->
-《マッチ度[90.105263]》追加された<literal>stringu1 = 'xxx'</literal>条件は出力行数推定値を減らしますが、同じ行集合にアクセスしなければなりませんので、コストは減りません。
-このインデックスが<literal>unique1</literal>列に対してのみ存在するため、<literal>stringu1</literal>句をインデックス条件として適用できないことに注意してください。
+追加された<literal>stringu1 = 'xxx'</literal>条件は出力行数推定値を減らしますが、同じ行集合にアクセスしなければなりませんので、コストは減りません。
+これは、このインデックスが<literal>unique1</literal>列に対してのみ存在していて、<literal>stringu1</literal>の句をインデックス条件として適用できないためです。
 代わりに、インデックスによって取り出される行に対するフィルタとして適用されます。
 これにより、追加の検査分を反映するため、コストは実際には少し上がります。
    </para>
@@ -458,9 +453,9 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
      implemented implicitly.  The planner may also add an explicit
      <literal>Sort</literal> step:
 -->
-《マッチ度[90.043290]》プランナは<literal>ORDER BY</literal>句をいくつかの方法で実装できます。
+プランナは<literal>ORDER BY</literal>句をいくつかの方法で実装できます。
 上の例ではこのような<literal>ORDER BY</literal>句を暗黙的に実装できることを示しています。
-プランナは明示的な<literal>sort</literal>ステップを追加もします。
+プランナは明示的な<literal>Sort</literal>ステップを追加もします。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 ORDER BY unique1;
@@ -477,7 +472,7 @@ EXPLAIN SELECT * FROM tenk1 ORDER BY unique1;
     required sort keys, then the planner may instead decide to use an
     <literal>Incremental Sort</literal> step:
 -->
-《マッチ度[91.812865]》ソートキーで必要な接頭辞の順序がプランの一部で保証されている場合、<literal>インクリメンタルソート(incremental sort)</literal>ステップを使用することを決定できます。
+ソートキーで必要な接頭辞の順序がプランの一部で保証されている場合、<literal>インクリメンタルソート(Incremental Sort)</literal>ステップを使用することを決定できます。
 
 <screen>
 EXPLAIN SELECT * FROM tenk1 ORDER BY hundred, ten LIMIT 100;
@@ -625,7 +620,7 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
     scan, plus one repetition of the inner scan for each outer row (10 * 7.90,
     here), plus a little CPU time for join processing.
 -->
-《マッチ度[93.426573]》この計画では、入力または子として２つのテーブルスキャンを持つネステッドループ結合ノードがあります。
+この計画では、入力または子として２つのテーブルスキャンを持つネステッドループ結合ノードがあります。
 計画のツリー構造を反映して、ノード要約行はインデント付けされます。
 結合の先頭、<quote>外部</quote>、子は以前に説明したものと似たビットマップスキャンです。
 そのコストと行数は、該当ノードに<literal>unique1 &lt; 10</literal> <literal>WHERE</literal>句が適用されるため、<literal>SELECT ... WHERE unique1 &lt; 10</literal>で得られたものと同じです。
@@ -634,7 +629,7 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
 現在の外部の行からの列の値は内部スキャンに組み込まれます。
 ここで、外部行からの<literal>t1.unique2</literal>の値が利用できますので、上述の単純な<literal>SELECT ... WHERE t2.unique2 = <replaceable>constant</replaceable></literal>の場合に示したものと似た計画とコストが得られます。
 （実際、推定コストは、<literal>t2</literal>に対するインデックススキャンが繰り返される間に発生することが想定されるキャッシュの結果、上で示した値よりわずかに低くなります。）
-ループノードのコストは、外部スキャンのコストと、各々の外部の行に対して内部スキャンが繰り返されることによるコスト（ここでは10 * 7.91）を加え、さらに結合処理を行うための少々のCPU時間を加えたものになります。
+ループノードのコストは、外部スキャンのコストと、各々の外部の行に対して内部スキャンが繰り返されることによるコスト（ここでは10 * 7.90）を加え、さらに結合処理を行うための少々のCPU時間を加えたものになります。
    </para>
 
    <para>
@@ -780,13 +775,9 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     (Sequential-scan-and-sort frequently beats an index scan for sorting many rows,
     because of the nonsequential disk access required by the index scan.)
 -->
-《マッチ度[59.016393]》マージ結合は、結合キーでソートされる入力データを必要とします。
-この計画では、正確な順序で行をアクセスするために<literal>tenk1</literal>データがインデックススキャンを用いてソートされます。
-しかし、このテーブルの中でより多くの行がアクセスされるため、<literal>onek</literal>ではシーケンシャルスキャンとソートが好まれています。
-（多くの行をソートする場合、インデックススキャンでは非シーケンシャルなディスクアクセスが必要となるため、シーケンシャルスキャンとソートの方がインデックススキャンより優れています。）
-《機械翻訳》マージ結合では、入力されたデータを結合キーでソートする必要があります。
-この例では、各入力はインデックススキャンを使用して正しいオーダーの行にアクセスすることによってソートされますが、シーケンシャルスキャンとソートも使用できます（シーケンシャル-スキャン-and-ソートは、並べ替えの多くの行でインデックススキャンよりも頻繁に優先されます。
-これは、インデックススキャンで必要とされるディスク・アクセスが連続していないためです）。
+マージ結合は、結合キーでソートされる入力データを必要とします。
+この例では、各入力がインデックススキャンを使用して正しい順序で行にアクセスすることでソートされますが、シーケンシャルスキャンとソートも使用できます
+（多くの行をソートする場合、インデックススキャンでは非シーケンシャルなディスクアクセスが必要となるため、シーケンシャルスキャンとソートの方がインデックススキャンより優ります。）
    </para>
 
    <para>
@@ -799,13 +790,10 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     For example, if we're unconvinced that merge join is the best join
     type for the previous example, we could try
 -->
-《マッチ度[77.078086]》<xref linkend="runtime-config-query-enable"/>に記載したenable/disableフラグを使用して、プランナが最も良いと考えている戦略を強制的に無視させる方法により、異なった計画を観察することができます。
+<xref linkend="runtime-config-query-enable"/>に記載したenable/disableフラグを使用して、プランナが最も良いと考えている戦略を強制的に無視させる方法により、異なった計画を観察することができます。
 （非常に原始的なツールですが、利用価値があります。
 <xref linkend="explicit-joins"/>も参照してください。）
-例えば、前の例にて<literal>onek</literal>テーブルを扱う最善の方法がシーケンシャルスキャンとソートであると納得できなければ、以下を試みることができます。
-《機械翻訳》バリエーションプランを見る1つの方法は、<xref linkend="runtime-config-query-enable"/>で説明されている有効/無効フラグを使用して、プランナが最も安いと思ったストラテジを無視するように強制することです（これは粗雑なツールですが、便利です。
-<xref linkend="explicit-joins"/>も参照してください）。
-例の場合、マージ結合が前の例のベスト結合タイプであると確信できない場合は、トライを使用できます。
+例えば、マージ結合が前の例の最善の結合タイプであると確信できない場合は、以下を試みることができます。
 
 <screen>
 SET enable_mergejoin = off;
@@ -833,11 +821,8 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     We can investigate that using <command>EXPLAIN ANALYZE</command>, as
     discussed <link linkend="using-explain-analyze">below</link>.
 -->
-《マッチ度[57.096774]》これは、プランナが、シーケンシャルスキャンとソートよりインデックススキャンによる<literal>onek</literal>のソート処理がおよそ12%程高価であるとみなしたことを示します。
+これは、このケースではハッシュ結合がマージ結合よりも50%近く高価になるとプランナが考えていることを示しています。
 当然ながら、次の疑問はこれが正しいかどうかでしょう。
-後で説明する<command>EXPLAIN ANALYZE</command>を使用することで調査することができます。
-《機械翻訳》これは、このケースではハッシュ結合がマージ結合よりも50%近く高くなるとプランナが考えていることを示しています。
-もちろん、次の問題は、それが正しいかどうかということです。
 <link linkend="using-explain-analyze">以下で</link>説明するように、<command>EXPLAIN ANALYZE</command>を使って調べることができます。
    </para>
 
@@ -851,8 +836,8 @@ WHERE t1.unique1 &lt; 100 AND t1.unique2 = t2.unique2;
     queries can sometimes be transformed into ordinary join plans, but
     when they cannot be, we get plans like:
 -->
-《機械翻訳》一部のクエリ・プランには、オリジナルクエリのサブ<literal>SELECT</literal>から発生する <firstterm>subplans</firstterm>が含まれています。
-このようなクエリは、通常の結合プランに変換できる場合もありますが、変換できない場合は、次のようなプランが生成されます。
+一部の問い合わせ計画には、元の問い合わせ内の副<literal>SELECT</literal>から発生する <firstterm>subplans</firstterm>が含まれています。
+このような問い合わせは、通常の結合プランに変換できる場合もありますが、変換できない場合は、次のような計画が生成されます。
 
 <screen>
 EXPLAIN VERBOSE SELECT unique1
@@ -881,10 +866,8 @@ WHERE t.ten &lt; ALL (SELECT o.ten FROM onek o WHERE o.four = t.four);
     which refers to the <replaceable>N</replaceable>'th output column of
     the sub-<literal>SELECT</literal>.
 -->
-《機械翻訳》このかなり人工的な例は、いくつかの点を説明するのに役立ちます。
-外側のプランレベルからの値はダウンをサブプランに渡すことができ（ここでは、<literal>t.four</literal>はダウンを渡します）、サブ-selectの結果は外側のプランで利用できます。
-これらの結果値は、<literal>(<replaceable>subplan_name</replaceable>).col<replaceable>N</replaceable></literal>のような表記で<command>EXPLAIN</command>によって表示されます。
-これは、サブ<literal>SELECT</literal>の<replaceable>N</replaceable>番目の出力カラムを参照します。
+このかなり人工的な例は、二つの点を説明するのに役立ちます。すなわち、外側の計画階層からの値は副計画に渡すことができて（ここでは<literal>t.four</literal>が渡されます）、副SELECTの結果は外側の計画で利用できます。
+これらの結果値は、<command>EXPLAIN</command>で<literal>(<replaceable>subplan_name</replaceable>).col<replaceable>N</replaceable></literal>のような記法で表示され、これは副<literal>SELECT</literal>の<replaceable>N</replaceable>番目の出力列を指します。
    </para>
 
    <para>
@@ -898,8 +881,8 @@ WHERE t.ten &lt; ALL (SELECT o.ten FROM onek o WHERE o.four = t.four);
     high estimated cost).  Some queries can use a <firstterm>hashed
     subplan</firstterm> to avoid that:
 -->
-《機械翻訳》上の例では、<literal>ALL</literal>演算子は、外側のクエリの各行に対してサブプランを再び実行します（外側のコストは、高い推定値を占めます）。
-一部のクエリーでは、それを回避するために<firstterm>ハッシュされたサブプラン</firstterm>を使用できます:。
+上の例で、<literal>ALL</literal>演算子は、外側の問い合わせの各行に対して副計画を実行します（高い推定コストの原因となります）。
+一部の問い合わせでは、それを回避するために<firstterm>ハッシュされた副計画</firstterm>を使用できます:。
 
 <screen>
 EXPLAIN SELECT *
@@ -923,8 +906,8 @@ WHERE t.unique1 NOT IN (SELECT o.unique1 FROM onek o);
     query, and that the <literal>ANY</literal>'s comparison operator be
     amenable to hashing.
 -->
-《機械翻訳》ここでは、サブプランが1回実行され、その出力がメモリ内のハッシュテーブルにロードされ、次に外部<literal>ANY</literal>演算子によってプローブされます。
-これには、サブ-<literal>SELECT</literal>が外部クエリの変数をリファレンスしないこと、および<literal>ANY</literal>の比較演算子がハッシュに従うことが必要です。
+ここでは、副計画が1回実行され、その出力がメモリ内のハッシュテーブルに置かれ、次に外側の<literal>ANY</literal>演算子によって検査されます。
+これには、副<literal>SELECT</literal>が外側の問い合わせの変数を参照しないことと、<literal>ANY</literal>の比較演算子がハッシュ適用できることが必要です。
    </para>
 
    <para>
@@ -936,7 +919,7 @@ WHERE t.unique1 NOT IN (SELECT o.unique1 FROM onek o);
     the sub-<literal>SELECT</literal> cannot return more than one row,
     it may instead be implemented as an <firstterm>initplan</firstterm>:
 -->
-《機械翻訳》外部参照の変数をクエリしないことに加えて、サブ<literal>SELECT</literal>が複数の行を結果できない場合は、代わりに<firstterm>initplan</firstterm>:として実装できます。
+外側の問い合わせの変数を参照しないことに加えて、副<literal>SELECT</literal>が複数行を返せない場合は、代わりに<firstterm>initplan</firstterm>として次のように計画作成されます。
 
 <screen>
 EXPLAIN VERBOSE SELECT unique1
@@ -960,9 +943,9 @@ FROM tenk1 t1 WHERE t1.ten = (SELECT (random() * 10)::integer);
     randomly-chosen integer.  That's quite different from what would
     happen without the sub-<literal>SELECT</literal> construct.
 -->
-《機械翻訳》initplanは外部プランの実行ごとに1回だけ実行され、その結果は外部プランの後の行で再利用するために保存されます。
+initplanは外側の計画の実行ごとに1回だけ実行され、その結果は外側の計画の後の行で再利用するために保存されます。
 したがって、この例では<literal>random()</literal>は1回だけ評価され、<literal>t1.10</literal>のすべての値がランダムに選択された同じ整数と比較されます。
-これは、サブ<literal>SELECT</literal>コンストラクトがない場合とは大きく異なります。
+これは、副<literal>SELECT</literal>構造がない場合とは大きく異なります。
    </para>
 
   </sect2>
@@ -1029,12 +1012,12 @@ WHERE t1.unique1 &lt; 10 AND t1.unique2 = t2.unique2;
     the node.  In the above example, we spent a total of 0.030 milliseconds
     executing the index scans on <literal>tenk2</literal>.
 -->
-《マッチ度[92.911011]》問い合わせ計画の中には、何回も副計画ノードを実行する可能性のあるものがあります。
+問い合わせ計画の中には、何回も副計画ノードを実行する可能性のあるものがあります。
 例えば、上述のネステッドループの計画では、内部インデックススキャンは外部の行ごとに一度行われます。
 このような場合、<literal>loops</literal>値はそのノードを実行する総回数を報告し、表示される実際の時間と行数は1実行当たりの平均です。
 これで値を表示された推定コストと比較できるようになります。
 <literal>loops</literal>値をかけることで、そのノードで実際に費やされた総時間を得ることができます。
-上の例では、<literal>tenk2</literal>に対するインデックススキャンの実行のために合計0.220ミリ秒要しています。
+上の例では、<literal>tenk2</literal>に対するインデックススキャンの実行のために合計0.030ミリ秒要しています。
    </para>
 
    <para>
@@ -1268,8 +1251,7 @@ ROLLBACK;
     <command>MERGE</command> command affects a partitioned table or
     inheritance hierarchy, the output might look like this:
 -->
-《マッチ度[85.869565]》<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>コマンドが継承階層に影響する場合には、出力は以下のようになるでしょう。
-《機械翻訳》<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>コマンドが、分割されたテーブルまたは継承の階層に影響を与える場合、出力は次のようになります。
+<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>コマンドがパーティションテーブルや継承階層に影響する場合には、出力は以下のようになるでしょう。
 
 <screen>
 EXPLAIN UPDATE gtest_parent SET f1 = CURRENT_DATE WHERE f2 = 101;
@@ -1297,12 +1279,9 @@ EXPLAIN UPDATE gtest_parent SET f1 = CURRENT_DATE WHERE f2 = 101;
     annotated to show the specific target tables that will be updated, in the
     same order as the corresponding subplans.
 -->
-《マッチ度[78.512397]》この例では、Updateノードは元々言及されている親テーブルに加えて3つの子テーブルを考慮することが必要です。
-そのため、テーブル毎に1つ、4つの入力スキャン副計画があります。
+この例では、Updateノードは3つの子テーブルを考慮しますが、元の問い合わせに記述されていたパーティションテーブルを考慮しません（そこにデータ格納されることはないため）。
+そのため、テーブル毎に3つの入力スキャン副計画があります。
 明確にするため、Updateノードには対応する副計画と同じ順に更新される特定の対象テーブルを示す注釈が付けられています。
-《機械翻訳》この例では、更新ノードニーズは3つの子テーブルを考慮しますが、最初に説明したパーティション化されたテーブルは考慮しません（データを格納しないため）。
-したがって、テーブルごとに1つずつ、3つの入力スキャンサブプランがあります。
-明確にするために、更新ノードには、対応するサブプランと同じオーダーで、更新される特定のターゲットテーブルを示す注釈が付けられています。
    </para>
 
    <para>
@@ -1349,9 +1328,9 @@ EXPLAIN UPDATE gtest_parent SET f1 = CURRENT_DATE WHERE f2 = 101;
     be shown separately, and it's also included in the
     total <literal>Execution time</literal>.
 -->
-《機械翻訳》トップ-レベルノードに表示される時間は、クエリの出力データを表示可能なフォームに変換したり、クライアントに送信したりするために必要な時間ではありません。
-include<command>EXPLAIN ANALYZE</command>はデータをクライアントに送信することはありませんが、<literal>SERIALIZE</literal>オプションを指定することで、クエリの出力データを表示可能なフォームに変換し、そのために必要な時間を測定するように指示できます。
-その時間は別に表示され、合計<literal>実行時間</literal>にも含まれます。
+最上位ノードに表示される時間には、問い合わせの出力データを表示可能な形式に変換したり、それをクライアントに送信したりするのに要する時間は含まれません。
+<command>EXPLAIN ANALYZE</command>はデータをクライアントに送信することはありませんが、<literal>SERIALIZE</literal>オプションを指定することで、問い合わせの出力データを表示可能な形式に変換し、そのために必要な時間を測定するように指示できます。
+その時間は分けて表示され、また、それは合計の<literal>Execution time</literal>にも含まれます。
    </para>
 
   </sect2>
@@ -1375,15 +1354,11 @@ include<command>EXPLAIN ANALYZE</command>はデータをクライアントに送
     <xref linkend="pgtesttiming"/> tool to measure the overhead of timing
     on your system.
 -->
-《マッチ度[84.169279]》<command>EXPLAIN ANALYZE</command>により測定される実行時間が同じ問い合わせを普通に実行する場合と大きくそれる可能性がある、２つの重大な点があります。
-１つ目は、出力行がクライアントに配信されませんので、ネットワーク転送コストとI/O変換に関するコストが含まれないことです。
+<command>EXPLAIN ANALYZE</command>により測定される実行時間が同じ問い合わせを普通に実行する場合と大きくそれる可能性がある、２つの重大な点があります。
+１つ目は、出力行がクライアントに配信されませんので、ネットワーク転送コストが含まれないことです。
+I/O変換のコストも、<literal>SERIALIZE</literal>が指定されない限り、含まれません。
 ２つ目は、<command>EXPLAIN ANALYZE</command>によって加わる測定オーバーヘッドが大きくなることが、特に<function>gettimeofday()</function>オペレーティングシステムコールが低速なマシンであり得ることです。
 <xref linkend="pgtesttiming"/>を用いて、使用中のシステムの時間測定にかかるオーバーヘッドを測ることができます。
-《機械翻訳》<command>EXPLAIN ANALYZE</command>によって測定される実行時間が、同じクエリの通常の実行から逸脱する可能性がある重要な方法が2つあります。
-第1に、出力行はクライアントに配信されないため、ネットワークの伝送コストは含まれない。
-<literal>SERIALIZE</literal>が指定されていない限り、入出力変換コストも含まれません。
-第2に、<command>EXPLAIN ANALYZE</command>によって追加された計測オーバーヘッドは、特に<function>gettimeofday()</function>操作システム呼び出しが遅いマシンでは重要になります。
-<xref linkend="pgtesttiming"/>ツールを使用して、システムのタイミングのオーバーヘッドを計測できます。
    </para>
 
    <para>
@@ -1687,10 +1662,9 @@ WHERE tablename = 'road';
    (For brevity, we have only shown the first ten most-common values for
    the <literal>name</literal> column.)
 -->
-《マッチ度[72.272727]》同じ列に対して2行が表示されていることに注意してください。
+同じ列に対して2行が表示されていることに注意してください。
 1つは<literal>road</literal>テーブルが始まる継承階層(<literal>inherited</literal>=<literal>t</literal>)全体に相当し、もう1つは<literal>road</literal>テーブル自身(<literal>inherited</literal>=<literal>f</literal>)のみを含むものです。
-《機械翻訳》同じノートに対して2つの行が表示されるカラム。
-1つは<literal>road</literal>継承<literal>inherited</literal>=<literal>t</literal>)で始まる完全なテーブル階層に対応し、もう1つは<literal>road</literal>テーブル自分自身(<literal>inherited</literal>=<literal>f</literal>)のみを含みます（簡潔にするために、<literal>名前</literal>カラムの最も一般的な値の最初の10個のみを示しました）。
+（簡潔にするために、<literal>name</literal>列について最頻値は最初の10個のみを示しました。）
   </para>
 
   <para>
