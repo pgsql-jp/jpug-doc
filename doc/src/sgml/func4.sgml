@@ -3486,7 +3486,7 @@ SELECT pg_type_is_visible('myschema.widget'::regtype);
 -->
 列に関連するシーケンスの名前を返します。
 列に関連するシーケンスが存在しなければ、NULLを返します。
-列がIDENTITY列の場合、関連するシーケンスはIDENTITY列に対して内部的に作成されたシーケンスとなります。
+列が識別列の場合、関連するシーケンスは識別列に対して内部的に作成されたシーケンスとなります。
 SERIAL型（<type>serial</type>、<type>smallserial</type>、<type>bigserial</type>）の一つを使って作られた列については、そのSERIAL列の定義に対して作られたシーケンスとなります。
 後者の場合、この関連付けは<command>ALTER SEQUENCE OWNED BY</command>で修正または削除することができます。
 （この関数はおそらく<function>pg_get_owned_sequence</function>と呼ばれるべきだったのでしょうが、現在の名前はそれが主に<type>serial</type>列または<type>bigserial</type>列と一緒に使われていたという事実によります。）
@@ -3502,7 +3502,7 @@ SERIAL型（<type>serial</type>、<type>smallserial</type>、<type>bigserial</ty
         A typical use is in reading the current value of the sequence for an
         identity or serial column, for example:
 -->
-典型的な使用法はIDENTITY列またはSERIAL列のシーケンスの現在値を読み取ることです。例を示します。
+典型的な使用法は識別列またはSERIAL列のシーケンスの現在値を読み取ることです。例を示します。
 <programlisting>
 SELECT currval(pg_get_serial_sequence('sometable', 'id'));
 </programlisting>
@@ -5426,7 +5426,7 @@ OIDとそれを含むシステム型で指定されるデータベース共有�
     <xref linkend="app-pgcontroldata"/> application.
 -->
 <xref linkend="functions-controldata"/>に示す関数は、カタログのバージョンなどといった<command>initdb</command>の実行時に初期化される情報を表示します。
-それらはまた、先行書き込みログとチェックポイント処理についての情報も示します。
+それらはまた、先行書き込みログ（WAL）とチェックポイント処理についての情報も示します。
 この情報はクラスタ全体に渡るもので、どれか１つのデータベースに特有のものではありません。
 これらの関数は<xref linkend="app-pgcontroldata"/>アプリケーションと同じ情報源から、ほぼ同じ情報を提供します。
    </para>
@@ -6331,7 +6331,7 @@ LOG:  Grand total: 1651920 bytes in 201 blocks; 622360 free (88 chunks); 1029560
         with the same name, since recovery will stop at the first one whose
         name matches the recovery target.
 -->
-先行書き込みログ中に後でリカバリターゲットとして使用できる名前付けされたマーカーレコードを作成し、関連する先行書き込みログの位置を返します。
+先行書き込みログ（WAL）中に後でリカバリターゲットとして使用できる名前付けされたマーカーレコードを作成し、関連する先行書き込みログ（WAL）の位置を返します。
 与えられた名前はリカバリをどこまで進めるかを指定するために<xref linkend="guc-recovery-target-name"/>とともに利用できます。
 同じ名前で複数のリストアポイントを作成するのは避けてください。リカバリターゲットが一致した最初のところでリカバリが停止するからです。
        </para>
@@ -6356,7 +6356,7 @@ LOG:  Grand total: 1651920 bytes in 201 blocks; 622360 free (88 chunks); 1029560
 <!--
         Returns the current write-ahead log flush location (see notes below).
 -->
-先行書き込みログの現在のフラッシュ位置を取得します。（下の注釈を参照してください。）
+先行書き込みログ（WAL）の現在のフラッシュ位置を取得します。（下の注釈を参照してください。）
        </para></entry>
       </row>
 
@@ -6372,7 +6372,7 @@ LOG:  Grand total: 1651920 bytes in 201 blocks; 622360 free (88 chunks); 1029560
 <!--
         Returns the current write-ahead log insert location (see notes below).
 -->
-現在の先行書き込みログの挿入位置を取得します。（下の注釈を参照してください。）
+現在の先行書き込みログ（WAL）の挿入位置を取得します。（下の注釈を参照してください。）
        </para></entry>
       </row>
 
@@ -6388,7 +6388,7 @@ LOG:  Grand total: 1651920 bytes in 201 blocks; 622360 free (88 chunks); 1029560
 <!--
         Returns the current write-ahead log write location (see notes below).
 -->
-現在の先行書き込みログの書き込み位置を取得します。（下の注釈を参照してください。）
+現在の先行書き込みログ（WAL）の書き込み位置を取得します。（下の注釈を参照してください。）
        </para></entry>
       </row>
 
@@ -6490,10 +6490,10 @@ falseの場合、この関数はバックアップの完了後、WALがアーカ
         write-ahead log file can be archived immediately to complete the
         backup.
 -->
-プライマリで実行された場合、この関数はまた、先行書き込みログの格納領域にバックアップ履歴ファイルを作成します。
-履歴ファイルには<function>pg_backup_start</function>で付与されたラベル、バックアップの先行書き込みログの位置の開始位置、終了位置、バックアップ開始時刻、終了時刻が含まれます。
-終了位置を記録した後、現在の先行書き込みログの挿入位置は自動的に、次の先行書き込みログファイルに進みます。
-従って、終了先行書き込みログファイルをすぐにアーカイブし、バックアップを完了させることができます。
+プライマリで実行された場合、この関数はまた、先行書き込みログ（WAL）の格納領域にバックアップ履歴ファイルを作成します。
+履歴ファイルには<function>pg_backup_start</function>で付与されたラベル、バックアップの先行書き込みログ（WAL）の位置の開始位置、終了位置、バックアップ開始時刻、終了時刻が含まれます。
+終了位置を記録した後、現在の先行書き込みログ（WAL）の挿入位置は自動的に、次の先行書き込みログ（WAL）ファイルに進みます。
+従って、終了先行書き込みログ（WAL）ファイルをすぐにアーカイブし、バックアップを完了させることができます。
        </para>
        <para>
 <!--
@@ -6506,7 +6506,7 @@ falseの場合、この関数はバックアップの完了後、WALがアーカ
         process.
 -->
 この関数の結果は単一レコードです。
-<parameter>lsn</parameter>列はバックアップの終了先行書き込みログの位置です（これもまた無視可能です）。
+<parameter>lsn</parameter>列はバックアップの終了先行書き込みログ（WAL）の位置です（これもまた無視可能です）。
 2番目の列はバックアップラベルファイルの内容を返し、3番目の列はテーブル空間マップファイルの内容を返します。
 これらはバックアップの一部として保存されなければならず、リストアプロセスの一部で必要となるものです。
        </para>
@@ -6538,10 +6538,10 @@ falseの場合、この関数はバックアップの完了後、WALがアーカ
         returns the start location of the write-ahead log file currently in
         use.
 -->
-サーバに対して新しい先行書き込みログファイルへ強制スイッチを行い、それによってその現在のファイルがアーカイブされるようにします。
+サーバに対して新しい先行書き込みログ（WAL）ファイルへ強制スイッチを行い、それによってその現在のファイルがアーカイブされるようにします。
 （継続的アーカイブを利用中だと仮定します。）
-結果は今ちょうど終了した先行書き込みログファイル内の終了先行書き込みログファイルの場所プラス1です。
-最後の先行書き込みログファイルのスイッチ以降先行書き込みログファイル活動がなければ、<function>pg_switch_wal</function>は何もせず、現在使用中の先行書き込みログファイルの先頭位置を返します。
+結果は今ちょうど終了した先行書き込みログ（WAL）ファイル内の終了先行書き込みログ（WAL）ファイルの場所プラス1です。
+最後の先行書き込みログ（WAL）ファイルのスイッチ以降先行書き込みログ（WAL）ファイル活動がなければ、<function>pg_switch_wal</function>は何もせず、現在使用中の先行書き込みログ（WAL）ファイルの先頭位置を返します。
        </para>
        <para>
 <!--
@@ -6565,7 +6565,7 @@ falseの場合、この関数はバックアップの完了後、WALがアーカ
         Converts a write-ahead log location to the name of the WAL file
         holding that location.
 -->
-先行書き込みログファイルの位置を、その位置を保持しているWALファイルの名前に変換します。
+先行書き込みログ（WAL）ファイルの位置を、その位置を保持しているWALファイルの名前に変換します。
        </para></entry>
       </row>
 
@@ -6584,7 +6584,7 @@ falseの場合、この関数はバックアップの完了後、WALがアーカ
         Converts a write-ahead log location to a WAL file name and byte offset
         within that file.
 -->
-先行書き込みログの位置を、その位置を保持しているWALファイルの名前とそのファイル内のバイトオフセットに変換します。
+先行書き込みログ（WAL）の位置を、その位置を保持しているWALファイルの名前とそのファイル内のバイトオフセットに変換します。
        </para></entry>
       </row>
 
@@ -6623,7 +6623,7 @@ WALファイル名からシーケンス番号とタイムラインIDを抽出し
         functions shown in <xref linkend="functions-admin-backup-table"/> to
         get the replication lag.
 -->
-2つの先行書き込みログの位置のバイト単位の差分(<parameter>lsn1</parameter> - <parameter>lsn2</parameter>)を計算します。
+2つの先行書き込みログ（WAL）の位置のバイト単位の差分(<parameter>lsn1</parameter> - <parameter>lsn2</parameter>)を計算します。
 これは<structname>pg_stat_replication</structname>や<xref linkend="functions-admin-backup-table"/>内の関数でレプリケーションの遅延を取得するために使用することができます。
        </para></entry>
       </row>
@@ -6649,11 +6649,11 @@ WALファイル名からシーケンス番号とタイムラインIDを抽出し
     for server debugging purposes.  These are all read-only operations and do
     not require superuser permissions.
 -->
-<function>pg_current_wal_lsn</function>は、上記の関数で使用されるのと同じ書式で現在の先行書き込みログの書き込み位置を表示します。
-同様に<function>pg_current_wal_insert_lsn</function>は、現在の先行書き込みログの挿入位置を表示し、<function>pg_current_wal_flush_lsn</function>はトランザクションログの現在のフラッシュ位置を表示します。
-挿入位置は <quote>論理的</quote>な任意の時点の先行書き込みログの終了位置です。
+<function>pg_current_wal_lsn</function>は、上記の関数で使用されるのと同じ書式で現在の先行書き込みログ（WAL）の書き込み位置を表示します。
+同様に<function>pg_current_wal_insert_lsn</function>は、現在の先行書き込みログ（WAL）の挿入位置を表示し、<function>pg_current_wal_flush_lsn</function>はトランザクションログの現在のフラッシュ位置を表示します。
+挿入位置は <quote>論理的</quote>な任意の時点の先行書き込みログ（WAL）の終了位置です。
 一方、書き込み位置は、サーバの内部バッファから書き出された実際の終了位置、またフラッシュ位置は永続的ストレージへの書き込みが保証される位置です。
-書き込み位置はサーバ外部から検証可能なものの終端です。通常は、部分的に完了した先行書き込みログファイルのアーカイブ処理を行いたい場合に必要とされるものです。
+書き込み位置はサーバ外部から検証可能なものの終端です。通常は、部分的に完了した先行書き込みログ（WAL）ファイルのアーカイブ処理を行いたい場合に必要とされるものです。
 挿入およびフラッシュ位置はサーバをデバッグする際に主に使用されます。
 これらはどちらも読み取りのみの操作であり、スーパーユーザ権限を必要としません。
    </para>
@@ -6664,7 +6664,7 @@ WALファイル名からシーケンス番号とタイムラインIDを抽出し
     corresponding write-ahead log file name and byte offset from
     a <type>pg_lsn</type> value.  For example:
 -->
-<function>pg_walfile_name_offset</function>を使用して、<type>pg_lsn</type>値から、対応する先行書き込みログファイル名とバイトオフセットを取り出すことができます。
+<function>pg_walfile_name_offset</function>を使用して、<type>pg_lsn</type>値から、対応する先行書き込みログ（WAL）ファイル名とバイトオフセットを取り出すことができます。
 以下に例を示します。
 <programlisting>
 postgres=# SELECT * FROM pg_walfile_name_offset((pg_backup_stop()).lsn);
@@ -6681,9 +6681,9 @@ postgres=# SELECT * FROM pg_walfile_name_offset((pg_backup_stop()).lsn);
     behavior, since the preceding file is the last one that currently
     needs to be archived.
 -->
-同様に、<function>pg_walfile_name</function>は、先行書き込みログファイル名のみを取り出します。
-指定した先行書き込みログの位置が正確に先行書き込みログファイルの境界であった場合、これらの両関数は前の先行書き込みログファイルの名前を返します。
-通常これは、先行書き込みログファイルのアーカイブ動作では好まれる動作です。
+同様に、<function>pg_walfile_name</function>は、先行書き込みログ（WAL）ファイル名のみを取り出します。
+指定した先行書き込みログ（WAL）の位置が正確に先行書き込みログ（WAL）ファイルの境界であった場合、これらの両関数は前の先行書き込みログ（WAL）ファイルの名前を返します。
+通常これは、先行書き込みログ（WAL）ファイルのアーカイブ動作では好まれる動作です。
 前のファイルが現在のアーカイブで必要とする最後のファイルであるからです。
    </para>
 
@@ -6784,7 +6784,7 @@ postgres=# SELECT '0/0'::pg_lsn + pd.segment_number * ps.setting::int + :offset 
         replication is disabled, or if it has not yet started, the function
         returns <literal>NULL</literal>.
 -->
-ストリーミングレプリケーションにより受信されディスクに同期書き込みされた、先行書き込みログの最後の位置を返します。
+ストリーミングレプリケーションにより受信されディスクに同期書き込みされた、先行書き込みログ（WAL）の最後の位置を返します。
 ストリーミングレプリケーションがまだ実行中の場合、この関数の戻り値は単調に増加します。
 リカバリが完了した場合は、受信されディスクに書き込まれた最後のWALレコードの位置の値のまま変化しません。
 ストリーミングレプリケーションが無効、もしくは開始されていない場合、この関数は<literal>NULL</literal>を返します。
@@ -6808,7 +6808,7 @@ postgres=# SELECT '0/0'::pg_lsn + pd.segment_number * ps.setting::int + :offset 
         When the server has been started normally without recovery, the
         function returns <literal>NULL</literal>.
 -->
-リカバリ中に再生された最後の先行書き込みログの位置を返します。
+リカバリ中に再生された最後の先行書き込みログ（WAL）の位置を返します。
 リカバリがまだ実行中の場合、この関数の戻り値は単調に増加します。
 リカバリが完了した場合は、リカバリ時に適用された最後のWALレコードの値のまま変化しません。
 サーバがリカバリ処理無しに正常に開始された場合、この関数は<literal>NULL</literal>を返します。
