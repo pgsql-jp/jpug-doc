@@ -22,7 +22,7 @@ PostgreSQL documentation
 <!--
   <refpurpose>stream write-ahead logs from a <productname>PostgreSQL</productname> server</refpurpose>
 -->
-  <refpurpose><productname>PostgreSQL</productname>サーバから先行書き込みログをストリームする</refpurpose>
+  <refpurpose><productname>PostgreSQL</productname>サーバから先行書き込みログ（WAL）をストリームする</refpurpose>
  </refnamediv>
 
  <refsynopsisdiv>
@@ -46,8 +46,8 @@ PostgreSQL documentation
    location for doing a restore using point-in-time recovery (see
    <xref linkend="continuous-archiving"/>).
 -->
-<application>pg_receivewal</application>は実行中の<productname>PostgreSQL</productname>クラスタから先行書き込みログをストリームするために使用されます。
-先行書き込みログはストリーミングレプリケーションプロトコルを使用してストリームされ、ローカルディレクトリのファイルとして書き出されます。
+<application>pg_receivewal</application>は実行中の<productname>PostgreSQL</productname>クラスタから先行書き込みログ（WAL）をストリームするために使用されます。
+先行書き込みログ（WAL）はストリーミングレプリケーションプロトコルを使用してストリームされ、ローカルディレクトリのファイルとして書き出されます。
 このディレクトリはポイントインタイムリカバリ（<xref linkend="continuous-archiving"/>参照）を用いてリストアする際のアーカイブ場所として使用することができます。
   </para>
 
@@ -61,7 +61,7 @@ PostgreSQL documentation
    <xref linkend="guc-archive-timeout"/> when using
     <application>pg_receivewal</application>.
 -->
-<application>pg_receivewal</application>は、先行書き込みログをサーバでの生成に合わせてリアルタイムでストリームし、<xref linkend="guc-archive-command"/>や<xref linkend="guc-archive-library"/>とは異なり、セグメントが完了するまで待機することはありません。
+<application>pg_receivewal</application>は、先行書き込みログ（WAL）をサーバでの生成に合わせてリアルタイムでストリームし、<xref linkend="guc-archive-command"/>や<xref linkend="guc-archive-library"/>とは異なり、セグメントが完了するまで待機することはありません。
 このため、<application>pg_receivewal</application>を使用する場合には<xref linkend="guc-archive-timeout"/>を設定する必要はありません。
   </para>
 
@@ -101,7 +101,7 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
    <xref linkend="guc-max-wal-senders"/> set high enough to leave at least
    one session available for the stream.
 -->
-先行書き込みログは通常の<productname>PostgreSQL</productname>接続を経由して、そしてレプリケーションプロトコルを使用して、ストリームされます。
+先行書き込みログ（WAL）は通常の<productname>PostgreSQL</productname>接続を経由して、そしてレプリケーションプロトコルを使用して、ストリームされます。
 この接続は<literal>REPLICATION</literal>権限（<xref linkend="role-attributes"/>参照）を持つユーザまたはスーパーユーザによって確立されなければなりません。
 そして<filename>pg_hba.conf</filename>でレプリケーション用の接続を許可しなければなりません。
 またサーバではストリーム用に利用できるセッションが少なくとも１つ存在できるために<xref linkend="guc-max-wal-senders"/>を十分大きく設定しなければなりません。
@@ -112,7 +112,7 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
    The starting point of the write-ahead log streaming is calculated when
    <application>pg_receivewal</application> starts:
 -->
-先行書き込みログのストリーミングの開始点は<application>pg_receivewal</application>の開始時に以下のように計算されます。
+先行書き込みログ（WAL）のストリーミングの開始点は<application>pg_receivewal</application>の開始時に以下のように計算されます。
    <orderedlist>
     <listitem>
      <para>
@@ -136,7 +136,7 @@ WALデータをリアルタイムでフラッシュするには<option>--synchro
       <productname>PostgreSQL</productname> 15 and up.
 -->
 前の方法で開始点を計算できず、レプリケーションスロットが使用されている場合、追加の<command>READ_REPLICATION_SLOT</command>コマンドを発行してスロットの<literal>restart_lsn</literal>を取得し、開始点として使用します。
-このオプションは、<productname>PostgreSQL</productname> 15以降から先行書き込みログをストリーミングする場合にのみ使用できます。
+このオプションは、<productname>PostgreSQL</productname> 15以降から先行書き込みログ（WAL）をストリーミングする場合にのみ使用できます。
      </para>
     </listitem>
 
@@ -382,7 +382,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
 <!--
         Enables compression of write-ahead logs.
 -->
-先行書き込みログの圧縮を有効にします。
+先行書き込みログ（WAL）の圧縮を有効にします。
        </para>
        <para>
 <!--
@@ -475,8 +475,9 @@ WALデータを受け取ると即座にディスクにフラッシュします�
         else a Unix domain socket connection is attempted.
 -->
 サーバが稼働しているマシンのホスト名を指定します。
-名前がスラッシュから始まる場合、Unixドメインソケット用のディレクトリとして使用されます。
-デフォルトは環境変数<envar>PGHOST</envar>が設定されていればその値から取られ、設定されていない場合はUnixドメインソケット接続が試行されます。
+この値がスラッシュから始まる場合、Unixドメインソケット用のディレクトリとして使用されます。
+デフォルトは、設定されていれば環境変数<envar>PGHOST</envar>から取得されます。
+設定されていなければ、Unixドメインソケット接続とみなされます。
        </para>
       </listitem>
      </varlistentry>
@@ -492,8 +493,8 @@ WALデータを受け取ると即座にディスクにフラッシュします�
         Defaults to the <envar>PGPORT</envar> environment variable, if
         set, or a compiled-in default.
 -->
-サーバが接続を待ち受けるTCPポートまたはUnixドメインソケットファイルの拡張子を指定します。
-デフォルトは環境変数<envar>PGPORT</envar>が指定されていればその値から取られ、設定されていない場合はコンパイル時のデフォルト値から取られます。
+サーバが接続を監視するTCPポートもしくはローカルUnixドメインソケットファイルの拡張子を指定します。
+デフォルトは、設定されている場合、環境変数<envar>PGPORT</envar>の値となります。設定されていなければ、コンパイル時のデフォルト値となります。
        </para>
       </listitem>
      </varlistentry>
@@ -708,7 +709,7 @@ WALデータを受け取ると即座にディスクにフラッシュします�
    not keep up with fetching the WAL data.
 -->
 WALのバックアップのメインの方法として、<xref linkend="guc-archive-command"/>や<xref linkend="guc-archive-library"/>の代わりに<application>pg_receivewal</application>を使用する場合、レプリケーションスロットを使用することを強く推奨します。
-そうしなければ、サーバは<xref linkend="guc-archive-command"/>や<xref linkend="guc-archive-library"/>、レプリケーションスロットのいずれからもWALのストリームがどこまでアーカイブされているかの情報を得られないため、先行書き込みログファイルがバックアップされる前にそれを再利用または削除するかもしれないのです。
+そうしなければ、サーバは<xref linkend="guc-archive-command"/>や<xref linkend="guc-archive-library"/>、レプリケーションスロットのいずれからもWALのストリームがどこまでアーカイブされているかの情報を得られないため、先行書き込みログ（WAL）ファイルがバックアップされる前にそれを再利用または削除するかもしれないのです。
 しかし、WALデータを受け取る側がそのフェッチに追いつけない場合、レプリケーションスロットがサーバのディスクスペースを一杯にしてしまうかもしれないことに注意してください。
   </para>
 
@@ -735,7 +736,7 @@ WALのバックアップのメインの方法として、<xref linkend="guc-arch
    <literal>mydbserver</literal> and store it in the local directory
    <filename>/usr/local/pgsql/archive</filename>:
 -->
-先行書き込みログを<literal>mydbserver</literal>にあるサーバからストリームし、それをローカルディレクトリ<filename>/usr/local/pgsql/archive</filename>に格納します。
+先行書き込みログ（WAL）を<literal>mydbserver</literal>にあるサーバからストリームし、それをローカルディレクトリ<filename>/usr/local/pgsql/archive</filename>に格納します。
 <screen>
 <prompt>$</prompt> <userinput>pg_receivewal -h mydbserver -D /usr/local/pgsql/archive</userinput>
 </screen></para>
