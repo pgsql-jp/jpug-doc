@@ -325,7 +325,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      log</link>, which describe changes on a storage level, into an
      application-specific form such as a stream of tuples or SQL statements.
 -->
-<productname>PostgreSQL</productname>においてロジカルデコーディングは、記憶装置のレベルで更新を記述する<link linkend="wal">書き込み先行ログ</link>の内容を、タプルやSQL文のストリームといったアプリケーション固有の形式にデコードすることによって実装されています。
+<productname>PostgreSQL</productname>においてロジカルデコーディングは、記憶装置のレベルで更新を記述する<link linkend="wal">先行書き込みログ（WAL）</link>の内容を、タプルやSQL文のストリームといったアプリケーション固有の形式にデコードすることによって実装されています。
     </para>
    </sect2>
 
@@ -605,7 +605,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      Output plugins transform the data from the write-ahead log's internal
      representation into the format the consumer of a replication slot desires.
 -->
-出力プラグインは、書き込み先行ログの内部データ表現を、レプリケーションスロットの消費者が必要とする形式に変換します。
+出力プラグインは、先行書き込みログ（WAL）の内部データ表現を、レプリケーションスロットの消費者が必要とする形式に変換します。
     </para>
    </sect2>
 
@@ -690,7 +690,8 @@ SQLでは使用できません。
     logical decoding over a streaming replication connection.  (It uses
     these commands internally.)
 -->
-コマンド<xref linkend="app-pgrecvlogical"/>を使ってストリーミングコネクション上のロジカルデコーディングを制御できます(このコマンドは内部で上記のコマンドを使っています)。
+コマンド<xref linkend="app-pgrecvlogical"/>を使ってストリーミングコネクション上のロジカルデコーディングを制御できます。
+（このコマンドは内部で上記のコマンドを使っています。）
    </para>
   </sect1>
 
@@ -919,6 +920,7 @@ CREATE TABLE another_catalog_table(data text) WITH (user_catalog_table = true);
 SQLで変更データを見るような場合、任意のかたちでデータを返すことのできるデータ型(たとえば<type>bytea</type>)は扱いにくいです。
 出力プラグインがサーバエンコーディングのテキストデータのみを含むことにするには、<link linkend="logicaldecoding-output-plugin-startup">起動コールバック</link>で、<literal>OutputPluginOptions.output_type</literal>に<literal>OUTPUT_PLUGIN_BINARY_OUTPUT</literal>ではなく、<literal>OUTPUT_PLUGIN_TEXTUAL_OUTPUT</literal>を設定することによって宣言できます。
 この場合、<type>text</type>datumが格納することができるように、すべてのデータはサーバエンコーディングでエンコードされていなければなりません。
+これは、アサーションが有効なビルドでチェックされます。
     </para>
    </sect2>
 
@@ -1900,7 +1902,8 @@ WALを読む関数、出力データの書き込みを準備する関数、そ�
 -->
 大規模なトランザクションによって発生する適用遅延を軽減するために、出力プラグインは、継続中のトランザクションの増分ストリーミングをサポートする追加のコールバックを提供できます。
 複数の必要なストリーミングコールバック(<function>stream_start_cb</function>、<function>stream_stop_cb</function>、<function>stream_abort_cb</function>、<function>stream_commit_cb</function>および<function>stream_change_cb</function>)と2つのオプションのコールバック(<function>stream_message_cb</function>および<function>stream_truncate_cb</function>)があります。
-2相コマンドのストリーミングをサポートする場合は、追加のコールバックを提供する必要があります（詳細は<xref linkend="logicaldecoding-two-phase-commits"/>を参照してください）。
+2相コマンドのストリーミングをサポートする場合は、追加のコールバックを提供する必要があります。
+（詳細は<xref linkend="logicaldecoding-two-phase-commits"/>を参照してください。）
    </para>
 
    <para>
