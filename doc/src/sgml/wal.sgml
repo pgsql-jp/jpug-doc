@@ -1011,14 +1011,14 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    view counts the restartpoints that have really been performed.
 -->
 アーカイブリカバリもしくはスタンバイモードにおいて、サーバでは定期的に通常運用でのチェックポイント処理と似た<firstterm>リスタートポイント</firstterm><indexterm><primary>restartpoint</primary></indexterm>処理を行います。これは、すでに再生されたWALを再度読み込む必要がないよう、ディスクに現在の状態を強制的に書き込み、<filename>pg_control</filename>ファイルを更新します。また<filename>pg_wal</filename>ディレクトリの中の古いWALセグメントを再利用できるようにします。
-リスタートポイント処理はチェックポイントレコードに対してしか実施されないので、プライマリ側のチェックポイント処理よりも発生頻度が多いということはありません。
+リスタートポイント処理はチェックポイントレコードに基づいてのみ実行されるため、プライマリ側のチェックポイント処理よりも頻繁に実行されることはありません。
 リスタートポイントはスケジュールまたは外部リクエストによって要求されます。
 <link linkend="monitoring-pg-stat-checkpointer-view"><structname>pg_stat_checkpointer</structname></link>ビューの中の<structfield>restartpoints_timed</structfield>カウンタは最初のリスタートポイントを数え、<structfield>restartpoints_req</structfield>は2番目のリスタートポイントを数えます。
 リスタートポイントは、前回のリスタートポイント処理から<xref linkend="guc-checkpoint-timeout"/>秒以上経過している場合、または前回のリスタートポイント処理が失敗した場合に、チェックポイントレコードに到達した時にスケジュールされます。
 この場合、次のリスタートポイントは15秒後にスケジュールされます。
 リスタートポイントは、チェックポイントと同様の理由で要求されることがありますが、ほとんどはWALサイズが<xref linkend="guc-max-wal-size"/>を超えそうな場合です。
-しかし、リスタートポイント処理が実行できるタイミングに制限があるため、リカバリ中には<varname>max_wal_size</varname>が頻繁に超えることがあります。
-(どのみち<varname>max_wal_size</varname>はハードリミットではないので、ディスクスペースを使い尽くしてしまわないように、常に十分な余裕を持っておくべきです)
+しかし、リスタートポイント処理が実行できるタイミングに制限があるため、リカバリ中には、1回のチェックポイント分のWAL相当が<varname>max_wal_size</varname>を超えることが頻繁にあります。
+（どのみち<varname>max_wal_size</varname>はハードリミットではないので、ディスクスペースを使い尽くしてしまわないように、常に十分な余裕を持っておくべきです。）
 <link linkend="monitoring-pg-stat-checkpointer-view"><structname>pg_stat_checkpointer</structname></link>ビューの中の<structfield>restartpoints_done</structfield>カウンタは、実際に実行されたリスタートポイントを数えます。
   </para>
 
@@ -1037,10 +1037,10 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    counter among the restartpoint-related ones indicates that noticeable system
    resources have been spent.
 -->
-場合によっては、プライマリのWALサイズが急速に増加すると、大規模なINSERT中のインスタンスでは、スタンバイの<structfield>restartpoints_req</structfield>カウンタがピークの増加を示すことがあります。
-これは、最後のリスタートポイント以降のセーフチェックポイントレコードがスタンバイでまだ再生されていないため、XLOG消費の増加による新規リスタートポイントの作成要求を実行できないために発生します。
-この行動は正常であり、システムリソースの消費の増加にはつながりません。
-<structfield>restartpoints_done</structfield>カウンタのみが、リスタートポイントに関連したものの中で、顕著なシステムリソースが消費されたことを示します。
+場合によっては、プライマリのWALサイズが急速に増加すると、例えば大規模なINSERT中のインスタンスでは、スタンバイの<structfield>restartpoints_req</structfield>カウンタがピークの増加を示すことがあります。
+これは、最後のリスタートポイント以降の安全なチェックポイントレコードがスタンバイでまだ再生されていないため、XLOG消費の増加による新規リスタートポイントの作成要求を実行できないために発生します。
+この動作は正常であり、システムリソースの消費の増加にはつながりません。
+リスタートポイントに関連するカウンタの中で、顕著なシステムリソースの消費を示すのは<structfield>restartpoints_done</structfield>カウンタのみです。
   </para>
 
   <para>
