@@ -727,7 +727,6 @@ switch(PQstatus(conn))
       <para>
 <!--
        <indexterm><primary>nonblocking connection</primary></indexterm>
-       <indexterm><primary>非ブロック接続</primary></indexterm>
        Poll a connection's underlying socket descriptor retrieved with
        <xref linkend="libpq-PQsocket"/>.
        The primary use of this function is iterating through the connection
@@ -2077,7 +2076,7 @@ Windowsでは、<literal>localhost</literal>への接続を試みます。
         options, consult <xref linkend="runtime-config"/>.
 -->
 接続開始時にサーバに送信するコマンドラインオプションを指定します。
-例えば、、これを<literal>-c geqo=オフ</literal>または<literal>--geqo=オフ</literal>に設定すると、<varname>geqo</varname>パラメータのセッションの値が<literal>オフ</literal>に設定されます。
+例えば、これを<literal>-c geqo=off</literal>または<literal>--geqo=off</literal>に設定すると、<varname>geqo</varname>パラメータのセッションの値が<literal>off</literal>に設定されます。
 この文字列中の空白はバックスラッシュ(<literal>\</literal>)でエスケープされていなければコマンド行引数の区切りであるとみなされます。
 リテラルのバックスラッシュを表すには<literal>\\</literal>と書いて下さい。
 利用可能なオプションに関する詳細については<xref linkend="runtime-config"/>を参照してください。
@@ -2573,9 +2572,9 @@ SSLサポート付きで<productname>PostgreSQL</productname>をコンパイル�
         option was introduced in <productname>PostgreSQL</productname> version
         17.
 -->
-このオプションは、SSLが使用されている場合に、SSL暗号化がサーバとどのようにネゴシエートされるかを制御します。
+このオプションは、SSLが使用されている場合に、SSL暗号化がサーバとどのように調停されるかを制御します。
 デフォルト<literal>postgres</literal>モードでは、クライアントは最初にサーバにSSLがサポートされているかどうかを尋ねます。
-<literal>direct</literal>モードでは、クライアントはTCP/IP接続を確立した後に直接標準SSハンドシェイクを開始します。
+<literal>direct</literal>モードでは、クライアントはTCP/IP接続を確立した後に直接標準SSLハンドシェイクを開始します。
 伝統的な<productname>PostgreSQL</productname>プロトコルネゴシエーションは、さまざまなサーバ設定に対して最も柔軟性があります。
 <productname>PostgreSQL</productname>サーバが直接<acronym>SSL</acronym>接続をサポートしているとわかっている場合、SSL接続では必要なラウンドトリップが1つ少なくなり、コネクションレイテンシが削減され、プロトコルに依存しないSSLネットワークツールを使用できるようになります。
 直接SSLオプションは、<productname>PostgreSQL</productname>バージョン17で導入されました。
@@ -2955,7 +2954,7 @@ PostgreSQLサーバは、一般に、有効にするかどうかに関係なく�
         in cleartext in the network traffic, so it might be undesirable in
         some cases.
 -->
-Server Name Indicationは、SSLストリームを復号化することなく接続をルーティングするために、SSL対応プロキシによって使用できます（プロキシがPostgreSQLプロトコルハンドシェークを認識していない限り、<literal>sslnegotiation</literal>を<literal>direct</literal>に設定する必要があることに注意してください。）
+Server Name Indicationは、SSLストリームを復号化することなく接続をルーティングするために、SSL対応プロキシによって使用できます。（プロキシがPostgreSQLプロトコルハンドシェークを認識していない限り、<literal>sslnegotiation</literal>を<literal>direct</literal>に設定する必要があることに注意してください。）
 しかし、<acronym>SNI</acronym>は宛先ホスト名をネットワークトラフィック中に平文で表示しますので、場合によっては望ましくないかもしれません。
        </para>
       </listitem>
@@ -7363,6 +7362,17 @@ int PQsendDescribePortal(PGconn *conn, const char *portalName);
        Submits a request to close the specified prepared statement, without
        waiting for completion.
 -->
+完了を待たずに、指定した準備文を閉じる要求を送信します。
+<synopsis>
+int PQsendClosePrepared(PGconn *conn, const char *stmtName);
+</synopsis>
+<!--
+       This is an asynchronous version of <xref linkend="libpq-PQclosePrepared"/>:
+       it returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       obtain the results.  The function's parameters are handled
+       identically to <xref linkend="libpq-PQclosePrepared"/>.
+-->
 これは<xref linkend="libpq-PQclosePrepared"/>の非同期版です。
 要求を送信できた場合は1を、そうでない場合は0を返します。
 成功した場合は<xref linkend="libpq-PQgetResult"/>を呼び出して結果を取得します。
@@ -9497,7 +9507,7 @@ int PQrequestCancel(PGconn *conn);
 -->
 <xref linkend="libpq-PQrequestCancel"/>は下位互換性のために存在します。
 代わりに<xref linkend="libpq-PQcancelBlocking"/>を使用してください。
-<xref linkend="libpq-PQrequestCancel"/>を<xref linkend="libpq-PQcancelBlocking"/>よりも使用する利益ははありません。
+<xref linkend="libpq-PQrequestCancel"/>を<xref linkend="libpq-PQcancelBlocking"/>よりも使用する利益はありません。
       </para>
 
       <para>
@@ -14124,7 +14134,7 @@ void PQinitSSL(int do_ssl);
 -->
 バージョン17では、<application>libpq</application>は常に再入可能でスレッドセーフです。
 ただし、1つの制限として、2つのスレッドが同じ<structname>PGconn</structname>オブジェクトを同時に操作することはできません。
-特に、異なるスレッドから同じ接続オブジェクトを介して同時にコマンドを実行することはできません（並行してコマンドを実行する必要がある場合は、複数の接続を使用してください）。
+特に、異なるスレッドから同じ接続オブジェクトを介して同時にコマンドを実行することはできません。（並行してコマンドを実行する必要がある場合は、複数の接続を使用してください。）
   </para>
 
   <para>
