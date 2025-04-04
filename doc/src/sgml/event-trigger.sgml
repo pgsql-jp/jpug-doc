@@ -52,12 +52,9 @@
      and <literal>sql_drop</literal>.
      Support for additional events may be added in future releases.
 -->
-《マッチ度[84.196891]》イベントトリガは、関連づけられたイベントが、定義されたデータベースで起こるたびに実行されます。
-現在の所サポートされているイベントは、<literal>ddl_command_start</literal>、<literal>ddl_command_end</literal>、<literal>table_rewrite</literal>、<literal>sql_drop</literal>です。
+イベントトリガは、関連づけられたイベントが、定義されたデータベースで起こるたびに実行されます。
+今のところサポートされているイベントは、<literal>login</literal>、<literal>ddl_command_start</literal>、<literal>ddl_command_end</literal>、<literal>table_rewrite</literal>、<literal>sql_drop</literal>です。
 今後のリリースで新たなイベントが追加されるかもしれません。
-《機械翻訳》イベントトリガは、関連付けられているイベントが定義されているデータベースで発生したときに発生します。
-現在サポートされているイベントは、<literal>login</literal>、<literal>ddl_command_start</literal>、<literal>ddl_command_end</literal>、<literal>table_rewrite</literal>、および<literal>sql_drop</literal>のみです。
-サポートの追加イベントは、将来のリリースで追加される可能性があります。
    </para>
 
    <para>
@@ -78,15 +75,15 @@
      canceling a connection in <application>psql</application> will not cancel
      the in-progress <literal>login</literal> trigger.
 -->
-《機械翻訳》<literal>login</literal>イベントは、認証されたユーザがシステムに流れ込むときに発生します。
-このイベントのトリガプロシージャのバグは、システムへのログインの成功を妨げる可能性があります。
-このようなバグは、コネクション文字列または構成ファイルで<xref linkend="guc-event-triggers"/>を<literal>false</literal>に設定することで回避できます。
-または、シングルユーザモードでシステムをリスタートすることもできます（このモードではイベントトリガーが無効になっているため）。
-シングルユーザモードの使用方法の詳細については、<xref linkend="app-postgres"/>リファレンスページを参照してください。
-<literal>login</literal>イベントはスタンバイサーバにも発砲するだろう。
-サーバがアクセスできなくなるのを防ぐために、このようなトリガーは、データベースで実行されているときにスタンバイに何も書き込まないようにする必要があります。
-また、<literal>login</literal>イベントトリガーでの長時間実行クエリを避けることをお勧めします。
-ノート、インスタンス、キャンセル、<application>psql</application>のコネクションは、進行中の<literal>login</literal>トリガをキャンセルしない。
+<literal>login</literal>イベントは、認証されたユーザがシステムにログインするときに発生します。
+このイベントのトリガプロシージャにおけるバグは、システムへのログインの成功を妨げる可能性があります。
+このようなバグは、接続文字列または設定ファイルで<xref linkend="guc-event-triggers"/>を<literal>false</literal>に設定することで回避できます。
+あるいは、シングルユーザモードでシステムを再起動することでも回避できます（このモードではイベントトリガが無効になっているため）。
+シングルユーザモードの使用方法の詳細については、<xref linkend="app-postgres"/>のリファレンスページを参照してください。
+<literal>login</literal>イベントはスタンバイサーバでも実行されます。
+サーバがアクセスできなくなるのを防ぐために、このようなトリガは、スタンバイで実行されているときにはデータベースに何も書き込まないようにする必要があります。
+また、<literal>login</literal>イベントトリガでの長時間実行する問い合わせは避けることをお勧めします。
+例えば、<application>psql</application>で接続を取り消しても進行中の<literal>login</literal>トリガを中断しないことに注意してください。
    </para>
 
    <para>
@@ -1296,10 +1293,8 @@ typedef struct EventTriggerData
         See <xref linkend="event-trigger-definition"/> for the meaning of these
         events.
 -->
-《マッチ度[80.830671]》その関数が呼び出されたイベント、<literal>"ddl_command_start"</literal>、<literal>"ddl_command_end"</literal>、<literal>"sql_drop"</literal>、<literal>"table_rewrite"</literal>のうちの１つを記述します。
+その関数が呼び出されたイベント、<literal>"login"</literal>、<literal>"ddl_command_start"</literal>、<literal>"ddl_command_end"</literal>、<literal>"sql_drop"</literal>、<literal>"table_rewrite"</literal>のうちの１つを記述します。
 これらのイベントの内容は、<xref linkend="event-trigger-definition"/>を参照してください。
-《機械翻訳》関数が呼び出されるイベントを、<literal>"login"</literal>、<literal>"ddl_command_start"</literal>、<literal>"ddl_command_end"</literal>、<literal>"sql_drop"</literal>、<literal>"table_rewrite"</literal>のいずれかで記述します。
-これらのイベントの意味については<xref linkend="event-trigger-definition"/>を参照してください。
        </para>
       </listitem>
      </varlistentry>
@@ -1538,7 +1533,10 @@ CREATE EVENT TRIGGER no_rewrite_allowed
  </sect1>
 
   <sect1 id="event-trigger-database-login-example">
+<!--
     <title>A Database Login Event Trigger Example</title>
+-->
+    <title>データベースログインイベントトリガの例</title>
 
     <para>
 <!--
@@ -1550,18 +1548,19 @@ CREATE EVENT TRIGGER no_rewrite_allowed
       in recovery before performing any writes. Writing to a standby server
       will make it inaccessible.
 -->
-《機械翻訳》<literal>login</literal>イベントのイベントトリガは、ロギングユーザへのログイン、コネクションの確認と現在の状況に応じた役割の割り当て、またはセッションデータの初期設定に役立ちます。
-<literal>login</literal>イベントを使用するイベントトリガは、データベースがリカバリ前で書き込みを実行しているかどうかを確認することが非常に重要です。
-スタンバイサーバに書き込むと、にアクセスできなくなります。
+<literal>login</literal>イベントのイベントトリガは、ユーザログインの記録、接続の検証と現在の状況に応じたロールの割り当て、あるいは、セッションデータの初期設定に有用です。
+<literal>login</literal>イベントを使用するイベントトリガは、書き込みを実行する前にデータベースがリカバリ中であるかどうかを確認することが非常に重要です。
+スタンバイサーバに書き込むとアクセスできなくなります。
     </para>
 
     <para>
 <!--
       The following example demonstrates these options.
 -->
-《機械翻訳》次の例は、これらのオプションを示しています。
+以下は、これらの機能付加を示す例です。
 <programlisting>
 -- create test tables and roles
+-- テスト用のテーブルとロールを作成
 CREATE TABLE user_login_log (
   "user" text,
   "session_start" timestamp with time zone
@@ -1570,6 +1569,7 @@ CREATE ROLE day_worker;
 CREATE ROLE night_worker;
 
 -- the example trigger function
+-- トリガ関数の例
 CREATE OR REPLACE FUNCTION init_session()
   RETURNS event_trigger SECURITY DEFINER
   LANGUAGE plpgsql AS
@@ -1579,6 +1579,7 @@ DECLARE
   rec boolean;
 BEGIN
 -- 1. Forbid logging in between 2AM and 4AM.
+-- 1. AM2時から4時までのログインを禁止する。
 IF hour BETWEEN 2 AND 4 THEN
   RAISE EXCEPTION 'Login forbidden';
 END IF;
@@ -1586,6 +1587,8 @@ END IF;
 -- The checks below cannot be performed on standby servers so
 -- ensure the database is not in recovery before we perform any
 -- operations.
+-- これより先のチェックはスタンバイサーバでは実行できないので、
+-- 操作を実行する前にデータベースがリカバリ中でないことを確認する。
 SELECT pg_is_in_recovery() INTO rec;
 IF rec THEN
   RETURN;
@@ -1593,6 +1596,8 @@ END IF;
 
 -- 2. Assign some roles. At daytime, grant the day_worker role, else the
 -- night_worker role.
+-- 2. ロールを割り当てる。
+-- 日中はday_workerロール、さもなくば night_workerロール。
 IF hour BETWEEN 8 AND 20 THEN
   EXECUTE 'REVOKE night_worker FROM ' || quote_ident(session_user);
   EXECUTE 'GRANT day_worker TO ' || quote_ident(session_user);
@@ -1602,10 +1607,12 @@ ELSE
 END IF;
 
 -- 3. Initialize user session data
+-- 3. ユーザのセッションデータを初期化する。
 CREATE TEMP TABLE session_storage (x float, y integer);
 ALTER TABLE session_storage OWNER TO session_user;
 
 -- 4. Log the connection time
+-- 4. 接続時刻を記録する。
 INSERT INTO public.user_login_log VALUES (session_user, current_timestamp);
 
 END;
