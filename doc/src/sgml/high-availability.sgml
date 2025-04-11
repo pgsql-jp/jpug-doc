@@ -233,7 +233,7 @@ protocol to make nodes agree on a serializable transactional order.
      made the new primary database server.  This can be synchronous or
      asynchronous and can only be done for the entire database server.
 -->
-ウォームスタンバイおよびホットスタンバイサーバは、ログ先行書き込み（<acronym>WAL</acronym>）のレコードを解読して最新の状態を保持できます。
+ウォームスタンバイおよびホットスタンバイサーバは、先行書き込みログ（<acronym>WAL</acronym>）のレコードを解読して最新の状態を保持できます。
 プライマリサーバが故障したとき、スタンバイサーバがプライマリサーバのほぼすべてのデータを保存して、速やかに新しいプライマリデータベースサーバを作成できます。
 本解法は同期、非同期で行うことができ、データベース全体だけを範囲として処理できます。
     </para>
@@ -1732,7 +1732,7 @@ primary_slot_name = 'node_a_slot'
     necessarily increases the response time for the requesting transaction.
     The minimum wait time is the round-trip time between primary and standby.
 -->
-同期レプリケーションを要求する時、書き込みトランザクションのコミットはそれぞれ、そのコミットがプライマリサーバおよびスタンバイサーバの両方で、ディスク上の書き込み先行ログに書き込まれたという確認を受けとるまで待機します。
+同期レプリケーションを要求する時、書き込みトランザクションのコミットはそれぞれ、そのコミットがプライマリサーバおよびスタンバイサーバの両方で、ディスク上の先行書き込みログ（WAL）に書き込まれたという確認を受けとるまで待機します。
 データ損失が起こる可能性は、プライマリサーバとスタンバイサーバが同時にクラッシュしてしまった場合のみです。
 これは非常に高い永続性を提供することができますが、それはシステム管理者が２つのサーバの設置と管理に関して注意を払っている場合のみです。
 確認のための待機は、サーバがクラッシュした場合でも変更が失われないということでユーザからの信頼性が大きくなりますが、同時に要求するトランザクションの応答時間も必ず大きくなります。
@@ -2207,7 +2207,7 @@ PostgreSQLは、WALデータをすべてのスタンバイが安全に受信し�
 WALアーカイブがプライマリとスタンバイで共有されるケースと、スタンバイが自分のWALアーカイブを持つケースです。
 スタンバイが自分のWALアーカイブを持つケースでは、<varname>archive_mode</varname>を<literal>always</literal>に設定しておくことにより、アーカイブからリストアされたWALセグメントであろうと、ストリーミングレプリケーション由来のWALセグメントであろうと、WALセグメントを受信する度にスタンバイはアーカイブコマンドを呼び出します。
 共有アーカイブのケースも同じように扱えますが、<varname>archive_command</varname>または<varname>archive_library</varname>はアーカイブしようとしているファイルがすでに存在していて、それが同一内容かどうかのチェックを行う必要があります。
-<varname>archive_command</varname>や<varname>archive_library</varname>では、異なる内容で既存のファイルを上書きしないように、ただしまったく同じファイルが2回アーカイブされた場合は成功を返すように注意する必要があります
+<varname>archive_command</varname>や<varname>archive_library</varname>では、異なる内容で既存のファイルを上書きしないように、ただしまったく同じファイルが2回アーカイブされた場合は成功を返すように注意する必要があります。
 また、2つのサーバが同時に同じファイルをアーカイブしようとした場合は、競合状態が発生しないようにする必要があります。
    </para>
 
@@ -2327,7 +2327,7 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
 これは縮退状態と呼ばれます。
 以前のスタンバイサーバはプライマリサーバになり、以前のプライマリは停止し、その後も停止し続けるかもしれません。
 通常の運用に戻すには、スタンバイサーバを再作成しなければなりません。
-以前のプライマリサーバが起動できれば、これを使用しても構いませんし、第三のおそらく新規のシステムを使用しても構いません。
+以前のプライマリシステムが起動できればこのシステム上で再作成してもかまいませんし、第三のおそらく新規のシステム上で再作成してもかまいません。
 <xref linkend="app-pgrewind"/>を使って、大きなクラスタにおける処理を早めることもできます。
 完了すれば、プライマリとスタンバイの役割が切り替わったとみなすことができます。
 新しいスタンバイサーバを再作成するまでに第三のサーバを使用して新しいプライマリのバックアップを提供することを選択する人もいますが、これがシステム構成と運用手順を複雑にすることは明らかです。
@@ -2560,7 +2560,7 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
     Therefore, the following actions will produce error messages:
 -->
 ホットスタンバイ中に開始したトランザクションではトランザクションIDを割り当てられません。
-また、システムのログ先行書き込みに書き出すことができません。
+また、システムの先行書き込みログ（WAL）に書き出すことができません。
 このため、以下の動作はエラーメッセージを生成します。
 
     <itemizedlist>
@@ -3038,7 +3038,8 @@ WALに記録された操作はすでにプライマリで発生したもので�
 しかし、スタンバイ側で行うべき問い合わせをプライマリサーバ上で直接実行することと比べ、こうしたクリーンアップに関する問題を優先する価値はありません。
 また、スタンバイに実行負荷を分散できるという利点があります。
 スタンバイサーバが接続、切断を頻繁に繰り返す場合、<varname>hot_standby_feedback</varname>によるフィードバックが提供されていなければ、その値を調整したいと思うでしょう。
-例えば、<varname>max_standby_archive_delay</varname>が増大し、切断している期間WALアーカイブのコンフリクト発生による問い合わせの中断が速やかに行われないことを考えてみてください。また、再接続後に速やかに問い合わせが中断されることを避けるために<varname>max_standby_streaming_delay</varname>を大きくすることを考えてみてください。
+例えば、<varname>max_standby_archive_delay</varname>を増やし、接続をしていない間、WALアーカイブファイルのコンフリクトによって問い合わせの急速な中断が起きないようにすることを考慮してください。
+また、再接続後に新しく到着したストリーミングWALエントリによる急速な中断が起きることを避けるために<varname>max_standby_streaming_delay</varname>を大きくすることを考えてみてください。
    </para>
 
    <para>
@@ -3085,6 +3086,7 @@ WALに記録された操作はすでにプライマリで発生したもので�
 -->
 <filename>postgresql.conf</filename>において<varname>hot_standby</varname>が<literal>on</literal>で（これはデフォルトです）、かつ<link linkend="file-standby-signal"><filename>standby.signal</filename></link><indexterm><primary>standby.signal</primary><secondary>ホットスタンバイのための</secondary></indexterm>が存在すれば、サーバはホットスタンバイモードで稼働します。
 しかし、サーバはまず問い合わせが実行できる程度の一貫性を持つ状態を提供するために十分なリカバリを完了させなければなりませんので、ホットスタンバイでの接続が有効になるまでに多少の時間がかかるかもしれません。
+この期間中、接続を試みるクライアントはエラーメッセージとともに拒否されます。
 サーバの準備ができたことを確認するために、アプリケーションで接続試行を繰り返すか、サーバログに以下のメッセージがあるかどうかを確認します。
 
 <programlisting>
@@ -3313,7 +3315,7 @@ HINT:  You can then restart the server after making the necessary configuration 
     Again, note that some of these commands are actually allowed during
     "read only" mode transactions on the primary.
 -->
-繰り返しますが、これらのコマンドの一部は、プライマリサーバにおける「読み取り専用」モードのトランザクションで実際に許可されていることに注意してください。
+ここでも、これらのコマンドの一部は、プライマリサーバにおける「読み取り専用」モードのトランザクションで実際に許可されていることに注意してください。
    </para>
 
    <para>
@@ -3386,7 +3388,7 @@ HINT:  You can then restart the server after making the necessary configuration 
     WAL file control commands will not work during recovery,
     e.g., <function>pg_backup_start</function>, <function>pg_switch_wal</function> etc.
 -->
-リカバリの間WALの制御コマンドは稼働しません。
+リカバリの間、WALファイルの制御コマンドは稼働しません。
 例えば、<function>pg_backup_start</function>や<function>pg_switch_wal</function>などです。
    </para>
 
@@ -3531,8 +3533,8 @@ WALの再実行はトリガに基づいたものではありません。
     The <command>CHECKPOINT</command> command is accepted during recovery,
     though it performs a restartpoint rather than a new checkpoint.
 -->
-リカバリの間、チェックポイントプロセスとバックグラウンドライタプロセスは稼働しています。
-チェックポイントプロセスは（プライマリサーバにおけるチェックポイントに類似した）リスタートポイントを設定し、通常のブロック消去を行います。
+リカバリの間、チェックポインタプロセスとバックグラウンドライタプロセスは稼働しています。
+チェックポインタプロセスは（プライマリサーバにおけるチェックポイントに類似した）リスタートポイントを設定し、通常のブロック消去を行います。
 これはスタンバイサーバに保存されるヒントビット情報の更新を含むことができます。
 リカバリの間<command>CHECKPOINT</command>コマンドは受理されますが、新規のチェックポイントではなくてリスタートポイントが設定されます。
    </para>
@@ -3653,7 +3655,7 @@ WALの再実行はトリガに基づいたものではありません。
      hot standby mode will generate an error.
 -->
 シリアライザブルトランザクション分離レベルはまだホットスタンバイでは利用できません。
-（<xref linkend="xact-serializable"/>および<xref linkend="serializable-consistency"/>参照）
+（<xref linkend="xact-serializable"/>および<xref linkend="serializable-consistency"/>参照。）
 ホットスタンバイにおいてトランザクションをシリアライザブルトランザクション分離レベルに設定しようとすると、エラーになります。
     </para>
    </listitem>
