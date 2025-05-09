@@ -65,7 +65,10 @@ PostgreSQL documentation
 指定されたデータベース内のすべてのテーブルが論理レプリケーション設定に含まれます。
 各データベースに対して、パブリケーションとサブスクリプションのオブジェクトのペアが作成されます。
 ターゲットサーバで実行する必要があります。
-《機械翻訳》«<application>pg_createsubscriber</application> creates a new logical replica from a physical standby server. All tables in the specified database are included in the <link linkend="logical-replication">logical replication</link> setup. A pair of publication and subscription objects are created for each database. It must be run at the target server.»
+《機械翻訳》<application>pg_createsubscriber</application>は、物理的レプリカから新しいロジカルスタンバイサーバを作成します。
+指定されたデータベースのすべてのテーブルは<link linkend="logical-replication">ロジカルレプリケーション</link>セットアップに含まれます。
+パブリケーションオブジェクトとサブスクリプションオブジェクトのペアがデータベースごとに作成されます。
+ターゲットサーバで実行する必要があります。
   </para>
 
   <para>
@@ -97,10 +100,13 @@ PostgreSQL documentation
    <literal>copy_data</literal></link> option.
 -->
 《マッチ度[69.985570]》<application>pg_createsubscriber</application>は大きなデータベースシステムを対象としています。
-これは、論理レプリケーションセットアップではほとんどの時間が最初のデータコピーに費やされるためです。
+これは、ロジカルレプリケーションセットアップではほとんどの時間が最初のデータコピーに費やされるためです。
 さらに、データの同期に費やされるこの長い時間の副作用は、通常、適用される変更が大きな量になること（最初のデータコピー中に生成されたもの）であり、これは、ロジカルレプリカが利用可能になるまでの時間をさらに増加させます。
 小規模なデータベースの場合は、<link linkend="logical-replication-row-filter-initial-data-sync">初期データ同期化</link>をお勧めします。
-《機械翻訳》«<application>pg_createsubscriber</application> targets large database systems because in logical replication setup, most of the time is spent doing the initial data copy. Furthermore, a side effect of this long time spent synchronizing data is usually a large amount of changes to be applied (that were produced during the initial data copy), which increases even more the time when the logical replica will be available. For smaller databases, it is recommended to set up logical replication with initial data synchronization. For details, see the <command>CREATE SUBSCRIPTION</command> <link linkend="sql-createsubscription-params-with-copy-data"> <literal>copy_data</literal></link> option.»
+《機械翻訳》<application>pg_createsubscriber</application>がラージデータベースのシステムを対象としているのは、ロジカルレプリケーションセットアップではほとんどの時間が初期データコピーの実行に費やされるためです。
+さらに、データの同期化に費やされるこの長い時間の副作用として、通常、（初期データコピー中に生成された）適用される変更の量がラージになり、ロジカルレプリカが使用可能になる時間がさらに長くなります。
+小規模なデータベースでは、ロジカルレプリケーションに初期データ同期を設定することをお勧めします。
+詳細については、<command>CREATE SUBSCRIPTION</command><link linkend="sql-createsubscription-params-with-copy-data"><literal>copy_data</literal></link>オプションを参照してください。
 
   </para>
  </refsect1>
@@ -607,7 +613,7 @@ DDLコマンドは論理レプリケーションではレプリケートされ�
       subscriptions as a replication start point.  It guarantees that no
       transaction will be lost.
 -->
-《マッチ度[86.806883]》ソースサーバ上の指定されたデータベースごとに、パブリケーションとレプリケーションスロットを作成します。
+《マッチ度[86.148008]》ソースサーバ上の指定されたデータベースごとに、パブリケーションとレプリケーションスロットを作成します。
 各パブリケーションは<link linkend="sql-createpublication-params-for-all-tables"><literal>FOR ALL TABLES</literal></link>を使用して作成されます。
 <option>publication-name</option>オプションが指定されていない場合、次の名前パターンになります。
 <quote><literal>pg_createsubscriber_%u_%x</literal></quote>（パラメータ: データベース<parameter>oid</parameter>、ランダム<parameter>int</parameter>）。<option>replication-slot-name</option>が指定されない場合、レプリケーションスロットは次の名前パターンになります。
@@ -615,7 +621,6 @@ DDLコマンドは論理レプリケーションではレプリケートされ�
 これらのレプリケーション スロットは、今後の手順でサブスクリプションによって使用されます。
 最後のレプリケーションスロットLSNは、<xref linkend="guc-recovery-target-lsn"/>パラメータの停止点として、また、サブスクリプションによってレプリケーション開始点として使用されます。
 これにより、トランザクションが失われることがなくなります。
-《機械翻訳》«Create a publication and replication slot for each specified database on the source server. Each publication is created using <link linkend="sql-createpublication-params-for-all-tables"><literal>FOR ALL TABLES</literal></link>. If the <option>--publication</option> option is not specified, the publication has the following name pattern: <quote><literal>pg_createsubscriber_%u_%x</literal></quote> (parameter: database <parameter>oid</parameter>, random <parameter>int</parameter>). If the <option>--replication-slot</option> option is not specified, the replication slot has the following name pattern: <quote><literal>pg_createsubscriber_%u_%x</literal></quote> (parameters: database <parameter>oid</parameter>, random <parameter>int</parameter>). These replication slots will be used by the subscriptions in a future step. The last replication slot LSN is used as a stopping point in the <xref linkend="guc-recovery-target-lsn"/> parameter and by the subscriptions as a replication start point. It guarantees that no transaction will be lost.»
      </para>
     </step>
 
@@ -669,7 +674,14 @@ DDLコマンドは論理レプリケーションではレプリケートされ�
 代わりに、前の手順で作成したレプリケーションスロットを使用します。
 サブスクリプションは作成されましたが、まだ有効ではありません。
 これは、レプリケーションを開始する前に、レプリケーションの進行状況をレプリケーション開始点に設定する必要があるためです。
-《機械翻訳》«Create a subscription for each specified database on the target server. If the <option>--subscription</option> option is not specified, the subscription has the following name pattern: <quote><literal>pg_createsubscriber_%u_%x</literal></quote> (parameters: database <parameter>oid</parameter>, random <parameter>int</parameter>). It does not copy existing data from the source server. It does not create a replication slot. Instead, it uses the replication slot that was created in a previous step. The subscription is created but it is not enabled yet. The reason is the replication progress must be set to the replication start point before starting the replication.»
+《機械翻訳》ターゲットサーバの指定したデータベースごとにサブスクリプションを作成します。
+<option>--サブスクリプション</option>オプションが指定されていない場合、サブスクリプションには次の名前パターンがあります:<quote><literal>pg_createsubscriber_%u_%x</literal></quote>（パラメータ:データベース<parameter>oid</parameter>、ランダム<parameter>int</parameter>）。
+ソースサーバからの既存のデータはコピーされません。
+は作成されません。
+かわりに、前ので作成されたが使用されます。
+は作成されますが、まだ使用可能になっていません。
+その理由は、の進行状況をの開始地点であるの開始地点に設定する必要があるためです。
+サブスクリプションステップレプリケーションレプリケーションスロットレプリケーション前レプリケーションスロットレプリケーション
      </para>
     </step>
 
