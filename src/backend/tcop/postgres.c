@@ -323,7 +323,7 @@ InteractiveBackend(StringInfo inBuf)
 		printf("statement: %s\n", inBuf->data);
 	fflush(stdout);
 
-	return 'Q';
+	return PqMsg_Query;
 }
 
 /*
@@ -1278,7 +1278,7 @@ exec_simple_query(const char *query_string)
 		(void) PortalRun(portal,
 						 FETCH_ALL,
 						 true,	/* always top level */
-						 true,
+						 true,	/* ignored */
 						 receiver,
 						 receiver,
 						 &qc);
@@ -2255,7 +2255,7 @@ exec_execute_message(const char *portal_name, long max_rows)
 	completed = PortalRun(portal,
 						  max_rows,
 						  true, /* always top level */
-						  !execute_is_fetch && max_rows == FETCH_ALL,
+						  true, /* ignored */
 						  receiver,
 						  receiver,
 						  &qc);
@@ -4966,9 +4966,9 @@ PostgresMain(const char *dbname, const char *username)
 				break;
 
 				/*
-				 * 'X' means that the frontend is closing down the socket. EOF
-				 * means unexpected loss of frontend connection. Either way,
-				 * perform normal shutdown.
+				 * PqMsg_Terminate means that the frontend is closing down the
+				 * socket. EOF means unexpected loss of frontend connection.
+				 * Either way, perform normal shutdown.
 				 */
 			case EOF:
 

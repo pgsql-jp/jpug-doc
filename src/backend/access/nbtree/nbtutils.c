@@ -1800,6 +1800,12 @@ _bt_advance_array_keys(IndexScanDesc scan, BTReadPageState *pstate,
 				all_required_satisfied = true,
 				all_satisfied = true;
 
+	/*
+	 * Unset so->scanBehind in case it is still set from back when we dealt
+	 * with the previous page's high key/finaltup
+	 */
+	so->scanBehind = false;
+
 	if (sktrig_required)
 	{
 		/*
@@ -1807,8 +1813,6 @@ _bt_advance_array_keys(IndexScanDesc scan, BTReadPageState *pstate,
 		 */
 		Assert(!_bt_tuple_before_array_skeys(scan, dir, tuple, tupdesc,
 											 tupnatts, false, 0, NULL));
-
-		so->scanBehind = false; /* reset */
 
 		/*
 		 * Required scan key wasn't satisfied, so required arrays will have to
@@ -2426,8 +2430,10 @@ new_prim_scan:
 	/*
 	 * End this primitive index scan, but schedule another.
 	 *
-	 * Note: If the scan direction happens to change, this scheduled primitive
-	 * index scan won't go ahead after all.
+	 * Note: We make a soft assumption that the current scan direction will
+	 * also be used within _bt_next, when it is asked to step off this page.
+	 * It is up to _bt_next to cancel this scheduled primitive index scan
+	 * whenever it steps to a page in the direction opposite currPos.dir.
 	 */
 	pstate->continuescan = false;	/* Tell _bt_readpage we're done... */
 	so->needPrimScan = true;	/* ...but call _bt_first again */

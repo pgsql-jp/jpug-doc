@@ -433,8 +433,8 @@ CREATE TABLE people (
 <command>INSERT</command>コマンドが識別列を持つテーブルで実行され、識別列に値が明示的に指定されていない場合、暗黙的なシーケンスによって生成された値が挿入されます。
 例えば、上記の定義を使用し、追加の適切な列を想定して、次のように記述すると、
 <programlisting>
-INSERT INTO people (name, address) VALUE ('A', 'foo');
-INSERT INTO people (name, address) VALUE ('B', 'bar');
+INSERT INTO people (name, address) VALUES ('A', 'foo');
+INSERT INTO people (name, address) VALUES ('B', 'bar');
 </programlisting>
 <!--
    would generate values for the <literal>id</literal> column starting at 1
@@ -453,7 +453,7 @@ INSERT INTO people (name, address) VALUE ('B', 'bar');
 -->
 あるいは、値の代わりにキーワード<literal>DEFAULT</literal>を指定して、以下のようにシーケンスによって生成された値を明示的に要求することもできます。
 <programlisting>
-INSERT INTO people (id, name, address) VALUE (<emphasis>DEFAULT</emphasis>, 'C', 'baz');
+INSERT INTO people (id, name, address) VALUES (<emphasis>DEFAULT</emphasis>, 'C', 'baz');
 </programlisting>
 <!--
    Similarly, the keyword <literal>DEFAULT</literal> can be used in
@@ -2561,12 +2561,6 @@ ALTER TABLE products ALTER COLUMN product_no SET NOT NULL;
 <programlisting>
 ALTER TABLE products DROP CONSTRAINT some_name;
 </programlisting>
-<!--
-    (If you are dealing with a generated constraint name like <literal>$2</literal>,
-    don't forget that you'll need to double-quote it to make it a valid
-    identifier.)
--->
-（自動生成された<literal>$2</literal>といった制約名を扱う場合は、有効な識別子となるように二重引用符で括る必要があることを忘れないでください。）
    </para>
 
    <para>
@@ -7386,12 +7380,19 @@ EXPLAIN SELECT count(*) FROM measurement WHERE logdate &gt;= DATE '2008-01-01';
        It is possible to determine the number of partitions which were
        removed during this phase by observing the
        <quote>Subplans Removed</quote> property in the
-       <command>EXPLAIN</command> output.
+       <command>EXPLAIN</command> output.  It's important to note that any
+       partitions removed by the partition pruning done at this stage are
+       still locked at the beginning of execution.
 -->
-問い合わせ計画の初期化時。
+《マッチ度[67.500000]》問い合わせ計画の初期化時。
 パーティション除去は、パラメータの値が分かる実行の初期化段階時に可能です。
 この段階で除去されたパーティションは、問い合わせの<command>EXPLAIN</command>や<command>EXPLAIN ANALYZE</command>中に姿を見せることはないでしょう。
 <command>EXPLAIN</command>出力中に<quote>Subplans removed</quote>プロパティを観察することによってこの段階で削除されるパーティションの数を特定することが可能です。
+《機械翻訳》問い合わせプランの初期設定中。
+パーティションのプルーニングは、実行の初期設定フェーズ中に既知のパラメータ値に対してここで実行できます。
+このステージ中にプルーニングされたパーティションは、問い合わせの<command>EXPLAIN</command>または<command>EXPLAIN ANALYZE</command>には表示されません。
+<command>EXPLAIN</command>出力の<quote>削除されたサブプラン</quote>プロパティを観察することによって、このフェーズ中に削除されたパーティションの数を判断できます。
+ノートにとって重要なのは、このステージで行われたパーティションのプルーニングによって削除されたパーティションが、実行の開始時にロックされていることです。
       </para>
      </listitem>
 

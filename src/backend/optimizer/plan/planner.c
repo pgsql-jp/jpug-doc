@@ -340,11 +340,6 @@ standard_planner(Query *parse, const char *query_string, int cursorOptions,
 	 * we want to allow parallel inserts in general; updates and deletes have
 	 * additional problems especially around combo CIDs.)
 	 *
-	 * We don't try to use parallel mode unless interruptible.  The leader
-	 * expects ProcessInterrupts() calls to reach HandleParallelMessages().
-	 * Even if we called HandleParallelMessages() another way, starting a
-	 * parallel worker is too delay-prone to be prudent when uncancellable.
-	 *
 	 * For now, we don't try to use parallel mode if we're running inside a
 	 * parallel worker.  We might eventually be able to relax this
 	 * restriction, but for now it seems best not to have parallel workers
@@ -355,7 +350,6 @@ standard_planner(Query *parse, const char *query_string, int cursorOptions,
 		parse->commandType == CMD_SELECT &&
 		!parse->hasModifyingCTE &&
 		max_parallel_workers_per_gather > 0 &&
-		INTERRUPTS_CAN_BE_PROCESSED() &&
 		!IsParallelWorker())
 	{
 		/* all the cheap tests pass, so scan the query tree */
@@ -3286,10 +3280,53 @@ adjust_group_pathkeys_for_groupagg(PlannerInfo *root)
 		if (AGGKIND_IS_ORDERED_SET(aggref->aggkind))
 			continue;
 
-		/* only add aggregates with a DISTINCT or ORDER BY */
-		if (aggref->aggdistinct != NIL || aggref->aggorder != NIL)
-			unprocessed_aggs = bms_add_member(unprocessed_aggs,
-											  foreach_current_index(lc));
+		/* Skip unless there's a DISTINCT or ORDER BY clause */
+		if (aggref->aggdistinct == NIL && aggref->aggorder == NIL)
+			continue;
+
+		/* Additional safety checks are needed if there's a FILTER clause */
+		if (aggref->aggfilter != NULL)
+		{
+			ListCell   *lc2;
+			bool		allow_presort = true;
+
+			/*
+			 * When the Aggref has a FILTER clause, it's possible that the
+			 * filter removes rows that cannot be sorted because the
+			 * expression to sort by results in an error during its
+			 * evaluation.  This is a problem for presorting as that happens
+			 * before the FILTER, whereas without presorting, the Aggregate
+			 * node will apply the FILTER *before* sorting.  So that we never
+			 * try to sort anything that might error, here we aim to skip over
+			 * any Aggrefs with arguments with expressions which, when
+			 * evaluated, could cause an ERROR.  Vars and Consts are ok. There
+			 * may be more cases that should be allowed, but more thought
+			 * needs to be given.  Err on the side of caution.
+			 */
+			foreach(lc2, aggref->args)
+			{
+				TargetEntry *tle = (TargetEntry *) lfirst(lc2);
+				Expr	   *expr = tle->expr;
+
+				while (IsA(expr, RelabelType))
+					expr = (Expr *) (castNode(RelabelType, expr))->arg;
+
+				/* Common case, Vars and Consts are ok */
+				if (IsA(expr, Var) || IsA(expr, Const))
+					continue;
+
+				/* Unsupported.  Don't try to presort for this Aggref */
+				allow_presort = false;
+				break;
+			}
+
+			/* Skip unsupported Aggrefs */
+			if (!allow_presort)
+				continue;
+		}
+
+		unprocessed_aggs = bms_add_member(unprocessed_aggs,
+										  foreach_current_index(lc));
 	}
 
 	/*
@@ -4023,9 +4060,10 @@ create_ordinary_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
 		 * If this is the topmost relation or if the parent relation is doing
 		 * full partitionwise aggregation, then we can do full partitionwise
 		 * aggregation provided that the GROUP BY clause contains all of the
-		 * partitioning columns at this level.  Otherwise, we can do at most
-		 * partial partitionwise aggregation.  But if partial aggregation is
-		 * not supported in general then we can't use it for partitionwise
+		 * partitioning columns at this level and the collation used by GROUP
+		 * BY matches the partitioning collation.  Otherwise, we can do at
+		 * most partial partitionwise aggregation.  But if partial aggregation
+		 * is not supported in general then we can't use it for partitionwise
 		 * aggregation either.
 		 *
 		 * Check parse->groupClause not processed_groupClause, because it's
@@ -6773,7 +6811,8 @@ plan_cluster_use_sort(Oid tableOid, Oid indexOid)
  *		CREATE INDEX should request for use
  *
  * tableOid is the table on which the index is to be built.  indexOid is the
- * OID of an index to be created or reindexed (which must be a btree index).
+ * OID of an index to be created or reindexed (which must be an index with
+ * support for parallel builds - currently btree or BRIN).
  *
  * Return value is the number of parallel worker processes to request.  It
  * may be unsafe to proceed if this is 0.  Note that this does not include the
@@ -8005,8 +8044,8 @@ create_partitionwise_grouping_paths(PlannerInfo *root,
 /*
  * group_by_has_partkey
  *
- * Returns true, if all the partition keys of the given relation are part of
- * the GROUP BY clauses, false otherwise.
+ * Returns true if all the partition keys of the given relation are part of
+ * the GROUP BY clauses, including having matching collation, false otherwise.
  */
 static bool
 group_by_has_partkey(RelOptInfo *input_rel,
@@ -8034,13 +8073,40 @@ group_by_has_partkey(RelOptInfo *input_rel,
 
 		foreach(lc, partexprs)
 		{
+			ListCell   *lg;
 			Expr	   *partexpr = lfirst(lc);
+			Oid			partcoll = input_rel->part_scheme->partcollation[cnt];
 
-			if (list_member(groupexprs, partexpr))
+			foreach(lg, groupexprs)
 			{
-				found = true;
-				break;
+				Expr	   *groupexpr = lfirst(lg);
+				Oid			groupcoll = exprCollation((Node *) groupexpr);
+
+				/*
+				 * Note: we can assume there is at most one RelabelType node;
+				 * eval_const_expressions() will have simplified if more than
+				 * one.
+				 */
+				if (IsA(groupexpr, RelabelType))
+					groupexpr = ((RelabelType *) groupexpr)->arg;
+
+				if (equal(groupexpr, partexpr))
+				{
+					/*
+					 * Reject a match if the grouping collation does not match
+					 * the partitioning collation.
+					 */
+					if (OidIsValid(partcoll) && OidIsValid(groupcoll) &&
+						partcoll != groupcoll)
+						return false;
+
+					found = true;
+					break;
+				}
 			}
+
+			if (found)
+				break;
 		}
 
 		/*
@@ -8063,7 +8129,10 @@ group_by_has_partkey(RelOptInfo *input_rel,
  * child query's targetlist entries may already have a tleSortGroupRef
  * assigned for other purposes, such as GROUP BYs.  Here we keep the
  * SortGroupClause list in the same order as 'op' groupClauses and just adjust
- * the tleSortGroupRef to reference the TargetEntry's 'ressortgroupref'.
+ * the tleSortGroupRef to reference the TargetEntry's 'ressortgroupref'.  If
+ * any of the columns in the targetlist don't match to the setop's colTypes
+ * then we return an empty list.  This may leave some TLEs with unreferenced
+ * ressortgroupref markings, but that's harmless.
  */
 static List *
 generate_setop_child_grouplist(SetOperationStmt *op, List *targetlist)
@@ -8071,25 +8140,42 @@ generate_setop_child_grouplist(SetOperationStmt *op, List *targetlist)
 	List	   *grouplist = copyObject(op->groupClauses);
 	ListCell   *lg;
 	ListCell   *lt;
+	ListCell   *ct;
 
 	lg = list_head(grouplist);
+	ct = list_head(op->colTypes);
 	foreach(lt, targetlist)
 	{
 		TargetEntry *tle = (TargetEntry *) lfirst(lt);
 		SortGroupClause *sgc;
+		Oid			coltype;
 
 		/* resjunk columns could have sortgrouprefs.  Leave these alone */
 		if (tle->resjunk)
 			continue;
 
-		/* we expect every non-resjunk target to have a SortGroupClause */
+		/*
+		 * We expect every non-resjunk target to have a SortGroupClause and
+		 * colTypes.
+		 */
 		Assert(lg != NULL);
+		Assert(ct != NULL);
 		sgc = (SortGroupClause *) lfirst(lg);
+		coltype = lfirst_oid(ct);
+
+		/* reject if target type isn't the same as the setop target type */
+		if (coltype != exprType((Node *) tle->expr))
+			return NIL;
+
 		lg = lnext(grouplist, lg);
+		ct = lnext(op->colTypes, ct);
 
 		/* assign a tleSortGroupRef, or reuse the existing one */
 		sgc->tleSortGroupRef = assignSortGroupRef(tle, targetlist);
 	}
+
 	Assert(lg == NULL);
+	Assert(ct == NULL);
+
 	return grouplist;
 }

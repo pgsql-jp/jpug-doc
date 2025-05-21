@@ -4266,13 +4266,13 @@ EXPLAIN (VERBOSE, COSTS OFF) EXECUTE st6;
 
 PREPARE st7 AS INSERT INTO ft1 (c1,c2,c3) VALUES (1001,101,'foo');
 EXPLAIN (VERBOSE, COSTS OFF) EXECUTE st7;
-                                                                                           QUERY PLAN                                                                                            
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Insert on public.ft1
    Remote SQL: INSERT INTO "S 1"."T 1"("C 1", c2, c3, c4, c5, c6, c7, c8) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
    Batch Size: 1
    ->  Result
-         Output: NULL::integer, 1001, 101, 'foo'::text, NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying, 'ft1       '::character(10), NULL::user_enum
+         Output: NULL::integer, 1001, 101, 'foo'::text, NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying(10), 'ft1       '::character(10), NULL::user_enum
 (5 rows)
 
 ALTER TABLE "S 1"."T 1" RENAME TO "T 0";
@@ -4300,13 +4300,13 @@ EXECUTE st6;
 (9 rows)
 
 EXPLAIN (VERBOSE, COSTS OFF) EXECUTE st7;
-                                                                                           QUERY PLAN                                                                                            
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Insert on public.ft1
    Remote SQL: INSERT INTO "S 1"."T 0"("C 1", c2, c3, c4, c5, c6, c7, c8) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
    Batch Size: 1
    ->  Result
-         Output: NULL::integer, 1001, 101, 'foo'::text, NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying, 'ft1       '::character(10), NULL::user_enum
+         Output: NULL::integer, 1001, 101, 'foo'::text, NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying(10), 'ft1       '::character(10), NULL::user_enum
 (5 rows)
 
 ALTER TABLE "S 1"."T 0" RENAME TO "T 1";
@@ -4926,6 +4926,44 @@ SELECT ft2.*, ft4.* FROM ft2 INNER JOIN
 ----+----+----+----+----+----+----+----+----+----+----
 (0 rows)
 
+-- Semi-join conditions shouldn't pop up as left/right join clauses.
+SET enable_material TO off;
+EXPLAIN (verbose, costs off)
+SELECT x1.c1 FROM
+		(SELECT * FROM ft2 WHERE EXISTS (SELECT 1 FROM ft4 WHERE ft4.c1 = ft2.c1 AND ft2.c2 < 10)) x1
+	RIGHT JOIN
+		(SELECT * FROM ft2 WHERE EXISTS (SELECT 1 FROM ft4 WHERE ft4.c1 = ft2.c1 AND ft2.c2 < 10)) x2
+	ON (x1.c1 = x2.c1)
+ORDER BY x1.c1 LIMIT 10;
+                                                                                                                                                                                 QUERY PLAN                                                                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: ft2.c1
+   Relations: ((public.ft2 ft2_1) LEFT JOIN ((public.ft2) SEMI JOIN (public.ft4))) SEMI JOIN (public.ft4 ft4_1)
+   Remote SQL: SELECT s9.c1 FROM ("S 1"."T 1" r6 LEFT JOIN (SELECT r4."C 1" FROM "S 1"."T 1" r4 WHERE ((r4.c2 < 10)) AND EXISTS (SELECT NULL FROM "S 1"."T 3" r5 WHERE ((r4."C 1" = r5.c1)))) s9(c1) ON (((s9.c1 = r6."C 1")))) WHERE ((r6.c2 < 10)) AND EXISTS (SELECT NULL FROM "S 1"."T 3" r7 WHERE ((r6."C 1" = r7.c1))) ORDER BY s9.c1 ASC NULLS LAST LIMIT 10::bigint
+(4 rows)
+
+SELECT x1.c1 FROM
+		(SELECT * FROM ft2 WHERE EXISTS (SELECT 1 FROM ft4 WHERE ft4.c1 = ft2.c1 AND ft2.c2 < 10)) x1
+	RIGHT JOIN
+		(SELECT * FROM ft2 WHERE EXISTS (SELECT 1 FROM ft4 WHERE ft4.c1 = ft2.c1 AND ft2.c2 < 10)) x2
+	ON (x1.c1 = x2.c1)
+ORDER BY x1.c1 LIMIT 10;
+ c1 
+----
+  2
+  4
+  6
+  8
+ 10
+ 12
+ 14
+ 16
+ 18
+ 20
+(10 rows)
+
+RESET enable_material;
 -- Can't push down semi-join with inner rel vars in targetlist
 EXPLAIN (verbose, costs off)
 SELECT ft1.c1 FROM ft1 JOIN ft2 on ft1.c1 = ft2.c1 WHERE
@@ -4954,13 +4992,13 @@ SELECT ft1.c1 FROM ft1 JOIN ft2 on ft1.c1 = ft2.c1 WHERE
 -- ===================================================================
 EXPLAIN (verbose, costs off)
 INSERT INTO ft2 (c1,c2,c3) SELECT c1+1000,c2+100, c3 || c3 FROM ft2 LIMIT 20;
-                                                                                                                    QUERY PLAN                                                                                                                    
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                                                      QUERY PLAN                                                                                                                      
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Insert on public.ft2
    Remote SQL: INSERT INTO "S 1"."T 1"("C 1", c2, c3, c4, c5, c6, c7, c8) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
    Batch Size: 1
    ->  Subquery Scan on "*SELECT*"
-         Output: "*SELECT*"."?column?", "*SELECT*"."?column?_1", NULL::integer, "*SELECT*"."?column?_2", NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying, 'ft2       '::character(10), NULL::user_enum
+         Output: "*SELECT*"."?column?", "*SELECT*"."?column?_1", NULL::integer, "*SELECT*"."?column?_2", NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying(10), 'ft2       '::character(10), NULL::user_enum
          ->  Foreign Scan on public.ft2 ft2_1
                Output: (ft2_1.c1 + 1000), (ft2_1.c2 + 100), (ft2_1.c3 || ft2_1.c3)
                Remote SQL: SELECT "C 1", c2, c3 FROM "S 1"."T 1" LIMIT 20::bigint
@@ -6070,14 +6108,14 @@ SELECT c1,c2,c3,c4 FROM ft2 ORDER BY c1;
 
 EXPLAIN (verbose, costs off)
 INSERT INTO ft2 (c1,c2,c3) VALUES (1200,999,'foo') RETURNING tableoid::regclass;
-                                                                                           QUERY PLAN                                                                                            
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Insert on public.ft2
    Output: (ft2.tableoid)::regclass
    Remote SQL: INSERT INTO "S 1"."T 1"("C 1", c2, c3, c4, c5, c6, c7, c8) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
    Batch Size: 1
    ->  Result
-         Output: 1200, 999, NULL::integer, 'foo'::text, NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying, 'ft2       '::character(10), NULL::user_enum
+         Output: 1200, 999, NULL::integer, 'foo'::text, NULL::timestamp with time zone, NULL::timestamp without time zone, NULL::character varying(10), 'ft2       '::character(10), NULL::user_enum
 (6 rows)
 
 INSERT INTO ft2 (c1,c2,c3) VALUES (1200,999,'foo') RETURNING tableoid::regclass;

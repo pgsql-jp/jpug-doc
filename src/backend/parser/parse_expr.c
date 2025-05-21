@@ -2055,10 +2055,18 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 
 			/*
 			 * Check for sub-array expressions, if we haven't already found
-			 * one.
+			 * one.  Note we don't accept domain-over-array as a sub-array,
+			 * nor int2vector nor oidvector; those have constraints that don't
+			 * map well to being treated as a sub-array.
 			 */
-			if (!newa->multidims && type_is_array(exprType(newe)))
-				newa->multidims = true;
+			if (!newa->multidims)
+			{
+				Oid			newetype = exprType(newe);
+
+				if (newetype != INT2VECTOROID && newetype != OIDVECTOROID &&
+					type_is_array(newetype))
+					newa->multidims = true;
+			}
 		}
 
 		newelems = lappend(newelems, newe);
@@ -3756,7 +3764,7 @@ transformJsonArrayQueryConstructor(ParseState *pstate,
 	/* Transform query only for counting target list entries. */
 	qpstate = make_parsestate(pstate);
 
-	query = transformStmt(qpstate, ctor->query);
+	query = transformStmt(qpstate, copyObject(ctor->query));
 
 	if (count_nonjunk_tlist_entries(query->targetList) != 1)
 		ereport(ERROR,
@@ -3890,7 +3898,7 @@ transformJsonAggConstructor(ParseState *pstate, JsonAggConstructor *agg_ctor,
 /*
  * Transform JSON_OBJECTAGG() aggregate function.
  *
- * JSON_OBJECT() is transformed into a JsonConstructorExpr node of type
+ * JSON_OBJECTAGG() is transformed into a JsonConstructorExpr node of type
  * JSCTOR_JSON_OBJECTAGG, which at runtime becomes a
  * json[b]_object_agg[_unique][_strict](agg->arg->key, agg->arg->value) call
  * depending on the output JSON format.  The result is coerced to the target
@@ -4115,8 +4123,9 @@ transformJsonReturning(ParseState *pstate, JsonOutput *output, const char *fname
 		if (returning->typid != JSONOID && returning->typid != JSONBOID)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
-					 errmsg("cannot use RETURNING type %s in %s",
+					 errmsg("cannot use type %s in RETURNING clause of %s",
 							format_type_be(returning->typid), fname),
+					 errhint("Try returning json or jsonb."),
 					 parser_errposition(pstate, output->typeName->location)));
 	}
 	else
@@ -4235,7 +4244,7 @@ transformJsonSerializeExpr(ParseState *pstate, JsonSerializeExpr *expr)
 			if (typcategory != TYPCATEGORY_STRING)
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
-						 errmsg("cannot use RETURNING type %s in %s",
+						 errmsg("cannot use type %s in RETURNING clause of %s",
 								format_type_be(returning->typid),
 								"JSON_SERIALIZE()"),
 						 errhint("Try returning a string type or bytea.")));

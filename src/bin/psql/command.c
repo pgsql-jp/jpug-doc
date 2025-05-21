@@ -1110,7 +1110,7 @@ exec_command_edit(PsqlScanState scan_state, bool active_branch,
 				expand_tilde(&fname);
 				if (fname)
 				{
-					canonicalize_path(fname);
+					canonicalize_path_enc(fname, pset.encoding);
 					/* Always clear buffer if the file isn't modified */
 					discard_on_quit = true;
 				}
@@ -1336,6 +1336,7 @@ exec_command_encoding(PsqlScanState scan_state, bool active_branch)
 				/* save encoding info into psql internal data */
 				pset.encoding = PQclientEncoding(pset.db);
 				pset.popt.topt.encoding = pset.encoding;
+				setFmtEncoding(pset.encoding);
 				SetVariable(pset.vars, "ENCODING",
 							pg_encoding_to_char(pset.encoding));
 			}
@@ -2694,7 +2695,7 @@ exec_command_write(PsqlScanState scan_state, bool active_branch,
 				}
 				else
 				{
-					canonicalize_path(fname);
+					canonicalize_path_enc(fname, pset.encoding);
 					fd = fopen(fname, "w");
 				}
 				if (!fd)
@@ -3956,6 +3957,8 @@ SyncVariables(void)
 	pset.popt.topt.encoding = pset.encoding;
 	pset.sversion = PQserverVersion(pset.db);
 
+	setFmtEncoding(pset.encoding);
+
 	SetVariable(pset.vars, "DBNAME", PQdb(pset.db));
 	SetVariable(pset.vars, "USER", PQuser(pset.db));
 	SetVariable(pset.vars, "HOST", PQhost(pset.db));
@@ -4298,7 +4301,7 @@ process_file(char *filename, bool use_relative_path)
 	}
 	else if (strcmp(filename, "-") != 0)
 	{
-		canonicalize_path(filename);
+		canonicalize_path_enc(filename, pset.encoding);
 
 		/*
 		 * If we were asked to resolve the pathname relative to the location
@@ -4312,7 +4315,7 @@ process_file(char *filename, bool use_relative_path)
 			strlcpy(relpath, pset.inputfile, sizeof(relpath));
 			get_parent_directory(relpath);
 			join_path_components(relpath, relpath, filename);
-			canonicalize_path(relpath);
+			canonicalize_path_enc(relpath, pset.encoding);
 
 			filename = relpath;
 		}
@@ -5231,6 +5234,10 @@ do_shell(const char *command)
  *
  * We break this out of exec_command to avoid having to plaster "volatile"
  * onto a bunch of exec_command's variables to silence stupider compilers.
+ *
+ * "sleep" is the amount of time to sleep during each loop, measured in
+ * seconds.  The internals of this function should use "sleep_ms" for
+ * precise sleep time calculations.
  */
 static bool
 do_watch(PQExpBuffer query_buf, double sleep, int iter, int min_rows)
@@ -5356,10 +5363,10 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter, int min_rows)
 
 		if (user_title)
 			snprintf(title, title_len, _("%s\t%s (every %gs)\n"),
-					 user_title, timebuf, sleep);
+					 user_title, timebuf, sleep_ms / 1000.0);
 		else
 			snprintf(title, title_len, _("%s (every %gs)\n"),
-					 timebuf, sleep);
+					 timebuf, sleep_ms / 1000.0);
 		myopt.title = title;
 
 		/* Run the query and print out the result */
@@ -5380,7 +5387,8 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter, int min_rows)
 		if (pagerpipe && ferror(pagerpipe))
 			break;
 
-		if (sleep == 0)
+		/* Tight loop, no wait needed */
+		if (sleep_ms == 0)
 			continue;
 
 #ifdef WIN32

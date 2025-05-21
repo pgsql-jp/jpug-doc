@@ -2327,12 +2327,29 @@ RestoreSlotFromDisk(const char *name)
 	 * NB: Changing the requirements here also requires adapting
 	 * CheckSlotRequirements() and CheckLogicalDecodingRequirements().
 	 */
-	if (cp.slotdata.database != InvalidOid && wal_level < WAL_LEVEL_LOGICAL)
-		ereport(FATAL,
-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg("logical replication slot \"%s\" exists, but \"wal_level\" < \"logical\"",
-						NameStr(cp.slotdata.name)),
-				 errhint("Change \"wal_level\" to be \"logical\" or higher.")));
+	if (cp.slotdata.database != InvalidOid)
+	{
+		if (wal_level < WAL_LEVEL_LOGICAL)
+			ereport(FATAL,
+					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+					 errmsg("logical replication slot \"%s\" exists, but \"wal_level\" < \"logical\"",
+							NameStr(cp.slotdata.name)),
+					 errhint("Change \"wal_level\" to be \"logical\" or higher.")));
+
+		/*
+		 * In standby mode, the hot standby must be enabled. This check is
+		 * necessary to ensure logical slots are invalidated when they become
+		 * incompatible due to insufficient wal_level. Otherwise, if the
+		 * primary reduces wal_level < logical while hot standby is disabled,
+		 * logical slots would remain valid even after promotion.
+		 */
+		if (StandbyMode && !EnableHotStandby)
+			ereport(FATAL,
+					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+					 errmsg("logical replication slot \"%s\" exists on the standby, but \"hot_standby\" = \"off\"",
+							NameStr(cp.slotdata.name)),
+					 errhint("Change \"hot_standby\" to be \"on\".")));
+	}
 	else if (wal_level < WAL_LEVEL_REPLICA)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -2428,18 +2445,15 @@ validate_sync_standby_slots(char *rawname, List **elemlist)
 	{
 		GUC_check_errdetail("List syntax is invalid.");
 	}
-	else if (!ReplicationSlotCtl)
+	else if (MyProc)
 	{
 		/*
-		 * We cannot validate the replication slot if the replication slots'
-		 * data has not been initialized. This is ok as we will anyway
-		 * validate the specified slot when waiting for them to catch up. See
-		 * StandbySlotsHaveCaughtup() for details.
+		 * Check that each specified slot exist and is physical.
+		 *
+		 * Because we need an LWLock, we cannot do this on processes without a
+		 * PGPROC, so we skip it there; but see comments in
+		 * StandbySlotsHaveCaughtup() as to why that's not a problem.
 		 */
-	}
-	else
-	{
-		/* Check that the specified slots exist and are logical slots */
 		LWLockAcquire(ReplicationSlotControlLock, LW_SHARED);
 
 		foreach_ptr(char, name, *elemlist)
@@ -2507,6 +2521,8 @@ check_synchronized_standby_slots(char **newval, void **extra, GucSource source)
 
 	/* GUC extra value must be guc_malloc'd, not palloc'd */
 	config = (SyncStandbySlotsConfigData *) guc_malloc(LOG, size);
+	if (!config)
+		return false;
 
 	/* Transform the data into SyncStandbySlotsConfigData */
 	config->nslotnames = list_length(elemlist);
@@ -2621,18 +2637,18 @@ StandbySlotsHaveCaughtup(XLogRecPtr wait_for_lsn, int elevel)
 
 		slot = SearchNamedReplicationSlot(name, false);
 
+		/*
+		 * If a slot name provided in synchronized_standby_slots does not
+		 * exist, report a message and exit the loop.
+		 *
+		 * Though validate_sync_standby_slots (the GUC check_hook) tries to
+		 * avoid this, it can nonetheless happen because the user can specify
+		 * a nonexistent slot name before server startup. That function cannot
+		 * validate such a slot during startup, as ReplicationSlotCtl is not
+		 * initialized by then.  Also, the user might have dropped one slot.
+		 */
 		if (!slot)
 		{
-			/*
-			 * If a slot name provided in synchronized_standby_slots does not
-			 * exist, report a message and exit the loop. A user can specify a
-			 * slot name that does not exist just before the server startup.
-			 * The GUC check_hook(validate_sync_standby_slots) cannot validate
-			 * such a slot during startup as the ReplicationSlotCtl shared
-			 * memory is not initialized at that time. It is also possible for
-			 * a user to drop the slot in synchronized_standby_slots
-			 * afterwards.
-			 */
 			ereport(elevel,
 					errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					errmsg("replication slot \"%s\" specified in parameter \"%s\" does not exist",
@@ -2644,16 +2660,9 @@ StandbySlotsHaveCaughtup(XLogRecPtr wait_for_lsn, int elevel)
 			break;
 		}
 
+		/* Same as above: if a slot is not physical, exit the loop. */
 		if (SlotIsLogical(slot))
 		{
-			/*
-			 * If a logical slot name is provided in
-			 * synchronized_standby_slots, report a message and exit the loop.
-			 * Similar to the non-existent case, a user can specify a logical
-			 * slot name in synchronized_standby_slots before the server
-			 * startup, or drop an existing physical slot and recreate a
-			 * logical slot with the same name.
-			 */
 			ereport(elevel,
 					errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					errmsg("cannot specify logical replication slot \"%s\" in parameter \"%s\"",
