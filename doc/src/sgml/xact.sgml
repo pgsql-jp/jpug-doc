@@ -2,27 +2,42 @@
 
 <chapter id="transactions">
 
+<!--
  <title>Transaction Processing</title>
+-->
+ <title>トランザクション処理</title>
 
  <para>
+<!--
   This chapter provides an overview of the internals of
   <productname>PostgreSQL</productname>'s transaction management system.
   The word transaction is often abbreviated as <firstterm>xact</firstterm>.
+-->
+この章では、<productname>PostgreSQL</productname>のトランザクション制御システムの内部構造について概説します。
+トランザクションという単語は、しばしば<firstterm>xact</firstterm>と省略されます。
  </para>
 
  <sect1 id="transaction-id">
 
+<!--
   <title>Transactions and Identifiers</title>
+-->
+  <title>トランザクションと識別子</title>
 
   <para>
+<!--
    Transactions can be created explicitly using <command>BEGIN</command>
    or <command>START TRANSACTION</command> and ended using
    <command>COMMIT</command> or <command>ROLLBACK</command>.  SQL
    statements outside of explicit transactions automatically use
    single-statement transactions.
+-->
+トランザクションは、<command>BEGIN</command>または<command>START TRANSACTION</command>を使用して明示的に作成し、<command>COMMIT</command>または<command>ROLLBACK</command>を使用して終了します。
+明示的なトランザクションの外側のSQL文は、自動的に単一文トランザクションを使用します。
   </para>
 
   <para>
+<!--
    Every transaction is identified by a unique
    <literal>VirtualTransactionId</literal> (also called
    <literal>virtualXID</literal> or <literal>vxid</literal>), which
@@ -32,9 +47,14 @@
    ID <literal>4/12532</literal> has a <literal>procNumber</literal>
    of <literal>4</literal> and a <literal>localXID</literal> of
    <literal>12532</literal>.
+-->
+各トランザクションは、一意の<literal>VirtualTransactionId</literal>（あるいは<literal>virtualXID</literal>または<literal>vxid</literal>とも呼ばれます）で識別します。
+これは、バックエンドのプロセス番号（または<literal>procNumber</literal>）と、<literal>localXID</literal>と呼ばれる各バックエンドに固有の連続した番号で構成されます。
+たとえば、仮想トランザクションID<literal>4/12532</literal>の<literal>procNumber</literal>は<literal>4</literal>で、<literal>localXID</literal>は<literal>12532</literal>です。
   </para>
 
   <para>
+<!--
    Non-virtual <literal>TransactionId</literal>s (or <type>xid</type>),
    e.g., <literal>278394</literal>, are assigned sequentially to
    transactions from a global counter used by all databases within
@@ -45,9 +65,16 @@
    write might be different from the order in which the transactions
    started, particularly if the transaction started with statements that
    only performed database reads.
+-->
+非仮想<literal>TransactionId</literal>（または<type>xid</type>）、例えば<literal>278394</literal>は、<productname>PostgreSQL</productname>クラスタ内のすべてのデータベースが使用するグローバルカウンタからトランザクションに順番に割り当てられます。
+この割り当ては、トランザクションがデータベースに最初に書き込みを行ったときに行われます。
+これは、低い番号のxidが、より大きな番号のxidよりも前に書き込みを開始したことを意味します。
+トランザクションが最初にデータベースに書き込みを行った順序は、トランザクションの開始順序とは異なるかもしれないことに注意してください。
+特に、トランザクションがデータベース読み取りのみを実行する文で開始した場合にはそうなります。
   </para>
 
   <para>
+<!--
    The internal transaction ID type <type>xid</type> is 32 bits wide
    and <link linkend="vacuum-for-wraparound">wraps around</link> every
    4 billion transactions. A 32-bit epoch is incremented during each
@@ -59,31 +86,50 @@
    basis for <productname>PostgreSQL</productname>'s <link
    linkend="mvcc">MVCC</link> concurrency mechanism and streaming
    replication.
+-->
+内部トランザクションID型<type>xid</type>は32ビット幅で、40億トランザクションごとに<link linkend="vacuum-for-wraparound">周回</link>します。
+32ビットエポックは各周回ごとに加算されます。
+また、このエポックを含むために、インストールの寿命中には周回しない64ビット型<type>xid8</type>もあり、キャストでxidに変換できます。
+<xref linkend="functions-pg-snapshot"/>の関数は<type>xid8</type>値を返します。
+XIDは<productname>PostgreSQL</productname>の<link linkend="mvcc">MVCC</link>同時実行機構とストリーミングレプリケーションの基礎として使用されます。
   </para>
 
   <para>
+<!--
    When a top-level transaction with a (non-virtual) xid commits,
    it is marked as committed in the <filename>pg_xact</filename>
    directory. Additional information is recorded in the
    <filename>pg_commit_ts</filename> directory if <xref
    linkend="guc-track-commit-timestamp"/> is enabled.
+-->
+（非仮想）xidを持つトップレベルのトランザクションがコミットすると、<filename>pg_xact</filename>ディレクトリにコミット済みとしてマークされます。
+<xref linkend="guc-track-commit-timestamp"/>が有効な場合、追加情報が<filename>pg_commit_ts</filename>ディレクトリに記録されます。
   </para>
 
   <para>
+<!--
    In addition to <literal>vxid</literal> and <literal>xid</literal>,
    prepared transactions are also assigned Global Transaction
    Identifiers (<acronym>GID</acronym>). GIDs are string literals up
    to 200 bytes long, which must be unique amongst other currently
    prepared transactions.  The mapping of GID to xid is shown in <link
    linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>.
+-->
+<literal>vxid</literal>と<literal>xid</literal>に加えて、準備されたトランザクションにはグローバルトランザクション識別子（<acronym>GID</acronym>）も割り当てられます。
+GIDは最大200バイト長の文字列リテラルで、現在準備されている他のトランザクション中で一意でなければなりません。
+GIDからxidへのマッピングは<link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>に表示されます。
   </para>
  </sect1>
 
  <sect1 id="xact-locking">
 
+<!--
   <title>Transactions and Locking</title>
+-->
+  <title>トランザクションとロック</title>
 
   <para>
+<!--
    The transaction IDs of currently executing transactions are shown in
    <link linkend="view-pg-locks"><structname>pg_locks</structname></link>
    in columns <structfield>virtualxid</structfield> and
@@ -91,9 +137,14 @@
    will have <structfield>virtualxid</structfield>s but NULL
    <structfield>transactionid</structfield>s, while both columns will be
    set in read-write transactions.
+-->
+現在実行中のトランザクションのトランザクションIDは、<link linkend="view-pg-locks"><structname>pg_locks</structname></link>の<structfield>virtualxid</structfield>と<structfield>transactionid</structfield>に表示されます。
+読み出し専用のトランザクションは<structfield>virtualxid</structfield>はありますが、<structfield>transactionid</structfield>はNULLです。
+一方、読み書きのトランザクションは、両方の列が設定されます。
   </para>
 
   <para>
+<!--
    Some lock types wait on <structfield>virtualxid</structfield>,
    while other types wait on <structfield>transactionid</structfield>.
    Row-level read and write locks are recorded directly in the locked
@@ -101,14 +152,22 @@
    extension.  Row-level read locks might also require the assignment
    of multixact IDs (<literal>mxid</literal>;  see <xref
    linkend="vacuum-for-multixact-wraparound"/>).
+-->
+ロックのタイプによって<structfield>virtualxid</structfield>を待ちますが、他のタイプのロックは<structfield>transactionid</structfield>を待ちます。
+行レベルの読み書きロックはロックされた行に直接記録され、<xref linkend="pgrowlocks"/>拡張を使用して検査できます。
+行レベルの読み取りロックはマルチトランザクションID（<literal>mxid</literal>。<xref linkend="vacuum-for-multixact-wraparound"/>を参照）の割当ても必要とするかもしれません。
   </para>
  </sect1>
 
  <sect1 id="subxacts">
 
+<!--
   <title>Subtransactions</title>
+-->
+  <title>サブトランザクション</title>
 
   <para>
+<!--
    Subtransactions are started inside transactions, allowing large
    transactions to be broken into smaller units.  Subtransactions can
    commit or abort without affecting their parent transactions, allowing
@@ -116,9 +175,15 @@
    more easily, which is a common application development pattern.
    The word subtransaction is often abbreviated as
    <firstterm>subxact</firstterm>.
+-->
+サブトランザクションはトランザクション内で開始され、大きなトランザクションを小さな単位に分割できます。
+サブトランザクションは、親トランザクションに影響を与えることなくコミットまたは中断できるため、親トランザクションを継続できます。
+これにより、アプリケーションの開発パターンによくあるエラーの処理が容易になります。
+この用語は、しばしば<firstterm>subxact</firstterm>と省略されます。
   </para>
 
   <para>
+<!--
    Subtransactions can be started explicitly using the
    <command>SAVEPOINT</command> command, but can also be started in
    other ways, such as PL/pgSQL's <literal>EXCEPTION</literal> clause.
@@ -127,9 +192,15 @@
    The top-level transaction and its child subtransactions form a
    hierarchy or tree, which is why we refer to the main transaction as
    the top-level transaction.
+-->
+サブトランザクションは<command>SAVEPOINT</command>コマンドを使用して明示的に開始できますが、PL/pgSQLの<literal>EXCEPTION</literal>句などの他の方法でも開始できます。
+PL/PythonとPL/Tclも明示的なサブトランザクションをサポートしています。
+サブトランザクションは他のサブトランザクションから開始することもできます。
+トップレベルのトランザクションとその子トランザクションは階層またはツリーを形成するため、メイントランザクションをトップレベルのトランザクションと呼びます。
   </para>
 
   <para>
+<!--
    If a subtransaction is assigned a non-virtual transaction ID,
    its transaction ID is referred to as a <quote>subxid</quote>.
    Read-only subtransactions are not assigned subxids, but once they
@@ -137,45 +208,72 @@
    a subxid's parents, up to and including the top-level transaction,
    to be assigned non-virtual transaction ids.  We ensure that a parent
    xid is always lower than any of its child subxids.
+-->
+サブトランザクションに仮想トランザクションID以外のIDが割り当てられた場合、そのトランザクションIDは<quote>subxid</quote>と呼ばれます。
+読取専用のサブトランザクションにはsubxidは割り当てられませんが、書込みを試みると割り当てられます。
+これにより、トップレベルのトランザクションを含むすべての親サブトランザクションに、非仮想トランザクションIDが割り当てられます。
+親xidは常に子subxidのいずれよりも小さいことが保証されます。
   </para>
 
   <para>
+<!--
    The immediate parent xid of each subxid is recorded in the
    <filename>pg_subtrans</filename> directory. No entry is made for
    top-level xids since they do not have a parent, nor is an entry made
    for read-only subtransactions.
+-->
+各subxidの直接の親xidは<filename>pg_subtrans</filename>ディレクトリに記録されます。
+トップレベルのxidには親がないのでエントリは記録されません。
+読み取り専用のサブトランザクションにもエントリは記録されません。
   </para>
 
   <para>
+<!--
    When a subtransaction commits, all of its committed child
    subtransactions with subxids will also be considered subcommitted
    in that transaction.  When a subtransaction aborts, all of its child
    subtransactions will also be considered aborted.
+-->
+サブトランザクションがコミットされると、その子サブトランザクションのすべての子サブトランザクションのxidがコミットされたものとみなされます。
+サブトランザクションが中断された場合、その子サブトランザクションすべても中断されたものとみなされます。
   </para>
 
   <para>
+<!--
    When a top-level transaction with an xid commits, all of its
    subcommitted child subtransactions are also persistently recorded
    as committed in the <filename>pg_xact</filename> subdirectory.  If the
    top-level transaction aborts, all its subtransactions are also aborted,
    even if they were subcommitted.
+-->
+xidを持つトップレベルトランザクションがコミットすると、そのサブトランザクションの子サブトランザクションもすべて<filename>pg_xact</filename>サブディレクトリに永続的にコミット済みとして記録されます。
+トップレベルトランザクションが中断された場合、そのサブトランザクションは、たとえサブトランザクションがコミットされていたとしても中断されます。
   </para>
 
   <para>
+<!--
    The more subtransactions each transaction keeps open (not
    rolled back or released), the greater the transaction management
    overhead. Up to 64 open subxids are cached in shared memory for
    each backend; after that point, the storage I/O overhead increases
    significantly due to additional lookups of subxid entries in
    <filename>pg_subtrans</filename>.
+-->
+トランザクションがオープンしたサブトランザクション数が多いほど（ロールバックや解放されない）、トランザクション制御のオーバーヘッドが大きくなります。
+各バックエンドで最大64個のオープンしたサブトランザクションが共有メモリにキャッシュされます。
+その後、<filename>pg_subtrans</filename>内のサブxidエントリの追加検索により、ストレージI/Oオーバーヘッドが大幅に増加します。
   </para>
  </sect1>
 
  <sect1 id="two-phase">
 
+<!--
   <title>Two-Phase Transactions</title>
+-->
+  <title>2相トランザクション</title>
 
   <para>
+<!--
    <productname>PostgreSQL</productname> supports a two-phase commit (2PC)
    protocol that allows multiple distributed systems to work together
    in a transactional manner.  The commands are <command>PREPARE
@@ -185,9 +283,15 @@
    <productname>PostgreSQL</productname> follows the features and model
    proposed by the X/Open XA standard, but does not implement some less
    often used aspects.
+-->
+<productname>PostgreSQL</productname>は、複数の分散システムがトランザクション処理として連携することを可能にする2相コミット（2PC）プロトコルをサポートしています。
+そのコマンドは<command>PREPARE TRANSACTION</command>、<command>COMMIT PREPARED</command>、<command>ROLLBACK PREPARED</command>です。
+2相トランザクションは外部のトランザクション制御システムで使用することを意図しています。
+<productname>PostgreSQL</productname>は、X/Open XA標準で提案されている機能とモデルに従いますが、あまり使用されていないいくつかの側面は実装しません。
   </para>
 
   <para>
+<!--
    When the user executes <command>PREPARE TRANSACTION</command>, the
    only possible next commands are <command>COMMIT PREPARED</command>
    or <command>ROLLBACK PREPARED</command>. In general, this prepared
@@ -199,6 +303,12 @@
    <filename>pg_twophase</filename> directory.  Transactions
    that are currently prepared can be inspected using <link
    linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>.
+-->
+ユーザが<command>PREPARE TRANSACTION</command>を実行すると、次のコマンドとしては<command>COMMIT PREPARED</command>または<command>ROLLBACK PREPARED</command>しか使用できません。
+一般的に、この準備済み状態は非常に短い期間であることを意図していますが、外部での可用性の問題により、トランザクションがこの状態に長期間とどまる可能性があります。
+短命な準備済みトランザクションは共有メモリとWALにのみ格納されます。
+チェックポイントをまたいだトランザクションは<filename>pg_twophase</filename>ディレクトリに記録されます。
+現在準備済みのトランザクションは<link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>を使用して検査できます。
   </para>
  </sect1>
 
