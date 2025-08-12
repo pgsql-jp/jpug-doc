@@ -98,7 +98,7 @@ btree演算子クラスはそのデータ型がソート順を持つことが必
 複数のデータ型がほとんど同じソートセマンティクスを共有している場合、それらの演算子クラスは演算子族にまとめることができます。
 そうすることによりプランナが型をまたがる比較を推論できるので、これはメリットがあります。
 演算子族内の各演算子クラスは、入力データ型のための単一型演算子（および関連するサポート関数）を含むべきです。
-一方型をまたがる比較演算子とサポート関数は演算子族中で<quote>ゆるやか</quote>です。
+一方、型をまたがる比較演算子とサポート関数は演算子族中で<quote>ゆるやか</quote>です。
 プランナが推移関係から推論するすべての比較条件を提示できるように、型をまたがる演算子の完全な集合を演算子族に入れておくことをお勧めします。
  </para>
 
@@ -259,7 +259,7 @@ btree演算子族が満たさなければならない基本的な前提条件が
   same <type>float8</type> value, and thus the transitive law would fail.
 -->
 複数のデータ型をサポートする演算子族について、演算子族中のデータ型であるどんな<replaceable>A</replaceable>、<replaceable>B</replaceable>、<replaceable>C</replaceable>も上記の法則を満たさなければなりません。
-型をまたがる際に2つあるいは3つの異なる演算子が一貫していることを表明することになるので、推移律を満たすことはもっとも困難です。
+型をまたがる場合、2つまたは3つの異なる演算子の動作が一貫している必要があるため、推移律を満たすことが最も困難です。
 例をあげると、少なくとも<type>float8</type>と比較するために<type>numeric</type>値を<type>float8</type>に変換する現在の意味論のもとでは、<type>float8</type>と<type>numeric</type>を同じ演算子族に加えるのはうまくいかないでしょう。
 <type>float8</type>の精度に限りがあるからです。
 これは同じ<type>float8</type>値に対して等号比較する複数の異なる<type>numeric</type>値が存在することを意味し、したがって推移律は満たされません。
@@ -340,7 +340,7 @@ btree演算子族が満たさなければならない基本的な前提条件が
 btreeの演算子族が比較演算子を提供する各データ型の組み合わせに対して、比較サポート関数を提供しなければなりません。それらはサポート関数1番で<structname>pg_amproc</structname>に、また、比較での左右のデータ型と等しい<structfield>amproclefttype</structfield>/<structfield>amprocrighttype</structfield>に、登録されます（すなわち、<structname>pg_amop</structname>に登録されている演算子が対応するものと同じデータ型です）。
 比較関数は2つの非NULL値<replaceable>A</replaceable>と<replaceable>B</replaceable>を取り、
 <replaceable>A</replaceable> <literal>&lt;</literal> <replaceable>B</replaceable>、<replaceable>A</replaceable> <literal>=</literal> <replaceable>B</replaceable>、または、<replaceable>A</replaceable> <literal>&gt;</literal> <replaceable>B</replaceable>であるときにそれぞれ、<literal>&lt;</literal> <literal>0</literal>、<literal>0</literal>、または、<literal>&gt;</literal> <literal>0</literal>である<type>int32</type>の値を返さなければなりません。
-NULLの結果は許されず、データ型の全ての値は比較可能でなければなりません。
+NULLを返すことは許されず、データ型の全ての値は比較可能でなければなりません。
 例として<filename>src/backend/access/nbtree/nbtcompare.c</filename>を参照してください。
     </para>
 
@@ -445,7 +445,7 @@ returns bool
 しかしながら、<replaceable>offset</replaceable>は異なる型のものでも可能です。それは演算子族でサポートされないものでもよいです。
 例としては、組み込みの<literal>time_ops</literal>族が<type>interval</type>型の<replaceable>offset</replaceable>を持つ<function>in_range</function>関数を提供しています。
 演算子族は、任意のサポートされる型と一つまたは複数の<replaceable>offset</replaceable>型に対する<function>in_range</function>関数を提供できます。
-各<function>in_range</function>関数は、<structname>pg_amproc</structname>に<type>type1</type>と等しい<structfield>amproclefttype</structfield>と<type>type2</type>に等しい<structfield>amproclefttype</structfield>で登録されるべきです。
+各<function>in_range</function>関数は、<structname>pg_amproc</structname>に<type>type1</type>と等しい<structfield>amproclefttype</structfield>と<type>type2</type>に等しい<structfield>amprocrighttype</structfield>で登録されるべきです。
     </para>
 
     <para>
@@ -573,7 +573,7 @@ returns bool
      <replaceable>sub</replaceable>, then:
 -->
 <function>in_range</function>関数の結果は、演算子族で規定されるソート順序と整合していなければなりません。
-正確には、与えらえれた任意の<replaceable>offset</replaceable>と<replaceable>sub</replaceable>の修正値は以下のようになります。
+正確には、与えられた任意の<replaceable>offset</replaceable>と<replaceable>sub</replaceable>の固定値については以下のようになります。
      <itemizedlist>
       <listitem>
        <para>
@@ -749,7 +749,7 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
 -->
 イメージ等価は単純にビット毎に等しいことと<emphasis>ほとんど</emphasis>同じ条件です。
 一点微妙な違いがあります。varlenaデータ型にインデックス作成するとき、入力時の一貫性のない<acronym>TOAST</acronym>圧縮の適用のために、同じdatumの二つのイメージのディスク上の表現はビット毎には等しくないかもしれません。
-これまでは、演算子クラスの<function>equalimage</function>関数が<literal>true</literal>を返すときには、<literal>datum_image_eq()</literal> C関数が常に演算子クラスの<function>order</function>関数と一致すると想定して安全でした（同じ照合順序のOIDが<function>equalimage</function>と<function>order</function>の両関数に渡されるとして）。
+形式的には、演算子クラスの<function>equalimage</function>関数が<literal>true</literal>を返すときには、<literal>datum_image_eq()</literal> C関数が常に演算子クラスの<function>order</function>関数と一致すると想定して安全でした（同じ照合順序のOIDが<function>equalimage</function>と<function>order</function>の両関数に渡されるとして）。
     </para>
     <para>
 <!--
@@ -784,7 +784,7 @@ equalimage(<replaceable>opcintype</replaceable> <type>oid</type>) returns bool
      practice for third-party extensions is to register their own
      custom function to retain control.
 -->
-コア<productname>PostgreSQL</productname>配布物に含まれる演算子クラスが従う慣習は、標準品、すなわち、一般的な<function>equalimage</function>関数を登録することです。
+<productname>PostgreSQL</productname>のコア配布物に含まれる演算子クラスが従う慣習は、標準品、すなわち、一般的な<function>equalimage</function>関数を登録することです。
 大部分の演算子クラスタは<function>btequalimage()</function>を登録しています。これは重複排除が無条件に安全であることを示しています。
 <type>text</type>などの照合可能なデータ型に対する演算子クラスは<function>btvarstrequalimage()</function>を登録します。これは決定的な照合順序では重複排除が安全であることを示します。
 サードパーティ拡張におけるベストプラクティスは制御を保つためにそれら自身のカスタム関数を登録することです。
@@ -1121,8 +1121,8 @@ B-Treeインデックス内で実行されたすべての削除操作がボト�
     B-Tree structure is concerned, NULL is just another value from the
     domain of indexed values.
 -->
-B-Tree重複排除は、B-Tree演算子クラスの<literal>=</literal>項に従ってNULL値が決して互いに等しくならないとしても、NULL値を含む<quote>重複</quote>に効果的です。
-ディスク上のB-Tree構造を解するいかなる実装部分に関しても、NULLはまさにインデックス値の定義域以外の一つの値です。
+B-Tree重複排除は、B-Tree演算子クラスの<literal>=</literal>項に従ってNULL値が決して互いに等しくならないとしても、NULL値を含む<quote>重複</quote>に対しても同様に効果的です。
+ディスク上のB-Tree構造を理解するいかなる実装部分に関しても、NULLはインデックス値の定義域からの他の値に過ぎません。
    </para>
   </note>
   <para>
@@ -1218,7 +1218,7 @@ GINのポスティングリストのタプルと違って、B-Treeのポステ�
 一意性インデックスで重複排除パスを実行すべきかどうかの判断には、特別なヒューリスティックが適用されます。
 これは、しばしばリーフページ分割まで連続してスキップして、無益な重複排除パスでの無駄なサイクルによる性能ペナルティを回避できます。
 重複排除のオーバーヘッドを懸念するなら、選択的に設定<literal>deduplicate_items = off</literal>を検討してください。
-一意性インデックスでは重複排除を無効にすることに不都合はありません。
+一意性インデックスで重複排除を有効にしておいてもほとんどデメリットはありません。
    </para>
   </tip>
   <para>
