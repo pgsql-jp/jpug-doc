@@ -1015,11 +1015,12 @@ ALTER SUBSCRIPTION
 
   <para>
 <!--
-   To confirm that the standby server is indeed ready for failover, follow these
-   steps to verify that all necessary logical replication slots have been
+   To confirm that the standby server is indeed ready for failover for a given subscriber, follow these
+   steps to verify that all the logical replication slots required by that subscriber have been
    synchronized to the standby server:
 -->
-スタンバイサーバが実際にフェイルオーバーの準備ができていることを確認するためには、次の手順に従ってすべての必要な論理レプリケーションスロットがスタンバイサーバと同期されていることを検証します。
+《マッチ度[70.305677]》スタンバイサーバが実際にフェイルオーバーの準備ができていることを確認するためには、次の手順に従ってすべての必要な論理レプリケーションスロットがスタンバイサーバと同期されていることを検証します。
+《機械翻訳》スタンバイサーバが特定のサブスクライバーのフェイルオーバーに対して実際に準備ができていることを確認するには、次の手順に従って、そのサブスクライバーに必要なすべての論理レプリケーションスロットがスタンバイサーバに同期されていることを確認します。
   </para>
 
   <procedure>
@@ -1085,7 +1086,7 @@ test_sub=# SELECT
 -->
 上記で特定した論理レプリケーションスロットがスタンバイに存在し、フェイルオーバーの準備ができていることを確認します。
 <programlisting>
-test_standby=# SELECT slot_name, (synced AND NOT temporary AND NOT conflicting) AS failover_ready
+test_standby=# SELECT slot_name, (synced AND NOT temporary AND invalidation_reason IS NULL) AS failover_ready
                FROM pg_replication_slots
                WHERE slot_name IN
                    ('sub1','sub2','sub3', 'pg_16394_sync_16385_7394666715149055164');
@@ -1104,12 +1105,55 @@ test_standby=# SELECT slot_name, (synced AND NOT temporary AND NOT conflicting) 
 <!--
    If all the slots are present on the standby server and the result
    (<literal>failover_ready</literal>) of the above SQL query is true, then
-   existing subscriptions can continue subscribing to publications now on the
-   new primary server.
+   existing subscriptions can continue subscribing to publications on the new
+   primary server.
 -->
-すべてのスロットがスタンバイサーバに存在し、上記のSQLクエリの結果（<literal>failover_ready</literal>）が真である場合、既存のサブスクリプションは、新しいプライマリサーバ上のパブリケーションへのサブスクライブを継続できます。
+《マッチ度[93.013100]》すべてのスロットがスタンバイサーバに存在し、上記のSQLクエリの結果（<literal>failover_ready</literal>）が真である場合、既存のサブスクリプションは、新しいプライマリサーバ上のパブリケーションへのサブスクライブを継続できます。
   </para>
 
+  <para>
+<!--
+   The first two steps in the above procedure are meant for a
+   <productname>PostgreSQL</productname> subscriber. It is recommended to run
+   these steps on each subscriber node, that will be served by the designated
+   standby after failover, to obtain the complete list of replication
+   slots. This list can then be verified in Step 3 to ensure failover readiness.
+   Non-<productname>PostgreSQL</productname> subscribers, on the other hand, may
+   use their own methods to identify the replication slots used by their
+   respective subscriptions.
+-->
+《機械翻訳》前述のプロシージャの最初の2つのステップは、<productname>PostgreSQL</productname>サブスクライバーを対象としています。
+サブスクライバースロットの完全なリストを取得するには、フェイルオーバーの後に指定スタンバイがサービスを提供する各レプリケーションノードでこれらのステップを実行することをお薦めします。
+このリストは、ステップ3から保証フェイルオーバーの準備状況で検証できます。
+一方、非<productname>PostgreSQL</productname>サブスクライバーは、独自の方法を使用して、それぞれのサブスクリプションで使用されるレプリケーションスロットを識別できます。
+  </para>
+
+  <para>
+<!--
+   In some cases, such as during a planned failover, it is necessary to confirm
+   that all subscribers, whether <productname>PostgreSQL</productname> or
+   non-<productname>PostgreSQL</productname>, will be able to continue
+   replication after failover to a given standby server. In such cases, use the
+   following SQL, instead of performing the first two steps above, to identify
+   which replication slots on the primary need to be synced to the standby that
+   is intended for promotion. This query returns the relevant replication slots
+   associated with all the failover-enabled subscriptions.
+-->
+《機械翻訳》計画フェイルオーバー中などの場合は、すべての加入者が、<productname>PostgreSQL</productname>または非<productname>PostgreSQL</productname>であるかどうかにかかわらず、特定のレプリケーションまでフェイルオーバーの後にスタンバイサーバを続行できることを確認する必要があります。
+このような場合は、次のSQL、代わりを使用して前述の最初の2つの手順を実行し、プライマリのどのレプリケーションスロットを販促対象のスタンバイに同期化する必要があるかを識別します。
+この問い合わせは、すべてのフェイルオーバー対応の登録に関連付けられたレプリケーションスロットを戻します。
+  </para>
+
+   <para>
+<programlisting>
+/* primary # */ SELECT array_agg(quote_literal(r.slot_name)) AS slots
+               FROM pg_replication_slots r
+               WHERE r.failover AND NOT r.temporary;
+ slots
+-------
+ {'sub1','sub2','sub3', 'pg_16394_sync_16385_7394666715149055164'}
+(1 row)
+</programlisting></para>
  </sect1>
 
  <sect1 id="logical-replication-row-filter">

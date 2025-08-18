@@ -380,7 +380,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
 <!--
      A logical slot will emit each change just once in normal operation.
      The current position of each slot is persisted only at checkpoint, so in
-     the case of a crash the slot may return to an earlier LSN, which will
+     the case of a crash the slot might return to an earlier LSN, which will
      then cause recent changes to be sent again when the server restarts.
      Logical decoding clients are responsible for avoiding ill effects from
      handling the same message more than once.  Clients may wish to record
@@ -390,7 +390,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      The Replication Progress Tracking feature is designed for this purpose,
      refer to <link linkend="replication-origins">replication origins</link>.
 -->
-ロジカルスロットは、通常の操作においては、各々の変更操作を一度だけ送出します。
+《マッチ度[92.258065]》ロジカルスロットは、通常の操作においては、各々の変更操作を一度だけ送出します。
 それぞれのスロットにおける現在位置は、チェックポイントのときにだけ永続的になります。
 ですからクラッシュすると、スロットは以前のLSNに戻ってしまうかもしれませんし、サーバの再起動時には最近の変更が再送されることになります。
 ロジカルデコーディングのクライアントは、同じメッセージを複数回扱うことによる好ましくない結果を避けることに対して責任を追っています。
@@ -504,14 +504,16 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
 <!--
      The logical replication slots on the primary can be synchronized to
      the hot standby by using the <literal>failover</literal> parameter of
+-->
+《機械翻訳》プライマリの論理レプリケーションスロットは、の<literal>failover</literal>ホットスタンバイを使用してパラメータに同期できます。
      <link linkend="pg-create-logical-replication-slot">
      <function>pg_create_logical_replication_slot</function></link>, or by
      using the <link linkend="sql-createsubscription-params-with-failover">
      <literal>failover</literal></link> option of
-     <command>CREATE SUBSCRIPTION</command> during slot creation, and then calling
-     <link linkend="pg-sync-replication-slots">
-     <function>pg_sync_replication_slots</function></link>
-     on the standby. By setting <link linkend="guc-sync-replication-slots">
+     <command>CREATE SUBSCRIPTION</command> during slot creation.
+     Additionally, enabling <link linkend="guc-sync-replication-slots">
+     <varname>sync_replication_slots</varname></link> on the standby
+     is required. By enabling <link linkend="guc-sync-replication-slots">
      <varname>sync_replication_slots</varname></link>
      on the standby, the failover slots can be synchronized periodically in
      the slotsync worker. For the synchronization to work, it is mandatory to
@@ -534,16 +536,74 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      standbys, associated with the physical replication slots specified
      in <varname>synchronized_standby_slots</varname>, have confirmed
      receiving the WAL up to the latest flushed position on the primary server.
+    </para>
+
+    <note>
+     <para>
+<!--
+      While enabling <link linkend="guc-sync-replication-slots">
+      <varname>sync_replication_slots</varname></link> allows for automatic
+      periodic synchronization of failover slots, they can also be manually
+      synchronized using the <link linkend="pg-sync-replication-slots">
+      <function>pg_sync_replication_slots</function></link> function on the standby.
+      However, this function is primarily intended for testing and debugging and
+      should be used with caution. Unlike automatic synchronization, it does not
+      include cyclic retries, making it more prone to synchronization failures,
+      particularly during initial sync scenarios where the required WAL files
+      or catalog rows for the slot might have already been removed or are at risk
+      of being removed on the standby. In contrast, automatic synchronization
+      via <varname>sync_replication_slots</varname> provides continuous slot
+      updates, enabling seamless failover and supporting high availability.
+      Therefore, it is the recommended method for synchronizing slots.
 -->
-プライマリ上の論理レプリケーションスロットは、ホットスタンバイと同期させることができます。
-これは、スロットの作成時に<link linkend="pg-create-logical-replication-slot"><function>pg_create_logical_replication_slot</function></link>の<literal>failover</literal>パラメータを指定するか、<command>CREATE SUBSCRIPTION</command>の<link linkend="sql-createsubscription-params-with-failover"><literal>failover</literal></link>オプションを指定したうえで、スタンバイで<link linkend="pg-sync-replication-slots"><function>pg_sync_replication_slots</function></link>を呼び出すことで可能です。
-スタンバイで<link linkend="guc-sync-replication-slots"><varname>sync_replication_slots</varname></link>を設定すると、フェイルオーバースロットをスロット同期ワーカーによって定期的に同期させることができます。
-同期を機能させるには、プライマリとスタンバイの間に物理レプリケーションスロットが必要であり（つまり、スタンバイで<link linkend="guc-primary-slot-name"><varname>primary_slot_name</varname></link>が設定されている必要があります）、スタンバイでは<link linkend="guc-hot-standby-feedback"><varname>hot_standby_feedback</varname></link>が有効になっている必要があります。
-また、<link linkend="guc-primary-conninfo"><varname>primary_conninfo</varname></link>に有効な<literal>dbname</literal>を指定する必要があります。
-この物理レプリケーションスロットを、プライマリの<link linkend="guc-synchronized-standby-slots"><varname>synchronized_standby_slots</varname></link>リスト内に指定することを強くお勧めします。
-これは、サブスクライバーがホットスタンバイよりも早く変更を消費しないようにするためです。
-正しく設定されていても、<link linkend="guc-synchronized-standby-slots"><varname>synchronized_standby_slots</varname></link>内に指定されたスロットを待つため、サブスクライバーに変更を送信するときに多少の遅延が予想されます。
-<varname>synchronized_standby_slots</varname>が使用されている場合、<varname>synchronized_standby_slots</varname>で指定された物理レプリケーションスロットに関連付けられた対応するスタンバイが、プライマリサーバ上の最新のフラッシュされた位置までWALを受信することを確認するまで、プライマリサーバは完全にはシャットダウンしません。
+《機械翻訳》<link linkend="guc-sync-replication-slots"><varname>sync_レプリケーション_slots</varname></link>を有効にすると、フェイルオーバースロットの定期的な自動同期が可能になりますが、スタンバイ上の<link linkend="pg-sync-replication-slots"><function>pg_sync_replication_slots</function>関数を使用して手動で同期することもできます。
+ただし、この関数は主にテストとデバッグを目的としているため、注意して使用する必要があります。
+自動同期とは異なり、includeの周期的な再試行は行われないため、同期が失敗しやすくなります。
+特に、スロットに必要なWALファイルまたはカタログ行がすでに削除されているか、スタンバイ上でリスクに削除されている可能性がある初期同期のシナリオではその傾向が強くなります。
+対照的に、<varname>sync_replication_slots</varname>を介した自動同期は連続スロットを更新し、シームレスなフェイルオーバーを可能にし、高可用性をサポートします。
+したがって、スロットの同期にはメソッドを推奨します。
+</link>
+     </para>
+    </note>
+
+    <para>
+<!--
+     When slot synchronization is configured as recommended,
+     and the initial synchronization is performed either automatically or
+     manually via pg_sync_replication_slot, the standby can persist the
+     synchronized slot only if the following condition is met: The logical
+     replication slot on the primary must retain WALs and system catalog
+     rows that are still available on the standby. This ensures data
+     integrity and allows logical replication to continue smoothly after
+     promotion.
+     If the required WALs or catalog rows have already been purged from the
+     standby, the slot will not be persisted to avoid data loss. In such
+     cases, the following log message may appear:
+-->
+《機械翻訳》スロット同期化が推奨どおりに構成され、初期同期がpg_sync_レプリケーション_スロットを介して自動または手動で実行される場合、次の条件が満たされる場合にのみ、スタンバイは同期されたスロットを永続化できます。
+プライマリの論理レプリケーションスロットは、スタンバイで使用可能なWALおよびシステムカタログ行を保持する必要があります。
+これにより、データの整合性が確保され、昇格後も論理レプリケーションが円滑に処理されます。
+必要なWALまたはカタログ行がスタンバイからすでにパージされている場合、スロットはデータロスを回避するために永続化されません。
+このような場合、次のログメッセージが表示されることがあります。
+<programlisting>
+LOG:  could not synchronize replication slot "failover_slot"
+DETAIL:  Synchronization could lead to data loss, because the remote slot needs WAL at LSN 0/3003F28 and catalog xmin 754, but the standby has LSN 0/3003F28 and catalog xmin 756.
+</programlisting>
+<!--
+     If the logical replication slot is actively used by a consumer, no
+     manual intervention is needed; the slot will advance automatically,
+     and synchronization will resume in the next cycle. However, if no
+     consumer is configured, it is advisable to manually advance the slot
+     on the primary using <link linkend="pg-logical-slot-get-changes">
+     <function>pg_logical_slot_get_changes</function></link> or
+-->
+《機械翻訳》論理レプリケーションスロットがコンシューマによってアクティブに使用されている場合、マニュアルの介入は必要ありません。
+スロットは自動的に進められ、同期は次のサイクルで再開されます。
+ただし、コンシューマが設定されていない場合は、<link linkend="pg-logical-slot-get-changes"><function>pg_logical_slot_get_changes</function>またはを使用してプライマリのスロットを手動で進めることをお勧めします。
+</link>
+     <link linkend="pg-logical-slot-get-binary-changes">
+     <function>pg_logical_slot_get_binary_changes</function></link>,
+     allowing synchronization to proceed.
     </para>
 
     <para>
@@ -636,14 +696,11 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
     </para>
     <para>
 <!--
-     Creation of a snapshot is not always possible.  In particular, it will
-     fail when connected to a hot standby.  Applications that do not require
-     snapshot export may suppress it with the <literal>NOEXPORT_SNAPSHOT</literal>
+     Applications that do not require
+     snapshot export may suppress it with the <literal>SNAPSHOT 'nothing'</literal>
      option.
 -->
-スナップショットの作成はいつでも可能なわけではありません。
-とりわけ、ホットスタンバイに接続するときは失敗します。
-スナップショットのエクスポートが必要ないアプリケーションは、<literal>NOEXPORT_SNAPSHOT</literal>オプションを使ってスナップショットのエクスポートを抑止できます。
+《機械翻訳》snapshotエクスポートを必要としないアプリケーションは、<literal>SNAPSHOT 'nothing'</literal>オプションでそれを抑制することができます。
     </para>
    </sect2>
   </sect1>
