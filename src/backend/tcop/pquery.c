@@ -3,7 +3,7 @@
  * pquery.c
  *	  POSTGRES process query command code
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -19,6 +19,7 @@
 
 #include "access/xact.h"
 #include "commands/prepare.h"
+#include "executor/executor.h"
 #include "executor/tstoreReceiver.h"
 #include "miscadmin.h"
 #include "pg_trace.h"
@@ -157,7 +158,7 @@ ProcessQuery(PlannedStmt *plan,
 	/*
 	 * Run the plan to completion.
 	 */
-	ExecutorRun(queryDesc, ForwardScanDirection, 0, true);
+	ExecutorRun(queryDesc, ForwardScanDirection, 0);
 
 	/*
 	 * Build command completion status data, if caller wants one.
@@ -670,8 +671,6 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
  * isTopLevel: true if query is being executed at backend "top level"
  * (that is, directly from a client command message)
  *
- * run_once: ignored, present only to avoid an API break in stable branches.
- *
  * dest: where to send output of primary (canSetTag) query
  *
  * altdest: where to send output of non-primary queries
@@ -683,7 +682,7 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
  * suspended due to exhaustion of the count parameter.
  */
 bool
-PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
+PortalRun(Portal portal, long count, bool isTopLevel,
 		  DestReceiver *dest, DestReceiver *altdest,
 		  QueryCompletion *qc)
 {
@@ -919,8 +918,7 @@ PortalRunSelect(Portal portal,
 		else
 		{
 			PushActiveSnapshot(queryDesc->snapshot);
-			ExecutorRun(queryDesc, direction, (uint64) count,
-						false);
+			ExecutorRun(queryDesc, direction, (uint64) count);
 			nprocessed = queryDesc->estate->es_processed;
 			PopActiveSnapshot();
 		}
@@ -959,8 +957,7 @@ PortalRunSelect(Portal portal,
 		else
 		{
 			PushActiveSnapshot(queryDesc->snapshot);
-			ExecutorRun(queryDesc, direction, (uint64) count,
-						false);
+			ExecutorRun(queryDesc, direction, (uint64) count);
 			nprocessed = queryDesc->estate->es_processed;
 			PopActiveSnapshot();
 		}

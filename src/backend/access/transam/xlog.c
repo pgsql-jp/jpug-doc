@@ -28,7 +28,7 @@
  * the current system state, and for starting/stopping backups.
  *
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/xlog.c
@@ -73,7 +73,6 @@
 #include "pg_trace.h"
 #include "pgstat.h"
 #include "port/atomics.h"
-#include "port/pg_iovec.h"
 #include "postmaster/bgwriter.h"
 #include "postmaster/startup.h"
 #include "postmaster/walsummarizer.h"
@@ -92,13 +91,12 @@
 #include "storage/proc.h"
 #include "storage/procarray.h"
 #include "storage/reinit.h"
-#include "storage/sinvaladt.h"
 #include "storage/spin.h"
 #include "storage/sync.h"
 #include "utils/guc_hooks.h"
 #include "utils/guc_tables.h"
 #include "utils/injection_point.h"
-#include "utils/memutils.h"
+#include "utils/pgstat_internal.h"
 #include "utils/ps_status.h"
 #include "utils/relmapper.h"
 #include "utils/snapmgr.h"
@@ -106,7 +104,9 @@
 #include "utils/timestamp.h"
 #include "utils/varlena.h"
 
-extern uint32 bootstrap_data_checksum_version;
+#ifdef WAL_DEBUG
+#include "utils/memutils.h"
+#endif
 
 /* timeline ID to be used when bootstrapping */
 #define BootstrapTimeLineID		1
@@ -555,7 +555,7 @@ typedef struct XLogCtlData
 } XLogCtlData;
 
 /*
- * Classification of XLogRecordInsert operations.
+ * Classification of XLogInsertRecord operations.
  */
 typedef enum
 {
@@ -667,8 +667,7 @@ static XLogRecPtr CreateOverwriteContrecordRecord(XLogRecPtr aborted_lsn,
 												  XLogRecPtr pagePtr,
 												  TimeLineID newTLI);
 static void CheckPointGuts(XLogRecPtr checkPointRedo, int flags);
-static void KeepLogSeg(XLogRecPtr recptr, XLogRecPtr slotsMinLSN,
-					   XLogSegNo *logSegNo);
+static void KeepLogSeg(XLogRecPtr recptr, XLogSegNo *logSegNo);
 static XLogRecPtr XLogGetReplicationSlotMinimumLSN(void);
 
 static void AdvanceXLInsertBuffer(XLogRecPtr upto, TimeLineID tli,
@@ -690,7 +689,7 @@ static void ValidateXLOGDirectoryStructure(void);
 static void CleanupBackupHistory(void);
 static void UpdateMinRecoveryPoint(XLogRecPtr lsn, bool force);
 static bool PerformRecoveryXLogAction(void);
-static void InitControlFile(uint64 sysidentifier);
+static void InitControlFile(uint64 sysidentifier, uint32 data_checksum_version);
 static void WriteControlFile(void);
 static void ReadControlFile(void);
 static void UpdateControlFile(void);
@@ -1083,6 +1082,9 @@ XLogInsertRecord(XLogRecData *rdata,
 		pgWalUsage.wal_bytes += rechdr->xl_tot_len;
 		pgWalUsage.wal_records++;
 		pgWalUsage.wal_fpi += num_fpi;
+
+		/* Required for the flush of pending stats WAL data */
+		pgstat_report_fixed = true;
 	}
 
 	return EndPos;
@@ -1251,7 +1253,7 @@ CopyXLogRecordToWAL(int write_len, bool isLogSwitch, XLogRecData *rdata,
 	written = 0;
 	while (rdata != NULL)
 	{
-		char	   *rdata_data = rdata->data;
+		const char *rdata_data = rdata->data;
 		int			rdata_len = rdata->len;
 
 		while (rdata_len > freespace)
@@ -2059,8 +2061,14 @@ AdvanceXLInsertBuffer(XLogRecPtr upto, TimeLineID tli, bool opportunistic)
 					WriteRqst.Flush = 0;
 					XLogWrite(WriteRqst, tli, false);
 					LWLockRelease(WALWriteLock);
-					PendingWalStats.wal_buffers_full++;
+					pgWalUsage.wal_buffers_full++;
 					TRACE_POSTGRESQL_WAL_BUFFER_WRITE_DIRTY_DONE();
+
+					/*
+					 * Required for the flush of pending stats WAL data, per
+					 * update of pgWalUsage.
+					 */
+					pgstat_report_fixed = true;
 				}
 				/* Re-acquire WALBufMappingLock and retry */
 				LWLockAcquire(WALBufMappingLock, LW_EXCLUSIVE);
@@ -2091,7 +2099,7 @@ AdvanceXLInsertBuffer(XLogRecPtr upto, TimeLineID tli, bool opportunistic)
 		 * Be sure to re-zero the buffer so that bytes beyond what we've
 		 * written will look like zeroes and not valid XLOG records...
 		 */
-		MemSet((char *) NewPage, 0, XLOG_BLCKSZ);
+		MemSet(NewPage, 0, XLOG_BLCKSZ);
 
 		/*
 		 * Fill the new page's header
@@ -2418,29 +2426,17 @@ XLogWrite(XLogwrtRqst WriteRqst, TimeLineID tli, bool flexible)
 			{
 				errno = 0;
 
-				/* Measure I/O timing to write WAL data */
-				if (track_wal_io_timing)
-					INSTR_TIME_SET_CURRENT(start);
-				else
-					INSTR_TIME_SET_ZERO(start);
+				/*
+				 * Measure I/O timing to write WAL data, for pg_stat_io.
+				 */
+				start = pgstat_prepare_io_time(track_wal_io_timing);
 
 				pgstat_report_wait_start(WAIT_EVENT_WAL_WRITE);
 				written = pg_pwrite(openLogFile, from, nleft, startoffset);
 				pgstat_report_wait_end();
 
-				/*
-				 * Increment the I/O timing and the number of times WAL data
-				 * were written out to disk.
-				 */
-				if (track_wal_io_timing)
-				{
-					instr_time	end;
-
-					INSTR_TIME_SET_CURRENT(end);
-					INSTR_TIME_ACCUM_DIFF(PendingWalStats.wal_write_time, end, start);
-				}
-
-				PendingWalStats.wal_write++;
+				pgstat_count_io_op_time(IOOBJECT_WAL, IOCONTEXT_NORMAL,
+										IOOP_WRITE, start, 1, written);
 
 				if (written <= 0)
 				{
@@ -2653,8 +2649,14 @@ XLogSetAsyncXactLSN(XLogRecPtr asyncXactLSN)
 			wakeup = true;
 	}
 
-	if (wakeup && ProcGlobal->walwriterLatch)
-		SetLatch(ProcGlobal->walwriterLatch);
+	if (wakeup)
+	{
+		volatile PROC_HDR *procglobal = ProcGlobal;
+		ProcNumber	walwriterProc = procglobal->walwriterProc;
+
+		if (walwriterProc != INVALID_PROC_NUMBER)
+			SetLatch(&GetPGProcByNumber(walwriterProc)->procLatch);
+	}
 }
 
 /*
@@ -3193,6 +3195,7 @@ XLogFileInitInternal(XLogSegNo logsegno, TimeLineID logtli,
 	int			fd;
 	int			save_errno;
 	int			open_flags = O_RDWR | O_CREAT | O_EXCL | PG_BINARY;
+	instr_time	io_start;
 
 	Assert(logtli != 0);
 
@@ -3236,6 +3239,9 @@ XLogFileInitInternal(XLogSegNo logsegno, TimeLineID logtli,
 				(errcode_for_file_access(),
 				 errmsg("could not create file \"%s\": %m", tmppath)));
 
+	/* Measure I/O timing when initializing segment */
+	io_start = pgstat_prepare_io_time(track_wal_io_timing);
+
 	pgstat_report_wait_start(WAIT_EVENT_WAL_INIT_WRITE);
 	save_errno = 0;
 	if (wal_init_zero)
@@ -3271,6 +3277,14 @@ XLogFileInitInternal(XLogSegNo logsegno, TimeLineID logtli,
 	}
 	pgstat_report_wait_end();
 
+	/*
+	 * A full segment worth of data is written when using wal_init_zero. One
+	 * byte is written when not using it.
+	 */
+	pgstat_count_io_op_time(IOOBJECT_WAL, IOCONTEXT_INIT, IOOP_WRITE,
+							io_start, 1,
+							wal_init_zero ? wal_segment_size : 1);
+
 	if (save_errno)
 	{
 		/*
@@ -3287,6 +3301,9 @@ XLogFileInitInternal(XLogSegNo logsegno, TimeLineID logtli,
 				 errmsg("could not write to file \"%s\": %m", tmppath)));
 	}
 
+	/* Measure I/O timing when flushing segment */
+	io_start = pgstat_prepare_io_time(track_wal_io_timing);
+
 	pgstat_report_wait_start(WAIT_EVENT_WAL_INIT_SYNC);
 	if (pg_fsync(fd) != 0)
 	{
@@ -3298,6 +3315,9 @@ XLogFileInitInternal(XLogSegNo logsegno, TimeLineID logtli,
 				 errmsg("could not fsync file \"%s\": %m", tmppath)));
 	}
 	pgstat_report_wait_end();
+
+	pgstat_count_io_op_time(IOOBJECT_WAL, IOCONTEXT_INIT,
+							IOOP_FSYNC, io_start, 1, 0);
 
 	if (close(fd) != 0)
 		ereport(ERROR,
@@ -4178,7 +4198,7 @@ CleanupBackupHistory(void)
  */
 
 static void
-InitControlFile(uint64 sysidentifier)
+InitControlFile(uint64 sysidentifier, uint32 data_checksum_version)
 {
 	char		mock_auth_nonce[MOCK_AUTH_NONCE_LEN];
 
@@ -4209,7 +4229,7 @@ InitControlFile(uint64 sysidentifier)
 	ControlFile->wal_level = wal_level;
 	ControlFile->wal_log_hints = wal_log_hints;
 	ControlFile->track_commit_timestamp = track_commit_timestamp;
-	ControlFile->data_checksum_version = bootstrap_data_checksum_version;
+	ControlFile->data_checksum_version = data_checksum_version;
 }
 
 static void
@@ -4240,10 +4260,37 @@ WriteControlFile(void)
 
 	ControlFile->float8ByVal = FLOAT8PASSBYVAL;
 
+	/*
+	 * Initialize the default 'char' signedness.
+	 *
+	 * The signedness of the char type is implementation-defined. For instance
+	 * on x86 architecture CPUs, the char data type is typically treated as
+	 * signed by default, whereas on aarch architecture CPUs, it is typically
+	 * treated as unsigned by default. In v17 or earlier, we accidentally let
+	 * C implementation signedness affect persistent data. This led to
+	 * inconsistent results when comparing char data across different
+	 * platforms.
+	 *
+	 * This flag can be used as a hint to ensure consistent behavior for
+	 * pre-v18 data files that store data sorted by the 'char' type on disk,
+	 * especially in cross-platform replication scenarios.
+	 *
+	 * Newly created database clusters unconditionally set the default char
+	 * signedness to true. pg_upgrade changes this flag for clusters that were
+	 * initialized on signedness=false platforms. As a result,
+	 * signedness=false setting will become rare over time. If we had known
+	 * about this problem during the last development cycle that forced initdb
+	 * (v8.3), we would have made all clusters signed or all clusters
+	 * unsigned. Making pg_upgrade the only source of signedness=false will
+	 * cause the population of database clusters to converge toward that
+	 * retrospective ideal.
+	 */
+	ControlFile->default_char_signedness = true;
+
 	/* Contents are protected with a CRC */
 	INIT_CRC32C(ControlFile->crc);
 	COMP_CRC32C(ControlFile->crc,
-				(char *) ControlFile,
+				ControlFile,
 				offsetof(ControlFileData, crc));
 	FIN_CRC32C(ControlFile->crc);
 
@@ -4299,7 +4346,7 @@ ReadControlFile(void)
 {
 	pg_crc32c	crc;
 	int			fd;
-	static char wal_segsz_str[20];
+	char		wal_segsz_str[20];
 	int			r;
 
 	/*
@@ -4361,7 +4408,7 @@ ReadControlFile(void)
 	/* Now check the CRC. */
 	INIT_CRC32C(crc);
 	COMP_CRC32C(crc,
-				(char *) ControlFile,
+				ControlFile,
 				offsetof(ControlFileData, crc));
 	FIN_CRC32C(crc);
 
@@ -4379,17 +4426,21 @@ ReadControlFile(void)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with CATALOG_VERSION_NO %d,"
-						   " but the server was compiled with CATALOG_VERSION_NO %d.",
-						   ControlFile->catalog_version_no, CATALOG_VERSION_NO),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "CATALOG_VERSION_NO", ControlFile->catalog_version_no,
+						   "CATALOG_VERSION_NO", CATALOG_VERSION_NO),
 				 errhint("It looks like you need to initdb.")));
 	if (ControlFile->maxAlign != MAXIMUM_ALIGNOF)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with MAXALIGN %d,"
-						   " but the server was compiled with MAXALIGN %d.",
-						   ControlFile->maxAlign, MAXIMUM_ALIGNOF),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "MAXALIGN", ControlFile->maxAlign,
+						   "MAXALIGN", MAXIMUM_ALIGNOF),
 				 errhint("It looks like you need to initdb.")));
 	if (ControlFile->floatFormat != FLOATFORMAT_VALUE)
 		ereport(FATAL,
@@ -4401,57 +4452,71 @@ ReadControlFile(void)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with BLCKSZ %d,"
-						   " but the server was compiled with BLCKSZ %d.",
-						   ControlFile->blcksz, BLCKSZ),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "BLCKSZ", ControlFile->blcksz,
+						   "BLCKSZ", BLCKSZ),
 				 errhint("It looks like you need to recompile or initdb.")));
 	if (ControlFile->relseg_size != RELSEG_SIZE)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with RELSEG_SIZE %d,"
-						   " but the server was compiled with RELSEG_SIZE %d.",
-						   ControlFile->relseg_size, RELSEG_SIZE),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "RELSEG_SIZE", ControlFile->relseg_size,
+						   "RELSEG_SIZE", RELSEG_SIZE),
 				 errhint("It looks like you need to recompile or initdb.")));
 	if (ControlFile->xlog_blcksz != XLOG_BLCKSZ)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with XLOG_BLCKSZ %d,"
-						   " but the server was compiled with XLOG_BLCKSZ %d.",
-						   ControlFile->xlog_blcksz, XLOG_BLCKSZ),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "XLOG_BLCKSZ", ControlFile->xlog_blcksz,
+						   "XLOG_BLCKSZ", XLOG_BLCKSZ),
 				 errhint("It looks like you need to recompile or initdb.")));
 	if (ControlFile->nameDataLen != NAMEDATALEN)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with NAMEDATALEN %d,"
-						   " but the server was compiled with NAMEDATALEN %d.",
-						   ControlFile->nameDataLen, NAMEDATALEN),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "NAMEDATALEN", ControlFile->nameDataLen,
+						   "NAMEDATALEN", NAMEDATALEN),
 				 errhint("It looks like you need to recompile or initdb.")));
 	if (ControlFile->indexMaxKeys != INDEX_MAX_KEYS)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with INDEX_MAX_KEYS %d,"
-						   " but the server was compiled with INDEX_MAX_KEYS %d.",
-						   ControlFile->indexMaxKeys, INDEX_MAX_KEYS),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "INDEX_MAX_KEYS", ControlFile->indexMaxKeys,
+						   "INDEX_MAX_KEYS", INDEX_MAX_KEYS),
 				 errhint("It looks like you need to recompile or initdb.")));
 	if (ControlFile->toast_max_chunk_size != TOAST_MAX_CHUNK_SIZE)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with TOAST_MAX_CHUNK_SIZE %d,"
-						   " but the server was compiled with TOAST_MAX_CHUNK_SIZE %d.",
-						   ControlFile->toast_max_chunk_size, (int) TOAST_MAX_CHUNK_SIZE),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "TOAST_MAX_CHUNK_SIZE", ControlFile->toast_max_chunk_size,
+						   "TOAST_MAX_CHUNK_SIZE", (int) TOAST_MAX_CHUNK_SIZE),
 				 errhint("It looks like you need to recompile or initdb.")));
 	if (ControlFile->loblksize != LOBLKSIZE)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with LOBLKSIZE %d,"
-						   " but the server was compiled with LOBLKSIZE %d.",
-						   ControlFile->loblksize, (int) LOBLKSIZE),
+		/* translator: %s is a variable name and %d is its value */
+				 errdetail("The database cluster was initialized with %s %d,"
+						   " but the server was compiled with %s %d.",
+						   "LOBLKSIZE", ControlFile->loblksize,
+						   "LOBLKSIZE", (int) LOBLKSIZE),
 				 errhint("It looks like you need to recompile or initdb.")));
 
 #ifdef USE_FLOAT8_BYVAL
@@ -4489,11 +4554,15 @@ ReadControlFile(void)
 	/* check and update variables dependent on wal_segment_size */
 	if (ConvertToXSegs(min_wal_size_mb, wal_segment_size) < 2)
 		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-						errmsg("\"min_wal_size\" must be at least twice \"wal_segment_size\"")));
+		/* translator: both %s are GUC names */
+						errmsg("\"%s\" must be at least twice \"%s\"",
+							   "min_wal_size", "wal_segment_size")));
 
 	if (ConvertToXSegs(max_wal_size_mb, wal_segment_size) < 2)
 		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-						errmsg("\"max_wal_size\" must be at least twice \"wal_segment_size\"")));
+		/* translator: both %s are GUC names */
+						errmsg("\"%s\" must be at least twice \"%s\"",
+							   "max_wal_size", "wal_segment_size")));
 
 	UsableBytesInSegment =
 		(wal_segment_size / XLOG_BLCKSZ * UsableBytesInPage) -
@@ -4544,6 +4613,19 @@ DataChecksumsEnabled(void)
 {
 	Assert(ControlFile != NULL);
 	return (ControlFile->data_checksum_version > 0);
+}
+
+/*
+ * Return true if the cluster was initialized on a platform where the
+ * default signedness of char is "signed". This function exists for code
+ * that deals with pre-v18 data files that store data sorted by the 'char'
+ * type on disk (e.g., GIN and GiST indexes). See the comments in
+ * WriteControlFile() for details.
+ */
+bool
+GetDefaultCharSignedness(void)
+{
+	return ControlFile->default_char_signedness;
 }
 
 /*
@@ -4700,7 +4782,9 @@ check_wal_consistency_checking(char **newval, void **extra, GucSource source)
 	list_free(elemlist);
 
 	/* assign new value */
-	*extra = guc_malloc(ERROR, (RM_MAX_ID + 1) * sizeof(bool));
+	*extra = guc_malloc(LOG, (RM_MAX_ID + 1) * sizeof(bool));
+	if (!*extra)
+		return false;
 	memcpy(*extra, newwalconsistency, (RM_MAX_ID + 1) * sizeof(bool));
 	return true;
 }
@@ -4985,7 +5069,7 @@ XLOGShmemInit(void)
  * and the initial XLOG segment.
  */
 void
-BootStrapXLOG(void)
+BootStrapXLOG(uint32 data_checksum_version)
 {
 	CheckPoint	checkPoint;
 	char	   *buffer;
@@ -5127,7 +5211,7 @@ BootStrapXLOG(void)
 	openLogFile = -1;
 
 	/* Now create pg_control */
-	InitControlFile(sysidentifier);
+	InitControlFile(sysidentifier, data_checksum_version);
 	ControlFile->time = checkPoint.time;
 	ControlFile->checkPoint = checkPoint.redo;
 	ControlFile->checkPointCopy = checkPoint;
@@ -5153,9 +5237,9 @@ BootStrapXLOG(void)
 static char *
 str_time(pg_time_t tnow)
 {
-	static char buf[128];
+	char	   *buf = palloc(128);
 
-	pg_strftime(buf, sizeof(buf),
+	pg_strftime(buf, 128,
 				"%Y-%m-%d %H:%M:%S %Z",
 				pg_localtime(&tnow, log_timezone));
 
@@ -5358,7 +5442,7 @@ CheckRequiredParameterValues(void)
 	 */
 	if (ArchiveRecoveryRequested && EnableHotStandby)
 	{
-		/* We ignore autovacuum_max_workers when we make this test. */
+		/* We ignore autovacuum_worker_slots when we make this test. */
 		RecoveryRequiresIntParameter("max_connections",
 									 MaxConnections,
 									 ControlFile->MaxConnections);
@@ -6021,30 +6105,6 @@ StartupXLOG(void)
 	XLogCtl->LogwrtRqst.Flush = EndOfLog;
 
 	/*
-	 * Invalidate all sinval-managed caches before READ WRITE transactions
-	 * begin.  The xl_heap_inplace WAL record doesn't store sufficient data
-	 * for invalidations.  The commit record, if any, has the invalidations.
-	 * However, the inplace update is permanent, whether or not we reach a
-	 * commit record.  Fortunately, read-only transactions tolerate caches not
-	 * reflecting the latest inplace updates.  Read-only transactions
-	 * experience the notable inplace updates as follows:
-	 *
-	 * - relhasindex=true affects readers only after the CREATE INDEX
-	 * transaction commit makes an index fully available to them.
-	 *
-	 * - datconnlimit=DATCONNLIMIT_INVALID_DB affects readers only at
-	 * InitPostgres() time, and that read does not use a cache.
-	 *
-	 * - relfrozenxid, datfrozenxid, relminmxid, and datminmxid have no effect
-	 * on readers.
-	 *
-	 * Hence, hot standby queries (all READ ONLY) function correctly without
-	 * the missing invalidations.  This avoided changing the WAL format in
-	 * back branches.
-	 */
-	SIResetAll();
-
-	/*
 	 * Preallocate additional log files, if wanted.
 	 */
 	PreallocXlogFiles(EndOfLog, newTLI);
@@ -6080,7 +6140,7 @@ StartupXLOG(void)
 	/*
 	 * Reload shared-memory state for prepared transactions.  This needs to
 	 * happen before renaming the last partial segment of the old timeline as
-	 * it may be possible that we have to recovery some transactions from it.
+	 * it may be possible that we have to recover some transactions from it.
 	 */
 	RecoverPreparedTransactions();
 
@@ -6707,14 +6767,15 @@ LogCheckpointEnd(bool restartpoint)
 	 */
 	if (restartpoint)
 		ereport(LOG,
-				(errmsg("restartpoint complete: wrote %d buffers (%.1f%%); "
-						"%d WAL file(s) added, %d removed, %d recycled; "
-						"write=%ld.%03d s, sync=%ld.%03d s, total=%ld.%03d s; "
-						"sync files=%d, longest=%ld.%03d s, average=%ld.%03d s; "
-						"distance=%d kB, estimate=%d kB; "
-						"lsn=%X/%X, redo lsn=%X/%X",
+				(errmsg("restartpoint complete: wrote %d buffers (%.1f%%), "
+						"wrote %d SLRU buffers; %d WAL file(s) added, "
+						"%d removed, %d recycled; write=%ld.%03d s, "
+						"sync=%ld.%03d s, total=%ld.%03d s; sync files=%d, "
+						"longest=%ld.%03d s, average=%ld.%03d s; distance=%d kB, "
+						"estimate=%d kB; lsn=%X/%X, redo lsn=%X/%X",
 						CheckpointStats.ckpt_bufs_written,
 						(double) CheckpointStats.ckpt_bufs_written * 100 / NBuffers,
+						CheckpointStats.ckpt_slru_written,
 						CheckpointStats.ckpt_segs_added,
 						CheckpointStats.ckpt_segs_removed,
 						CheckpointStats.ckpt_segs_recycled,
@@ -6730,14 +6791,15 @@ LogCheckpointEnd(bool restartpoint)
 						LSN_FORMAT_ARGS(ControlFile->checkPointCopy.redo))));
 	else
 		ereport(LOG,
-				(errmsg("checkpoint complete: wrote %d buffers (%.1f%%); "
-						"%d WAL file(s) added, %d removed, %d recycled; "
-						"write=%ld.%03d s, sync=%ld.%03d s, total=%ld.%03d s; "
-						"sync files=%d, longest=%ld.%03d s, average=%ld.%03d s; "
-						"distance=%d kB, estimate=%d kB; "
-						"lsn=%X/%X, redo lsn=%X/%X",
+				(errmsg("checkpoint complete: wrote %d buffers (%.1f%%), "
+						"wrote %d SLRU buffers; %d WAL file(s) added, "
+						"%d removed, %d recycled; write=%ld.%03d s, "
+						"sync=%ld.%03d s, total=%ld.%03d s; sync files=%d, "
+						"longest=%ld.%03d s, average=%ld.%03d s; distance=%d kB, "
+						"estimate=%d kB; lsn=%X/%X, redo lsn=%X/%X",
 						CheckpointStats.ckpt_bufs_written,
 						(double) CheckpointStats.ckpt_bufs_written * 100 / NBuffers,
+						CheckpointStats.ckpt_slru_written,
 						CheckpointStats.ckpt_segs_added,
 						CheckpointStats.ckpt_segs_removed,
 						CheckpointStats.ckpt_segs_recycled,
@@ -6858,8 +6920,11 @@ update_checkpoint_display(int flags, bool restartpoint, bool reset)
  * In this case, we only insert an XLOG_CHECKPOINT_SHUTDOWN record, and it's
  * both the record marking the completion of the checkpoint and the location
  * from which WAL replay would begin if needed.
+ *
+ * Returns true if a new checkpoint was performed, or false if it was skipped
+ * because the system was idle.
  */
-void
+bool
 CreateCheckPoint(int flags)
 {
 	bool		shutdown;
@@ -6873,7 +6938,6 @@ CreateCheckPoint(int flags)
 	VirtualTransactionId *vxids;
 	int			nvxids;
 	int			oldXLogAllowed = 0;
-	XLogRecPtr	slotsMinReqLSN;
 
 	/*
 	 * An end-of-recovery checkpoint is really a shutdown checkpoint, just
@@ -6952,7 +7016,7 @@ CreateCheckPoint(int flags)
 			END_CRIT_SECTION();
 			ereport(DEBUG1,
 					(errmsg_internal("checkpoint skipped because system is idle")));
-			return;
+			return false;
 		}
 	}
 
@@ -7032,7 +7096,7 @@ CreateCheckPoint(int flags)
 	{
 		/* Include WAL level in record for WAL summarizer's benefit. */
 		XLogBeginInsert();
-		XLogRegisterData((char *) &wal_level, sizeof(wal_level));
+		XLogRegisterData(&wal_level, sizeof(wal_level));
 		(void) XLogInsert(RM_XLOG_ID, XLOG_CHECKPOINT_REDO);
 
 		/*
@@ -7101,15 +7165,6 @@ CreateCheckPoint(int flags)
 	 * panic. Accordingly, exit critical section while doing it.
 	 */
 	END_CRIT_SECTION();
-
-	/*
-	 * Get the current minimum LSN to be used later in the WAL segment
-	 * cleanup.  We may clean up only WAL segments, which are not needed
-	 * according to synchronized LSNs of replication slots.  The slot's LSN
-	 * might be advanced concurrently, so we call this before
-	 * CheckPointReplicationSlots() synchronizes replication slots.
-	 */
-	slotsMinReqLSN = XLogGetReplicationSlotMinimumLSN();
 
 	/*
 	 * In some cases there are groups of actions that must all occur on one
@@ -7194,7 +7249,7 @@ CreateCheckPoint(int flags)
 	 * Now insert the checkpoint record into XLOG.
 	 */
 	XLogBeginInsert();
-	XLogRegisterData((char *) (&checkPoint), sizeof(checkPoint));
+	XLogRegisterData(&checkPoint, sizeof(checkPoint));
 	recptr = XLogInsert(RM_XLOG_ID,
 						shutdown ? XLOG_CHECKPOINT_SHUTDOWN :
 						XLOG_CHECKPOINT_ONLINE);
@@ -7280,7 +7335,7 @@ CreateCheckPoint(int flags)
 	 * until after the above call that flushes the XLOG_CHECKPOINT_ONLINE
 	 * record.
 	 */
-	SetWalSummarizerLatch();
+	WakeupWalSummarizer();
 
 	/*
 	 * Let smgr do post-checkpoint cleanup (eg, deleting old files).
@@ -7295,7 +7350,7 @@ CreateCheckPoint(int flags)
 		UpdateCheckPointDistanceEstimate(RedoRecPtr - PriorRedoPtr);
 
 #ifdef USE_INJECTION_POINTS
-	INJECTION_POINT("checkpoint-before-old-wal-removal");
+	INJECTION_POINT("checkpoint-before-old-wal-removal", NULL);
 #endif
 
 	/*
@@ -7303,25 +7358,17 @@ CreateCheckPoint(int flags)
 	 * prevent the disk holding the xlog from growing full.
 	 */
 	XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
-	KeepLogSeg(recptr, slotsMinReqLSN, &_logSegNo);
-	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED,
+	KeepLogSeg(recptr, &_logSegNo);
+	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
 										   _logSegNo, InvalidOid,
 										   InvalidTransactionId))
 	{
-		/*
-		 * Recalculate the current minimum LSN to be used in the WAL segment
-		 * cleanup.  Then, we must synchronize the replication slots again in
-		 * order to make this LSN safe to use.
-		 */
-		slotsMinReqLSN = XLogGetReplicationSlotMinimumLSN();
-		CheckPointReplicationSlots(shutdown);
-
 		/*
 		 * Some slots have been invalidated; recalculate the old-segment
 		 * horizon, starting again from RedoRecPtr.
 		 */
 		XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
-		KeepLogSeg(recptr, slotsMinReqLSN, &_logSegNo);
+		KeepLogSeg(recptr, &_logSegNo);
 	}
 	_logSegNo--;
 	RemoveOldXlogFiles(_logSegNo, RedoRecPtr, recptr,
@@ -7355,6 +7402,8 @@ CreateCheckPoint(int flags)
 									 CheckpointStats.ckpt_segs_added,
 									 CheckpointStats.ckpt_segs_removed,
 									 CheckpointStats.ckpt_segs_recycled);
+
+	return true;
 }
 
 /*
@@ -7386,7 +7435,7 @@ CreateEndOfRecoveryRecord(void)
 	START_CRIT_SECTION();
 
 	XLogBeginInsert();
-	XLogRegisterData((char *) &xlrec, sizeof(xl_end_of_recovery));
+	XLogRegisterData(&xlrec, sizeof(xl_end_of_recovery));
 	recptr = XLogInsert(RM_XLOG_ID, XLOG_END_OF_RECOVERY);
 
 	XLogFlush(recptr);
@@ -7479,7 +7528,7 @@ CreateOverwriteContrecordRecord(XLogRecPtr aborted_lsn, XLogRecPtr pagePtr,
 	XLogBeginInsert();
 	xlrec.overwritten_lsn = aborted_lsn;
 	xlrec.overwrite_time = GetCurrentTimestamp();
-	XLogRegisterData((char *) &xlrec, sizeof(xl_overwrite_contrecord));
+	XLogRegisterData(&xlrec, sizeof(xl_overwrite_contrecord));
 	recptr = XLogInsert(RM_XLOG_ID, XLOG_OVERWRITE_CONTRECORD);
 
 	/* check that the record was inserted to the right place */
@@ -7594,7 +7643,6 @@ CreateRestartPoint(int flags)
 	XLogRecPtr	endptr;
 	XLogSegNo	_logSegNo;
 	TimestampTz xtime;
-	XLogRecPtr	slotsMinReqLSN;
 
 	/* Concurrent checkpoint/restartpoint cannot happen */
 	Assert(!IsUnderPostmaster || MyBackendType == B_CHECKPOINTER);
@@ -7677,15 +7725,6 @@ CreateRestartPoint(int flags)
 	MemSet(&CheckpointStats, 0, sizeof(CheckpointStats));
 	CheckpointStats.ckpt_start_t = GetCurrentTimestamp();
 
-	/*
-	 * Get the current minimum LSN to be used later in the WAL segment
-	 * cleanup.  We may clean up only WAL segments, which are not needed
-	 * according to synchronized LSNs of replication slots.  The slot's LSN
-	 * might be advanced concurrently, so we call this before
-	 * CheckPointReplicationSlots() synchronizes replication slots.
-	 */
-	slotsMinReqLSN = XLogGetReplicationSlotMinimumLSN();
-
 	if (log_checkpoints)
 		LogCheckpointStart(flags, true);
 
@@ -7698,7 +7737,7 @@ CreateRestartPoint(int flags)
 	 * This location needs to be after CheckPointGuts() to ensure that some
 	 * work has already happened during this checkpoint.
 	 */
-	INJECTION_POINT("create-restart-point");
+	INJECTION_POINT("create-restart-point", NULL);
 
 	/*
 	 * Remember the prior checkpoint's redo ptr for
@@ -7774,25 +7813,17 @@ CreateRestartPoint(int flags)
 	receivePtr = GetWalRcvFlushRecPtr(NULL, NULL);
 	replayPtr = GetXLogReplayRecPtr(&replayTLI);
 	endptr = (receivePtr < replayPtr) ? replayPtr : receivePtr;
-	KeepLogSeg(endptr, slotsMinReqLSN, &_logSegNo);
-	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED,
+	KeepLogSeg(endptr, &_logSegNo);
+	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
 										   _logSegNo, InvalidOid,
 										   InvalidTransactionId))
 	{
-		/*
-		 * Recalculate the current minimum LSN to be used in the WAL segment
-		 * cleanup.  Then, we must synchronize the replication slots again in
-		 * order to make this LSN safe to use.
-		 */
-		slotsMinReqLSN = XLogGetReplicationSlotMinimumLSN();
-		CheckPointReplicationSlots(flags & CHECKPOINT_IS_SHUTDOWN);
-
 		/*
 		 * Some slots have been invalidated; recalculate the old-segment
 		 * horizon, starting again from RedoRecPtr.
 		 */
 		XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
-		KeepLogSeg(endptr, slotsMinReqLSN, &_logSegNo);
+		KeepLogSeg(endptr, &_logSegNo);
 	}
 	_logSegNo--;
 
@@ -7887,7 +7918,6 @@ GetWALAvailability(XLogRecPtr targetLSN)
 	XLogSegNo	oldestSegMaxWalSize;	/* oldest segid kept by max_wal_size */
 	XLogSegNo	oldestSlotSeg;	/* oldest segid kept by slot */
 	uint64		keepSegs;
-	XLogRecPtr	slotsMinReqLSN;
 
 	/*
 	 * slot does not reserve WAL. Either deactivated, or has never been active
@@ -7901,9 +7931,8 @@ GetWALAvailability(XLogRecPtr targetLSN)
 	 * oldestSlotSeg to the current segment.
 	 */
 	currpos = GetXLogWriteRecPtr();
-	slotsMinReqLSN = XLogGetReplicationSlotMinimumLSN();
 	XLByteToSeg(currpos, oldestSlotSeg, wal_segment_size);
-	KeepLogSeg(currpos, slotsMinReqLSN, &oldestSlotSeg);
+	KeepLogSeg(currpos, &oldestSlotSeg);
 
 	/*
 	 * Find the oldest extant segment file. We get 1 until checkpoint removes
@@ -7964,7 +7993,7 @@ GetWALAvailability(XLogRecPtr targetLSN)
  * invalidation is optionally done here, instead.
  */
 static void
-KeepLogSeg(XLogRecPtr recptr, XLogRecPtr slotsMinReqLSN, XLogSegNo *logSegNo)
+KeepLogSeg(XLogRecPtr recptr, XLogSegNo *logSegNo)
 {
 	XLogSegNo	currSegNo;
 	XLogSegNo	segno;
@@ -7974,7 +8003,7 @@ KeepLogSeg(XLogRecPtr recptr, XLogRecPtr slotsMinReqLSN, XLogSegNo *logSegNo)
 	segno = currSegNo;
 
 	/* Calculate how many segments are kept by slots. */
-	keep = slotsMinReqLSN;
+	keep = XLogGetReplicationSlotMinimumLSN();
 	if (keep != InvalidXLogRecPtr && keep < recptr)
 	{
 		XLByteToSeg(keep, segno, wal_segment_size);
@@ -8039,7 +8068,7 @@ void
 XLogPutNextOid(Oid nextOid)
 {
 	XLogBeginInsert();
-	XLogRegisterData((char *) (&nextOid), sizeof(Oid));
+	XLogRegisterData(&nextOid, sizeof(Oid));
 	(void) XLogInsert(RM_XLOG_ID, XLOG_NEXTOID);
 
 	/*
@@ -8100,7 +8129,7 @@ XLogRestorePoint(const char *rpName)
 	strlcpy(xlrec.rp_name, rpName, MAXFNAMELEN);
 
 	XLogBeginInsert();
-	XLogRegisterData((char *) &xlrec, sizeof(xl_restore_point));
+	XLogRegisterData(&xlrec, sizeof(xl_restore_point));
 
 	RecPtr = XLogInsert(RM_XLOG_ID, XLOG_RESTORE_POINT);
 
@@ -8149,7 +8178,7 @@ XLogReportParameters(void)
 			xlrec.track_commit_timestamp = track_commit_timestamp;
 
 			XLogBeginInsert();
-			XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+			XLogRegisterData(&xlrec, sizeof(xlrec));
 
 			recptr = XLogInsert(RM_XLOG_ID, XLOG_PARAMETER_CHANGE);
 			XLogFlush(recptr);
@@ -8224,7 +8253,7 @@ UpdateFullPageWrites(void)
 	if (XLogStandbyInfoActive() && !recoveryInProgress)
 	{
 		XLogBeginInsert();
-		XLogRegisterData((char *) (&fullPageWrites), sizeof(bool));
+		XLogRegisterData(&fullPageWrites, sizeof(bool));
 
 		XLogInsert(RM_XLOG_ID, XLOG_FPW_CHANGE);
 	}
@@ -8374,6 +8403,14 @@ xlog_redo(XLogReaderState *record)
 							checkPoint.ThisTimeLineID, replayTLI)));
 
 		RecoveryRestartPoint(&checkPoint, record);
+
+		/*
+		 * After replaying a checkpoint record, free all smgr objects.
+		 * Otherwise we would never do so for dropped relations, as the
+		 * startup does not process shared invalidation messages or call
+		 * AtEOXact_SMgr().
+		 */
+		smgrdestroyall();
 	}
 	else if (info == XLOG_CHECKPOINT_ONLINE)
 	{
@@ -8432,6 +8469,14 @@ xlog_redo(XLogReaderState *record)
 							checkPoint.ThisTimeLineID, replayTLI)));
 
 		RecoveryRestartPoint(&checkPoint, record);
+
+		/*
+		 * After replaying a checkpoint record, free all smgr objects.
+		 * Otherwise we would never do so for dropped relations, as the
+		 * startup does not process shared invalidation messages or call
+		 * AtEOXact_SMgr().
+		 */
+		smgrdestroyall();
 	}
 	else if (info == XLOG_OVERWRITE_CONTRECORD)
 	{
@@ -8712,11 +8757,10 @@ issue_xlog_fsync(int fd, XLogSegNo segno, TimeLineID tli)
 		wal_sync_method == WAL_SYNC_METHOD_OPEN_DSYNC)
 		return;
 
-	/* Measure I/O timing to sync the WAL file */
-	if (track_wal_io_timing)
-		INSTR_TIME_SET_CURRENT(start);
-	else
-		INSTR_TIME_SET_ZERO(start);
+	/*
+	 * Measure I/O timing to sync the WAL file for pg_stat_io.
+	 */
+	start = pgstat_prepare_io_time(track_wal_io_timing);
 
 	pgstat_report_wait_start(WAIT_EVENT_WAL_SYNC);
 	switch (wal_sync_method)
@@ -8762,18 +8806,8 @@ issue_xlog_fsync(int fd, XLogSegNo segno, TimeLineID tli)
 
 	pgstat_report_wait_end();
 
-	/*
-	 * Increment the I/O timing and the number of times WAL files were synced.
-	 */
-	if (track_wal_io_timing)
-	{
-		instr_time	end;
-
-		INSTR_TIME_SET_CURRENT(end);
-		INSTR_TIME_ACCUM_DIFF(PendingWalStats.wal_sync_time, end, start);
-	}
-
-	PendingWalStats.wal_sync++;
+	pgstat_count_io_op_time(IOOBJECT_WAL, IOCONTEXT_NORMAL, IOOP_FSYNC,
+							start, 1, 0);
 }
 
 /*
@@ -8829,7 +8863,7 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 				 errmsg("backup label too long (max %d bytes)",
 						MAXPGPATH)));
 
-	memcpy(state->name, backupidstr, strlen(backupidstr));
+	strlcpy(state->name, backupidstr, sizeof(state->name));
 
 	/*
 	 * Mark backup active in shared memory.  We must do full-page WAL writes
@@ -8990,10 +9024,10 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 		datadirpathlen = strlen(DataDir);
 
 		/* Collect information about all tablespaces */
-		tblspcdir = AllocateDir("pg_tblspc");
-		while ((de = ReadDir(tblspcdir, "pg_tblspc")) != NULL)
+		tblspcdir = AllocateDir(PG_TBLSPC_DIR);
+		while ((de = ReadDir(tblspcdir, PG_TBLSPC_DIR)) != NULL)
 		{
-			char		fullpath[MAXPGPATH + 10];
+			char		fullpath[MAXPGPATH + sizeof(PG_TBLSPC_DIR)];
 			char		linkpath[MAXPGPATH];
 			char	   *relpath = NULL;
 			char	   *s;
@@ -9016,7 +9050,7 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 			if (*badp != '\0' || errno == EINVAL || errno == ERANGE)
 				continue;
 
-			snprintf(fullpath, sizeof(fullpath), "pg_tblspc/%s", de->d_name);
+			snprintf(fullpath, sizeof(fullpath), "%s/%s", PG_TBLSPC_DIR, de->d_name);
 
 			de_type = get_dirent_type(fullpath, de, false, ERROR);
 
@@ -9077,8 +9111,8 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 				 * In this case, we store a relative path rather than an
 				 * absolute path into the tablespaceinfo.
 				 */
-				snprintf(linkpath, sizeof(linkpath), "pg_tblspc/%s",
-						 de->d_name);
+				snprintf(linkpath, sizeof(linkpath), "%s/%s",
+						 PG_TBLSPC_DIR, de->d_name);
 				relpath = pstrdup(linkpath);
 			}
 			else
@@ -9157,7 +9191,7 @@ do_pg_backup_stop(BackupState *state, bool waitforarchive)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("WAL level not sufficient for making an online backup"),
-				 errhint("wal_level must be set to \"replica\" or \"logical\" at server start.")));
+				 errhint("\"wal_level\" must be set to \"replica\" or \"logical\" at server start.")));
 
 	/*
 	 * OK to update backup counter and session-level lock.
@@ -9264,7 +9298,7 @@ do_pg_backup_stop(BackupState *state, bool waitforarchive)
 		 * Write the backup-end xlog record
 		 */
 		XLogBeginInsert();
-		XLogRegisterData((char *) (&state->startpoint),
+		XLogRegisterData(&state->startpoint,
 						 sizeof(state->startpoint));
 		state->stoppoint = XLogInsert(RM_XLOG_ID, XLOG_BACKUP_END);
 

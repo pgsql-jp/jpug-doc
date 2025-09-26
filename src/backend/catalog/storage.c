@@ -3,7 +3,7 @@
  * storage.c
  *	  code to create and destroy physical storage for relations
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -27,6 +27,7 @@
 #include "catalog/storage.h"
 #include "catalog/storage_xlog.h"
 #include "miscadmin.h"
+#include "pgstat.h"
 #include "storage/bulk_write.h"
 #include "storage/freespace.h"
 #include "storage/proc.h"
@@ -194,7 +195,7 @@ log_smgrcreate(const RelFileLocator *rlocator, ForkNumber forkNum)
 	xlrec.forkNum = forkNum;
 
 	XLogBeginInsert();
-	XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+	XLogRegisterData(&xlrec, sizeof(xlrec));
 	XLogInsert(RM_SMGR_ID, XLOG_SMGR_CREATE | XLR_SPECIAL_REL_UPDATE);
 }
 
@@ -380,7 +381,7 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 	 * replay or visibility invariants downstream.  The critical section also
 	 * suppresses interrupts.
 	 *
-	 * (See also pg_visibilitymap.c if changing this code.)
+	 * (See also visibilitymap.c if changing this code.)
 	 */
 	START_CRIT_SECTION();
 
@@ -397,7 +398,7 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 		xlrec.flags = SMGR_TRUNCATE_ALL;
 
 		XLogBeginInsert();
-		XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+		XLogRegisterData(&xlrec, sizeof(xlrec));
 
 		lsn = XLogInsert(RM_SMGR_ID,
 						 XLOG_SMGR_TRUNCATE | XLR_SPECIAL_REL_UPDATE);
@@ -418,7 +419,7 @@ RelationTruncate(Relation rel, BlockNumber nblocks)
 	 * longer exist after truncation is complete, and then truncate the
 	 * corresponding files on disk.
 	 */
-	smgrtruncate2(RelationGetSmgr(rel), forks, nforks, old_blocks, blocks);
+	smgrtruncate(RelationGetSmgr(rel), forks, nforks, old_blocks, blocks);
 
 	END_CRIT_SECTION();
 
@@ -507,6 +508,9 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 	for (blkno = 0; blkno < nblocks; blkno++)
 	{
 		BulkWriteBuffer buf;
+		int			piv_flags;
+		bool		checksum_failure;
+		bool		verified;
 
 		/* If we got a cancel signal during the copy of the data, quit */
 		CHECK_FOR_INTERRUPTS();
@@ -514,8 +518,20 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 		buf = smgr_bulk_get_buf(bulkstate);
 		smgrread(src, forkNum, blkno, (Page) buf);
 
-		if (!PageIsVerifiedExtended((Page) buf, blkno,
-									PIV_LOG_WARNING | PIV_REPORT_STAT))
+		piv_flags = PIV_LOG_WARNING;
+		if (ignore_checksum_failure)
+			piv_flags |= PIV_IGNORE_CHECKSUM_FAILURE;
+		verified = PageIsVerified((Page) buf, blkno, piv_flags,
+								  &checksum_failure);
+		if (checksum_failure)
+		{
+			RelFileLocatorBackend rloc = src->smgr_rlocator;
+
+			pgstat_prepare_report_checksum_failure(rloc.locator.dbOid);
+			pgstat_report_checksum_failures_in_db(rloc.locator.dbOid, 1);
+		}
+
+		if (!verified)
 		{
 			/*
 			 * For paranoia's sake, capture the file path before invoking the
@@ -524,14 +540,14 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 			 * (errcontext callbacks shouldn't be risking any such thing, but
 			 * people have been known to forget that rule.)
 			 */
-			char	   *relpath = relpathbackend(src->smgr_rlocator.locator,
+			RelPathStr	relpath = relpathbackend(src->smgr_rlocator.locator,
 												 src->smgr_rlocator.backend,
 												 forkNum);
 
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_CORRUPTED),
-					 errmsg("invalid page in block %u of relation %s",
-							blkno, relpath)));
+					 errmsg("invalid page in block %u of relation \"%s\"",
+							blkno, relpath.str)));
 		}
 
 		/*
@@ -1059,7 +1075,7 @@ smgr_redo(XLogReaderState *record)
 		if (nforks > 0)
 		{
 			START_CRIT_SECTION();
-			smgrtruncate2(reln, forks, nforks, old_blocks, blocks);
+			smgrtruncate(reln, forks, nforks, old_blocks, blocks);
 			END_CRIT_SECTION();
 		}
 

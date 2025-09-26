@@ -1,0 +1,27 @@
+␝  <manvolnum>1</manvolnum>␟  <refmiscinfo>Application</refmiscinfo>␟<refmiscinfo>アプリケーション</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>pg_controldata</refname>␟  <refpurpose>display control information of a <productname>PostgreSQL</productname> database cluster</refpurpose>␟  <refpurpose><productname>PostgreSQL</productname>データベースクラスタの制御情報を表示する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1 id="r1-app-pgcontroldata-1">␟  <title>Description</title>␟  <title>説明</title>␞␞  <para>␞
+␝  <para>␟   <command>pg_controldata</command> prints information initialized during
+   <command>initdb</command>, such as the catalog version.
+   It also shows information about write-ahead logging and checkpoint
+   processing.  This information is cluster-wide, and not specific to any one
+   database.␟<command>pg_controldata</command>はカタログのバージョンなど<command>initdb</command>の際に初期化された情報を表示します。
+また、先行書き込みログ（WAL）およびチェックポイント処理に関する情報も表示します。
+この情報はクラスタ全体に関するものであり、特定のデータベースに関するものではありません。␞␞  </para>␞
+␝  <para>␟   This utility can only be run by the user who initialized the cluster because
+   it requires read access to the data directory.
+   You can specify the data directory on the command line, or use
+   the environment variable <envar>PGDATA</envar>.  This utility supports the options
+   <option>-V</option> and <option>--version</option>, which print the
+   <application>pg_controldata</application> version and exit.  It also
+   supports options <option>-?</option> and <option>--help</option>, which output the
+   supported arguments.␟このユーティリティの実行にはデータディレクトリへの読み取りアクセス権限が必要となるため、クラスタを初期化したユーザのみが実行できます。
+データディレクトリは、コマンドラインや環境変数<envar>PGDATA</envar>を使用して指定することができます。
+このユーティリティは、<application>pg_controldata</application>のバージョンを表示し終了する<option>-V</option>および<option>--version</option>オプションをサポートします。
+またサポートされる引数を出力する<option>-?</option>および<option>--help</option>オプションもサポートします。␞␞  </para>␞
+␝ <refsect1>␟  <title>Environment</title>␟  <title>環境</title>␞␞␞
+␝     <para>␟      Default data directory location␟デフォルトのデータディレクトリの場所です。␞␞     </para>␞
+␝     <para>␟      Specifies whether to use color in diagnostic messages. Possible values
+      are <literal>always</literal>, <literal>auto</literal> and
+      <literal>never</literal>.␟診断メッセージで色を使うかどうかを指定します。
+指定可能な値は<literal>always</literal>、<literal>auto</literal>、<literal>never</literal>です。␞␞     </para>␞

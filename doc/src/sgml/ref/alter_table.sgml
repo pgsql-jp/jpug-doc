@@ -67,7 +67,8 @@ ALTER TABLE [ IF EXISTS ] <replaceable class="parameter">name</replaceable>
     ALTER [ COLUMN ] <replaceable class="parameter">column_name</replaceable> SET COMPRESSION <replaceable class="parameter">compression_method</replaceable>
     ADD <replaceable class="parameter">table_constraint</replaceable> [ NOT VALID ]
     ADD <replaceable class="parameter">table_constraint_using_index</replaceable>
-    ALTER CONSTRAINT <replaceable class="parameter">constraint_name</replaceable> [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+    ALTER CONSTRAINT <replaceable class="parameter">constraint_name</replaceable> [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ] [ ENFORCED | NOT ENFORCED ]
+    ALTER CONSTRAINT <replaceable class="parameter">constraint_name</replaceable> [ INHERIT | NO INHERIT ]
     VALIDATE CONSTRAINT <replaceable class="parameter">constraint_name</replaceable>
     DROP CONSTRAINT [ IF EXISTS ]  <replaceable class="parameter">constraint_name</replaceable> [ RESTRICT | CASCADE ]
     DISABLE TRIGGER [ <replaceable class="parameter">trigger_name</replaceable> | ALL | USER ]
@@ -113,17 +114,17 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 <phrase>また、<replaceable class="parameter">column_constraint</replaceable>は以下の通りです。</phrase>
 
 [ CONSTRAINT <replaceable class="parameter">constraint_name</replaceable> ]
-{ NOT NULL |
+{ NOT NULL [ NO INHERIT ] |
   NULL |
   CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ] |
   DEFAULT <replaceable>default_expr</replaceable> |
-  GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED |
+  GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) [ STORED | VIRTUAL ] |
   GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY [ ( <replaceable>sequence_options</replaceable> ) ] |
   UNIQUE [ NULLS [ NOT ] DISTINCT ] <replaceable class="parameter">index_parameters</replaceable> |
   PRIMARY KEY <replaceable class="parameter">index_parameters</replaceable> |
   REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ]
     [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
-[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ] [ ENFORCED | NOT ENFORCED ]
 
 <!--
 <phrase>and <replaceable class="parameter">table_constraint</replaceable> is:</phrase>
@@ -132,12 +133,13 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 
 [ CONSTRAINT <replaceable class="parameter">constraint_name</replaceable> ]
 { CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ] |
-  UNIQUE [ NULLS [ NOT ] DISTINCT ] ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> |
-  PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> |
+  NOT NULL <replaceable class="parameter">column_name</replaceable> [ NO INHERIT ] |
+  UNIQUE [ NULLS [ NOT ] DISTINCT ] ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, <replaceable class="parameter">column_name</replaceable> WITHOUT OVERLAPS ] ) <replaceable class="parameter">index_parameters</replaceable> |
+  PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, <replaceable class="parameter">column_name</replaceable> WITHOUT OVERLAPS ] ) <replaceable class="parameter">index_parameters</replaceable> |
   EXCLUDE [ USING <replaceable class="parameter">index_method</replaceable> ] ( <replaceable class="parameter">exclude_element</replaceable> WITH <replaceable class="parameter">operator</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> [ WHERE ( <replaceable class="parameter">predicate</replaceable> ) ] |
-  FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] ) ]
+  FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, PERIOD <replaceable class="parameter">column_name</replaceable> ] ) REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ]  [, PERIOD <replaceable class="parameter">refcolumn</replaceable> ] ) ]
     [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
-[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ] [ ENFORCED | NOT ENFORCED ]
 
 <!--
 <phrase>and <replaceable class="parameter">table_constraint_using_index</replaceable> is:</phrase>
@@ -267,8 +269,11 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       When this form is used, the column's statistics are removed,
       so running <link linkend="sql-analyze"><command>ANALYZE</command></link>
       on the table afterwards is recommended.
+      For a virtual generated column, <command>ANALYZE</command>
+      is not necessary because such columns never have statistics.
 -->
-この形式を使用すると、列の統計情報が削除されるので、後でテーブルに対して<link linkend="sql-analyze"><command>ANALYZE</command></link>を実行することをお勧めします。
+《マッチ度[52.901024]》この形式を使用すると、列の統計情報が削除されるので、後でテーブルに対して<link linkend="sql-analyze"><command>ANALYZE</command></link>を実行することをお勧めします。
+《機械翻訳》«When this form is used, the column's statistics are removed, so running <link linkend="sql-analyze"><command>ANALYZE</command></link> on the table afterwards is recommended. For a virtual generated column, <command>ANALYZE</command> is not necessary because such columns never have statistics.»
      </para>
     </listitem>
    </varlistentry>
@@ -308,14 +313,17 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       provided none of the records in the table contain a
       <literal>NULL</literal> value for the column.  Ordinarily this is
       checked during the <literal>ALTER TABLE</literal> by scanning the
-      entire table;
+      entire table, unless <literal>NOT VALID</literal> is specified;
       however, if a valid <literal>CHECK</literal> constraint exists
       (and is not dropped in the same command) which proves no
       <literal>NULL</literal> can exist, then the table scan is skipped.
+      If a column has an invalid not-null constraint,
+      <literal>SET NOT NULL</literal> validates it.
 -->
-<literal>SET NOT NULL</literal>は、テーブルの項目でその列が<literal>NULL</literal>値であるものが1つもない場合にのみ、その列に設定可能です。
+《マッチ度[68.866328]》<literal>SET NOT NULL</literal>は、テーブルの項目でその列が<literal>NULL</literal>値であるものが1つもない場合にのみ、その列に設定可能です。
 通常これは<literal>ALTER TABLE</literal>がテーブル全体をスキャンする際に確認されます。
 しかしながら、<literal>NULL</literal>が存在できないことを示す有効な<literal>CHECK</literal>制約（同じコマンドで削除されない）が存在すれば、テーブルスキャンは省略されます。
+《機械翻訳》«<literal>SET NOT NULL</literal> may only be applied to a column provided none of the records in the table contain a <literal>NULL</literal> value for the column. Ordinarily this is checked during the <literal>ALTER TABLE</literal> by scanning the entire table, unless <literal>NOT VALID</literal> is specified; however, if a valid <literal>CHECK</literal> constraint exists (and is not dropped in the same command) which proves no <literal>NULL</literal> can exist, then the table scan is skipped. If a column has an invalid not-null constraint, <literal>SET NOT NULL</literal> validates it.»
      </para>
 
      <para>
@@ -327,12 +335,15 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       table.  Even if there is no <literal>NOT NULL</literal> constraint on the
       parent, such a constraint can still be added to individual partitions,
       if desired; that is, the children can disallow nulls even if the parent
-      allows them, but not the other way around.
+      allows them, but not the other way around.  It is also possible to drop
+      the <literal>NOT NULL</literal> constraint from <literal>ONLY</literal>
+      the parent table, which does not remove it from the children.
 -->
-このテーブルがパーティションの場合、親テーブルで<literal>NOT NULL</literal>の印がつけられている列について<literal>DROP NOT NULL</literal>を実行することはできません。
+《マッチ度[70.140845]》このテーブルがパーティションの場合、親テーブルで<literal>NOT NULL</literal>の印がつけられている列について<literal>DROP NOT NULL</literal>を実行することはできません。
 すべてのパーティションから<literal>NOT NULL</literal>制約を削除するには、親テーブルで<literal>DROP NOT NULL</literal>を実行してください。
 親テーブルに<literal>NOT NULL</literal>制約がない場合でも、望むなら各パーティションにそのような制約を追加することができます。
 つまり、親テーブルがNULLを許していても子テーブルでNULLを禁止することができますが、その逆はできません。
+《機械翻訳》«If this table is a partition, one cannot perform <literal>DROP NOT NULL</literal> on a column if it is marked <literal>NOT NULL</literal> in the parent table. To drop the <literal>NOT NULL</literal> constraint from all the partitions, perform <literal>DROP NOT NULL</literal> on the parent table. Even if there is no <literal>NOT NULL</literal> constraint on the parent, such a constraint can still be added to individual partitions, if desired; that is, the children can disallow nulls even if the parent allows them, but not the other way around. It is also possible to drop the <literal>NOT NULL</literal> constraint from <literal>ONLY</literal> the parent table, which does not remove it from the children.»
      </para>
     </listitem>
    </varlistentry>
@@ -343,20 +354,24 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
      <para>
 <!--
       This form replaces the expression of a generated column.  Existing data
-      in the column is rewritten and all the future changes will apply the new
-      generation expression.
+      in a stored generated column is rewritten and all the future changes
+      will apply the new generation expression.
 -->
-この構文は、生成列の式を置き換えます。
+《マッチ度[83.425414]》この構文は、生成列の式を置き換えます。
 列の既存のデータは書き換えられ、以後の変更はすべて新しい生成式を適用します。
+《機械翻訳》«This form replaces the expression of a generated column. Existing data in a stored generated column is rewritten and all the future changes will apply the new generation expression.»
      </para>
 
      <para>
 <!--
-      When this form is used, the column's statistics are removed,
-      so running <link linkend="sql-analyze"><command>ANALYZE</command></link>
+      When this form is used on a stored generated column, its statistics
+      are removed, so running
+      <link linkend="sql-analyze"><command>ANALYZE</command></link>
       on the table afterwards is recommended.
+      For a virtual generated column, <command>ANALYZE</command>
+      is not necessary because such columns never have statistics.
 -->
-この形式を使用すると、列の統計情報が削除されるので、後でテーブルに対して<link linkend="sql-analyze"><command>ANALYZE</command></link>を実行することをお勧めします。
+《機械翻訳》«When this form is used on a stored generated column, its statistics are removed, so running <link linkend="sql-analyze"><command>ANALYZE</command></link> on the table afterwards is recommended. For a virtual generated column, <command>ANALYZE</command> is not necessary because such columns never have statistics.»
      </para>
     </listitem>
    </varlistentry>
@@ -376,12 +391,21 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 
      <para>
 <!--
-      If <literal>DROP EXPRESSION IF EXISTS</literal> is specified and the
-      column is not a stored generated column, no error is thrown.  In this
-      case a notice is issued instead.
+      This form is currently only supported for stored generated columns (not
+      virtual ones).
 -->
-<literal>DROP EXPRESSION IF EXISTS</literal>が指定され、その列が格納された生成列でない場合は、エラーを発生させません。
+《機械翻訳》«This form is currently only supported for stored generated columns (not virtual ones).»
+     </para>
+
+     <para>
+<!--
+      If <literal>DROP EXPRESSION IF EXISTS</literal> is specified and the
+      column is not a generated column, no error is thrown.  In this case a
+      notice is issued instead.
+-->
+《マッチ度[84.049080]》<literal>DROP EXPRESSION IF EXISTS</literal>が指定され、その列が格納された生成列でない場合は、エラーを発生させません。
 この場合、注意メッセージが発行されます。
+《機械翻訳》«If <literal>DROP EXPRESSION IF EXISTS</literal> is specified and the column is not a generated column, no error is thrown. In this case a notice is issued instead.»
      </para>
     </listitem>
    </varlistentry>
@@ -618,10 +642,11 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 <!--
       This form adds a new constraint to a table using the same constraint
       syntax as <link linkend="sql-createtable"><command>CREATE TABLE</command></link>, plus the option <literal>NOT
-      VALID</literal>, which is currently only allowed for foreign key
-      and CHECK constraints.
+      VALID</literal>, which is currently only allowed for foreign-key,
+      <literal>CHECK</literal>, and not-null constraints.
 -->
-この構文は、<link linkend="sql-createtable"><command>CREATE TABLE</command></link>と同じ制約構文に加え、現時点では外部キー制約と検査制約でのみ許される<literal>NOT VALID</literal>オプションを使って新しい制約をテーブルに追加します。
+《マッチ度[82.154882]》この構文は、<link linkend="sql-createtable"><command>CREATE TABLE</command></link>と同じ制約構文に加え、現時点では外部キー制約と検査制約でのみ許される<literal>NOT VALID</literal>オプションを使って新しい制約をテーブルに追加します。
+《機械翻訳》«This form adds a new constraint to a table using the same constraint syntax as <link linkend="sql-createtable"><command>CREATE TABLE</command></link>, plus the option <literal>NOT VALID</literal>, which is currently only allowed for foreign-key, <literal>CHECK</literal>, and not-null constraints.»
      </para>
 
      <para>
@@ -630,7 +655,7 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       existing rows in the table satisfy the new constraint.  But if
       the <literal>NOT VALID</literal> option is used, this
       potentially-lengthy scan is skipped.  The constraint will still be
-      enforced against subsequent inserts or updates (that is, they'll fail
+      applied against subsequent inserts or updates (that is, they'll fail
       unless there is a matching row in the referenced table, in the case
       of foreign keys, or they'll fail unless the new row matches the
       specified check condition).  But the
@@ -640,11 +665,12 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
       See <xref linkend="sql-altertable-notes"/> below for more information
       about using the <literal>NOT VALID</literal> option.
 -->
-通常この構文は、テーブルの既存の行が新しい制約を満たすか確認するため、テーブルのスキャンの原因となります。
+《マッチ度[88.715953]》通常この構文は、テーブルの既存の行が新しい制約を満たすか確認するため、テーブルのスキャンの原因となります。
 しかし、<literal>NOT VALID</literal>オプションが使われていれば、時間がかかるかもしれないこのスキャンは省略されます。
 それでも、制約はその後の挿入や更新に対して強制されます（つまり、外部キー制約の場合、被参照テーブルに一致する行が存在しない限り失敗します。指定された検査制約に一致する新しい行が存在しない限り失敗します）。
 しかしデータベースは、<literal>VALIDATE CONSTRAINT</literal>オプションを使用して検証されるまで、テーブル内のすべての行で制約が保持されているとみなしません。
 <literal>NOT VALID</literal>オプションを使うことに関する更なる情報は<xref linkend="sql-altertable-notes"/>以下を参照してください。
+《機械翻訳》«Normally, this form will cause a scan of the table to verify that all existing rows in the table satisfy the new constraint. But if the <literal>NOT VALID</literal> option is used, this potentially-lengthy scan is skipped. The constraint will still be applied against subsequent inserts or updates (that is, they'll fail unless there is a matching row in the referenced table, in the case of foreign keys, or they'll fail unless the new row matches the specified check condition). But the database will not assume that the constraint holds for all rows in the table, until it is validated by using the <literal>VALIDATE CONSTRAINT</literal> option. See <xref linkend="sql-altertable-notes"/> below for more information about using the <literal>NOT VALID</literal> option.»
      </para>
 
      <para>
@@ -666,12 +692,8 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 <!--
       Additional restrictions apply when unique or primary key constraints
       are added to partitioned tables; see <link linkend="sql-createtable"><command>CREATE TABLE</command></link>.
-      Also, foreign key constraints on partitioned
-      tables may not be declared <literal>NOT VALID</literal> at present.
 -->
-一意性制約や主キー制約がパーティションテーブルに追加されるときには、追加的な制限が適用されます。
-<link linkend="sql-createtable"><command>CREATE TABLE</command></link>を参照してください。
-また、今のところ、パーティションテーブルでの外部キー制約では<literal>NOT VALID</literal>と宣言できません。
+《機械翻訳》«Additional restrictions apply when unique or primary key constraints are added to partitioned tables; see <link linkend="sql-createtable"><command>CREATE TABLE</command></link>.»
      </para>
 
     </listitem>
@@ -768,29 +790,55 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
      <para>
 <!--
       This form alters the attributes of a constraint that was previously
-      created. Currently only foreign key constraints may be altered.
+      created. Currently only foreign key constraints may be altered in
+      this fashion, but see below.
 -->
-この構文は以前に作成された制約の属性を変更します。
+《マッチ度[73.456790]》この構文は以前に作成された制約の属性を変更します。
 現在は外部キー制約のみを変更できます。
+《機械翻訳》«This form alters the attributes of a constraint that was previously created. Currently only foreign key constraints may be altered in this fashion, but see below.»
      </para>
     </listitem>
    </varlistentry>
+
+   <varlistentry id="sql-altertable-desc-alter-constraint-inherit">
+    <term><literal>ALTER CONSTRAINT ... INHERIT</literal></term>
+    <term><literal>ALTER CONSTRAINT ... NO INHERIT</literal></term>
+    <listitem>
+     <para>
+<!--
+      These forms modify a inheritable constraint so that it becomes not
+      inheritable, or vice-versa. Only not-null constraints may be altered
+      in this fashion at present.
+      In addition to changing the inheritability status of the constraint,
+      in the case where a non-inheritable constraint is being marked
+      inheritable, if the table has children, an equivalent constraint
+      will be added to them. If marking an inheritable constraint as
+      non-inheritable on a table with children, then the corresponding
+      constraint on children will be marked as no longer inherited,
+      but not removed.
+-->
+《機械翻訳》«These forms modify a inheritable constraint so that it becomes not inheritable, or vice-versa. Only not-null constraints may be altered in this fashion at present. In addition to changing the inheritability status of the constraint, in the case where a non-inheritable constraint is being marked inheritable, if the table has children, an equivalent constraint will be added to them. If marking an inheritable constraint as non-inheritable on a table with children, then the corresponding constraint on children will be marked as no longer inherited, but not removed.»
+      </para>
+     </listitem>
+    </varlistentry>
 
    <varlistentry id="sql-altertable-desc-validate-constraint">
     <term><literal>VALIDATE CONSTRAINT</literal></term>
     <listitem>
      <para>
 <!--
-      This form validates a foreign key or check constraint that was
+      This form validates a foreign key, check, or not-null constraint that was
       previously created as <literal>NOT VALID</literal>, by scanning the
       table to ensure there are no rows for which the constraint is not
-      satisfied.  Nothing happens if the constraint is already marked valid.
+      satisfied.  If the constraint was set to <literal>NOT ENFORCED</literal>, an error is thrown.
+      Nothing happens if the constraint is already marked valid.
       (See <xref linkend="sql-altertable-notes"/> below for an explanation
       of the usefulness of this command.)
 -->
-この構文は、以前に<literal>NOT VALID</literal>として作成された外部キー制約または検査制約を、これらの制約を満たさない行が存在しないことを確認するためにテーブルをスキャンして、検証します。
+《マッチ度[72.413793]》この構文は、以前に<literal>NOT VALID</literal>として作成された外部キー制約または検査制約を、これらの制約を満たさない行が存在しないことを確認するためにテーブルをスキャンして、検証します。
 制約がすでに有効であると記録されている場合は何も起こりません。
 (このコマンドの有用性の説明は<xref linkend="sql-altertable-notes"/>以下を参照してください。)
+《機械翻訳》«This form validates a foreign key, check, or not-null constraint that was previously created as <literal>NOT VALID</literal>, by scanning the table to ensure there are no rows for which the constraint is not satisfied. If the constraint was set to <literal>NOT ENFORCED</literal>, an error is thrown. Nothing happens if the constraint is already marked valid. (See <xref linkend="sql-altertable-notes"/> below for an explanation of the usefulness of this command.)»
      </para>
      <para>
 <!--
@@ -1128,6 +1176,14 @@ clusterオプションの変更は<literal>SHARE UPDATE EXCLUSIVE</literal>ロ�
 これは、テーブルにリンクされたシーケンス(ID列またはシリアル列)の永続性も変更します。
 一方、このようなシーケンスの永続性を個別に変更することもできます。
      </para>
+
+     <para>
+<!--
+      This form is not supported for partitioned tables.
+-->
+《マッチ度[64.000000]》この形式は今のところパーティションテーブルではサポートされません。
+《機械翻訳》«This form is not supported for partitioned tables.»
+     </para>
     </listitem>
    </varlistentry>
 
@@ -1192,34 +1248,28 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
       table.  Subsequently, queries against the parent will include records
       of the target table.  To be added as a child, the target table must
       already contain all the same columns as the parent (it could have
-      additional columns, too).  The columns must have matching data types,
-      and if they have <literal>NOT NULL</literal> constraints in the parent
-      then they must also have <literal>NOT NULL</literal> constraints in the
-      child.
+      additional columns, too).  The columns must have matching data types.
 -->
-この構文は、対象テーブルを指定した親テーブルの子テーブルとして追加します。
-その後に行われる親テーブルへの問い合わせには対象テーブルの項目も含まれます。
-子テーブルとして追加するためには、対象テーブルには親テーブルと同じ列がすべて含まれていなければなりません。
-（この他の列を持つこともできます。）
-これらの列のデータ型は一致している必要があり、親テーブルで<literal>NOT NULL</literal>制約がある場合は、子テーブルでも同様に<literal>NOT NULL</literal>制約を持たなければなりません。
+《機械翻訳》«This form adds the target table as a new child of the specified parent table. Subsequently, queries against the parent will include records of the target table. To be added as a child, the target table must already contain all the same columns as the parent (it could have additional columns, too). The columns must have matching data types.»
      </para>
 
      <para>
 <!--
-      There must also be matching child-table constraints for all
-      <literal>CHECK</literal> constraints of the parent, except those
-      marked non-inheritable (that is, created with <literal>ALTER TABLE ... ADD CONSTRAINT ... NO INHERIT</literal>)
-      in the parent, which are ignored; all child-table constraints matched
-      must not be marked non-inheritable.
-      Currently
+      In addition, all <literal>CHECK</literal> and <literal>NOT NULL</literal>
+      constraints on the parent must also exist on the child, except those
+      marked non-inheritable (that is, created with
+      <literal>ALTER TABLE ... ADD CONSTRAINT ... NO INHERIT</literal>), which
+      are ignored.  All child-table constraints matched must not be marked
+      non-inheritable.  Currently
       <literal>UNIQUE</literal>, <literal>PRIMARY KEY</literal>, and
       <literal>FOREIGN KEY</literal> constraints are not considered, but
       this might change in the future.
 -->
-また、親テーブルの<literal>CHECK</literal>制約すべてについても、一致する制約が子テーブルに存在しなければなりません。
+《マッチ度[70.712909]》また、親テーブルの<literal>CHECK</literal>制約すべてについても、一致する制約が子テーブルに存在しなければなりません。
 ただし、親テーブルにおいて継承不可と印付けされている（つまり<literal>ALTER TABLE ... ADD CONSTRAINT ... NO INHERIT</literal>付きで作成された）制約は除きます（これらは無視されます）。
 一致する子テーブルの制約はすべて継承不可であってはなりません。
 現時点では<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、<literal>FOREIGN KEY</literal>制約は無視されますが、将来変更されるかもしれません。
+《機械翻訳》«In addition, all <literal>CHECK</literal> and <literal>NOT NULL</literal> constraints on the parent must also exist on the child, except those marked non-inheritable (that is, created with <literal>ALTER TABLE ... ADD CONSTRAINT ... NO INHERIT</literal>), which are ignored. All child-table constraints matched must not be marked non-inheritable. Currently <literal>UNIQUE</literal>, <literal>PRIMARY KEY</literal>, and <literal>FOREIGN KEY</literal> constraints are not considered, but this might change in the future.»
      </para>
     </listitem>
    </varlistentry>
@@ -1307,11 +1357,11 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
        <listitem>
         <para>
 <!--
-         Records the old values of the columns of the primary key, if any.
+         Records the old values of the columns of the primary key.
          This is the default for non-system tables.
+         When there is no primary key, the behavior is the same as <literal>NOTHING</literal>.
 -->
-主キーの列に古い値がある場合、それを記録します。
-これは、非システムテーブルのデフォルトです。
+《機械翻訳》«Records the old values of the columns of the primary key. This is the default for non-system tables. When there is no primary key, the behavior is the same as <literal>NOTHING</literal>.»
         </para>
        </listitem>
       </varlistentry>
@@ -1589,8 +1639,8 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
 
   <para>
 <!--
-   All the forms of ALTER TABLE that act on a single table, except
-   <literal>RENAME</literal>, <literal>SET SCHEMA</literal>,
+   All the forms of <command>ALTER TABLE</command> that act on a single table,
+   except <literal>RENAME</literal>, <literal>SET SCHEMA</literal>,
    <literal>ATTACH PARTITION</literal>, and
    <literal>DETACH PARTITION</literal> can be combined into
    a list of multiple alterations to be applied together.  For example, it
@@ -1598,7 +1648,7 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
    columns in a single command.  This is particularly useful with large
    tables, since only one pass over the table need be made.
 -->
-<literal>RENAME</literal>、<literal>SET SCHEMA</literal>、<literal>ATTACH PARTITION</literal>、<literal>DETACH PARTITION</literal>は、複数の変更リストに結合して、まとめて処理することができますが、それらを除き、ALTER TABLEのすべての構文は１つだけのテーブルに対して作用します。
+《マッチ度[91.035857]》<literal>RENAME</literal>、<literal>SET SCHEMA</literal>、<literal>ATTACH PARTITION</literal>、<literal>DETACH PARTITION</literal>は、複数の変更リストに結合して、まとめて処理することができますが、それらを除き、ALTER TABLEのすべての構文は１つだけのテーブルに対して作用します。
 例えば、複数の列の追加、型の変更を単一のコマンドで実行することができます。
 これは特に巨大なテーブルでは便利です。変更のために必要なテーブル全体のスキャンが1回で済むからです。
   </para>
@@ -1966,53 +2016,79 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
    <para>
 <!--
     When a column is added with <literal>ADD COLUMN</literal> and a
-    non-volatile <literal>DEFAULT</literal> is specified, the default is
+    non-volatile <literal>DEFAULT</literal> is specified, the default value is
     evaluated at the time of the statement and the result stored in the
-    table's metadata.  That value will be used for the column for all existing
-    rows.  If no <literal>DEFAULT</literal> is specified, NULL is used.  In
-    neither case is a rewrite of the table required.
+    table's metadata, where it will be returned when any existing rows are
+    accessed.  The value will be only applied when the table is rewritten,
+    making the <command>ALTER TABLE</command> very fast even on large tables.
+    If no column constraints are specified, NULL is used as the
+    <literal>DEFAULT</literal>.  In neither case is a rewrite of the table
+    required.
 -->
-<literal>ADD COLUMN</literal>で列が追加され、非変動性の<literal>DEFAULT</literal>が指定されたときには、デフォルトは宣言時に評価されてテーブルのメタデータに格納された結果です。
+《マッチ度[59.001783]》<literal>ADD COLUMN</literal>で列が追加され、非変動性の<literal>DEFAULT</literal>が指定されたときには、デフォルトは宣言時に評価されてテーブルのメタデータに格納された結果です。
 この値は全ての既存行の列に使われます。
 <literal>DEFAULT</literal>が指定されなかった場合にはNULLが使われます。
 どちらの場合もテーブルを書き直す必要はありません。
+《機械翻訳》«When a column is added with <literal>ADD COLUMN</literal> and a non-volatile <literal>DEFAULT</literal> is specified, the default value is evaluated at the time of the statement and the result stored in the table's metadata, where it will be returned when any existing rows are accessed. The value will be only applied when the table is rewritten, making the <command>ALTER TABLE</command> very fast even on large tables. If no column constraints are specified, NULL is used as the <literal>DEFAULT</literal>. In neither case is a rewrite of the table required.»
    </para>
 
    <para>
 <!--
-    Adding a column with a volatile <literal>DEFAULT</literal> or
-    changing the type of an existing column will require the entire table and
-    its indexes to be rewritten. As an exception, when changing the type of an
-    existing column, if the <literal>USING</literal> clause does not change
-    the column contents and the old type is either binary coercible to the new
-    type or an unconstrained domain over the new type, a table rewrite is not
-    needed. However, indexes must always be rebuilt unless the system can
-    verify that the new index would be logically equivalent to the existing
-    one.  For example, if the collation for a column has been changed, an index
-    rebuild is always required because the new sort order might be different.
-    However, in the absence of a collation change, a column can be changed
-    from <type>text</type> to <type>varchar</type> (or vice versa) without
-    rebuilding the indexes because these data types sort identically.
-    Table and/or index rebuilds may take a
-    significant amount of time for a large table; and will temporarily require
-    as much as double the disk space.
+    Adding a column with a volatile <literal>DEFAULT</literal>
+    (e.g., <function>clock_timestamp()</function>), a stored generated column,
+    an identity column, or a column with a domain data type that has
+    constraints will cause the entire table and its indexes to be rewritten.
+    Adding a virtual generated column never requires a rewrite.
 -->
-変動性の<literal>DEFAULT</literal>句を持つ列を追加したり、既存の列の型を変更するには、テーブルとインデックス全体の書き換えが必要になります。
+《機械翻訳》«Adding a column with a volatile <literal>DEFAULT</literal> (e.g., <function>clock_timestamp()</function>), a stored generated column, an identity column, or a column with a domain data type that has constraints will cause the entire table and its indexes to be rewritten. Adding a virtual generated column never requires a rewrite.»
+   </para>
+
+   <para>
+<!--
+    Changing the type of an existing column will normally cause the entire table
+    and its indexes to be rewritten.
+    As an exception, when changing the type of an existing column,
+    if the <literal>USING</literal> clause does not change the column
+    contents and the old type is either binary coercible to the new type
+    or an unconstrained domain over the new type, a table rewrite is not
+    needed.  However, indexes will still be rebuilt unless the system
+    can verify that the new index would be logically equivalent to the
+    existing one.  For example, if the collation for a column has been
+    changed, an index rebuild is required because the new sort
+    order might be different.  However, in the absence of a collation
+    change, a column can be changed from <type>text</type> to
+    <type>varchar</type> (or vice versa) without rebuilding the indexes
+    because these data types sort identically.
+-->
+《マッチ度[64.821223]》変動性の<literal>DEFAULT</literal>句を持つ列を追加したり、既存の列の型を変更するには、テーブルとインデックス全体の書き換えが必要になります。
 例外として、既存列の型を変更するとき、<literal>USING</literal>句が列の内容を変更せず、かつ、古い型が新しい型とバイナリ変換可能であるか新しい型全体に対する制約のないドメインである場合、テーブルの書き換えは必要ありません。
 しかし、新しいインデックスが既存のものと論理的に等しいとシステムが確認できないのであれば、インデックスは常に再構築しなければなりません。
 例えば、列の照合順序が変更された場合には、新しいソート順が異なるかもしれませんので、インデックスの再構築は常に必要です。
 しかし、照合順序の変更がなければ、インデックスの再構築なしで列を<type>text</type>から<type>varchar</type>へ(またはその逆)と変更できます。データ型のソートが同一だからです。
 テーブルが巨大な場合、テーブル、インデックスまたはその両方の再構築には非常に時間がかかる可能性があります。
 また、一時的に2倍のディスク容量が必要とされます。
+《機械翻訳》«Changing the type of an existing column will normally cause the entire table and its indexes to be rewritten. As an exception, when changing the type of an existing column, if the <literal>USING</literal> clause does not change the column contents and the old type is either binary coercible to the new type or an unconstrained domain over the new type, a table rewrite is not needed. However, indexes will still be rebuilt unless the system can verify that the new index would be logically equivalent to the existing one. For example, if the collation for a column has been changed, an index rebuild is required because the new sort order might be different. However, in the absence of a collation change, a column can be changed from <type>text</type> to <type>varchar</type> (or vice versa) without rebuilding the indexes because these data types sort identically.»
    </para>
 
    <para>
 <!--
-    Adding a <literal>CHECK</literal> or <literal>NOT NULL</literal> constraint requires
-    scanning the table to verify that existing rows meet the constraint,
-    but does not require a table rewrite.
+    Table and/or index
+    rebuilds may take a significant amount of time for a large table,
+    and will temporarily require as much as double the disk space.
 -->
-<literal>CHECK</literal>あるいは<literal>NOT NULL</literal>制約を追加する時は、既存の行が制約に従うかどうかを検証するためにテーブルのスキャンが必要になりますが、テーブルの書き換えは必要ありません。
+《機械翻訳》«Table and/or index rebuilds may take a significant amount of time for a large table, and will temporarily require as much as double the disk space.»
+   </para>
+
+   <para>
+<!--
+    Adding a <literal>CHECK</literal> or <literal>NOT NULL</literal>
+    constraint requires scanning the table to verify that existing rows meet the
+    constraint, but does not require a table rewrite.  If a <literal>CHECK</literal>
+    constraint is added as <literal>NOT ENFORCED</literal>, no verification will
+    be performed.
+-->
+《マッチ度[57.371795]》<literal>CHECK</literal>あるいは<literal>NOT NULL</literal>制約を追加する時は、既存の行が制約に従うかどうかを検証するためにテーブルのスキャンが必要になりますが、テーブルの書き換えは必要ありません。
+《機械翻訳》«Adding a <literal>CHECK</literal> or <literal>NOT NULL</literal> constraint requires scanning the table to verify that existing rows meet the constraint, but does not require a table rewrite. If a <literal>CHECK</literal> constraint is added as <literal>NOT ENFORCED</literal>, no verification will be performed.»
    </para>
 
    <para>
@@ -2034,7 +2110,7 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
 
    <para>
 <!--
-    Scanning a large table to verify a new foreign key or check constraint
+    Scanning a large table to verify new foreign-key, check, or not-null constraints
     can take a long time, and other updates to the table are locked out
     until the <command>ALTER TABLE ADD CONSTRAINT</command> command is
     committed.  The main purpose of the <literal>NOT VALID</literal>
@@ -2058,7 +2134,7 @@ fillfactor、TOAST、およびautovacuumのストレージパラメータおよ�
     at leisure until <literal>VALIDATE CONSTRAINT</literal> finally
     succeeds.
 -->
-新しい外部キーや検査制約を検証するために大きなテーブルをスキャンするのは長い時間が掛かる可能性があり、<command>ALTER TABLE ADD CONSTRAINT</command>コマンドがコミットされるまで、そのテーブルのその他の更新は締め出されます。
+《マッチ度[92.002688]》新しい外部キーや検査制約を検証するために大きなテーブルをスキャンするのは長い時間が掛かる可能性があり、<command>ALTER TABLE ADD CONSTRAINT</command>コマンドがコミットされるまで、そのテーブルのその他の更新は締め出されます。
 <literal>NOT VALID</literal>制約オプションの主な目的は、同時実行中の更新に制約を追加する影響を減らすことです。
 <literal>NOT VALID</literal>を付ければ、<command>ADD CONSTRAINT</command>コマンドはテーブルをスキャンせず、すぐにコミットされます。
 その後で、<literal>VALIDATE CONSTRAINT</literal>コマンドを発行して、既存の行が制約を満たすか検証できます。
@@ -2558,18 +2634,25 @@ ALTER TABLE measurement
 
   <para>
 <!--
-   The forms <literal>ADD</literal> (without <literal>USING INDEX</literal>),
+   The forms <literal>ADD [COLUMN]</literal>,
    <literal>DROP [COLUMN]</literal>, <literal>DROP IDENTITY</literal>, <literal>RESTART</literal>,
    <literal>SET DEFAULT</literal>, <literal>SET DATA TYPE</literal> (without <literal>USING</literal>),
    <literal>SET GENERATED</literal>, and <literal>SET <replaceable>sequence_option</replaceable></literal>
-   conform with the SQL standard.  The other forms are
+   conform with the SQL standard.
+   The form <literal>ADD <replaceable>table_constraint</replaceable></literal>
+   conforms with the SQL standard when the <literal>USING INDEX</literal> and
+   <literal>NOT VALID</literal> clauses are omitted and the constraint type is
+   one of <literal>CHECK</literal>, <literal>UNIQUE</literal>, <literal>PRIMARY KEY</literal>,
+   or <literal>REFERENCES</literal>.
+   The other forms are
    <productname>PostgreSQL</productname> extensions of the SQL standard.
    Also, the ability to specify more than one manipulation in a single
    <command>ALTER TABLE</command> command is an extension.
 -->
-（<literal>USING INDEX</literal>がない）<literal>ADD</literal>、<literal>DROP [COLUMN]</literal>、<literal>DROP IDENTITY</literal>、<literal>RESTART</literal>、<literal>SET DEFAULT</literal>、（<literal>USING</literal>のない）<literal>SET DATA TYPE</literal>、<literal>SET GENERATED</literal>、<literal>SET <replaceable>sequence_option</replaceable></literal>構文は標準SQLに準拠しています。
+《マッチ度[56.535600]》（<literal>USING INDEX</literal>がない）<literal>ADD</literal>、<literal>DROP [COLUMN]</literal>、<literal>DROP IDENTITY</literal>、<literal>RESTART</literal>、<literal>SET DEFAULT</literal>、（<literal>USING</literal>のない）<literal>SET DATA TYPE</literal>、<literal>SET GENERATED</literal>、<literal>SET <replaceable>sequence_option</replaceable></literal>構文は標準SQLに準拠しています。
 他の構文は標準SQLに対する<productname>PostgreSQL</productname>の拡張です。
 また、単一の<command>ALTER TABLE</command>コマンド内に複数の操作を指定する機能も<productname>PostgreSQL</productname>の拡張です。
+《機械翻訳》«The forms <literal>ADD [COLUMN]</literal>, <literal>DROP [COLUMN]</literal>, <literal>DROP IDENTITY</literal>, <literal>RESTART</literal>, <literal>SET DEFAULT</literal>, <literal>SET DATA TYPE</literal> (without <literal>USING</literal>), <literal>SET GENERATED</literal>, and <literal>SET <replaceable>sequence_option</replaceable></literal> conform with the SQL standard. The form <literal>ADD <replaceable>table_constraint</replaceable></literal> conforms with the SQL standard when the <literal>USING INDEX</literal> and <literal>NOT VALID</literal> clauses are omitted and the constraint type is one of <literal>CHECK</literal>, <literal>UNIQUE</literal>, <literal>PRIMARY KEY</literal>, or <literal>REFERENCES</literal>. The other forms are <productname>PostgreSQL</productname> extensions of the SQL standard. Also, the ability to specify more than one manipulation in a single <command>ALTER TABLE</command> command is an extension.»
   </para>
 
   <para>

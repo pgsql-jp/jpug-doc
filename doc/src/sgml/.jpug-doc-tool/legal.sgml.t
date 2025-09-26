@@ -1,0 +1,76 @@
+␝<copyright>
+ <year>1996&ndash;2025</year>
+ <holder>The PostgreSQL Global Development Group</holder>
+␟␟ <holder>（翻訳）日本PostgreSQLユーザ会</holder>␞␞</copyright>␞
+␝ <para>
+  <productname>PostgreSQL</productname> Database Management System
+  (also known as Postgres, formerly known as Postgres95)
+ </para>
+
+␟␟ <para>
+<productname>PostgreSQL</productname>データベース管理システム
+（Postgresとしても知られ、以前はPostgres95として知られていました）
+ </para>
+␞␞ <para>␞
+␝ <para>
+  Portions Copyright &copy; 1996-2025, PostgreSQL Global Development Group
+ </para>
+␟␟ <para>
+  一部の著作権 &copy; 1996&ndash;2025、PostgreSQL Global Development Group
+ </para>␞␞ <para>␞
+␝  Portions Copyright &copy; 1996-2025, PostgreSQL Global Development Group
+ </para>
+ <para>
+  Portions Copyright &copy; 1994, The Regents of the University of California
+ </para>
+␟␟ <para>
+  一部の著作権 &copy; 1994、カリフォルニア大学理事会
+ </para>␞␞␞
+␝  written agreement is hereby granted, provided that the above
+  copyright notice and this paragraph and the following two paragraphs
+  appear in all copies.
+ </para>
+
+␟␟ <para>
+  上記の著作権表示、および
+  本段落と続く2つの段落を全てのコピーに含めることを条件として、無料かつ
+  書面による許可なしに、このソフトウェアとドキュメントの使用、複製、改変、
+  頒布をどのような目的にでも許可します。
+ </para>
+␞␞ <para>␞
+␝  DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF THE USE OF THIS
+  SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA
+  HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ </para>
+
+␟␟ <para>
+  カリフォルニア大学は、いかなる当事者に対しても、利益の喪失を含む、
+  直接的、間接的、特別、偶然あるいは必然的にかかわらず生じた
+  損害について、たとえカリフォルニア大学がこれらの損害の可能性について
+  知らされていたとしても、一切の責任を負いません。
+ </para>
+␞␞ <para>␞
+␝  PROVIDED HEREUNDER IS ON AN <quote>AS-IS</quote> BASIS, AND THE UNIVERSITY OF
+  CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT,
+  UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ </para>
+
+␟␟ <para>
+  カリフォルニア大学は、商用目的における暗黙の保証と、特定目的での
+  適合性に関してはもとより、これらに限らず、いかなる保証もしません。
+  以下に用意されたソフトウェアは「そのまま」を基本原理とし、
+  カリフォルニア大学はそれを維持、支援、更新、改良あるいは修正する
+  義務を負いません。
+ </para>
+␞␞</legalnotice>␞
+␝<legalnotice id="legalnotice">␟ <title>Legal Notice</title>␟ <title>法的告知</title>
+
+ <para>
+  [訳注：日本語は参考程度と解釈してください。]
+ </para>␞␞␞
+␝␟<productname>PostgreSQL</productname> Database Management System (also known as Postgres, formerly known as Postgres95)␟no translation␞␞␞
+␝␟Portions Copyright &copy; 1996-2025, PostgreSQL Global Development Group␟no translation␞␞␞
+␝␟Portions Copyright &copy; 1994, The Regents of the University of California␟no translation␞␞␞
+␝␟Permission to use, copy, modify, and distribute this software and its documentation for any purpose, without fee, and without a written agreement is hereby granted, provided that the above copyright notice and this paragraph and the following two paragraphs appear in all copies.␟no translation␞␞␞
+␝␟IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.␟no translation␞␞␞
+␝␟THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS ON AN <quote>AS-IS</quote> BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.␟no translation␞␞␞

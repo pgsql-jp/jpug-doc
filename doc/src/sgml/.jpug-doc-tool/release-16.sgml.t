@@ -1,0 +1,3065 @@
+␝ <sect1 id="release-16-4">␟  <title>Release 16.4</title>␟  <title>リリース16.4</title>␞␞␞
+␝  <formalpara>␟  <title>Release date:</title>␟  <title>リリース日:</title>␞␞  <para>2024-08-08</para>␞
+␝  <para>␟   This release contains a variety of fixes from 16.3.
+   For information about new features in major release 16, see
+   <xref linkend="release-16"/>.␟このリリースは16.3に対し、様々な不具合を修正したものです。
+16メジャーリリースにおける新機能については、<xref linkend="release-16"/>を参照してください。␞␞  </para>␞
+␝  <sect2 id="release-16-4-migration">␟   <title>Migration to Version 16.4</title>␟   <title>バージョン16.4への移行</title>␞␞␞
+␝   <para>␟    A dump/restore is not required for those running 16.X.␟16.Xからの移行ではダンプ/リストアは不要です。␞␞   </para>␞
+␝   <para>␟    However, if you are upgrading from a version earlier than 16.3,
+    see <xref linkend="release-16-3"/>.␟また、16.3より前のバージョンからアップグレードする場合は、<xref linkend="release-16-3"/>を参照してください。␞␞   </para>␞
+␝  <sect2 id="release-16-4-changes">␟   <title>Changes</title>␟   <title>変更点</title>␞␞␞
+␝     <para>␟      Prevent unauthorized code execution
+      during <application>pg_dump</application> (Masahiko Sawada)␟<application>pg_dump</application>中の不正なコード実行を防止しました。
+(Masahiko Sawada)␞␞     </para>␞
+␝     <para>␟      An attacker able to create and drop non-temporary objects could
+      inject SQL code that would be executed by a
+      concurrent <application>pg_dump</application> session with the
+      privileges of the role running <application>pg_dump</application>
+      (which is often a superuser).  The attack involves replacing a
+      sequence or similar object with a view or foreign table that will
+      execute malicious code.  To prevent this, introduce a new server
+      parameter <varname>restrict_nonsystem_relation_kind</varname> that
+      can disable expansion of non-builtin views as well as access to
+      foreign tables, and teach <application>pg_dump</application> to set
+      it when available.  Note that the attack is prevented only if
+      both <application>pg_dump</application> and the server it is dumping
+      from are new enough to have this fix.␟非一時的オブジェクトの作成と削除が可能な攻撃者は、<application>pg_dump</application>を実行しているロール（多くの場合スーパーユーザ）の権限で、並列<application>pg_dump</application>セッションによって実行されるSQLコードを注入することが出来ました。
+この攻撃では、シーケンスや同様のオブジェクトを、悪意のあるコードを実行するビューまたは外部テーブルに置き換えます。
+これを防ぐために、組み込み以外のビューの展開や外部テーブルへのアクセスを無効にすることができる新しいサーバパラメータ<varname>restrict_nonsystem_relation_kind</varname>を導入し、利用可能な場合にはそれを設定するよう<application>pg_dump</application>に指示します。
+この攻撃の防止は、<application>pg_dump</application>とダンプ元のサーバの両方がこの修正を適用できるほど十分新しい場合に限られます。␞␞     </para>␞
+␝     <para>␟      The <productname>PostgreSQL</productname> Project thanks
+      Noah Misch for reporting this problem.
+      (CVE-2024-7348)␟<productname>PostgreSQL</productname>プロジェクトは、本問題を報告してくれたNoah Mischに感謝します。
+(CVE-2024-7348)␞␞     </para>␞
+␝     <para>␟      Avoid incorrect results from Merge Right Anti Join plans
+      (Richard Guo)␟Merge Right Anti Joinプランから生じる不正確な結果を回避しました。
+(Richard Guo)␞␞     </para>␞
+␝     <para>␟      If the inner relation is known to have unique join keys, the merge
+      could misbehave when there are duplicated join keys in the outer
+      relation.␟内側のリレーションに一意の結合キーがあることがわかっている場合、外側リレーションに重複した結合キーがあるとマージが誤動作をする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Prevent infinite loop in <command>VACUUM</command>
+      (Melanie Plageman)␟<command>VACUUM</command>の無限ループを防止しました。
+(Melanie Plageman)␞␞     </para>␞
+␝     <para>␟      After a disconnected standby server with an old running transaction
+      reconnected to the primary, it was possible
+      for <command>VACUUM</command> on the primary to get confused about
+      which tuples are removable, resulting in an infinite loop.␟古い実行中のトランザクションを持つ切断されたスタンバイサーバがプライマリに再接続されると、プライマリの<command>VACUUM</command>がどのタプルが削除可能であるかについて混乱し、無限ループが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix failure after attaching a table as a partition, if the
+      table had previously had inheritance children
+      (&Aacute;lvaro Herrera)␟以前、継承ツリーの子テーブルが存在していたテーブルをパーティションとしてアタッチした後に発生する障害を修正しました。
+(&Aacute;lvaro Herrera)␞␞     </para>␞
+␝     <para>␟      Fix <command>ALTER TABLE DETACH PARTITION</command> for cases
+      involving inconsistent index-based constraints
+      (&Aacute;lvaro Herrera, Tender Wang)␟一貫性がないインデックスベース制約が関連する場合の<command>ALTER TABLE DETACH PARTITION</command>を修正しました。
+(&Aacute;lvaro Herrera, Tender Wang)␞␞     </para>␞
+␝     <para>␟      When a partitioned table has an index that is not associated with a
+      constraint, but a partition has an equivalent index that is, then
+      detaching the partition would misbehave, leaving the ex-partition's
+      constraint with an incorrect <structfield>coninhcount</structfield>
+      value.  This would cause trouble during any further manipulations of
+      that constraint.␟パーティションテーブルに、制約と関連付けられていないインデックスがあり、パーティションに同等の制約を持つインデックスがある場合、パーティションをデタッチすると不正な動作となり、元のパーティションの制約に誤った<structfield>coninhcount</structfield>値が残ります。
+これにより、その制約をさらに操作する際に問題が発生していました。␞␞     </para>␞
+␝     <para>␟      Fix partition pruning setup during <literal>ALTER TABLE DETACH
+      PARTITION CONCURRENTLY</literal> (&Aacute;lvaro Herrera)␟<literal>ALTER TABLE DETACH PARTITION CONCURRENTLY</literal>実行中のパーティションプルーニング設定を修正しました。
+(&Aacute;lvaro Herrera)␞␞     </para>␞
+␝     <para>␟      The executor assumed that no partition could be detached between
+      planning and execution of a query on a partitioned table.  This is
+      no longer true since the introduction of <literal>DETACH
+      PARTITION</literal>'s <literal>CONCURRENTLY</literal> option, making
+      it possible for query execution to fail transiently when that is
+      used.␟エグゼキュータは、パーティションテーブルでのクエリの計画と実行の間にパーティションをデタッチできないと想定していました。
+<literal>DETACH PARTITION</literal>の<literal>CONCURRENTLY</literal>オプションが導入されてからこれは成り立たなくなり、このオプションが使用する問い合わせの実行が一時的に失敗する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Correctly update a partitioned table's
+      <structname>pg_class</structname>.<structfield>reltuples</structfield>
+      field to zero after its last child partition is dropped (Noah Misch)␟パーティションテーブルから最後の子パーティションが削除された後、<structname>pg_class</structname>.<structfield>reltuples</structfield>フィールドを正しくゼロに更新するようにしました。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      The first <command>ANALYZE</command> on such a partitioned table
+      must update <structfield>relhassubclass</structfield> as well, and
+      that caused the <structfield>reltuples</structfield> update to be
+      lost.␟このようなパーティションテーブルの最初の<command>ANALYZE</command>では<structfield>relhassubclass</structfield>も更新する必要があり、これにより<structfield>reltuples</structfield>の更新が失われていました。␞␞     </para>␞
+␝     <para>␟      Fix handling of polymorphic output arguments for procedures
+      (Tom Lane)␟プロシージャの多様OUT引数の処理を修正しました。
+ (Tom Lane)␞␞     </para>␞
+␝     <para>␟      The SQL <command>CALL</command> statement did not resolve the
+      correct data types for such arguments, leading to errors such
+      as <quote>cannot display a value of type anyelement</quote>, or even
+      outright crashes.  (But <command>CALL</command>
+      in <application>PL/pgSQL</application> worked correctly.)␟SQLの<command>CALL</command>文では、このような引数の正しいデータ型を解決できなかったため、<quote>cannot display a value of type anyelement</quote>などのエラーや、クラッシュを引き起こしました。
+（ただし、<application>PL/pgSQL</application>の<command>CALL</command>は正常に動作しました。）␞␞     </para>␞
+␝     <para>␟      Fix behavior of stable functions called from
+      a <command>CALL</command> statement's argument list (Tom Lane)␟<command>CALL</command>文の引数リストから呼び出されるSTABLE関数の動作を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If the <command>CALL</command> is within an atomic context
+      (e.g. there's an outer transaction block), such functions were
+      passed the wrong snapshot, causing them to see stale values of rows
+      modified since the start of the outer transaction.␟<command>CALL</command>が原子的コンテキスト内にある場合（例えば、外側のトランザクションブロックがある場合）、そのような関数には間違ったスナップショットが渡され、外側トランザクションの開始以降に変更された行の古い値が表示される原因となっていました。␞␞     </para>␞
+␝     <para>␟      Fix input of ISO-8601 <quote>extended</quote> time format for
+      types <type>time</type> and <type>timetz</type> (Tom Lane)␟<type>time</type>型および<type>timetz</type>型に対するISO-8601<quote>拡張</quote>時間書式の入力を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Re-allow cases such as <literal>T12:34:56</literal>.␟<literal>T12:34:56</literal>などのケースを再度許可しました。␞␞     </para>␞
+␝     <para>␟      Detect integer overflow in <type>money</type> calculations
+      (Joseph Koshakow)␟<type>money</type>型の計算で整数オーバーフローを検出するようにしました。
+(Joseph Koshakow)␞␞     </para>␞
+␝     <para>␟      None of the arithmetic functions for the <type>money</type> type
+      checked for overflow before, so they would silently give wrong
+      answers for overflowing cases.␟これまで<type>money</type>型の算術関数はいずれもオーバーフローをチェックしなかったので、オーバーフローが発生した場合に黙って間違った答えを出していました。␞␞     </para>␞
+␝     <para>␟      Fix over-aggressive clamping of the scale argument
+      in <function>round(numeric)</function>
+      and <function>trunc(numeric)</function> (Dean Rasheed)␟<function>round(numeric)</function>関数と<function>trunc(numeric)</function>関数のスケール引数の過度に積極的な制限を修正しました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      These functions clamped their scale argument to +/-2000, but there
+      are valid use-cases for it to be larger; the functions returned
+      incorrect results in such cases.  Instead clamp to the actual
+      allowed range of type <type>numeric</type>.␟これらの関数は、スケール引数を+/-2000に制限しましたが、これより大きい値を使用する有効な使用例があります。
+このような場合、関数は誤った結果を返しました。
+代わりに、<type>numeric</type>型の実際の許容範囲に制限するようにしました。␞␞     </para>␞
+␝     <para>␟      Fix result for <function>pg_size_pretty()</function> when applied to
+      the smallest possible <type>bigint</type> value (Joseph Koshakow)␟可能な限り最小の<type>bigint</type>値に適用した場合の<function>pg_size_pretty()</function>の結果を修正しました。
+(Joseph Koshakow)␞␞     </para>␞
+␝     <para>␟      Prevent <function>pg_sequence_last_value()</function> from failing
+      on unlogged sequences on standby servers and on temporary sequences
+      of other sessions (Nathan Bossart)␟<function>pg_sequence_last_value()</function>がスタンバイサーバのログに記録されていないシーケンスや他のセッションの一時シーケンスで失敗しないようにしました。
+(Nathan Bossart)␞␞     </para>␞
+␝     <para>␟      Make it return NULL in these cases instead of throwing an error.␟これらの場合、エラーとはせずNULLを返すようにします。␞␞     </para>␞
+␝     <para>␟      Fix parsing of ignored operators
+      in <function>websearch_to_tsquery()</function> (Tom Lane)␟<function>websearch_to_tsquery()</function>で無視される演算子の解析を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Per the manual, punctuation in the input
+      of <function>websearch_to_tsquery()</function> is ignored except for
+      the special cases of dashes and quotes.  However, parentheses and a
+      few other characters appearing immediately before
+      an <literal>or</literal> could cause <literal>or</literal> to be
+      treated as a data word, rather than as an <literal>OR</literal>
+      operator as expected.␟マニュアルによると、<function>websearch_to_tsquery()</function>の入力内の句読点は、ダッシュと引用符の特殊な場合を除いて無視されます。
+ただし、<literal>or</literal>の直前に括弧や他のいくつかの文字があると、<literal>or</literal>が期待された<literal>OR</literal>演算子ではなく、データ単語として扱われる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Detect another integer overflow case while computing new array
+      dimensions (Joseph Koshakow)␟新しい配列の次元を計算するときに、別な種類の整数オーバーフローのケースを検出するようにしました。
+(Joseph Koshakow)␞␞     </para>␞
+␝     <para>␟      Reject applying array
+      dimensions <literal>[-2147483648:2147483647]</literal> to an empty
+      array.  This is closely related to CVE-2023-5869, but appears
+      harmless since the array still ends up empty.␟配列の次元<literal>[-2147483648:2147483647]</literal>を空の配列に適用することを拒否します。
+これはCVE-2023-5869と密接に関連していますが、配列は依然として空のままなので無害に見えます。␞␞     </para>␞
+␝     <para>␟      Fix unportable usage of <function>strnxfrm()</function> (Jeff Davis)␟<function>strnxfrm()</function>の移植性のない使用法を修正しました。
+(Jeff Davis)␞␞     </para>␞
+␝     <para>␟      Some code paths for non-deterministic collations could fail with
+      errors like <quote>pg_strnxfrm() returned unexpected result</quote>.␟非決定的な照合順序の一部のコードパスには、<quote>pg_strnxfrm() returned unexpected result</quote>のようなエラーで失敗するものがありました。␞␞     </para>␞
+␝     <para>␟      Detect another case of a new catalog cache entry becoming stale
+      while detoasting its fields (Noah Misch)␟新しいカタログキャッシュエントリが、そのフィールドのTOAST展開中に古くなる別のケースを検出するようにしました。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      An in-place update occurring while we expand out-of-line fields in a
+      catalog tuple could be missed, leading to a catalog cache entry that
+      lacks the in-place change but is not known to be stale.  This is
+      only possible in the <structname>pg_database</structname> catalog,
+      so the effects are narrow, but misbehavior is possible.␟カタログタプルの行外フィールドを展開している間に発生したその場での更新は見逃される可能性があり、その場での変更がないものの古くなったことがわからないカタログキャッシュエントリにつながる可能性があります。
+これは<structname>pg_database</structname>カタログでのみ可能であるため、影響は限定的ですが、誤動作の可能性があります。␞␞     </para>␞
+␝     <para>␟      Correctly check updatability of view columns targeted
+      by <literal>INSERT</literal> ... <literal>DEFAULT</literal>
+      (Tom Lane)␟<literal>INSERT</literal> ... <literal>DEFAULT</literal>の対象となるビュー列の更新可能性を正しくチェックするようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If such a column is non-updatable, we should give an error reporting
+      that.  But the check was missed and then later code would report an
+      unhelpful error such as <quote>attribute
+      number <replaceable>N</replaceable> not found in view
+      targetlist</quote>.␟そのような列が更新不可能な場合は、そのことを報告するエラーを返す必要があります。
+しかし、そのチェックは見逃され、後のコードで<quote>attribute number <replaceable>N</replaceable> not found in view targetlist</quote>などの役に立たないエラーが報告されていました。␞␞     </para>␞
+␝     <para>␟      Avoid reporting an unhelpful internal error for incorrect recursive
+      queries (Tom Lane)␟不正な再帰問い合わせに対して、役に立たない内部エラーを報告しないようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Rearrange the order of error checks so that we throw an on-point
+      error when a <command>WITH RECURSIVE</command> query does not have a
+      self-reference within the second arm of
+      the <literal>UNION</literal>, but does have one self-reference in
+      some other place such as <literal>ORDER BY</literal>.␟エラーチェックの順序を変更して、<command>WITH RECURSIVE</command>問い合わせが<literal>UNION</literal>の2番目の枝内に自己参照を持たないが、<literal>ORDER BY</literal>などの他の場所に1つの自己参照を持つ場合に、適切なエラーを発生するようにしました。␞␞     </para>␞
+␝     <para>␟      Lock owned sequences during <literal>ALTER TABLE SET
+      LOGGED|UNLOGGED</literal> (Noah Misch)␟<literal>ALTER TABLE SET LOGGED|UNLOGGED</literal>の実行中に所有シーケンスをロックするようにしました。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      These commands change the persistence of a table's owned sequences
+      along with the table, but they failed to acquire lock on the
+      sequences while doing so.  This could result in losing the effects
+      of concurrent <function>nextval()</function> calls.␟これらのコマンドは、テーブルとともにテーブルの所有シーケンスの永続性を変更しますが、その際にシーケンス上のロックを取得してませんでした。
+その結果、同時実行中の<function>nextval()</function>呼び出しの効果が失われる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Don't throw an error if a queued <literal>AFTER</literal> trigger no
+      longer exists (Tom Lane)␟キューに入れられた<literal>AFTER</literal>トリガがもはや存在しない場合は、エラーを発生しないようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      It's possible for a transaction to execute an operation that queues
+      a deferred <literal>AFTER</literal> trigger for later execution, and
+      then to drop the trigger before that happens.  Formerly this led to
+      weird errors such as <quote>could not find
+      trigger <replaceable>NNNN</replaceable></quote>.  It seems better to
+      silently do nothing if the trigger no longer exists at the time when
+      it would have been executed.␟トランザクションが、後で実行するために遅延された<literal>AFTER</literal>トリガをキューに入れる操作を実行し、その前にトリガを削除する可能性がありました。
+以前は、これにより<quote>could not find trigger <replaceable>NNNN</replaceable></quote>などの奇妙なエラーが発生していました。
+トリガが実行されるはずの時点でもはや存在しない場合は、黙って何もしない方が良いようです。␞␞     </para>␞
+␝     <para>␟      Fix failure to remove <structname>pg_init_privs</structname> entries
+      for column-level privileges when their table is dropped (Tom Lane)␟テーブルが削除されたときに、列レベル権限の<structname>pg_init_privs</structname>エントリを削除できない問題を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If an extension grants some column-level privileges on a table it
+      creates, relevant catalog entries would remain behind after the
+      extension is dropped.  This was harmless until/unless the table's
+      OID was re-used for another relation, when it could interfere with
+      what <application>pg_dump</application> dumps for that relation.␟拡張が作成したテーブルに列レベル権限を付与した場合、拡張が削除された後も関連するカタログエントリが残っていました。
+これは、テーブルのOIDが別のリレーションに再利用されるまで/もしくは再利用されない限り無害でしたが、再利用されると<application>pg_dump</application>がそのリレーションに対してダンプする内容に干渉する可能性がありました。
+ダンプ␞␞     </para>␞
+␝     <para>␟      Fix selection of an arbiter index for <literal>ON CONFLICT</literal>
+      when the desired index has expressions or predicates (Tom Lane)␟望ましいインデックスに式または述語がある場合、<literal>ON CONFLICT</literal>に対する調停インデックスの選択を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If a query using <literal>ON CONFLICT</literal> accesses the target
+      table through an updatable view, it could fail with <quote>there is
+      no unique or exclusion constraint matching the ON CONFLICT
+      specification</quote>, even though a matching index does exist.␟<literal>ON CONFLICT</literal>を使用する問い合わせが、更新可能なビューを介してターゲットテーブルにアクセスする場合、適合するインデックスが存在する場合でも、<quote>there is no unique or exclusion constraint matching the ON CONFLICT specification</quote>というエラーで失敗する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Refuse to modify a temporary table of another session
+      with <literal>ALTER TABLE</literal> (Tom Lane)␟<literal>ALTER TABLE</literal>を使用して別のセッションの一時テーブルを変更することを拒否するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Permissions checks normally would prevent this case from arising,
+      but it is possible to reach it by altering a parent table whose
+      child is another session's temporary table.  Throw an error if we
+      discover that such a child table belongs to another session.␟通常は権限チェックによってこのケースは発生しませんが、別のセッションの一時テーブルを子テーブルとする親テーブルを変更することによって、このケースに到達する可能性がありました。
+このような子のテーブルが別のセッションに属していることが判明した場合は、エラーを発生します。␞␞     </para>␞
+␝     <para>␟      Fix handling of extended statistics on expressions
+      in <literal>CREATE TABLE LIKE STATISTICS</literal> (Tom Lane)␟<literal>CREATE TABLE LIKE STATISTICS</literal>の式の拡張統計の処理を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      The <literal>CREATE</literal> command failed to adjust column
+      references in statistics expressions to the possibly-different
+      column numbering of the new table.  This resulted in invalid
+      statistics objects that would cause problems later.  A typical
+      scenario where renumbering columns is needed is when the source
+      table contains some dropped columns.␟<literal>CREATE</literal>コマンドは、統計式内の列参照を、新しいテーブルの番号付けとは異なる可能性のある列番号に調整できませんでした。
+その結果、後で問題を引き起こす無効な統計オブジェクトが生成されました。
+列の再番号付けが必要になる典型的なシナリオは、ソーステーブルに削除された列が含まれている場合です。␞␞     </para>␞
+␝     <para>␟      Fix failure to recalculate sub-queries generated
+      from <function>MIN()</function> or <function>MAX()</function>
+      aggregates (Tom Lane)␟<function>MIN()</function>または<function>MAX()</function>集約から生成された副問い合わせの再計算の失敗を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      In some cases the aggregate result computed at one row of the outer
+      query could be re-used for later rows when it should not be.  This
+      has only been seen to happen when the outer query uses
+      <literal>DISTINCT</literal> that is implemented with hash
+      aggregation, but other cases may exist.␟場合によっては、外部問い合わせの1行で計算された集約結果が、後の行で再利用されるべきではないのに再利用されることがありました。
+これは、外部問い合わせがハッシュ集約で実装された<literal>DISTINCT</literal>を使用する場合にのみ発生することが確認されていますが、他のケースも存在する可能性があります。␞␞     </para>␞
+␝     <para>␟      Re-forbid underscore in positional parameters (Erik Wienhold)␟位置パラメータでアンダースコアを再度禁止しました。
+(Erik Wienhold)␞␞     </para>␞
+␝     <para>␟      As of v16 we allow integer literals to contain underscores.
+      This change caused input such as <literal>$1_234</literal>
+      to be taken as a single token, but it did not work correctly.
+      It seems better to revert to the original definition in which a
+      parameter symbol is only <literal>$</literal> followed by digits.␟v16では、整数リテラルにアンダースコアを含めることができます。
+この変更により、<literal>$1_234</literal>などの入力が単一のトークンと見なされるようになりましたが、正しく動作しませんでした。
+パラメータ記号は<literal>$</literal>の後に数字が続くだけの元の定義に戻した方がよさそうです。␞␞     </para>␞
+␝     <para>␟      Avoid crashing when a JIT-inlined backend function throws an error
+      (Tom Lane)␟JITでインライン化されたバックエンド関数でエラーが発生した時にクラッシュしないようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      The error state can include pointers into the dynamically loaded
+      module holding the JIT-compiled code (for error location strings).
+      In some code paths the module could get unloaded before the error
+      report is processed, leading to SIGSEGV when the location strings
+      are accessed.␟エラー状態には、JITコンパイルされたコード（エラー位置の文字列用）を保持する動的にロードされたモジュールへのポインタを含めることができます。
+一部のコードパスでは、エラーレポートが処理される前にモジュールがアンロードされ、位置の文字列にアクセスした時にSIGSEGVが発生しました。␞␞     </para>␞
+␝     <para>␟      Cope with behavioral changes in <application>libxml2</application>
+      version 2.13.x (Erik Wienhold, Tom Lane)␟<application>libxml2</application>バージョン2.13.xでの振る舞い変更に対処しました。
+(Erik Wienhold, Tom Lane)␞␞     </para>␞
+␝     <para>␟      Notably, we now suppress <quote>chunk is not well balanced</quote>
+      errors from <application>libxml2</application>, unless that is the
+      only reported error.  This is to make error reports consistent
+      between 2.13.x and earlier <application>libxml2</application>
+      versions.  In earlier versions, that message was almost always
+      redundant or outright incorrect, so 2.13.x substantially reduced the
+      number of cases in which it's reported.␟特に、報告されたエラーがそれだけでない限り、<application>libxml2</application>からの<quote>chunk not well balanced</quote>エラーを抑制するようになりました。
+これは、2.13.xと以前の<application>libxml2</application>バージョンの間でエラー報告の一貫性を保つためです。
+以前のバージョンでは、このメッセージはほとんどの場合冗長であったり、完全に間違っていたため、2.13.xでは報告されるケースの数が大幅に減少しました。␞␞     </para>␞
+␝     <para>␟      Fix handling of subtransactions of prepared transactions
+      when starting a hot standby server (Heikki Linnakangas)␟ホットスタンバイサーバ起動時の準備されたトランザクションのサブトランザクション処理を修正しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      When starting a standby's replay at a shutdown checkpoint WAL
+      record, transactions that had been prepared but not yet committed on
+      the primary are correctly understood as being still in progress.
+      But subtransactions of a prepared transaction (created by savepoints
+      or <application>PL/pgSQL</application> exception blocks) were not
+      accounted for and would be treated as aborted.  That led to
+      inconsistency if the prepared transaction was later committed.␟シャットダウンのチェックポイントWALレコードでスタンバイのリプレイを開始する場合、プライマリで準備されたがまだコミットされていないトランザクションは、まだ進行中であると正しく理解されます。
+しかし、準備されたトランザクションのサブトランザクション（セーブポイントまたは<application>PL/pgSQL</application>例外ブロックによって作成されたもの）は考慮されず、中止されたものとして扱われました。
+このため、準備されたトランザクションが後でコミットされた場合に矛盾が生じました。␞␞     </para>␞
+␝     <para>␟      Prevent incorrect initialization of logical replication slots
+      (Masahiko Sawada)␟論理レプリケーションスロットの誤った初期設定を防止するようにしました。
+(Masahiko Sawada)␞␞     </para>␞
+␝     <para>␟      In some cases a replication slot's start point within the WAL stream
+      could be set to a point within a transaction, leading to assertion
+      failures or incorrect decoding results.␟場合によっては、WALストリーム内のレプリケーションスロットの開始点がトランザクション内のポイントに設定され、アサーションエラーや誤ったデコード結果が発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid <quote>can only drop stats once</quote> error during
+      replication slot creation and drop (Floris Van Nee)␟レプリケーションスロットの作成と削除時に<quote>can only drop stats once</quote>というエラーが発生しないようにしました。
+(Floris Van Nee)␞␞     </para>␞
+␝     <para>␟      Fix resource leakage in logical replication WAL sender (Hou Zhijie)␟論理レプリケーションのWAL senderのリソースリークを修正しました。
+(Hou Zhijie)␞␞     </para>␞
+␝     <para>␟      The walsender process leaked memory when publishing changes to a
+      partitioned table whose partitions have row types physically
+      different from the partitioned table's.␟walsenderプロセスは、パーティションテーブルと物理的に異なる行タイプのパーティションテーブルへの変更をパブリッシュするときに、メモリをリークしました。␞␞     </para>␞
+␝     <para>␟      Avoid memory leakage after servicing a notify or sinval interrupt
+      (Tom Lane)␟notifyまたはsinval割り込みを処理した後のメモリリークを回避しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      The processing functions for these events could switch the current
+      memory context to TopMemoryContext, resulting in session-lifespan
+      leakage of any data allocated before the incorrect setting gets
+      replaced.  There were observable leaks associated with (at least)
+      encoding conversion of incoming queries and parameters attached to
+      Bind messages.␟これらのイベントの処理関数は、現在のメモリコンテキストをTopMemoryContextに切り替える可能性があり、その結果、誤った設定が置き換えられる前に割り当てられたデータのセッション存続期間のリークが発生します。
+（少なくとも）受信した問い合わせとBindメッセージに付加されたパラメータのエンコーディング変換に関連するリークが観察されました。␞␞     </para>␞
+␝     <para>␟      Prevent leakage of reference counts for the shared memory block used
+      for statistics (Anthonin Bonnefoy)␟統計情報に使用される共有メモリブロックの参照カウントの漏洩を防止しました。
+(Anthonin Bonnefoy)␞␞     </para>␞
+␝     <para>␟      A new backend process attaching to the statistics shared memory
+      incremented its reference count, but failed to decrement the count
+      when exiting.  After 2<superscript>32</superscript> sessions had
+      been created, the reference count would overflow to zero, causing
+      failures in all subsequent backend process starts.␟統計情報の共有メモリに接続する新しいバックエンドプロセスは、参照カウントを増加させましたが、終了時にカウントを減じていませんでした。
+2<superscript>32</superscript>セッションが作成された後、参照カウントはゼロにオーバーフローして、その後のすべてのバックエンドプロセスの起動が失敗しました。␞␞     </para>␞
+␝     <para>␟      Prevent deadlocks and assertion failures during truncation of the
+      multixact SLRU log (Heikki Linnakangas)␟マルチトランザクションのSLRUログの切り捨て中のデッドロックとアサーションエラーを防止しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      A process trying to delete SLRU segments could deadlock with the
+      checkpointer process.␟SLRUセグメントを削除しようとするプロセスは、チェックポインタプロセスとデッドロックする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid possibly missing end-of-input events on Windows sockets
+      (Thomas Munro)␟Windowsソケットでの入力終了イベントが失われる可能性を回避しました。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      Windows reports an FD_CLOSE event only once after the remote end of
+      the connection disconnects.  With unlucky timing, we could miss that
+      report and wait indefinitely, or at least until a timeout elapsed,
+      expecting more input.␟Windowsは接続のリモート側が切断された後にFD_CLOSEイベントを1回だけ報告します。
+タイミングが悪いと、その報告を見逃して、さらに入力があることを期待して、無期限にまたは少なくともタイムアウトが経過するまで待機する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix buffer overread in JSON parse error reports for incomplete byte
+      sequences (Jacob Champion)␟JSON解析エラー報告における不完全なバイトシーケンスに対するバッファのオーバーリードを修正しました。
+(Jacob Champion)␞␞     </para>␞
+␝     <para>␟      It was possible to walk off the end of the input buffer by a few
+      bytes when the last bytes comprise an incomplete multi-byte
+      character.  While usually harmless, in principle this could cause a
+      crash.␟最後のバイトが不完全なマルチバイト文字で構成している場合、入力バッファの終端から数バイト離れる可能性がありました。
+通常は無害ですが、原理的にはクラッシュを引き起こす可能性がありました。
+バイト␞␞     </para>␞
+␝     <para>␟      Disable creation of stateful TLS session tickets by OpenSSL
+      (Daniel Gustafsson)␟OpenSSLによるステートフルTLSセッションチケットの作成を無効にしました。
+(Daniel Gustafsson)␞␞     </para>␞
+␝     <para>␟      This avoids possible failures with clients that think receipt of
+      a session ticket means that TLS session resumption is supported.␟これにより、セッションチケットの受信はTLSセッション再開サポートを意味すると考えるクライアントで発生する可能性のある障害が回避されます。␞␞     </para>␞
+␝     <para>␟      When replanning a <application>PL/pgSQL</application> <quote>simple
+      expression</quote>, check it's still simple (Tom Lane)␟<application>PL/pgSQL</application>の<quote>単純な式(simple expression)</quote>を再計画する場合、それがまだ単純であることを確認するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Certain fairly-artificial cases, such as dropping a referenced
+      function and recreating it as an aggregate, could lead to surprising
+      failures such as <quote>unexpected plan node type</quote>.␟参照されている関数を削除して集約として再作成するような、かなり人為的なケースでは、<quote>unexpected plan node type</quote>などの予期せぬ障害が発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix <application>PL/pgSQL</application>'s handling of integer ranges
+      containing underscores (Erik Wienhold)␟<application>PL/pgSQL</application>で、アンダースコアを含む整数範囲の処理を修正しました。
+(Erik Wienhold)␞␞     </para>␞
+␝     <para>␟      As of v16 we allow integer literals to contain underscores,
+      but <application>PL/pgSQL</application> failed to handle examples
+      such as <literal>FOR i IN 1_001..1_003</literal>.␟v16では整数リテラルにアンダースコアを含めることができますが、<application>PL/pgSQL</application>は<literal>FOR i IN 1_001.1_003</literal>のような例を処理できませんでした。␞␞     </para>␞
+␝     <para>␟      Fix recursive <type>RECORD</type>-returning
+      <application>PL/Python</application> functions (Tom Lane)␟再帰的に<type>RECORD</type>を返す<application>PL/Python</application>関数を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If we recurse to a new call of the same function that passes a
+      different column definition list (<literal>AS</literal> clause), it
+      would fail because the inner call would overwrite the outer call's
+      idea of what rowtype to return.␟異なる列定義リスト（<literal>AS</literal>句）を渡す同じ関数の新しい呼び出しで再帰する場合、内部呼び出しが外側の呼び出しの返す行型を上書きするため、失敗しました。␞␞     </para>␞
+␝     <para>␟      Don't corrupt <application>PL/Python</application>'s
+      <literal>TD</literal> dictionary during a recursive trigger call
+      (Tom Lane)␟<application>PL/Python</application>で再帰トリガ呼び出し中に<literal>TD</literal>辞書を破壊しないよう修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If a <application>PL/Python</application>-language trigger caused
+      another one to be invoked, the <literal>TD</literal> dictionary
+      created for the inner one would overwrite the outer
+      one's <literal>TD</literal> dictionary.␟<application>PL/Python</application>言語のトリガによって別のトリガが呼び出された場合、内側のトリガのために作成された<literal>TD</literal>辞書が外側のトリガの<literal>TD</literal>辞書を上書きしていました。␞␞     </para>␞
+␝     <para>␟      Fix <application>PL/Tcl</application>'s reporting of invalid list
+      syntax in the result of a function returning tuple (Erik Wienhold,
+      Tom Lane)␟タプルを返す関数の結果で無効なリスト構文を報告する<application>PL/Tcl</application>を修正しました。
+(Erik Wienhold, Tom Lane)␞␞     </para>␞
+␝     <para>␟      Such a case could result in a crash, or in emission of misleading
+      context information that actually refers to the previous Tcl error.␟このようなケースでは、クラッシュが発生したり、実際には以前のTclエラーを参照する誤解を招くようなコンテキスト情報が出力されたりする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid non-thread-safe usage of <function>strerror()</function>
+      in <application>libpq</application> (Peter Eisentraut)␟<application>libpq</application>での<function>strerror()</function>のスレッドセーフではない使用を避けました。
+(Peter Eisentraut)␞␞     </para>␞
+␝     <para>␟      Certain error messages returned by OpenSSL could become garbled in
+      multi-threaded applications.␟OpenSSLによって返される特定のエラーメッセージが、マルチスレッドアプリケーションで文字化けする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid memory leak within <application>pg_dump</application> during a
+      binary upgrade (Daniel Gustafsson)␟バイナリアップグレード処理中の<application>pg_dump</application>でのメモリリークを回避しました。
+(Daniel Gustafsson)␞␞     </para>␞
+␝     <para>␟      Ensure that <literal>pg_restore</literal> <option>-l</option>
+      reports dependent TOC entries correctly (Tom Lane)␟<literal>pg_restore</literal> <option>-l</option>が依存しているTOCエントリを正しく報告するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If <option>-l</option> was specified together with selective-restore
+      options such as <option>-n</option> or <option>-N</option>,
+      dependent TOC entries such as comments would be omitted from the
+      listing, even when an actual restore would have selected them.␟<option>-l</option>が<option>-n</option>や<option>-N</option>などの選択的なリストアオプションと一緒に指定された場合、実際のリストアではそれらを選択されていたとしても、コメントなどの依存TOCエントリはリストから省略されていました。␞␞     </para>␞
+␝     <para>␟      Allow <filename>contrib/pg_stat_statements</filename> to distinguish
+      among utility statements appearing within SQL-language functions
+      (Anthonin Bonnefoy)␟<filename>contrib/pg_stat_statements</filename>がSQL言語関数内に現れるユーティリティ文を区別できるようにしました。
+(Anthonin Bonnefoy)␞␞     </para>␞
+␝     <para>␟      The SQL-language function executor failed to pass along the query ID
+      that is computed for a utility
+      (non <command>SELECT</command>/<command>INSERT</command>/<command>UPDATE</command>/<command>DELETE</command>/<command>MERGE</command>)
+      statement.␟SQL言語関数のエグゼキュータは、ユーティリティ文（非<command>SELECT</command>/<command>INSERT</command>/<command>UPDATE</command>/<command>DELETE</command>/<command>MERGE</command>）に対して計算された問い合わせ識別子を渡すことに失敗していました。
+ユーティリティ␞␞     </para>␞
+␝     <para>␟      Avoid <quote>cursor can only scan forward</quote> error
+      in <filename>contrib/postgres_fdw</filename> (Etsuro Fujita)␟<filename>contrib/postgres_fdw</filename>で<quote>cursor can only scan forward</quote>エラーを回避しました。
+(Etsuro Fujita)␞␞     </para>␞
+␝     <para>␟      This error could occur if the remote server is v15 or later
+      and a foreign table is mapped to a non-trivial remote view.␟このエラーは、リモートサーバがv15以降で、外部テーブルが単純ではないリモートビューにマッピングされている場合に発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      In <filename>contrib/postgres_fdw</filename>, do not
+      send <literal>FETCH FIRST WITH TIES</literal> clauses to the remote
+      server (Japin Li)␟<filename>contrib/postgres_fdw</filename>で<literal>FETCH FIRST WITH TIES</literal>句をリモートサーバに送信しないようにしました。
+(Japin Li)␞␞     </para>␞
+␝     <para>␟      The remote server might not implement this clause, or might
+      interpret it differently than we would locally, so don't risk
+      attempting remote execution.␟リモートサーバはこの句を実装していないか、ローカルとは異なる解釈をする可能性があるため、リモート実行を避けました。␞␞     </para>␞
+␝     <para>␟      Avoid clashing with
+      system-provided <filename>&lt;regex.h&gt;</filename> headers
+      (Thomas Munro)␟システムが提供する<filename>&lt;regex.h&gt;</filename>ヘッダとの衝突を回避しました。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      This fixes a compilation failure on macOS version 15 and up.␟これにより、macOSバージョン15以降でのコンパイルの失敗が修正されます。␞␞     </para>␞
+␝     <para>␟      Fix otherwise-harmless assertion failure in Memoize cost estimation
+      (David Rowley)␟Memoizeのコスト推定における、無害なアサーションエラーを修正しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      Fix otherwise-harmless assertion failures in <literal>REINDEX
+      CONCURRENTLY</literal> applied to an SP-GiST index (Tom Lane)␟SP-GiSTインデックスに対する<literal>REINDEX CONCURRENTLY</literal>実行での無害なアサーションエラーを修正しました。
+(Tom Lane)␞␞     </para>␞
+␝ <sect1 id="release-16-3">␟  <title>Release 16.3</title>␟  <title>リリース16.3</title>␞␞␞
+␝  <formalpara>␟  <title>Release date:</title>␟  <title>リリース日:</title>␞␞  <para>2024-05-09</para>␞
+␝  <para>␟   This release contains a variety of fixes from 16.2.
+   For information about new features in major release 16, see
+   <xref linkend="release-16"/>.␟このリリースは16.2に対し、様々な不具合を修正したものです。
+16メジャーリリースにおける新機能については、<xref linkend="release-16"/>を参照してください。␞␞  </para>␞
+␝  <sect2 id="release-16-3-migration">␟   <title>Migration to Version 16.3</title>␟   <title>バージョン16.3への移行</title>␞␞␞
+␝   <para>␟    A dump/restore is not required for those running 16.X.␟16.Xからの移行ではダンプ/リストアは不要です。␞␞   </para>␞
+␝   <para>␟    However, a security vulnerability was found in the system
+    views <structname>pg_stats_ext</structname>
+    and <structname>pg_stats_ext_exprs</structname>, potentially allowing
+    authenticated database users to see data they shouldn't.  If this is
+    of concern in your installation, follow the steps in the first
+    changelog entry below to rectify it.␟しかしながら、システムビュー<structname>pg_stats_ext</structname>と<structname>pg_stats_ext_exprs</structname>にセキュリティ上の脆弱性が見つかり、認証されたデータベースユーザが、本来見るべきでないデータを見ることができる可能性があります。
+これがインストール環境で問題となる場合は、次の最初の変更ログの項目に従って修正してください。␞␞   </para>␞
+␝   <para>␟    Also, if you are upgrading from a version earlier than 16.2,
+    see <xref linkend="release-16-2"/>.␟また、16.2より前のバージョンからアップグレードする場合は、<xref linkend="release-16-2"/>を参照してください。␞␞   </para>␞
+␝  <sect2 id="release-16-3-changes">␟   <title>Changes</title>␟   <title>変更点</title>␞␞␞
+␝     <para>␟      Restrict visibility of <structname>pg_stats_ext</structname> and
+      <structname>pg_stats_ext_exprs</structname> entries to the table
+      owner (Nathan Bossart)␟<structname>pg_stats_ext</structname>および<structname>pg_stats_ext_exprs</structname>エントリの可視性をテーブル所有者へ制限しました。
+(Nathan Bossart)␞␞     </para>␞
+␝     <para>␟      These views failed to hide statistics for expressions that involve
+      columns the accessing user does not have permission to read.  View
+      columns such as <structfield>most_common_vals</structfield> might
+      expose security-relevant data.  The potential interactions here are
+      not fully clear, so in the interest of erring on the side of safety,
+      make rows in these views visible only to the owner of the associated
+      table.␟これらのビューは、アクセスするユーザに読み取る権限のない列を含む式の統計情報を隠すことができませんでした。
+<structfield>most_common_vals</structfield>などのビュー列で、セキュリティ関連データが公開される可能性がありました。
+ここでの潜在的な相互作用は完全には明らかではないため、安全を優先するために、これらのビューの行を、関連するテーブルの所有者のみに表示するようにしました。␞␞     </para>␞
+␝     <para>␟      The <productname>PostgreSQL</productname> Project thanks
+      Lukas Fittl for reporting this problem.
+      (CVE-2024-4317)␟<productname>PostgreSQL</productname>プロジェクトは、本問題を報告してくれたLukas Fittlに感謝します。
+(CVE-2024-4317)␞␞     </para>␞
+␝     <para>␟      By itself, this fix will only fix the behavior in newly initdb'd
+      database clusters.  If you wish to apply this change in an existing
+      cluster, you will need to do the following:␟この修正では、新しくinitdbされたデータベースクラスタの動作のみが修正されます。
+既存のクラスタにこの変更を適用したい場合は、次の手順を実行する必要があります。␞␞     </para>␞
+␝       <para>␟        Find the SQL script <filename>fix-CVE-2024-4317.sql</filename> in
+        the <replaceable>share</replaceable> directory of
+        the <productname>PostgreSQL</productname> installation (typically
+        located someplace like <filename>/usr/share/postgresql/</filename>).
+        Be sure to use the script appropriate to
+        your <productname>PostgreSQL</productname> major version.
+        If you do not see this file, either your version is not vulnerable
+        (only v14&ndash;v16 are affected) or your minor version is too
+        old to have the fix.␟<productname>PostgreSQL</productname>がインストールされた<replaceable>share</replaceable>ディレクトリ（通常は<filename>/usr/share/postgresql/</filename>のような場所）にあるSQLスクリプト<filename>fix-CVE-2024-4317.sql</filename>を見つけてください。
+必ず、<productname>PostgreSQL</productname>のメジャーバージョンに適したスクリプトを使用してください。
+このファイルが見つからない場合は、あなたのバージョンが脆弱ではない（v14&ndash;v16だけが影響を受ける）か、マイナーバージョンが古すぎて修正されていません。␞␞       </para>␞
+␝       <para>␟        In <emphasis>each</emphasis> database of the cluster, run
+        the <filename>fix-CVE-2024-4317.sql</filename> script as superuser.
+        In <application>psql</application> this would look like␟クラスタの<emphasis>各</emphasis>データベースで、スーパーユーザとして<filename>fix-CVE-2024-4317.sql</filename>スクリプトを実行します。
+<application>psql</application>では以下のようになります。␞␞<programlisting>␞
+␝</programlisting>␟        (adjust the file path as appropriate).  Any error probably indicates
+        that you've used the wrong script version.  It will not hurt to run
+        the script more than once.␟（ファイルパスは適宜調整してください）。
+エラーが出た場合は、おそらく間違ったスクリプトバージョンを使用したことを示しています。
+スクリプトを複数回実行しても問題ありません。␞␞       </para>␞
+␝       <para>␟        Do not forget to include the <literal>template0</literal>
+        and <literal>template1</literal> databases, or the vulnerability
+        will still exist in databases you create later.  To
+        fix <literal>template0</literal>, you'll need to temporarily make
+        it accept connections.  Do that with␟<literal>template0</literal>と<literal>template1</literal>データベースを含めることを忘れないでください。
+そうしないと、後で作成するデータベースに脆弱性が残ったままになります。
+<literal>template0</literal>を修正するには、一時的に接続を受け付けるようにする必要があります。
+これは、下記のコマンドで行います。␞␞<programlisting>␞
+␝</programlisting>␟        and then after fixing <literal>template0</literal>, undo it with␟そして<literal>template0</literal>を修正した後、接続受け付けを元に戻します。␞␞<programlisting>␞
+␝     <para>␟      Fix <command>INSERT</command> from
+      multiple <command>VALUES</command> rows into a target column that is
+      a domain over an array or composite type (Tom Lane)␟複数の<command>VALUES</command>行から、配列または複合型を元にしたドメイン型である対象列への<command>INSERT</command>を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Such cases would either fail with surprising complaints about
+      mismatched datatypes, or insert unexpected coercions that could lead
+      to odd results.␟このようなケースでは、データ型の不一致に関する予期せぬエラーで失敗するか、予期しない強制が挿入されて奇妙な結果が生じる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Require <literal>SELECT</literal> privilege on the target table
+      for <command>MERGE</command> with a <literal>DO NOTHING</literal>
+      clause (&Aacute;lvaro Herrera)␟<literal>DO NOTHING</literal>句を持つ<command>MERGE</command>では、対象テーブルに対する<literal>SELECT</literal>権限が必要です。
+(&Aacute;lvaro Herrera)␞␞     </para>␞
+␝     <para>␟      <literal>SELECT</literal> privilege would be required in all
+      practical cases anyway, but require it even if the query reads no
+      columns of the target table.  This avoids an edge case in
+      which <command>MERGE</command> would require no privileges whatever,
+      which seems undesirable even when it's a do-nothing command.␟<literal>SELECT</literal>権限は、すべての実用的なケースで必要になりますが、対象テーブルの列を読み取らない問い合わせの場合でも必要です。
+これにより、<command>MERGE</command>がDO NOTHINGコマンドであっても望ましくないと思われる、何の権限も必要としないというエッジケースを回避しました。␞␞     </para>␞
+␝     <para>␟      Fix handling of self-modified tuples in <command>MERGE</command>
+      (Dean Rasheed)␟<command>MERGE</command>における自己修正タプルの処理を修正しました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      Throw an error if a target row joins to more than one source row, as
+      required by the SQL standard.  (The previous coding could silently
+      ignore this condition if a concurrent update was involved.)  Also,
+      throw a non-misleading error if a target row is already updated by a
+      later command in the current transaction, thanks to
+      a <literal>BEFORE</literal> trigger or a volatile function used in
+      the query.␟標準SQLの要件に従って、ターゲット行が複数のソース行と結合される場合はエラーが発生します。
+（以前のコーディングでは、同時更新が含まれる場合、この条件を黙って無視することができました。）
+また、<literal>BEFORE</literal>トリガまたは問い合わせで使用される揮発性関数によって、対象行が現在のトランザクション内の後のコマンドによってすでに更新されている場合は、誤解を招かないようにエラーが発生します。␞␞     </para>␞
+␝     <para>␟      Fix incorrect pruning of NULL partition when a table is partitioned
+      on a boolean column and the query has a boolean <literal>IS
+      NOT</literal> clause (David Rowley)␟テーブルがboolean型の列でパーティション化され、問い合わせにboolean型の<literal>IS NOT</literal>句がある場合の誤ったNULLパーティション除去を修正しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      A NULL value satisfies a clause such
+      as <literal><replaceable>boolcol</replaceable> IS NOT
+      FALSE</literal>, so pruning away a partition containing NULLs
+      yielded incorrect answers.␟NULL値は<literal><replaceable>boolcol</replaceable> IS NOT FALSE</literal>のような句を満たすので、NULLを含むパーティションを除去すると誤った結果が生じていました。␞␞     </para>␞
+␝     <para>␟      Make <command>ALTER FOREIGN TABLE SET SCHEMA</command> move any
+      owned sequences into the new schema (Tom Lane)␟<command>ALTER FOREIGN TABLE SET SCHEMA</command>の実行で、所有するシーケンスを新しいスキーマに移動するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Moving a regular table to a new schema causes any sequences owned by
+      the table to be moved to that schema too (along with indexes and
+      constraints).  This was overlooked for foreign tables, however.␟通常のテーブルを新しいスキーマに移動すると、テーブルが所有するシーケンスも（インデックスや制約も一緒に）そのスキーマに移動されます。
+しかし、外部テーブルではこれが見落とされていました。␞␞     </para>␞
+␝     <para>␟      Make <command>ALTER TABLE ... ADD COLUMN</command> create
+      identity/serial sequences with the same persistence as their owning
+      tables (Peter Eisentraut)␟<command>ALTER TABLE ... ADD COLUMN</command>で、所有するテーブルと同じ永続性を持つIDENTITY/シリアルシーケンスを作成できるようにしました。
+(Peter Eisentraut)␞␞     </para>␞
+␝     <para>␟      <command>CREATE UNLOGGED TABLE</command> will make any owned
+      sequences be unlogged too.  <command>ALTER TABLE</command> missed
+      that consideration, so that an added identity column would have a
+      logged sequence, which seems pointless.␟<command>CREATE UNLOGGED TABLE</command>を使用すると、所有するシーケンスもWAL出力されなくなります。
+<command>ALTER TABLE</command>はこの点を考慮しなかったので、追加された識別列はWAL出力のあるシーケンスが含まれることになり、これは無意味なことでした。␞␞     </para>␞
+␝     <para>␟      Improve <command>ALTER TABLE ... ALTER COLUMN TYPE</command>'s error
+      message when there is a dependent function or publication (Tom Lane)␟依存する関数またはパブリケーションがある場合の<command>ALTER TABLE ... ALTER COLUMN TYPE</command>のエラーメッセージを改善しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      In <command>CREATE DATABASE</command>, recognize strategy keywords
+      case-insensitively for consistency with other options (Tomas Vondra)␟<command>CREATE DATABASE</command>コマンドで、他のオプションとの整合性を保つために、strategyキーワードを大文字と小文字を区別せずに認識するようにしました。
+(Tomas Vondra)␞␞     </para>␞
+␝     <para>␟      Fix <command>EXPLAIN</command>'s counting of heap pages accessed by
+      a bitmap heap scan (Melanie Plageman)␟ビットマップヒープスキャンによってアクセスされたヒープページの<command>EXPLAIN</command>のカウントを修正しました。
+(Melanie Plageman)␞␞     </para>␞
+␝     <para>␟      Previously, heap pages that contain no visible tuples were not
+      counted; but it seems more consistent to count all pages returned by
+      the bitmap index scan.␟以前は、可視タプルを含まないヒープページはカウントされませんでしたが、ビットマップインデックススキャンによって返されるすべてのページをカウントする方がより一貫性があります。␞␞     </para>␞
+␝     <para>␟      Fix <command>EXPLAIN</command>'s output for subplans
+      in <command>MERGE</command> (Dean Rasheed)␟<command>MERGE</command>におけるサブプランの<command>EXPLAIN</command>の出力を修正しました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      <command>EXPLAIN</command> would sometimes fail to properly display
+      subplan Params referencing variables in other parts of the plan tree.␟<command>EXPLAIN</command>は、プランツリーの他の部分にある変数を参照するサブプランパラメータを正しく表示できないことがありました。␞␞     </para>␞
+␝     <para>␟      Avoid deadlock during removal of orphaned temporary tables
+      (Mikhail Zhilin)␟孤立した一時テーブルの削除中のデッドロックを回避しました。
+(Mikhail Zhilin)␞␞     </para>␞
+␝     <para>␟      If the session that creates a temporary table crashes without
+      removing the table, autovacuum will eventually try to remove the
+      orphaned table.  However, an incoming session that's been assigned
+      the same temporary namespace will do that too.  If a temporary table
+      has a dependency (such as an owned sequence) then a deadlock could
+      result between these two cleanup attempts.␟一時テーブルを作成したセッションがテーブルを削除せずにクラッシュした場合、自動バキュームは最終的に孤立したテーブルを削除しようとします。
+しかし、同じ一時的な名前空間を割り当てられた受信セッションも同様に削除しようとします。
+一時テーブルに依存関係（所有されたシーケンスなど）がある場合、これら2つのクリーンアップ試行の間にデッドロックが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix updating of visibility map state in <command>VACUUM</command>
+      with the <literal>DISABLE_PAGE_SKIPPING</literal> option (Heikki
+      Linnakangas)␟<literal>DISABLE_PAGE_SKIPPING</literal>オプションを使用した<command>VACUUM</command>での可視性マップ状態の更新を修正しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      Due to an oversight, this mode caused all heap pages to be dirtied,
+      resulting in excess I/O.  Also, visibility map bits that were
+      incorrectly set would not get cleared.␟見落としにより、このモードではすべてのヒープページがダーティになり、過剰なI/Oが発生しました。
+また、誤って設定された可視性マップビットはクリアされませんでした。␞␞     </para>␞
+␝     <para>␟      Avoid race condition while examining per-relation frozen-XID values
+      (Noah Misch)␟リレーションごとの凍結されたXID値を調べる際の競合状態を回避します。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      <command>VACUUM</command>'s computation of per-database frozen-XID
+      values from per-relation values could get confused by a concurrent
+      update of those values by another <command>VACUUM</command>.␟<command>VACUUM</command>によるリレーション単位の値からのデータベース単位の凍結されたXID値の計算が、別の<command>VACUUM</command>によるそれらの値の同時更新によって混乱する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix buffer usage reporting for parallel vacuuming (Anthonin Bonnefoy)␟並列バキューム処理のバッファ使用レポートを修正しました。
+(Antonin Bonnefoy)␞␞     </para>␞
+␝     <para>␟      Buffer accesses performed by parallel workers were not getting
+      counted in the statistics reported in <literal>VERBOSE</literal>
+      mode.␟並列ワーカーによって実行されたバッファアクセスは、<literal>VERBOSE</literal>モードで報告される統計にカウントされませんでした。␞␞     </para>␞
+␝     <para>␟      Ensure that join conditions generated from equivalence classes are
+      applied at the correct plan level (Tom Lane)␟同値クラスから生成された結合条件が正しい計画レベルで適用されるようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      In versions before <productname>PostgreSQL</productname> 16, it was
+      possible for generated conditions to be evaluated below outer joins
+      when they should be evaluated above (after) the outer join, leading
+      to incorrect query results.  All versions have a similar hazard when
+      considering joins to <command>UNION ALL</command> trees that have
+      constant outputs for the join column in
+      some <command>SELECT </command> arms.␟<productname>PostgreSQL</productname>16より前のバージョンでは、生成された条件が外部結合の上(後)で評価されるべきところを下で評価される可能性があり、不正な問い合わせ結果をもたらしていました。
+一部の<command>SELECT</command>アームの結合列に定数出力を持つ<command>UNION ALL</command>ツリーへの結合を検討する場合、すべてのバージョンで同様の危険性がありました。␞␞     </para>␞
+␝     <para>␟      Fix <quote>could not find pathkey item to sort</quote> errors
+      occurring while planning aggregate functions with <literal>ORDER
+      BY</literal> or <literal>DISTINCT</literal> options (David Rowley)␟<literal>ORDER BY</literal>または<literal>DISTINCT</literal>オプションを指定した集約関数の計画中に発生する<quote>could not find pathkey item to sort</quote>エラーを修正しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      This is similar to a fix applied in 16.1, but it solves the problem
+      for parallel plans.␟これは、16.1で適用された修正と同様ですが、並列計画の問題を解決します。␞␞     </para>␞
+␝     <para>␟      Prevent potentially-incorrect optimization of some window functions
+      (David Rowley)␟一部のウィンドウ関数の誤った最適化の可能性を防止しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      Disable <quote>run condition</quote> optimization
+      of <function>ntile()</function> and <function>count()</function>
+      with non-constant arguments.  This avoids possible misbehavior with
+      sub-selects, typically leading to errors like <quote>WindowFunc not
+      found in subplan target lists</quote>.␟非定数引数を使用する<function>ntile()</function>と<function>count()</function>の<quote>実行条件</quote>最適化を無効にします。
+これにより、典型的には<quote>WindowFunc not found in subplan target lists</quote>のようなエラーを引き起こす副SELECTで誤動作する可能性を防ぎます。␞␞     </para>␞
+␝     <para>␟      Avoid unnecessary use of moving-aggregate mode with a non-moving
+      window frame (Vallimaharajan G)␟移動しないウィンドウフレームでの移動集約モードを不必要に使用しないようにしました。
+(Vallimaharajan G)␞␞     </para>␞
+␝     <para>␟      When a plain aggregate is used as a window function, and the window
+      frame start is specified as <literal>UNBOUNDED PRECEDING</literal>,
+      the frame's head cannot move so we do not need to use the special
+      (and more expensive) moving-aggregate mode.  This optimization was
+      intended all along, but due to a coding error it never triggered.␟通常の集約関数をウィンドウ関数として使用し、ウィンドウフレームの開始が<literal>UNBOUNDED PRECEDING</literal>に指定されている場合、フレームの先頭は移動できないため、特別な（より高価な）移動集約モードを使用する必要はありません。
+この最適化は当初から意図されていましたが、コーディングエラーのためにトリガされていませんでした。␞␞     </para>␞
+␝     <para>␟      Avoid use of already-freed data while planning partition-wise joins
+      under GEQO (Tom Lane)␟GEQOの下でパーティションごとの結合を計画する際に、解放済みデータの使用を避けるようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      This would typically end in a crash or unexpected error message.␟これは通常、クラッシュまたは予期しないエラーメッセージで終了していました。␞␞     </para>␞
+␝     <para>␟      Avoid freeing still-in-use data in Memoize (Tender Wang, Andrei
+      Lepikhov)␟Memoizeで使用中のデータを解放しないようにしました。
+(Tender Wang, Andrei Lepikhov)␞␞     </para>␞
+␝     <para>␟      In production builds this error frequently didn't cause any
+      problems, as the freed data would most likely not get overwritten
+      before it was used.␟製品ビルドでは、解放されたデータは使用される前に上書きされる可能性は低いため、このエラーによって問題が起きることはほとんどありませんでした。␞␞     </para>␞
+␝     <para>␟      Fix incorrectly-reported statistics kind codes in <quote>requested
+      statistics kind <replaceable>X</replaceable> is not yet
+      built</quote> error messages (David Rowley)␟<quote>requested statistics kind <replaceable>X</replaceable> is not yet built</quote>というエラーメッセージで誤ってレポートされていた統計の種類コードを修正しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      Use a hash table instead of linear search for <quote>catcache
+      list</quote> objects (Tom Lane)␟<quote>catcache list</quote>オブジェクトに対して、線形検索ではなくハッシュテーブルを使用するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      This change solves performance problems that were reported for
+      certain operations in installations with many thousands of roles.␟この変更により、数千のロールを持つインストールで特定の操作に関して報告されていたパフォーマンスの問題が解決されます。␞␞     </para>␞
+␝     <para>␟      Be more careful with <type>RECORD</type>-returning functions
+      in <literal>FROM</literal> (Tom Lane)␟<literal>FROM</literal>で<type>RECORD</type>を返す関数に対して、より注意を払うようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      The output columns of such a function call must be defined by
+      an <literal>AS</literal> clause that specifies the column names and
+      data types.  If the actual function output value doesn't match that,
+      an error is supposed to be thrown at runtime.  However, some code
+      paths would examine the actual value prematurely, and potentially
+      issue strange errors or suffer assertion failures if it doesn't
+      match expectations.␟このような関数呼び出しの出力列は、列名とデータ型を指定する<literal>AS</literal>句で定義する必要があります。
+実際の関数の出力値がこれに一致しない場合、実行時にエラーが発生することになっています。
+しかし、一部のコードパスでは、実際の値を早期に調べてしまい、期待と一致しない場合に奇妙なエラーを発生させたり、アサーションエラーを引き起こしたりする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix confusion about the return rowtype of SQL-language procedures
+      (Tom Lane)␟行型を返すSQL言語プロシージャに関する混乱を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      A procedure implemented in SQL language that returns a single
+      composite-type column would cause an assertion failure or core dump.␟単一の複合型列を返すSQL言語で実装されたプロシージャでは、アサーションエラーまたはコアダンプを引き起こしていました。␞␞     </para>␞
+␝     <para>␟      Add protective stack depth checks to some recursive functions
+      (Egor Chindyaskin)␟いくつかの再帰関数に保護的なスタック深さ検査を追加しました。
+(Egor Chindyaskin)␞␞     </para>␞
+␝     <para>␟      Fix mis-rounding and overflow hazards
+      in <function>date_bin()</function> (Moaaz Assali)␟<function>date_bin()</function>の丸め間違いとオーバーフローの危険性を修正しました。
+(Moaaz Assali)␞␞     </para>␞
+␝     <para>␟      In the case where the source timestamp is before the origin
+      timestamp and their difference is already an exact multiple of the
+      stride, the code incorrectly subtracted the stride anyway.  Also,
+      detect some integer-overflow cases that would have produced
+      incorrect results.␟sourceのタイムスタンプがoriginタイムスタンプより前で、その差がすでにstrideの正確な倍数である場合、コードは誤ってstrideを減算していました。
+また、不正な結果を生じる可能性のある整数オーバーフローのケースもいくつか検出しました。␞␞     </para>␞
+␝     <para>␟      Detect integer overflow when adding or subtracting
+      an <type>interval</type> to/from a <type>timestamp</type>
+      (Joseph Koshakow)␟<type>timestamp</type>に<type>interval</type>を加算または減算する際に、整数オーバーフローを検出するようにしました。
+(Joseph Koshakow)␞␞     </para>␞
+␝     <para>␟      Some cases that should cause an out-of-range error produced an
+      incorrect result instead.␟範囲外エラーを発生すべき一部のケースでは、代わりに誤った結果が生成されていました。␞␞     </para>␞
+␝     <para>␟      Avoid race condition in <function>pg_get_expr()</function>
+      (Tom Lane)␟<function>pg_get_expr()</function>における競合状態を回避しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If the relation referenced by the argument is dropped concurrently,
+      the function's intention is to return NULL, but sometimes it failed
+      instead.␟引数が参照するリレーションが同時に削除された場合、関数はNULLを返すべきところですが、エラーになっていました。␞␞     </para>␞
+␝     <para>␟      Fix detection of old transaction IDs in XID status functions
+      (Karina Litskevich)␟XIDステータス関数での古いトランザクションIDの検出を修正しました。
+(Karina Litskevich)␞␞     </para>␞
+␝     <para>␟      Transaction IDs more than 2<superscript>31</superscript>
+      transactions in the past could be misidentified as recent,
+      leading to misbehavior of <function>pg_xact_status()</function>
+      or <function>txid_status()</function>.␟2<superscript>31</superscript>を超えるトランザクションIDが最近のものとして誤って識別され、<function>pg_xact_status()</function>または<function>txid_status()</function>の誤動作につながる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Ensure that a table's freespace map won't return a page that's past
+      the end of the table (Ronan Dunklau)␟テーブルの空き領域マップがテーブルの終端を越えたページを返さないようにしました。
+(Ronan Dunklau)␞␞     </para>␞
+␝     <para>␟      Because the freespace map isn't WAL-logged, this was possible in
+      edge cases involving an OS crash, a replica promote, or a PITR
+      restore.  The result would be a <quote>could not read block</quote>
+      error.␟空き領域マップはWALに記録されないため、OSのクラッシュ、レプリカの昇格、PITRリストアなどの場合に発生する可能性がありました。
+その結果<quote>could not read block</quote>エラーになります。␞␞     </para>␞
+␝     <para>␟      Fix file descriptor leakage when an error is thrown while waiting
+      in <function>WaitEventSetWait</function> (Etsuro Fujita)␟<function>WaitEventSetWait</function>で待機中にエラーが発生した場合のファイル記述子のリークを修正しました。
+(Etsuro Fujita)␞␞     </para>␞
+␝     <para>␟      Avoid corrupting exception stack if an FDW implements async append
+      but doesn't configure any wait conditions for the Append plan node
+      to wait for (Alexander Pyhalov)␟FDWが非同期Appendを実装しているが、Append計画ノードが待機する待機条件を設定していない場合の例外スタック破損を回避します。
+(Alexander Pyhalov)␞␞     </para>␞
+␝     <para>␟      Throw an error if an index is accessed while it is being reindexed
+      (Tom Lane)␟インデックスの再作成中にインデックスにアクセスされた場合、エラーが発生するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Previously this was just an assertion check, but promote it into a
+      regular runtime error.  This will provide a more on-point error
+      message when reindexing a user-defined index expression that
+      attempts to access its own table.␟以前は単なるアサーションチェックでしたが、通常のランタイムエラーに昇格しました。
+これにより、ユーザ定義のインデックス式のインデックスを再作成する際に、より適切なエラーメッセージが提供されるようになります。␞␞     </para>␞
+␝     <para>␟      Ensure that index-only scans on <type>name</type> columns return a
+      fully-padded value (David Rowley)␟<type>name</type>型列のインデックスオンリースキャンが完全に埋め込まれた値を返すようにしました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      The value physically stored in the index is truncated, and
+      previously a pointer to that value was returned to callers.  This
+      provoked complaints when testing under valgrind.  In theory it could
+      result in crashes, though none have been reported.␟インデックスに物理的に格納された値は切り捨てられ、以前はその値へのポインタが呼び出し元に返されていました。
+これにより、valgrindでテストしたときに苦情が発生しました。
+理論的にはクラッシュを引き起こす可能性がありますが、報告はありませんでした。␞␞     </para>␞
+␝     <para>␟      Fix race condition that could lead to reporting an incorrect
+      conflict cause when invalidating a replication slot (Bertrand
+      Drouvot)␟レプリケーションスロットの無効化時に誤った競合原因を報告する可能性がある競合状態を修正しました。
+(Bertrand Drouvot)␞␞     </para>␞
+␝     <para>␟      Fix race condition in deciding whether a table sync operation is
+      needed in logical replication (Vignesh C)␟論理レプリケーションでテーブル同期操作が必要かどうかを判断する際の競合状態を修正しました。
+(Vignesh C)␞␞     </para>␞
+␝     <para>␟      An invalidation event arriving while a subscriber identifies which
+      tables need to be synced would be forgotten about, so that any
+      tables newly in need of syncing might not get processed in a timely
+      fashion.␟サブスクライバーが同期化が必要なテーブルを識別している間に到着した無効化イベントが忘れ去られるため、新たに同期化が必要なテーブルがタイムリーに処理されない可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix crash with DSM allocations larger than 4GB (Heikki Linnakangas)␟4GBを超えるDSMの割り当てによるクラッシュを修正しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      Disconnect if a new server session's client socket cannot be put
+      into non-blocking mode (Heikki Linnakangas)␟新しいサーバセッションのクライアントソケットが非ブロッキングモードにできない場合は切断します。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      It was once theoretically possible for us to operate with a socket
+      that's in blocking mode; but that hasn't worked fully in a long
+      time, so fail at connection start rather than misbehave later.␟以前は、理論的にはブロッキングモードのソケットで動作することが可能でしたが、長い間完全には機能していなかったため、後で誤動作するのではなく接続開始時に失敗するようにしました。␞␞     </para>␞
+␝     <para>␟      Fix inadequate error reporting
+      with <application>OpenSSL</application> 3.0.0 and later (Heikki
+      Linnakangas, Tom Lane)␟<application>OpenSSL</application>3.0.0以降での不適切なエラー報告を修正しました。
+(Heikki Linnakangas, Tom Lane)␞␞     </para>␞
+␝     <para>␟      System-reported errors passed through by OpenSSL were reported with
+      a numeric error code rather than anything readable.␟OpenSSLによってシステムから報告されたエラーは、読み取り可能なものではなく、数値のエラーコードで報告されていました。␞␞     </para>␞
+␝     <para>␟      Fix thread-safety of error reporting
+      for <function>getaddrinfo()</function> on Windows (Thomas Munro)␟Windowsの<function>getaddrinfo()</function>関数のエラー報告のスレッド安全性を修正しました。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      A multi-threaded <application>libpq</application> client program
+      could get an incorrect or corrupted error message after a network
+      lookup failure.␟マルチスレッドの<application>libpq</application>クライアントプログラムは、ネットワーク検索が失敗した後に、誤ったエラーメッセージや破損したエラーメッセージを受け取る可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid concurrent calls to <function>bindtextdomain()</function>
+      in <application>libpq</application>
+      and <application>ecpglib</application> (Tom Lane)␟<application>libpq</application>と<application>ecpglib</application>の<function>bindtextdomain()</function>への同時呼び出しを避けました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Although GNU <application>gettext</application>'s implementation
+      seems to be fine with concurrent calls, the version available on
+      Windows is not.␟GNU <application>gettext</application>の実装では同時呼び出しは問題がないようですが、Windowsで利用可能なバージョンはそうではありませんでした。␞␞     </para>␞
+␝     <para>␟      Fix crash in <application>ecpg</application>'s preprocessor if
+      the program tries to redefine a macro that was defined on the
+      preprocessor command line (Tom Lane)␟<application>ecpg</application>のプリプロセッサで、プログラムがプリプロセッサのコマンドラインで定義されたマクロを再定義しようとした場合のクラッシュを修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      In <application>ecpg</application>, avoid issuing
+      false <quote>unsupported feature will be passed to server</quote>
+      warnings (Tom Lane)␟<application>ecpg</application>で誤った<quote>unsupported feature will be passed to server</quote>警告を出さないようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Ensure that the string result
+      of <application>ecpg</application>'s <function>intoasc()</function>
+      function is correctly zero-terminated (Oleg Tselebrovskiy)␟<application>ecpg</application>の<function>intoasc()</function>関数の文字列結果が正しくゼロで終了するようにしました。
+(Oleg Tselebrovskiy)␞␞     </para>␞
+␝     <para>␟      In <application>initdb</application>'s <option>-c</option> option,
+      match parameter names case-insensitively (Tom Lane)␟<application>initdb</application>の<option>-c</option>オプションで、大文字小文字を区別せずにパラメータ名を照合するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      The server treats parameter names case-insensitively, so this code
+      should too.  This avoids putting redundant entries into the
+      generated <filename>postgresql.conf</filename> file.␟サーバはパラメータ名を大文字小文字を区別せずに処理するので、このコードも同様に処理する必要があります。
+これにより、生成された<filename>postgresql.conf</filename>ファイルに冗長なエントリの挿入が避けられます。␞␞     </para>␞
+␝     <para>␟      In <application>psql</application>, avoid leaking a query result
+      after the query is cancelled (Tom Lane)␟<application>psql</application>で、問い合わせがキャンセルされた後に問い合わせ結果を漏らさないようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      This happened only when cancelling a non-last query in a query
+      string made with <literal>\;</literal> separators.␟これは、<literal>\;</literal>区切り文字を使用して作成された問い合わせ文字列内で最後でない問い合わせをキャンセルした場合にのみ発生しました。␞␞     </para>␞
+␝     <para>␟      Fix <application>pg_dumpall</application> so that role comments, if
+      present, will be dumped regardless of the setting
+      of <option>--no-role-passwords</option> (Daniel Gustafsson,
+      &Aacute;lvaro Herrera)␟ロールコメントが存在する場合、<option>--no-role-passwords</option>の設定に関係なくロールコメントがダンプされるよう<application>pg_dumpall</application>を修正しました。
+(Daniel Gustafsson, &Aacute;lvaro Herrera)␞␞     </para>␞
+␝     <para>␟      Skip files named <filename>.DS_Store</filename>
+      in <application>pg_basebackup</application>,
+      <application>pg_checksums</application>,
+      and <application>pg_rewind</application> (Daniel Gustafsson)␟<application>pg_basebackup</application>、<application>pg_checksums</application>、<application>pg_rewind</application>で<filename>.DS_Store</filename>という名前のファイルをスキップするようにしました。
+(Daniel Gustafsson)␞␞     </para>␞
+␝     <para>␟      This avoids problems on macOS, where the Finder may create such
+      files.␟これにより、Finderがそのようなファイルを作成する可能性があるmacOSでの問題を回避できます。␞␞     </para>␞
+␝     <para>␟      Fix <application>PL/pgSQL</application>'s parsing of single-line
+      comments (<literal>--</literal>-style comments) following
+      expressions (Erik Wienhold, Tom Lane)␟<application>PL/pgSQL</application>の式の後に続く単一行コメント（<literal>--</literal>形式のコメント）の解析を修正しました。
+(Erik Wienhold, Tom Lane)␞␞     </para>␞
+␝     <para>␟      This mistake caused parse errors if such a comment followed
+      a <literal>WHEN</literal> expression in
+      a <application>PL/pgSQL</application> <command>CASE</command>
+      statement.␟この間違いにより、<application>PL/pgSQL</application> <command>CASE</command>ステートメントの<literal>WHEN</literal>式の後にこのようなコメントが続くと、解析エラーが発生していました。␞␞     </para>␞
+␝     <para>␟      In <filename>contrib/amcheck</filename>, don't report false match
+      failures due to short- versus long-header values (Andrey Borodin,
+      Michael Zhilin)␟<filename>contrib/amcheck</filename>で、短いヘッダ値と長いヘッダ値による誤った一致失敗を報告しないようにしました。
+(Andrey Borodin, Michael Zhilin)␞␞     </para>␞
+␝     <para>␟      A variable-length datum in a heap tuple or index tuple could have
+      either a short or a long header, depending on compression parameters
+      that applied when it was made.  Treat these cases as equivalent
+      rather than complaining if there's a difference.␟ヒープタプルまたはインデックスタプル内の可変長データは、作成時に適用された圧縮パラメータに応じて、短いヘッダまたは長いヘッダのいずれかを持つことができます。
+違いがあると文句を言うのではなく、これらのケースを同等として扱うようにしました。␞␞     </para>␞
+␝     <para>␟      Fix bugs in BRIN output functions (Tomas Vondra)␟BRIN出力関数のバグを修正しました。
+(Tomas Vondra)␞␞     </para>␞
+␝     <para>␟      These output functions are only used for displaying index entries
+      in <filename>contrib/pageinspect</filename>, so the errors are of
+      limited practical concern.␟これらの出力関数は<filename>contrib/pageinspect</filename>内のインデックスエントリを表示するためにのみ使用されるため、エラーは実用上の問題にはなりませんでした。␞␞     </para>␞
+␝     <para>␟      In <filename>contrib/postgres_fdw</filename>, avoid emitting
+      requests to sort by a constant (David Rowley)␟<filename>contrib/postgres_fdw</filename>では、定数によるソート要求を発行しないようにしました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      This could occur in cases involving <literal>UNION ALL</literal>
+      with constant-emitting subqueries.  Sorting by a constant is useless
+      of course, but it also risks being misinterpreted by the remote
+      server, leading to <quote>ORDER BY
+      position <replaceable>N</replaceable> is not in select list</quote>
+      errors.␟これは、定数を発行する副問い合わせと<literal>UNION ALL</literal>を含む場合に発生する可能性がありました。
+定数によるソートはもちろん無意味ですが、リモートサーバが誤って解釈して<quote>ORDER BY position <replaceable>N</replaceable> is not in select list</quote>エラーを出す危険性もありました。␞␞     </para>␞
+␝     <para>␟      Make <filename>contrib/postgres_fdw</filename> set the remote
+      session's time zone to <literal>GMT</literal>
+      not <literal>UTC</literal> (Tom Lane)␟<filename>contrib/postgres_fdw</filename>がリモートセッションのタイムゾーンを<literal>UTC</literal>ではなく<literal>GMT</literal>に設定するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      This should have the same results for practical purposes.
+      However, <literal>GMT</literal> is recognized by hard-wired code in
+      the server, while <literal>UTC</literal> is looked up in the
+      timezone database.  So the old code could fail in the unlikely event
+      that the remote server's timezone database is missing entries.␟これは、実用上は同じ結果になるはずです。
+しかし、<literal>GMT</literal>はサーバのハードコードされたコードによって認識され、<literal>UTC</literal>はタイムゾーンデータベースで検索されます。
+したがって、リモートサーバのタイムゾーンデータベースにエントリがないというまれなケースでは、古いコードが失敗する可能性がありました。␞␞     </para>␞
+␝     <para>␟      In <filename>contrib/xml2</filename>, avoid use of library functions
+      that have been deprecated in recent versions
+      of <application>libxml2</application> (Dmitry Koval)␟<filename>contrib/xml2</filename>において、<application>libxml2</application>の最近のバージョンで非推奨となったライブラリ関数の使用を避けるようにしました。
+(Dmitry Koval)␞␞     </para>␞
+␝     <para>␟      Fix incompatibility with LLVM 18 (Thomas Munro, Dmitry Dolgov)␟LLVM 18との非互換性を修正しました。
+(Thomas Munro, Dmitry Dolgov)␞␞     </para>␞
+␝     <para>␟      Allow <literal>make check</literal> to work with
+      the <application>musl</application> C library (Thomas Munro, Bruce
+      Momjian, Tom Lane)␟<literal>make check</literal>が<application>musl</application>Cライブラリで動作するようにしました。
+(Thomas Munro, Bruce Momjian, Tom Lane)␞␞     </para>␞
+␝ <sect1 id="release-16-2">␟  <title>Release 16.2</title>␟  <title>リリース16.2</title>␞␞␞
+␝  <formalpara>␟  <title>Release date:</title>␟  <title>リリース日:</title>␞␞  <para>2024-02-08</para>␞
+␝  <para>␟   This release contains a variety of fixes from 16.1.
+   For information about new features in major release 16, see
+   <xref linkend="release-16"/>.␟このリリースは16.1に対し、様々な不具合を修正したものです。
+16メジャーリリースにおける新機能については、<xref linkend="release-16"/>を参照してください。␞␞  </para>␞
+␝  <sect2 id="release-16-2-migration">␟   <title>Migration to Version 16.2</title>␟   <title>バージョン16.2への移行</title>␞␞␞
+␝   <para>␟    A dump/restore is not required for those running 16.X.␟16.Xからの移行ではダンプ/リストアは不要です。␞␞   </para>␞
+␝   <para>␟    However, one bug was fixed that could have resulted in corruption of
+    GIN indexes during concurrent updates.  If you suspect such
+    corruption, reindex affected indexes after installing this update.␟しかしながら、同時更新中にGINインデックスの破損を引き起こす可能性があるバグが1件修正されました。
+このような破損が疑われる場合は、この更新をインストールした後で、影響を受けるインデックスを再作成してください。␞␞   </para>␞
+␝   <para>␟    Also, if you are upgrading from a version earlier than 16.1,
+    see <xref linkend="release-16-1"/>.␟また、16.1より前のバージョンからアップグレードする場合は、<xref linkend="release-16-1"/>を参照してください。␞␞   </para>␞
+␝  <sect2 id="release-16-2-changes">␟   <title>Changes</title>␟   <title>変更点</title>␞␞␞
+␝     <para>␟      Tighten security restrictions within <command>REFRESH MATERIALIZED
+      VIEW CONCURRENTLY</command> (Heikki Linnakangas)␟<command>REFRESH MATERIALIZED VIEW CONCURRENTLY</command>内のセキュリティ制限を強化しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      One step of a concurrent refresh command was run under weak security
+      restrictions.  If a materialized view's owner could persuade a
+      superuser or other high-privileged user to perform a concurrent
+      refresh on that view, the view's owner could control code executed
+      with the privileges of the user running <command>REFRESH</command>.
+      Fix things so that all user-determined code is run as the view's
+      owner, as expected.␟同時リフレッシュコマンドの1つのステップが弱いセキュリティ制限の下で実行されていました。
+マテリアライズドビューの所有者がスーパーユーザまたは他の高い権限を持つユーザに、そのビューに対して同時リフレッシュを実行するよう説得できる場合、そのビューの所有者が<command>REFRESH</command>を実行しているユーザの権限で実行されるコードを制御できました。
+ユーザが決定したすべてのコードが、期待どおりにビューの所有者として実行されるよう修正しました。␞␞     </para>␞
+␝     <para>␟      The only known exploit for this error does not work
+      in <productname>PostgreSQL</productname> 16.0 and later, so it may
+      be that v16 is not vulnerable in practice.␟このエラーに対する唯一の既知のセキュリティ上の弱点は<productname>PostgreSQL</productname>16.0以降では動作しないため、v16は実際には脆弱ではない可能性があります。␞␞     </para>␞
+␝     <para>␟      The <productname>PostgreSQL</productname> Project thanks Pedro
+      Gallegos for reporting this problem.
+      (CVE-2024-0985) <!-- not CVE-2023-5869 as claimed in commit msg -->␟<productname>PostgreSQL</productname>プロジェクトは、本問題を報告してくれたPedro Gallegosに感謝します。
+(CVE-2024-0985)<!-- commit msgで指摘されたCVE-2023-5869ではありません。 -->␞␞     </para>␞
+␝     <para>␟      Fix memory leak when performing JIT inlining (Andres Freund,
+      Daniel Gustafsson)␟JITインライン化を実行する時のメモリリークを修正しました。
+(Andres Freund, Daniel Gustafsson)␞␞     </para>␞
+␝     <para>␟      There have been multiple reports of backend processes suffering
+      out-of-memory conditions after sufficiently many JIT compilations.
+      This fix should resolve that.␟多数のJITコンパイルの後に、バックエンドプロセスがメモリ不足の状態に陥るという複数の報告がありました。
+この修正により、この問題が解決されます。␞␞     </para>␞
+␝     <para>␟      Avoid generating incorrect partitioned-join plans (Richard Guo)␟不正なパーティション結合のプランが生成されないようにしました。
+ (Richard Guo)␞␞     </para>␞
+␝     <para>␟      Some uncommon situations involving lateral references could create
+      incorrect plans.  Affected queries could produce wrong answers, or
+      odd failures such as <quote>variable not found in subplan target
+      list</quote>, or executor crashes.␟LATERAL参照を含む一部の特殊な状況では、誤ったプランが作成される可能性がありました。
+影響を受ける問い合わせは、間違った答えを出したり、<quote>variable not found in subplan target list</quote>などの奇妙なエラーを出したり、エグゼキュータのクラッシュしたりする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix incorrect wrapping of subquery output expressions in
+      PlaceHolderVars (Tom Lane)␟PlaceHolderVars内の副問い合わせ出力式の不正なラッピングを修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      This fixes incorrect results when a subquery is underneath an outer
+      join and has an output column that laterally references something
+      outside the outer join's scope.  The output column might not appear
+      as NULL when it should do so due to the action of the outer join.␟これにより、副問い合わせが外部結合の下にあり、出力列が外部結合の範囲外にあるものをLATERAL参照している場合の不正な結果が修正されます。
+出力列は、外部結合の動作により、NULLとして表示されるはずなのにNULLとして表示されないことがありました。␞␞     </para>␞
+␝     <para>␟      Fix misprocessing of window function run conditions (Richard Guo)␟ウィンドウ関数の実行条件の誤った処理を修正しました。
+(Richard Guo)␞␞     </para>␞
+␝     <para>␟      This oversight could lead to <quote>WindowFunc not found in subplan
+      target lists</quote> errors.␟この見落としにより、<quote>WindowFunc not found in subplan target lists</quote>エラーが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix detection of inner-side uniqueness for Memoize plans
+      (Richard Guo)␟Memoizeプランの内側の一意性検出を修正しました。
+(Richard Guo)␞␞     </para>␞
+␝     <para>␟      This mistake could lead to <quote>cache entry already
+      complete</quote> errors.␟この間違いにより<quote>cache entry already complete</quote>というエラーが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix computation of nullingrels when constant-folding field selection
+      (Richard Guo)␟定数畳み込みフィールド選択時のnullingrelsの計算を修正しました。
+(Richard Guo)␞␞     </para>␞
+␝     <para>␟      Failure to do this led to errors like <quote>wrong varnullingrels
+      (b) (expected (b 3)) for Var 2/2</quote>.␟これを行わないと、<quote>wrong varnullingrels (b) (expected (b 3)) for Var 2/2</quote>のようなエラーが発生しました。␞␞     </para>␞
+␝     <para>␟      Skip inappropriate actions when <command>MERGE</command> causes a
+      cross-partition update (Dean Rasheed)␟<command>MERGE</command>によるパーティション間の更新が発生する場合に、不適切なアクションをおこなわないようにしました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      When executing a <literal>MERGE UPDATE</literal> action on a
+      partitioned table, if the <literal>UPDATE</literal> is turned into
+      a <literal>DELETE</literal> and <literal>INSERT</literal> due to
+      changing a partition key column, skip firing <literal>AFTER
+      UPDATE ROW</literal> triggers, as well as other post-update actions
+      such as RLS checks.  These actions would typically fail, which is
+      why a regular <literal>UPDATE</literal> doesn't do them in such
+      cases; <literal>MERGE</literal> shouldn't either.␟パーティションテーブルで<literal>MERGE UPDATE</literal>アクションを実行するとき、パーティションキー列の変更により<literal>UPDATE</literal>が<literal>DELETE</literal>と<literal>INSERT</literal>に変わった場合、<literal>AFTER UPDATE ROW</literal>トリガの起動や、RLSチェックなどの他のUPDATE後アクションの起動をスキップします。
+これらのアクションは通常失敗するため、通常の<literal>UPDATE</literal>ではこのような場合にこれらを行いません。
+<literal>MERGE</literal>もそうすべきではありません。␞␞     </para>␞
+␝     <para>␟      Cope with <literal>BEFORE ROW DELETE</literal> triggers in
+      cross-partition <command>MERGE</command> updates (Dean Rasheed)␟パーティションにまたがる<command>MERGE</command>の更新で<literal>BEFORE ROW DELETE</literal>トリガを処理するようにしました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      If such a trigger attempted to prevent the update by returning
+      NULL, <command>MERGE</command> would suffer an error or assertion
+      failure.␟このようなトリガがNULLを返すことで更新を阻止しようとした場合、<command>MERGE</command>はエラーかアサーションエラーを引き起こしてました。␞␞     </para>␞
+␝     <para>␟      Prevent access to a no-longer-pinned buffer in <literal>BEFORE ROW
+      UPDATE</literal> triggers (Alexander Lakhin, Tom Lane)␟<literal>BEFORE ROW UPDATE</literal>トリガで、固定されていないバッファへのアクセスを防止しました。
+(Alexander Lakhin, Tom Lane)␞␞     </para>␞
+␝     <para>␟      If the tuple being updated had just been updated and moved to
+      another page by another session, there was a narrow window where
+      we would attempt to fetch data from the new tuple version without
+      any pin on its buffer.  In principle this could result in garbage
+      data appearing in non-updated columns of the proposed new tuple.
+      The odds of problems in practice seem rather low, however.␟更新中のタプルが別のセッションによって更新されてから別のページに移動された場合、バッファ上の固定されていない新しいタプルバージョンからデータをフェッチしようとする狭い期間がありました。
+これにより、原理的には提案された新しいタプルの更新されていない列にガベージデータが表示される可能性がありました。
+しかし、実際に問題が発生する可能性はかなり低いと見られます。␞␞     </para>␞
+␝     <para>␟      Avoid requesting an oversize shared-memory area in parallel hash
+      join (Thomas Munro, Andrei Lepikhov, Alexander Korotkov)␟パラレルハッシュ結合で、サイズが大きすぎる共有メモリ領域を要求しないようにしました。
+(Thomas Munro, Andrei Lepikhov, Alexander Korotkov)␞␞     </para>␞
+␝     <para>␟      The limiting value was too large, allowing <quote>invalid DSA memory
+      alloc request size</quote> errors to occur with sufficiently large
+      expected hash table sizes.␟制限値が大きすぎるため、予想されるハッシュテーブルのサイズが十分に大きい場合に<quote>invalid DSA memory alloc request size</quote>エラーが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix corruption of local buffer state when an error occurs while
+      trying to extend a temporary table (Tender Wang)␟一時テーブルを拡張しようとしてエラーが発生する場合のローカルバッファ状態の破損を修正しました。
+(Tender Wang)␞␞     </para>␞
+␝     <para>␟      Fix use of wrong tuple slot while
+      evaluating <literal>DISTINCT</literal> aggregates that have multiple
+      arguments (David Rowley)␟複数の引数を持つ<literal>DISTINCT</literal>が指定された集約を評価する際の間違ったタプルスロットの使用を修正しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      This mistake could lead to errors such as <quote>attribute 1 of type
+      record has wrong type</quote>.␟この間違いは、<quote>attribute 1 of type record has wrong type</quote>といったエラーにつながる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid assertion failures in <function>heap_update()</function>
+      and <function>heap_delete()</function> when a tuple to be updated by
+      a foreign-key enforcement trigger fails the extra visibility
+      crosscheck (Alexander Lakhin)␟外部キー強制トリガによって更新されるタプルが追加の可視性クロスチェックに失敗した場合、<function>heap_update()</function>と<function>heap_delete()</function>でのアサーションエラーを回避します。
+(Alexander Lakhin)␞␞     </para>␞
+␝     <para>␟      This error had no impact in non-assert builds.␟このエラーは、非アサートビルドには影響しませんでした。␞␞     </para>␞
+␝     <para>␟      Fix overly tight assertion
+      about <varname>false_positive_rate</varname> parameter of
+      BRIN bloom operator classes (Alexander Lakhin)␟BRINブルーム演算子クラスの<varname>false_positive_rate</varname>パラメータに関する過度に厳密なアサーションを修正しました。
+(Alexander Lakhin)␞␞     </para>␞
+␝     <para>␟      This error had no impact in non-assert builds, either.␟このエラーは、非アサートビルドにも影響しませんでした。␞␞     </para>␞
+␝     <para>␟      Fix possible failure during <command>ALTER TABLE ADD
+      COLUMN</command> on a complex inheritance tree (Tender Wang)␟複雑な継承ツリーでの<command>ALTER TABLE ADD COLUMN</command>の際に起こりうるエラーを修正しました。
+(Tender Wang)␞␞     </para>␞
+␝     <para>␟      If a grandchild table would inherit the new column via multiple
+      intermediate parents, the command failed with <quote>tuple already
+      updated by self</quote>.␟もし、孫テーブルが複数の中間の親テーブルを介して新しい列を継承する場合、コマンドは<quote>tuple already updated by self</quote>というエラーで失敗していました。␞␞     </para>␞
+␝     <para>␟      Fix problems with duplicate token names in <command>ALTER TEXT
+      SEARCH CONFIGURATION ... MAPPING</command> commands (Tender Wang,
+      Michael Paquier)␟<command>ALTER TEXT SEARCH CONFIGURATION ... MAPPING</command>コマンドでトークン名が重複する問題を修正しました。
+(Tender Wang, Michael Paquier)␞␞     </para>␞
+␝     <para>␟      Fix <command>DROP ROLE</command> with duplicate role names
+      (Michael Paquier)␟<command>DROP ROLE</command>で重複したロール名を指定した場合について修正しました。
+(Michael Paquier)␞␞     </para>␞
+␝     <para>␟      Previously this led to a <quote>tuple already updated by
+      self</quote> failure.  Instead, ignore the duplicate.␟以前は、これにより<quote>tuple already updated by self</quote>エラーが発生していました。
+代わりに、重複を無視するようにしました。␞␞     </para>␞
+␝     <para>␟      Properly lock the associated table during <command>DROP
+      STATISTICS</command> (Tomas Vondra)␟<command>DROP STATISTICS</command>の実行中に、関連するテーブルを適切にロックするようにしました。
+(Tomas Vondra)␞␞     </para>␞
+␝     <para>␟      Failure to acquire the lock could result in <quote>tuple
+      concurrently deleted</quote> errors if the <command>DROP</command>
+      executes concurrently with <command>ANALYZE</command>.␟ロックの取得に失敗すると、<command>ANALYZE</command>と同時に<command>DROP</command>が実行された場合に<quote>tuple concurrently deleted</quote>エラーが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix function volatility checking for <literal>GENERATED</literal>
+      and <literal>DEFAULT</literal> expressions (Tom Lane)␟<literal>GENERATED</literal>式と<literal>DEFAULT</literal>式での関数の揮発性検査を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      These places could fail to detect insertion of a volatile function
+      default-argument expression, or decide that a polymorphic function
+      is volatile although it is actually immutable on the datatype of
+      interest.  This could lead to improperly rejecting or accepting
+      a <literal>GENERATED</literal> clause, or to mistakenly applying the
+      constant-default-value optimization in <command>ALTER TABLE ADD
+      COLUMN</command>.␟これらの場所では、デフォルト引数式への揮発性関数の挿入を検出できなかったり、多様関数が実際には対象のデータ型では不変であるにもかかわらず揮発性であると判断したりする可能性がありました。
+これにより、<literal>GENERATED</literal>句を不適切に拒否または受け入れたり、<command>ALTER TABLE ADD COLUMN</command>の定数デフォルト値の最適化が誤って適用されたりする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Detect that a new catalog cache entry became stale while detoasting
+      its fields (Tom Lane)␟フィールドをTOASTから展開する時に新しいカタログキャッシュエントリが古くなったことを検出します。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      We expand any out-of-line fields in a catalog tuple before inserting
+      it into the catalog caches.  That involves database access which
+      might cause invalidation of catalog cache entries &mdash; but the
+      new entry isn't in the cache yet, so we would miss noticing that it
+      should get invalidated.  The result is a race condition in which an
+      already-stale cache entry could get made, and then persist
+      indefinitely.  This would lead to hard-to-predict misbehavior.
+      Fix by rechecking the tuple's visibility after detoasting.␟カタログキャッシュに挿入する前に、カタログタプル内の任意の行外フィールドを展開します。
+これは、カタログキャッシュエントリが無効になる可能性があるデータベースアクセスを伴いますが、新しいエントリはまだキャッシュにないので、無効化すべき必要があることに気づかないでしょう。
+その結果、既に古いキャッシュエントリが作成され、永続化されるかもしれない競合状態が発生します。
+これは、予測が困難な誤動作を引き起こすことになります。
+TOAST展開後にタプルの可視性を再確認することで修正します。␞␞     </para>␞
+␝     <para>␟      Fix edge-case integer overflow detection bug on some platforms (Dean
+      Rasheed)␟一部のプラットフォームでのエッジケースの整数オーバーフロー検出不具合を修正しました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      Computing <literal>0 - INT64_MIN</literal> should result in an
+      overflow error, and did on most platforms.  However, platforms with
+      neither integer overflow builtins nor 128-bit integers would fail to
+      spot the overflow, instead returning <literal>INT64_MIN</literal>.␟<literal>0 - INT64_MIN</literal>の計算はオーバーフローエラーとなるべきで、ほとんどのプラットフォームではそのようになっていました。
+しかし、組み込みの整数オーバーフローも128ビット整数もないプラットフォームでは、オーバーフローを検出できず、代わりに<literal>INT64_MIN</literal>を返していました。␞␞     </para>␞
+␝     <para>␟      Detect Julian-date overflow when adding or subtracting
+      an <type>interval</type> to/from a <type>timestamp</type> (Tom Lane)␟<type>timestamp</type>型に<type>interval</type>型を加算または減算するときに、ユリウス日付のオーバーフローを検出します。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Some cases that should cause an out-of-range error produced an
+      incorrect result instead.␟範囲外エラーが発生するはずのいくつかのケースで、代わりに誤った結果が生成されていました。␞␞     </para>␞
+␝     <para>␟      Add more checks for overflow in <function>interval_mul()</function>
+      and <function>interval_div()</function> (Dean Rasheed)␟<function>interval_mul()</function>と<function>interval_div()</function>でオーバーフローの検査をさらに追加しました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      Some cases that should cause an out-of-range error produced an
+      incorrect result instead.␟範囲外エラーが発生するはずのいくつかのケースで、誤った結果が生成されていました。␞␞     </para>␞
+␝     <para>␟      Allow <function>scram_SaltedPassword()</function> to be interrupted
+      (Bowen Shi)␟<function>scram_SaltedPassword()</function>関数を割り込み可能にしました。
+(Bowen Shi)␞␞     </para>␞
+␝     <para>␟      With large <varname>scram_iterations</varname> values, this function
+      could take a long time to run.  Allow it to be interrupted by query
+      cancel requests.␟大きな<varname>scram_iterations</varname>の値では、この関数の実行に長い時間がかかる可能性がありました。
+問い合わせのキャンセル要求によって中断できるようにしました。␞␞     </para>␞
+␝     <para>␟      Ensure cached statistics are discarded after a change
+      to <varname>stats_fetch_consistency</varname> (Shinya Kato)␟<varname>stats_fetch_consistency</varname>の変更後にキャッシュされた統計情報を破棄するようにしました。
+(Shinya Kato)␞␞     </para>␞
+␝     <para>␟      In some code paths, it was possible for stale statistics to be
+      returned.␟一部のコードパスで、古い統計情報が返される可能性がありました。␞␞     </para>␞
+␝     <para>␟      Make the <structname>pg_file_settings</structname> view check
+      validity of unapplied values for settings
+      with <literal>backend</literal>
+      or <literal>superuser-backend</literal> context (Tom Lane)␟<structname>pg_file_settings</structname>ビューで、<literal>backend</literal>または<literal>superuser-backend</literal>コンテキストの設定に対して、未適用の値の有効性を検査するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Invalid values were not noted in the view as intended.  This escaped
+      detection because there are very few settings in these groups.␟無効な値は意図したようにビューに記録されませんでした。
+これらのグループには設定がほとんどないため、この問題は検出されませんでした。␞␞     </para>␞
+␝     <para>␟      Match collation too when matching an existing index to a new
+      partitioned index (Peter Eisentraut)␟既存のインデックスを新しいパーティションインデックスと一致させる場合に、照合順序も一致させます。
+(Peter Eisentraut)␞␞     </para>␞
+␝     <para>␟      Previously we could accept an index that has a different collation
+      from the corresponding element of the partition key, possibly
+      leading to misbehavior.␟以前は、パーティションキーの対応する要素と異なる照合順序を持つインデックスを受け入れることができ、誤動作につながる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid failure if a child index is dropped concurrently
+      with <command>REINDEX INDEX</command> on a partitioned index
+      (Fei Changhong)␟パーティションインデックスに対する<command>REINDEX INDEX</command>で、子インデックスが同時に削除された場合のエラーを回避します。
+(Fei Changhong)␞␞     </para>␞
+␝     <para>␟      Fix insufficient locking when cleaning up an incomplete split of
+      a GIN index's internal page (Fei Changhong, Heikki Linnakangas)␟GINインデックスの内部ページの不完全な分割をクリーンアップする際の不十分なロックを修正しました。
+(Fei Changhong, Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      The code tried to do this with shared rather than exclusive lock on
+      the buffer.  This could lead to index corruption if two processes
+      attempted the cleanup concurrently.␟このコードは、バッファの排他ロックではなく共有ロックを使用してこれを行おうとしました。
+このため、2 つのプロセスが同時にクリーンアップを試みた場合に、インデックスが壊れる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid premature release of buffer pin in GIN index insertion
+      (Tom Lane)␟GINインデックスの挿入におけるバッファピンの早期解放を回避しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If an index root page split occurs concurrently with our own
+      insertion, the code could fail with <quote>buffer NNNN is not owned
+      by resource owner</quote>.␟インデックスのルートページの分割が、自身の挿入と同時に起こった場合、コードは<quote>buffer NNNN is not owned by resource owner</quote>で失敗する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid failure with partitioned SP-GiST indexes (Tom Lane)␟パーティションテーブルに対するSP-GiSTインデックスのエラーを回避しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Trying to use an index of this kind could lead to <quote>No such
+      file or directory</quote> errors.␟この種のインデックスを使用しようとすると、<quote>No such file or directory</quote>エラーが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix ownership tests for large objects (Tom Lane)␟ラージオブジェクトの所有者検査を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Operations on large objects that require ownership privilege failed
+      with <quote>unrecognized class ID: 2613</quote>, unless run by a
+      superuser.␟所有者権限を必要とするラージオブジェクト操作は、スーパーユーザによって実行されない限り、<quote>unrecognized class ID: 2613</quote>で失敗していました。␞␞     </para>␞
+␝     <para>␟      Fix ownership change reporting for large objects (Tom Lane)␟ラージオブジェクトの所有者変更の報告を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      A no-op <command>ALTER LARGE OBJECT OWNER</command> command (that
+      is, one selecting the existing owner) passed the wrong class ID to
+      the <varname>PostAlterHook</varname>, probably confusing any
+      extension using that hook.␟何も実行されない<command>ALTER LARGE OBJECT OWNER</command>コマンド（すなわち、既存の所有者を選択するコマンド）は、間違ったクラスIDを<varname>PostAlterHook</varname>に渡したため、そのフックを使用する拡張機能を混乱する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix reporting of I/O timing data in <literal>EXPLAIN
+      (BUFFERS)</literal> (Michael Paquier)␟<literal>EXPLAIN (BUFFERS)</literal>でのI/Oタイミングデータの報告を修正しました。
+(Michael Paquier)␞␞     </para>␞
+␝     <para>␟      The numbers labeled as <quote>shared/local</quote> actually refer
+      only to shared buffers, so change that label
+      to <quote>shared</quote>.␟<quote>shared/local</quote>とラベル付けされた数値は実際には共有バッファのみを参照するため、ラベルを<quote>shared</quote>に変更しました。␞␞     </para>␞
+␝     <para>␟      Ensure durability of <command>CREATE DATABASE</command> (Noah Misch)␟<command>CREATE DATABASE</command>の耐久性を保証します。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      If an operating system crash occurred during or shortly
+      after <command>CREATE DATABASE</command>, recovery could fail, or
+      subsequent connections to the new database could fail.  If a base
+      backup was taken in that window, similar problems could be observed
+      when trying to use the backup.  The symptom would be that the
+      database directory, <filename>PG_VERSION</filename> file, or
+      <filename>pg_filenode.map</filename> file was missing or empty.␟<command>CREATE DATABASE</command>の実行中またはその直後にオペレーティングシステムのクラッシュが発生した場合、リカバリが失敗したり、新しいデータベースへの後続の接続が失敗したりする可能性がありました。
+その時間帯にベースバックアップが取られた場合、バックアップを使用しようとすると同様の問題が発生する可能性がありました。
+症状は、データベースディレクトリ、<filename>PG_VERSION</filename>ファイル、または<filename>pg_filenode.map</filename>ファイルが存在しないか、空であることでした。␞␞     </para>␞
+␝     <para>␟      Add more <literal>LOG</literal> messages when starting and ending
+      recovery from a backup (Andres Freund)␟バックアップからのリカバリ開始時と終了時に、<literal>LOG</literal>メッセージをより多く出すようにしました。
+(Andres Freund)␞␞     </para>␞
+␝     <para>␟      This change provides additional information in the postmaster log
+      that may be useful for diagnosing recovery problems.␟この変更により、リカバリの問題の診断に役立つ追加情報がpostmasterログに提供されます。␞␞     </para>␞
+␝     <para>␟      Prevent standby servers from incorrectly processing dead index
+      tuples during subtransactions (Fei Changhong)␟スタンバイサーバがサブトランザクション中にデッドインデックスタプルを誤って処理しないようにしました。
+(Fei Changhong)␞␞     </para>␞
+␝     <para>␟      The <structfield>startedInRecovery</structfield> flag was not
+      correctly set for a subtransaction.  This affects only processing of
+      dead index tuples.  It could allow a query in a subtransaction to
+      ignore index entries that it should return (if they are already dead
+      on the primary server, but not dead to the standby transaction), or
+      to prematurely mark index entries as dead that are not yet dead on
+      the primary.  It is not clear that the latter case has any serious
+      consequences, but it's not the intended behavior.␟サブトランザクションの<structfield>startedInRecovery</structfield>フラグが正しく設定されていませんでした。
+これは、デッドインデックスタプルの処理にのみ影響します。
+これにより、サブトランザクション内の問い合わせが、返すべきインデックスエントリを無視したり（プライマリサーバでは既にデッドになっているが、スタンバイトランザクションではまだデッドになっていない場合）、プライマリでまだデッドになっていないインデックスエントリを早まってデッドとマークしたりする可能性がありました。
+後者の場合に重大な結果が生じるかどうかは明らかではないが、意図された動作ではありません。␞␞     </para>␞
+␝     <para>␟      Fix signal handling in walreceiver processes (Heikki Linnakangas)␟walreceiverプロセスのシグナル処理を修正しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      Revert a change that made walreceivers non-responsive
+      to <systemitem>SIGTERM</systemitem> while waiting for the
+      replication connection to be established.␟レプリケーション接続確立の待機中に、walreceiversが<systemitem>SIGTERM</systemitem>に応答しないようにする変更を元に戻しました。␞␞     </para>␞
+␝     <para>␟      Fix integer overflow hazard in checking whether a record will fit
+      into the WAL decoding buffer (Thomas Munro)␟レコードがWALデコードバッファに収まるかどうかの検査での整数オーバーフローの危険性を修正しました。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      This bug appears to be only latent except when running a
+      32-bit <productname>PostgreSQL</productname> build on a 64-bit
+      platform.␟この不具合は、64ビットプラットフォーム上で32ビット<productname>PostgreSQL</productname>ビルドを実行する場合を除き、潜在的なものにすぎないようです。␞␞     </para>␞
+␝     <para>␟      Fix deadlock between a logical replication apply worker, its
+      tablesync worker, and a session process trying to alter the
+      subscription (Shlok Kyal)␟論理レプリケーション適用ワーカー、そのテーブル同期ワーカー、およびサブスクリプションを変更しようとするセッションプロセス間のデッドロックを修正しました。
+(Shlok Kyal)␞␞     </para>␞
+␝     <para>␟      One edge of the deadlock loop did not involve a lock wait, so the
+      deadlock went undetected and would persist until manual
+      intervention.␟デッドロック・ループの一方のエッジにはロック待機が含まれていなかったため、デッドロックは検出されず、手動で介入するまで持続しました。␞␞     </para>␞
+␝     <para>␟      Ensure that column default values are correctly transmitted by
+      the <application>pgoutput</application> logical replication plugin
+      (Nikhil Benesch)␟<application>pgoutput</application>論理レプリケーションプラグインによって列のデフォルト値が正しく転送されるようにしました。
+(Nikhil Benesch)␞␞     </para>␞
+␝     <para>␟      <command>ALTER TABLE ADD COLUMN</command> with a constant default
+      value for the new column avoids rewriting existing tuples, instead
+      expecting that reading code will insert the correct default into a
+      tuple that lacks that column.  If replication was subsequently
+      initiated on the table, <application>pgoutput</application> would
+      transmit NULL instead of the correct default for such a column,
+      causing incorrect replication on the subscriber.␟新しい列にデフォルトの定数値を持つ<command>ALTER TABLE ADD COLUMN</command>は、既存のタプルの書き換えを回避し、代わりに読み取りコードがその列を欠いたタプルに正しいデフォルトを挿入することを期待していました。
+その後、テーブルでレプリケーションが開始された場合、<application>pgoutput</application>はそのような列の正しいデフォルトの代わりにNULLを送信したため、サブスクライバーで誤ったレプリケーションを引き起こしていました。␞␞     </para>␞
+␝     <para>␟      Fix failure of logical replication's initial sync for a table with
+      no columns (Vignesh C)␟列のないテーブルに対する論理レプリケーションの初期同期の失敗を修正しました。
+(Vignesh C)␞␞     </para>␞
+␝     <para>␟      This case generated an improperly-formatted <command>COPY</command>
+      command.␟このケースでは、不適切な形式の<command>COPY</command>コマンドが生成されていました。␞␞     </para>␞
+␝     <para>␟      Re-validate a subscription's connection string before use (Vignesh C)␟使用前にサブスクリプションの接続文字列を再検証します。
+(Vignesh C)␞␞     </para>␞
+␝     <para>␟      This is meant to detect cases where a subscription was created
+      without a password (which is allowed to superusers) but then the
+      subscription owner is changed to a non-superuser.␟これは、パスワードなしでサブスクリプションが作成された（スーパーユーザに許可されている）が、その後、サブスクリプションの所有者がスーパーユーザ以外に変更された場合を検出することを目的にしています。␞␞     </para>␞
+␝     <para>␟      Return the correct status code when a new client disconnects without
+      responding to the server's password challenge (Liu Lang, Tom Lane)␟新しいクライアントがサーバのパスワードチャレンジに応答せずに接続を切断した場合に正しいステータスコードを返すようにしました。
+(Liu Lang, Tom Lane)␞␞     </para>␞
+␝     <para>␟      In some cases we'd treat this as a loggable error, which was not the
+      intention and tends to create log spam, since common clients
+      like <application>psql</application> frequently do this.  It may
+      also confuse extensions that
+      use <varname>ClientAuthentication_hook</varname>.␟場合によっては、これをログに記録可能なエラーとして処理しますが、これは意図したものではなく、<application>psql</application>のような一般的なクライアントが頻繁に行うため、ログスパムを生成する傾向がありました。
+また、<varname>ClientAuthentication_hook</varname>を使用する拡張も混乱させる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix incompatibility with <application>OpenSSL</application> 3.2
+      (Tristan Partin, Bo Andreson)␟<application>OpenSSL</application> 3.2との非互換性を修正しました。
+(Tristan Partin, Bo Andreson)␞␞     </para>␞
+␝     <para>␟      Use the BIO <quote>app_data</quote> field for our private storage,
+      instead of assuming it's okay to use the <quote>data</quote> field.
+      This mistake didn't cause problems before, but with 3.2 it leads
+      to crashes and complaints about double frees.␟<quote>data</quote>フィールドを使用しても問題ないと仮定するのではなく、プライベートストレージにBIOの<quote>app_data</quote>フィールドを使用します。
+この間違いは以前は問題を引き起こさなかったが、3.2ではクラッシュや二重解放に関するエラーを引き起こしていました。␞␞     </para>␞
+␝     <para>␟      Be more wary about <application>OpenSSL</application> not
+      setting <varname>errno</varname> on error (Tom Lane)␟<application>OpenSSL</application>がエラー時に<varname>errno</varname>を設定しないことについて、より注意するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      If <varname>errno</varname> isn't set, assume the cause of the
+      reported failure is read EOF.  This fixes rare cases of strange
+      error reports like <quote>could not accept SSL connection:
+      Success</quote>.␟<varname>errno</varname>が設定されていない場合、報告された失敗の原因はEOFの読み込みであると想定していました。
+これにより、<quote>could not accept SSL connection: Success</quote>のような奇妙なエラーレポートの稀なケースが修正されます。␞␞     </para>␞
+␝     <para>␟      Fix file descriptor leakage when a foreign data
+      wrapper's <function>ForeignAsyncRequest</function> function fails
+      (Heikki Linnakangas)␟外部データラッパーの<function>ForeignAsyncRequest</function>関数が失敗したときのファイル記述子のリークを修正しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      Fix minor memory leak in connection string validation
+      for <command>CREATE SUBSCRIPTION</command> (Jeff Davis)␟<command>CREATE SUBSCRIPTION</command>の接続文字列検証における軽微なメモリリークを修正しました。
+(Jeff Davis)␞␞     </para>␞
+␝     <para>␟      Report <systemitem>ENOMEM</systemitem> errors from file-related system
+      calls as <literal>ERRCODE_OUT_OF_MEMORY</literal>,
+      not <literal>ERRCODE_INTERNAL_ERROR</literal> (Alexander Kuzmenkov)␟ファイル関連のシステムコールによる<systemitem>ENOMEM</systemitem>エラーを<literal>ERRCODE_INTERNAL_ERROR</literal>ではなく<literal>ERRCODE_OUT_OF_MEMORY</literal>として報告するようにしました。
+(Alexander Kuzmenkov)␞␞     </para>␞
+␝     <para>␟      In <application>PL/pgSQL</application>, support SQL commands that
+      are <command>CREATE FUNCTION</command>/<command>CREATE
+      PROCEDURE</command> with SQL-standard bodies (Tom Lane)␟<application>PL/pgSQL</application>で、標準SQL本体を持つ<command>CREATE FUNCTION</command>/<command>CREATE PROCEDURE</command>をサポートしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Previously, such cases failed with parsing errors due to the
+      semicolon(s) appearing in the function body.␟以前は、関数本体にセミコロンがあるため、このようなケースは解析エラーで失敗していました。␞␞     </para>␞
+␝     <para>␟      Fix <application>libpq</application>'s
+      handling of errors in pipelines (&Aacute;lvaro Herrera)␟パイプライン内の<application>libpq</application>のエラー処理を修正しました。
+(&Aacute;lvaro Herrera)␞␞     </para>␞
+␝     <para>␟      The pipeline state could get out of sync if an error is returned
+      for reasons other than a query problem (for example, if the
+      connection is lost).  Potentially this would lead to a busy-loop in
+      the calling application.␟問い合わせの問題以外の理由でエラーが返された場合（たとえば、接続が失われた場合）、パイプラインの状態が同期しなくなる可能性があります。
+これにより、呼び出し側アプリケーションでビジーループが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Make <application>libpq</application>'s
+      <function>PQsendFlushRequest()</function> function flush the client
+      output buffer under the same rules as
+      other <literal>PQsend</literal> functions (Jelte Fennema-Nio)␟<application>libpq</application>の<function>PQsendFlushRequest()</function>関数を、他の<literal>PQsend</literal>関数と同じ規則に従って、クライアント出力バッファをフラッシュするようにしました。
+(Jelte Fennema-Nio)␞␞     </para>␞
+␝     <para>␟      In pipeline mode, it may still be necessary to
+      call <function>PQflush()</function> as well; but this change removes
+      some inconsistency.␟パイプラインモードでは、引き続き<function>PQflush()</function>を呼び出す必要がある場合がありますが、この変更により、一部の不整合が解消されます。␞␞     </para>␞
+␝     <para>␟      Avoid race condition when <application>libpq</application>
+      initializes OpenSSL support concurrently in two different threads
+      (Willi Mann, Michael Paquier)␟<application>libpq</application>が2つの異なるスレッドでOpenSSLサポートを同時に初期化する場合の競合状態を回避します。
+(Willi Mann, Michael Paquier)␞␞     </para>␞
+␝     <para>␟      Fix timing-dependent failure in GSSAPI data transmission (Tom Lane)␟GSSAPIデータ送信におけるタイミング依存の障害を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      When using GSSAPI encryption in non-blocking
+      mode, <application>libpq</application> sometimes failed
+      with <quote>GSSAPI caller failed to retransmit all data needing to
+      be retried</quote>.␟非ブロッキングモードでGSSAPI暗号化を使用すると、<application>libpq</application>が<quote>GSSAPI caller failed to retransmit all data needing to be retried</quote>というエラーを返すことがありました。␞␞     </para>␞
+␝     <para>␟      Change <application>initdb</application> to always un-comment
+      the <filename>postgresql.conf</filename> entries for
+      the <literal>lc_<replaceable>xxx</replaceable></literal> parameters
+      (Kyotaro Horiguchi)␟<filename>postgresql.conf</filename>の<literal>lc_<replaceable>xxx</replaceable></literal>パラメータのエントリを常にコメント解除するよう<application>initdb</application>を変更しました。
+(Kyotaro Horiguchi)␞␞     </para>␞
+␝     <para>␟      <application>initdb</application> used to work this way before v16,
+      and now it does again.  The change
+      caused <application>initdb</application>'s <option>--no-locale</option>
+      option to not have the intended effect
+      on <varname>lc_messages</varname>.␟<application>initdb</application>はv16より前はこの方法で動作していましたが、現在は再びこの方法で動作するようになりました。
+以前の変更により、<application>initdb</application>の<option>--no-locale</option>オプションが<varname>lc_messages</varname>に意図した効果を及ぼさなくなっていました。␞␞     </para>␞
+␝     <para>␟      In <application>pg_dump</application>, don't dump RLS policies or
+      security labels for extension member objects (Tom Lane, Jacob
+      Champion)␟<application>pg_dump</application>では、拡張メンバオブジェクトのRLSポリシーやセキュリティラベルをダンプしません。
+(Tom Lane, Jacob Champion)␞␞     </para>␞
+␝     <para>␟      Previously, commands would be included in the dump to set these
+      properties, which is really incorrect since they should be
+      considered as internal affairs of the extension.  Moreover, the
+      restoring user might not have adequate privilege to set them, and
+      indeed the dumping user might not have enough privilege to dump them
+      (since dumping RLS policies requires acquiring lock on their table).␟以前は、これらのプロパティを設定するためのコマンドがダンプに含まれていましたが、これらは拡張の内部的な問題と考えるべきでまったく正しくありませんでした。
+さらに、復元するユーザにはそれらを設定するための十分な権限がない可能性があり、ダンプするユーザにはそれらをダンプするための十分な権限が可能性があります（RLSポリシーのダンプには、それらのテーブルのロックを取得する必要があるため）。␞␞     </para>␞
+␝     <para>␟      In <application>pg_dump</application>, don't dump an extended
+      statistics object if its underlying table isn't being dumped
+      (Rian McGuire, Tom Lane)␟<application>pg_dump</application>では、その元となるテーブルがダンプされていない場合、拡張統計オブジェクトをダンプしません。
+(Rian McGuire, Tom Lane)␞␞     </para>␞
+␝     <para>␟      This conforms to the behavior for other dependent objects such as
+      indexes.␟これは、インデックスなどの他の依存オブジェクトの動作に準拠します。␞␞     </para>␞
+␝     <para>␟      Properly detect out-of-memory in one code path
+      in <application>pg_dump</application> (Daniel Gustafsson)␟<application>pg_dump</application>の1つのコードパスでメモリ不足を適切に検出します。
+(Daniel Gustafsson)␞␞     </para>␞
+␝     <para>␟      Make it an error for a <application>pgbench</application> script to
+      end with an open pipeline (Anthonin Bonnefoy)␟<application>pgbench</application>スクリプトが開いたままのパイプラインで終了することをエラーにします。
+(Anthonin Bonnefoy)␞␞     </para>␞
+␝     <para>␟      Previously, <application>pgbench</application> would behave oddly if
+      a <command>\startpipeline</command> command lacked a
+      matching <command>\endpipeline</command>.  This seems like a
+      scripting mistake rather than a case
+      that <application>pgbench</application> needs to handle nicely, so
+      throw an error.␟以前は、<command>\startpipeline</command>コマンドに対応する<command>\endpipeline</command>がない場合、<application>pgbench</application>は奇妙な動作をしていました。
+これは<application>pgbench</application>が適切に処理する必要があるエラーではなく、スクリプトの間違いのようなのでエラーを投げるようにしました。␞␞     </para>␞
+␝     <para>␟      Fix crash in <filename>contrib/intarray</filename> if an array with
+      an element equal to <literal>INT_MAX</literal> is inserted into
+      a <literal>gist__int_ops</literal> index
+      (Alexander Lakhin, Tom Lane)␟<literal>INT_MAX</literal>と等しい要素を持つ配列が<literal>gist__int_ops</literal>インデックスに挿入された場合に発生する<filename>contrib/intarray</filename>のクラッシュを修正しました。
+(Alexander Lakhin, Tom Lane)␞␞     </para>␞
+␝     <para>␟      Report a better error
+      when <filename>contrib/pageinspect</filename>'s
+      <function>hash_bitmap_info()</function> function is applied to a
+      partitioned hash index (Alexander Lakhin, Michael Paquier)␟<filename>contrib/pageinspect</filename>の<function>hash_bitmap_info()</function>関数をパーティション化されたハッシュインデックスに適用した場合に、より適切なエラーを報告するようにしました。
+(Alexander Lakhin, Michael Paquier)␞␞     </para>␞
+␝     <para>␟      Report a better error
+      when <filename>contrib/pgstattuple</filename>'s
+      <function>pgstathashindex()</function> function is applied to a
+      partitioned hash index (Alexander Lakhin)␟<filename>contrib/pgstattuple</filename>の<function>pgstathashindex()</function>関数をパーティション化されたハッシュインデックスに適用した場合に、より適切なエラーを報告するようにしました。
+(Alexander Lakhin)␞␞     </para>␞
+␝     <para>␟      On Windows, suppress autorun options when launching subprocesses
+      in <application>pg_ctl</application>
+      and <application>pg_regress</application> (Kyotaro Horiguchi)␟Windowsでは、<application>pg_ctl</application>と<application>pg_regress</application>でサブプロセスを起動する際に自動起動オプションを抑制します。
+(Kyotaro Horiguchi)␞␞     </para>␞
+␝     <para>␟      When launching a child process via <filename>cmd.exe</filename>,
+      pass the <option>/D</option> flag to prevent executing any autorun
+      commands specified in the registry.  This avoids possibly-surprising
+      side effects.␟<filename>cmd.exe</filename>経由で子プロセスを起動する場合、<option>/D</option>フラグを渡して、レジストリで指定された自動実行コマンドの実行を防ぎます。
+これにより、予期しない副作用が回避できます。␞␞     </para>␞
+␝     <para>␟      Move <function>is_valid_ascii()</function>
+      from <filename>mb/pg_wchar.h</filename>
+      to <filename>utils/ascii.h</filename> (Jubilee Young)␟<function>is_valid_ascii()</function>を<filename>mb/pg_wchar.h</filename>から<filename>utils/ascii.h</filename>に移動しました。
+(Jubilee Young)␞␞     </para>␞
+␝     <para>␟      This change avoids the need to
+      include <filename>&lt;simd.h&gt;</filename>
+      in <filename>pg_wchar.h</filename>, which was causing problems for
+      some third-party code.␟この変更により、一部のサードパーティコードで問題を引き起こしていた<filename>&lt;simd.h&gt;</filename>を<filename>pg_wchar.h</filename>に含める必要がなくなりました。␞␞     </para>␞
+␝     <para>␟      Fix compilation failures with <application>libxml2</application>
+      version 2.12.0 and later (Tom Lane)␟<application>libxml2</application>バージョン2.12.0以降でのコンパイル失敗を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Fix compilation failure of <literal>WAL_DEBUG</literal> code on
+      Windows (Bharath Rupireddy)␟Windowsでの<literal>WAL_DEBUG</literal>コードのコンパイル失敗を修正しました。
+(Bharath Rupireddy)␞␞     </para>␞
+␝     <para>␟      Suppress compiler warnings from Python's header files
+      (Peter Eisentraut, Tom Lane)␟Python のヘッダファイルからのコンパイラ警告を抑制します。
+(Peter Eisentraut, Tom Lane)␞␞     </para>␞
+␝     <para>␟      Our preferred compiler options provoke warnings about constructs
+      appearing in recent versions of Python's header files.  When using
+      <application>gcc</application>, we can suppress these warnings with
+      a pragma.␟私たちが推奨するコンパイラオプションは、最新バージョンのPythonのヘッダファイルに現れる構造体について警告を発します。
+<application>gcc</application>を使用する場合、プラグマでこれらの警告を抑制できます。␞␞     </para>␞
+␝     <para>␟      Avoid deprecation warning when compiling with LLVM 18 (Thomas Munro)␟LLVM 18でのコンパイル時の非推奨警告を回避します。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      Update time zone data files to <application>tzdata</application>
+      release 2024a for DST law changes in Greenland, Kazakhstan, and
+      Palestine, plus corrections for the Antarctic stations Casey and
+      Vostok.  Also historical corrections for Vietnam, Toronto, and
+      Miquelon.␟タイムゾーンデータファイルをグリーンランド、カザフスタン、パレスチナでの夏時間法の変更に加え、南極観測点のケイシーとヴォストークを修正した<application>tzdata</application>リリース2024aに更新しました。
+また、ベトナム、トロント、ミクロン島の歴史的修正も行われています。␞␞     </para>␞
+␝ <sect1 id="release-16-1">␟  <title>Release 16.1</title>␟  <title>リリース16.1</title>␞␞␞
+␝  <formalpara>␟  <title>Release date:</title>␟  <title>リリース日:</title>␞␞  <para>2023-11-09</para>␞
+␝  <para>␟   This release contains a variety of fixes from 16.0.
+   For information about new features in major release 16, see
+   <xref linkend="release-16"/>.␟このリリースは16.0に対し、様々な不具合を修正したものです。
+16メジャーリリースにおける新機能については、<xref linkend="release-16"/>を参照してください。␞␞  </para>␞
+␝  <sect2 id="release-16-1-migration">␟   <title>Migration to Version 16.1</title>␟   <title>バージョン16.1への移行</title>␞␞␞
+␝   <para>␟    A dump/restore is not required for those running 16.X.␟16.Xからの移行ではダンプ/リストアは不要です。␞␞   </para>␞
+␝   <para>␟    However, several mistakes have been discovered that could lead to
+    certain types of indexes yielding wrong search results or being
+    unnecessarily inefficient.  It is advisable
+    to <command>REINDEX</command> potentially-affected indexes after
+    installing this update.  See the fourth through seventh changelog
+    entries below.␟しかし、特定の種類のインデックスで間違った検索結果を生成したり、不必要に非効率的になる可能性があるいくつかの間違いが発見されています。
+この更新をインストールした後、影響を受ける可能性のあるインデックスに対して<command>REINDEX</command>コマンドの実行をお勧めします。
+以下の4番目から7番目の変更ログエントリを参照してください。␞␞   </para>␞
+␝  <sect2 id="release-16-1-changes">␟   <title>Changes</title>␟   <title>変更点</title>␞␞␞
+␝     <para>␟      Fix handling of unknown-type arguments
+      in <literal>DISTINCT</literal> <type>"any"</type> aggregate
+      functions (Tom Lane)␟<literal>DISTINCT</literal>を付けた<type>"any"</type>型の引数を取る集約関数の不明なデータ型引数の処理を修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      This error led to a <type>text</type>-type value being interpreted
+      as an <type>unknown</type>-type value (that is, a zero-terminated
+      string) at runtime.  This could result in disclosure of server
+      memory following the <type>text</type> value.␟このエラーにより、実行時に<type>text</type>型の値が<type>unknown</type>型の値（つまり、ゼロ終端文字列）として解釈されました。
+その結果、<type>text</type>型値の後ろのサーバメモリが公開される可能性がありました。␞␞     </para>␞
+␝     <para>␟      The <productname>PostgreSQL</productname> Project thanks Jingzhou Fu
+      for reporting this problem.
+      (CVE-2023-5868)␟<productname>PostgreSQL</productname>プロジェクトは、本問題を報告してくれたJingzhou Fu氏に感謝します。
+(CVE-2023-5868)␞␞     </para>␞
+␝     <para>␟      Detect integer overflow while computing new array dimensions
+      (Tom Lane)␟新しい配列の次元を計算するときに整数オーバーフローを検出します。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      When assigning new elements to array subscripts that are outside the
+      current array bounds, an undetected integer overflow could occur in
+      edge cases.  Memory stomps that are potentially exploitable for
+      arbitrary code execution are possible, and so is disclosure of
+      server memory.␟現在の配列の境界外にある配列添字に新しい要素を割り当てると、エッジケースで検出されない整数オーバーフローが発生する可能性がありました。
+任意のコード実行に悪用される可能性のあるメモリ上書きや、サーバメモリの漏洩も可能でした。␞␞     </para>␞
+␝     <para>␟      The <productname>PostgreSQL</productname> Project thanks Pedro
+      Gallegos for reporting this problem.
+      (CVE-2023-5869)␟<productname>PostgreSQL</productname>プロジェクトは、本問題を報告してくれたPedro Gallegosに感謝します。
+(CVE-2023-5869)␞␞     </para>␞
+␝     <para>␟      Prevent the <literal>pg_signal_backend</literal> role from
+      signalling background workers and autovacuum processes
+      (Noah Misch, Jelte Fennema-Nio)␟<literal>pg_signal_backend</literal>ロールがバックグラウンドワーカーと自動バキュームプロセスにシグナルを送信しないようにします。
+(Noah Misch, Jelte Fennema-Nio)␞␞     </para>␞
+␝     <para>␟      The documentation says that <literal>pg_signal_backend</literal>
+      cannot issue signals to superuser-owned processes.  It was able to
+      signal these background processes, though, because they advertise a
+      role OID of zero.  Treat that as indicating superuser ownership.
+      The security implications of cancelling one of these process types
+      are fairly small so far as the core code goes (we'll just start
+      another one), but extensions might add background workers that are
+      more vulnerable.␟ドキュメントには、<literal>pg_signal_backend</literal>はスーパーユーザ所有のプロセスにシグナルを発行できないと書かれています。
+しかし、これらのバックグラウンドプロセスロールはOIDをゼロと自称していたので、シグナルを送信できました。
+これをスーパーユーザ所有のプロセスとして扱うようにしました。
+これらのプロセスタイプの1つを取り消すことによるセキュリティへの影響は、コアコードに関する限りかなり小さいですが（別のプロセスを開始するだけです）、拡張ではより脆弱なバックグラウンドワーカーが追加される可能性があります。␞␞     </para>␞
+␝     <para>␟      Also ensure that the <varname>is_superuser</varname> parameter is
+      set correctly in such processes.  No specific security consequences
+      are known for that oversight, but it might be significant for some
+      extensions.␟また、そのようなプロセスでは<varname>is_superuser</varname>パラメータが正しく設定されていることを確認するようにしました。
+この見落としによるセキュリティ上の具体的な影響は不明ですが、一部の拡張では重大な影響があるかもしれません。␞␞     </para>␞
+␝     <para>␟      The <productname>PostgreSQL</productname> Project thanks
+      Hemanth Sandrana and Mahendrakar Srinivasarao
+      for reporting this problem.
+      (CVE-2023-5870)␟<productname>PostgreSQL</productname>プロジェクトは、本問題を報告してくれたHemanth SandranaとMahendrakar Srinivasaraoに感謝します。
+(CVE-2023-5870)␞␞     </para>␞
+␝     <para>␟      Fix misbehavior during recursive page split in GiST index build
+      (Heikki Linnakangas)␟GiSTインデックス構築時の再帰的なページ分割時の誤動作を修正しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      Fix a case where the location of a page downlink was incorrectly
+      tracked, and introduce some logic to allow recovering from such
+      situations rather than silently doing the wrong thing.  This error
+      could result in incorrect answers from subsequent index searches.
+      It may be advisable to reindex all GiST indexes after installing
+      this update.␟ページのダウンリンク位置が誤って追跡されるケースを修正し、そのような状況から回復するためのロジックを導入しました。
+このエラーにより、後続のインデックス検索で間違った結果が得られる可能性があります。
+この更新をインストールした後に、すべてのGiSTインデックスを再作成することをお勧めします。␞␞     </para>␞
+␝     <para>␟      Prevent de-duplication of btree index entries
+      for <type>interval</type> columns (Noah Misch)␟<type>interval</type>型列のbtreeインデックスエントリの重複を防止しました。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      There are <type>interval</type> values that are distinguishable but
+      compare equal, for example <literal>24:00:00</literal>
+      and <literal>1 day</literal>.  This breaks assumptions made by btree
+      de-duplication, so <type>interval</type> columns need to be excluded
+      from de-duplication.  This oversight can cause incorrect results
+      from index-only scans.  Moreover, after
+      updating <application>amcheck</application> will report an error for
+      almost all such indexes.  Users should reindex any btree indexes
+      on <type>interval</type> columns.␟例えば<literal>24:00:00</literal>と<literal>1 day</literal>のように、区別はできるが比較すると等しい<type>interval</type>型の値があります。
+これはbtree重複排除による想定を破るため、<type>interval</type>型列は重複排除から除外する必要があります。
+この見落としにより、インデックスオンリースキャンで誤った結果が生成される可能性があります。
+さらに、更新後の<application>amcheck</application>は、このようなインデックスのほとんどすべてに対してエラーを報告します。
+ユーザは<type>interval</type>型列のbtreeインデックスを再作成する必要があります。␞␞     </para>␞
+␝     <para>␟      Process <type>date</type> values more sanely in
+      BRIN <literal>datetime_minmax_multi_ops</literal> indexes
+      (Tomas Vondra)␟<literal>datetime_minmax_multi_ops</literal>のBRINインデックスで、<type>date</type>型の値をより適切に処理するようにしました。
+(Tomas Vondra)␞␞     </para>␞
+␝     <para>␟      The distance calculation for dates was backward, causing poor
+      decisions about which entries to merge.  The index still produces
+      correct results, but is much less efficient than it should be.
+      Reindexing BRIN <literal>minmax_multi</literal> indexes
+      on <type>date</type> columns is advisable.␟日付の距離計算が逆方向であったため、どのエントリをマージするかの判断が不適切でした。
+インデックスは依然として正しい結果を生成しますが、本来あるべき状態より大幅に非効率でした。
+<type>date</type>型列の<literal>minmax_multi</literal>のBRINインデックスの再作成を推奨します。␞␞     </para>␞
+␝     <para>␟      Process large <type>timestamp</type> and <type>timestamptz</type>
+      values more sanely in
+      BRIN <literal>datetime_minmax_multi_ops</literal> indexes
+      (Tomas Vondra)␟<literal>datetime_minmax_multi_ops</literal>のBRINインデックスで、大きな<type>timestamp</type>型と<type>timestamptz</type>型の値をより適切に処理します。
+(Tomas Vondra)␞␞     </para>␞
+␝     <para>␟      Infinities were mistakenly treated as having distance zero rather
+      than a large distance from other values, causing poor decisions
+      about which entries to merge.  Also, finite-but-very-large values
+      (near the endpoints of the representable timestamp range) could
+      result in internal overflows, again causing poor decisions.  The
+      index still produces correct results, but is much less efficient
+      than it should be.  Reindexing BRIN <literal>minmax_multi</literal>
+      indexes on <type>timestamp</type> and <type>timestamptz</type>
+      columns is advisable if the column contains, or has contained,
+      infinities or large finite values.␟無限大は、他の値からの大きな距離ではなく、距離がゼロであると誤って処理されたため、どのエントリをマージするか不適切な判断をしていました。
+また、有限であるが非常に大きい値（表現可能なタイムスタンプ範囲の終点付近）は、内部オーバーフローを引き起こす可能性があり、これもまた不適切な判断の原因となりました。
+インデックスは依然として正しい結果を生成しますが、本来あるべき状態より大幅に非効率でした。
+<type>timestamp</type>型および<type>timestamptz</type>型の列に無限大または大きな有限値が含まれているか、含まれていた場合は、<literal>minmax_multi</literal>のBRINインデックスの再作成を推奨します。␞␞     </para>␞
+␝     <para>␟      Avoid calculation overflows in
+      BRIN <literal>interval_minmax_multi_ops</literal> indexes with
+      extreme interval values (Tomas Vondra)␟極端なinterval型の値を持つ<literal>interval_minmax_multi_ops</literal>のBRINインデックスでの計算オーバーフローを回避します。
+(Tomas Vondra)␞␞     </para>␞
+␝     <para>␟      This bug might have caused unexpected failures while trying to
+      insert large interval values into such an index.␟このバグは、このようなインデックスに大きなinterval型の値を挿入しようとすると、予期しない障害を引き起こす可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix partition step generation and runtime partition pruning for
+      hash-partitioned tables with multiple partition keys (David Rowley)␟複数のパーティションキーを持つハッシュパーティションテーブルに対するパーティションステップ生成と実行時パーティション除去を修正しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      Some cases involving an <literal>IS NULL</literal> condition on one
+      of the partition keys could result in a crash.␟パーティションキーの1つに<literal>IS NULL</literal>条件がある場合、クラッシュすることがありました。␞␞     </para>␞
+␝     <para>␟      Fix inconsistent rechecking of concurrently-updated rows
+      during <command>MERGE</command> (Dean Rasheed)␟<command>MERGE</command>中に同時に更新された行の不整合な再チェックを修正しました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      In <literal>READ COMMITTED</literal> mode, an update that finds that
+      its target row was just updated by a concurrent transaction will
+      recheck the query's <literal>WHERE</literal> conditions on the
+      updated row.  <command>MERGE</command> failed to ensure that the
+      proper rows of other joined tables were used during this recheck,
+      possibly resulting in incorrect decisions about whether the
+      newly-updated row should be updated again
+      by <command>MERGE</command>.␟<literal>READ COMMITTED</literal>モードでは、ターゲット行が同時実行トランザクションによって更新されたことが判明した更新は、更新された行に対して問い合わせの<literal>WHERE</literal>条件を再チェックします。
+<command>MERGE</command>は、この再チェック中に他の結合テーブルの適切な行が使用されることを確認できず、その結果、新しく更新された行が<command>MERGE</command>によって再度更新されるべきかどうかについて誤った判断をする可能性がありました。␞␞     </para>␞
+␝     <para>␟      Correctly identify the target table in an
+      inherited <command>UPDATE</command>/<command>DELETE</command>/<command>MERGE</command>
+      even when the parent table is excluded by constraints (Amit Langote,
+      Tom Lane)␟親テーブルが制約によって除外されている場合でも、継承された<command>UPDATE</command>/<command>DELETE</command>/<command>MERGE</command>のターゲットテーブルを正しく識別します。
+(Amit Langote, Tom Lane)␞␞     </para>␞
+␝     <para>␟      If the initially-named table is excluded by constraints, but not all
+      its inheritance descendants are, the first non-excluded descendant
+      was identified as the primary target table.  This would lead to
+      firing statement-level triggers associated with that table, rather
+      than the initially-named table as should happen.  In v16, the same
+      oversight could also lead to <quote>invalid perminfoindex 0 in RTE
+      with relid NNNN</quote> errors.␟最初に指定されたテーブルが制約によって除外されているが、その継承されたすべての子孫が除外されていない場合、除外されていない最初の子孫が主ターゲットテーブルとして識別されました。
+これにより、最初に指定されたテーブルではなく、そのテーブルに関連付けられた文レベルのトリガを起動することになります。
+v16では、同じ見落としによって<quote>invalid perminfoindex 0 in RTE with relid NNNN</quote>というエラーが発生する可能性もありました。␞␞     </para>␞
+␝     <para>␟      Fix edge case in btree mark/restore processing of ScalarArrayOpExpr
+      clauses (Peter Geoghegan)␟ScalarArrayOpExpr句のbtreeマーク/リストア処理でのエッジケースを修正しました。
+(Peter Geoghegan)␞␞     </para>␞
+␝     <para>␟      When restoring an indexscan to a previously marked position, the
+      code could miss required setup steps if the scan had advanced
+      exactly to the end of the matches for a ScalarArrayOpExpr (that is,
+      an <literal>indexcol = ANY(ARRAY[])</literal>) clause.  This could
+      result in missing some rows that should have been fetched.␟インデックススキャンを以前にマークされた位置にリストアする場合、スキャンがScalarArrayOpExpr(つまり、<literal>indexcol = ANY(ARRAY</literal>)句の一致の最後まで正確に進んだ場合、コードは必要なセットアップ手順を見逃す可能性がありました。
+その結果、取得されるべき行が欠落する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix intra-query memory leak in Memoize execution
+      (Orlov Aleksej, David Rowley)␟Memoize実行時の問い合わせ内部のメモリリークを修正しました。
+(Orlov Aleksej, David Rowley)␞␞     </para>␞
+␝     <para>␟      Fix intra-query memory leak when a set-returning function repeatedly
+      returns zero rows (Tom Lane)␟集合を返す関数が繰り返しゼロ行を返す場合の問い合わせ内部のメモリリークを修正しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Don't crash if <function>cursor_to_xmlschema()</function> is applied
+      to a non-data-returning Portal (Boyu Yang)␟<function>cursor_to_xmlschema()</function>関数がデータを返さないPortalに適用された場合にクラッシュしないようにしました。
+(Boyu Yang)␞␞     </para>␞
+␝     <para>␟      Fix improper sharing of origin filter condition across
+      successive <function>pg_logical_slot_get_changes()</function> calls
+      (Hou Zhijie)␟連続した<function>pg_logical_slot_get_changes()</function>関数の呼び出し間でのオリジンフィルタ条件の不適切な共有を修正しました。
+(Hou Zhijie)␞␞     </para>␞
+␝     <para>␟      The origin condition set by one call of this function would be
+      re-used by later calls that did not specify the origin argument.
+      This was not intended.␟この関数の1回の呼び出しで設定されたオリジン条件は、オリジン引数を指定しなかった後続の呼び出しで再利用されていました。
+これは意図されたものではありません。␞␞     </para>␞
+␝     <para>␟      Throw the intended error if <function>pgrowlocks()</function> is
+      applied to a partitioned table (David Rowley)␟<function>pgrowlocks()</function>関数がパーティションテーブルに適用された場合に、意図したエラーが発生します。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      Previously, a not-on-point complaint <quote>only heap AM is
+      supported</quote> would be raised.␟以前は、<quote>only heap AM is supported</quote>という的外れなエラーが発生していました。␞␞     </para>␞
+␝     <para>␟      Handle invalid indexes more cleanly in assorted SQL functions
+      (Noah Misch)␟様々なSQL関数で無効なインデックスをよりきれいに処理します。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      Report an error if <function>pgstatindex()</function>,
+      <function>pgstatginindex()</function>,
+      <function>pgstathashindex()</function>,
+      or <function>pgstattuple()</function> is applied to an invalid
+      index.  If <function>brin_desummarize_range()</function>,
+      <function>brin_summarize_new_values()</function>,
+      <function>brin_summarize_range()</function>,
+      or <function>gin_clean_pending_list()</function> is applied to an
+      invalid index, do nothing except to report a debug-level message.
+      Formerly these functions attempted to process the index, and might
+      fail in strange ways depending on what the failed <command>CREATE
+      INDEX</command> had left behind.␟<function>pgstatindex()</function>、<function>pgstatginindex()</function>、<function>pgstathashindex()</function>、<function>pgstattuple()</function>が無効なインデックスに適用された場合にエラーを報告します。
+<function>brin_desummarize_range()</function>、<function>brin_summarize_new_values()</function>、<function>brin_summarize_range()</function>、または<function>gin_clean_pending_list()</function>が無効なインデックスに適用された場合、デバッグレベルのメッセージを報告する以外は何も行われません。
+以前は、これらの関数はインデックスを処理しようとしていましたが、失敗した<command>CREATE INDEX</command>が残したものによっては、奇妙な方法で失敗する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Avoid premature memory allocation failure with long inputs
+      to <function>to_tsvector()</function> (Tom Lane)␟<function>to_tsvector()</function>への長い入力に対する早すぎるメモリ割り当てエラーを回避します。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Fix over-allocation of the constructed <type>tsvector</type>
+      in <function>tsvectorrecv()</function> (Denis Erokhin)␟<function>tsvectorrecv()</function>関数で構築された<type>tsvector</type>の過剰割り当てを修正しました。
+(Denis Erokhin)␞␞     </para>␞
+␝     <para>␟      If the incoming vector includes position data, the binary receive
+      function left wasted space (roughly equal to the size of the
+      position data) in the finished <type>tsvector</type>.  In extreme
+      cases this could lead to <quote>maximum total lexeme length
+      exceeded</quote> failures for vectors that were under the length
+      limit when emitted.  In any case it could lead to wasted space
+      on-disk.␟受信ベクトルに位置データが含まれている場合、バイナリ受信関数は、完成した<type>tsvector</type>内に無駄なスペース（位置データのサイズとほぼ等しい）を残していました。
+極端な場合、これにより出力時に長さ制限を下回っていたベクトルに対して<quote>maximum total lexeme length exceeded</quote>エラーを引き起こす可能性がありました。
+いずれにしても、ディスク上のスペースが無駄になる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Improve checks for corrupt PGLZ compressed data (Flavien Guedez)␟破損したPGLZ圧縮データの検査を改善しました。
+(Flavien Guedez)␞␞     </para>␞
+␝     <para>␟      Fix <command>ALTER SUBSCRIPTION</command> so that a commanded change
+      in the <literal>run_as_owner</literal> option is actually applied
+      (Hou Zhijie)␟<literal>run_as_owner</literal>オプションのコマンドによる変更が実際に適用されるように<command>ALTER SUBSCRIPTION</command>を修正しました。
+(Hou Zhijie)␞␞     </para>␞
+␝     <para>␟      Fix bulk table insertion into partitioned tables (Andres Freund)␟パーティションテーブルへの一括テーブル挿入を修正しました。
+(Andres Freund)␞␞     </para>␞
+␝     <para>␟      Improper sharing of insertion state across partitions could result
+      in failures during <command>COPY FROM</command>, typically
+      manifesting as <quote>could not read block NNNN in file XXXX: read
+      only 0 of 8192 bytes</quote> errors.␟パーティション間での挿入状態の不適切な共有により、<command>COPY FROM</command>中に障害が発生する可能性があり、典型的には<quote>could not read block NNNN in file XXXX: read only 0 of 8192 bytes</quote>というエラーとして表示されます。␞␞     </para>␞
+␝     <para>␟      In <command>COPY FROM</command>, avoid evaluating column default
+      values that will not be needed by the command (Laurenz Albe)␟<command>COPY FROM</command>で、コマンドが必要としない列のデフォルト値を評価しないようにします。
+(Laurenz Albe)␞␞     </para>␞
+␝     <para>␟      This avoids a possible error if the default value isn't actually
+      valid for the column, or if the default's expression would fail in
+      the current execution context.  Such edge cases sometimes arise
+      while restoring dumps, for example.  Previous releases did not fail
+      in this situation, so prevent v16 from doing so.␟これにより、デフォルト値が実際にはその列に対して有効でない場合や、デフォルトの式が現在の実行コンテキストで失敗する場合に発生する可能性のあるエラーを回避できます。
+このようなエッジケースは、例えばダンプのリストア時などに発生することがありました。
+以前のリリースではこのような状況で失敗しなかったので、v16でもこのような状況を回避します。␞␞     </para>␞
+␝     <para>␟      In <command>COPY FROM</command>, fail cleanly when an unsupported
+      encoding conversion is needed (Tom Lane)␟<command>COPY FROM</command>で、サポートされていないエンコーディング変換が必要な場合にちゃんと失敗するようにしました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Recent refactoring accidentally removed the intended error check for
+      this, such that it ended in <quote>cache lookup failed for function
+      0</quote> instead of a useful error message.␟最近のリファクタリングで、これに対する意図したエラーチェックが誤って削除されたため、有用なエラーメッセージではなく<quote>cache lookup failed for function 0</quote>というエラーで終了していました。␞␞     </para>␞
+␝     <para>␟      Avoid crash in <command>EXPLAIN</command> if a parameter marked to
+      be displayed by <command>EXPLAIN</command> has a NULL boot-time
+      value (Xing Guo, Aleksander Alekseev, Tom Lane)␟<command>EXPLAIN</command>によって表示されるようにマークされたパラメータの起動時の値がNULLである場合、<command>EXPLAIN</command>でのクラッシュを回避します。
+(Xing Guo, Aleksander Alekseev, Tom Lane)␞␞     </para>␞
+␝     <para>␟      No built-in parameter fits this description, but an extension could
+      define such a parameter.␟この説明に当てはまる組み込みパラメータはありませんが、拡張機能でそのようなパラメータを定義できます。␞␞     </para>␞
+␝     <para>␟      Ensure we have a snapshot while dropping <literal>ON COMMIT
+      DROP</literal> temp tables (Tom Lane)␟<literal>ON COMMIT DROP</literal>での一時テーブル削除中にスナップショットがあることを確認します。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      This prevents possible misbehavior if any catalog entries for the
+      temp tables have fields wide enough to require toasting (such as a
+      very complex <literal>CHECK</literal> condition).␟これにより、一時テーブルのカタログエントリにTOASTを必要とするような大きな幅のフィールドがある場合（非常に複雑な<literal>CHECK</literal>条件など）に起こりうる誤動作を防ぐことができます。␞␞     </para>␞
+␝     <para>␟      Avoid improper response to shutdown signals in child processes
+      just forked by <function>system()</function> (Nathan Bossart)␟<function>system()</function>でフォークされたばかりの子プロセスのシャットダウン信号に対する不適切な応答を回避します。
+(Nathan Bossart)␞␞     </para>␞
+␝     <para>␟      This fix avoids a race condition in which a child process that has
+      been forked off by <function>system()</function>, but hasn't yet
+      exec'd the intended child program, might receive and act on a signal
+      intended for the parent server process.  That would lead to
+      duplicate cleanup actions being performed, which will not end well.␟この修正により、<function>system()</function>によってフォークされたが、まだ目的の子プログラムを実行していない子プロセスが、親サーバプロセス用に意図されたシグナルを受け取って処理する可能性がある競合状態が回避されます。
+これにより、重複したクリーンアップ処理が実行され、好ましくない結果になっていました。␞␞     </para>␞
+␝     <para>␟      Cope with torn reads of <filename>pg_control</filename> in frontend
+      programs (Thomas Munro)␟フロントエンドプログラムで<filename>pg_control</filename>の破損した読み込みに対処します。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      On some file systems, reading <filename>pg_control</filename> may
+      not be an atomic action when the server concurrently writes that
+      file.  This is detectable via a bad CRC.  Retry a few times to see
+      if the file becomes valid before we report error.␟一部のファイルシステムでは、サーバが同時にそのファイルに書き込む場合、<filename>pg_control</filename>の読み込みがアトミックな動作にならないことがあります。
+これは、不正なCRCによって検出できます。
+エラーを報告する前に、数回試行してファイルが有効になるかどうかを確認するようにしました。␞␞     </para>␞
+␝     <para>␟      Avoid torn reads of <filename>pg_control</filename> in relevant SQL
+      functions (Thomas Munro)␟関連するSQL関数で<filename>pg_control</filename>の破損した読み込みを回避します。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      Acquire the appropriate lock before
+      reading <filename>pg_control</filename>, to ensure we get a
+      consistent view of that file.␟<filename>pg_control</filename>を読み込む前に適切なロックを取得して、そのファイルの一貫したビューを確保しました。␞␞     </para>␞
+␝     <para>␟      Fix <quote>could not find pathkey item to sort</quote> errors
+      occurring while planning aggregate functions with <literal>ORDER
+      BY</literal> or <literal>DISTINCT</literal> options (David Rowley)␟<literal>ORDER BY</literal>または<literal>DISTINCT</literal>オプションを使用した集約関数の計画時に発生する<quote>could not find pathkey item to sort</quote>というエラーを修正しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      Avoid integer overflow when computing size of backend activity
+      string array (Jakub Wartak)␟バックエンドアクティビティの文字列配列のサイズを計算する際の整数オーバーフローを回避します。
+(Jakub Wartak)␞␞     </para>␞
+␝     <para>␟      On 64-bit machines we will allow values
+      of <varname>track_activity_query_size</varname> large enough to
+      cause 32-bit overflow when multiplied by the allowed number of
+      connections.  The code actually allocating the per-backend local
+      array was careless about this though, and allocated the array
+      incorrectly.␟64ビットマシンでは、許可された接続数を乗算したときに32ビットオーバーフローが発生するような大きな<varname>track_activity_query_size</varname>の値を許可します。
+しかし、バックエンドごとのローカル配列を実際に割り当てるコードは、この点について不注意で、配列を誤って割り当てていました。␞␞     </para>␞
+␝     <para>␟      Fix briefly showing inconsistent progress statistics
+      for <command>ANALYZE</command> on inherited tables
+      (Heikki Linnakangas)␟継承テーブルでの<command>ANALYZE</command>に対する一貫性のない進捗状況統計が一時的に表示される問題を修正しました。
+(Heikki Linnakangas)␞␞     </para>␞
+␝     <para>␟      The block-level counters should be reset to zero at the same time we
+      update the current-relation field.␟ブロックレベルカウンタは、現在のリレーションフィールドを更新すると同時にゼロにリセットされる必要がありました。␞␞     </para>␞
+␝     <para>␟      Fix the background writer to report any WAL writes it makes to the
+      statistics counters (Nazir Bilal Yavuz)␟統計カウンタにWAL書き込みを報告するようにバックグラウンドライタを修正しました。
+(Nazir Bilal Yavuz)␞␞     </para>␞
+␝     <para>␟      Fix confusion about forced-flush behavior
+      in <function>pgstat_report_wal()</function>
+      (Ryoga Yoshida, Michael Paquier)␟<function>pgstat_report_wal()</function>の強制フラッシュ動作に関する混乱を修正しました。
+(Ryoga Yoshida, Michael Paquier)␞␞     </para>␞
+␝     <para>␟      This could result in some statistics about WAL I/O being forgotten
+      in a shutdown.␟これにより、シャットダウン時にWAL I/Oに関する一部の統計情報が忘れられる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix statistics tracking of temporary-table extensions (Karina
+      Litskevich, Andres Freund)␟一時テーブルの拡張に関する統計追跡を修正しました。
+(Karina Litskevich, Andres Freund)␞␞     </para>␞
+␝     <para>␟      These were counted as normal-table writes when they should be
+      counted as temp-table writes.␟これらは、一時テーブル書き込みとしてカウントされるべきときに、通常のテーブル書き込みとしてカウントされていました。␞␞     </para>␞
+␝     <para>␟      When <varname>track_io_timing</varname> is enabled, include the
+      time taken by relation extension operations as write time
+      (Nazir Bilal Yavuz)␟<varname>track_io_timing</varname>が有効な場合、リレーション拡張操作にかかった時間を書き込み時間として含めます。
+(Nazir Bilal Yavuz)␞␞     </para>␞
+␝     <para>␟      Track the dependencies of cached <command>CALL</command> statements,
+      and re-plan them when needed (Tom Lane)␟キャッシュされた<command>CALL</command>文の依存関係を追跡し、必要な場合に再計画します。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      DDL commands, such as replacement of a function that has been
+      inlined into a <command>CALL</command> argument, can create the need
+      to re-plan a <command>CALL</command> that has been cached by
+      PL/pgSQL.  That was not happening, leading to misbehavior or strange
+      errors such as <quote>cache lookup failed</quote>.␟<command>CALL</command>の引数でインライン化された関数を置き換えるDDLコマンドは、PL/pgSQLによってキャッシュされている<command>CALL</command>を再計画する必要性を生じさせます。
+これが行なわれなかったため、誤動作や<quote>cache lookup failed</quote>などの奇妙なエラーが発生していました。␞␞     </para>␞
+␝     <para>␟      Avoid a possible pfree-a-NULL-pointer crash after an error in
+      OpenSSL connection setup (Sergey Shinderuk)␟OpenSSL接続のセットアップでエラーが発生した後のpfree-a-NULL-pointerクラッシュの可能性を回避します。
+(Sergey Shinderuk)␞␞     </para>␞
+␝     <para>␟      Track nesting depth correctly when
+      inspecting <type>RECORD</type>-type Vars from outer query levels
+      (Richard Guo)␟外部問い合わせレベルから<type>RECORD</type>型のVarsを検査する際に正しくネストの深さを追跡します。
+(Richard Guo)␞␞     </para>␞
+␝     <para>␟      This oversight could lead to assertion failures, core dumps,
+      or <quote>bogus varno</quote> errors.␟この見落としにより、アサーションエラー、コアダンプ、または<quote>bogus varno</quote>エラーが発生する可能性がありました。␞␞     </para>␞
+␝     <para>␟      Track hash function and negator function dependencies of
+      ScalarArrayOpExpr plan nodes (David Rowley)␟ScalarArrayOpExprプランノードのハッシュ関数と否定関数の依存関係を追跡します。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      In most cases this oversight was harmless, since these functions
+      would be unlikely to disappear while the node's original operator
+      remains present.␟ほとんどの場合、ノードの元の演算子が存在している間はこれらの関数が消滅する可能性が低いため、この見落としは無害でした。␞␞     </para>␞
+␝     <para>␟      Fix error-handling bug in <type>RECORD</type> type cache management
+      (Thomas Munro)␟<type>RECORD</type>型のキャッシュ管理におけるエラー処理のバグを修正しました。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      An out-of-memory error occurring at just the wrong point could leave
+      behind inconsistent state that would lead to an infinite loop.␟メモリ不足エラーが不適切な時点で発生すると、無限ループにつながる一貫性のない状態を残す可能性がありました。␞␞     </para>␞
+␝     <para>␟      Treat out-of-memory failures as fatal while reading WAL
+      (Michael Paquier)␟WALの読み込み中のメモリ不足エラーを致命的なエラーとして扱います。
+(Michael Paquier)␞␞     </para>␞
+␝     <para>␟      Previously this would be treated as a bogus-data condition, leading
+      to the conclusion that we'd reached the end of WAL, which is
+      incorrect and could lead to inconsistent WAL replay.␟以前は、これは偽のデータ状態として扱われ、WALの終わりに達したという結論に至りましたが、これは誤りであり、一貫性のないWAL再生につながる可能性がありました。␞␞     </para>␞
+␝     <para>␟      Fix possible recovery failure due to trying to allocate memory based
+      on a bogus WAL record length field (Thomas Munro, Michael Paquier)␟不正なWALレコード長フィールドに基づいてメモリを割り当てようとしたために起こりうるリカバリ失敗を修正しました。
+(Thomas Munro, Michael Paquier)␞␞     </para>␞
+␝     <para>␟      Fix <quote>could not duplicate handle</quote> error occurring on
+      Windows when <varname>min_dynamic_shared_memory</varname> is set
+      above zero (Thomas Munro)␟<varname>min_dynamic_shared_memory</varname>が0より大きく設定された場合にWindowsで発生する<quote>could not duplicate handle</quote>エラーを修正しました。
+(Thomas Munro)␞␞     </para>␞
+␝     <para>␟      Fix order of operations in <function>GenericXLogFinish</function>
+      (Jeff Davis)␟<function>GenericXLogFinish</function>の処理順序を修正しました。
+(Jeff Davis)␞␞     </para>␞
+␝     <para>␟      This code violated the conditions required for crash safety by
+      writing WAL before marking changed buffers dirty.  No core code uses
+      this function, but extensions do (<filename>contrib/bloom</filename>
+      does, for example).␟このコードは、変更されたバッファをダーティにマークする前にWALを書き込むことで、クラッシュ安全性に必要な条件に違反していました。
+この関数はコアコードでは使用されませんが、拡張では使用されます（例えば<filename>contrib/bloom</filename>では使用されます）。␞␞     </para>␞
+␝     <para>␟      Remove incorrect assertion in PL/Python exception handling
+      (Alexander Lakhin)␟PL/Python例外処理での誤ったアサーションを削除しました。
+(Alexander Lakhin)␞␞     </para>␞
+␝     <para>␟      Fix <application>pg_dump</application> to dump the
+      new <literal>run_as_owner</literal> option of subscriptions
+      (Philip Warner)␟サブスクリプションの新しい<literal>run_as_owner</literal>オプションをダンプするように<application>pg_dump</application>を修正しました。
+(Philip Warner)␞␞     </para>␞
+␝     <para>␟      Due to this oversight, subscriptions would always be restored
+      with <literal>run_as_owner</literal> set
+      to <literal>false</literal>, which is not equivalent to their
+      behavior in pre-v16 releases.␟この見落としのため、サブスクリプションは常に<literal>run_as_owner</literal>が<literal>false</literal>に設定された状態でリストアされていました。
+これはv16より前のリリースでの動作と同等ではありません。␞␞     </para>␞
+␝     <para>␟      Fix <application>pg_restore</application> so that selective restores
+      will include both table-level and column-level ACLs for selected
+      tables (Euler Taveira, Tom Lane)␟選択的リストアが選択されたテーブルのテーブルレベルと列レベルの両方のACLを含むように<application>pg_restore</application>を修正しました。
+(Euler Taveira, Tom Lane)␞␞     </para>␞
+␝     <para>␟      Formerly, only the table-level ACL would get restored if both types
+      were present.␟以前は、両方のタイプが存在する場合、テーブルレベルのACLのみがリストアされていました。␞␞     </para>␞
+␝     <para>␟      Add logic to <application>pg_upgrade</application> to check for use
+      of <type>abstime</type>, <type>reltime</type>,
+      and <type>tinterval</type> data types (&Aacute;lvaro Herrera)␟<application>pg_upgrade</application>に、<type>abstime</type>、<type>reltime</type>、<type>tinterval</type>のデータ型の使用を検査するロジックを追加します。
+(&Aacute;lvaro Herrera)␞␞     </para>␞
+␝     <para>␟      These obsolete data types were removed
+      in <productname>PostgreSQL</productname> version 12, so check to
+      make sure they aren't present in an older database before claiming
+      it can be upgraded.␟これらの旧式のデータ型は<productname>PostgreSQL</productname>バージョン12で削除されたため、アップグレード可能であると主張する前に、古いデータベースに存在しないことを確認します。␞␞     </para>␞
+␝     <para>␟      Avoid false <quote>too many client connections</quote> errors
+      in <application>pgbench</application> on Windows (Noah Misch)␟Windows上の<application>pgbench</application>での誤った<quote>too many client connections</quote>エラーを回避しました。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      Fix <application>vacuumdb</application>'s handling of
+      multiple <option>-N</option> switches (Nathan Bossart, Kuwamura
+      Masaki)␟<application>vacuumdb</application>の複数の<option>-N</option>スイッチの処理を修正しました。
+(Nathan Bossart, Kuwamura Masaki)␞␞     </para>␞
+␝     <para>␟      Multiple <option>-N</option> switches should exclude tables
+      in multiple schemas, but in fact excluded nothing due to faulty
+      construction of a generated query.␟複数の<option>-N</option>スイッチは複数のスキーマ内のテーブルを除外するはずですが、生成された問い合わせの構築に誤りがあったため、実際には何も除外されませんでした。␞␞     </para>␞
+␝     <para>␟      Fix <application>vacuumdb</application> to honor
+      its <option>--buffer-usage-limit</option> option in analyze-only
+      mode (Ryoga Yoshida, David Rowley)␟<application>vacuumdb</application>がANALYZEのみのモードで<option>--buffer-usage-limit</option>オプションを適切に処理するよう修正しました。
+(Ryoga Yoshida, David Rowley)␞␞     </para>␞
+␝     <para>␟      In <filename>contrib/amcheck</filename>, do not report interrupted
+      page deletion as corruption (Noah Misch)␟<filename>contrib/amcheck</filename>では、中断されたページ削除を破損として報告しないようにしました。
+(Noah Misch)␞␞     </para>␞
+␝     <para>␟      This fix prevents false-positive reports of <quote>the first child
+      of leftmost target page is not leftmost of its
+      level</quote>, <quote>block NNNN is not leftmost</quote>
+      or <quote>left link/right link pair in index XXXX not in
+      agreement</quote>.  They appeared
+      if <application>amcheck</application> ran after an unfinished btree
+      index page deletion and before <command>VACUUM</command> had cleaned
+      things up.␟この修正により、<quote>the first child of leftmost target page is not leftmost of its level</quote>、<quote>block NNNN is not leftmost</quote>、<quote>left link/right link pair in index XXXX is not in agreement</quote>という誤検出の報告が出なくなりました。
+これらの報告は、未完了のbtreeインデックスページの削除後、<command>VACUUM</command>がクリーンアップする前に<application>amcheck</application>が実行された場合に表示されました。␞␞     </para>␞
+␝     <para>␟      Fix failure of <filename>contrib/btree_gin</filename> indexes
+      on <type>interval</type> columns,
+      when an indexscan using the <literal>&lt;</literal>
+      or <literal>&lt;=</literal> operator is performed (Dean Rasheed)␟<filename>contrib/btree_gin</filename>で、<literal>&lt;</literal>または<literal>&lt;=</literal>演算子を使用して<type>interval</type>列にインデックスに対するインデックススキャンが実行された場合の失敗を修正しました。
+(Dean Rasheed)␞␞     </para>␞
+␝     <para>␟      Such an indexscan failed to return all the entries it should.␟このようなインデックススキャンは、返されるべきすべてのエントリを返すことができませんでした。␞␞     </para>␞
+␝     <para>␟      Add support for LLVM 16 and 17 (Thomas Munro, Dmitry Dolgov)␟LLVM 16と17のサポートを追加しました。
+(Thomas Munro, Dmitry Dolgov)␞␞     </para>␞
+␝     <para>␟      Suppress assorted build-time warnings on
+      recent <productname>macOS</productname> (Tom Lane)␟最近の<productname>macOS</productname>での様々なビルド時の警告を抑制します。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      <productname>Xcode 15</productname> (released
+      with <productname>macOS Sonoma</productname>) changed the linker's
+      behavior in a way that causes many duplicate-library warnings while
+      building <productname>PostgreSQL</productname>.  These were
+      harmless, but they're annoying so avoid citing the same libraries
+      twice.  Also remove use of the <option>-multiply_defined
+      suppress</option> linker switch, which apparently has been a no-op
+      for a long time, and is now actively complained of.␟<productname>Xcode 15</productname>（<productname>macOS Sonoma</productname>とともにリリース）では、リンカの動作が変更され、<productname>PostgreSQL</productname>のビルド時に多数の重複ライブラリ警告が発生するようになりました。
+これらは無害でしたが、煩わしいので、同じライブラリを2回引用することは避けるようにしました。
+また、<option>-multiply_defined suppress</option>リンカスイッチの使用を削除しました。
+これは長い間何も実行されていなかったようで、現在は積極的に警告が出ています。␞␞     </para>␞
+␝     <para>␟      When building <filename>contrib/unaccent</filename>'s rules file,
+      fall back to using <literal>python</literal>
+      if <literal>--with-python</literal> was not given and make
+      variable <literal>PYTHON</literal> was not set (Japin Li)␟<filename>contrib/unaccent</filename>のルールファイルをビルドする際、<literal>--with-python</literal>が指定されておらず、make変数<literal>PYTHON</literal>が設定されていなければ、<literal>python</literal>を使うようにフォールバックします。
+(Japin Li)␞␞     </para>␞
+␝     <para>␟      Remove <literal>PHOT</literal> (Phoenix Islands Time) from the
+      default timezone abbreviations list (Tom Lane)␟デフォルトのタイムゾーンの略語リストから<literal>PHOT</literal>（フェニックス諸島時間）を削除しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Presence of this abbreviation in the default list can cause failures
+      on recent Debian and Ubuntu releases, as they no longer install the
+      underlying tzdb entry by default.  Since this is a made-up
+      abbreviation for a zone with a total human population of about two
+      dozen, it seems unlikely that anyone will miss it.  If someone does,
+      they can put it back via a custom abbreviations file.␟デフォルトのリストにこの略語があると、最近のDebianやUbuntuのリリースでは、基礎となるtzdbエントリがデフォルトでインストールされなくなっているため、エラーが発生する可能性があります。
+これは、人口が約24人のゾーン用の略語なので、それを見逃す人はまずいないでしょう。
+もし見逃した場合でも、カスタム略語ファイルを使用して元に戻すことができます。␞␞     </para>␞
+␝ <sect1 id="release-16">␟  <title>Release 16</title>␟  <title>リリース16</title>␞␞␞
+␝  <formalpara>␟   <title>Release date:</title>␟   <title>リリース日:</title>␞␞   <para>2023-09-14</para>␞
+␝  <sect2 id="release-16-highlights">␟   <title>Overview</title>␟   <title>概要</title>␞␞␞
+␝   <para>␟    <productname>PostgreSQL</productname> 16 contains many new features
+    and enhancements, including:␟<productname>PostgreSQL</productname> 16には、以下をはじめとする多数の新機能と拡張が含まれます。␞␞   </para>␞
+␝     <para>␟      Allow parallelization of <literal>FULL</literal> and internal right <literal>OUTER</literal> hash joins␟<literal>FULL</literal>ハッシュ結合および内部右<literal>OUTER</literal>ハッシュ結合で並列処理ができるようになりました。␞␞     </para>␞
+␝     <para>␟      Allow logical replication from standby servers␟スタンバイサーバからの論理レプリケーションができるようになりました。␞␞     </para>␞
+␝     <para>␟      Allow logical replication subscribers to apply large transactions in parallel␟論理レプリケーションのサブスクライバーで大規模なトランザクションを並列に適用できるようになりました。␞␞     </para>␞
+␝     <para>␟      Allow monitoring of <acronym>I/O</acronym> statistics using the new <structname>pg_stat_io</structname> view␟新しい<structname>pg_stat_io</structname>ビューを使用した<acronym>I/O</acronym>統計情報の監視ができるようになりました。␞␞     </para>␞
+␝     <para>␟      Add <acronym>SQL/JSON</acronym> constructors and identity functions␟<acronym>SQL/JSON</acronym>コンストラクタと識別関数を追加しました。␞␞     </para>␞
+␝     <para>␟      Improve performance of vacuum freezing␟バキューム凍結の性能を改善しました。␞␞     </para>␞
+␝     <para>␟      Add support for regular expression matching of user and database names in <filename>pg_hba.conf</filename>, and user names in <filename>pg_ident.conf</filename>␟<filename>pg_hba.conf</filename>のユーザ名とデータベース名、および<filename>pg_ident.conf</filename>のユーザ名の正規表現マッチングがサポートされました。␞␞     </para>␞
+␝   <para>␟    The above items and other new features of
+    <productname>PostgreSQL</productname> 16 are explained in more detail
+    in the sections below.␟<productname>PostgreSQL</productname> 16の上記の項目とその他の新機能は次節でより詳しく説明されます。␞␞   </para>␞
+␝␟   <title>Migration to Version 16</title>␟   <title>バージョン16への移行</title>␞␞␞
+␝   <para>␟    A dump/restore using <xref linkend="app-pg-dumpall"/> or use of
+    <xref linkend="pgupgrade"/> or logical replication is required for
+    those wishing to migrate data from any previous release.  See <xref
+    linkend="upgrading"/> for general information on migrating to new
+    major releases.␟以前のリリースからデータを移行したい時は、どのリリースについても、<xref linkend="app-pg-dumpall"/>を利用したダンプとリストア、あるいは<xref linkend="pgupgrade"/>や論理レプリケーションの使用が必要です。
+新たなメジャーバージョンへの移行に関する一般的な情報については<xref linkend="upgrading"/>を参照してください。␞␞   </para>␞
+␝   <para>␟    Version 16 contains a number of changes that may affect compatibility
+    with previous releases.  Observe the following incompatibilities:␟バージョン16には、以前のバージョンとの互換性に影響するかもしれない多数の変更点が含まれています。以下の非互換性に注意してください。␞␞   </para>␞
+␝     <para>␟      Change assignment rules for <link
+      linkend="plpgsql-open-bound-cursor"><application>PL/pgSQL</application></link>
+      bound cursor variables (Tom Lane)␟<link linkend="plpgsql-open-bound-cursor"><application>PL/pgSQL</application></link>のバウンドカーソル変数の割り当て規則が変更されました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Previously, the string value of such variables
+      was set to match the variable name during cursor
+      assignment;  now it will be assigned during <link
+      linkend="plpgsql-cursor-opening"><command>OPEN</command></link>,
+      and will not match the variable name.  To restore the previous
+      behavior, assign the desired portal name to the cursor variable
+      before <command>OPEN</command>.␟以前は、このような変数の文字列値は、カーソル割り当て時に変数名に一致するように設定されていました。
+これからは、<link linkend="plpgsql-cursor-opening"><command>OPEN</command></link>時に割り当てられ、変数名と一致しません。
+以前の動作に戻すには、<command>OPEN</command>の前にカーソル変数に目的のポータル名を割り当ててください。␞␞     </para>␞
+␝     <para>␟      Disallow <link linkend="sql-createindex"><literal>NULLS NOT
+      DISTINCT</literal></link> indexes for primary keys (Daniel
+      Gustafsson)␟主キーに対する<link linkend="sql-createindex"><literal>NULLS NOT DISTINCT</literal></link>インデックスを禁止しました。
+(Daniel Gustafsson)␞␞     </para>␞
+␝     <para>␟      Change <link linkend="sql-reindex"><command>REINDEX
+      DATABASE</command></link> and <link
+      linkend="app-reindexdb"><application>reindexdb</application></link>
+      to not process indexes on system catalogs (Simon Riggs)␟<link linkend="sql-reindex"><command>REINDEX DATABASE</command></link>と<link linkend="app-reindexdb"><application>reindexdb</application></link>がシステムカタログのインデックスを処理しないように変更しました。
+(Simon Riggs)␞␞     </para>␞
+␝     <para>␟      Processing such indexes is still possible using <command>REINDEX
+      SYSTEM</command> and <link linkend="app-reindexdb"><command>reindexdb
+      --system</command></link>.␟このようなインデックスの処理は、<command>REINDEX SYSTEM</command>と<link linkend="app-reindexdb"><command>reindexdb --system</command></link>を使用して引き続き可能です。␞␞     </para>␞
+␝     <para>␟      Tighten <link
+      linkend="ddl-generated-columns"><literal>GENERATED</literal></link>
+      expression restrictions on inherited and partitioned tables (Amit
+      Langote, Tom Lane)␟継承テーブルとパーティションテーブルに対する<link linkend="ddl-generated-columns"><literal>GENERATED</literal></link>式の制限を強化しました。
+(Amit Langote, Tom Lane)␞␞     </para>␞
+␝     <para>␟      Columns of parent/partitioned and child/partition tables must all
+      have the same generation status, though now the actual generation
+      expressions can be different.␟親テーブル(パーティションテーブル)と子テーブル(パーティション)の列はすべて同じ生成状態を持つ必要があります。しかし、実際の生成式は異なっていても構いません。␞␞     </para>␞
+␝     <para>␟      Remove <link
+      linkend="pgwalinspect"><application>pg_walinspect</application></link>
+      functions
+      <function>pg_get_wal_records_info_till_end_of_wal()</function>
+      and <function>pg_get_wal_stats_till_end_of_wal()</function>
+      (Bharath Rupireddy)␟<link linkend="pgwalinspect"><application>pg_walinspect</application></link>関数<function>pg_get_wal_records_info_till_end_of_wal()</function>と<function>pg_get_wal_stats_till_end_of_wal()</function>を削除しました。
+(Bharath Rupireddy)␞␞     </para>␞
+␝     <para>␟      Rename server variable
+      <varname>force_parallel_mode</varname> to <link
+      linkend="guc-debug-parallel-query"><varname>debug_parallel_query</varname></link>
+      (David Rowley)␟サーバパラメータ<varname>force_parallel_mode</varname>を<link linkend="guc-debug-parallel-query"><varname>debug_parallel_query</varname></link>に変更しました。
+(David Rowley)␞␞     </para>␞
+␝     <para>␟      Remove the ability to <link linkend="sql-createview">create
+      views</link> manually with <literal>ON SELECT</literal> rules
+      (Tom Lane)␟<literal>ON SELECT</literal>ルールを使用した<link linkend="sql-createview">create views</link>を禁止しました。
+(Tom Lane)␞␞     </para>␞
+␝     <para>␟      Remove the server variable
+      <varname>vacuum_defer_cleanup_age</varname> (Andres Freund)␟サーバパラメータ<varname>vacuum_defer_cleanup_age</varname>を削除しました。
+(Andres Freund)␞␞     </para>␞
+␝     <para>␟      This has been unnecessary since <link
+      linkend="guc-hot-standby-feedback"><varname>hot_standby_feedback</varname></link>
+      and <link linkend="streaming-replication-slots">replication
+      slots</link> were added.␟<link linkend="guc-hot-standby-feedback"><varname>hot_standby_feedback</varname></link>と<link linkend="streaming-replication-slots">レプリケーションスロット</link>が追加されたことで、これは不要になりました。␞␞     </para>␞
+␝     <para>␟      Remove server variable <varname>promote_trigger_file</varname>
+      (Simon Riggs)␟サーバパラメータ<varname>promote_trigger_file</varname>を削除しました。
+(Simon Riggs)␞␞     </para>␞
+␝     <para>␟      This was used to promote a standby to primary, but is now more easily
+      accomplished with <link linkend="app-pg-ctl"><literal>pg_ctl
+      promote</literal></link> or <link
+      linkend="functions-recovery-control-table"><function>pg_promote()</function></link>.␟これはスタンバイからプライマリへの昇格に使用されていましたが、現在は<link linkend="app-pg-ctl"><literal>pg_ctl promote</literal></link>または<link linkend="functions-recovery-control-table"><function>pg_promote()</function></link>関数で容易に実行できます。␞␞     </para>␞
+␝     <para>␟      Remove read-only server variables <varname>lc_collate</varname>
+      and <varname>lc_ctype</varname> (Peter Eisentraut)␟読み取り専用サーバパラメータ<varname>lc_collate</varname>と<varname>lc_ctype</varname>を削除しました。
+(Peter Eisentraut)␞␞     </para>␞
+␝     <para>␟      Collations and locales can vary between databases so having them
+      as read-only server variables was unhelpful.␟照合順序とロケールはデータベースによって異なる可能性があるため、読み取り専用のサーバパラメータは役に立っていませんでした。␞␞     </para>␞
+␝     <para>␟      Role inheritance now controls the default
+      inheritance status of member roles added during <link
+      linkend="sql-grant"><command>GRANT</command></link> (Robert Haas)␟ロール継承で、<link linkend="sql-grant"><command>GRANT</command></link>の実行時に追加されたメンバロールのデフォルトの継承ステータスが制御されるようにしました。
+(Robert Haas)␞␞     </para>␞
+␝     <para>␟      The role's default inheritance behavior can be overridden with the
+      new <command>GRANT ... WITH INHERIT</command> clause.  This allows
+      inheritance of some roles and not others because the members'
+      inheritance status is set at <command>GRANT</command> time.
+      Previously the inheritance status of member roles was controlled
+      only by the role's inheritance status, and changes to a role's
+      inheritance status affected all previous and future member roles.␟ロールのデフォルトの継承動作は、新しい<command>GRANT ... WITH INHERIT</command>句で上書きできます。
+これにより、メンバの継承ステータスは<command>GRANT</command>時に設定されるため、一部のロールだけが継承され、他のロールは継承されません。
+以前は、メンバの継承ステータスはロールの継承ステータスによってのみ制御され、ロールの継承ステータスに対する変更は、以前と将来のすべてのメンバロールに影響していました。␞␞     </para>␞
+␝     <para>␟      Restrict the privileges of <link
+      linkend="sql-createrole"><literal>CREATEROLE</literal></link>
+      and its ability to modify other roles (Robert Haas)␟<link linkend="sql-createrole"><literal>CREATEROLE</literal></link>の権限と他のロールを変更する能力を制限しました。
+(Robert Haas)␞␞     </para>␞
+␝     <para>␟      Previously roles with <literal>CREATEROLE</literal> privileges could
+      change many aspects of any non-superuser role.  Such changes,
+      including adding members, now require the role requesting
+      the change to have <literal>ADMIN OPTION</literal> permission.
+      For example, they can now change the <literal>CREATEDB</literal>,
+      <literal>REPLICATION</literal>, and <literal>BYPASSRLS</literal>
+      properties only if they also have those permissions.␟以前は、<literal>CREATEROLE</literal>権限を持つロールは、スーパーユーザ以外のロールの多くの側面を変更することができました。
+メンバの追加を含むこれらの変更には、変更を要求するロールに<literal>ADMIN OPTION</literal>権限が要求されるようになりました。
+たとえば、<literal>CREATEDB</literal>、<literal>REPLICATION</literal>、<literal>BYPASSRLS</literal>プロパティを変更できるのは、これらの権限を持つ場合に限られます。␞␞     </para>␞
+␝     <para>␟      Remove symbolic links for the <application>postmaster</application>
+      binary (Peter Eisentraut)␟<application>postmaster</application>バイナリへのシンボリックリンクを削除しました。
+(Peter Eisentraut)␞␞     </para>␞
+␝  <sect2 id="release-16-changes">␟   <title>Changes</title>␟   <title>変更点</title>␞␞␞
+␝    <para>␟     Below you will find a detailed account of the changes between
+    <productname>PostgreSQL</productname> 16 and the previous major
+    release.␟<productname>PostgreSQL</productname> 16と前メジャーリリースとの詳細な変更点を記載しました。␞␞    </para>␞
+␝   <sect3 id="release-16-server">␟    <title>Server</title>␟    <title>サーバ</title>␞␞␞
+␝    <sect4 id="release-16-optimizer">␟     <title>Optimizer</title>␟     <title>オプティマイザ</title>␞␞␞
+␝       <para>␟        Allow incremental sorts in more cases, including
+        <literal>DISTINCT</literal> (David Rowley)␟インクリメンタルソートが<literal>DISTINCT</literal>を含むより多くの場合で使用可能にしました。
+(David Rowley)␞␞       </para>␞
+␝       <para>␟        Add the ability for aggregates having <literal>ORDER BY</literal>
+        or <literal>DISTINCT</literal> to use pre-sorted data (David
+        Rowley)␟<literal>ORDER BY</literal>または<literal>DISTINCT</literal>を持つ集約で、ソート済みのデータを使用できるようにしました。
+(David Rowley)␞␞       </para>␞
+␝       <para>␟        The new server variable <link
+        linkend="guc-enable-presorted-aggregate"><varname>enable_presorted_aggregate</varname></link>
+        can be used to disable this.␟新しいサーバパラメータ<link linkend="guc-enable-presorted-aggregate"><varname>enable_presorted_aggregate</varname></link>を使用することで、この機能を無効にできます。␞␞       </para>␞
+␝       <para>␟        Allow memoize atop a <literal>UNION ALL</literal> (Richard Guo)␟<literal>UNION ALL</literal>の最上位ノードでMemoizeを利用可能にしました。
+(Richard Guo)␞␞       </para>␞
+␝       <para>␟        Allow anti-joins to be performed with the non-nullable input as
+        the inner relation (Richard Guo)␟非NULL入力を内部リレーションとするアンチ結合を実行可能にしました。
+(Richard Guo)␞␞       </para>␞
+␝       <para>␟        Allow parallelization of <link
+        linkend="queries-join"><literal>FULL</literal></link> and internal
+        right <literal>OUTER</literal> hash joins (Melanie Plageman,
+        Thomas Munro)␟<link linkend="queries-join"><literal>FULL</literal></link>ハッシュ結合と内部の右<literal>OUTER</literal>ハッシュ結合で並列処理が実行できるようにしました。
+(Melanie Plageman, Thomas Munro)␞␞       </para>␞
+␝       <para>␟        Improve the accuracy of <link
+        linkend="gin"><literal>GIN</literal></link> index access optimizer
+        costs (Ronan Dunklau)␟<link linkend="gin"><literal>GIN</literal></link>インデックスアクセスのオプティマイザコスト精度を改善しました。
+(Ronan Dunklau)␞␞       </para>␞
+␝    <sect4 id="release-16-performance">␟     <title>General Performance</title>␟     <title>性能一般</title>␞␞␞
+␝       <para>␟        Allow more efficient addition of heap and index pages (Andres
+        Freund)␟ヒープページとインデックスページをより効率的に追加できるようにしました。
+(Andres Freund)␞␞       </para>␞
+␝       <para>␟        During non-freeze operations, perform page <link
+        linkend="vacuum-for-wraparound">freezing</link> where appropriate
+        (Peter Geoghegan)␟非凍結処理中でも、必要に応じてページの<link linkend="vacuum-for-wraparound">凍結</link>を実行するようにしました。
+(Peter Geoghegan)␞␞       </para>␞
+␝       <para>␟        This makes full-table freeze vacuums less necessary.␟これにより、テーブル全体の凍結バキュームの必要性が低くなります。␞␞       </para>␞
+␝       <para>␟        Allow window functions to use the faster <link
+        linkend="syntax-window-functions"><literal>ROWS</literal></link>
+        mode internally when <literal>RANGE</literal> mode is active but
+        unnecessary (David Rowley)␟<literal>RANGE</literal>モードがアクティブであるが不要な場合に、ウィンドウ関数が内部的に高速な<link linkend="syntax-window-functions"><literal>ROWS</literal></link>モードを使用できるようにしました。
+(David Rowley)␞␞       </para>␞
+␝       <para>␟        Allow optimization of always-increasing window functions <link
+        linkend="functions-window-table"><function>ntile()</function></link>,
+        <function>cume_dist()</function> and
+        <function>percent_rank()</function> (David Rowley)␟常に増加するウィンドウ関数<link linkend="functions-window-table"><function>ntile()</function></link>、<function>cume_dist()</function>、<function>percent_rank()</function>の最適化を可能にしました。
+(David Rowley)␞␞       </para>␞
+␝       <para>␟        Allow aggregate functions <link
+        linkend="functions-aggregate-table"><function>string_agg()</function></link>
+        and <function>array_agg()</function> to be parallelized (David
+        Rowley)␟集約関数<link linkend="functions-aggregate-table"><function>string_agg()</function></link>と<function>array_agg()</function>で並列処理をできるようにしました。
+(David Rowley)␞␞       </para>␞
+␝       <para>␟        Improve performance by caching <link
+        linkend="ddl-partitioning-overview"><literal>RANGE</literal></link>
+        and <literal>LIST</literal> partition lookups (Amit Langote,
+        Hou Zhijie, David Rowley)␟<link linkend="ddl-partitioning-overview"><literal>RANGE</literal></link>および<literal>LIST</literal>パーティション検索をキャッシュすることでパフォーマンスを改善しました。
+(Amit Langote, Hou Zhijie, David Rowley)␞␞       </para>␞
+␝       <para>␟        Allow control of the shared buffer usage by vacuum and analyze
+        (Melanie Plageman)␟VACUUMとANALYZEによる共有バッファ使用量の制御が可能になりました。
+(Melanie Plageman)␞␞       </para>␞
+␝       <para>␟        The <link
+        linkend="sql-vacuum"><command>VACUUM</command></link>/<link
+        linkend="sql-analyze"><command>ANALYZE</command></link>
+        option is <literal>BUFFER_USAGE_LIMIT</literal>, and the <link
+        linkend="app-vacuumdb"><application>vacuumdb</application></link>
+        option is <option>--buffer-usage-limit</option>.
+        The default value is set by server variable <link
+        linkend="guc-vacuum-buffer-usage-limit"><varname>vacuum_buffer_usage_limit</varname></link>,
+        which also controls autovacuum.␟<link linkend="sql-vacuum"><command>VACUUM</command></link>/<link linkend="sql-analyze"><command>ANALYZE</command></link>オプションは<literal>BUFFER_USAGE_LIMIT</literal>で、<link linkend="app-vacuumdb"><application>vacuumdb</application></link>オプションは<option>--buffer-usage-limit</option>です。
+デフォルト値はサーバパラメータ<link linkend="guc-vacuum-buffer-usage-limit"><varname>vacuum_buffer_usage_limit</varname></link>で設定され、自動バキュームもこれで制御されます。␞␞       </para>␞
+␝       <para>␟        Support <link
+        linkend="guc-wal-sync-method"><literal>wal_sync_method=fdatasync</literal></link>
+        on <systemitem class="osname">Windows</systemitem> (Thomas Munro)␟<systemitem class="osname">Windows</systemitem>で<link linkend="guc-wal-sync-method"><literal>wal_sync_method=fdatasync</literal></link>がサポートされました。
+(Thomas Munro)␞␞       </para>␞
+␝       <para>␟        Allow <link linkend="storage-hot"><acronym>HOT</acronym></link>
+        updates if only <literal>BRIN</literal>-indexed columns are updated
+        (Matthias van de Meent, Josef Simanek, Tomas Vondra)␟<literal>BRIN</literal>インデックスの列のみが更新される場合でも<link linkend="storage-hot"><acronym>HOT</acronym></link>更新できるようにしました。
+(Matthias van de Meent, Josef Simanek, Tomas Vondra)␞␞       </para>␞
+␝       <para>␟        Improve the speed of updating the <link
+        linkend="guc-update-process-title">process title</link> (David
+        Rowley)␟<link linkend="guc-update-process-title">プロセスタイトル</link>の更新速度を改善しました。
+(David Rowley)␞␞       </para>␞
+␝       <para>␟        Allow <type>xid</type>/<type>subxid</type> searches and
+        <acronym>ASCII</acronym> string detection to use vector operations
+        (Nathan Bossart, John Naylor)␟<type>xid</type>/<type>subxid</type>検索と<acronym>ASCII</acronym>文字列検出でベクトル演算が使用できるようになりました。
+(Nathan Bossart, John Naylor)␞␞       </para>␞
+␝       <para>␟        <acronym>ASCII</acronym> detection is particularly useful for
+        <link linkend="sql-copy"><command>COPY FROM</command></link>.
+        Vector operations are also used for some C array searches.␟<acronym>ASCII</acronym>文字列検出は、<link linkend="sql-copy"><command>COPY FROM</command></link>で特に役立ちます。
+ベクトル演算は、いくつかのC配列検索にも使用されます。␞␞       </para>␞
+␝       <para>␟        Reduce overhead of memory allocations (Andres Freund, David Rowley)␟メモリ割り当てのオーバーヘッドを削減しました。
+(Andres Freund, David Rowley)␞␞       </para>␞
+␝    <sect4 id="release-16-monitoring">␟     <title>Monitoring</title>␟     <title>監視</title>␞␞␞
+␝       <para>␟        Add system view <link
+        linkend="monitoring-pg-stat-io-view"><structname>pg_stat_io</structname></link>
+        view to track <acronym>I/O</acronym> statistics (Melanie Plageman)␟<acronym>I/O</acronym>統計を追跡するための<link linkend="monitoring-pg-stat-io-view"><structname>pg_stat_io</structname></link>システムビューを追加しました。
+(Melanie Plageman)␞␞       </para>␞
+␝       <para>␟        Record statistics on the last sequential and index scans on tables
+        (Dave Page)␟テーブルに対する最後のシーケンシャルスキャンとインデックススキャンに関する統計情報を記録するようにしました。
+(Dave Page)␞␞       </para>␞
+␝       <para>␟        This information appears in <link
+        linkend="pg-stat-all-tables-view"><structname>pg_stat_*_tables</structname></link>
+        and <link
+        linkend="monitoring-pg-stat-all-indexes-view"><structname>pg_stat_*_indexes</structname></link>.␟この情報は<link linkend="pg-stat-all-tables-view"><structname>pg_stat_*_tables</structname></link>と<link linkend="monitoring-pg-stat-all-indexes-view"><structname>pg_stat_*_indexes</structname></link>に表示されます。␞␞       </para>␞
+␝       <para>␟        Record statistics on the occurrence of updated rows moving to
+        new pages (Corey Huinker)␟新しいページへの移動が発生した更新された行の統計情報を記録するようにしました。
+(Corey Huinker)␞␞       </para>␞
+␝       <para>␟        The <literal>pg_stat_*_tables</literal> column is <link
+        linkend="monitoring-pg-stat-all-tables-view"><structfield>n_tup_newpage_upd</structfield></link>.␟<literal>pg_stat_*_tables</literal>列は<link linkend="monitoring-pg-stat-all-tables-view"><structfield>n_tup_newpage_upd</structfield></link>です。␞␞       </para>␞
+␝       <para>␟        Add speculative lock information to the <link
+        linkend="view-pg-locks"><structname>pg_locks</structname></link>
+        system view (Masahiko Sawada, Noriyoshi Shinoda)␟投機的ロックの情報を<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューに追加しました。
+(Masahiko Sawada, Noriyoshi Shinoda)␞␞       </para>␞
+␝       <para>␟        The transaction id is displayed in the
+        <structfield>transactionid</structfield> column and
+        the speculative insertion token is displayed in the
+        <structfield>objid</structfield> column.␟トランザクションIDは<structfield>transactionid</structfield>列に、投機的挿入トークンは<structfield>objid</structfield>列に表示されます。␞␞       </para>␞
+␝       <para>␟        Add the display of prepared statement result types to the <link
+        linkend="view-pg-prepared-statements"><structname>pg_prepared_statements</structname></link>
+        view (Dagfinn Ilmari Mannsåker)␟<link linkend="view-pg-prepared-statements"><structname>pg_prepared_statements</structname></link>ビューにプリペアド文の結果型の表示を追加しました。
+(Dagfinn Ilmari Mannsåker)␞␞       </para>␞
+␝       <para>␟        Create subscription statistics
+        entries at subscription creation time so <link
+        linkend="pg-stat-database-view"><structfield>stats_reset</structfield></link>
+        is accurate (Andres Freund)␟<link linkend="pg-stat-database-view"><structfield>stats_reset</structfield></link>が正確になるように、サブスクリプション作成時にサブスクリプション統計エントリを作成するようにしました。
+(Andres Freund)␞␞       </para>␞
+␝       <para>␟        Previously entries were created only when the first statistics
+        were reported.␟以前は、最初の統計が報告されたときにのみエントリが作成されていました。␞␞       </para>␞
+␝       <para>␟        Correct the <acronym>I/O</acronym>
+        accounting for temp relation writes shown in <link
+        linkend="pg-stat-database-view"><structname>pg_stat_database</structname></link>
+        (Melanie Plageman)␟<link linkend="pg-stat-database-view"><structname>pg_stat_database</structname></link>で表示される一時リレーション書き込みの<acronym>I/O</acronym>集計を修正しました。
+(Melanie Plageman)␞␞       </para>␞
+␝       <para>␟        Add function <link
+        linkend="monitoring-stats-backend-funcs-table"><function>pg_stat_get_backend_subxact()</function></link>
+        to report on a session's subtransaction cache (Dilip Kumar)␟セッションのサブトランザクションキャッシュを報告する<link linkend="monitoring-stats-backend-funcs-table"><function>pg_stat_get_backend_subxact()</function></link>関数を追加しました。
+(Dilip Kumar)␞␞       </para>␞
+␝       <para>␟        Have <link
+        linkend="monitoring-stats-backend-funcs-table"><function>pg_stat_get_backend_idset()</function></link>,
+        <function>pg_stat_get_backend_activity()</function>, and related
+        functions use the unchanging backend id (Nathan Bossart)␟<link linkend="monitoring-stats-backend-funcs-table"><function>pg_stat_get_backend_idset()</function></link>、<function>pg_stat_get_backend_activity()</function>、および関連する関数で、変更されないバックエンドIDを使用するようにしました。
+(Nathan Bossart)␞␞       </para>␞
+␝       <para>␟        Previously the index values might change during the lifetime of
+        the session.␟以前は、セッションの存続期間中にインデックス値が変更される可能性がありました。␞␞       </para>␞
+␝       <para>␟        Report stand-alone backends with a special backend type (Melanie
+        Plageman)␟特別なバックエンドタイプを持つスタンドアローンのバックエンドが表示されるようになりました。
+(Melanie Plageman)␞␞       </para>␞
+␝       <para>␟        Add wait event <link
+        linkend="wait-event-timeout-table"><literal>SpinDelay</literal></link>
+        to report spinlock sleep delays (Andres Freund)␟スピンロック遅延時間を報告するための待機イベント<link linkend="wait-event-timeout-table"><literal>SpinDelay</literal></link>を追加しました。
+(Andres Freund)␞␞       </para>␞
+␝       <para>␟        Create new wait event <link
+        linkend="wait-event-io-table"><literal>DSMAllocate</literal></link>
+        to indicate waiting for dynamic shared memory allocation (Thomas
+        Munro)␟動的共有メモリ割り当て待機を示す新しい待機イベント<link linkend="wait-event-io-table"><literal>DSMAllocate</literal></link>を作成しました。
+(Thomas Munro)␞␞       </para>␞
+␝       <para>␟        Previously this type of wait was reported as
+        <literal>DSMFillZeroWrite</literal>, which was also used by
+        <function>mmap()</function> allocations.␟以前は、このタイプの待機は<function>mmap()</function>割り当てでも使用されている<literal>DSMFillZeroWrite</literal>と報告されていました。␞␞       </para>␞
+␝       <para>␟        Add the database name to the <link
+        linkend="guc-update-process-title">process title</link> of logical
+        <acronym>WAL</acronym> senders (Tatsuhiro Nakamori)␟論理<acronym>WAL</acronym>送信の<link linkend="guc-update-process-title">プロセスタイトル</link>にデータベース名を追加しました。
+(Tatsuhiro Nakamori)␞␞       </para>␞
+␝       <para>␟        Physical <acronym>WAL</acronym> senders do not display a database
+        name.␟物理<acronym>WAL</acronym>送信ではデータベース名を表示しません。␞␞       </para>␞
+␝       <para>␟        Add checkpoint and <literal>REDO LSN</literal> information to <link
+        linkend="guc-log-checkpoints"><varname>log_checkpoints</varname></link>
+        messages (Bharath Rupireddy, Kyotaro Horiguchi)␟チェックポイントと<literal>REDO LSN</literal>情報を<link linkend="guc-log-checkpoints"><varname>log_checkpoints</varname></link>メッセージに追加しました。
+(Bharath Rupireddy, Kyotaro Horiguchi)␞␞       </para>␞
+␝       <para>␟        Provide additional details during client certificate failures
+        (Jacob Champion)␟クライアント証明書のエラー時に、より詳細な情報を提供するようにしました。
+(Jacob Champion)␞␞       </para>␞
+␝    <sect4 id="release-16-privileges">␟     <title>Privileges</title>␟     <title>権限</title>␞␞␞
+␝       <para>␟        Add predefined role <link
+        linkend="predefined-roles"><literal>pg_create_subscription</literal></link>
+        with permission to create subscriptions (Robert Haas)␟サブスクリプション作成の権限を持つ定義済みロール<link linkend="predefined-roles"><literal>pg_create_subscription</literal></link>を追加しました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        Allow subscriptions to not require passwords (Robert Haas)␟パスワードを必要としないサブスクリプションが利用可能になりました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        This is accomplished with the option <link
+        linkend="sql-createsubscription"><literal>password_required=false</literal></link>.␟これは、<link linkend="sql-createsubscription"><literal>password_required=false</literal></link>オプションで実現できます。␞␞       </para>␞
+␝       <para>␟        Simplify permissions for <link linkend="sql-lock"><command>LOCK
+        TABLE</command></link> (Jeff Davis)␟<link linkend="sql-lock"><command>LOCK TABLE</command></link>の権限を単純化しました。
+(Jeff Davis)␞␞       </para>␞
+␝       <para>␟        Previously a user's ability to perform <command>LOCK
+        TABLE</command> at various lock levels was limited to the
+        lock levels required by the commands they had permission
+        to execute on the table.  For example, someone with <link
+        linkend="sql-update"><command>UPDATE</command></link>
+        permission could perform all lock levels except <literal>ACCESS
+        SHARE</literal>, even though it was a lesser lock level.  Now users
+        can issue lesser lock levels if they already have permission for
+        greater lock levels.␟以前は、ユーザがさまざまなロックレベルで<command>LOCK TABLE</command>を実行できる機能は、テーブルに対して実行する権限を持つコマンドに必要なロックレベルに制限されていました。
+たとえば、<link linkend="sql-update"><command>UPDATE</command></link>権限を持つユーザは、たとえそれが低いロックレベルであっても、<literal>ACCESS SHARE</literal>を除くすべてのロックレベルを実行できました。
+現在ではユーザは、より大きなロックレベルの権限を持っていれば、より小さなロックレベルを発行できるようになりました。␞␞       </para>␞
+␝       <para>␟        Allow <link linkend="sql-altergroup"><literal>ALTER GROUP group_name
+        ADD USER user_name</literal></link> to be performed with <literal>ADMIN
+        OPTION</literal> (Robert Haas)␟<literal>ADMIN OPTION</literal>を伴った<link linkend="sql-altergroup"><literal>ALTER GROUP group_name ADD USER user_name</literal></link>を実行できるようにしました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        Previously <literal>CREATEROLE</literal> permission was required.␟以前は<literal>CREATEROLE</literal>権限が必要でした。␞␞       </para>␞
+␝       <para>␟        Allow <link linkend="sql-grant"><command>GRANT</command></link>
+        to use <literal>WITH ADMIN TRUE</literal>/<literal>FALSE</literal>
+        syntax (Robert Haas)␟<link linkend="sql-grant"><command>GRANT</command></link>で<literal>WITH ADMIN TRUE</literal>/<literal>FALSE</literal>構文を使用できるようにしました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        Previously only the <literal>WITH ADMIN OPTION</literal> syntax
+        was supported.␟以前は、<literal>WITH ADMIN OPTION</literal>構文のみがサポートされていました。␞␞       </para>␞
+␝       <para>␟        Allow roles that create other roles to automatically
+        inherit the new role's rights or the ability to <link
+        linkend="sql-set-role"><command>SET ROLE</command></link> to the
+        new role (Robert Haas, Shi Yu)␟他のロールを作成するロールが、新しいロールの権限、または新しいロールに<link linkend="sql-set-role"><command>SET ROLE</command></link>をする機能を自動的に継承できるようにしました。
+(Robert Haas, Shi Yu)␞␞       </para>␞
+␝       <para>␟        This is controlled by server variable <link
+        linkend="guc-createrole-self-grant"><varname>createrole_self_grant</varname></link>.␟これはサーバパラメータ<link linkend="guc-createrole-self-grant"><varname>createrole_self_grant</varname></link>で制御します。␞␞       </para>␞
+␝       <para>␟        Prevent users from changing the default privileges of non-inherited
+        roles (Robert Haas)␟ユーザが継承していないロールのデフォルト権限を変更できないようにしました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        This is now only allowed for inherited roles.␟これからは、継承されたロールに対してのみ許可されるようになりました。␞␞       </para>␞
+␝       <para>␟        When granting role membership, require the granted-by role to be
+        a role that has appropriate permissions (Robert Haas)␟ロールのメンバシップを付与するときに、付与元のロールが適切な権限を持つロールであることを要求されるようになりました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        This is a requirement even when a non-bootstrap superuser is
+        granting role membership.␟これは、ブートストラップ以外のスーパーユーザがロールメンバシップを付与する場合でも必要です。␞␞       </para>␞
+␝       <para>␟        Allow non-superusers to grant permissions using a granted-by user
+        that is not the current user (Robert Haas)␟スーパーユーザ以外のユーザが、現在のユーザでない付与元のユーザを使用して権限を付与できるようにしました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        The current user still must have sufficient permissions given by
+        the specified granted-by user.␟現在のユーザは、依然として指定された付与元のユーザによって与えられた権限を持っている必要があります。␞␞       </para>␞
+␝       <para>␟        Add <link linkend="sql-grant"><command>GRANT</command></link> to
+        control permission to use <link linkend="sql-set-role"><command>SET
+        ROLE</command></link> (Robert Haas)␟<link linkend="sql-grant"><command>GRANT</command></link>に<link linkend="sql-set-role"><command>SET ROLE</command></link>を使用する権限の制御を追加しました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        This is controlled by a new <literal>GRANT ... SET</literal>
+        option.␟これは新しい<literal>GRANT ... SET</literal>オプションで制御されます。␞␞       </para>␞
+␝       <para>␟        Add dependency tracking to roles which have granted privileges
+        (Robert Haas)␟付与された権限を持つロールの依存関係を追跡するようになりました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        For example, removing <literal>ADMIN OPTION</literal> will fail if
+        there are privileges using that option;  <literal>CASCADE</literal>
+        must be used to revoke dependent permissions.␟たとえば、<literal>ADMIN OPTION</literal>を使用している権限がある場合、そのオプションの削除は失敗します。
+依存する権限を取り消すには<literal>CASCADE</literal>を使用する必要があります。␞␞       </para>␞
+␝       <para>␟        Add dependency tracking of grantors for <link
+        linkend="sql-grant"><command>GRANT</command></link> records
+        (Robert Haas)␟<link linkend="sql-grant"><command>GRANT</command></link>レコードの権限所有者(grantor)の依存関係の追跡を追加しました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        This guarantees that <link
+        linkend="catalog-pg-auth-members"><structname>pg_auth_members</structname></link>.<structfield>grantor</structfield>
+        values are always valid.␟これにより、<link linkend="catalog-pg-auth-members"><structname>pg_auth_members</structname>.<structfield>grantor</structfield></link>の値が常に有効であることが保証されます。␞␞       </para>␞
+␝       <para>␟        Allow multiple role membership records (Robert Haas)␟複数のロールメンバシップを持つレコードが許可されるようになりました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        Previously a new membership grant would remove a previous matching
+        membership grant, even if other aspects of the grant did not match.␟以前は、新しいメンバシップ付与が付与の他の側面と一致していなくても、以前の一致するメンバシップ付与を削除していました。␞␞       </para>␞
+␝       <para>␟        Prevent removal of superuser privileges for the bootstrap user
+        (Robert Haas)␟ブートストラップユーザからのスーパーユーザ権限の削除を禁止しました。
+(Robert Haas)␞␞       </para>␞
+␝       <para>␟        Restoring such users could lead to errors.␟このようなユーザをリストアすると、エラーが発生する可能性があります。␞␞       </para>␞
+␝       <para>␟        Allow <link
+        linkend="functions-aclitem-fn-table"><function>makeaclitem()</function></link>
+        to accept multiple privilege names (Robins Tharakan)␟<link linkend="functions-aclitem-fn-table"><function>makeaclitem()</function></link>が複数の権限名を受け付けられるようにしました。
+(Robins Tharakan)␞␞       </para>␞
+␝       <para>␟        Previously only a single privilege name, like <link
+        linkend="sql-select"><command>SELECT</command></link>, was
+        accepted.␟以前は<link linkend="sql-select"><command>SELECT</command></link>などのように、1つの権限名しか受け付けませんでした。␞␞       </para>␞
+␝    <sect4 id="release-16-server-config">␟     <title>Server Configuration</title>␟     <title>サーバ設定</title>␞␞␞
+␝       <para>␟        Add support for <productname>Kerberos</productname> credential
+        delegation (Stephen Frost)␟<productname>Kerberos</productname>の認証情報の委任をサポートしました。
+(Stephen Frost)␞␞       </para>␞
+␝       <para>␟        This is enabled with server variable <link
+        linkend="guc-gss-accept-delegation"><varname>gss_accept_delegation</varname></link>
+        and <application>libpq</application> connection parameter <link
+        linkend="libpq-connect-gssdelegation"><literal>gssdelegation</literal></link>.␟これは、サーバパラメータ<link linkend="guc-gss-accept-delegation"><varname>gss_accept_delegation</varname></link>と<application>libpq</application>接続パラメータ<link linkend="libpq-connect-gssdelegation"><literal>gssdelegation</literal></link>で有効にできます。␞␞       </para>␞
+␝       <para>␟        Allow the <acronym>SCRAM</acronym> iteration
+        count to be set with server variable <link
+        linkend="guc-scram-iterations"><varname>scram_iterations</varname></link>
+        (Daniel Gustafsson)␟サーバパラメータ<link linkend="guc-scram-iterations"><varname>scram_iterations</varname></link>で<acronym>SCRAM</acronym>の繰り返し回数を設定できるようにしました。
+(Daniel Gustafsson)␞␞       </para>␞
+␝       <para>␟        Improve performance of server variable management (Tom Lane)␟サーバパラメータ管理のパフォーマンスを改善しました。
+(Tom Lane)␞␞       </para>␞
+␝       <para>␟        Tighten restrictions on which server variables can be reset
+        (Masahiko Sawada)␟サーバパラメータのリセットに関する制限を強化しました。
+(Masahiko Sawada)␞␞       </para>␞
+␝       <para>␟        Previously, while certain variables, like <link
+        linkend="guc-default-transaction-isolation"><varname>transaction_isolation</varname></link>,
+        were not affected by <link linkend="sql-reset"><command>RESET
+        ALL</command></link>, they could be individually reset in
+        inappropriate situations.␟以前は、<link linkend="guc-default-transaction-isolation"><varname>transaction_isolation</varname></link>のような特定の変数は<link linkend="sql-reset"><command>RESET ALL</command></link>の影響を受けませんでしたが、不適切な状況では個別にリセットする可能性がありました。␞␞       </para>␞
+␝       <para>␟        Move various <link
+        linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>
+        items into new categories (Shinya Kato)␟さまざまな<link linkend="config-setting-configuration-file"><filename>postgresql.conf</filename></link>項目を新しいカテゴリに移動しました。
+(Shinya Kato)␞␞       </para>␞
+␝       <para>␟        This also affects the categories displayed in the <link
+        linkend="view-pg-settings"><structname>pg_settings</structname></link>
+        view.␟これは<link linkend="view-pg-settings"><structname>pg_settings</structname></link>ビューに表示されるカテゴリにも影響します。␞␞       </para>␞
+␝       <para>␟        Prevent configuration file recursion beyond 10 levels (Julien
+        Rouhaud)␟設定ファイルが10レベルを超えて再帰アクセスすることを防止しました。
+(Julien Rouhaud)␞␞       </para>␞
+␝       <para>␟        Allow <link linkend="autovacuum">autovacuum</link> to more
+        frequently honor changes to delay settings (Melanie Plageman)␟<link linkend="autovacuum">autovacuum</link>が遅延設定の変更をより頻繁に確認するようにしました。
+(Melanie Plageman)␞␞       </para>␞
+␝       <para>␟        Rather than honor changes only at the start of each relation,
+        honor them at the start of each block.␟各リレーションの開始時にのみ変更を確認するのではなく、各ブロックの開始時にも確認するようになりました。␞␞       </para>␞
+␝       <para>␟        Remove restrictions that archive files be durably renamed
+        (Nathan Bossart)␟アーカイブファイルの名前を永続的に変更する制限を削除しました。
+(Nathan Bossart)␞␞       </para>␞
+␝       <para>␟        The <link
+        linkend="guc-archive-command"><varname>archive_command</varname></link>
+        command is now more likely to be called with already-archived
+        files after a crash.␟<link linkend="guc-archive-command"><varname>archive_command</varname></link>コマンドは、クラッシュ後にすでにアーカイブ済みのファイルを呼び出す可能性が高くなりました。␞␞       </para>␞
+␝       <para>␟        Prevent <link
+        linkend="guc-archive-library"><varname>archive_library</varname></link>
+        and <link
+        linkend="guc-archive-command"><varname>archive_command</varname></link>
+        from being set at the same time (Nathan Bossart)␟<link linkend="guc-archive-library"><varname>archive_library</varname></link>と<link linkend="guc-archive-command"><varname>archive_command</varname></link>を同時に設定できないようにしました。
+(Nathan Bossart)␞␞       </para>␞
+␝       <para>␟        Previously <varname>archive_library</varname> would override
+        <varname>archive_command</varname>.␟以前は、<varname>archive_library</varname>が<varname>archive_command</varname>よりも優先されていました。␞␞       </para>␞
+␝       <para>␟        Allow the postmaster to terminate children with an abort signal
+        (Tom Lane)␟postmasterがABORTシグナルで子プロセスを終了できるようにしました。
+(Tom Lane)␞␞       </para>␞
+␝       <para>␟        This allows collection of a core dump for a
+        stuck child process.  This is controlled by <link
+        linkend="guc-send-abort-for-crash"><varname>send_abort_for_crash</varname></link>
+        and <link
+        linkend="guc-send-abort-for-kill"><varname>send_abort_for_kill</varname></link>.
+        The postmaster's <option>-T</option> switch is now the same as
+        setting <varname>send_abort_for_crash</varname>.␟これにより、停止した子プロセスのコアダンプを収集できるようになりました。
+これは<link linkend="guc-send-abort-for-crash"><varname>send_abort_for_crash</varname></link>と<link linkend="guc-send-abort-for-kill"><varname>send_abort_for_kill</varname></link>で制御されます。
+現在、postmasterの<option>-T</option>スイッチは<varname>send_abort_for_crash</varname>を設定することと同じです。␞␞       </para>␞
+␝       <para>␟        Remove the non-functional postmaster <option>-n</option> option
+        (Tom Lane)␟機能しないpostmaster<option>-n</option>オプションを削除しました。
+(Tom Lane)␞␞       </para>␞
+␝       <para>␟        Allow the server to reserve backend slots for roles with <link
+        linkend="predefined-roles"><literal>pg_use_reserved_connections</literal></link>
+        membership (Nathan Bossart)␟<link linkend="predefined-roles"><literal>pg_use_reserved_connections</literal></link>メンバシップであるロールに対して、バックエンドスロットを予約できるようにサーバを設定しました。
+(Nathan Bossart)␞␞       </para>␞
+␝       <para>␟        The number of reserved slots is set by server variable <link
+        linkend="guc-reserved-connections"><varname>reserved_connections</varname></link>.␟予約スロット数は、サーバパラメータ<link linkend="guc-reserved-connections"><varname>reserved_connections</varname></link>で設定します。␞␞       </para>␞
+␝       <para>␟        Allow <link linkend="guc-huge-pages">huge pages</link> to
+        work on newer versions of <systemitem class="osname">Windows
+        10</systemitem> (Thomas Munro)␟<systemitem class="osname">Windows 10</systemitem>以降のバージョンで<link linkend="guc-huge-pages">huge pages</link>を使用できるようにしました。
+(Thomas Munro)␞␞       </para>␞
+␝       <para>␟        This adds the special handling required to enable huge pages
+        on newer versions of <systemitem class="osname">Windows
+        10</systemitem>.␟これにより、<systemitem class="osname">Windows 10</systemitem>以降のバージョンでヒープページを有効にするために必要となる特別な処理が追加されます。␞␞       </para>␞
+␝       <para>␟        Add <link
+        linkend="guc-debug-io-direct"><varname>debug_io_direct</varname></link>
+        setting for developer usage (Thomas Munro, Andres Freund,
+        Bharath Rupireddy)␟開発者用の<link linkend="guc-debug-io-direct"><varname>debug_io_direct</varname></link>設定を追加しました。
+(Thomas Munro, Andres Freund, Bharath Rupireddy)␞␞       </para>␞
+␝       <para>␟        While primarily for developers, <link
+        linkend="guc-wal-sync-method"><literal>wal_sync_method=open_sync</literal></link>/<literal>open_datasync</literal>
+        has been modified to not use direct <acronym>I/O</acronym> with
+        <literal>wal_level=minimal</literal>;  this is now enabled with
+        <literal>debug_io_direct=wal</literal>.␟主に開発者向けですが、<link linkend="guc-wal-sync-method"><literal>wal_sync_method=open_sync</literal></link>/<literal>open_datasync</literal>は、<literal>wal_level=minimal</literal>でのダイレクト<acronym>I/O</acronym>を使用しないように修正されました。
+これは、<literal>debug_io_direct=wal</literal>で有効にできます。␞␞       </para>␞
+␝       <para>␟        Add function <link
+        linkend="functions-admin-backup-table"><function>pg_split_walfile_name()</function></link>
+        to report the segment and timeline values of <acronym>WAL</acronym>
+        file names (Bharath Rupireddy)␟<acronym>WAL</acronym>ファイル名のセグメント値とタイムライン値を報告する<link linkend="functions-admin-backup-table"><function>pg_split_walfile_name()</function></link>関数を追加しました。
+(Bharath Rupireddy)␞␞       </para>␞
+␝       <para>␟        Add support for regular expression matching on database and role
+        entries in <filename>pg_hba.conf</filename> (Bertrand Drouvot)␟<filename>pg_hba.conf</filename>内のデータベースエントリとロールエントリで正規表現マッチングをサポートしました。
+(Bertrand Drouvot)␞␞       </para>␞
+␝       <para>␟        Regular expression patterns are prefixed with a slash.  Database
+        and role names that begin with slashes need to be double-quoted
+        if referenced in <filename>pg_hba.conf</filename>.␟正規表現パターンはスラッシュで始まります。
+スラッシュで始まるデータベース名とロール名は、<filename>pg_hba.conf</filename>で参照される場合、二重引用符で囲む必要があります。␞␞       </para>␞
+␝       <para>␟        Improve user-column handling of <link
+        linkend="runtime-config-file-locations"><filename>pg_ident.conf</filename></link>
+        to match <filename>pg_hba.conf</filename> (Jelte Fennema)␟<link linkend="runtime-config-file-locations"><filename>pg_ident.conf</filename></link>のユーザ列処理を<filename>pg_hba.conf</filename>と一致するよう改善しました。
+(Jelte Fennema)␞␞       </para>␞
+␝       <para>␟        Specifically, add support for <literal>all</literal>, role
+        membership with <literal>+</literal>, and regular expressions
+        with a leading slash.  Any user name that matches these patterns
+        must be double-quoted.␟具体的には<literal>all</literal>、<literal>+</literal>でのロールメンバシップ、先頭にスラッシュを付けた正規表現のサポートを追加しました。
+これらのパターンに一致するユーザ名は二重引用符で囲む必要があります。␞␞       </para>␞
+␝       <para>␟        Allow include files in <filename>pg_hba.conf</filename> and
+        <filename>pg_ident.conf</filename> (Julien Rouhaud)␟<filename>pg_hba.conf</filename>と<filename>pg_ident.conf</filename>でファイルのインクルードができるようになりました。
+(Julien Rouhaud)␞␞       </para>␞
+␝       <para>␟        These are controlled by <literal>include</literal>,
+        <literal>include_if_exists</literal>, and
+        <literal>include_dir</literal>.  System views <link
+        linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link>
+        and <link
+        linkend="view-pg-ident-file-mappings"><structname>pg_ident_file_mappings</structname></link>
+        now display the file name.␟これらは<literal>include</literal>、<literal>include_if_exists</literal>、<literal>include_dir</literal>で制御されます。
+システムビュー<link linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link>と<link linkend="view-pg-ident-file-mappings"><structname>pg_ident_file_mappings</structname></link>にファイル名が表示されるようになりました。␞␞       </para>␞
+␝       <para>␟        Allow <filename>pg_hba.conf</filename> tokens to be of unlimited
+        length (Tom Lane)␟<filename>pg_hba.conf</filename>でのトークンの長さ制限を無くしました。
+(Tom Lane)␞␞       </para>␞
+␝       <para>␟        Add rule and map numbers to the system view <link
+        linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link>
+        (Julien Rouhaud)␟システムビュー<link linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link>にルール番号とマップ番号を追加しました。
+(Julien Rouhaud)␞␞       </para>␞
+␝    <sect4 id="release-16-localization">␟     <title><link linkend="charset">Localization</link></title>␟     <title><link linkend="charset">ローカライゼーション</link></title>␞␞␞
+␝       <para>␟        Determine the default encoding from the locale when using
+        <acronym>ICU</acronym> (Jeff Davis)␟<acronym>ICU</acronym>を使用する場合はロケールからデフォルトのエンコーディングを決定するようにしました。
+(Jeff Davis)␞␞       </para>␞
+␝       <para>␟        Previously the default was always <literal>UTF-8</literal>.␟以前のデフォルトは常に<literal>UTF-8</literal>でした。␞␞       </para>␞
+␝       <para>␟        Have <link linkend="sql-createdatabase"><command>CREATE
+        DATABASE</command></link> and <link
+        linkend="sql-createcollation"><command>CREATE
+        COLLATION</command></link>'s <literal>LOCALE</literal> options, and
+        <link linkend="app-initdb"><application>initdb</application></link>
+        and <link
+        linkend="app-createdb"><application>createdb</application></link>
+        <option>--locale</option> options, control
+        non-<application>libc</application> collation providers (Jeff
+        Davis)␟<link linkend="sql-createdatabase"><command>CREATE DATABASE</command></link>と<link linkend="sql-createcollation"><command>CREATE COLLATION</command></link>の<literal>LOCALE</literal>オプション、および<link linkend="app-initdb"><application>initdb</application></link>と<link linkend="app-createdb"><application>createdb</application></link>の<option>--locale</option>オプションは、<application>libc</application>以外の照合順序プロバイダを制御するようにしました。
+(Jeff Davis)␞␞       </para>␞
+␝       <para>␟        Previously they only controlled <application>libc</application>
+        providers.␟以前は、<application>libc</application>プロバイダのみを制御していました。␞␞       </para>␞
+␝       <para>␟        Add predefined collations <literal>unicode</literal> and
+        <literal>ucs_basic</literal> (Peter Eisentraut)␟定義済み照合順序として<literal>unicode</literal>と<literal>ucs_basic</literal>を追加しました。
+(Peter Eisentraut)␞␞       </para>␞
+␝       <para>␟        This only works if <acronym>ICU</acronym> support is enabled.␟これは<acronym>ICU</acronym>サポートが有効になっている場合にのみ機能します。␞␞       </para>␞
+␝       <para>␟        Allow custom <acronym>ICU</acronym> collation rules to be created
+        (Peter Eisentraut)␟カスタム<acronym>ICU</acronym>照合ルールの作成できるようにしました。
+(Peter Eisentraut)␞␞       </para>␞
+␝       <para>␟        This is done using <link
+        linkend="sql-createcollation"><command>CREATE
+        COLLATION</command></link>'s new <literal>RULES</literal>
+        clause, as well as new options for <link
+        linkend="sql-createdatabase"><command>CREATE
+        DATABASE</command></link>, <link
+        linkend="app-createdb"><application>createdb</application></link>,
+        and <link
+        linkend="app-initdb"><application>initdb</application></link>.␟これは、<link linkend="sql-createcollation"><command>CREATE COLLATION</command></link>の新しい<literal>RULES</literal>句と、<link linkend="sql-createdatabase"><command>CREATE DATABASE</command></link>、<link linkend="app-createdb"><application>createdb</application></link>、<link linkend="app-initdb"><application>initdb</application></link>の新しいオプションを使用して行われます。␞␞       </para>␞
+␝       <para>␟        Allow <systemitem class="osname">Windows</systemitem> to import
+        system locales automatically (Juan José Santamaría Flecha)␟<systemitem class="osname">Windows</systemitem>でシステムロケールを自動的にインポートできるようにしました。
+(Juan José Santamaría Flecha)␞␞       </para>␞
+␝       <para>␟        Previously, only <acronym>ICU</acronym> locales could be imported
+        on <systemitem class="osname">Windows</systemitem>.␟以前は<systemitem class="osname">Windows</systemitem>上では<acronym>ICU</acronym>ロケールのみインポートできました。␞␞       </para>␞
+␝   <sect3 id="release-16-logical">␟    <title><link linkend="logical-replication">Logical Replication</link></title>␟    <title><link linkend="logical-replication">論理レプリケーション</link></title>␞␞␞
+␝      <para>␟       Allow <link linkend="logicaldecoding">logical decoding</link>
+       on standbys (Bertrand Drouvot, Andres Freund, Amit Khandekar)␟スタンバイでの<link linkend="logicaldecoding">ロジカルデコーディング</link>ができるようになりました。
+(Bertrand Drouvot, Andres Freund, Amit Khandekar)␞␞      </para>␞
+␝      <para>␟       Snapshot <acronym>WAL</acronym> records are
+       required for logical slot creation but cannot be
+       created on standbys.  To avoid delays, the new function <link
+       linkend="functions-snapshot-synchronization-table"><function>pg_log_standby_snapshot()</function></link>
+       allows creation of such records.␟スナップショット<acronym>WAL</acronym>レコードはロジカルスロットの作成に必要ですが、スタンバイでは作成できません。
+遅延を回避するために、新しい関数<link linkend="functions-snapshot-synchronization-table"><function>pg_log_standby_snapshot()</function></link>でこのようなレコードの作成ができるようになりました。␞␞      </para>␞
+␝      <para>␟       Add server variable to control how logical decoding publishers
+       transfer changes and how subscribers apply them (Shi Yu)␟ロジカルデコーディングのパブリッシャーが変更を転送する方法と、サブスクライバーが変更を適用する方法を制御するためのサーバパラメータを追加しました。
+(Shi Yu)␞␞      </para>␞
+␝      <para>␟       The variable is <link
+       linkend="guc-debug-logical-replication-streaming"><varname>debug_logical_replication_streaming</varname></link>.␟そのパラメータは<link linkend="guc-debug-logical-replication-streaming"><varname>debug_logical_replication_streaming</varname></link>です。␞␞      </para>␞
+␝      <para>␟       Allow logical replication initial table synchronization to copy
+       rows in binary format (Melih Mutlu)␟論理レプリケーションの初期テーブル同期で行をバイナリ形式でコピーできるようにしました。
+(Melih Mutlu)␞␞      </para>␞
+␝      <para>␟       This is only possible for subscriptions marked as binary.␟これは、バイナリとしてマークされたサブスクリプションに対してのみ可能です。␞␞      </para>␞
+␝      <para>␟       Allow parallel application of logical replication (Hou Zhijie,
+       Wang Wei, Amit Kapila)␟論理レプリケーションのパラレル適用が可能になりました。
+(Hou Zhijie, Wang Wei, Amit Kapila)␞␞      </para>␞
+␝      <para>␟       The <link linkend="sql-createsubscription"><command>CREATE
+       SUBSCRIPTION</command></link> <option>STREAMING</option>
+       option now supports <literal>parallel</literal> to enable
+       application of large transactions by parallel workers.  The number
+       of parallel workers is controlled by the new server variable <link
+       linkend="guc-max-parallel-apply-workers-per-subscription"><varname>max_parallel_apply_workers_per_subscription</varname></link>.
+       Wait events <link
+       linkend="wait-event-activity-table"><literal>LogicalParallelApplyMain</literal></link>,
+       <literal>LogicalParallelApplyStateChange</literal>, and
+       <literal>LogicalApplySendData</literal> were also added.  Column
+       <structfield>leader_pid</structfield> was added to system view <link
+       linkend="monitoring-pg-stat-subscription"><structname>pg_stat_subscription</structname></link>
+       to track parallel activity.␟<link linkend="sql-createsubscription"><command>CREATE SUBSCRIPTION</command></link>の<option>STREAMING</option>オプションで、パラレルワーカーによる大規模なトランザクションの適用を可能にする新たな<literal>parallel</literal>をサポートするようになりました。
+パラレルワーカー数は新しいサーバパラメータ<link linkend="guc-max-parallel-apply-workers-per-subscription"><varname>max_parallel_apply_workers_per_subscription</varname></link>で制御されます。
+また、待機イベント<link linkend="wait-event-activity-table"><literal>LogicalParallelApplyMain</literal></link>、<literal>LogicalParallelApplyStateChange</literal>、および<literal>LogicalApplySendData</literal>も追加されました。
+パラレルアクティビティを追跡するために、システムビュー<link linkend="monitoring-pg-stat-subscription"><structname>pg_stat_subscription</structname></link>に<structfield>leader_pid</structfield>列が追加されました。␞␞      </para>␞
+␝      <para>␟       Improve performance for <link
+       linkend="logical-replication-architecture">logical replication
+       apply</link> without a primary key (Onder Kalaci, Amit Kapila)␟主キーを使用しない<link linkend="logical-replication-architecture">論理レプリケーション適用</link>のパフォーマンスを改善しました。
+(Onder Kalaci, Amit Kapila)␞␞      </para>␞
+␝      <para>␟       Specifically, <literal>REPLICA IDENTITY FULL</literal> can now
+       use btree indexes rather than sequentially scanning the table to
+       find matches.␟具体的には、<literal>REPLICA IDENTITY FULL</literal>は一致を見つけるためにテーブルをシーケンシャルスキャンするのではなく、Btreeインデックスを使用できるようになりました。␞␞      </para>␞
+␝      <para>␟       Allow logical replication subscribers to process only changes that
+       have no origin (Vignesh C, Amit Kapila)␟論理レプリケーションのサブスクライバーが、オリジンを持たない変更のみを処理できるようにしました。
+(Vignesh C, Amit Kapila)␞␞      </para>␞
+␝      <para>␟       This can be used to avoid replication loops.  This is controlled
+       by the new <literal>CREATE SUBSCRIPTION ... ORIGIN</literal> option.␟これを使用することで、レプリケーションループを回避できます。
+これは、新しい<literal>CREATE SUBSCRIPTION ... ORIGIN</literal>オプションで制御されます。␞␞      </para>␞
+␝      <para>␟       Perform logical replication <link
+       linkend="sql-select"><command>SELECT</command></link> and
+       <acronym>DML</acronym> actions as the table owner (Robert Haas)␟論理レプリケーションの<link linkend="sql-select"><command>SELECT</command></link>と<acronym>DML</acronym>アクションをテーブルの所有者として実行するようにしました。
+(Robert Haas)␞␞      </para>␞
+␝      <para>␟       This improves security and now requires subscription
+       owners to be either superusers or to have <link
+       linkend="sql-set-role"><command>SET ROLE</command></link>
+       permission on all roles owning tables in the replication set.
+       The previous behavior of performing all operations as the
+       subscription owner can be enabled with the subscription <link
+       linkend="sql-createsubscription"><option>run_as_owner</option></link>
+       option.␟これによりセキュリティが向上し、サブスクリプションの所有者はスーパーユーザであるか、またはレプリケーションセット内のテーブルを所有するすべてのロールに対する<link linkend="sql-set-role"><command>SET ROLE</command></link>権限を持っている必要があります。
+以前の動作である、すべての操作をサブスクリプション所有者として実行するには、サブスクリプションの<link linkend="sql-createsubscription"><option>run_as_owner</option></link>オプションを使用することで可能です。␞␞      </para>␞
+␝      <para>␟       Have <link
+       linkend="guc-wal-retrieve-retry-interval"><varname>wal_retrieve_retry_interval</varname></link>
+       operate on a per-subscription basis (Nathan Bossart)␟<link linkend="guc-wal-retrieve-retry-interval"><varname>wal_retrieve_retry_interval</varname></link>がサブスクリプション単位で動作するようになりました。
+(Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       Previously the retry time was applied
+       globally.  This also adds wait events <link
+       linkend="wait-event-lwlock-table">><literal>LogicalRepLauncherDSA</literal></link>
+       and <literal>LogicalRepLauncherHash</literal>.␟以前は、リトライ時間はグローバルに適用されていました。
+これにより、待機イベント<link linkend="wait-event-lwlock-table"><literal>LogicalRepLauncherDSA</literal></link>および<literal>LogicalRepLauncherHash</literal>も追加されます。␞␞      </para>␞
+␝   <sect3 id="release-16-utility">␟    <title>Utility Commands</title>␟    <title>ユーティリティコマンド</title>␞␞␞
+␝      <para>␟       Add <link linkend="sql-explain"><command>EXPLAIN</command></link>
+       option <literal>GENERIC_PLAN</literal> to display the generic plan
+       for a parameterized query (Laurenz Albe)␟パラメータ化された問い合わせの汎用プランを表示する<link linkend="sql-explain"><command>EXPLAIN</command></link>の<literal>GENERIC_PLAN</literal>を追加しました。
+(Laurenz Albe)␞␞      </para>␞
+␝      <para>␟       Allow a <link linkend="sql-copy"><command>COPY FROM</command></link>
+       value to map to a column's <literal>DEFAULT</literal> (Israel
+       Barth Rubio)␟<link linkend="sql-copy"><command>COPY FROM</command></link>で列の<literal>DEFAULT</literal>に値をマップできるようにしました。
+(Israel Barth Rubio)␞␞      </para>␞
+␝      <para>␟       Allow <link linkend="sql-copy"><command>COPY</command></link>
+       into foreign tables to add rows in batches (Andrey Lepikhov,
+       Etsuro Fujita)␟外部テーブルへの<link linkend="sql-copy"><command>COPY</command></link>で行をバッチ追加できるようにしました。
+(Andrey Lepikhov, Etsuro Fujita)␞␞      </para>␞
+␝      <para>␟       This is controlled by the <link
+       linkend="postgres-fdw"><application>postgres_fdw</application></link>
+       option <link
+       linkend="postgres-fdw-options-cost-estimation"><option>batch_size</option></link>.␟これは<link linkend="postgres-fdw"><application>postgres_fdw</application></link>の<link linkend="postgres-fdw-options-cost-estimation"><option>batch_size</option></link>オプションで制御します。␞␞      </para>␞
+␝      <para>␟       Allow the <literal>STORAGE</literal> type to be specified by <link
+       linkend="sql-createtable"><command>CREATE TABLE</command></link>
+       (Teodor Sigaev, Aleksander Alekseev)␟<link linkend="sql-createtable"><command>CREATE TABLE</command></link>で<literal>STORAGE</literal>タイプを指定できるようにしました。
+(Teodor Sigaev, Aleksander Alekseev)␞␞      </para>␞
+␝      <para>␟       Previously only <link linkend="sql-altertable"><command>ALTER
+       TABLE</command></link> could control this.␟以前は、<link linkend="sql-altertable"><command>ALTER TABLE</command></link>のみがこれを制御できました。␞␞      </para>␞
+␝      <para>␟       Allow <link linkend="sql-createtrigger">truncate triggers</link>
+       on foreign tables (Yugo Nagata)␟外部テーブルでの<link linkend="sql-createtrigger">TRUNCATEトリガ</link>ができるようにしました。
+(Yugo Nagata)␞␞      </para>␞
+␝      <para>␟       Allow <link
+       linkend="sql-vacuum"><command>VACUUM</command></link> and <link
+       linkend="app-vacuumdb"><application>vacuumdb</application></link>
+       to only process <link
+       linkend="storage-toast"><literal>TOAST</literal></link> tables
+       (Nathan Bossart)␟<link linkend="sql-vacuum"><command>VACUUM</command></link>と<link linkend="app-vacuumdb"><application>vacuumdb</application></link>が<link linkend="storage-toast"><literal>TOAST</literal></link>テーブルのみを処理できるようにしました。
+(Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       This is accomplished by having <link
+       linkend="sql-vacuum"><command>VACUUM</command></link>
+       turn off <literal>PROCESS_MAIN</literal> or by <link
+       linkend="app-vacuumdb"><application>vacuumdb</application></link>
+       using the <option>--no-process-main</option> option.␟これは、<link linkend="sql-vacuum"><command>VACUUM</command></link>で<literal>PROCESS_MAIN</literal>をオフにするか、<link linkend="app-vacuumdb"><application>vacuumdb</application></link>で<option>--no-process-main</option>オプションを使用して実現できます。␞␞      </para>␞
+␝      <para>␟       Add <link linkend="sql-vacuum"><command>VACUUM</command></link>
+       options to skip or update all <link
+       linkend="vacuum-for-wraparound">frozen</link> statistics (Tom Lane,
+       Nathan Bossart)␟<link linkend="sql-vacuum"><command>VACUUM</command></link>に<link linkend="vacuum-for-wraparound">凍結された</link>統計情報をスキップまたはすべて更新するオプションを追加しました。
+(Tom Lane, Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       The options are <literal>SKIP_DATABASE_STATS</literal> and
+       <literal>ONLY_DATABASE_STATS</literal>.␟オプションは<literal>SKIP_DATABASE_STATS</literal>と<literal>ONLY_DATABASE_STATS</literal>です。␞␞      </para>␞
+␝      <para>␟       Change <link linkend="sql-reindex"><command>REINDEX
+       DATABASE</command></link> and <link
+       linkend="sql-reindex"><command>REINDEX SYSTEM</command></link>
+       to no longer require an argument (Simon Riggs)␟<link linkend="sql-reindex"><command>REINDEX DATABASE</command></link>と<link linkend="sql-reindex"><command>REINDEX SYSTEM</command></link>で引数が不要になりました。
+(Simon Riggs)␞␞      </para>␞
+␝      <para>␟       Previously the database name had to be specified.␟以前は、データベース名を指定する必要がありました。␞␞      </para>␞
+␝      <para>␟       Allow <link linkend="sql-createstatistics"><command>CREATE
+       STATISTICS</command></link> to generate a statistics name if none
+       is specified (Simon Riggs)␟何も指定されていない場合は<link linkend="sql-createstatistics"><command>CREATE STATISTICS</command></link>で統計名を生成できるようにしました。
+(Simon Riggs)␞␞      </para>␞
+␝   <sect3 id="release-16-datatypes">␟    <title>Data Types</title>␟    <title>データ型</title>␞␞␞
+␝      <para>␟       Allow non-decimal <link linkend="sql-syntax-bit-strings">integer
+       literals</link> (Peter Eisentraut)␟10進数以外の<link linkend="sql-syntax-bit-strings">整数リテラル</link>が利用可能になりました。
+(Peter Eisentraut)␞␞      </para>␞
+␝      <para>␟       For example, <literal>0x42F</literal>, <literal>0o273</literal>,
+       and <literal>0b100101</literal>.␟例えば、<literal>0x42F</literal>、<literal>0o273</literal>、<literal>0b100101</literal>などです。␞␞      </para>␞
+␝      <para>␟       Allow <link linkend="datatype-numeric"><type>NUMERIC</type></link>
+       to process hexadecimal, octal, and binary integers of any size
+       (Dean Rasheed)␟<link linkend="datatype-numeric"><type>NUMERIC</type></link>が任意のサイズの16進数、8進数、2進数の整数を処理できるようにしました。
+(Dean Rasheed)␞␞      </para>␞
+␝      <para>␟       Previously only unquoted eight-byte integers were supported with
+       these non-decimal bases.␟以前は、これらの非10進数では、引用符で囲まれていない8バイトの整数のみがサポートされていました。␞␞      </para>␞
+␝      <para>␟       Allow underscores in integer and numeric <link
+       linkend="sql-syntax-bit-strings">constants</link> (Peter Eisentraut,
+       Dean Rasheed)␟整数と数値の<link linkend="sql-syntax-bit-strings">定数</link>でアンダースコアを使用できるようにしました。
+(Peter Eisentraut, Dean Rasheed)␞␞      </para>␞
+␝      <para>␟       This can improve readability for long strings of digits.␟これにより、長い数字列の読みやすさが向上します。␞␞      </para>␞
+␝      <para>␟       Accept the spelling <literal>+infinity</literal> in datetime input
+       (Vik Fearing)␟日時入力で<literal>+infinity</literal>の表現を受け付けるようにしました。
+(Vik Fearing)␞␞      </para>␞
+␝      <para>␟       Prevent the specification of <literal>epoch</literal> and
+       <literal>infinity</literal> together with other fields in datetime
+       strings (Joseph Koshakow)␟日時文字列で他のフィールドと一緒に<literal>epoch</literal>と<literal>infinity</literal>を指定することを禁止しました。
+(Joseph Koshakow)␞␞      </para>␞
+␝      <para>␟       Remove undocumented support for date input in the form
+       <literal>Y<replaceable>year</replaceable>M<replaceable>month</replaceable>D<replaceable>day</replaceable></literal>
+       (Joseph Koshakow)␟文書化されていない<literal>Y<replaceable>year</replaceable>M<replaceable>month</replaceable>D<replaceable>day</replaceable></literal>形式の日付入力サポートを削除しました。
+(Joseph Koshakow)␞␞      </para>␞
+␝      <para>␟       Add functions <link
+       linkend="functions-info-validity-table"><function>pg_input_is_valid()</function></link>
+       and <function>pg_input_error_info()</function> to check for type
+       conversion errors (Tom Lane)␟型変換エラーをチェックする関数<link linkend="functions-info-validity-table"><function>pg_input_is_valid()</function></link>と<function>pg_input_error_info()</function>を追加しました。
+(Tom Lane)␞␞      </para>␞
+␝   <sect3 id="release-16-general">␟    <title>General Queries</title>␟    <title>問い合わせ一般</title>␞␞␞
+␝      <para>␟       Allow subqueries in the <literal>FROM</literal> clause to omit
+       aliases (Dean Rasheed)␟<literal>FROM</literal>句の副問い合わせで別名を省略できるようにしました。
+(Dean Rasheed)␞␞      </para>␞
+␝      <para>␟       Add support for enhanced numeric literals in
+       <acronym>SQL/JSON</acronym> paths (Peter Eisentraut)␟<acronym>SQL/JSON</acronym>パスで拡張された数値リテラルに対応しました。
+(Peter Eisentraut)␞␞      </para>␞
+␝      <para>␟       For example, allow hexadecimal, octal, and binary integers and
+       underscores between digits.␟たとえば、16進数、8進数、および2進数の整数で、桁間のアンダースコアが利用可能になりました。␞␞      </para>␞
+␝   <sect3 id="release-16-functions">␟    <title>Functions</title>␟    <title>関数</title>␞␞␞
+␝      <para>␟       Add <acronym>SQL/JSON</acronym> constructors (Nikita Glukhov,
+       Teodor Sigaev, Oleg Bartunov, Alexander Korotkov, Amit Langote)␟<acronym>SQL/JSON</acronym>のコンストラクタを追加しました。
+(Nikita Glukhov, Teodor Sigaev, Oleg Bartunov, Alexander Korotkov, Amit Langote)␞␞      </para>␞
+␝      <para>␟       The new functions <link
+       linkend="functions-json-creation-table"><function>JSON_ARRAY()</function></link>,
+       <link
+       linkend="functions-aggregate-table"><function>JSON_ARRAYAGG()</function></link>,
+       <function>JSON_OBJECT()</function>, and
+       <function>JSON_OBJECTAGG()</function> are part of the
+       <acronym>SQL</acronym> standard.␟新しい関数<link linkend="functions-json-creation-table"><function>JSON_ARRAY()</function></link>、<link linkend="functions-aggregate-table"><function>JSON_ARRAYAGG()</function></link>、<function>JSON_OBJECT()</function>、および<function>JSON_OBJECTAGG()</function>は、標準<acronym>SQL</acronym>の一部です。␞␞      </para>␞
+␝      <para>␟       Add <acronym>SQL/JSON</acronym> object checks (Nikita Glukhov,
+       Teodor Sigaev, Oleg Bartunov, Alexander Korotkov, Amit Langote,
+       Andrew Dunstan)␟<acronym>SQL/JSON</acronym>オブジェクト検査を追加しました。
+(Nikita Glukhov, Teodor Sigaev, Oleg Bartunov, Alexander Korotkov, Amit Langote, Andrew Dunstan)␞␞      </para>␞
+␝      <para>␟       The <link linkend="functions-sqljson-misc"><literal>IS
+       JSON</literal></link> checks include checks for values, arrays,
+       objects, scalars, and unique keys.␟<link linkend="functions-sqljson-misc"><literal>IS JSON</literal></link>検査は、値、配列、オブジェクト、スカラ、一意キーの検査を含みます。␞␞      </para>␞
+␝      <para>␟       Allow <acronym>JSON</acronym> string parsing to use vector
+       operations (John Naylor)␟<acronym>JSON</acronym>文字列解析でベクトル演算を使用できるようにしました。
+(John Naylor)␞␞      </para>␞
+␝      <para>␟       Improve the handling of full text highlighting function <link
+       linkend="textsearch-functions-table"><function>ts_headline()</function></link>
+       for <literal>OR</literal> and <literal>NOT</literal> expressions
+       (Tom Lane)␟全文検索結果を強調する(<link linkend="textsearch-functions-table"><function>ts_headline()</function></link>)関数での<literal>OR</literal>および<literal>NOT</literal>式に対する処理を改善しました。
+(Tom Lane)␞␞      </para>␞
+␝      <para>␟       Add functions to add, subtract, and generate
+       <type>timestamptz</type> values in a specified time zone (Przemyslaw
+       Sztoch, Gurjeet Singh)␟指定したタイムゾーンの<type>timestamptz</type>値を加算、減算、生成する関数を追加しました。
+(Przemyslaw Sztoch, Gurjeet Singh)␞␞      </para>␞
+␝      <para>␟       The functions are <link
+       linkend="functions-datetime-table"><function>date_add()</function></link>,
+       <function>date_subtract()</function>, and <link
+       linkend="functions-srf-series"><function>generate_series()</function></link>.␟関数は<link linkend="functions-datetime-table"><function>date_add()</function></link>、<function>date_subtract()</function>、<link linkend="functions-srf-series"><function>generate_series()</function></link>です。␞␞      </para>␞
+␝      <para>␟       Change <link
+       linkend="functions-datetime-table"><function>date_trunc(unit,
+       timestamptz, time_zone)</function></link> to be an immutable
+       function (Przemyslaw Sztoch)␟<link linkend="functions-datetime-table"><function>date_trunc(unit, timestamptz, time_zone)</function></link>を不変(immutable)関数に変更しました。
+(Przemyslaw Sztoch)␞␞      </para>␞
+␝      <para>␟       This allows the creation of expression indexes using this function.␟これにより、この関数を使用して式インデックスを作成できます。␞␞      </para>␞
+␝      <para>␟       Add server variable <link
+       linkend="functions-info-session-table"><literal>SYSTEM_USER</literal></link>
+       (Bertrand Drouvot)␟サーバパラメータ<link linkend="functions-info-session-table"><literal>SYSTEM_USER</literal></link>を追加しました。
+(Bertrand Drouvot)␞␞      </para>␞
+␝      <para>␟       This reports the authentication method and its authenticated user.␟認証方式と認証したユーザを報告します。␞␞      </para>␞
+␝      <para>␟       Add functions <link
+       linkend="array-functions-table"><function>array_sample()</function></link>
+       and <function>array_shuffle()</function> (Martin Kalcher)␟関数<link linkend="array-functions-table"><function>array_sample()</function></link>と<function>array_shuffle()</function>を追加しました。
+(Martin Kalcher)␞␞      </para>␞
+␝      <para>␟       Add aggregate function <link
+       linkend="functions-aggregate-table"><function>ANY_VALUE()</function></link>
+       which returns any value from a set (Vik Fearing)␟集合から任意の値を返す集約関数<link linkend="functions-aggregate-table"><function>ANY_VALUE()</function></link>を追加しました。
+(Vik Fearing)␞␞      </para>␞
+␝      <para>␟       Add function <link
+       linkend="functions-math-random-table"><function>random_normal()</function></link>
+       to supply normally-distributed random numbers (Paul Ramsey)␟正規分布の乱数を提供する<link linkend="functions-math-random-table"><function>random_normal()</function></link>関数を追加しました。
+(Paul Ramsey)␞␞      </para>␞
+␝      <para>␟       Add error function <link
+       linkend="functions-math-func-table"><function>erf()</function></link>
+       and its complement <function>erfc()</function> (Dean Rasheed)␟誤差関数<link linkend="functions-math-func-table"><function>erf()</function></link>と相補誤差関数<function>erfc()</function>を追加しました。
+(Dean Rasheed)␞␞      </para>␞
+␝      <para>␟       Improve the accuracy of numeric <link
+       linkend="functions-math-func-table"><function>power()</function></link>
+       for integer exponents (Dean Rasheed)␟整数の指数に対する<link linkend="functions-math-func-table"><function>power()</function></link>の数値の精度を改善しました。
+(Dean Rasheed)␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="datatype-xml-creating"><function>XMLSERIALIZE()</function></link>
+       option <literal>INDENT</literal> to pretty-print its output
+       (Jim Jones)␟出力を読みやすく表示するための<link linkend="datatype-xml-creating"><function>XMLSERIALIZE()</function></link>関数の<literal>INDENT</literal>オプションを追加しました。
+(Jim Jones)␞␞      </para>␞
+␝      <para>␟       Change <link
+       linkend="functions-admin-collation"><function>pg_collation_actual_version()</function></link>
+       to return a reasonable value for the default collation (Jeff Davis)␟デフォルトの照合順序に対して妥当な値を返すように<link linkend="functions-admin-collation"><function>pg_collation_actual_version()</function></link>関数を変更しました。
+(Jeff Davis)␞␞      </para>␞
+␝      <para>␟       Previously it returned <literal>NULL</literal>.␟以前は<literal>NULL</literal>を返していました。␞␞      </para>␞
+␝      <para>␟       Allow <link
+       linkend="functions-admin-genfile-table"><function>pg_read_file()</function></link>
+       and <function>pg_read_binary_file()</function> to ignore missing
+       files (Kyotaro Horiguchi)␟<link linkend="functions-admin-genfile-table"><function>pg_read_file()</function></link>と<function>pg_read_binary_file()</function>があるべき場所に無いファイルを無視できるようにしました。
+(Kyotaro Horiguchi)␞␞      </para>␞
+␝      <para>␟       Add byte specification (<literal>B</literal>) to <link
+       linkend="functions-admin-dbsize"><function>pg_size_bytes()</function></link>
+       (Peter Eisentraut)␟<link linkend="functions-admin-dbsize"><function>pg_size_bytes()</function></link>にバイト指定の(<literal>B</literal>)を追加しました。
+(Peter Eisentraut)␞␞      </para>␞
+␝      <para>␟       Allow <link
+       linkend="functions-info-catalog-table"><function>to_reg</function></link>*
+       functions to accept numeric <acronym>OID</acronym>s as input
+       (Tom Lane)␟<link linkend="functions-info-catalog-table"><function>to_reg</function></link>*関数群が<acronym>OID</acronym>の数値を入力として受け付けるようにしました。
+(Tom Lane)␞␞      </para>␞
+␝      <para>␟       Add the ability to get the current function's <acronym>OID</acronym>
+       in <application>PL/pgSQL</application> (Pavel Stehule)␟<application>PL/pgSQL</application>で現在の関数の<acronym>OID</acronym>を取得する機能を追加しました。
+(Pavel Stehule)␞␞      </para>␞
+␝      <para>␟       This is accomplished with <link
+       linkend="plpgsql-statements-diagnostics"><command>GET DIAGNOSTICS
+       variable = PG_ROUTINE_OID</command></link>.␟これは<link linkend="plpgsql-statements-diagnostics"><command>GET DIAGNOSTICS variable = PG_ROUTINE_OID</command></link>で実現します。␞␞      </para>␞
+␝      <para>␟       Add <application>libpq</application> connection option <link
+       linkend="libpq-connect-require-auth"><option>require_auth</option></link>
+       to specify a list of acceptable authentication methods (Jacob
+       Champion)␟受け入れ可能な認証方式のリストを指定するための<application>libpq</application>接続オプション<link linkend="libpq-connect-require-auth"><option>require_auth</option></link>を追加しました。
+(Jacob Champion)␞␞      </para>␞
+␝      <para>␟       This can also be used to disallow certain authentication methods.␟これは、特定の認証方式を禁止するためにも使用できます。␞␞      </para>␞
+␝      <para>␟       Allow multiple <application>libpq</application>-specified hosts
+       to be randomly selected (Jelte Fennema)␟<application>libpq</application>で指定した複数のホストからランダムに選択できるようにしました。
+(Jelte Fennema)␞␞      </para>␞
+␝      <para>␟       This is enabled with <link
+       linkend="libpq-connect-load-balance-hosts"><literal>load_balance_hosts=random</literal></link>
+       and can be used for load balancing.␟これは<link linkend="libpq-connect-load-balance-hosts"><literal>load_balance_hosts=random</literal></link>で有効になり、ロードバランシングに使用できます。␞␞      </para>␞
+␝      <para>␟       Add <application>libpq</application> option <link
+       linkend="libpq-connect-sslcertmode"><option>sslcertmode</option></link>
+       to control transmission of the client certificate (Jacob Champion)␟クライアント証明書の送信を制御する<application>libpq</application>の<link linkend="libpq-connect-sslcertmode"><option>sslcertmode</option></link>オプションを追加しました。
+(Jacob Champion)␞␞      </para>␞
+␝      <para>␟       The option values are <literal>disable</literal>,
+       <literal>allow</literal>, and <literal>require</literal>.␟オプションの値は、<literal>disable</literal>、<literal>allow</literal>、<literal>require</literal>です。␞␞      </para>␞
+␝      <para>␟       Allow <application>libpq</application> to use the system certificate
+       pool for certificate verification (Jacob Champion, Thomas Habets)␟<application>libpq</application>が証明書の検証にシステム証明書プールを使用できるようにしました。
+(Jacob Champion, Thomas Habets)␞␞      </para>␞
+␝      <para>␟       This is enabled with <link
+       linkend="libpq-connect-sslrootcert"><literal>sslrootcert=system</literal></link>,
+       which also enables <link
+       linkend="libpq-connect-sslmode"><literal>sslmode=verify-full</literal></link>.␟これは<link linkend="libpq-connect-sslrootcert"><literal>sslrootcert=system</literal></link>で有効になります。
+これにより<link linkend="libpq-connect-sslmode"><literal>sslmode=verify-full</literal></link>も有効にします。␞␞      </para>␞
+␝   <sect3 id="release-16-client-apps">␟    <title>Client Applications</title>␟    <title>クライアントアプリケーション</title>␞␞␞
+␝      <para>␟       Allow <link linkend="ecpg"><command>ECPG</command></link>
+       variable declarations to use typedef names that match unreserved
+       <acronym>SQL</acronym> keywords (Tom Lane)␟<link linkend="ecpg"><command>ECPG</command></link>の変数宣言で予約されていない<acronym>SQL</acronym>キーワードに一致するtypedef名を使用できるようにしました。
+(Tom Lane)␞␞      </para>␞
+␝      <para>␟       This change does prevent keywords which match C typedef names from
+       being processed as keywords in later <command>EXEC SQL</command>
+       blocks.␟この変更により、Cのtypedef名と一致するキーワードは、後の<command>EXEC SQL</command>ブロックでキーワードとして処理されなくなります。␞␞      </para>␞
+␝       <para>␟        Allow <application>psql</application> to control the maximum
+        width of header lines in expanded format (Platon Pronko)␟<application>psql</application>で展開された形式でのヘッダ行の最大幅を制御できるようにしました。
+(Platon Pronko)␞␞       </para>␞
+␝       <para>␟        This is controlled by <link
+        linkend="app-psql-meta-command-pset-xheader-width"><option>xheader_width</option></link>.␟これは<link linkend="app-psql-meta-command-pset-xheader-width"><option>xheader_width</option></link>で制御します。␞␞       </para>␞
+␝       <para>␟        Add <application>psql</application> command <link
+        linkend="app-psql-meta-command-drg"><command>\drg</command></link>
+        to show role membership details (Pavel Luzanov)␟<application>psql</application>にロールメンバシップの詳細を表示する<link linkend="app-psql-meta-command-drg"><command>\drg</command></link>コマンドを追加しました。
+(Pavel Luzanov)␞␞       </para>␞
+␝       <para>␟        The <literal>Member of</literal> output column has been removed
+        from <command>\du</command> and <command>\dg</command> because
+        this new command displays this information in more detail.␟この新しいコマンドでより詳細な情報を表示するため<command>\du</command>と<command>\dg</command>から<literal>Member of</literal>出力列が削除されました。␞␞       </para>␞
+␝       <para>␟        Allow <application>psql</application>'s access privilege commands
+        to show system objects (Nathan Bossart)␟<application>psql</application>のアクセス権限コマンドでシステムオブジェクトを表示できるようにしました。
+(Nathan Bossart)␞␞       </para>␞
+␝       <para>␟        The options are <link
+        linkend="app-psql-meta-command-dp-lc"><command>\dpS</command></link>
+        and <link
+        linkend="app-psql-meta-command-z"><command>\zS</command></link>.␟オプションは<link linkend="app-psql-meta-command-dp-lc"><command>\dpS</command></link>と<link linkend="app-psql-meta-command-z"><command>\zS</command></link>です。␞␞       </para>␞
+␝       <para>␟        Add <literal>FOREIGN</literal> designation
+        to <application>psql</application> <link
+        linkend="app-psql-meta-command-d"><command>\d+</command></link>
+        for foreign table children and partitions (Ian Lawrence Barwick)␟<application>psql</application>の<link linkend="app-psql-meta-command-d"><command>\d+</command></link>に外部テーブルの子テーブルとパーティションの<literal>FOREIGN</literal>表示を追加しました。
+(Ian Lawrence Barwick)␞␞       </para>␞
+␝       <para>␟        Prevent <link
+        linkend="app-psql-meta-command-df-uc"><command>\df+</command></link>
+        from showing function source code (Isaac Morland)␟<link linkend="app-psql-meta-command-df-uc"><command>\df+</command></link>で関数のソースコードを表示しないようにしました。
+(Isaac Morland)␞␞       </para>␞
+␝       <para>␟        Function bodies are more easily viewed with <link
+        linkend="app-psql-meta-command-sf"><command>\sf</command></link>.␟関数本体は<link linkend="app-psql-meta-command-sf"><command>\sf</command></link>で見やすくなりました。␞␞       </para>␞
+␝       <para>␟        Allow <application>psql</application> to submit queries using
+        the extended query protocol (Peter Eisentraut)␟<application>psql</application>が拡張問い合わせプロトコルを使用して問い合わせを送信できるようにしました。
+(Peter Eisentraut)␞␞       </para>␞
+␝       <para>␟        Passing arguments to such queries is done
+        using the new <application>psql</application> <link
+        linkend="app-psql-meta-command-bind"><command>\bind</command></link>
+        command.␟このような問い合わせへの引数の渡しは、新しい<application>psql</application>の<link linkend="app-psql-meta-command-bind"><command>\bind</command></link>コマンドを使って行います。␞␞       </para>␞
+␝       <para>␟        Allow <application>psql</application> <link
+        linkend="app-psql-meta-command-watch"><command>\watch</command></link>
+        to limit the number of executions (Andrey Borodin)␟<application>psql</application>の<link linkend="app-psql-meta-command-watch"><command>\watch</command></link>を実行回数を制限できるようにしました。
+(Andrey Borodin)␞␞       </para>␞
+␝       <para>␟        The <command>\watch</command> options can now be named when
+        specified.␟<command>\watch</command>オプションは、指定されたときに名前を付けることができるようになりました。␞␞       </para>␞
+␝       <para>␟        Detect invalid values for <application>psql</application> <link
+        linkend="app-psql-meta-command-watch"><command>\watch</command></link>,
+        and allow zero to specify no delay (Andrey Borodin)␟<application>psql</application>の<link linkend="app-psql-meta-command-watch"><command>\watch</command></link>で無効な値を検出し、遅延なしを指定できるよう0を許可しました。
+(Andrey Borodin)␞␞       </para>␞
+␝       <para>␟        Allow <application>psql</application> scripts to obtain the exit
+        status of shell commands and queries
+       (Corey Huinker, Tom Lane)␟<application>psql</application>スクリプトでシェルコマンドや問い合わせの終了ステータスを取得できるようにしました。
+(Corey Huinker, Tom Lane)␞␞       </para>␞
+␝       <para>␟        The new <application>psql</application> control variables are <link
+        linkend="app-psql-variables-shell-error"><literal>SHELL_ERROR</literal></link>
+        and <link
+        linkend="app-psql-variables-shell-exit-code"><literal>SHELL_EXIT_CODE</literal></link>.␟新しい<application>psql</application>制御変数は、<link linkend="app-psql-variables-shell-error"><literal>SHELL_ERROR</literal></link>と<link linkend="app-psql-variables-shell-exit-code"><literal>SHELL_EXIT_CODE</literal></link>です。␞␞       </para>␞
+␝       <para>␟        Various <application>psql</application> tab completion improvements
+        (Vignesh C, Aleksander Alekseev, Dagfinn Ilmari Mannsåker,
+        Shi Yu, Michael Paquier, Ken Kato, Peter Smith)␟様々な<application>psql</application>のタブ補完機能を改善しました。
+(Vignesh C, Aleksander Alekseev, Dagfinn Ilmari Mannsåker, Shi Yu, Michael Paquier, Ken Kato, Peter Smith)␞␞       </para>␞
+␝       <para>␟        Add <application>pg_dump</application> control of dumping child
+        tables and partitions (Gilles Darold)␟<application>pg_dump</application>で子テーブルとパーティションのダンプを制御できるようにしました。
+(Gilles Darold)␞␞       </para>␞
+␝        <option>--exclude-table-data-and-children</option>.␟        The new options are <option>--table-and-children</option>,
+        <option>--exclude-table-and-children</option>, and
+        <option>--exclude-table-data-and-children</option>.␟新しいオプションは<option>--table-and-children</option>、<option>--exclude-table-and-children</option>、<option>--exclude-table-data-and-children</option>です。␞␞       </para>␞
+␝       <para>␟        Add <application>LZ4</application> and
+        <application>Zstandard</application> compression to
+        <application>pg_dump</application> (Georgios Kokolatos, Justin
+        Pryzby)␟<application>pg_dump</application>に<application>LZ4</application>圧縮と<application>Zstandard</application>圧縮を追加しました。
+(Georgios Kokolatos, Justin Pryzby)␞␞       </para>␞
+␝       <para>␟        Allow <application>pg_dump</application> and <link
+        linkend="app-pgbasebackup"><application>pg_basebackup</application></link>
+        to use <literal>long</literal> mode for compression (Justin Pryzby)␟<application>pg_dump</application>と<link linkend="app-pgbasebackup"><application>pg_basebackup</application></link>で圧縮に<literal>long</literal>モードを使用できるようにしました。
+ (Justin Pryzby)␞␞       </para>␞
+␝       <para>␟        Improve <application>pg_dump</application> to accept a more
+        consistent compression syntax (Georgios Kokolatos)␟<application>pg_dump</application>を改良して、より一貫性のある圧縮構文を受け付けるようにしました。
+(Georgios Kokolatos)␞␞       </para>␞
+␝        Options like <option>--compress=gzip:5</option>.␟        Options like <option>--compress=gzip:5</option>.␟<option>--compress=gzip:5</option>のようなオプションです。␞␞       </para>␞
+␝   <sect3 id="release-16-server-apps">␟    <title>Server Applications</title>␟    <title>サーバアプリケーション</title>␞␞␞
+␝      <para>␟       Add <link
+       linkend="app-initdb"><application>initdb</application></link>
+       option to set server variables for the duration of
+       <application>initdb</application> and all future server starts
+       (Tom Lane)␟<application>initdb</application>および将来のすべてのサーバ起動時にサーバパラメータを設定するための<link linkend="app-initdb"><application>initdb</application></link>オプションを追加しました。
+(Tom Lane)␞␞      </para>␞
+␝      <para>␟       The option is <option>-c name=value</option>.␟オプションは<option>-c name=value</option>です。␞␞      </para>␞
+␝      <para>␟       Add options to <link
+       linkend="app-createuser"><application>createuser</application></link>
+       to control more user options (Shinya Kato)␟<link linkend="app-createuser"><application>createuser</application></link>に、より多くのユーザオプションを制御するオプションを追加しました。
+(Shinya Kato)␞␞      </para>␞
+␝      <para>␟       Specifically, the new options control the valid-until date,
+       bypassing of row-level security, and role membership.␟具体的には、新しいオプションは、有効期限、行レベルのセキュリティのバイパス、およびロールメンバシップを制御します。␞␞      </para>␞
+␝      <para>␟       Deprecate <link
+       linkend="app-createuser"><application>createuser</application></link>
+       option <option>--role</option> (Nathan Bossart)␟<link linkend="app-createuser"><application>createuser</application></link>の<option>--role</option>オプションを非推奨としました。
+(Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       This option could be easily confused with new
+       <application>createuser</application> role membership options,
+       so option <option>--member-of</option> has been added with the
+       same functionality.  The <option>--role</option> option can still
+       be used.␟このオプションは、新しい<application>createuser</application>ロールのメンバシップオプションと混同されやすいため、同じ機能を持つ<option>--member-of</option>オプションが追加されました。
+<option>--role</option>オプションは引き続き使用できます。␞␞      </para>␞
+␝      <para>␟       Allow control of <link
+       linkend="app-vacuumdb"><application>vacuumdb</application></link>
+       schema processing (Gilles Darold)␟<link linkend="app-vacuumdb"><application>vacuumdb</application></link>でスキーマ処理の制御ができるようにしました。
+(Gilles Darold)␞␞      </para>␞
+␝       <option>--exclude-schema</option>.␟       These are controlled by options <option>--schema</option> and
+       <option>--exclude-schema</option>.␟これらは、<option>--schema</option>および<option>--exclude-schema</option>オプションで制御されます。␞␞      </para>␞
+␝      <para>␟       Use new <link linkend="sql-vacuum"><command>VACUUM</command></link>
+       options to improve the performance of <link
+       linkend="app-vacuumdb"><application>vacuumdb</application></link>
+       (Tom Lane, Nathan Bossart)␟<link linkend="app-vacuumdb"><application>vacuumdb</application></link>のパフォーマンスを改善するために新しい<link linkend="sql-vacuum"><command>VACUUM</command></link>オプションを使用するようにしました。
+(Tom Lane, Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       Have <link
+       linkend="pgupgrade"><application>pg_upgrade</application></link>
+       set the new cluster's locale and encoding (Jeff Davis)␟<link linkend="pgupgrade"><application>pg_upgrade</application></link>で新しいクラスタのロケールとエンコーディングを設定しました。
+(Jeff Davis)␞␞      </para>␞
+␝      <para>␟       This removes the requirement that the new cluster be created with
+       the same locale and encoding settings.␟これにより、新しいクラスタを同じロケールとエンコーディング設定で作成する必要がなくなります。␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="pgupgrade"><application>pg_upgrade</application></link>
+       option to specify the default transfer mode (Peter Eisentraut)␟<link linkend="pgupgrade"><application>pg_upgrade</application></link>にデフォルトの転送モードを指定するためのオプションを追加しました。
+(Peter Eisentraut)␞␞      </para>␞
+␝       The option is <option>--copy</option>.␟       The option is <option>--copy</option>.␟そのオプションは<option>--copy</option>です。␞␞      </para>␞
+␝      <para>␟       Improve <link
+       linkend="app-pgbasebackup"><application>pg_basebackup</application></link>
+       to accept numeric compression options (Georgios Kokolatos,
+       Michael Paquier)␟<link linkend="app-pgbasebackup"><application>pg_basebackup</application></link>が数値の圧縮オプションを受け付けるように改善しました。
+(Georgios Kokolatos, Michael Paquier)␞␞      </para>␞
+␝       Options like <option>--compress=server-5</option> are now supported.␟       Options like <option>--compress=server-5</option> are now supported.␟<option>--compress=server-5</option>のようなオプションがサポートされるようになりました。␞␞      </para>␞
+␝      <para>␟       Fix <link
+       linkend="app-pgbasebackup"><application>pg_basebackup</application></link>
+       to handle tablespaces stored in the <envar>PGDATA</envar> directory
+       (Robert Haas)␟<link linkend="app-pgbasebackup"><application>pg_basebackup</application></link>で<envar>PGDATA</envar>ディレクトリに格納されたテーブル空間を処理できるように修正しました。
+(Robert Haas)␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="pgwaldump"><application>pg_waldump</application></link>
+       option <option>--save-fullpage</option> to dump full page images
+       (David Christensen)␟<link linkend="pgwaldump"><application>pg_waldump</application></link>にページ全体のイメージをダンプするための<option>--save-fullpage</option>オプションを追加しました。
+(David Christensen)␞␞      </para>␞
+␝      <para>␟       Allow <link
+       linkend="pgwaldump"><application>pg_waldump</application></link>
+       options <option>-t</option>/<option>--timeline</option> to accept
+       hexadecimal values (Peter Eisentraut)␟<link linkend="pgwaldump"><application>pg_waldump</application></link>の<option>-t</option>/<option>--timeline</option>オプションで16進数値を受け付けるようにしました。
+(Peter Eisentraut)␞␞      </para>␞
+␝      <para>␟       Add support for progress reporting to <link
+       linkend="app-pgverifybackup"><application>pg_verifybackup</application></link>
+       (Masahiko Sawada)␟<link linkend="app-pgverifybackup"><application>pg_verifybackup</application></link>に進捗レポート機能を追加しました。
+(Masahiko Sawada)␞␞      </para>␞
+␝      <para>␟       Allow <link
+       linkend="app-pgrewind"><application>pg_rewind</application></link>
+       to properly track timeline changes (Heikki Linnakangas)␟<link linkend="app-pgrewind"><application>pg_rewind</application></link>がタイムラインの変更を正しく追跡できるようにしました。
+(Heikki Linnakangas)␞␞      </para>␞
+␝      <para>␟       Previously if <application>pg_rewind</application> was run after
+       a timeline switch but before a checkpoint was issued, it might
+       incorrectly determine that a rewind was unnecessary.␟以前は、<application>pg_rewind</application>がタイムラインの切り替え後でチェックポイントが発行される前に実行された場合、<application>pg_rewind</application>は巻き戻しが不要であると誤って判断する可能性がありました。␞␞      </para>␞
+␝      <para>␟       Have <link
+       linkend="app-pgreceivewal"><application>pg_receivewal</application></link>
+       and <link
+       linkend="app-pgrecvlogical"><application>pg_recvlogical</application></link>
+       cleanly exit on <literal>SIGTERM</literal> (Christoph Berg)␟<link linkend="app-pgreceivewal"><application>pg_receivewal</application></link>と<link linkend="app-pgrecvlogical"><application>pg_recvlogical</application></link>が<literal>SIGTERM</literal>で正常終了するようになりました。
+(Christoph Berg)␞␞      </para>␞
+␝      <para>␟       This signal is often used by <application>systemd</application>.␟このシグナルは、<application>systemd</application>によってしばしば使用されます。␞␞      </para>␞
+␝   <sect3 id="release-16-source-code">␟    <title>Source Code</title>␟    <title>ソースコード</title>␞␞␞
+␝      <para>␟       Build <acronym>ICU</acronym> support by default (Jeff Davis)␟<acronym>ICU</acronym>サポートのビルドがデフォルトになりました。
+(Jeff Davis)␞␞      </para>␞
+␝      <para>␟       This removes <link linkend="installation">build
+       flag</link> <option>--with-icu</option> and adds flag
+       <option>--without-icu</option>.␟これにより、<link linkend="installation">ビルドフラグ</link>の<option>--with-icu</option>が削除され、<option>--without-icu</option>フラグが追加されます。␞␞      </para>␞
+␝      <para>␟       Add support for SSE2 (Streaming <acronym>SIMD</acronym> Extensions
+       2) vector operations on x86-64 architectures (John Naylor)␟x86-64アーキテクチャでのSSE2(Streaming <acronym>SIMD</acronym> Extensions 2)ベクトル演算のサポートを追加しました。
+(John Naylor)␞␞      </para>␞
+␝      <para>␟       Add support for Advanced <acronym>SIMD</acronym> (Single
+       Instruction Multiple Data) (<acronym>NEON</acronym>) instructions
+       on <acronym>ARM</acronym> architectures (Nathan Bossart)␟<acronym>ARM</acronym>アーキテクチャで高度な<acronym>SIMD</acronym>(Single Instruction Multiple Data)(<acronym>NEON</acronym>)命令のサポートを追加しました。
+(Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       Have <systemitem class="osname">Windows</systemitem>
+       binaries built with <productname>MSVC</productname> use
+       <literal>RandomizedBaseAddress</literal> (<acronym>ASLR</acronym>)
+       (Michael Paquier)␟<productname>MSVC</productname>による<systemitem class="osname">Windows</systemitem>バイナリビルドで<literal>RandomizedBaseAddress</literal>(<acronym>ASLR</acronym>)を使用するようにしました。
+(Michael Paquier)␞␞      </para>␞
+␝      <para>␟       This was already enabled on <productname>MinGW</productname> builds.␟これはすでに<productname>MinGW</productname>ビルドで有効になっています。␞␞      </para>␞
+␝      <para>␟       Prevent extension libraries from exporting their symbols by default
+       (Andres Freund, Tom Lane)␟拡張ライブラリのシンボルがデフォルトでエクスポートしないようにしました。
+(Andres Freund, Tom Lane)␞␞      </para>␞
+␝      <para>␟       Functions that need to be called from the core backend
+       or other extensions must now be explicitly marked
+       <literal>PGDLLEXPORT</literal>.␟コアバックエンドや他の拡張機能から呼び出す必要のある関数は、明示的に<literal>PGDLLEXPORT</literal>とマークする必要があります。␞␞      </para>␞
+␝      <para>␟       Require <systemitem class="osname">Windows 10</systemitem> or
+       newer versions (Michael Paquier, Juan José Santamaría Flecha)␟<systemitem class="osname">Windows 10</systemitem>以降のバージョンが必要になりました。
+(Michael Paquier, Juan José Santamaría Flecha)␞␞      </para>␞
+␝      <para>␟       Previously <systemitem class="osname">Windows Vista</systemitem> and
+       <systemitem class="osname">Windows XP</systemitem> were supported.␟以前は、<systemitem class="osname">Windows Vista</systemitem>と<systemitem class="osname">Windows XP</systemitem>がサポートされていました。␞␞      </para>␞
+␝      <para>␟       Require <productname>Perl</productname> version 5.14 or later
+       (John Naylor)␟<productname>Perl</productname>バージョン5.14以降が必要になりました。
+(John Naylor)␞␞      </para>␞
+␝      <para>␟       Require <productname>Bison</productname> version 2.3 or later
+       (John Naylor)␟<productname>Bison</productname>バージョン2.3以降が必要になりました。
+(John Naylor)␞␞      </para>␞
+␝      <para>␟       Require <productname>Flex</productname> version 2.5.35 or later
+       (John Naylor)␟<productname>Flex</productname>バージョン2.5.35以降が必要になりました。
+(John Naylor)␞␞      </para>␞
+␝      <para>␟       Require <acronym>MIT</acronym> Kerberos for
+       <acronym>GSSAPI</acronym> support (Stephen Frost)␟<acronym>GSSAPI</acronym>サポートのために<acronym>MIT</acronym>Kerberosを必要になりました。
+(Stephen Frost)␞␞      </para>␞
+␝      <para>␟       Remove support for <productname>Visual Studio 2013</productname>
+       (Michael Paquier)␟<productname>Visual Studio 2013</productname>のサポートを削除しました。
+(Michael Paquier)␞␞      </para>␞
+␝      <para>␟       Remove support for <systemitem class="osname">HP-UX</systemitem>
+       (Thomas Munro)␟<systemitem class="osname">HP-UX</systemitem>のサポートを削除しました。
+(Thomas Munro)␞␞      </para>␞
+␝      <para>␟       Remove support for <productname>HP/Intel Itanium</productname>
+       (Thomas Munro)␟<productname>HP/Intel Itanium</productname>のサポートを削除しました。
+(Thomas Munro)␞␞      </para>␞
+␝      <para>␟       Remove support for <productname>M68K</productname>,
+       <productname>M88K</productname>, <productname>M32R</productname>,
+       and <productname>SuperH</productname> <acronym>CPU</acronym>
+       architectures (Thomas Munro)␟<productname>M68K</productname>、<productname>M88K</productname>、<productname>M32R</productname>、<productname>SuperH</productname> <acronym>CPU</acronym>アーキテクチャのサポートを削除しました。
+(Thomas Munro)␞␞      </para>␞
+␝      <para>␟       Remove <link linkend="libpq"><application>libpq</application></link>
+       support for <acronym>SCM</acronym> credential authentication
+       (Michael Paquier)␟<acronym>SCM</acronym>証明書認証用の<link linkend="libpq"><application>libpq</application></link>サポートを削除しました。
+(Michael Paquier)␞␞      </para>␞
+␝      <para>␟       Backend support for this authentication method was removed in
+       <productname>PostgresSQL</productname> 9.1.␟この認証方式のバックエンドサポートは<productname>PostgreSQL</productname> 9.1で削除されました。␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="install-meson"><application>meson</application></link>
+       build system (Andres Freund, Nazir Bilal Yavuz, Peter Eisentraut)␟<link linkend="install-meson"><application>meson</application></link>ビルドシステムを追加しました。
+(Andres Freund, Nazir Bilal Yavuz, Peter Eisentraut)␞␞      </para>␞
+␝      <para>␟       This eventually will replace the <productname>Autoconf</productname>
+       and <systemitem class="osname">Windows</systemitem>-based
+       <productname>MSVC</productname> build systems.␟これは最終的に、<productname>Autoconf</productname>と<systemitem class="osname">Windows</systemitem>ベースの<productname>MSVC</productname>ビルドシステムを置き換えることになります。␞␞      </para>␞
+␝      <para>␟       Allow control of the location of the
+       <application>openssl</application> binary used by the build system
+       (Peter Eisentraut)␟ビルドシステムが使用する<application>openssl</application>バイナリの場所を制御できるようにしました。
+(Peter Eisentraut)␞␞      </para>␞
+␝      <para>␟       Make finding <application>openssl</application>
+       program a <application>configure</application> or
+       <application>meson</application> option␟<application>configure</application>または<application>meson</application>オプションで<application>openssl</application>プログラムの検索をできるようにしました。␞␞      </para>␞
+␝      <para>␟       Add build option to allow testing of small table segment sizes
+       (Andres Freund)␟小さなテーブルセグメントサイズのテストを可能にするビルドオプションを追加しました。
+(Andres Freund)␞␞      </para>␞
+␝      <para>␟       The build options are <link
+       linkend="configure-option-with-segsize"><option>--with-segsize-blocks</option></link>
+       and <option>-Dsegsize_blocks</option>.␟ビルドオプションは<link linkend="configure-option-with-segsize"><option>--with-segsize-blocks</option></link>と<option>-Dsegsize_blocks</option>です。␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="source"><application>pgindent</application></link> options
+       (Andrew Dunstan)␟<link linkend="source"><application>pgindent</application></link>オプションを追加しました。
+(Andrew Dunstan)␞␞      </para>␞
+␝       and <option>--build</option> were also removed.␟       The new options are <option>--show-diff</option>,
+       <option>--silent-diff</option>, <option>--commit</option>,
+       and <option>--help</option>, and allow multiple
+       <option>--exclude</option> options.  Also require the typedef file
+       to be explicitly specified.  Options <option>--code-base</option>
+       and <option>--build</option> were also removed.␟新しいオプションは<option>--show-diff</option>、<option>--silent-diff</option>、<option>--commit</option>、<option>--help</option>で、複数の<option>--exclude</option>オプションが可能です。
+また、typedefファイルを明示的に指定する必要があります。
+オプション<option>--code-base</option>と<option>--build</option>は削除されました。␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="source"><application>pg_bsd_indent</application></link>
+       source code to the main tree (Tom Lane)␟<link linkend="source"><application>pg_bsd_indent</application></link>ソースコードをメインツリーに追加しました。
+(Tom Lane)␞␞      </para>␞
+␝      <para>␟       Improve <application>make_ctags</application> and
+       <application>make_etags</application> (Yugo Nagata)␟<application>make_ctags</application>と<application>make_etags</application>を改善しました。
+ (Yugo Nagata)␞␞      </para>␞
+␝      <para>␟       Adjust <link
+       linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>
+       columns for efficiency (Peter Eisentraut)␟効率を上げるために<link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>の列を調整しました。
+(Peter Eisentraut)␞␞      </para>␞
+␝   <sect3 id="release-16-modules">␟    <title>Additional Modules</title>␟    <title>追加モジュール</title>␞␞␞
+␝      <para>␟       Improve use of extension-based indexes on boolean columns (Zongliang
+       Quan, Tom Lane)␟boolean型の列で拡張ベースのインデックスを使用する機能を改善しました。
+(Zongliang Quan, Tom Lane)␞␞      </para>␞
+␝      <para>␟       Add support for Daitch-Mokotoff Soundex to <link
+       linkend="fuzzystrmatch"><application>fuzzystrmatch</application></link>
+       (Dag Lem)␟<link linkend="fuzzystrmatch"><application>fuzzystrmatch</application></link>でDaitch-Mokotoff Soundexがサポートされました。
+(Dag Lem)␞␞      </para>␞
+␝      <para>␟       Allow <link
+       linkend="auto-explain"><application>auto_explain</application></link>
+       to log values passed to parameterized statements (Dagfinn Ilmari
+       Mannsåker)␟<link linkend="auto-explain"><application>auto_explain</application></link>がパラメータ化された文に渡された値をログへ記録するようになりました。
+(Dagfinn Ilmari Mannsåker)␞␞      </para>␞
+␝      <para>␟       This affects queries using server-side <link
+       linkend="sql-prepare"><command>PREPARE</command></link>/<link
+       linkend="sql-execute"><command>EXECUTE</command></link>
+       and client-side parse/bind.  Logging is controlled by <link
+       linkend="auto-explain-configuration-parameters-log-parameter-max-length"><literal>auto_explain.log_parameter_max_length</literal></link>;
+       by default query parameters will be logged with no length
+       restriction.␟これは、サーバ側の<link linkend="sql-prepare"><command>PREPARE</command></link>/<link linkend="sql-execute"><command>EXECUTE</command></link>とクライアント側のPARSE/BINDを使用する問い合わせに影響します。
+ログの記録は<link linkend="auto-explain-configuration-parameters-log-parameter-max-length"><literal>auto_explain.log_parameter_max_length</literal></link>で制御されます。
+デフォルトでは、問い合わせパラメータは長さ制限なしでログに記録されます。␞␞      </para>␞
+␝      <para>␟       Have <link
+       linkend="auto-explain"><application>auto_explain</application></link>'s
+       <option>log_verbose</option> mode honor the value of <link
+       linkend="guc-compute-query-id"><varname>compute_query_id</varname></link>
+       (Atsushi Torikoshi)␟<link linkend="auto-explain"><application>auto_explain</application></link>の<option>log_verbose</option>モードが<link linkend="guc-compute-query-id"><varname>compute_query_id</varname></link>の値を遵守するようになりました。
+(Atsushi Torikoshi)␞␞      </para>␞
+␝      <para>␟       Previously even if
+       <varname>compute_query_id</varname> was enabled, <link
+       linkend="auto-explain-configuration-parameters-log-verbose"><option>log_verbose</option></link>
+       was not showing the query identifier.␟以前は、<varname>compute_query_id</varname>が有効になっていても、<link linkend="auto-explain-configuration-parameters-log-verbose"><option>log_verbose</option></link>は問い合わせ識別子を表示していませんでした。␞␞      </para>␞
+␝      <para>␟       Change the maximum length of <link
+       linkend="ltree"><application>ltree</application></link> labels
+       from 256 to 1000 and allow hyphens (Garen Torikian)␟<link linkend="ltree"><application>ltree</application></link>ラベルの最大長が256から1000に変更され、ハイフンが利用可能になりました。
+(Garen Torikian)␞␞      </para>␞
+␝      <para>␟       Have <link
+       linkend="pgstatstatements"><structname>pg_stat_statements</structname></link>
+       normalize constants used in utility commands (Michael Paquier)␟<link linkend="pgstatstatements"><structname>pg_stat_statements</structname></link>でユーティリティコマンドで使用される定数を正規化します。
+(Michael Paquier)␞␞      </para>␞
+␝      <para>␟       Previously constants appeared instead of placeholders, e.g.,
+       <literal>$1</literal>.␟以前は、プレースホルダの代わりに定数、例えば<literal>$1</literal>が表示されていました。␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="pgwalinspect"><application>pg_walinspect</application></link>
+       function <link
+       linkend="pgwalinspect-funcs-pg-get-wal-block-info"><function>pg_get_wal_block_info()</function></link>
+       to report <acronym>WAL</acronym> block information (Michael Paquier,
+       Melanie Plageman, Bharath Rupireddy)␟<acronym>WAL</acronym>ブロック情報を報告する<link linkend="pgwalinspect"><application>pg_walinspect</application></link>の<link linkend="pgwalinspect-funcs-pg-get-wal-block-info"><function>pg_get_wal_block_info()</function></link>関数を追加しました。
+(Michael Paquier, Melanie Plageman, Bharath Rupireddy)␞␞      </para>␞
+␝      <para>␟       Change how <link
+       linkend="pgwalinspect"><application>pg_walinspect</application></link>
+       functions <link
+       linkend="pgwalinspect-funcs-pg-get-wal-records-info"><function>pg_get_wal_records_info()</function></link>
+       and <link
+       linkend="pgwalinspect-funcs-pg-get-wal-stats"><function>pg_get_wal_stats()</function></link>
+       interpret ending <acronym>LSN</acronym>s (Bharath Rupireddy)␟<link linkend="pgwalinspect"><application>pg_walinspect</application></link>の<link linkend="pgwalinspect-funcs-pg-get-wal-records-info"><function>pg_get_wal_records_info()</function></link>と<link linkend="pgwalinspect-funcs-pg-get-wal-stats"><function>pg_get_wal_stats()</function></link>関数が末尾<acronym>LSN</acronym>を解釈する方法を変更しました。
+(Bharath Rupireddy)␞␞      </para>␞
+␝      <para>␟       Previously ending <acronym>LSN</acronym>s which represent
+       nonexistent <acronym>WAL</acronym> locations would generate
+       an error, while they will now be interpreted as the end of the
+       <acronym>WAL</acronym>.␟以前は存在しない<acronym>WAL</acronym>の場所を表す末尾の<acronym>LSN</acronym>はエラーを生成していましたが、今後は<acronym>WAL</acronym>の末尾として解釈されます。␞␞      </para>␞
+␝      <para>␟       Add detailed descriptions of <acronym>WAL</acronym> records in <link
+       linkend="pgwalinspect"><application>pg_walinspect</application></link>
+       and <link
+       linkend="pgwaldump"><application>pg_waldump</application></link>
+       (Melanie Plageman, Peter Geoghegan)␟<acronym>WAL</acronym>レコードの詳細な記述を<link linkend="pgwalinspect"><application>pg_walinspect</application></link>と<link linkend="pgwaldump"><application>pg_waldump</application></link>に追加しました。
+(Melanie Plageman, Peter Geoghegan)␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="pageinspect"><application>pageinspect</application></link>
+       function <link
+       linkend="pageinspect-b-tree-funcs"><function>bt_multi_page_stats()</function></link>
+       to report statistics on multiple pages (Hamid Akhtar)␟<link linkend="pageinspect"><application>pageinspect</application></link>で複数ページの統計を報告する<link linkend="pageinspect-b-tree-funcs"><function>bt_multi_page_stats()</function></link>関数を追加しました。
+(Hamid Akhtar)␞␞      </para>␞
+␝      <para>␟       This is similar to <function>bt_page_stats()</function> except it
+       can report on a range of pages.␟これは<function>bt_page_stats()</function>と似ていますが、ページの範囲を指定してレポートできる点が異なります。␞␞      </para>␞
+␝      <para>␟       Add empty range output column to <link
+       linkend="pageinspect"><application>pageinspect</application></link>
+       function <link
+       linkend="pageinspect-brin-funcs"><function>brin_page_items()</function></link>
+       (Tomas Vondra)␟<link linkend="pageinspect"><application>pageinspect</application></link>の<link linkend="pageinspect-brin-funcs"><function>brin_page_items()</function></link>関数に空の範囲出力を示す列を追加しました。
+(Tomas Vondra)␞␞      </para>␞
+␝      <para>␟       Redesign archive modules to be more flexible (Nathan Bossart)␟アーカイブモジュールをより柔軟に再設計しました。
+(Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       Initialization changes will require modules written for older
+       versions of Postgres to be updated.␟初期化の変更により、古いバージョンのPostgres用に書かれたモジュールを更新する必要があります。␞␞      </para>␞
+␝      <para>␟       Correct inaccurate <link
+       linkend="pgstatstatements"><application>pg_stat_statements</application></link>
+       row tracking extended query protocol statements (Sami Imseih)␟不正確な<link linkend="pgstatstatements"><application>pg_stat_statements</application></link>の拡張問い合わせプロトコル文追跡を修正しました。
+(Sami Imseih)␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="pgbuffercache"><application>pg_buffercache</application></link>
+       function <function>pg_buffercache_usage_counts()</function> to
+       report usage totals (Nathan Bossart)␟<link linkend="pgbuffercache"><application>pg_buffercache</application></link>に使用量の合計を報告する<function>pg_buffercache_usage_counts()</function>関数を追加しました。
+(Nathan Bossart)␞␞      </para>␞
+␝      <para>␟       Add <link
+       linkend="pgbuffercache"><application>pg_buffercache</application></link>
+       function <function>pg_buffercache_summary()</function> to report
+       summarized buffer statistics (Melih Mutlu)␟<link linkend="pgbuffercache"><application>pg_buffercache</application></link>にバッファの概要を報告する<function>pg_buffercache_summary()</function>関数を追加しました。
+(Melih Mutlu)␞␞      </para>␞
+␝      <para>␟       Allow the schemas of required extensions to be
+       referenced in extension scripts using the new syntax
+       <literal>@extschema:referenced_extension_name@</literal>
+       (Regina Obe)␟新しい構文<literal>@extschema:referenced_extension_name@</literal>を使用して、必要な拡張のスキーマを拡張スクリプトで参照できるようにしました。
+(Regina Obe)␞␞      </para>␞
+␝      <para>␟       Allow required extensions to
+       be marked as non-relocatable using <link
+       linkend="extend-extensions-files-no-relocate"><literal>no_relocate</literal></link>
+       (Regina Obe)␟<link linkend="extend-extensions-files-no-relocate"><literal>no_relocate</literal></link>を使用して、必要な拡張を再配置不可能としてマークできるようにしました。
+(Regina Obe)␞␞      </para>␞
+␝      <para>␟       This allows <literal>@extschema:referenced_extension_name@</literal>
+       to be treated as a constant for the lifetime of the extension.␟これにより、<literal>@extschema:referenced_extension_name@</literal>は、拡張の存続期間中、定数として扱われます。␞␞      </para>␞
+␝       <para>␟        Allow <application>postgres_fdw</application> to do aborts in
+        parallel (Etsuro Fujita)␟<application>postgres_fdw</application>が並列処理を中断できるようにしました。
+(Etsuro Fujita)␞␞       </para>␞
+␝       <para>␟        This is enabled with
+        <application>postgres_fdw</application> option <link
+        linkend="postgres-fdw-options-transaction-management"><option>parallel_abort</option></link>.␟これは<application>postgres_fdw</application>のオプション<link linkend="postgres-fdw-options-transaction-management"><option>parallel_abort</option></link>で有効にできます。␞␞       </para>␞
+␝       <para>␟        Make <link linkend="sql-analyze"><command>ANALYZE</command></link>
+        on foreign <application>postgres_fdw</application> tables more
+        efficient (Tomas Vondra)␟外部<application>postgres_fdw</application>テーブルの<link linkend="sql-analyze"><command>ANALYZE</command></link>をより効率的にしました。
+(Tomas Vondra)␞␞       </para>␞
+␝       <para>␟        The <application>postgres_fdw</application> option <link
+        linkend="postgres-fdw-options-cost-estimation"><option>analyze_sampling</option></link>
+        controls the sampling method.␟<application>postgres_fdw</application>オプションの<link linkend="postgres-fdw-options-cost-estimation"><option>analyze_sampling</option></link>はサンプリング方法を制御します。␞␞       </para>␞
+␝       <para>␟        Restrict shipment of <link
+        linkend="datatype-oid"><type>reg</type></link>* type constants
+        in <application>postgres_fdw</application> to those referencing
+        built-in objects or extensions marked as shippable (Tom Lane)␟<application>postgres_fdw</application>での<link linkend="datatype-oid"><type>reg</type></link>*型の定数の送出を、送出可能としてマークされた組み込みオブジェクトまたは拡張を参照するものに制限しました。
+(Tom Lane)␞␞       </para>␞
+␝       <para>␟        Have <application>postgres_fdw</application> and <link
+        linkend="dblink"><application>dblink</application></link> handle
+        interrupts during connection establishment (Andres Freund)␟<application>postgres_fdw</application>と<link linkend="dblink"><application>dblink</application></link>で接続確立中の割り込みを処理するようにしました。
+(Andres Freund)␞␞       </para>␞
+␝  <sect2 id="release-16-acknowledgements">␟   <title>Acknowledgments</title>␟   <title>謝辞</title>␞␞␞
+␝   <para>␟    The following individuals (in alphabetical order) have contributed
+    to this release as patch authors, committers, reviewers, testers,
+    or reporters of issues.␟以下の人々（アルファベット順）はパッチ作者、コミッター、レビューア、テスターあるいは問題の報告者として本リリースに貢献しました。␞␞   </para>␞

@@ -1,0 +1,180 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refpurpose>␟   change the definition of a type␟型定義を変更する␞␞  </refpurpose>␞
+␝␟<phrase>where <replaceable class="parameter">action</replaceable> is one of:</phrase>␟<phrase>ここで<replaceable class="parameter">action</replaceable>は以下のいずれかです。</phrase>␞␞␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>ALTER TYPE</command> changes the definition of an existing type.
+   There are several subforms:␟<command>ALTER TYPE</command>は既存の型の定義を変更します。
+複数の副構文があります。␞␞␞
+␝     <para>␟      This form changes the owner of the type.␟この構文は型の所有者を変更します。␞␞     </para>␞
+␝     <para>␟      This form changes the name of the type.␟この構文は型の名前を変更します。␞␞     </para>␞
+␝     <para>␟      This form moves the type into another schema.␟この構文は型を他のスキーマに移動します。␞␞     </para>␞
+␝     <para>␟      This form is only usable with composite types.
+      It changes the name of an individual attribute of the type.␟この構文は複合型に対してのみ利用可能です。
+型の個々の属性の名前を変更します。␞␞     </para>␞
+␝     <para>␟      This form adds a new attribute to a composite type, using the same syntax as
+      <link linkend="sql-createtype"><command>CREATE TYPE</command></link>.␟この構文は、<link linkend="sql-createtype"><command>CREATE TYPE</command></link>と同じ構文を用いて、複合型に新しい属性を追加します。␞␞     </para>␞
+␝     <para>␟      This form drops an attribute from a composite type.
+      If <literal>IF EXISTS</literal> is specified and the attribute
+      does not exist, no error is thrown. In this case a notice
+      is issued instead.␟この構文は複合型から属性を削除します。
+<literal>IF EXISTS</literal>が指定された時はその属性が存在しなくてもエラーにはなりません。
+この場合は代わりに注意が発せられます。␞␞     </para>␞
+␝     <para>␟      This form changes the type of an attribute of a composite type.␟この構文は複合型の属性の型を変更します。␞␞     </para>␞
+␝     <para>␟      This form adds a new value to an enum type.  The new value's place in
+      the enum's ordering can be specified as being <literal>BEFORE</literal>
+      or <literal>AFTER</literal> one of the existing values.  Otherwise,
+      the new item is added at the end of the list of values.␟この構文は列挙型に新しい値を追加します。
+列挙型の順序中での新しい値の場所は、既存の値の<literal>BEFORE</literal>または<literal>AFTER</literal>という形式で指定することができます。
+指定がなければ新しい項目は値のリストの最後に追加されます。␞␞     </para>␞
+␝     <para>␟      If <literal>IF NOT EXISTS</literal> is specified, it is not an error if
+      the type already contains the new value: a notice is issued but no other
+      action is taken. Otherwise, an error will occur if the new value is
+      already present.␟<literal>IF NOT EXISTS</literal>が指定されている場合、型の中に新しい値が既に含まれていたとしてもエラーになりません。
+注意が発生されますが、他の動作は行われません。
+そうでなければ、新しい値がすでに存在しているとエラーが起こります。␞␞     </para>␞
+␝     <para>␟      This form renames a value of an enum type.
+      The value's place in the enum's ordering is not affected.
+      An error will occur if the specified value is not present or the new
+      name is already present.␟この構文では列挙型の値の名前を変更します。
+列挙型の順序における値の位置は変更されません。
+指定の値が存在しない、あるいは新しい名前が既に存在する場合はエラーが発生します。␞␞     </para>␞
+␝     <para>␟      This form is only applicable to base types.  It allows adjustment of a
+      subset of the base-type properties that can be set in <command>CREATE
+      TYPE</command>.  Specifically, these properties can be changed:␟この構文は基本型に対してのみ適用可能です。
+<command>CREATE TYPE</command>で設定できる基本型属性のサブセットを調整できます。
+特に、以下の属性が変更できます。␞␞      <itemizedlist>␞
+␝        <para>␟         <literal>RECEIVE</literal> can be set to the name of a binary input
+         function, or <literal>NONE</literal> to remove the type's binary
+         input function.  Using this option requires superuser privilege.␟<literal>RECEIVE</literal>でバイナリ入力関数の名前を設定できます。<literal>NONE</literal>はその型のバイナリ入力関数を削除します。
+このオプションを使うにはスーパーユーザ権限が必要です。␞␞        </para>␞
+␝        <para>␟         <literal>SEND</literal> can be set to the name of a binary output
+         function, or <literal>NONE</literal> to remove the type's binary
+         output function.  Using this option requires superuser privilege.␟<literal>SEND</literal>でバイナリ出力関数の名前を設定できます。<literal>NONE</literal>はその型のバイナリ出力関数を削除します。
+このオプションを使うにはスーパーユーザ権限が必要です。␞␞        </para>␞
+␝        <para>␟         <literal>TYPMOD_IN</literal> can be set to the name of a type
+         modifier input function, or <literal>NONE</literal> to remove the
+         type's type modifier input function.  Using this option requires
+         superuser privilege.␟<literal>TYPMOD_IN</literal>で型修飾子入力関数の名前を設定できます。<literal>NONE</literal>はその型の型修飾子入力関数を削除します。
+このオプションを使うにはスーパーユーザ権限が必要です。␞␞        </para>␞
+␝        <para>␟         <literal>TYPMOD_OUT</literal> can be set to the name of a type
+         modifier output function, or <literal>NONE</literal> to remove the
+         type's type modifier output function.  Using this option requires
+         superuser privilege.␟<literal>TYPMOD_OUT</literal>で型修飾子出力関数の名前を設定できます。<literal>NONE</literal>はその型の型修飾子出力関数を削除します。
+このオプションを使うにはスーパーユーザ権限が必要です。␞␞        </para>␞
+␝        <para>␟         <literal>ANALYZE</literal> can be set to the name of a type-specific
+         statistics collection function, or <literal>NONE</literal> to remove
+         the type's statistics collection function.  Using this option
+         requires superuser privilege.␟<literal>ANALYZE</literal>は型固有の統計情報収集関数の名前を設定できます。<literal>NONE</literal>はその型の統計情報収集関数を削除します。
+このオプションを使うにはスーパーユーザ権限が必要です。␞␞        </para>␞
+␝        <para>␟         <literal>SUBSCRIPT</literal> can be set to the name of a type-specific
+         subscripting handler function, or <literal>NONE</literal> to remove
+         the type's subscripting handler function.  Using this option
+         requires superuser privilege.␟<literal>SUBSCRIPT</literal>は型固有の添字ハンドラ関数の名前を設定できます。<literal>NONE</literal>はその型の添字ハンドラ関数を削除します。
+このオプションを使うにはスーパーユーザ権限が必要です。␞␞        </para>␞
+␝          <primary>TOAST</primary>␟          <secondary>per-type storage settings</secondary>␟          <secondary>型ごとの保管設定</secondary>␞␞         </indexterm>␞
+␝         </indexterm>␟         can be set to <literal>plain</literal>,
+         <literal>extended</literal>, <literal>external</literal>,
+         or <literal>main</literal> (see <xref linkend="storage-toast"/> for
+         more information about what these mean).  However, changing
+         from <literal>plain</literal> to another setting requires superuser
+         privilege (because it requires that the type's C functions all be
+         TOAST-ready), and changing to <literal>plain</literal> from another
+         setting is not allowed at all (since the type may already have
+         TOASTed values present in the database).  Note that changing this
+         option doesn't by itself change any stored data, it just sets the
+         default TOAST strategy to be used for table columns created in the
+         future.  See <xref linkend="sql-altertable"/> to change the TOAST
+         strategy for existing table columns.␟<literal>STORAGE</literal>は<literal>plain</literal>、<literal>extended</literal>、<literal>external</literal>、<literal>main</literal>に設定できます(それぞれが何を意味するかの詳細は<xref linkend="storage-toast"/>を参照してください)。
+しかしながら、<literal>plain</literal>からその他の設定へ変更するにはスーパーユーザ権限が必要であり(その型のC関数がすべてTOASTの準備ができていることが必要だからです)、<literal>plain</literal>へその他の設定から変更することは全く許されていません(その型に、既にTOASTされた値がデータベース内にあるかもしれないためです)。
+このオプションを変更することは、それだけでは格納されたデータを変更せず、今後作成されるテーブル列で使われるデフォルトのTOAST戦略を設定するだけであることに注意してください。
+既存のテーブル列のTOAST戦略を変更するには<xref linkend="sql-altertable"/>を参照してください。␞␞        </para>␞
+␝      </itemizedlist>␟      See <xref linkend="sql-createtype"/> for more details about these
+      type properties.  Note that where appropriate, a change in these
+      properties for a base type will be propagated automatically to domains
+      based on that type.␟この型属性についての詳細は<xref linkend="sql-createtype"/>を参照してください。
+基本型に対する属性の変更は、適切な場合その型に基づくドメインに自動的に伝播することに注意してください。␞␞     </para>␞
+␝  <para>␟   The <literal>ADD ATTRIBUTE</literal>, <literal>DROP
+   ATTRIBUTE</literal>, and <literal>ALTER ATTRIBUTE</literal> actions
+   can be combined into a list of multiple alterations to apply in
+   parallel.  For example, it is possible to add several attributes
+   and/or alter the type of several attributes in a single command.␟<literal>ADD ATTRIBUTE</literal>、<literal>DROP ATTRIBUTE</literal>、<literal>ALTER ATTRIBUTE</literal>操作は複数の変更リストにまとめて、並行して適用することができます。
+例えば、複数の属性の追加、複数の属性の変更、またはその両方を１つのコマンドで実行することができます。␞␞  </para>␞
+␝  <para>␟   You must own the type to use <command>ALTER TYPE</command>.
+   To change the schema of a type, you must also have
+   <literal>CREATE</literal> privilege on the new schema.
+   To alter the owner, you must be able to <literal>SET ROLE</literal> to the
+   new owning role, and that role must have <literal>CREATE</literal>
+   privilege on the type's schema.
+   (These restrictions enforce that altering the owner
+   doesn't do anything you couldn't do by dropping and recreating the type.
+   However, a superuser can alter ownership of any type anyway.)
+   To add an attribute or alter an attribute type, you must also
+   have <literal>USAGE</literal> privilege on the attribute's data type.␟<command>ALTER TYPE</command>を使用するには型の所有者でなければなりません。
+型のスキーマを変更するには、新しいスキーマにおける<literal>CREATE</literal>権限も必要です。
+所有者を変更するには、新しい所有者ロールに対して<literal>SET ROLE</literal>ができなければなりません。また、そのロールは型のスキーマにおいて<literal>CREATE</literal>権限を持たなければなりません。
+（この制限により、型の削除と再作成で行うことができない処理は所有者の変更で行えないようになります。
+しかし、スーパーユーザはすべての型の所有者を変更することができます。）
+属性を追加または属性の型の変更を行うためには、その属性のデータ型に対する<literal>USAGE</literal>権限を持たなければなりません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝       <para>␟        The name (possibly schema-qualified) of an existing type to
+        alter.␟変更対象の既存の型の名前です（スキーマ修飾名も可）。␞␞       </para>␞
+␝       <para>␟        The new name for the type.␟新しい型の名前です。␞␞       </para>␞
+␝       <para>␟        The user name of the new owner of the type.␟新しい型の所有者のユーザ名です。␞␞       </para>␞
+␝       <para>␟        The new schema for the type.␟型の新しいスキーマです。␞␞       </para>␞
+␝       <para>␟        The name of the attribute to add, alter, or drop.␟追加、変更または削除する属性の名前です。␞␞       </para>␞
+␝       <para>␟        The new name of the attribute to be renamed.␟変名する属性の新しい名前です。␞␞       </para>␞
+␝       <para>␟        The data type of the attribute to add, or the new type of the
+        attribute to alter.␟追加する属性のデータ型、または、変更する属性の新しい型です。␞␞       </para>␞
+␝       <para>␟        The new value to be added to an enum type's list of values,
+        or the new name to be given to an existing value.
+        Like all enum literals, it needs to be quoted.␟列挙型リストの値に追加する新しい値、あるいは既存の値につける新しい名前です。
+すべての列挙型のリテラル同様、引用符を付けなければなりません。␞␞       </para>␞
+␝       <para>␟        The existing enum value that the new value should be added immediately
+        before or after in the enum type's sort ordering.
+        Like all enum literals, it needs to be quoted.␟列挙型の並び順序において新しい値をその直前または直後に追加する、既存の列挙型の値です。
+すべての列挙型のリテラル同様、引用符を付けなければなりません。␞␞       </para>␞
+␝       <para>␟        The existing enum value that should be renamed.
+        Like all enum literals, it needs to be quoted.␟名前の変更の対象となる既存の列挙型の値です。
+すべての列挙型のリテラルと同様、引用符を付ける必要があります。␞␞       </para>␞
+␝       <para>␟        The name of a base-type property to be modified; see above for
+        possible values.␟修正する基本型属性の名前です。可能な値については上を参照してください。␞␞       </para>␞
+␝       <para>␟        Automatically propagate the operation to typed tables of the
+        type being altered, and their descendants.␟変更される型で型付けされたテーブルとその子テーブルに、この操作を自動的に伝播します。␞␞       </para>␞
+␝       <para>␟        Refuse the operation if the type being altered is the type of a
+        typed table.  This is the default.␟変更対象の型がテーブルの型付けに使用されている場合に操作を拒絶します。
+これがデフォルトです。␞␞       </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   If <command>ALTER TYPE ... ADD VALUE</command> (the form that adds a new
+   value to an enum type) is executed inside a transaction block, the new
+   value cannot be used until after the transaction has been committed.␟<command>ALTER TYPE ... ADD VALUE</command>（列挙型に新しい値を追加する構文）がトランザクションブロック内で実行された場合、トランザクションがコミットされるまで新しい値は使えません。␞␞  </para>␞
+␝  <para>␟   Comparisons involving an added enum value will sometimes be slower than
+   comparisons involving only original members of the enum type.  This will
+   usually only occur if <literal>BEFORE</literal> or <literal>AFTER</literal>
+   is used to set the new value's sort position somewhere other than at the
+   end of the list.  However, sometimes it will happen even though the new
+   value is added at the end (this occurs if the OID counter <quote>wrapped
+   around</quote> since the original creation of the enum type).  The slowdown is
+   usually insignificant; but if it matters, optimal performance can be
+   regained by dropping and recreating the enum type, or by dumping and
+   restoring the database.␟列挙型に追加された値を含む比較は、列挙型の元々の要素のみを含む比較よりも低速になることがあります。
+通常これは、新しい値のソート位置がリストの最後ではなく<literal>BEFORE</literal>または<literal>AFTER</literal>を用いて設定された場合のみで起こります。
+しかし最後に新しい値が追加された場合であっても起こる可能性があります。
+（これは、OIDカウンタが元の列挙型を作成してから<quote>周回</quote>した場合に起こります。）
+この速度の低下は通常は大きくありません。
+しかしこれが問題であれば、列挙型を削除し再作成する、あるいはデータベースをダンプしリストアすることで最適な性能まで戻すことができます。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To rename a data type:␟データ型の名前を変更します。␞␞<programlisting>␞
+␝  <para>␟   To change the owner of the type <literal>email</literal>
+   to <literal>joe</literal>:␟<literal>email</literal>型の所有者を<literal>joe</literal>に変更します。␞␞<programlisting>␞
+␝  <para>␟   To change the schema of the type <literal>email</literal>
+   to <literal>customers</literal>:␟<literal>email</literal>型のスキーマを<literal>customers</literal>に変更します。␞␞<programlisting>␞
+␝  <para>␟   To add a new attribute to a composite type:␟複合型に新しい属性を追加します。␞␞<programlisting>␞
+␝  <para>␟   To add a new value to an enum type in a particular sort position:␟列挙型の特定のソート位置に新しい値を追加します。␞␞<programlisting>␞
+␝  <para>␟   To rename an enum value:␟列挙型の値の名前を変更します。␞␞<programlisting>␞
+␝  <para>␟   To create binary I/O functions for an existing base type:␟既存の基本型に対するバイナリI/O関数を作成します。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   The variants to add and drop attributes are part of the SQL
+   standard; the other variants are PostgreSQL extensions.␟属性の追加および削除を行う構文は標準SQLの一部です。
+他の構文はPostgreSQLの拡張です。␞␞  </para>␞
+␝ <refsect1 id="sql-altertype-see-also">␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟CREATE FUNCTION mytypesend(mytype) RETURNS bytea ...; CREATE FUNCTION mytyperecv(internal, oid, integer) RETURNS mytype ...; ALTER TYPE mytype SET ( SEND = mytypesend, RECEIVE = mytyperecv ); </programlisting></para> </programlisting></para>␟no translation␞␞␞

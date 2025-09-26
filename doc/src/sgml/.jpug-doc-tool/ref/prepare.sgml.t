@@ -1,0 +1,168 @@
+␝ <indexterm zone="sql-prepare">
+  <primary>prepared statements</primary>
+  <secondary>creating</secondary>
+ </indexterm>
+␟␟ <indexterm zone="sql-prepare">
+  <primary>プリペアド文</primary>
+  <secondary>の作成</secondary>
+ </indexterm>␞␞␞
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>PREPARE</refname>␟  <refpurpose>prepare a statement for execution</refpurpose>␟  <refpurpose>実行する文を準備する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>PREPARE</command> creates a prepared statement. A prepared
+   statement is a server-side object that can be used to optimize
+   performance. When the <command>PREPARE</command> statement is
+   executed, the specified statement is parsed, analyzed, and rewritten.
+   When an <command>EXECUTE</command> command is subsequently
+   issued, the prepared statement is planned and executed.  This division
+   of labor avoids repetitive parse analysis work, while allowing
+   the execution plan to depend on the specific parameter values supplied.␟<command>PREPARE</command>はプリペアド文を作成します。
+プリペアド文は、性能を最適化するために利用可能なサーバ側オブジェクトです。
+<command>PREPARE</command>文を実行すると、指定された問い合わせの構文解析、書き換えが行われます。
+その後、<command>EXECUTE</command>文が発行された際に、プリペアド文は実行計画が作成され、実行されます。
+この作業の分割により構文解析作業が繰り返されることを防止でき、さらに、特定のパラメータ値に合わせた実行計画を提供することができます。␞␞  </para>␞
+␝  <para>␟   Prepared statements can take parameters: values that are
+   substituted into the statement when it is executed. When creating
+   the prepared statement, refer to parameters by position, using
+   <literal>$1</literal>, <literal>$2</literal>, etc. A corresponding list of
+   parameter data types can optionally be specified. When a
+   parameter's data type is not specified or is declared as
+   <literal>unknown</literal>, the type is inferred from the context
+   in which the parameter is first referenced (if possible). When executing the
+   statement, specify the actual values for these parameters in the
+   <command>EXECUTE</command> statement.  Refer to <xref
+   linkend="sql-execute"/> for more
+   information about that.␟プリペアド文はパラメータ、すなわち文が実行される時に代入される値を取ることができます。
+プリペアド文を作成する時には<literal>$1</literal>や<literal>$2</literal>などを使用して、位置によりパラメータを参照してください。
+対応するパラメータのデータ型のリストをオプションで指定することもできます。
+パラメータのデータ型の指定がない、または、<literal>unknown</literal>と宣言されている場合、型はパラメータが最初に参照される文脈より（可能ならば）推測されます。
+文の実行時には、<command>EXECUTE</command>文内にこれらのパラメータの実際の値を指定します。
+詳細は<xref linkend="sql-execute"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   Prepared statements only last for the duration of the current
+   database session. When the session ends, the prepared statement is
+   forgotten, so it must be recreated before being used again. This
+   also means that a single  prepared statement cannot be used by
+   multiple simultaneous database clients; however, each client can create
+   their own prepared statement to use.  Prepared statements can be
+   manually cleaned up using the <link linkend="sql-deallocate"><command>DEALLOCATE</command></link> command.␟プリペアド文は現在のデータベースセッションの期間中にのみ保持されます。
+セッションが終了すると、プリペアド文は破棄されます。
+そのため、再び利用する場合は、再作成する必要があります。
+また、これは、1つのプリペアド文を同時実行中の複数のデータベースクライアントから使用することはできないことを意味します。
+ただし、各クライアントが個別にプリペアド文を作成することはできます。
+プリペアド文を手作業で削除するには、<link linkend="sql-deallocate"><command>DEALLOCATE</command></link>コマンドを使用します。␞␞  </para>␞
+␝  <para>␟   Prepared statements potentially have the largest performance advantage
+   when a single session is being used to execute a large number of similar
+   statements. The performance difference will be particularly
+   significant if the statements are complex to plan or rewrite, e.g.,
+   if the query involves a join of many tables or requires
+   the application of several rules. If the statement is relatively simple
+   to plan and rewrite but relatively expensive to execute, the
+   performance advantage of prepared statements will be less noticeable.␟プリペアド文は潜在的には、単一のセッションで同類の問い合わせを多数実行する場合に、パフォーマンスにおける最大の利益がえられます。
+パフォーマンスの違いは、文の書き換えや実行計画が複雑なほど顕著になるでしょう。
+例えば、問い合わせに多数のテーブルの結合が含まれている場合や、いくつものルールを適用しなければならない場合などが考えられます。
+書き換えおよび実行計画が比較的単純で、実行コストが高い文の場合は、プリペアド文の効果はそれほど現れないでしょう。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      An arbitrary name given to this particular prepared
+      statement. It must be unique within a single session and is
+      subsequently used to execute or deallocate a previously prepared
+      statement.␟個々のプリペアド文に与えられる任意の名前です。
+この名前は、1つのセッション内で一意でなければいけません。プリペアド文の実行および削除の時に、この名前が使用されます。␞␞     </para>␞
+␝     <para>␟      The data type of a parameter to the prepared statement.  If the
+      data type of a particular parameter is unspecified or is
+      specified as <literal>unknown</literal>, it will be inferred
+      from the context in which the parameter is first referenced. To refer to the
+      parameters in the prepared statement itself, use
+      <literal>$1</literal>, <literal>$2</literal>, etc.␟プリペアド文に対するパラメータのデータ型です。
+特定のパラメータのデータ型の指定がない、または、<literal>unknown</literal>と指定された場合、パラメータが最初に参照される文脈から推測されます。
+プリペアド文自体の中でこのパラメータを参照する時は、<literal>$1</literal>、<literal>$2</literal>などを使用します。␞␞     </para>␞
+␝     <para>␟      Any <command>SELECT</command>, <command>INSERT</command>, <command>UPDATE</command>,
+      <command>DELETE</command>, <command>MERGE</command>, or <command>VALUES</command>
+      statement.␟任意の<command>SELECT</command>、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>、<command>VALUES</command>文です。␞␞     </para>␞
+␝ <refsect1 id="sql-prepare-notes">␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   A prepared statement can be executed with either a <firstterm>generic
+   plan</firstterm> or a <firstterm>custom plan</firstterm>.  A generic
+   plan is the same across all executions, while a custom plan is generated
+   for a specific execution using the parameter values given in that call.
+   Use of a generic plan avoids planning overhead, but in some situations
+   a custom plan will be much more efficient to execute because the planner
+   can make use of knowledge of the parameter values.  (Of course, if the
+   prepared statement has no parameters, then this is moot and a generic
+   plan is always used.)␟プリペアド文は、<firstterm>汎用的な計画</firstterm>または<firstterm>独自の計画</firstterm>のいずれかで実行することができます。
+汎用的な計画は全実行に渡って同じであるのに対して、独自の計画はその呼出しで与えられたパラメータ値を使った特別な実行のために生成されます。
+汎用的な計画の使用は計画のオーバーヘッドを回避しますが、プランナがパラメータ値の知識を使えるので、独自の計画の方がずっと効率よく実行される場合があります。
+(もちろん、プリペアド文にパラメータがなければ、これは無意味で、汎用的な計画が常に使われます。)␞␞  </para>␞
+␝  <para>␟   By default (that is, when <xref linkend="guc-plan-cache-mode"/> is set
+   to <literal>auto</literal>), the server will automatically choose
+   whether to use a generic or custom plan for a prepared statement that
+   has parameters.  The current rule for this is that the first five
+   executions are done with custom plans and the average estimated cost of
+   those plans is calculated.  Then a generic plan is created and its
+   estimated cost is compared to the average custom-plan cost.  Subsequent
+   executions use the generic plan if its cost is not so much higher than
+   the average custom-plan cost as to make repeated replanning seem
+   preferable.␟デフォルト(すなわち、<xref linkend="guc-plan-cache-mode"/>が<literal>auto</literal>に設定されている場合)では、パラメータのあるプリペアド文に対して、汎用的な計画を使うか独自の計画を使うかを、サーバは自動的に選択します。
+これに対する現在の規則は、最初の5回が独自の計画で実行され、その計画の推定コストの平均が計算される、というものです。
+それから汎用的な計画が作成され、その推定コストが独自の計画のコストの平均と比較されます。
+再計画を繰り返すことが望ましいと思えるほどにはそのコストが独自の計画の平均コストよりも高くなければ、その後の実行は汎用的な計画を使います。␞␞  </para>␞
+␝  <para>␟   This heuristic can be overridden, forcing the server to use either
+   generic or custom plans, by setting <varname>plan_cache_mode</varname>
+   to <literal>force_generic_plan</literal>
+   or <literal>force_custom_plan</literal> respectively.
+   This setting is primarily useful if the generic plan's cost estimate
+   is badly off for some reason, allowing it to be chosen even though
+   its actual cost is much more than that of a custom plan.␟<varname>plan_cache_mode</varname>を<literal>force_generic_plan</literal>または<literal>force_custom_plan</literal>に設定して、サーバにそれぞれ汎用的な計画または独自の計画を使うように強制することで、この発見的手法を置き換えることができます。
+汎用的な計画の実際のコストが独自の計画のものよりもずっと多い場合でも、汎用的な計画を選べるようになりますので、汎用的な計画のコスト推定が何らかの理由でひどく外れる場合に、この設定は主として有用です。␞␞  </para>␞
+␝  <para>␟   To examine the query plan <productname>PostgreSQL</productname> is using
+   for a prepared statement, use <link linkend="sql-explain"><command>EXPLAIN</command></link>, for example␟プリペアド文に対して<productname>PostgreSQL</productname>が使用する問い合わせ計画を検証するためには、<link linkend="sql-explain"><command>EXPLAIN</command></link>、例えば␞␞<programlisting>␞
+␝</programlisting>␟   If a generic plan is in use, it will contain parameter symbols
+   <literal>$<replaceable>n</replaceable></literal>, while a custom plan
+   will have the supplied parameter values substituted into it.␟を使用してください。
+汎用的な計画が使用される場合には、<literal>$<replaceable>n</replaceable></literal>というパラメータ記号が含まれ、独自の計画が使用される場合は提供されたパラメータの値で置換されます。␞␞  </para>␞
+␝  <para>␟   For more information on query planning and the statistics collected
+   by <productname>PostgreSQL</productname> for that purpose, see
+   the <xref linkend="sql-analyze"/>
+   documentation.␟問い合わせの実行計画や問い合わせの最適化のために<productname>PostgreSQL</productname>が収集する統計に関する詳細は、<xref linkend="sql-analyze"/>のドキュメントを参照してください。␞␞  </para>␞
+␝  <para>␟   Although the main point of a prepared statement is to avoid repeated parse
+   analysis and planning of the statement, <productname>PostgreSQL</productname> will
+   force re-analysis and re-planning of the statement before using it
+   whenever database objects used in the statement have undergone
+   definitional (DDL) changes or their planner statistics have
+   been updated since the previous use of the prepared
+   statement.  Also, if the value of <xref linkend="guc-search-path"/> changes
+   from one use to the next, the statement will be re-parsed using the new
+   <varname>search_path</varname>.  (This latter behavior is new as of
+   <productname>PostgreSQL</productname> 9.3.)  These rules make use of a
+   prepared statement semantically almost equivalent to re-submitting the
+   same query text over and over, but with a performance benefit if no object
+   definitions are changed, especially if the best plan remains the same
+   across uses.  An example of a case where the semantic equivalence is not
+   perfect is that if the statement refers to a table by an unqualified name,
+   and then a new table of the same name is created in a schema appearing
+   earlier in the <varname>search_path</varname>, no automatic re-parse will occur
+   since no object used in the statement changed.  However, if some other
+   change forces a re-parse, the new table will be referenced in subsequent
+   uses.␟プリペアド文の主要な利点は、文の解析処理と計画作成処理の繰り返しを防止することですが、<productname>PostgreSQL</productname>では、以前にそのプリペアド文を使用してから、文の中で使用されているデータベースオブジェクトが定義（DDL）の変更を受けたり、プランナの統計が更新されたりした時は常に再解析処理と計画再作成処理を強制します。
+また、一度使用してから<xref linkend="guc-search-path"/>の値が変わった場合も、文は新しい<varname>search_path</varname>を使用して再解析されます。
+（後者の振る舞いは<productname>PostgreSQL</productname> 9.3の時に追加されました。）
+これらの規則により、プリペアド文の使用は意味的に同じ問い合わせを繰り返し再投入することとほぼ同じになりますが、特に最善の計画が使用している間に変わらずに残る場合、オブジェクトの変更がない場合の性能という利点があります。
+意味的な等価性が完全ではない場合の例は、
+文が未修飾名によってテーブルを参照し、その後同じ名前のテーブルが新たに<varname>search_path</varname>内で前に現れるスキーマ内に作成された場合、文の中で使用されるオブジェクトには変更がありませんので、自動再解析は行われません。
+しかし他の何らかの変更により強制的に再解析された場合、その後の使用では新しいテーブルが参照されるようになります。␞␞  </para>␞
+␝  <para>␟   You can see all prepared statements available in the session by querying the
+   <link linkend="view-pg-prepared-statements"><structname>pg_prepared_statements</structname></link>
+   system view.␟<link linkend="view-pg-prepared-statements"><structname>pg_prepared_statements</structname></link>システムビューを問い合わせることによりセッションで利用可能なプリペアド文をすべて確認することができます。␞␞  </para>␞
+␝ <refsect1 id="sql-prepare-examples" xreflabel="Examples">␟  <title>Examples</title>␟  <title>例</title>␞␞  <para>␞
+␝  <para>␟   Create a prepared statement for an <command>INSERT</command>
+   statement, and then execute it:␟<command>INSERT</command>文に対してプリペアド文を作成し、実行します。␞␞<programlisting>␞
+␝  <para>␟   Create a prepared statement for a <command>SELECT</command>
+   statement, and then execute it:␟<command>SELECT</command>文に対してプリペアド文を作成し、実行します。␞␞<programlisting>␞
+␝␟   In this example, the data type of the second parameter is not specified,
+   so it is inferred from the context in which <literal>$2</literal> is used.␟この例では第2パラメータのデータ型が指定されていません。
+このため<literal>$2</literal>が使用される文脈からデータ型が推測されます。␞␞  </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   The SQL standard includes a <command>PREPARE</command> statement,
+   but it is only for use in embedded SQL. This version of the
+   <command>PREPARE</command> statement also uses a somewhat different
+   syntax.␟標準SQLには<command>PREPARE</command>文が含まれていますが、埋め込みSQLでの使用に限られています。
+また、標準SQLの<command>PREPARE</command>文では多少異なる構文が使用されます。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞

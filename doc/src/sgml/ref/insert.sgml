@@ -32,7 +32,8 @@ INSERT INTO <replaceable class="parameter">table_name</replaceable> [ AS <replac
     [ OVERRIDING { SYSTEM | USER } VALUE ]
     { DEFAULT VALUES | VALUES ( { <replaceable class="parameter">expression</replaceable> | DEFAULT } [, ...] ) [, ...] | <replaceable class="parameter">query</replaceable> }
     [ ON CONFLICT [ <replaceable class="parameter">conflict_target</replaceable> ] <replaceable class="parameter">conflict_action</replaceable> ]
-    [ RETURNING { * | <replaceable class="parameter">output_expression</replaceable> [ [ AS ] <replaceable class="parameter">output_name</replaceable> ] } [, ...] ]
+    [ RETURNING [ WITH ( { OLD | NEW } AS <replaceable class="parameter">output_alias</replaceable> [, ...] ) ]
+                { * | <replaceable class="parameter">output_expression</replaceable> [ [ AS ] <replaceable class="parameter">output_name</replaceable> ] } [, ...] ]
 
 <!--
 <phrase>where <replaceable class="parameter">conflict_target</replaceable> can be one of:</phrase>
@@ -416,6 +417,32 @@ aliasを指定すると、テーブルの実際の名前が完全に隠されま
      </varlistentry>
 
      <varlistentry>
+      <term><replaceable class="parameter">output_alias</replaceable></term>
+      <listitem>
+       <para>
+<!--
+        An optional substitute name for <literal>OLD</literal> or
+        <literal>NEW</literal> rows in the <literal>RETURNING</literal> list.
+-->
+《機械翻訳》«An optional substitute name for <literal>OLD</literal> or <literal>NEW</literal> rows in the <literal>RETURNING</literal> list.»
+       </para>
+
+       <para>
+<!--
+        By default, old values from the target table can be returned by writing
+        <literal>OLD.<replaceable class="parameter">column_name</replaceable></literal>
+        or <literal>OLD.*</literal>, and new values can be returned by writing
+        <literal>NEW.<replaceable class="parameter">column_name</replaceable></literal>
+        or <literal>NEW.*</literal>.  When an alias is provided, these names are
+        hidden and the old or new rows must be referred to using the alias.
+        For example <literal>RETURNING WITH (OLD AS o, NEW AS n) o.*, n.*</literal>.
+-->
+《機械翻訳》«By default, old values from the target table can be returned by writing <literal>OLD.<replaceable class="parameter">column_name</replaceable></literal> or <literal>OLD.*</literal>, and new values can be returned by writing <literal>NEW.<replaceable class="parameter">column_name</replaceable></literal> or <literal>NEW.*</literal>. When an alias is provided, these names are hidden and the old or new rows must be referred to using the alias. For example <literal>RETURNING WITH (OLD AS o, NEW AS n) o.*, n.*</literal>.»
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
       <term><replaceable class="parameter">output_expression</replaceable></term>
       <listitem>
        <para>
@@ -431,6 +458,29 @@ aliasを指定すると、テーブルの実際の名前が完全に隠されま
 各行が挿入または更新された後、<command>INSERT</command>により計算され、返される式です。
 この式には<replaceable class="parameter">table_name</replaceable>で指名されたテーブルの任意の列名を使用することができます。
 挿入または更新された行のすべての列を返す場合は<literal>*</literal>と記載してください。
+       </para>
+
+       <para>
+<!--
+        A column name or <literal>*</literal> may be qualified using
+        <literal>OLD</literal> or <literal>NEW</literal>, or the corresponding
+        <replaceable class="parameter">output_alias</replaceable> for
+        <literal>OLD</literal> or <literal>NEW</literal>, to cause old or new
+        values to be returned.  An unqualified column name, or
+        <literal>*</literal>, or a column name or <literal>*</literal>
+        qualified using the target table name or alias will return new values.
+-->
+《機械翻訳》«A column name or <literal>*</literal> may be qualified using <literal>OLD</literal> or <literal>NEW</literal>, or the corresponding <replaceable class="parameter">output_alias</replaceable> for <literal>OLD</literal> or <literal>NEW</literal>, to cause old or new values to be returned. An unqualified column name, or <literal>*</literal>, or a column name or <literal>*</literal> qualified using the target table name or alias will return new values.»
+       </para>
+
+       <para>
+<!--
+        For a simple <command>INSERT</command>, all old values will be
+        <literal>NULL</literal>.  However, for an <command>INSERT</command>
+        with an <literal>ON CONFLICT DO UPDATE</literal> clause, the old
+        values may be non-<literal>NULL</literal>.
+-->
+《機械翻訳》«For a simple <command>INSERT</command>, all old values will be <literal>NULL</literal>. However, for an <command>INSERT</command> with an <literal>ON CONFLICT DO UPDATE</literal> clause, the old values may be non-<literal>NULL</literal>.»
        </para>
       </listitem>
      </varlistentry>
@@ -1001,6 +1051,23 @@ INSERT INTO employees_log SELECT *, current_timestamp FROM upd;
 INSERT INTO distributors (did, dname)
     VALUES (5, 'Gizmo Transglobal'), (6, 'Associated Computing, Inc')
     ON CONFLICT (did) DO UPDATE SET dname = EXCLUDED.dname;
+</programlisting>
+  </para>
+  <para>
+<!--
+   Insert or update new distributors as above, returning information
+   about any existing values that were updated, together with the new data
+   inserted.  Note that the returned values for <literal>old_did</literal>
+   and <literal>old_dname</literal> will be <literal>NULL</literal> for
+   non-conflicting rows:
+-->
+《機械翻訳》«Insert or update new distributors as above, returning information about any existing values that were updated, together with the new data inserted. Note that the returned values for <literal>old_did</literal> and <literal>old_dname</literal> will be <literal>NULL</literal> for non-conflicting rows:»
+<programlisting>
+INSERT INTO distributors (did, dname)
+    VALUES (5, 'Gizmo Transglobal'), (6, 'Associated Computing, Inc')
+    ON CONFLICT (did) DO UPDATE SET dname = EXCLUDED.dname
+    RETURNING old.did AS old_did, old.dname AS old_dname,
+              new.did AS new_did, new.dname AS new_dname;
 </programlisting>
   </para>
   <para>

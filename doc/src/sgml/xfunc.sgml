@@ -352,27 +352,6 @@ CALL clean_emp();
 また、<type>void</type>を返す関数がPostgreSQLの拡張であるのに対し、プロシージャは標準SQLです。
     </para>
 
-    <note>
-     <para>
-<!--
-      The entire body of an SQL function is parsed before any of it is
-      executed.  While an SQL function can contain commands that alter
-      the system catalogs (e.g., <command>CREATE TABLE</command>), the effects
-      of such commands will not be visible during parse analysis of
-      later commands in the function.  Thus, for example,
-      <literal>CREATE TABLE foo (...); INSERT INTO foo VALUES(...);</literal>
-      will not work as desired if packaged up into a single SQL function,
-      since <structname>foo</structname> won't exist yet when the <command>INSERT</command>
-      command is parsed.  It's recommended to use <application>PL/pgSQL</application>
-      instead of an SQL function in this type of situation.
--->
-SQL関数の本体全体は、その一部が実行される前に解析されます。
-SQL関数はシステムカタログを変更するコマンド（例えば<command>CREATE TABLE</command>）を含むことができますので、そのようなコマンドの効果は関数の以降のコマンドの解析中は可視ではありません。
-それゆえ、例えば、<literal>CREATE TABLE foo (...); INSERT INTO foo VALUES(...);</literal>は単一のSQL関数にまとめられていると期待したようには動作しません。<command>INSERT</command>コマンドが解析されている時には<structname>foo</structname>がまだ存在しないからです。
-このような場合にはSQL関数の代わりに<application>PL/pgSQL</application>を使うことを薦めます。
-     </para>
-   </note>
-
    <para>
 <!--
     The syntax of the <command>CREATE FUNCTION</command> command requires
@@ -2823,6 +2802,9 @@ C名称が明示的に指定されなかった場合、SQLにおける関数名�
    <indexterm zone="xfunc-c-dynload">
     <primary>マジックブロック</primary>
    </indexterm>
+   <indexterm zone="xfunc-c-dynload">
+    <primary><literal>PG_MODULE_MAGIC</literal></primary>
+   </indexterm>
 
    <para>
 <!--
@@ -2842,6 +2824,39 @@ C名称が明示的に指定されなかった場合、SQLにおける関数名�
 <programlisting>
 PG_MODULE_MAGIC;
 </programlisting>
+<!--
+or
+-->
+《機械翻訳》«or»
+<programlisting>
+PG_MODULE_MAGIC_EXT(<replaceable>parameters</replaceable>);
+</programlisting>
+   </para>
+
+   <para>
+<!--
+    The <literal>PG_MODULE_MAGIC_EXT</literal> variant allows the specification
+    of additional information about the module; currently, a name and/or a
+    version string can be added.  (More fields might be allowed in future.)
+    Write something like this:
+-->
+《機械翻訳》«The <literal>PG_MODULE_MAGIC_EXT</literal> variant allows the specification of additional information about the module; currently, a name and/or a version string can be added. (More fields might be allowed in future.) Write something like this:»
+
+<programlisting>
+PG_MODULE_MAGIC_EXT(
+    .name = "my_module_name",
+    .version = "1.2.3"
+);
+</programlisting>
+
+<!--
+    Subsequently the name and version can be examined via
+    the <function>pg_get_loaded_modules()</function> function.
+    The meaning of the version string is not restricted
+    by <productname>PostgreSQL</productname>, but use of semantic versioning
+    rules is recommended.
+-->
+《機械翻訳》«Subsequently the name and version can be examined via the <function>pg_get_loaded_modules()</function> function. The meaning of the version string is not restricted by <productname>PostgreSQL</productname>, but use of semantic versioning rules is recommended.»
    </para>
 
    <para>
@@ -3412,6 +3427,68 @@ Version-1関数では、それぞれの実引数は、引数のデータ型に�
 
     <para>
 <!--
+     To call another version-1 function, you can use
+     <function>DirectFunctionCall<replaceable>n</replaceable>(func,
+     arg1, ..., argn)</function>.  This is particularly useful when you want
+     to call functions defined in the standard internal library, by using an
+     interface similar to their SQL signature.
+-->
+《機械翻訳》«To call another version-1 function, you can use <function>DirectFunctionCall<replaceable>n</replaceable>(func, arg1, ..., argn)</function>. This is particularly useful when you want to call functions defined in the standard internal library, by using an interface similar to their SQL signature.»
+    </para>
+
+    <para>
+<!--
+     These convenience functions and similar ones can be found
+     in <filename>fmgr.h</filename>.
+     The <function>DirectFunctionCall<replaceable>n</replaceable></function>
+     family expect a C function name as their first argument.  There are also
+     <function>OidFunctionCall<replaceable>n</replaceable></function> which
+     take the OID of the target function, and some other variants.  All of
+     these expect the function's arguments to be supplied
+     as <type>Datum</type>s, and likewise they return <type>Datum</type>.
+     Note that neither arguments nor result are allowed to be NULL when
+     using these convenience functions.
+-->
+《機械翻訳》«These convenience functions and similar ones can be found in <filename>fmgr.h</filename>. The <function>DirectFunctionCall<replaceable>n</replaceable></function> family expect a C function name as their first argument. There are also <function>OidFunctionCall<replaceable>n</replaceable></function> which take the OID of the target function, and some other variants. All of these expect the function's arguments to be supplied as <type>Datum</type>s, and likewise they return <type>Datum</type>. Note that neither arguments nor result are allowed to be NULL when using these convenience functions.»
+    </para>
+
+    <para>
+<!--
+     For example, to call the <function>starts_with(text, text)</function>
+     function from C, you can search through the catalog and find out that
+     its C implementation is the
+     <function>Datum text_starts_with(PG_FUNCTION_ARGS)</function>
+     function.  Typically you would
+     use <literal>DirectFunctionCall2(text_starts_with, ...)</literal> to
+     call such a function.  However, <function>starts_with(text,
+     text)</function> requires collation information, so it will fail
+     with <quote>could not determine which collation to use for string
+     comparison</quote> if called that way.  Instead you must
+     use <literal>DirectFunctionCall2Coll(text_starts_with, ...)</literal>
+     and provide the desired collation, which typically is just passed
+     through from <function>PG_GET_COLLATION()</function>, as shown in the
+     example below.
+-->
+《機械翻訳》«For example, to call the <function>starts_with(text, text)</function> function from C, you can search through the catalog and find out that its C implementation is the <function>Datum text_starts_with(PG_FUNCTION_ARGS)</function> function. Typically you would use <literal>DirectFunctionCall2(text_starts_with, ...)</literal> to call such a function. However, <function>starts_with(text, text)</function> requires collation information, so it will fail with <quote>could not determine which collation to use for string comparison</quote> if called that way. Instead you must use <literal>DirectFunctionCall2Coll(text_starts_with, ...)</literal> and provide the desired collation, which typically is just passed through from <function>PG_GET_COLLATION()</function>, as shown in the example below.»
+    </para>
+
+    <para>
+<!--
+     <filename>fmgr.h</filename> also supplies macros that facilitate
+     conversions between C types and <type>Datum</type>.  For example to
+     turn <type>Datum</type> into <type>text*</type>, you can
+     use <function>DatumGetTextPP(X)</function>.  While some types have macros
+     named like <function>TypeGetDatum(X)</function> for the reverse
+     conversion, <type>text*</type> does not; it's sufficient to use the
+     generic macro <function>PointerGetDatum(X)</function> for that.
+     If your extension defines additional types, it is usually convenient to
+     define similar macros for your types too.
+-->
+《機械翻訳》«<filename>fmgr.h</filename> also supplies macros that facilitate conversions between C types and <type>Datum</type>. For example to turn <type>Datum</type> into <type>text*</type>, you can use <function>DatumGetTextPP(X)</function>. While some types have macros named like <function>TypeGetDatum(X)</function> for the reverse conversion, <type>text*</type> does not; it's sufficient to use the generic macro <function>PointerGetDatum(X)</function> for that. If your extension defines additional types, it is usually convenient to define similar macros for your types too.»
+    </para>
+
+    <para>
+<!--
      Here are some examples using the version-1 calling convention:
 -->
 Version-1呼出し規約を使った例をいくつか以下に示します。
@@ -3535,6 +3612,25 @@ concat_text(PG_FUNCTION_ARGS)
     memcpy(VARDATA(new_text) + arg1_size, VARDATA_ANY(arg2), arg2_size);
     PG_RETURN_TEXT_P(new_text);
 }
+
+/* A wrapper around starts_with(text, text) */
+
+PG_FUNCTION_INFO_V1(t_starts_with);
+
+Datum
+t_starts_with(PG_FUNCTION_ARGS)
+{
+    text       *t1 = PG_GETARG_TEXT_PP(0);
+    text       *t2 = PG_GETARG_TEXT_PP(1);
+    Oid         collid = PG_GET_COLLATION();
+    bool        result;
+
+    result = DatumGetBool(DirectFunctionCall2Coll(text_starts_with,
+                                                  collid,
+                                                  PointerGetDatum(t1),
+                                                  PointerGetDatum(t2)));
+    PG_RETURN_BOOL(result);
+}
 ]]>
 </programlisting>
 
@@ -3571,6 +3667,10 @@ CREATE FUNCTION copytext(text) RETURNS text
 
 CREATE FUNCTION concat_text(text, text) RETURNS text
      AS '<replaceable>DIRECTORY</replaceable>/funcs', 'concat_text'
+     LANGUAGE C STRICT;
+
+CREATE FUNCTION t_starts_with(text, text) RETURNS boolean
+     AS '<replaceable>DIRECTORY</replaceable>/funcs', 't_starts_with'
      LANGUAGE C STRICT;
 </programlisting>
 
@@ -3848,6 +3948,184 @@ C関数の作成と構築の基本規則を以下に示します。
    </sect2>
 
 &dfunc;
+
+   <sect2 id="xfunc-api-abi-stability-guidance">
+    <title>Server API and ABI Stability Guidance</title>
+
+    <para>
+<!--
+     This section contains guidance to authors of extensions and other server
+     plugins about API and ABI stability in the
+     <productname>PostgreSQL</productname> server.
+-->
+《機械翻訳》«This section contains guidance to authors of extensions and other server plugins about API and ABI stability in the <productname>PostgreSQL</productname> server.»
+    </para>
+
+    <sect3 id="xfunc-guidance-general">
+     <title>General</title>
+
+     <para>
+<!--
+      The <productname>PostgreSQL</productname> server contains several
+      well-demarcated APIs for server plugins, such as the function manager
+      (<acronym>fmgr</acronym>, described in this chapter),
+      <acronym>SPI</acronym> (<xref linkend="spi"/>), and various hooks
+      specifically designed for extensions. These interfaces are carefully
+      managed for long-term stability and compatibility. However, the entire
+      set of global functions and variables in the server effectively
+      constitutes the publicly usable API, and most of it was not designed
+      with extensibility and long-term stability in mind.
+-->
+《機械翻訳》«The <productname>PostgreSQL</productname> server contains several well-demarcated APIs for server plugins, such as the function manager (<acronym>fmgr</acronym>, described in this chapter), <acronym>SPI</acronym> (<xref linkend="spi"/>), and various hooks specifically designed for extensions. These interfaces are carefully managed for long-term stability and compatibility. However, the entire set of global functions and variables in the server effectively constitutes the publicly usable API, and most of it was not designed with extensibility and long-term stability in mind.»
+     </para>
+
+     <para>
+<!--
+      Therefore, while taking advantage of these interfaces is valid, the
+      further one strays from the well-trodden path, the likelier it will be
+      that one might encounter API or ABI compatibility issues at some point.
+      Extension authors are encouraged to provide feedback about their
+      requirements, so that over time, as new use patterns arise, certain
+      interfaces can be considered more stabilized or new, better-designed
+      interfaces can be added.
+-->
+《機械翻訳》«Therefore, while taking advantage of these interfaces is valid, the further one strays from the well-trodden path, the likelier it will be that one might encounter API or ABI compatibility issues at some point. Extension authors are encouraged to provide feedback about their requirements, so that over time, as new use patterns arise, certain interfaces can be considered more stabilized or new, better-designed interfaces can be added.»
+     </para>
+    </sect3>
+
+    <sect3 id="xfunc-guidance-api-compatibility">
+     <title>API Compatibility</title>
+     <para>
+<!--
+      The <acronym>API</acronym>, or application programming interface, is the
+      interface used at compile time.
+-->
+《機械翻訳》«The <acronym>API</acronym>, or application programming interface, is the interface used at compile time.»
+     </para>
+
+     <sect4 id="xfunc-guidance-api-major-versions">
+      <title>Major Versions</title>
+      <para>
+<!--
+       There is <emphasis>no</emphasis> promise of API compatibility between
+       <productname>PostgreSQL</productname> major versions. Extension code
+       therefore might require source code changes to work with multiple major
+       versions. These can usually be managed with preprocessor conditions
+       such as <literal>#if PG_VERSION_NUM &gt;= 160000</literal>.
+       Sophisticated extensions that use interfaces beyond the well-demarcated
+       ones usually require a few such changes for each major server version.
+-->
+《機械翻訳》«There is <emphasis>no</emphasis> promise of API compatibility between <productname>PostgreSQL</productname> major versions. Extension code therefore might require source code changes to work with multiple major versions. These can usually be managed with preprocessor conditions such as <literal>#if PG_VERSION_NUM &gt;= 160000</literal>. Sophisticated extensions that use interfaces beyond the well-demarcated ones usually require a few such changes for each major server version.»
+      </para>
+     </sect4>
+
+     <sect4 id="xfunc-guidance-api-mninor-versions">
+      <title>Minor Versions</title>
+      <para>
+<!--
+       <productname>PostgreSQL</productname> makes an effort to avoid server
+       API breaks in minor releases. In general, extension code that compiles
+       and works with a minor release should also compile and work with any
+       other minor release of the same major version, past or future.
+-->
+《機械翻訳》«<productname>PostgreSQL</productname> makes an effort to avoid server API breaks in minor releases. In general, extension code that compiles and works with a minor release should also compile and work with any other minor release of the same major version, past or future.»
+      </para>
+
+      <para>
+<!--
+       When a change <emphasis>is</emphasis> required, it will be carefully
+       managed, taking the requirements of extensions into account. Such
+       changes will be communicated in the release notes (<xref
+       linkend="release"/>).
+-->
+《機械翻訳》«When a change <emphasis>is</emphasis> required, it will be carefully managed, taking the requirements of extensions into account. Such changes will be communicated in the release notes (<xref linkend="release"/>).»
+      </para>
+     </sect4>
+    </sect3>
+
+    <sect3 id="xfunc-guidance-abi-compatibility">
+     <title>ABI Compatibility</title>
+      <para>
+<!--
+       The <acronym>ABI</acronym>, or application binary interface, is the
+       interface used at run time.
+-->
+《機械翻訳》«The <acronym>ABI</acronym>, or application binary interface, is the interface used at run time.»
+      </para>
+
+     <sect4 id="xfunc-guidance-abi-major-versions">
+      <title>Major Versions</title>
+      <para>
+<!--
+       Servers of different major versions have intentionally incompatible
+       ABIs. Extensions that use server APIs must therefore be re-compiled for
+       each major release. The inclusion of <literal>PG_MODULE_MAGIC</literal>
+       (see <xref linkend="xfunc-c-dynload"/>) ensures that code compiled for
+       one major version will be rejected by other major versions.
+-->
+《機械翻訳》«Servers of different major versions have intentionally incompatible ABIs. Extensions that use server APIs must therefore be re-compiled for each major release. The inclusion of <literal>PG_MODULE_MAGIC</literal> (see <xref linkend="xfunc-c-dynload"/>) ensures that code compiled for one major version will be rejected by other major versions.»
+      </para>
+     </sect4>
+
+     <sect4 id="xfunc-guidance-abi-mninor-versions">
+      <title>Minor Versions</title>
+      <para>
+<!--
+       <productname>PostgreSQL</productname> makes an effort to avoid server
+       ABI breaks in minor releases. In general, an extension compiled against
+       any minor release should work with any other minor release of the same
+       major version, past or future.
+-->
+《機械翻訳》«<productname>PostgreSQL</productname> makes an effort to avoid server ABI breaks in minor releases. In general, an extension compiled against any minor release should work with any other minor release of the same major version, past or future.»
+      </para>
+
+      <para>
+<!--
+       When a change <emphasis>is</emphasis> required,
+       <productname>PostgreSQL</productname> will choose the least invasive
+       change possible, for example by squeezing a new field into padding
+       space or appending it to the end of a struct. These sorts of changes
+       should not impact extensions unless they use very unusual code
+       patterns.
+-->
+《機械翻訳》«When a change <emphasis>is</emphasis> required, <productname>PostgreSQL</productname> will choose the least invasive change possible, for example by squeezing a new field into padding space or appending it to the end of a struct. These sorts of changes should not impact extensions unless they use very unusual code patterns.»
+      </para>
+
+      <para>
+<!--
+       In rare cases, however, even such non-invasive changes may be
+       impractical or impossible. In such an event, the change will be
+       carefully managed, taking the requirements of extensions into account.
+       Such changes will also be documented in the release notes (<xref
+       linkend="release"/>).
+-->
+《機械翻訳》«In rare cases, however, even such non-invasive changes may be impractical or impossible. In such an event, the change will be carefully managed, taking the requirements of extensions into account. Such changes will also be documented in the release notes (<xref linkend="release"/>).»
+      </para>
+
+      <para>
+<!--
+       Note, however, that many parts of the server are not designed or
+       maintained as publicly-consumable APIs (and that, in most cases, the
+       actual boundary is also not well-defined). If urgent needs arise,
+       changes in those parts will naturally be made with less consideration
+       for extension code than changes in well-defined and widely used
+       interfaces.
+-->
+《機械翻訳》«Note, however, that many parts of the server are not designed or maintained as publicly-consumable APIs (and that, in most cases, the actual boundary is also not well-defined). If urgent needs arise, changes in those parts will naturally be made with less consideration for extension code than changes in well-defined and widely used interfaces.»
+      </para>
+
+      <para>
+<!--
+       Also, in the absence of automated detection of such changes, this is
+       not a guarantee, but historically such breaking changes have been
+       extremely rare.
+-->
+《機械翻訳》«Also, in the absence of automated detection of such changes, this is not a guarantee, but historically such breaking changes have been extremely rare.»
+      </para>
+
+     </sect4>
+    </sect3>
+  </sect2>
 
    <sect2 id="xfunc-c-composite-type-args">
 <!--
@@ -4979,15 +5257,19 @@ LWLockRelease(AddinShmemInitLock);
 <!--
       <literal>shmem_startup_hook</literal> provides a convenient place for the
       initialization code, but it is not strictly required that all such code
-      be placed in this hook.  Each backend will execute the registered
-      <literal>shmem_startup_hook</literal> shortly after it attaches to shared
-      memory.  Note that add-ins should still acquire
+      be placed in this hook.  On Windows (and anywhere else where
+      <literal>EXEC_BACKEND</literal> is defined), each backend executes the
+      registered <literal>shmem_startup_hook</literal> shortly after it
+      attaches to shared memory, so add-ins should still acquire
       <function>AddinShmemInitLock</function> within this hook, as shown in the
-      example above.
+      example above.  On other platforms, only the postmaster process executes
+      the <literal>shmem_startup_hook</literal>, and each backend automatically
+      inherits the pointers to shared memory.
 -->
-<literal>shmem_startup_hook</literal>は初期化コードを便利に提供しますが、このフックにすべてのコードを置く必要はありません。
+《マッチ度[54.916793]》<literal>shmem_startup_hook</literal>は初期化コードを便利に提供しますが、このフックにすべてのコードを置く必要はありません。
 各バックエンドは、共有メモリに接続した直後に登録された<literal>shmem_startup_hook</literal>を実行します。
 上の例に示すように、アドインはこのフック内で<function>AddinShmemInitLock</function>を取得する必要があります。
+《機械翻訳》«<literal>shmem_startup_hook</literal> provides a convenient place for the initialization code, but it is not strictly required that all such code be placed in this hook. On Windows (and anywhere else where <literal>EXEC_BACKEND</literal> is defined), each backend executes the registered <literal>shmem_startup_hook</literal> shortly after it attaches to shared memory, so add-ins should still acquire <function>AddinShmemInitLock</function> within this hook, as shown in the example above. On other platforms, only the postmaster process executes the <literal>shmem_startup_hook</literal>, and each backend automatically inherits the pointers to shared memory.»
      </para>
 
      <para>
@@ -5216,7 +5498,7 @@ uint32 WaitEventExtensionNew(const char *wait_event_name)
 -->
 与えられた<literal>name</literal>を持つインジェクションポイントは、マクロを使って宣言されます。
 <programlisting>
-INJECTION_POINT(name);
+INJECTION_POINT(name, arg);
 </programlisting>
 
 <!--
@@ -5224,13 +5506,39 @@ INJECTION_POINT(name);
      within the server code. After adding a new injection point the code needs
      to be compiled in order for that injection point to be available in the
      binary. Add-ins written in C-language can declare injection points in
-     their own code using the same macro. The injection point names should
-     use lower-case characters, with terms separated by dashes.
+     their own code using the same macro. The injection point names should use
+     lower-case characters, with terms separated by
+     dashes. <literal>arg</literal> is an optional argument value given to the
+     callback at run-time.
 -->
-サーバコード内の戦略的なポイントに、すでにいくつかのインジェクションポイントが宣言されています。
+《マッチ度[76.494024]》サーバコード内の戦略的なポイントに、すでにいくつかのインジェクションポイントが宣言されています。
 新しいインジェクションポイントを追加した後、そのインジェクションポイントをバイナリで使用できるようにするには、コードをコンパイルする必要があります。
 C言語で記述されたアドインは、同じマクロを使用して、独自のコードでインジェクションポイントを宣言できます。
 インジェクションポイント名は小文字を使用し、単語はハイフンで区切る必要があります。
+《機械翻訳》«There are a few injection points already declared at strategic points within the server code. After adding a new injection point the code needs to be compiled in order for that injection point to be available in the binary. Add-ins written in C-language can declare injection points in their own code using the same macro. The injection point names should use lower-case characters, with terms separated by dashes. <literal>arg</literal> is an optional argument value given to the callback at run-time.»
+    </para>
+
+    <para>
+<!--
+     Executing an injection point can require allocating a small amount of
+     memory, which can fail. If you need to have an injection point in a
+     critical section where dynamic allocations are not allowed, you can use
+     a two-step approach with the following macros:
+-->
+《機械翻訳》«Executing an injection point can require allocating a small amount of memory, which can fail. If you need to have an injection point in a critical section where dynamic allocations are not allowed, you can use a two-step approach with the following macros:»
+<programlisting>
+INJECTION_POINT_LOAD(name);
+INJECTION_POINT_CACHED(name, arg);
+</programlisting>
+
+<!--
+     Before entering the critical section,
+     call <function>INJECTION_POINT_LOAD</function>. It checks the shared
+     memory state, and loads the callback into backend-private memory if it is
+     active. Inside the critical section, use
+     <function>INJECTION_POINT_CACHED</function> to execute the callback.
+-->
+《機械翻訳》«Before entering the critical section, call <function>INJECTION_POINT_LOAD</function>. It checks the shared memory state, and loads the callback into backend-private memory if it is active. Inside the critical section, use <function>INJECTION_POINT_CACHED</function> to execute the callback.»
     </para>
 
     <para>
@@ -5266,7 +5574,9 @@ extern void InjectionPointAttach(const char *name,
 <literal>InjectionPointCallback</literal>のコールバックの例を以下に示します。
 <programlisting>
 static void
-custom_injection_callback(const char *name, const void *private_data)
+custom_injection_callback(const char *name,
+                          const void *private_data,
+                          void *arg)
 {
     uint32 wait_event_info = WaitEventInjectionPointNew(name);
 
@@ -5281,6 +5591,37 @@ custom_injection_callback(const char *name, const void *private_data)
      logic.
 -->
 このコールバックは、深刻度が<literal>NOTICE</literal>のメッセージをサーバのエラーログに出力しますが、コールバックはより複雑なロジックを実装することができます。
+    </para>
+
+    <para>
+<!--
+     An alternative way to define the action to take when an injection point
+     is reached is to add the testing code alongside the normal source
+     code. This can be useful if the action e.g. depends on local variables
+     that are not accessible to loaded modules. The
+     <function>IS_INJECTION_POINT_ATTACHED</function> macro can then be used
+     to check if an injection point is attached, for example:
+-->
+《機械翻訳》«An alternative way to define the action to take when an injection point is reached is to add the testing code alongside the normal source code. This can be useful if the action e.g. depends on local variables that are not accessible to loaded modules. The <function>IS_INJECTION_POINT_ATTACHED</function> macro can then be used to check if an injection point is attached, for example:»
+<programlisting>
+#ifdef USE_INJECTION_POINTS
+if (IS_INJECTION_POINT_ATTACHED("before-foobar"))
+{
+    /* change a local variable if injection point is attached */
+    local_var = 123;
+
+    /* also execute the callback */
+    INJECTION_POINT_CACHED("before-foobar", NULL);
+}
+#endif
+</programlisting>
+<!--
+     Note that the callback attached to the injection point will not be
+     executed by the <function>IS_INJECTION_POINT_ATTACHED</function>
+     macro. If you want to execute the callback, you must also call
+     <function>INJECTION_POINT_CACHED</function> like in the above example.
+-->
+《機械翻訳》«Note that the callback attached to the injection point will not be executed by the <function>IS_INJECTION_POINT_ATTACHED</function> macro. If you want to execute the callback, you must also call <function>INJECTION_POINT_CACHED</function> like in the above example.»
     </para>
 
     <para>
@@ -5327,6 +5668,92 @@ extern bool InjectionPointDetach(const char *name);
      with <application>Meson</application>.
 -->
 インジェクションポイントを有効にするには、<command>configure</command>で<option>--enable-injection-points</option>を指定するか、<application>Meson</application>で<option>-Dinjection_points=true</option>を指定します。
+    </para>
+   </sect2>
+
+   <sect2 id="xfunc-addin-custom-cumulative-statistics">
+    <title>Custom Cumulative Statistics</title>
+
+    <para>
+<!--
+     It is possible for add-ins written in C-language to use custom types
+     of cumulative statistics registered in the
+     <link linkend="monitoring-stats-setup">Cumulative Statistics System</link>.
+-->
+《機械翻訳》«It is possible for add-ins written in C-language to use custom types of cumulative statistics registered in the <link linkend="monitoring-stats-setup">Cumulative Statistics System</link>.»
+    </para>
+
+    <para>
+<!--
+     First, define a <literal>PgStat_KindInfo</literal> that includes all
+     the information related to the custom type registered. For example:
+-->
+《機械翻訳》«First, define a <literal>PgStat_KindInfo</literal> that includes all the information related to the custom type registered. For example:»
+<programlisting>
+static const PgStat_KindInfo custom_stats = {
+    .name = "custom_stats",
+    .fixed_amount = false,
+    .shared_size = sizeof(PgStatShared_Custom),
+    .shared_data_off = offsetof(PgStatShared_Custom, stats),
+    .shared_data_len = sizeof(((PgStatShared_Custom *) 0)->stats),
+    .pending_size = sizeof(PgStat_StatCustomEntry),
+}
+</programlisting>
+
+<!--
+     Then, each backend that needs to use this custom type needs to register
+     it with <literal>pgstat_register_kind</literal> and a unique ID used to
+     store the entries related to this type of statistics:
+-->
+《機械翻訳》«Then, each backend that needs to use this custom type needs to register it with <literal>pgstat_register_kind</literal> and a unique ID used to store the entries related to this type of statistics:»
+<programlisting>
+extern PgStat_Kind pgstat_register_kind(PgStat_Kind kind,
+                                        const PgStat_KindInfo *kind_info);
+</programlisting>
+<!--
+     While developing a new extension, use
+     <literal>PGSTAT_KIND_EXPERIMENTAL</literal> for
+     <parameter>kind</parameter>. When you are ready to release the extension
+     to users, reserve a kind ID at the
+     <ulink url="https://wiki.postgresql.org/wiki/CustomCumulativeStats">
+     Custom Cumulative Statistics</ulink> page.
+-->
+《機械翻訳》«While developing a new extension, use <literal>PGSTAT_KIND_EXPERIMENTAL</literal> for <parameter>kind</parameter>. When you are ready to release the extension to users, reserve a kind ID at the <ulink url="https://wiki.postgresql.org/wiki/CustomCumulativeStats"> Custom Cumulative Statistics</ulink> page.»
+    </para>
+
+    <para>
+<!--
+     The details of the API for <literal>PgStat_KindInfo</literal> can
+     be found in <filename>src/include/utils/pgstat_internal.h</filename>.
+-->
+《機械翻訳》«The details of the API for <literal>PgStat_KindInfo</literal> can be found in <filename>src/include/utils/pgstat_internal.h</filename>.»
+    </para>
+
+    <para>
+<!--
+     The type of statistics registered is associated with a name and a unique
+     ID shared across the server in shared memory. Each backend using a
+     custom type of statistics maintains a local cache storing the information
+     of each custom <literal>PgStat_KindInfo</literal>.
+-->
+《機械翻訳》«The type of statistics registered is associated with a name and a unique ID shared across the server in shared memory. Each backend using a custom type of statistics maintains a local cache storing the information of each custom <literal>PgStat_KindInfo</literal>.»
+    </para>
+
+    <para>
+<!--
+     Place the extension module implementing the custom cumulative statistics
+     type in <xref linkend="guc-shared-preload-libraries"/> so that it will
+     be loaded early during <productname>PostgreSQL</productname> startup.
+-->
+《機械翻訳》«Place the extension module implementing the custom cumulative statistics type in <xref linkend="guc-shared-preload-libraries"/> so that it will be loaded early during <productname>PostgreSQL</productname> startup.»
+    </para>
+
+    <para>
+<!--
+     An example describing how to register and use custom statistics can be
+     found in <filename>src/test/modules/injection_points</filename>.
+-->
+《機械翻訳》«An example describing how to register and use custom statistics can be found in <filename>src/test/modules/injection_points</filename>.»
     </para>
    </sect2>
 

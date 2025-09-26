@@ -3,7 +3,7 @@
  * spi.c
  *				Server Programming Interface
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -2929,7 +2929,7 @@ _SPI_pquery(QueryDesc *queryDesc, bool fire_triggers, uint64 tcount)
 
 	ExecutorStart(queryDesc, eflags);
 
-	ExecutorRun(queryDesc, ForwardScanDirection, tcount, true);
+	ExecutorRun(queryDesc, ForwardScanDirection, tcount);
 
 	_SPI_current->processed = queryDesc->estate->es_processed;
 
@@ -2984,7 +2984,7 @@ _SPI_error_callback(void *arg)
 		switch (carg->mode)
 		{
 			case RAW_PARSE_PLPGSQL_EXPR:
-				errcontext("SQL expression \"%s\"", query);
+				errcontext("PL/pgSQL expression \"%s\"", query);
 				break;
 			case RAW_PARSE_PLPGSQL_ASSIGN1:
 			case RAW_PARSE_PLPGSQL_ASSIGN2:

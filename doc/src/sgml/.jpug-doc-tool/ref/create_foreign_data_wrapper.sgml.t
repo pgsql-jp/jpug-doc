@@ -1,0 +1,72 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>CREATE FOREIGN DATA WRAPPER</refname>␟  <refpurpose>define a new foreign-data wrapper</refpurpose>␟  <refpurpose>新しい外部データラッパーを定義する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>CREATE FOREIGN DATA WRAPPER</command> creates a new
+   foreign-data wrapper.  The user who defines a foreign-data wrapper
+   becomes its owner.␟<command>CREATE FOREIGN DATA WRAPPER</command>は新しい外部データラッパーを作成します。
+外部データラッパーを定義したユーザがその所有者となります。␞␞  </para>␞
+␝  <para>␟   The foreign-data wrapper name must be unique within the database.␟外部データラッパーの名前はデータベース内で一意でなければなりません。␞␞  </para>␞
+␝  <para>␟   Only superusers can create foreign-data wrappers.␟スーパーユーザのみが外部データラッパーを作成することができます。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      The name of the foreign-data wrapper to be created.␟作成する外部データラッパーの名前です。␞␞     </para>␞
+␝    <listitem>␟     <para><replaceable class="parameter">handler_function</replaceable> is the
+      name of a previously registered function that will be called to
+      retrieve the execution functions for foreign tables.
+      The handler function must take no arguments, and
+      its return type must be <type>fdw_handler</type>.␟<para><replaceable class="parameter">handler_function</replaceable>は、事前に登録された、外部テーブル向けの関数実行を受け付けるために呼び出される関数の名前です。
+ハンドラ関数は引数を取らず、<type>fdw_handler</type>型を返すものでなければなりません。␞␞     </para>␞
+␝     <para>␟      It is possible to create a foreign-data wrapper with no handler
+      function, but foreign tables using such a wrapper can only be declared,
+      not accessed.␟ハンドラ関数を持たない外部データラッパーを作成することもできますが、こうしたラッパーを使用する外部テーブルは宣言することができるだけでアクセスできません。␞␞     </para>␞
+␝    <listitem>␟     <para><replaceable class="parameter">validator_function</replaceable>
+      is the name of a previously registered function that will be called to
+      check the generic options given to the foreign-data wrapper, as
+      well as options for foreign servers, user mappings and foreign tables
+      using the foreign-data wrapper.  If no validator function or <literal>NO
+      VALIDATOR</literal> is specified, then options will not be
+      checked at creation time.  (Foreign-data wrappers will possibly
+      ignore or reject invalid option specifications at run time,
+      depending on the implementation.)  The validator function must
+      take two arguments: one of type <type>text[]</type>, which will
+      contain the array of options as stored in the system catalogs,
+      and one of type <type>oid</type>, which will be the OID of the
+      system catalog containing the options. The return type is ignored;
+      the function should report invalid options using the
+      <function>ereport(ERROR)</function> function.␟<para><replaceable class="parameter">validator_function</replaceable>は、外部データラッパーへ与える一般的なオプションと、その外部データラッパーを使用する外部サーバ、ユーザマップおよび外部テーブルへ与えるオプションを検査するために呼び出される、前もって登録された関数の名前です。
+検証関数がない、または<literal>NO VALIDATOR</literal>が指定された場合、オプションは作成時に検査されません。
+（実装に依存しますが、実行時外部データラッパーは無効なオプション指定を無視することも拒絶することもできます。）
+検証関数は2つの引数を取らなければなりません。
+1つは<type>text[]</type>型で、システムカタログ内に格納されたオプションの配列を含みます。
+もう1つは<type>oid</type>型で、オプションを含むシステムカタログのOIDです。
+戻り値の型は無視されます。
+関数は<function>ereport()</function>関数を使用して無効なオプションを報告しなければなりません。␞␞     </para>␞
+␝     <para>␟      This clause specifies options for the new foreign-data wrapper.
+      The allowed option names and values are specific to each foreign
+      data wrapper and are validated using the foreign-data wrapper's
+      validator function.  Option names must be unique.␟この句は新しい外部データラッパー用のオプションを指定します。
+使用できるオプション名と値は外部データラッパーごとに固有であり、外部データラッパーの検証関数を使用して検証されます。
+オプション名は一意でなければなりません。␞␞     </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   <productname>PostgreSQL</productname>'s foreign-data functionality is still under
+   active development.  Optimization of queries is primitive (and mostly left
+   to the wrapper, too).  Thus, there is considerable room for future
+   performance improvements.␟<productname>PostgreSQL</productname>の外部データ機能はまだ活発な開発がなされています。
+問い合わせの最適化がまだ開発が進んでいません（そしてほとんどがラッパーに任せられています）。
+したがって将来の性能向上の余地が大きくあります。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   Create a useless foreign-data wrapper <literal>dummy</literal>:␟無意味な外部データラッパー<literal>dummy</literal>を作成します。␞␞<programlisting>␞
+␝  <para>␟   Create a foreign-data wrapper <literal>file</literal> with
+   handler function <literal>file_fdw_handler</literal>:␟<literal>file_fdw_handler</literal>ハンドラ関数を持つ外部データラッパー<literal>file</literal>を作成します。␞␞<programlisting>␞
+␝  <para>␟   Create a foreign-data wrapper <literal>mywrapper</literal> with some
+   options:␟いくつかオプションを付けた外部データラッパー<literal>mywrapper</literal>を作成します。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>CREATE FOREIGN DATA WRAPPER</command> conforms to ISO/IEC
+   9075-9 (SQL/MED), with the exception that the <literal>HANDLER</literal>
+   and <literal>VALIDATOR</literal> clauses are extensions and the standard
+   clauses <literal>LIBRARY</literal> and <literal>LANGUAGE</literal>
+   are not implemented in <productname>PostgreSQL</productname>.␟<command>CREATE FOREIGN DATA WRAPPER</command>はISO/IEC 9075-9 (SQL/MED)に準拠しています。
+ただし、<literal>HANDLER</literal>句と<literal>VALIDATOR</literal>句は拡張であり、<productname>PostgreSQL</productname>では標準の<literal>LIBRARY</literal>句と<literal>LANGUAGE</literal>句は実装されていません。␞␞  </para>␞
+␝  <para>␟   Note, however, that the SQL/MED functionality as a whole is not yet
+   conforming.␟しかし、SQL/MED機能は全体としてまだ従っていないことに注意してください。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟CREATE FOREIGN DATA WRAPPER mywrapper OPTIONS (debug 'true'); </programlisting></para> </programlisting></para>␟no translation␞␞␞

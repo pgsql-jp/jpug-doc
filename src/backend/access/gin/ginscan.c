@@ -4,7 +4,7 @@
  *	  routines to manage scans of inverted index relations
  *
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -111,7 +111,8 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
 	ItemPointerSetMin(&scanEntry->curItem);
 	scanEntry->matchBitmap = NULL;
 	scanEntry->matchIterator = NULL;
-	scanEntry->matchResult = NULL;
+	scanEntry->matchResult.blockno = InvalidBlockNumber;
+	scanEntry->matchNtuples = -1;
 	scanEntry->list = NULL;
 	scanEntry->nlist = 0;
 	scanEntry->offset = InvalidOffsetNumber;
@@ -251,7 +252,7 @@ ginFreeScanKeys(GinScanOpaque so)
 		if (entry->list)
 			pfree(entry->list);
 		if (entry->matchIterator)
-			tbm_end_iterate(entry->matchIterator);
+			tbm_end_private_iterate(entry->matchIterator);
 		if (entry->matchBitmap)
 			tbm_free(entry->matchBitmap);
 	}
@@ -270,6 +271,7 @@ ginNewScanKey(IndexScanDesc scan)
 	ScanKey		scankey = scan->keyData;
 	GinScanOpaque so = (GinScanOpaque) scan->opaque;
 	int			i;
+	int			numExcludeOnly;
 	bool		hasNullQuery = false;
 	bool		attrHasNormalScan[INDEX_MAX_KEYS] = {false};
 	MemoryContext oldCtx;
@@ -392,6 +394,7 @@ ginNewScanKey(IndexScanDesc scan)
 	 * excludeOnly scan key must receive a GIN_CAT_EMPTY_QUERY hidden entry
 	 * and be set to normal (excludeOnly = false).
 	 */
+	numExcludeOnly = 0;
 	for (i = 0; i < so->nkeys; i++)
 	{
 		GinScanKey	key = &so->keys[i];
@@ -405,6 +408,47 @@ ginNewScanKey(IndexScanDesc scan)
 			ginScanKeyAddHiddenEntry(so, key, GIN_CAT_EMPTY_QUERY);
 			attrHasNormalScan[key->attnum - 1] = true;
 		}
+		else
+			numExcludeOnly++;
+	}
+
+	/*
+	 * If we left any excludeOnly scan keys as-is, move them to the end of the
+	 * scan key array: they must appear after normal key(s).
+	 */
+	if (numExcludeOnly > 0)
+	{
+		GinScanKey	tmpkeys;
+		int			iNormalKey;
+		int			iExcludeOnly;
+
+		/* We'd better have made at least one normal key */
+		Assert(numExcludeOnly < so->nkeys);
+		/* Make a temporary array to hold the re-ordered scan keys */
+		tmpkeys = (GinScanKey) palloc(so->nkeys * sizeof(GinScanKeyData));
+		/* Re-order the keys ... */
+		iNormalKey = 0;
+		iExcludeOnly = so->nkeys - numExcludeOnly;
+		for (i = 0; i < so->nkeys; i++)
+		{
+			GinScanKey	key = &so->keys[i];
+
+			if (key->excludeOnly)
+			{
+				memcpy(tmpkeys + iExcludeOnly, key, sizeof(GinScanKeyData));
+				iExcludeOnly++;
+			}
+			else
+			{
+				memcpy(tmpkeys + iNormalKey, key, sizeof(GinScanKeyData));
+				iNormalKey++;
+			}
+		}
+		Assert(iNormalKey == so->nkeys - numExcludeOnly);
+		Assert(iExcludeOnly == so->nkeys);
+		/* ... and copy them back to so->keys[] */
+		memcpy(so->keys, tmpkeys, so->nkeys * sizeof(GinScanKeyData));
+		pfree(tmpkeys);
 	}
 
 	/*
@@ -441,6 +485,8 @@ ginNewScanKey(IndexScanDesc scan)
 	MemoryContextSwitchTo(oldCtx);
 
 	pgstat_count_index_scan(scan->indexRelation);
+	if (scan->instrument)
+		scan->instrument->nsearches++;
 }
 
 void
@@ -452,10 +498,7 @@ ginrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 	ginFreeScanKeys(so);
 
 	if (scankey && scan->numberOfKeys > 0)
-	{
-		memmove(scan->keyData, scankey,
-				scan->numberOfKeys * sizeof(ScanKeyData));
-	}
+		memcpy(scan->keyData, scankey, scan->numberOfKeys * sizeof(ScanKeyData));
 }
 
 

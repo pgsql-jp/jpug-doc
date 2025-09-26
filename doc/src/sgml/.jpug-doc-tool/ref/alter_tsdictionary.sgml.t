@@ -1,0 +1,42 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>ALTER TEXT SEARCH DICTIONARY</refname>␟  <refpurpose>change the definition of a text search dictionary</refpurpose>␟  <refpurpose>テキスト検索辞書の定義を変更する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>ALTER TEXT SEARCH DICTIONARY</command> changes the definition of
+   a text search dictionary.  You can change the dictionary's
+   template-specific options, or change the dictionary's name or owner.␟<command>ALTER TEXT SEARCH DICTIONARY</command>はテキスト検索辞書の定義を変更します。
+辞書のテンプレート固有のオプションの変更、辞書の名称、辞書の所有者を変更することができます。␞␞  </para>␞
+␝  <para>␟   You must be the owner of the dictionary to use
+   <command>ALTER TEXT SEARCH DICTIONARY</command>.␟<command>ALTER TEXT SEARCH DICTIONARY</command>を使用するには、辞書の所有者でなければなりません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      The name (optionally schema-qualified) of an existing text search
+      dictionary.␟既存のテキスト検索辞書の名称（スキーマ修飾可）です。␞␞     </para>␞
+␝     <para>␟      The name of a template-specific option to be set for this dictionary.␟この辞書に設定される、テンプレート固有のオプションの名称です。␞␞     </para>␞
+␝     <para>␟      The new value to use for a template-specific option.
+      If the equal sign and value are omitted, then any previous
+      setting for the option is removed from the dictionary,
+      allowing the default to be used.␟テンプレート固有のオプションで使用される、新しい値です。
+等号記号と値が省略された場合、そのオプションの以前の設定は辞書から削除され、デフォルト値が使用されます。␞␞     </para>␞
+␝     <para>␟      The new name of the text search dictionary.␟テキスト検索辞書の新しい名称です。␞␞     </para>␞
+␝     <para>␟      The new owner of the text search dictionary.␟テキスト検索辞書の新しい所有者です。␞␞     </para>␞
+␝     <para>␟      The new schema for the text search dictionary.␟テキスト検索辞書の新しいスキーマです。␞␞     </para>␞
+␝  <para>␟   Template-specific options can appear in any order.␟テンプレート固有のオプションは任意の順序で記述することができます。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   The following example command changes the stopword list
+   for a Snowball-based dictionary.  Other parameters remain unchanged.␟次の例は、雪だるま式に増加する辞書のストップワードを変更します。
+他のパラメータはそのまま変更されません。␞␞  </para>␞
+␝  <para>␟   The following example command changes the language option to <literal>dutch</literal>,
+   and removes the stopword option entirely.␟次の例は、言語オプションを<literal>dutch</literal>(オランダ語)に変更し、ストップワードオプションを完全に消去します。␞␞  </para>␞
+␝  <para>␟   The following example command <quote>updates</quote> the dictionary's
+   definition without actually changing anything.␟次の例は、実際には何も変更しませんが、辞書の定義を<quote>更新</quote>します。␞␞␞
+␝␟   (The reason this works is that the option removal code doesn't complain
+   if there is no such option.)  This trick is useful when changing
+   configuration files for the dictionary: the <command>ALTER</command> will
+   force existing database sessions to re-read the configuration files,
+   which otherwise they would never do if they had read them earlier.␟（無効なオプションが存在しても、オプションを消去するコードでエラーとしないため、これは動作します。）
+このトリックは、辞書用の設定ファイルを変更する際に有用です。
+この<command>ALTER</command>により既存のデータベースセッションは強制的に設定ファイルを再度読み込みます。
+こうしないと、以前に読み込んだ設定ファイルを再読み込みすることはありません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   There is no <command>ALTER TEXT SEARCH DICTIONARY</command> statement in
+   the SQL standard.␟標準SQLには<command>ALTER TEXT SEARCH DICTIONARY</command>文はありません。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞

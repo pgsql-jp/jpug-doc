@@ -13,7 +13,7 @@
  * "delta" type.  Delta rows will be deleted by this worker and their values
  * aggregated into the total.
  *
- * Copyright (c) 2013-2024, PostgreSQL Global Development Group
+ * Copyright (c) 2013-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		src/test/modules/worker_spi/worker_spi.c
@@ -26,11 +26,7 @@
 #include "miscadmin.h"
 #include "postmaster/bgworker.h"
 #include "postmaster/interrupt.h"
-#include "storage/ipc.h"
 #include "storage/latch.h"
-#include "storage/lwlock.h"
-#include "storage/proc.h"
-#include "storage/shmem.h"
 
 /* these headers are used by this particular worker's code */
 #include "access/xact.h"
@@ -48,7 +44,7 @@ PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(worker_spi_launch);
 
-PGDLLEXPORT void worker_spi_main(Datum main_arg) pg_attribute_noreturn();
+PGDLLEXPORT pg_noreturn void worker_spi_main(Datum main_arg);
 
 /* GUC variables */
 static int	worker_spi_naptime = 10;

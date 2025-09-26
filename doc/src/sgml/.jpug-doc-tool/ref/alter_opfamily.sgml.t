@@ -1,0 +1,127 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>ALTER OPERATOR FAMILY</refname>␟  <refpurpose>change the definition of an operator family</refpurpose>␟  <refpurpose>演算子族の定義を変更する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>ALTER OPERATOR FAMILY</command> changes the definition of
+   an operator family.  You can add operators and support functions
+   to the family, remove them from the family,
+   or change the family's name or owner.␟<command>ALTER OPERATOR FAMILY</command>は演算子族の定義を変更します。
+演算子やサポート関数を演算子族に追加することやそれらを演算子族から削除すること、演算子族の名前や所有者を変更することが可能です。␞␞  </para>␞
+␝  <para>␟   When operators and support functions are added to a family with
+   <command>ALTER OPERATOR FAMILY</command>, they are not part of any
+   specific operator class within the family, but are just <quote>loose</quote>
+   within the family.  This indicates that these operators and functions
+   are compatible with the family's semantics, but are not required for
+   correct functioning of any specific index.  (Operators and functions
+   that are so required should be declared as part of an operator class,
+   instead; see <xref linkend="sql-createopclass"/>.)
+   <productname>PostgreSQL</productname> will allow loose members of a
+   family to be dropped from the family at any time, but members of an
+   operator class cannot be dropped without dropping the whole class and
+   any indexes that depend on it.
+   Typically, single-data-type operators
+   and functions are part of operator classes because they are needed to
+   support an index on that specific data type, while cross-data-type
+   operators and functions are made loose members of the family.␟<command>ALTER OPERATOR FAMILY</command>を使用して演算子とサポート関数が演算子族に追加される時、これらは演算子族内の特定の演算子クラスの一部とはならず、単に演算子族内で<quote>自由</quote>なものになります。
+これは、これらの演算子と関数が演算子族と意味的な互換性を持つが、特定のインデックスの正しい動作には必要とされないことを意味します。
+（必要な演算子と関数は演算子クラスの一部として宣言しなければなりません。
+<xref linkend="sql-createopclass"/>を参照してください。）
+<productname>PostgreSQL</productname>では演算子族の自由なメンバをいつでも演算子族から削除することができます。
+しかし演算子クラス内のメンバは、クラス全体と依存するインデックスすべてを削除しなければ削除することはできません。
+通常、単一データ型の演算子と関数は、特定のデータ型に対するインデックスをサポートするために必要ですので、演算子クラスの一部となります。
+一方、データ型を跨る演算子と関数は、演算子族内の自由なメンバとなります。␞␞  </para>␞
+␝  <para>␟   You must be a superuser to use <command>ALTER OPERATOR FAMILY</command>.
+   (This restriction is made because an erroneous operator family definition
+   could confuse or even crash the server.)␟<command>ALTER OPERATOR FAMILY</command>を使用するには、スーパーユーザでなければなりません。
+（誤った演算子族定義はサーバを混乱させクラッシュさせることさえありますので、この制限がなされています。）␞␞  </para>␞
+␝  <para>␟   <command>ALTER OPERATOR FAMILY</command> does not presently check
+   whether the operator family definition includes all the operators and
+   functions required by the index method, nor whether the operators and
+   functions form a self-consistent set.  It is the user's
+   responsibility to define a valid operator family.␟現時点では<command>ALTER OPERATOR FAMILY</command>は、インデックスメソッドで必要とされる演算子族がすべての演算子と関数を含んでいるかどうかを検査しません。
+また、演算子と関数が自身で整合性のある集合を形成しているかどうかも検査しません。
+有効な演算子族を定義することはユーザの責任です。␞␞  </para>␞
+␝  <para>␟   Refer to <xref linkend="xindex"/> for further information.␟詳細は<xref linkend="xindex"/>を参照してください。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      The name (optionally schema-qualified) of an existing operator
+      family.␟既存の演算子族の名前です（スキーマ修飾可）。␞␞     </para>␞
+␝     <para>␟      The name of the index method this operator family is for.␟演算子族が対象とするインデックスメソッドの名前です。␞␞     </para>␞
+␝     <para>␟      The index method's strategy number for an operator
+      associated with the operator family.␟演算子族と関連した演算子に対するインデックスメソッドの戦略番号です。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of an operator associated
+      with the operator family.␟演算子族と関連した演算子の名前です（スキーマ修飾可）。␞␞     </para>␞
+␝     <para>␟      In an <literal>OPERATOR</literal> clause,
+      the operand data type(s) of the operator, or <literal>NONE</literal> to
+      signify a prefix operator.  Unlike the comparable
+      syntax in <command>CREATE OPERATOR CLASS</command>, the operand data types
+      must always be specified.␟<literal>OPERATOR</literal>句では演算子の入力データ型、または前置演算子を表す<literal>NONE</literal>です。
+<command>CREATE OPERATOR CLASS</command>と類似の構文と異なり、入力データ型を常に指定しなければなりません。␞␞     </para>␞
+␝     <para>␟      In an <literal>ADD FUNCTION</literal> clause, the operand data type(s) the
+      function is intended to support, if different from
+      the input data type(s) of the function.  For B-tree comparison functions
+      and hash functions it is not necessary to specify <replaceable
+      class="parameter">op_type</replaceable> since the function's input
+      data type(s) are always the correct ones to use.  For B-tree sort
+      support functions, B-Tree equal image functions, and all
+      functions in GiST, SP-GiST and GIN operator classes, it is
+      necessary to specify the operand data type(s) the function is to
+      be used with.␟<literal>ADD FUNCTION</literal>句では、関数がサポートする予定の入力データ型です（関数の入力データ型と異なる場合）。
+B-tree比較関数およびHash関数では、関数の入力データ型は常に正しく使用するデータ型であるため、<replaceable class="parameter">op_type</replaceable>を指定する必要がありません。
+B-treeソートサポート関数、B-tree等価イメージ関数とGiST、SP-GiST、GIN演算子クラスのすべての関数では、関数が使用する入力データ型を指定する必要があります。␞␞     </para>␞
+␝     <para>␟      In a <literal>DROP FUNCTION</literal> clause, the operand data type(s) the
+      function is intended to support must be specified.␟<literal>DROP FUNCTION</literal>句では、関数がサポートする予定の入力データ型を指定しなければなりません。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of an existing <literal>btree</literal> operator
+      family that describes the sort ordering associated with an ordering
+      operator.␟順序付け演算子に関連するソート順序を記述する、既存の<literal>btree</literal>演算子族の名前（スキーマ修飾も可）です。␞␞     </para>␞
+␝     <para>␟      If neither <literal>FOR SEARCH</literal> nor <literal>FOR ORDER BY</literal> is
+      specified, <literal>FOR SEARCH</literal> is the default.␟<literal>FOR SEARCH</literal>も<literal>FOR ORDER BY</literal>も指定されない場合、<literal>FOR SEARCH</literal>がデフォルトです。␞␞     </para>␞
+␝     <para>␟      The index method's support function number for a
+      function associated with the operator family.␟演算子族に関連する関数用のインデックスメソッドのサポート関数の番号です。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of a function that is an index
+      method support function for the operator family.  If no argument list
+      is specified, the name must be unique in its schema.␟演算子族用のインデックスメソッドのサポート関数となる関数の名前です（スキーマ修飾名でも可）。
+引数リストを指定しない場合、名前はスキーマ内で一意でなければなりません。␞␞     </para>␞
+␝     <para>␟      The parameter data type(s) of the function.␟関数のパラメータのデータ型です。␞␞     </para>␞
+␝     <para>␟      The new name of the operator family.␟演算子族の新しい名前です。␞␞     </para>␞
+␝     <para>␟      The new owner of the operator family.␟演算子族の新しい所有者です。␞␞     </para>␞
+␝     <para>␟      The new schema for the operator family.␟演算子族の新しいスキーマです。␞␞     </para>␞
+␝  <para>␟   The <literal>OPERATOR</literal> and <literal>FUNCTION</literal>
+   clauses can appear in any order.␟<literal>OPERATOR</literal>と<literal>FUNCTION</literal>句は任意の順番で記述できます。␞␞  </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   Notice that the <literal>DROP</literal> syntax only specifies the <quote>slot</quote>
+   in the operator family, by strategy or support number and input data
+   type(s).  The name of the operator or function occupying the slot is not
+   mentioned.  Also, for <literal>DROP FUNCTION</literal> the type(s) to specify
+   are the input data type(s) the function is intended to support; for
+   GiST, SP-GiST and GIN indexes this might have nothing to do with the actual
+   input argument types of the function.␟<literal>DROP</literal>構文が、戦略番号またはサポート番号と入力データ型という、演算子族の<quote>スロット</quote>のみを指定していることに注意してください。
+そのスロットに存在する演算子または関数の名前については言及されません。
+また、<literal>DROP FUNCTION</literal>では、指定する型は関数がサポートする予定の入力データ型です。
+GiST、SP-GiSTおよびGINインデックスでは、関数の実際の入力引数の型と関連しない可能性があります。␞␞  </para>␞
+␝  <para>␟   Because the index machinery does not check access permissions on functions
+   before using them, including a function or operator in an operator family
+   is tantamount to granting public execute permission on it.  This is usually
+   not an issue for the sorts of functions that are useful in an operator
+   family.␟インデックス機構は使用する前に関数のアクセス権限を検査しません。
+演算子族内の関数や演算子を含めることは、公的な実行権限を与えることと同じです。
+これは通常、演算子族内で使用される関数では問題になりません。␞␞  </para>␞
+␝  <para>␟   The operators should not be defined by SQL functions.  An SQL function
+   is likely to be inlined into the calling query, which will prevent
+   the optimizer from recognizing that the query matches an index.␟演算子をSQL関数で定義してはいけません。
+SQL関数はよく、呼び出し元の問い合わせ内でインライン展開されます。
+すると、オプティマイザが問い合わせがインデックスに一致するかどうか認識できなくなります。␞␞  </para>␞
+␝  <para>␟   Before <productname>PostgreSQL</productname> 8.4, the <literal>OPERATOR</literal>
+   clause could include a <literal>RECHECK</literal> option.  This is no longer
+   supported because whether an index operator is <quote>lossy</quote> is now
+   determined on-the-fly at run time.  This allows efficient handling of
+   cases where an operator might or might not be lossy.␟<productname>PostgreSQL</productname> 8.4より前までは、<literal>OPERATOR</literal>句に<literal>RECHECK</literal>オプションを含めることができました。
+インデックス演算子に<quote>損失がある</quote>かどうかは実行時にその場で決定されるようになりましたので、これはサポートされなくなりました。
+これにより、演算子に損失があるかもしれないしないかもしれないような場合を効率的に扱うことができるようになりました。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   The following example command adds cross-data-type operators and
+   support functions to an operator family that already contains B-tree
+   operator classes for data types <type>int4</type> and <type>int2</type>.␟以下のコマンド例は、データ型を跨る演算子とサポート関数を<type>int4</type>と<type>int2</type>データ型用のB-Tree演算子クラスをすでに含む演算子族に追加します。␞␞  </para>␞
+␝  <para>␟   To remove these entries again:␟これらの項目を再度削除します。␞␞  </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   There is no <command>ALTER OPERATOR FAMILY</command> statement in
+   the SQL standard.␟標準SQLには<command>ALTER OPERATOR FAMILY</command>文はありません。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞

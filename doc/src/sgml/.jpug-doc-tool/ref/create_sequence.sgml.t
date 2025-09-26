@@ -1,0 +1,213 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟<refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>CREATE SEQUENCE</refname>␟  <refpurpose>define a new sequence generator</refpurpose>␟  <refpurpose>新しいシーケンスジェネレータを定義する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>CREATE SEQUENCE</command> creates a new sequence number
+   generator.  This involves creating and initializing a new special
+   single-row table with the name <replaceable
+   class="parameter">name</replaceable>.  The generator will be
+   owned by the user issuing the command.␟<command>CREATE SEQUENCE</command>は、新しいシーケンス番号ジェネレータを作成します。
+これには、新しく<replaceable class="parameter">name</replaceable>という名前を持つ、1行だけの特殊なテーブルの作成と初期化が含まれます。
+シーケンスジェネレータは、このコマンドを実行したユーザによって所有されます。␞␞  </para>␞
+␝  <para>␟   If a schema name is given then the sequence is created in the
+   specified schema.  Otherwise it is created in the current schema.
+   Temporary sequences exist in a special schema, so a schema name cannot be
+   given when creating a temporary sequence.
+   The sequence name must be distinct from the name of any other relation
+   (table, sequence, index, view, materialized view, or foreign table) in
+   the same schema.␟スキーマ名が与えられている場合、そのシーケンスは指定されたスキーマに作成されます。
+スキーマ名がなければ、シーケンスは現在のスキーマに作成されます。
+また、一時シーケンスは特別なスキーマに存在するため、一時シーケンスの作成時にスキーマ名を与えることはできません。
+シーケンス名は、同じスキーマ内の他のリレーション(テーブル、シーケンス、インデックス、ビュー、マテリアライズドビュー、外部テーブル)とは異なる名前にする必要があります。␞␞  </para>␞
+␝  <para>␟   After a sequence is created, you use the functions
+   <function>nextval</function>,
+   <function>currval</function>, and
+   <function>setval</function>
+   to operate on the sequence.  These functions are documented in
+   <xref linkend="functions-sequence"/>.␟シーケンスを作成した後、<function>nextval</function>、<function>currval</function>、<function>setval</function>関数を使用してシーケンスを操作します。
+これらの関数については<xref linkend="functions-sequence"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   Although you cannot update a sequence directly, you can use a query like:␟シーケンスを直接更新することはできませんが、以下のような問い合わせは可能です。␞␞␞
+␝␟   to examine the parameters and current state of a sequence.  In particular,
+   the <literal>last_value</literal> field of the sequence shows the last value
+   allocated by any session.  (Of course, this value might be obsolete
+   by the time it's printed, if other sessions are actively doing
+   <function>nextval</function> calls.)␟これを使用すると、シーケンスのパラメータと現在の状態を確認することができます。
+中でも、シーケンスの<literal>last_value</literal>フィールドは全てのセッションで割り当てられた最後の値を示します。
+（もちろんこの値は、他のセッションの<function>nextval</function>の実行により、表示された時点で既に最新ではない可能性があります。）␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝   <varlistentry>␟    <term><literal>TEMPORARY</literal> or <literal>TEMP</literal></term>␟    <term><literal>TEMPORARY</literal>または<literal>TEMP</literal></term>␞␞    <listitem>␞
+␝     <para>␟      If specified, the sequence object is created only for this
+      session, and is automatically dropped on session exit.  Existing
+      permanent sequences with the same name are not visible (in this
+      session) while the temporary sequence exists, unless they are
+      referenced with schema-qualified names.␟このパラメータが指定された場合、作成するシーケンスオブジェクトがそのセッション専用となり、セッション終了時に自動的に削除されます。
+一時シーケンスが存在する場合、同じ名前を持つ既存の永続シーケンスは、スキーマ修飾された名前で参照されない限り、（そのセッションでは）不可視になります。␞␞     </para>␞
+␝     <para>␟      If specified, the sequence is created as an unlogged sequence.  Changes
+      to unlogged sequences are not written to the write-ahead log.  They are
+      not crash-safe: an unlogged sequence is automatically reset to its
+      initial state after a crash or unclean shutdown.  Unlogged sequences are
+      also not replicated to standby servers.␟指定された場合、シーケンスはログを取らないシーケンスとして作成されます。
+ログを取らないシーケンスに対する変更は、先行書き込みログ（WAL）には書き込まれません。
+これはクラッシュセーフではありません。
+クラッシュまたはクリーンでないシャットダウンの後、ログを取らないシーケンスは自動的に初期状態にリセットされます。
+また、ログを取らないシーケンスは、スタンバイサーバにコピーされません。␞␞     </para>␞
+␝     <para>␟      Unlike unlogged tables, unlogged sequences do not offer a significant
+      performance advantage.  This option is mainly intended for sequences
+      associated with unlogged tables via identity columns or serial columns.
+      In those cases, it usually wouldn't make sense to have the sequence
+      WAL-logged and replicated but not its associated table.␟ログを取らないテーブルとは異なり、ログを取らないシーケンスは大きなパフォーマンス上の利点を提供しません。
+このオプションは主に、ID列やシリアル列を介してログを取らないテーブルに関連付けられたシーケンスを対象としています。
+そのような場合、シーケンスはWALのログに記録してコピーするのに関連付けられたテーブルはそうしないというのは、通常、意味がありません。␞␞     </para>␞
+␝     <para>␟      Do not throw an error if a relation with the same name already exists.
+      A notice is issued in this case. Note that there is no guarantee that
+      the existing relation is anything like the sequence that would have
+      been created &mdash; it might not even be a sequence.␟同じ名前のリレーションが既に存在する場合にエラーとしません。
+この場合、注意が発行されます。
+既存のリレーションが、作成されようとしていたシーケンスと類似のものであることは全く保証されないことに注意してください。
+それはシーケンスでさえ、ないかもしれません。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of the sequence to be created.␟作成するシーケンスの名前です（スキーマ修飾名も可）。␞␞     </para>␞
+␝     <para>␟      The optional
+      clause <literal>AS <replaceable class="parameter">data_type</replaceable></literal>
+      specifies the data type of the sequence.  Valid types are
+      <literal>smallint</literal>, <literal>integer</literal>,
+      and <literal>bigint</literal>.  <literal>bigint</literal> is the
+      default.  The data type determines the default minimum and maximum
+      values of the sequence.␟オプション句<literal>AS <replaceable class="parameter">data_type</replaceable></literal>ではシーケンスのデータ型を指定します。
+有効な型は<literal>smallint</literal>、<literal>integer</literal>、<literal>bigint</literal>です。
+<literal>bigint</literal>がデフォルトです。
+データ型によりシーケンスのデフォルトの最小値と最大値が決定されます。␞␞     </para>␞
+␝     <para>␟      The optional clause <literal>INCREMENT BY <replaceable
+      class="parameter">increment</replaceable></literal> specifies
+      which value is added to the current sequence value to create a
+      new value.  A positive value will make an ascending sequence, a
+      negative one a descending sequence.  The default value is 1.␟<literal>INCREMENT BY <replaceable class="parameter">increment</replaceable></literal>句は、現在のシーケンスの値から新しいシーケンス値を作成する際の値の増加量を設定します。この句は省略可能です。
+正の値が指定された時は昇順のシーケンス、負の値が指定された時は降順のシーケンスを作成します。
+指定がない場合のデフォルト値は1です。␞␞     </para>␞
+␝     <para>␟      The optional clause <literal>MINVALUE <replaceable
+      class="parameter">minvalue</replaceable></literal> determines
+      the minimum value a sequence can generate. If this clause is not
+      supplied or <option>NO MINVALUE</option> is specified, then
+      defaults will be used.  The default for an ascending sequence is 1.  The
+      default for a descending sequence is the minimum value of the data type.␟<literal>MINVALUE <replaceable class="parameter">minvalue</replaceable></literal>句は、シーケンスとして作成する最小値を指定します。この句は省略可能です。
+この句が指定されなかった場合、もしくは、<option>NO MINVALUE</option>が指定された場合、デフォルトが使用されます。
+昇順のシーケンスでのデフォルト値は1です。
+降順のシーケンスでのデフォルト値は、そのデータ型の最小値です。␞␞     </para>␞
+␝     <para>␟      The optional clause <literal>MAXVALUE <replaceable
+      class="parameter">maxvalue</replaceable></literal> determines
+      the maximum value for the sequence. If this clause is not
+      supplied or <option>NO MAXVALUE</option> is specified, then
+      default values will be used.  The default for an ascending sequence is
+      the maximum value of the data type.  The default for a descending
+      sequence is -1.␟<literal>MAXVALUE <replaceable class="parameter">maxvalue</replaceable></literal>句は、シーケンスの最大値を決定します。この句は省略可能です。
+この句が指定されなかった場合、もしくは<option>NO MAXVALUE</option>が指定された場合、デフォルトが使用されます。
+昇順のシーケンスでのデフォルト値は、そのデータ型の最大値です。
+降順のシーケンスでのデフォルト値は-1です。␞␞     </para>␞
+␝     <para>␟      The optional clause <literal>START WITH <replaceable
+      class="parameter">start</replaceable> </literal> allows the
+      sequence to begin anywhere.  The default starting value is
+      <replaceable class="parameter">minvalue</replaceable> for
+      ascending sequences and <replaceable
+      class="parameter">maxvalue</replaceable> for descending ones.␟<literal>START WITH <replaceable class="parameter">start</replaceable></literal>句を使用すると、任意の数からシーケンス番号を開始することができます。この句は省略可能です。
+デフォルトでは、シーケンス番号が始まる値は、昇順の場合<replaceable class="parameter">minvalue</replaceable>、降順の場合<replaceable class="parameter">maxvalue</replaceable>になります。␞␞     </para>␞
+␝     <para>␟      The optional clause <literal>CACHE <replaceable
+      class="parameter">cache</replaceable></literal> specifies how
+      many sequence numbers are to be preallocated and stored in
+      memory for faster access. The minimum value is 1 (only one value
+      can be generated at a time, i.e., no cache), and this is also the
+      default.␟<literal>CACHE <replaceable class="parameter">cache</replaceable></literal>句は、あらかじめ番号を割り当て、メモリに格納しておくシーケンス番号の量を指定します。これによりアクセスを高速にすることができます。この句は省略可能です。
+最小値は1です（一度に生成する値が1つだけなので、キャッシュがない状態になります）。これがデフォルトになっています。␞␞     </para>␞
+␝     <para>␟      The <literal>CYCLE</literal> option allows the sequence to wrap
+      around when the <replaceable
+      class="parameter">maxvalue</replaceable> or <replaceable
+      class="parameter">minvalue</replaceable> has been reached by an
+      ascending or descending sequence respectively. If the limit is
+      reached, the next number generated will be the <replaceable
+      class="parameter">minvalue</replaceable> or <replaceable
+      class="parameter">maxvalue</replaceable>, respectively.␟<literal>CYCLE</literal>オプションを使用すると、シーケンスが限界値（昇順の場合は<replaceable class="parameter">maxvalue</replaceable>、降順の場合は<replaceable class="parameter">minvalue</replaceable>）に達した時、そのシーケンスを周回させることができます。
+限界値まで達した時、次に生成される番号は、昇順の場合は<replaceable class="parameter">minvalue</replaceable>、降順の場合は<replaceable class="parameter">maxvalue</replaceable>になります。␞␞     </para>␞
+␝     <para>␟      If <literal>NO CYCLE</literal> is specified, any calls to
+      <function>nextval</function> after the sequence has reached its
+      maximum value will return an error.  If neither
+      <literal>CYCLE</literal> or <literal>NO CYCLE</literal> are
+      specified, <literal>NO CYCLE</literal> is the default.␟<literal>NO CYCLE</literal>が指定された場合、シーケンスの限界値に達した後の<function>nextval</function>呼び出しは全てエラーになります。
+<literal>CYCLE</literal>も<literal>NO CYCLE</literal>も指定されていない場合は、<literal>NO CYCLE</literal>がデフォルトとなります。␞␞     </para>␞
+␝     <para>␟      The <literal>OWNED BY</literal> option causes the sequence to be
+      associated with a specific table column, such that if that column
+      (or its whole table) is dropped, the sequence will be automatically
+      dropped as well.  The specified table must have the same owner and be in
+      the same schema as the sequence.
+      <literal>OWNED BY NONE</literal>, the default, specifies that there
+      is no such association.␟<literal>OWNED BY</literal>オプションにより、シーケンスは指定されたテーブル列に関連付けられ、その列（やテーブル全体）が削除されると、自動的にシーケンスも一緒に削除されるようになります。
+指定するテーブルは、シーケンスと同一所有者でなければならず、また、同一のスキーマ内に存在しなければなりません。
+デフォルトは<literal>OWNED BY NONE</literal>であり、こうした関連付けがないことを示します。␞␞     </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   Use <command>DROP SEQUENCE</command> to remove a sequence.␟シーケンスを削除するには<command>DROP SEQUENCE</command>を使用してください。␞␞  </para>␞
+␝  <para>␟   Sequences are based on <type>bigint</type> arithmetic, so the range
+   cannot exceed the range of an eight-byte integer
+   (-9223372036854775808 to 9223372036854775807).␟シーケンスは<type>bigint</type>演算に基づいています。
+そのため、8バイト整数の範囲（-9223372036854775808から9223372036854775807まで）を越えることはできません。␞␞  </para>␞
+␝  <para>␟   Because <function>nextval</function> and <function>setval</function> calls are never
+   rolled back, sequence objects cannot be used if <quote>gapless</quote>
+   assignment of sequence numbers is needed.  It is possible to build
+   gapless assignment by using exclusive locking of a table containing a
+   counter; but this solution is much more expensive than sequence
+   objects, especially if many transactions need sequence numbers
+   concurrently.␟<function>nextval</function>と<function>setval</function>の呼び出しは決してロールバックされないので、シーケンスの番号について<quote>欠番のない</quote>割り当てが必要な場合には、シーケンスオブジェクトを使うことはできません。
+カウンタを含むテーブルに対して排他ロックを使うことで、欠番のない割り当てを構築することは可能ですが、この解決策はシーケンスオブジェクトに比べてずっと高価で、特に多くのトランザクションが同時にシーケンスの番号を必要とする場合は高価になります。␞␞  </para>␞
+␝  <para>␟   Unexpected results might be obtained if a <replaceable
+   class="parameter">cache</replaceable> setting greater than one is
+   used for a sequence object that will be used concurrently by
+   multiple sessions.  Each session will allocate and cache successive
+   sequence values during one access to the sequence object and
+   increase the sequence object's <literal>last_value</literal> accordingly.
+   Then, the next <replaceable class="parameter">cache</replaceable>-1
+   uses of <function>nextval</function> within that session simply return the
+   preallocated values without touching the sequence object.  So, any
+   numbers allocated but not used within a session will be lost when
+   that session ends, resulting in <quote>holes</quote> in the
+   sequence.␟シーケンスオブジェクトの<replaceable class="parameter">cache</replaceable>として1より大きな値を設定した場合、そのシーケンスを複数のセッションで同時に使用すると、予想外の結果になる可能性があります。
+各セッションは、シーケンスオブジェクトへの1回のアクセスの間に、連続するシーケンス値を取得し、キャッシュします。
+そして、キャッシュした数に応じて、シーケンスオブジェクトの<literal>last_value</literal>を増加させます。
+この場合、そのセッションは、その後の<replaceable class="parameter">cache</replaceable>-1回に対しては、<function>nextval</function>を使用してあらかじめ取得済みのシーケンス値を返し、シーケンスオブジェクトを変更しません。
+セッションに割り当てられたが使用されなかったシーケンス番号は、セッションの終了時に全て失われるため、結果としてシーケンスに<quote>穴</quote>ができます。␞␞  </para>␞
+␝  <para>␟   Furthermore, although multiple sessions are guaranteed to allocate
+   distinct sequence values, the values might be generated out of
+   sequence when all the sessions are considered.  For example, with
+   a <replaceable class="parameter">cache</replaceable> setting of 10,
+   session A might reserve values 1..10 and return
+   <function>nextval</function>=1, then session B might reserve values
+   11..20 and return <function>nextval</function>=11 before session A
+   has generated <function>nextval</function>=2.  Thus, with a
+   <replaceable class="parameter">cache</replaceable> setting of one
+   it is safe to assume that <function>nextval</function> values are generated
+   sequentially; with a <replaceable
+   class="parameter">cache</replaceable> setting greater than one you
+   should only assume that the <function>nextval</function> values are all
+   distinct, not that they are generated purely sequentially.  Also,
+   <literal>last_value</literal> will reflect the latest value reserved by
+   any session, whether or not it has yet been returned by
+   <function>nextval</function>.␟さらに、複数のセッションには異なるシーケンス値が割り当てられることが保証されていますが、全てのセッションが尊重されると、シーケンス値が順番通りにならないことがあります。
+例えば、<replaceable class="parameter">cache</replaceable>が10の場合を考えます。
+セッションAでは1から10までを確保し、<function>nextval</function>=1を返します。
+セッションBでは、セッションAが<function>nextval</function>=2を返す前に、11から20を確保し、<function>nextval</function>=11を返します。
+したがって、<replaceable class="parameter">cache</replaceable>を1に設定した場合は<function>nextval</function>が順番に生成される値であると考えても問題ありませんが、<replaceable class="parameter">cache</replaceable>を1より大きな値に設定した場合は、<function>nextval</function>の値が全て異なることのみが保証され、順番に生成される値であることは保証されません。
+また、<literal>last_value</literal>は、値が<function>nextval</function>によって返されたかどうかに関係なく、いずれかのセッションによって確保された最後の値となります。␞␞  </para>␞
+␝  <para>␟   Another consideration is that a <function>setval</function> executed on
+   such a sequence will not be noticed by other sessions until they
+   have used up any preallocated values they have cached.␟この他、このようなシーケンスに対して<function>setval</function>が実行されても、他のセッションは、それぞれがキャッシュした取得済みの値を全て使い果たすまで、それがわからないことも考慮すべき問題です。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   Create an ascending sequence called <literal>serial</literal>, starting at 101:␟101から始まる<literal>serial</literal>という名前の昇順シーケンスを作成します。␞␞<programlisting>␞
+␝  <para>␟   Select the next number from this sequence:␟このシーケンスから次の番号を選択します。␞␞<programlisting>␞
+␝  <para>␟   Select the next number from this sequence:␟このシーケンスから次の番号を選択します。␞␞<programlisting>␞
+␝  <para>␟   Use this sequence in an <command>INSERT</command> command:␟このシーケンスを<command>INSERT</command>コマンドで使用します。␞␞<programlisting>␞
+␝  <para>␟   Update the sequence value after a <command>COPY FROM</command>:␟<command>COPY FROM</command>の後でシーケンス値を更新します。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>CREATE SEQUENCE</command> conforms to the <acronym>SQL</acronym>
+   standard, with the following exceptions:␟以下の例外を除き、<command>CREATE SEQUENCE</command>は標準<acronym>SQL</acronym>に準拠しています。␞␞   <itemizedlist>␞
+␝     <para>␟      Obtaining the next value is done using the <function>nextval()</function>
+      function instead of the standard's <command>NEXT VALUE FOR</command>
+      expression.␟次の値を取り出すには、標準の<command>NEXT VALUE FOR</command>式ではなく<function>nextval()</function>関数を使用します。␞␞     </para>␞
+␝     <para>␟      The <literal>OWNED BY</literal> clause is a <productname>PostgreSQL</productname>
+      extension.␟<literal>OWNED BY</literal>句は<productname>PostgreSQL</productname>の拡張です。␞␞     </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟BEGIN; COPY distributors FROM 'input_file'; SELECT setval('serial', max(id)) FROM distributors; END; </programlisting></para> </programlisting></para>␟no translation␞␞␞
+␝␟</itemizedlist></para> </itemizedlist></para>␟no translation␞␞␞

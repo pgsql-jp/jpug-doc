@@ -25,7 +25,7 @@
  * even if a checkpoint happens concurrently.
  *
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -38,7 +38,6 @@
 
 #include "access/xloginsert.h"
 #include "access/xlogrecord.h"
-#include "storage/bufmgr.h"
 #include "storage/bufpage.h"
 #include "storage/bulk_write.h"
 #include "storage/proc.h"
@@ -47,7 +46,7 @@
 
 #define MAX_PENDING_WRITES XLR_MAX_BLOCK_ID
 
-static const PGIOAlignedBlock zero_buffer = {{0}};	/* worth BLCKSZ */
+static const PGIOAlignedBlock zero_buffer = {0};	/* worth BLCKSZ */
 
 typedef struct PendingWrite
 {

@@ -1,0 +1,202 @@
+␝   <indexterm zone="plhandler">
+    <primary>procedural language</primary>
+    <secondary>handler for</secondary>
+   </indexterm>
+␟␟   <indexterm zone="plhandler">
+    <primary>手続き言語</primary>
+    <secondary>のハンドラ</secondary>
+   </indexterm>␞␞␞
+␝ <chapter id="plhandler">␟   <title>Writing a Procedural Language Handler</title>␟   <title>手続き言語ハンドラの作成</title>␞␞␞
+␝   <para>␟    All calls to functions that are written in a language other than
+    the current <quote>version 1</quote> interface for compiled
+    languages (this includes functions in user-defined procedural languages
+    and functions written in SQL) go through a <firstterm>call handler</firstterm>
+    function for the specific language.  It is the responsibility of
+    the call handler to execute the function in a meaningful way, such
+    as by interpreting the supplied source text.  This chapter outlines
+    how a new procedural language's call handler can be written.␟現在のコンパイル言語用<quote>Version-1</quote>インタフェース以外のある言語で作成された関数の呼び出しはすべて、特定の言語用の<firstterm>呼び出しハンドラ</firstterm>を経由します
+（これには、ユーザ定義手続き言語で作成された関数、SQLで作成された関数が含まれます）。
+提供されたソーステキストを解釈するなどによって、関数の実行を意味のある方法で行うことは、呼び出しハンドラの責任です。
+本章では、どのように新しい手続き言語の呼び出しハンドラを作成できるかについて概要を示します。␞␞   </para>␞
+␝   <para>␟    The call handler for a procedural language is a
+    <quote>normal</quote> function that must be written in a compiled
+    language such as C, using the version-1 interface, and registered
+    with <productname>PostgreSQL</productname> as taking no arguments
+    and returning the type <type>language_handler</type>.  This
+    special pseudo-type identifies the function as a call handler and
+    prevents it from being called directly in SQL commands.
+    For more details on C language calling conventions and dynamic loading,
+    see <xref linkend="xfunc-c"/>.␟手続き言語用の呼び出しハンドラは<quote>通常</quote>の関数で、Cなどのコンパイル言語で作成し、Version-1インタフェースを使用し、引数を取らずに<type>language_handler</type>を返すものとして<productname>PostgreSQL</productname>に登録しなければなりません。
+この特殊な仮想型は、その関数を呼び出しハンドラとして識別し、SQLコマンド内で直接その関数が呼び出されることを防止します。
+C言語の呼び出し規約と動的ロードについては<xref linkend="xfunc-c"/>を参照してください。␞␞   </para>␞
+␝   <para>␟    The call handler is called in the same way as any other function:
+    It receives a pointer to a
+    <structname>FunctionCallInfoBaseData</structname> <type>struct</type> containing
+    argument values and information about the called function, and it
+    is expected to return a <type>Datum</type> result (and possibly
+    set the <structfield>isnull</structfield> field of the
+    <structname>FunctionCallInfoBaseData</structname> structure, if it wishes
+    to return an SQL null result).  The difference between a call
+    handler and an ordinary callee function is that the
+    <structfield>flinfo-&gt;fn_oid</structfield> field of the
+    <structname>FunctionCallInfoBaseData</structname> structure will contain
+    the OID of the actual function to be called, not of the call
+    handler itself.  The call handler must use this field to determine
+    which function to execute.  Also, the passed argument list has
+    been set up according to the declaration of the target function,
+    not of the call handler.␟呼び出しハンドラは、他の関数と同じ方法で呼び出されます。
+引数値と呼び出された関数についての情報を含む<structname>FunctionCallInfoBaseData</structname> <type>struct</type>のポインタを受け取り、<type>Datum</type>型の結果を返すもの（そして、SQLのNULLという結果を返そうとする場合に、<structname>FunctionCallInfoBaseData</structname>構造体の<structfield>isnull</structfield>フィールドを設定するかもしれないもの）と想定されています。
+呼び出しハンドラと通常の呼び出される関数との違いは、<structname>FunctionCallInfoBaseData</structname>構造体の<structfield>flinfo-&gt;fn_oid</structfield>に、呼び出しハンドラ自身ではなく、実際に呼び出される関数のOIDが含まれるという点です。
+呼び出しハンドラはこのフィールドを使用して、どの関数を呼び出すのかを決定しなければなりません。
+また、渡された引数リストは、呼び出しハンドラの宣言ではなく、目的とする関数の宣言に従うよう設定されています。␞␞   </para>␞
+␝   <para>␟    It's up to the call handler to fetch the entry of the function from the
+    <classname>pg_proc</classname> system catalog and to analyze the argument
+    and return types of the called function. The <literal>AS</literal> clause from the
+    <command>CREATE FUNCTION</command> command for the function will be found
+    in the <literal>prosrc</literal> column of the
+    <classname>pg_proc</classname> row. This is commonly source
+    text in the procedural language, but in theory it could be something else,
+    such as a path name to a file, or anything else that tells the call handler
+    what to do in detail.␟<classname>pg_proc</classname>システムカタログから関数のエントリを取り出し、呼び出される関数の引数と戻り値の型を解析するまでを呼び出しハンドラが行います。
+関数の<command>CREATE FUNCTION</command>コマンドの<literal>AS</literal>句は、<classname>pg_proc</classname>の行の<literal>prosrc</literal>列にあります。
+これは通常、手続き言語自体で作成されたソーステキストですが、理論上はファイルへのパス名や、何らかの呼び出しハンドラに詳細に何をすべきかを通知するものとすることもできます。␞␞   </para>␞
+␝   <para>␟    Often, the same function is called many times per SQL statement.
+    A call handler can avoid repeated lookups of information about the
+    called function by using the
+    <structfield>flinfo-&gt;fn_extra</structfield> field.  This will
+    initially be <symbol>NULL</symbol>, but can be set by the call handler to point at
+    information about the called function.  On subsequent calls, if
+    <structfield>flinfo-&gt;fn_extra</structfield> is already non-<symbol>NULL</symbol>
+    then it can be used and the information lookup step skipped.  The
+    call handler must make sure that
+    <structfield>flinfo-&gt;fn_extra</structfield> is made to point at
+    memory that will live at least until the end of the current query,
+    since an <structname>FmgrInfo</structname> data structure could be
+    kept that long.  One way to do this is to allocate the extra data
+    in the memory context specified by
+    <structfield>flinfo-&gt;fn_mcxt</structfield>; such data will
+    normally have the same lifespan as the
+    <structname>FmgrInfo</structname> itself.  But the handler could
+    also choose to use a longer-lived memory context so that it can cache
+    function definition information across queries.␟1つのSQL文で同じ関数が何回も呼び出されることがよくあります。
+呼び出しハンドラは、<structfield>flinfo-&gt;fn_extra</structfield>フィールドを使用して、呼び出す関数に関する情報を繰り返し検索することを防ぐことができます。
+これは初期状態では<symbol>NULL</symbol>ですが、呼び出しハンドラによって呼び出す関数の情報を指すように設定することもできます。
+その後の呼び出しでは、<structfield>flinfo-&gt;fn_extra</structfield>が非<symbol>NULL</symbol>であれば、それを使用して、情報検索の段階を省略することができます。
+呼び出しハンドラは<structfield>flinfo-&gt;fn_extra</structfield>が少なくとも現在の問い合わせの終了まで有効なメモリを指しているかどうかを確認しなければなりません。
+<structname>FmgrInfo</structname>データ構造体は長く保持される可能性があるからです。
+この方法の1つとして、<structfield>flinfo-&gt;fn_mcxt</structfield>で指定されたメモリコンテキスト内に余分なデータを割り当てることです。
+このデータは通常<structname>FmgrInfo</structname>自身と同期間有効です。
+しかし、ハンドラはまた、長時間メモリコンテキストにあるものを使用するかどうかを選ぶこともできます。
+これにより関数定義情報を、問い合わせをまたいでキャッシュすることができます。␞␞   </para>␞
+␝   <para>␟    When a procedural-language function is invoked as a trigger, no arguments
+    are passed in the usual way, but the
+    <structname>FunctionCallInfoBaseData</structname>'s
+    <structfield>context</structfield> field points at a
+    <structname>TriggerData</structname> structure, rather than being <symbol>NULL</symbol>
+    as it is in a plain function call.  A language handler should
+    provide mechanisms for procedural-language functions to get at the trigger
+    information.␟手続き言語関数がトリガとして呼び出された場合、引数は通常の方法では渡されず、<structname>FunctionCallInfoBaseData</structname>の<structfield>context</structfield>フィールドが、普通の関数呼び出しのように<symbol>NULL</symbol>にはならずに、<structname>TriggerData</structname>構造体を指しています。
+呼び出しハンドラは、手続き言語に対しトリガ情報を取り出す機構を提供しなければなりません。␞␞   </para>␞
+␝   <para>␟    A template for a procedural-language handler written as a C extension is
+    provided in <literal>src/test/modules/plsample</literal>.  This is a
+    working sample demonstrating one way to create a procedural-language
+    handler, process parameters, and return a value.␟Cで拡張として書かれた手続き言語ハンドラの雛型が<literal>src/test/modules/plsample</literal>に提供されています。
+これは、手続き言語ハンドラを作成し、パラメータを処理して値を返す1つの方法を示す動作するサンプルです。␞␞   </para>␞
+␝   <para>␟    Although providing a call handler is sufficient to create a minimal
+    procedural language, there are two other functions that can optionally
+    be provided to make the language more convenient to use.  These
+    are a <firstterm>validator</firstterm> and an
+    <firstterm>inline handler</firstterm>.  A validator can be provided
+    to allow language-specific checking to be done during
+    <xref linkend="sql-createfunction"/>.
+    An inline handler can be provided to allow the language to support
+    anonymous code blocks executed via the <xref linkend="sql-do"/> command.␟最低限の手続き言語を作成する場合には呼び出しハンドラを提供するだけで十分ですが、他にも省略可能ですが、その言語の利用をより簡便にするために提供できる2つの関数があります。
+これらは<firstterm>有効性検証関数</firstterm>と<firstterm>インラインハンドラ</firstterm>です。
+有効性検証関数を提供して、<xref linkend="sql-createfunction"/>時に言語固有の検査を行うことができます。
+インラインハンドラを提供して、言語に<xref linkend="sql-do"/>コマンド経由の匿名コードブロック実行をサポートさせることができます。␞␞   </para>␞
+␝   <para>␟    If a validator is provided by a procedural language, it
+    must be declared as a function taking a single parameter of type
+    <type>oid</type>.  The validator's result is ignored, so it is customarily
+    declared to return <type>void</type>.  The validator will be called at
+    the end of a <command>CREATE FUNCTION</command> command that has created
+    or updated a function written in the procedural language.
+    The passed-in OID is the OID of the function's <classname>pg_proc</classname>
+    row.  The validator must fetch this row in the usual way, and do
+    whatever checking is appropriate.
+    First, call <function>CheckFunctionValidatorAccess()</function> to diagnose
+    explicit calls to the validator that the user could not achieve through
+    <command>CREATE FUNCTION</command>.  Typical checks then include verifying
+    that the function's argument and result types are supported by the
+    language, and that the function's body is syntactically correct
+    in the language.  If the validator finds the function to be okay,
+    it should just return.  If it finds an error, it should report that
+    via the normal <function>ereport()</function> error reporting mechanism.
+    Throwing an error will force a transaction rollback and thus prevent
+    the incorrect function definition from being committed.␟有効性検証関数が手続き言語により提供される場合、<type>oid</type>型の単一パラメータを取る関数として宣言しなければなりません。
+有効性検証関数の結果は無視されます。
+そのためよく<type>void</type>を返すものと宣言されます。
+有効性検証関数はその手続き言語で関数を作成または置換する<command>CREATE FUNCTION</command>の最後に呼び出されます。
+渡されるOIDは関数の<classname>pg_proc</classname>行のOIDです。
+有効性検証関数は通常の方法でこの行を取り出さなければならず、そして適切な検査を実行します。
+まずユーザが<command>CREATE FUNCTION</command>で到達できない有効性検証関数への明示的な呼び出しを診断するため、<function>CheckFunctionValidatorAccess()</function>を呼び出します。
+典型的な検査として、さらに関数引数および結果の型がその言語でサポートされているかや関数本体がその言語において文法的に正しいかどうかを検証することが挙げられます。
+有効性検証関数がその関数に問題がないことを判定したら、単に戻ります。
+エラーがあることを判定したら、通常の<function>ereport()</function>エラー報告機構を使用して報告しなければなりません。
+エラーを返すことで、強制的にトランザクションはロールバックされ、不正な関数定義がコミットされることを防ぎます。␞␞   </para>␞
+␝   <para>␟    Validator functions should typically honor the <xref
+    linkend="guc-check-function-bodies"/> parameter: if it is turned off then
+    any expensive or context-sensitive checking should be skipped.  If the
+    language provides for code execution at compilation time, the validator
+    must suppress checks that would induce such execution.  In particular,
+    this parameter is turned off by <application>pg_dump</application> so that it can
+    load procedural language functions without worrying about side effects or
+    dependencies of the function bodies on other database objects.
+    (Because of this requirement, the call handler should avoid
+    assuming that the validator has fully checked the function.  The point
+    of having a validator is not to let the call handler omit checks, but
+    to notify the user immediately if there are obvious errors in a
+    <command>CREATE FUNCTION</command> command.)
+    While the choice of exactly what to check is mostly left to the
+    discretion of the validator function, note that the core
+    <command>CREATE FUNCTION</command> code only executes <literal>SET</literal> clauses
+    attached to a function when <varname>check_function_bodies</varname> is on.
+    Therefore, checks whose results might be affected by GUC parameters
+    definitely should be skipped when <varname>check_function_bodies</varname> is
+    off, to avoid false failures when restoring a dump.␟有効性検証関数は通常<xref linkend="guc-check-function-bodies"/>パラメータを遵守しなければなりません。
+これが無効な場合、高価な、または文脈次第の検査を飛ばさなければなりません。
+言語がコンパイル時のコード実行を提供するのであれば、有効性検証関数はそのような実行を引き起こす検査を抑制しなければなりません。
+特にこのパラメータは、副作用や関数本体の他のデータベースオブジェクトへの依存を心配することなく手続き言語関数をロードできるように、<application>pg_dump</application>により無効にされます。
+(この仕様のため呼び出しハンドラは有効性検証関数が完全にその関数を検査したことを前提としてはいけません。
+有効性検証関数を持つ目的は、呼び出しハンドラが検査を省略できることではなく、明確なエラーが<command>CREATE FUNCTION</command>コマンド内に存在する場合、それを即座にユーザに通知することです。)
+厳密に何を検査すべきかの選択は主として有効性検査関数の裁量に委ねられていますが、<varname>check_function_bodies</varname>が有効な場合には<command>CREATE FUNCTION</command>の中心となるコードは関数に関連づけられた<literal>SET</literal>句を実行するだけですので注意して下さい。
+そのため、その結果がGUCパラメータの影響を受ける検査は、ダンプをリストアする時の偽の失敗を避けるために、<varname>check_function_bodies</varname>が無効な場合には確実に飛ばさなければなりません。␞␞   </para>␞
+␝   <para>␟    If an inline handler is provided by a procedural language, it
+    must be declared as a function taking a single parameter of type
+    <type>internal</type>.  The inline handler's result is ignored, so it is
+    customarily declared to return <type>void</type>.  The inline handler
+    will be called when a <command>DO</command> statement is executed specifying
+    the procedural language.  The parameter actually passed is a pointer
+    to an <structname>InlineCodeBlock</structname> struct, which contains information
+    about the <command>DO</command> statement's parameters, in particular the
+    text of the anonymous code block to be executed.  The inline handler
+    should execute this code and return.␟インラインハンドラが手続き言語により提供される場合、その関数は<type>internal</type>型の単一パラメータを取るものとして宣言されなければなりません。
+インラインハンドラの結果は無視されます。
+そのためよく<type>void</type>を返すものと宣言されます。
+インラインハンドラは特定の手続き言語で<command>DO</command>文が実行された時に呼び出されます。
+実際に渡されるパラメータは<structname>InlineCodeBlock</structname>構造体のポインタです。
+ここには<command>DO</command>文のパラメータ、具体的には実行される匿名コードブロックのテキスト、に関する情報が含まれています。
+インラインハンドラはこのコードを実行し、戻らなければなりません。␞␞   </para>␞
+␝   <para>␟    It's recommended that you wrap all these function declarations,
+    as well as the <command>CREATE LANGUAGE</command> command itself, into
+    an <firstterm>extension</firstterm> so that a simple <command>CREATE EXTENSION</command>
+    command is sufficient to install the language.  See
+    <xref linkend="extend-extensions"/> for information about writing
+    extensions.␟簡単な<command>CREATE EXTENSION</command>コマンドで言語をインストールすることが十分にできるように、これらの関数宣言と<command>CREATE LANGUAGE</command>コマンド自身を<firstterm>拡張</firstterm>としてまとめることを勧めます。
+拡張の作成方法については<xref linkend="extend-extensions"/>を参照してください。␞␞   </para>␞
+␝   <para>␟    The procedural languages included in the standard distribution
+    are good references when trying to write your own language handler.
+    Look into the <filename>src/pl</filename> subdirectory of the source tree.
+    The <xref linkend="sql-createlanguage"/>
+    reference page also has some useful details.␟独自の言語ハンドラを作成する際、標準配布物に含まれる手続き言語は優れたリファレンスです。
+ソースツリーの<filename>src/pl</filename>サブディレクトリを調べてください。
+<xref linkend="sql-createlanguage"/>マニュアルページもまた有用な情報を含みます。␞␞   </para>␞

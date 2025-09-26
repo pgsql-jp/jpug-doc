@@ -285,14 +285,17 @@ OPTIONS (ADD password_required 'false');
     user can potentially use any client certificates,
     <filename>.pgpass</filename>,
     <filename>.pg_service.conf</filename> etc. in the unix home directory of the
-    system user the postgres server runs as. They can also use any trust
+    system user the postgres server runs as.   (For details on how home
+    directories are found, see <xref linkend="libpq-pgpass"/>.)  They can
+    also use any trust
     relationship granted by authentication modes like <literal>peer</literal>
     or <literal>ident</literal> authentication.
 -->
-CVE-2007-3278やCVE-2007-6601により、マップされたユーザがマップされたデータベースにスーパーユーザとして接続するのを許可しないことを確実にするよう注意が必要です。
+《マッチ度[81.907433]》CVE-2007-3278やCVE-2007-6601により、マップされたユーザがマップされたデータベースにスーパーユーザとして接続するのを許可しないことを確実にするよう注意が必要です。
 <literal>public</literal>ロールでは<literal>password_required=false</literal>を設定しないでください。
 postgresサーバが動作しているシステムユーザのunixのホームディレクトリにある、任意のクライアント証明書や<filename>.pgpass</filename>、<filename>.pg_service.conf</filename>などをマップされたユーザは潜在的には利用可能なことを心に留めておいてください。
 <literal>peer</literal>や<literal>ident</literal>認証のような認証モードで付与された信頼関係を使うこともできます。
+《機械翻訳》«Care is required to ensure that this does not allow the mapped user the ability to connect as superuser to the mapped database per CVE-2007-3278 and CVE-2007-6601. Don't set <literal>password_required=false</literal> on the <literal>public</literal> role. Keep in mind that the mapped user can potentially use any client certificates, <filename>.pgpass</filename>, <filename>.pg_service.conf</filename> etc. in the unix home directory of the system user the postgres server runs as. (For details on how home directories are found, see <xref linkend="libpq-pgpass"/>.) They can also use any trust relationship granted by authentication modes like <literal>peer</literal> or <literal>ident</literal> authentication.»
    </para>
   </sect3>
 
@@ -1093,7 +1096,7 @@ check制約でそのような一貫しない動作があると、問い合わせ
 
     <variablelist>
 
-     <varlistentry>
+     <varlistentry id="postgres-fdw-option-keep-connections">
       <term><literal>keep_connections</literal> (<type>boolean</type>)</term>
       <listitem>
        <para>
@@ -1113,6 +1116,97 @@ check制約でそのような一貫しない動作があると、問い合わせ
       </listitem>
      </varlistentry>
 
+     <varlistentry id="postgres-fdw-option-use-scram-passthrough">
+      <term><literal>use_scram_passthrough</literal> (<type>boolean</type>)</term>
+      <listitem>
+       <para>
+<!--
+        This option controls whether <filename>postgres_fdw</filename> will
+        use the SCRAM pass-through authentication to connect to the foreign
+        server.  With SCRAM pass-through authentication,
+        <filename>postgres_fdw</filename> uses SCRAM-hashed secrets instead of
+        plain-text user passwords to connect to the remote server.  This
+        avoids storing plain-text user passwords in PostgreSQL system
+        catalogs.
+-->
+《機械翻訳》«This option controls whether <filename>postgres_fdw</filename> will use the SCRAM pass-through authentication to connect to the foreign server. With SCRAM pass-through authentication, <filename>postgres_fdw</filename> uses SCRAM-hashed secrets instead of plain-text user passwords to connect to the remote server. This avoids storing plain-text user passwords in PostgreSQL system catalogs.»
+       </para>
+
+       <para>
+<!--
+        To use SCRAM pass-through authentication:
+-->
+《機械翻訳》«To use SCRAM pass-through authentication:»
+        <itemizedlist>
+         <listitem>
+          <para>
+<!--
+           The remote server must request the <literal>scram-sha-256</literal>
+           authentication method; otherwise, the connection will fail.
+-->
+《機械翻訳》«The remote server must request the <literal>scram-sha-256</literal> authentication method; otherwise, the connection will fail.»
+          </para>
+         </listitem>
+
+         <listitem>
+          <para>
+<!--
+           The remote server can be of any PostgreSQL version that supports
+           SCRAM.  Support for <literal>use_scram_passthrough</literal> is
+           only required on the client side (FDW side).
+-->
+《機械翻訳》«The remote server can be of any PostgreSQL version that supports SCRAM. Support for <literal>use_scram_passthrough</literal> is only required on the client side (FDW side).»
+          </para>
+         </listitem>
+
+         <listitem>
+          <para>
+<!--
+           The user mapping password is not used.
+-->
+《機械翻訳》«The user mapping password is not used.»
+          </para>
+         </listitem>
+
+         <listitem>
+          <para>
+<!--
+           The server running <filename>postgres_fdw</filename> and the remote
+           server must have identical SCRAM secrets (encrypted passwords) for
+           the user being used on <filename>postgres_fdw</filename> to
+           authenticate on the foreign server (same salt and iterations, not
+           merely the same password).
+-->
+《機械翻訳》«The server running <filename>postgres_fdw</filename> and the remote server must have identical SCRAM secrets (encrypted passwords) for the user being used on <filename>postgres_fdw</filename> to authenticate on the foreign server (same salt and iterations, not merely the same password).»
+          </para>
+
+          <para>
+<!--
+           As a corollary, if FDW connections to multiple hosts are to be
+           made, for example for partitioned foreign tables/sharding, then all
+           hosts must have identical SCRAM secrets for the users involved.
+-->
+《機械翻訳》«As a corollary, if FDW connections to multiple hosts are to be made, for example for partitioned foreign tables/sharding, then all hosts must have identical SCRAM secrets for the users involved.»
+          </para>
+         </listitem>
+
+         <listitem>
+          <para>
+<!--
+           The current session on the PostgreSQL instance that makes the
+           outgoing FDW connections also must also use SCRAM authentication
+           for its incoming client connection.  (Hence
+           <quote>pass-through</quote>: SCRAM must be used going in and out.)
+           This is a technical requirement of the SCRAM protocol.
+-->
+《機械翻訳》«The current session on the PostgreSQL instance that makes the outgoing FDW connections also must also use SCRAM authentication for its incoming client connection. (Hence <quote>pass-through</quote>: SCRAM must be used going in and out.) This is a technical requirement of the SCRAM protocol.»
+          </para>
+         </listitem>
+        </itemizedlist>
+       </para>
+      </listitem>
+     </varlistentry>
+
     </variablelist>
    </sect3>
  </sect2>
@@ -1125,37 +1219,139 @@ check制約でそのような一貫しない動作があると、問い合わせ
 
   <variablelist>
    <varlistentry>
-    <term><function>postgres_fdw_get_connections(OUT server_name text, OUT valid boolean) returns setof record</function></term>
+    <term><function>postgres_fdw_get_connections(
+      IN check_conn boolean DEFAULT false, OUT server_name text,
+      OUT user_name text, OUT valid boolean, OUT used_in_xact boolean,
+      OUT closed boolean, OUT remote_backend_pid int4)
+      returns setof record</function></term>
     <listitem>
      <para>
 <!--
-      This function returns the foreign server names of all the open
-      connections that <filename>postgres_fdw</filename> established from
-      the local session to the foreign servers. It also returns whether
-      each connection is valid or not. <literal>false</literal> is returned
-      if the foreign server connection is used in the current local
-      transaction but its foreign server or user mapping is changed or
-      dropped (Note that server name of an invalid connection will be
-      <literal>NULL</literal> if the server is dropped),
-      and then such invalid connection will be closed at
-      the end of that transaction. <literal>true</literal> is returned
-      otherwise. If there are no open connections, no record is returned.
+      This function returns information about all open connections postgres_fdw
+      has established from the local session to foreign servers. If there are
+      no open connections, no records are returned.
+-->
+《機械翻訳》«This function returns information about all open connections postgres_fdw has established from the local session to foreign servers. If there are no open connections, no records are returned.»
+     </para>
+     <para>
+<!--
+      If <literal>check_conn</literal> is set to <literal>true</literal>,
+      the function checks the status of each connection and shows
+      the result in the <literal>closed</literal> column.
+      This feature is currently available only on systems that support
+      the non-standard <symbol>POLLRDHUP</symbol> extension to
+      the <symbol>poll</symbol> system call, including Linux.
+      This is useful to check if all connections used within
+      a transaction are still open. If any connections are closed,
+      the transaction cannot be committed successfully,
+      so it is better to roll back as soon as a closed connection is detected,
+      rather than continuing to the end. Users can roll back the transaction
+      immediately if the function reports connections where both
+      <literal>used_in_xact</literal> and <literal>closed</literal> are
+      <literal>true</literal>.
+-->
+《機械翻訳》«If <literal>check_conn</literal> is set to <literal>true</literal>, the function checks the status of each connection and shows the result in the <literal>closed</literal> column. This feature is currently available only on systems that support the non-standard <symbol>POLLRDHUP</symbol> extension to the <symbol>poll</symbol> system call, including Linux. This is useful to check if all connections used within a transaction are still open. If any connections are closed, the transaction cannot be committed successfully, so it is better to roll back as soon as a closed connection is detected, rather than continuing to the end. Users can roll back the transaction immediately if the function reports connections where both <literal>used_in_xact</literal> and <literal>closed</literal> are <literal>true</literal>.»
+     </para>
+     <para>
+<!--
       Example usage of the function:
 -->
-この関数は、<filename>postgres_fdw</filename>によってローカルセッションから外部サーバに確立されたすべての開いている接続の外部サーバ名を返します。
-個々の接続が有効かどうかも返します。
-外部サーバの接続が現在のローカルトランザクションで使用されていても、外部サーバあるいはユーザマッピングが変更あるいは削除されると<literal>false</literal>が返り（無効な接続のサーバ名は、サーバが削除されると<literal>NULL</literal>になることに注意してください）、そうした無効な接続はトランザクションの終了時に閉じられます。
-そうでなければ<literal>true</literal>が返ります。
-開いた接続がなければレコードは返りません。
-関数の使用例を示します。
+《機械翻訳》«Example usage of the function:»
 <screen>
-postgres=# SELECT * FROM postgres_fdw_get_connections() ORDER BY 1;
- server_name | valid
--------------+-------
- loopback1   | t
- loopback2   | f
+postgres=# SELECT * FROM postgres_fdw_get_connections(true);
+ server_name | user_name | valid | used_in_xact | closed | remote_backend_pid
+-------------+-----------+-------+--------------+-----------------------------
+ loopback1   | postgres  | t     | t            | f      |            1353340
+ loopback2   | public    | t     | t            | f      |            1353120
+ loopback3   |           | f     | t            | f      |            1353156
 </screen>
+<!--
+      The output columns are described in
+      <xref linkend="postgres-fdw-get-connections-columns"/>.
+-->
+《機械翻訳》«The output columns are described in <xref linkend="postgres-fdw-get-connections-columns"/>.»
      </para>
+
+    <table id="postgres-fdw-get-connections-columns">
+     <title><function>postgres_fdw_get_connections</function> Output Columns</title>
+     <tgroup cols="3">
+      <thead>
+       <row>
+<!--
+        <entry>Column</entry>
+-->
+        <entry>列</entry>
+<!--
+        <entry>Type</entry>
+-->
+        <entry>型</entry>
+        <entry>Description</entry>
+       </row>
+      </thead>
+
+      <tbody>
+       <row>
+        <entry><structfield>server_name</structfield></entry>
+        <entry><type>text</type></entry>
+        <entry>
+         The foreign server name of this connection. If the server is
+         dropped but the connection remains open (i.e., marked as
+         invalid), this will be <literal>NULL</literal>.
+        </entry>
+       </row>
+       <row>
+        <entry><structfield>user_name</structfield></entry>
+        <entry><type>text</type></entry>
+        <entry>
+         Name of the local user mapped to the foreign server of this
+         connection, or <literal>public</literal> if a public mapping is used.
+         If the user mapping is dropped but the connection remains open
+         (i.e., marked as invalid), this will be <literal>NULL</literal>.
+        </entry>
+       </row>
+       <row>
+        <entry><structfield>valid</structfield></entry>
+        <entry><type>boolean</type></entry>
+        <entry>
+         False if this connection is invalid, meaning it is used in
+         the current transaction, but its foreign server or
+         user mapping has been changed or dropped.
+         The invalid connection will be closed at the end of
+         the transaction. True is returned otherwise.
+        </entry>
+       </row>
+       <row>
+        <entry><structfield>used_in_xact</structfield></entry>
+        <entry><type>boolean</type></entry>
+        <entry>
+         True if this connection is used in the current transaction.
+        </entry>
+       </row>
+       <row>
+        <entry><structfield>closed</structfield></entry>
+        <entry><type>boolean</type></entry>
+        <entry>
+         True if this connection is closed, false otherwise.
+         <literal>NULL</literal> is returned if <literal>check_conn</literal>
+         is set to <literal>false</literal> or if the connection status check
+         is not available on this platform.
+        </entry>
+       </row>
+       <row>
+        <entry><structfield>remote_backend_pid</structfield></entry>
+        <entry><type>int4</type></entry>
+        <entry>
+         Process ID of the remote backend, on the foreign server,
+         handling the connection.  If the remote backend is terminated and
+         the connection is closed (with <literal>closed</literal> set to
+         <literal>true</literal>), this still shows the process ID of
+         the terminated backend.
+        </entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+
     </listitem>
    </varlistentry>
 
@@ -1493,7 +1689,13 @@ postgres=# SELECT postgres_fdw_disconnect_all();
 <!--
    <filename>postgres_fdw</filename> can be used with remote servers dating back
    to <productname>PostgreSQL</productname> 8.3.  Read-only capability is available
-   back to 8.1.  A limitation however is that <filename>postgres_fdw</filename>
+   back to 8.1.
+-->
+《機械翻訳》«<filename>postgres_fdw</filename> can be used with remote servers dating back to <productname>PostgreSQL</productname> 8.3. Read-only capability is available back to 8.1.»
+  </para>
+  <para>
+<!--
+   A limitation however is that <filename>postgres_fdw</filename>
    generally assumes that immutable built-in functions and operators are
    safe to send to the remote server for execution, if they appear in a
    <literal>WHERE</literal> clause for a foreign table.  Thus, a built-in
@@ -1505,11 +1707,22 @@ postgres=# SELECT postgres_fdw_disconnect_all();
    optimization fence, and placing the problematic function or operator
    outside the sub-<literal>SELECT</literal>.
 -->
-<filename>postgres_fdw</filename>のリモートサーバには<productname>PostgreSQL</productname> 8.3以降のバージョンを使用する事ができます。
+《マッチ度[71.120108]》<filename>postgres_fdw</filename>のリモートサーバには<productname>PostgreSQL</productname> 8.3以降のバージョンを使用する事ができます。
 読み取り専用であれば、8.1以降のバージョンまで可能です。
 一方、<filename>postgres_fdw</filename>は<literal>IMMUTABLE</literal>属性を持った組み込みの演算子と関数が外部テーブルの<literal>WHERE</literal>句に含まれる場合、リモート側で実行しても安全であると仮定します。そのため、リモートサーバのリリース後に追加された関数が実行のために送出されるかもしれず、結果として<quote>関数が見つかりません</quote>あるいは類するエラーを発生させる事になります。
 この種の問題は問い合わせの書き換えによって対処する事ができます。
 例えば、最適化を妨げるため、外部テーブルへの参照を<literal>OFFSET 0</literal>を付けてsub-<literal>SELECT</literal>に埋め込み、問題のある関数や演算子をsub-<literal>SELECT</literal>の外に配置するなどの方法があります。
+《機械翻訳》«A limitation however is that <filename>postgres_fdw</filename> generally assumes that immutable built-in functions and operators are safe to send to the remote server for execution, if they appear in a <literal>WHERE</literal> clause for a foreign table. Thus, a built-in function that was added since the remote server's release might be sent to it for execution, resulting in <quote>function does not exist</quote> or a similar error. This type of failure can be worked around by rewriting the query, for example by embedding the foreign table reference in a sub-<literal>SELECT</literal> with <literal>OFFSET 0</literal> as an optimization fence, and placing the problematic function or operator outside the sub-<literal>SELECT</literal>.»
+  </para>
+  <para>
+<!--
+   Another limitation is that when executing <command>INSERT</command>
+   statements with an <literal>ON CONFLICT DO NOTHING</literal> clause on
+   a foreign table, the remote server must be running
+   <productname>PostgreSQL</productname> 9.5 or later,
+   as earlier versions do not support this feature.
+-->
+《機械翻訳》«Another limitation is that when executing <command>INSERT</command> statements with an <literal>ON CONFLICT DO NOTHING</literal> clause on a foreign table, the remote server must be running <productname>PostgreSQL</productname> 9.5 or later, as earlier versions do not support this feature.»
   </para>
  </sect2>
 

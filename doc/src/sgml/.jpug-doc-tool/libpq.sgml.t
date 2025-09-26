@@ -1,0 +1,5925 @@
+␝<chapter id="libpq">␟ <title><application>libpq</application> &mdash; C Library</title>␟ <title><application>libpq</application> &mdash; C ライブラリ</title>␞␞␞
+␝ <para>␟  <application>libpq</application> is the <acronym>C</acronym>
+  application programmer's interface to <productname>PostgreSQL</productname>.
+  <application>libpq</application> is a set of library functions that allow
+  client programs to pass queries to the <productname>PostgreSQL</productname>
+  backend server and to receive the results of these queries.␟<application>libpq</application>は、<acronym>C</acronym>言語によるアプリケーションプログラマ用の<productname>PostgreSQL</productname>インタフェースです。
+<application>libpq</application>は、クライアントプログラムから<productname>PostgreSQL</productname>のバックエンドサーバに問い合わせを渡し、その結果を受け取るためのライブラリ関数の集合です。␞␞ </para>␞
+␝ <para>␟  <application>libpq</application> is also the underlying engine for several
+  other <productname>PostgreSQL</productname> application interfaces, including
+  those written for C++, Perl, Python, Tcl and <application>ECPG</application>.
+  So some aspects of <application>libpq</application>'s behavior will be
+  important to you if you use one of those packages.  In particular,
+  <xref linkend="libpq-envars"/>,
+  <xref linkend="libpq-pgpass"/> and
+  <xref linkend="libpq-ssl"/>
+  describe behavior that is visible to the user of any application
+  that uses <application>libpq</application>.␟<application>libpq</application>は、C++、Perl、Python、Tcl、<application>ECPG</application>などを含む、<productname>PostgreSQL</productname>の他の各種アプリケーションインタフェースを支えるエンジンでもあります。
+従って、<application>libpq</application>の動作は、これらのパッケージを使用する人にとって重要なものになります。
+特に、<xref linkend="libpq-envars"/>、<xref linkend="libpq-pgpass"/>および<xref linkend="libpq-ssl"/>にて、<application>libpq</application>を使用するすべてのアプリケーションのユーザから見える動作を説明します。␞␞ </para>␞
+␝ <para>␟  Some short programs are included at the end of this chapter (<xref linkend="libpq-example"/>) to show how
+  to write programs that use <application>libpq</application>.  There are also several
+  complete examples of <application>libpq</application> applications in the
+  directory <filename>src/test/examples</filename> in the source code distribution.␟本章の最後に、<application>libpq</application>の使い方を示す、いくつかの短いプログラム(<xref linkend="libpq-example"/>)があります。
+また、ソースコード配布物内の<filename>src/test/examples</filename>ディレクトリに、<application>libpq</application>を利用したアプリケーションプログラム一式の例があります。␞␞ </para>␞
+␝ <para>␟  Client programs that use <application>libpq</application> must
+  include the header file
+  <filename>libpq-fe.h</filename><indexterm><primary>libpq-fe.h</primary></indexterm>
+  and must link with the <application>libpq</application> library.␟<application>libpq</application>を使用してフロントエンドプログラムを作成するには、<filename>libpq-fe.h</filename>ヘッダファイルのインクルードと、<application>libpq</application> ライブラリとのリンクが必要です。
+<indexterm><primary>libpq-fe.h</primary></indexterm>␞␞ </para>␞
+␝ <sect1 id="libpq-connect">␟  <title>Database Connection Control Functions</title>␟  <title>データベース接続制御関数</title>␞␞␞
+␝  <para>␟   The following functions deal with making a connection to a
+   <productname>PostgreSQL</productname> backend server.  An
+   application program can have several backend connections open at
+   one time.  (One reason to do that is to access more than one
+   database.)  Each connection is represented by a
+   <structname>PGconn</structname><indexterm><primary>PGconn</primary></indexterm> object, which
+   is obtained from the function <xref linkend="libpq-PQconnectdb"/>,
+   <xref linkend="libpq-PQconnectdbParams"/>, or
+   <xref linkend="libpq-PQsetdbLogin"/>.  Note that these functions will always
+   return a non-null object pointer, unless perhaps there is too
+   little memory even to allocate the <structname>PGconn</structname> object.
+   The <xref linkend="libpq-PQstatus"/> function should be called to check
+   the return value for a successful connection before queries are sent
+   via the connection object.␟<productname>PostgreSQL</productname>のバックエンドサーバとの接続を作成するには、以下の関数を使用します。
+アプリケーションプログラムはバックエンドとの接続を一度に複数個開くことができます。
+（そのようにする1つの理由として、複数のデータベースへのアクセスが挙げられます。）
+個々の接続は、<xref linkend="libpq-PQconnectdb"/>、<xref linkend="libpq-PQconnectdbParams"/>または<xref linkend="libpq-PQsetdbLogin"/>関数を呼び出すことで得られる<structname>PGconn</structname><indexterm><primary>PGconn</primary></indexterm>オブジェクトによって表されます。
+なお、これらの関数は、<structname>PGconn</structname>オブジェクトに割り当てるほんのわずかなメモリの余裕さえもない場合を除き、NULLではなく常にオブジェクトのポインタを返します。
+また、この接続オブジェクトを通じて問い合わせを送る前に、<xref linkend="libpq-PQstatus"/>関数を呼び出して、データベースとの接続に成功したか戻り値を検査しなければなりません。␞␞␞
+␝    <para>␟     If untrusted users have access to a database that has not adopted a
+     <link linkend="ddl-schemas-patterns">secure schema usage pattern</link>,
+     begin each session by removing publicly-writable schemas from
+     <varname>search_path</varname>.  One can set parameter key
+     word <literal>options</literal> to
+     value <literal>-csearch_path=</literal>.  Alternately, one can
+     issue <literal>PQexec(<replaceable>conn</replaceable>, "SELECT
+     pg_catalog.set_config('search_path', '', false)")</literal> after
+     connecting.  This consideration is not specific
+     to <application>libpq</application>; it applies to every interface for
+     executing arbitrary SQL commands.␟信頼できないユーザが、<link linkend="ddl-schemas-patterns">安全なスキーマ使用パターン</link>を適用していないデータベースへアクセスする際には、セッション開始時に<varname>search_path</varname>から、第三者が書き込みができるスキーマを削除してください。
+これは<literal>options</literal>パラメータキーワードに値<literal>-csearch_path=</literal>を設定することで可能となります。
+別の方法としては、接続後に<literal>PQexec(<replaceable>conn</replaceable>, "SELECT pg_catalog.set_config('search_path', '', false)")</literal>を発行しても構いません。
+このような配慮は、<application>libpq</application>に限ったことではありません。
+任意のSQLコマンドを実行するすべてのインタフェースに当てはまります。␞␞    </para>␞
+␝    <para>␟     On Unix, forking a process with open libpq connections can lead to
+     unpredictable results because the parent and child processes share
+     the same sockets and operating system resources.  For this reason,
+     such usage is not recommended, though doing an <function>exec</function> from
+     the child process to load a new executable is safe.␟Unix上で、libpq接続を開いたプロセスのフォークは、親と子のプロセスが同じソケットとオペレーティングシステムの資源を共有するため、予期せぬ結果を招くことがあります。
+この理由により、新規実行形式を子プロセスが読み込むため<function>exec</function>を行うことが安全と言っても、このような使用方法は推奨されません。␞␞    </para>␞
+␝      <para>␟       Makes a new connection to the database server.␟新たにデータベースサーバへの接続を作成します。␞␞␞
+␝      <para>␟       This function opens a new database connection using the parameters taken
+       from two <symbol>NULL</symbol>-terminated arrays. The first,
+       <literal>keywords</literal>, is defined as an array of strings, each one
+       being a key word. The second, <literal>values</literal>, gives the value
+       for each key word. Unlike <xref linkend="libpq-PQsetdbLogin"/> below, the parameter
+       set can be extended without changing the function signature, so use of
+       this function (or its nonblocking analogs <xref linkend="libpq-PQconnectStartParams"/>
+       and <function>PQconnectPoll</function>) is preferred for new application
+       programming.␟この関数は、2つの<symbol>NULL</symbol>終端の配列から取得したパラメータを使用して、データベースとの接続を新たに1つ確立します。
+1つ目は文字列配列として定義される<literal>keywords</literal>で、それぞれがキーワードとなります。
+2つ目は<literal>values</literal>で、各キーワードの値を提供します。
+後述の<xref linkend="libpq-PQsetdbLogin"/>とは異なり、関数のシグネチャを変更せずにパラメータ集合を拡張できますので、アプリケーションプログラムを新たに作成する際には、この関数(もしくは非ブロックモードでよく似た処理をする<xref linkend="libpq-PQconnectStartParams"/>と<function>PQconnectPoll</function>)を使用することをお勧めします。␞␞      </para>␞
+␝      <para>␟       The currently recognized parameter key words are listed in
+       <xref linkend="libpq-paramkeywords"/>.␟現在有効なパラメータキーワードを<xref linkend="libpq-paramkeywords"/>に示します。␞␞      </para>␞
+␝      <para>␟       The passed arrays can be empty to use all default parameters, or can
+       contain one or more parameter settings. They must be matched in length.
+       Processing will stop at the first <symbol>NULL</symbol> entry
+       in the <literal>keywords</literal> array.
+       Also, if the <literal>values</literal> entry associated with a
+       non-<symbol>NULL</symbol> <literal>keywords</literal> entry is
+       <symbol>NULL</symbol> or an empty string, that entry is ignored and
+       processing continues with the next pair of array entries.␟渡される配列は、すべてのデフォルトパラメータを使用するために空にするか、または1つ以上のパラメータ設定を含むことができます。
+それらは長さが一致する必要があります。
+処理は<literal>keywords</literal>配列内の最初の<symbol>NULL</symbol>エントリで停止します。
+また、非<symbol>NULL</symbol> <literal>keywords</literal>エントリに関連付けられた<literal>values</literal>エントリが<symbol>NULL</symbol>または空文字列である場合、そのエントリは無視され、処理は配列エントリの次のペアで続行されます。␞␞      </para>␞
+␝      <para>␟       When <literal>expand_dbname</literal> is non-zero, the value for
+       the first <parameter>dbname</parameter> key word is checked to see
+       if it is a <firstterm>connection string</firstterm>.  If so, it
+       is <quote>expanded</quote> into the individual connection
+       parameters extracted from the string.  The value is considered to
+       be a connection string, rather than just a database name, if it
+       contains an equal sign (<literal>=</literal>) or it begins with a
+       URI scheme designator.  (More details on connection string formats
+       appear in <xref linkend="libpq-connstring"/>.)  Only the first
+       occurrence of <parameter>dbname</parameter> is treated in this way;
+       any subsequent <parameter>dbname</parameter> parameter is processed
+       as a plain database name.␟<literal>expand_dbname</literal>が0以外の場合、最初の<parameter>dbname</parameter>キーワードの値が<firstterm>接続文字列</firstterm>かどうかチェックされます。
+そうであれば、文字列から抽出された個々の接続パラメータに<quote>拡張</quote>されます。
+等号(<literal>=</literal>)が含まれている場合や、URIスキーム指定子で始まっている場合、値は単なるデータベース名ではなく接続文字列とみなされます。
+(接続文字列フォーマットの詳細は<xref linkend="libpq-connstring"/>を参照してください。)
+<parameter>dbname</parameter>の最初の出現のみがこの方法で処理されます。
+後続の<parameter>dbname</parameter>パラメータはプレーンなデータベース名として処理されます。␞␞      </para>␞
+␝      <para>␟       In general the parameter arrays are processed from start to end.
+       If any key word is repeated, the last value (that is
+       not <symbol>NULL</symbol> or empty) is used.  This rule applies in
+       particular when a key word found in a connection string conflicts
+       with one appearing in the <literal>keywords</literal> array.  Thus,
+       the programmer may determine whether array entries can override or
+       be overridden by values taken from a connection string.  Array
+       entries appearing before an expanded <parameter>dbname</parameter>
+       entry can be overridden by fields of the connection string, and in
+       turn those fields are overridden by array entries appearing
+       after <parameter>dbname</parameter> (but, again, only if those
+       entries supply non-empty values).␟一般的に、パラメータ配列は開始から終了まで処理されます。
+キーワードが繰り返された場合、最後の値(<symbol>NULL</symbol>または空ではない)が使用されます。
+この規則は特に、接続文字列内で見つかったキーワードが<literal>keywords</literal>配列内で出現するキーワードと競合する場合に適用されます。
+したがって、プログラマは、配列エントリが上書きするか、あるいは接続文字列から取得した値によって上書きされるかを判断できます。
+拡張された<parameter>dbname</parameter>エントリの前に現れる配列エントリは、接続文字列のフィールドによって上書きされ、次に<parameter>dbname</parameter>の後に現れる配列エントリによって上書きされます(ただし、これらのエントリが空でない値を提供する場合に限ります)。␞␞      </para>␞
+␝      <para>␟       After processing all the array entries and any expanded connection
+       string, any connection parameters that remain unset are filled with
+       default values.  If an unset parameter's corresponding environment
+       variable (see <xref linkend="libpq-envars"/>) is set, its value is
+       used.  If the environment variable is not set either, then the
+       parameter's built-in default value is used.␟すべての配列エントリと拡張された接続文字列を処理した後、未設定のままの接続パラメータはデフォルト値で埋められます。
+未設定パラメータに対応する環境変数(<xref linkend="libpq-envars"/>参照)が設定されている場合は、その値が使用されます。
+環境変数も設定されていない場合は、パラメータに組み込まれているデフォルト値が使用されます。␞␞      </para>␞
+␝      <para>␟       Makes a new connection to the database server.␟新たにデータベースサーバへの接続を作成します。␞␞␞
+␝      <para>␟       This function opens a new database connection using the parameters taken
+       from the string <literal>conninfo</literal>.␟この関数は<literal>conninfo</literal>文字列から取得されるパラメータを使用して、新しいデータベース接続を開きます。␞␞      </para>␞
+␝      <para>␟       The passed string can be empty to use all default parameters, or it can
+       contain one or more parameter settings separated by whitespace,
+       or it can contain a <acronym>URI</acronym>.
+       See <xref linkend="libpq-connstring"/> for details.␟空の文字列を渡してすべてデフォルトパラメータを使用することができます。
+また空白文字で区切ることで1つ以上のパラメータ設定を持たせることもできます。
+さらに<acronym>URI</acronym>を含めることができます。
+詳細については<xref linkend="libpq-connstring"/>を参照してください。␞␞     </para>␞
+␝      <para>␟       Makes a new connection to the database server.␟新たにデータベースサーバへの接続を作成します。␞␞<synopsis>␞
+␝       <para>␟        This is the predecessor of <xref linkend="libpq-PQconnectdb"/> with a fixed
+        set of parameters.  It has the same functionality except that the
+        missing parameters will always take on default values.  Write <symbol>NULL</symbol> or an
+        empty string for any one of the fixed parameters that is to be defaulted.␟これはパラメータ群を固定した<xref linkend="libpq-PQconnectdb"/>の前身です。
+設定できないパラメータが常にデフォルト値になる点を除き、同一の機能を持ちます。
+固定のパラメータに対して<symbol>NULL</symbol>もしくは空文字列とすると、それはデフォルトを使用することになります。␞␞      </para>␞
+␝      <para>␟        If the <parameter>dbName</parameter> contains
+        an <symbol>=</symbol> sign or has a valid connection <acronym>URI</acronym> prefix, it
+        is taken as a <parameter>conninfo</parameter> string in exactly the same way as
+        if it had been passed to <xref linkend="libpq-PQconnectdb"/>, and the remaining
+        parameters are then applied as specified for <xref linkend="libpq-PQconnectdbParams"/>.␟<parameter>dbName</parameter>内に<symbol>=</symbol>記号が含まれる場合、または有効な接続<acronym>URI</acronym>接頭辞を持つ場合、<xref linkend="libpq-PQconnectdb"/>に渡された場合とまったく同じ扱いで<parameter>conninfo</parameter>文字列として扱われます。
+その後残りのパラメータが<xref linkend="libpq-PQconnectdbParams"/>の指定のように適用されます。␞␞      </para>␞
+␝      <para>␟        <literal>pgtty</literal> is no longer used and any value passed will
+        be ignored.␟<literal>pgtty</literal>は使用されなくなり、渡された値は無視されます。␞␞      </para>␞
+␝      <para>␟   Makes a new connection to the database server.␟新たにデータベースサーバへの接続を作成します。␞␞<synopsis>␞
+␝       <indexterm><primary>nonblocking connection</primary></indexterm>
+␟␟       <indexterm><primary>非ブロック接続</primary></indexterm>␞␞     </para>␞
+␝     <para>␟      This is a macro that calls <xref linkend="libpq-PQsetdbLogin"/> with null pointers
+      for the <parameter>login</parameter> and <parameter>pwd</parameter> parameters.  It is provided
+      for backward compatibility with very old programs.␟これは、<parameter>login</parameter>と<parameter>pwd</parameter>にNULLポインタを設定する<xref linkend="libpq-PQsetdbLogin"/>を呼び出すマクロです。
+非常に古いプログラムへの後方互換性のために提供されています。␞␞     </para>␞
+␝       <indexterm><primary>nonblocking connection</primary></indexterm>␟       Make a connection to the database server in a nonblocking manner.␟ブロックしない方法で、データベースサーバへの接続を作成します。␞␞␞
+␝      <para>␟       These three functions are used to open a connection to a database server such
+       that your application's thread of execution is not blocked on remote I/O
+       whilst doing so. The point of this approach is that the waits for I/O to
+       complete can occur in the application's main loop, rather than down inside
+       <xref linkend="libpq-PQconnectdbParams"/> or <xref linkend="libpq-PQconnectdb"/>, and so the
+       application can manage this operation in parallel with other activities.␟これら3つの関数は、リモートI/Oの実行時にアプリケーションスレッドの実行がブロックされないようなデータベースサーバへの接続を作成するために使われます。
+この手法の利点は、I/Oの終了待ちが<xref linkend="libpq-PQconnectdbParams"/>または<xref linkend="libpq-PQconnectdb"/>内部ではなく、アプリケーションプログラムのメインループでできることにあります。
+これによって、アプリケーションは他の処理と並行してこの処理を管理することができます。␞␞      </para>␞
+␝      <para>␟       With <xref linkend="libpq-PQconnectStartParams"/>, the database connection is made
+       using the parameters taken from the <literal>keywords</literal> and
+       <literal>values</literal> arrays, and controlled by <literal>expand_dbname</literal>,
+       as described above for <xref linkend="libpq-PQconnectdbParams"/>.␟<xref linkend="libpq-PQconnectStartParams"/>では、上で<xref linkend="libpq-PQconnectdbParams"/>で説明したように、データベース接続は<literal>keywords</literal>および<literal>values</literal>配列から取得され、<literal>expand_dbname</literal>によって制御されたパラメータを使用して確立します。␞␞      </para>␞
+␝      <para>␟       With <function>PQconnectStart</function>, the database connection is made
+       using the parameters taken from the string <literal>conninfo</literal> as
+       described above for <xref linkend="libpq-PQconnectdb"/>.␟<function>PQconnectStart</function>では、上で<xref linkend="libpq-PQconnectdb"/>で説明したように、<literal>conninfo</literal>文字列から取得されたパラメータを使用してデータベース接続を確立します。␞␞      </para>␞
+␝      <para>␟       Neither <xref linkend="libpq-PQconnectStartParams"/> nor <function>PQconnectStart</function>
+       nor <function>PQconnectPoll</function> will block, so long as a number of
+       restrictions are met:␟<xref linkend="libpq-PQconnectStartParams"/>、<function>PQconnectStart</function>と<function>PQconnectPoll</function>のどちらも以下の制限に適合する場合ブロックしません。␞␞       <itemizedlist>␞
+␝         <para>␟          The <literal>hostaddr</literal> parameter must be used appropriately
+          to prevent DNS queries from being made.  See the documentation of
+          this parameter in <xref linkend="libpq-paramkeywords"/> for details.␟<literal>hostaddr</literal>パラメータは、DNS問い合わせが発生するのを防ぐように適切に使用されなければいけません。
+詳細については<xref linkend="libpq-paramkeywords"/>内のパラメータ説明を参照してください。␞␞         </para>␞
+␝         <para>␟          If you call <xref linkend="libpq-PQtrace"/>, ensure that the stream object
+          into which you trace will not block.␟<xref linkend="libpq-PQtrace"/>を呼び出す場合は、トレースに使用するストリームオブジェクトがブロックされないことが保証されていなくてはなりません。␞␞         </para>␞
+␝         <para>␟          You must ensure that the socket is in the appropriate state
+          before calling <function>PQconnectPoll</function>, as described below.␟プログラマ自身が、後に示すように、<function>PQconnectPoll</function>を呼び出す前にソケットが適切な状態にあることを保証しなくてはいけません。␞␞         </para>␞
+␝      <para>␟       To begin a nonblocking connection request,
+       call <function>PQconnectStart</function>
+       or <xref linkend="libpq-PQconnectStartParams"/>.  If the result is null,
+       then <application>libpq</application> has been unable to allocate a
+       new <structname>PGconn</structname> structure.  Otherwise, a
+       valid <structname>PGconn</structname> pointer is returned (though not
+       yet representing a valid connection to the database).  Next
+       call <literal>PQstatus(conn)</literal>.  If the result
+       is <symbol>CONNECTION_BAD</symbol>, the connection attempt has already
+       failed, typically because of invalid connection parameters.␟非ブロック接続要求を始めるにはまず、<function>PQconnectStart</function>か<xref linkend="libpq-PQconnectStartParams"/>を呼び出します。
+その結果がNULLの場合、<application>libpq</application>は新たな<structname>PGconn</structname>構造体を割り当てられませんでした。
+そうでない場合は、適切な<structname>PGconn</structname>へのポインタが返されます
+（ただし、未だデータベースへの有効な接続を示しているわけではありません）。
+次に<literal>PQstatus(conn)</literal>を呼び出します。
+もし、結果が<symbol>CONNECTION_BAD</symbol>であった場合、接続の試みは失敗しています。典型的には無効な接続パラメータに因ります。␞␞      </para>␞
+␝      <para>␟       If <function>PQconnectStart</function>
+       or <xref linkend="libpq-PQconnectStartParams"/> succeeds, the next stage
+       is to poll <application>libpq</application> so that it can proceed with
+       the connection sequence.
+       Use <function>PQsocket(conn)</function> to obtain the descriptor of the
+       socket underlying the database connection.
+       (Caution: do not assume that the socket remains the same
+       across <function>PQconnectPoll</function> calls.)
+       Loop thus: If <function>PQconnectPoll(conn)</function> last returned
+       <symbol>PGRES_POLLING_READING</symbol>, wait until the socket is ready to
+       read (as indicated by <function>select()</function>, <function>poll()</function>, or
+       similar system function).  Note that <function>PQsocketPoll</function>
+       can help reduce boilerplate by abstracting the setup of
+       <function>select(2)</function> or <function>poll(2)</function> if it is
+       available on your system.
+       Then call <function>PQconnectPoll(conn)</function> again.
+       Conversely, if <function>PQconnectPoll(conn)</function> last returned
+       <symbol>PGRES_POLLING_WRITING</symbol>, wait until the socket is ready
+       to write, then call <function>PQconnectPoll(conn)</function> again.
+       On the first iteration, i.e., if you have yet to call
+       <function>PQconnectPoll</function>, behave as if it last returned
+       <symbol>PGRES_POLLING_WRITING</symbol>.  Continue this loop until
+       <function>PQconnectPoll(conn)</function> returns
+       <symbol>PGRES_POLLING_FAILED</symbol>, indicating the connection procedure
+       has failed, or <symbol>PGRES_POLLING_OK</symbol>, indicating the connection
+       has been successfully made.␟<function>PQconnectStart</function>あるいは<xref linkend="libpq-PQconnectStartParams"/>が成功したら、次は接続シーケンスを進めるために、<application>libpq</application>をポーリングします。
+データベース接続の背後にあるソケットの記述子を取り出すには、<function>PQsocket(conn)</function>を使用します。
+（注意：複数の<function>PQconnectPoll</function>呼び出しでソケットが同じままであると思わないでください。）
+以下の繰り返しです。
+直前の<function>PQconnectPoll(conn)</function>が<symbol>PGRES_POLLING_READING</symbol>の場合、（<function>select()</function>や<function>poll()</function>などのシステム関数で示されて）ソケットの読み込み準備が整うまで待機します。
+システムで利用可能であれば、<function>PQsocketPoll</function>は<function>select(2)</function>や<function>poll(2)</function>の設定を抽象化することで、定型コードを減らすことができます。
+そして、再度<function>PQconnectPoll(conn)</function>を呼び出します。
+反対に直前の<function>PQconnectPoll(conn)</function>が<symbol>PGRES_POLLING_WRITING</symbol>の場合、ソケットの書き込み準備が整うまで待機し、その後、<function>PQconnectPoll(conn)</function>を再度呼び出します。
+繰り返しの最初、すなわち、未だ<function>PQconnectPoll</function>を呼び出していない場合、最後に<symbol>PGRES_POLLING_WRITING</symbol>を返したかのように振舞います。
+この繰り返しを<function>PQconnectPoll(conn)</function>が、接続手続きの失敗を示す<symbol>PGRES_POLLING_FAILED</symbol>、もしくは、接続確立に成功したことを示す<symbol>PGRES_POLLING_OK</symbol>を返すまで継続します。␞␞      </para>␞
+␝      <para>␟       At any time during connection, the status of the connection can be
+       checked by calling <xref linkend="libpq-PQstatus"/>. If this call returns <symbol>CONNECTION_BAD</symbol>, then the
+       connection procedure has failed; if the call returns <function>CONNECTION_OK</function>, then the
+       connection is ready.  Both of these states are equally detectable
+       from the return value of <function>PQconnectPoll</function>, described above. Other states might also occur
+       during (and only during) an asynchronous connection procedure. These
+       indicate the current stage of the connection procedure and might be useful
+       to provide feedback to the user for example. These statuses are:␟接続している間は、いつでも<xref linkend="libpq-PQstatus"/>を呼び出すことで、接続の状態を検査することができます。
+この関数呼び出しが<symbol>CONNECTION_BAD</symbol>を返す場合、接続手続きは失敗しており、<symbol>CONNECTION_OK</symbol>を返す場合、接続が確立しています。
+上述のように、このいずれの状態も、<function>PQconnectPoll</function>の戻り値から同様に検出できます。
+これ以外の状態は、非同期の接続手続きの間（のみに）現れることがあります。
+これらは、接続手続きの現在の段階を示すものであり、例えばユーザへのフィードバックを提供することに使用できます。
+以下の状態があります。␞␞␞
+␝          <para>␟           Waiting for connection to be made.␟接続の確立待ち状態です。␞␞          </para>␞
+␝          <para>␟           Connection OK; waiting to send.␟接続はOKです。送信待ち状態です。␞␞          </para>␞
+␝          <para>␟           Waiting for a response from the server.␟サーバからの応答待ち状態です。␞␞          </para>␞
+␝          <para>␟           Received authentication; waiting for backend start-up to finish.␟        認証済みです。バックエンドの起動待ち状態です。␞␞          </para>␞
+␝          <para>␟           Negotiating SSL encryption.␟SSL暗号化の調停状態です。␞␞          </para>␞
+␝          <para>␟           Negotiating GSS encryption.␟GSS暗号化の調停状態です。␞␞          </para>␞
+␝          <para>␟           Checking if connection is able to handle write transactions.␟接続が書き込みトランザクションを扱えるかどうかを調べています。␞␞          </para>␞
+␝          <para>␟           Checking if connection is to a server in standby mode.␟接続がスタンバイモードのサーバに対するものかどうかを確認しています。␞␞          </para>␞
+␝          <para>␟           Consuming any remaining response messages on connection.␟接続の残りの応答メッセージを消費しています。␞␞          </para>␞
+␝␟       Note that, although these constants will remain (in order to maintain
+       compatibility), an application should never rely upon these occurring in a
+       particular order, or at all, or on the status always being one of these
+       documented values. An application might do something like this:␟これらの定数は（互換性を保つため）なくなることはありませんが、アプリケーションは、これらが特定の順で出現したり、本書に書いてある値のどれかに必ずステータス値が該当するということを決して当てにしてはいけません。
+アプリケーションは、以下に示すようにするべきです。␞␞<programlisting>␞
+␝      <para>␟       The <literal>connect_timeout</literal> connection parameter is ignored
+       when using <function>PQconnectPoll</function>; it is the application's
+       responsibility to decide whether an excessive amount of time has elapsed.
+       Otherwise, <function>PQconnectStart</function> followed by a
+       <function>PQconnectPoll</function> loop is equivalent to
+       <xref linkend="libpq-PQconnectdb"/>.␟<function>PQconnectPoll</function>を使用する場合、<literal>connect_timeout</literal>接続パラメータは無視されます。
+経過時間が長過ぎるかどうかの判定はアプリケーションの責任で行ないます。
+さもないと、<function>PQconnectStart</function>の後の<function>PQconnectPoll</function>の繰り返しが<xref linkend="libpq-PQconnectdb"/>と同じになります。␞␞      </para>␞
+␝      <para>␟       Note that when <function>PQconnectStart</function>
+       or <xref linkend="libpq-PQconnectStartParams"/> returns a non-null
+       pointer, you must call <xref linkend="libpq-PQfinish"/> when you are
+       finished with it, in order to dispose of the structure and any
+       associated memory blocks.  This must be done even if the connection
+       attempt fails or is abandoned.␟<function>PQconnectStart</function>や<xref linkend="libpq-PQconnectStartParams"/>が非NULLポインタを返した場合、処理を終了する際には、構造体や関連するメモリブロックを始末するために、<xref linkend="libpq-PQfinish"/>を呼び出さなくてはならないことに注意してください。
+この処理は、接続試行が失敗した場合やその試行を中断する場合にも、必ず実行されなければいけません。␞␞      </para>␞
+␝      <para>␟       <indexterm><primary>nonblocking connection</primary></indexterm>
+       Poll a connection's underlying socket descriptor retrieved with
+       <xref linkend="libpq-PQsocket"/>.
+       The primary use of this function is iterating through the connection
+       sequence described in the documentation of
+       <xref linkend="libpq-PQconnectStartParams"/>.␟<indexterm><primary>非ブロッキング接続</primary></indexterm><xref linkend="libpq-PQsocket"/>で取得された接続の基礎となるソケットディスクリプタをポーリングします。
+この関数の主な用途は、<xref linkend="libpq-PQconnectStartParams"/>の文書で説明されている接続シーケンスを繰り返すことにあります。␞␞<synopsis>␞
+␝      <para>␟       This function performs polling of a file descriptor, optionally with
+       a timeout.
+       If <parameter>forRead</parameter> is nonzero, the
+       function will terminate when the socket is ready for
+       reading. If <parameter>forWrite</parameter> is nonzero,
+       the function will terminate when the
+       socket is ready for writing.␟この関数は、ファイルディスクリプタのポーリングを実行し、オプションでタイムアウトも実行できます。
+<parameter>forRead</parameter>が非ゼロの場合、この関数はソケットの読取り準備が整ったときに終了します。
+<parameter>forWrite</parameter>が非ゼロの場合、この関数はソケットの書込み準備が整ったときに終了します。␞␞      </para>␞
+␝      <para>␟       The timeout is specified by <parameter>end_time</parameter>, which
+       is the time to stop waiting expressed as a number of microseconds since
+       the Unix epoch (that is, <type>time_t</type> times 1 million).
+       Timeout is infinite if <parameter>end_time</parameter>
+       is <literal>-1</literal>.  Timeout is immediate (no blocking) if
+       end_time is <literal>0</literal> (or indeed, any time before now).
+       Timeout values can be calculated conveniently by adding the desired
+       number of microseconds to the result of
+       <xref linkend="libpq-PQgetCurrentTimeUSec"/>.
+       Note that the underlying system calls may have less than microsecond
+       precision, so that the actual delay may be imprecise.␟タイムアウトは<parameter>end_time</parameter>で指定され、これは、Unixエポックからのマイクロ秒数で表される待機を停止する時間です（つまり、<type>time_t</type>×100万）。
+<parameter>end_time</parameter>が<literal>-1</literal>の場合、タイムアウトは無限になります。
+end_timeが<literal>0</literal>の場合、タイムアウトは即時（ブロッキングなし）です（実際には、現在時刻の前の任意の時刻でも構いません）。
+タイムアウト値は、<xref linkend="libpq-PQgetCurrentTimeUSec"/>の結果に所望のマイクロ秒数を加えることによって容易に計算できます。
+使用しているシステムコールの精度はマイクロ秒より劣っていることがあり、実際の遅延は不正確である可能性があることに注意してください。␞␞      </para>␞
+␝      <para>␟       The function returns a value greater than <literal>0</literal> if the
+       specified condition is met, <literal>0</literal> if a timeout occurred,
+       or <literal>-1</literal> if an error occurred. The error can be
+       retrieved by checking the <literal>errno(3)</literal> value. In the
+       event both <parameter>forRead</parameter>
+       and <parameter>forWrite</parameter> are zero, the function immediately
+       returns a timeout indication.␟この関数は、指定された条件が満たされた場合は<literal>0</literal>より大きい値を返し、タイムアウトが発生した場合は<literal>0</literal>を返し、エラーが発生した場合は<literal>-1</literal>を返します。
+エラーは、<literal>errno(3)</literal>値をチェックすることによって取得できます。
+<parameter>forRead</parameter>と<parameter>forWrite</parameter>の両方がゼロなら、関数はすぐにタイムアウトの戻り値を返します。␞␞      </para>␞
+␝      <para>␟       <function>PQsocketPoll</function> is implemented using either
+       <function>poll(2)</function> or <function>select(2)</function>,
+       depending on platform.  See <literal>POLLIN</literal>
+       and <literal>POLLOUT</literal> from <function>poll(2)</function>,
+       or <parameter>readfds</parameter> and
+       <parameter>writefds</parameter> from <function>select(2)</function>,
+       for more information.␟<function>PQsocketPoll</function>は、プラットフォームに依存して<function>select(2)</function>または<function>poll(2)</function>を使用して実装されています。
+詳細については、<function>poll(2)</function>の<literal>POLLIN</literal>と<literal>POLLOUT</literal>、<function>select(2)</function>の<parameter>readfds</parameter>と<parameter>writefds</parameter>を参照してください。␞␞      </para>␞
+␝      <para>␟       Returns the default connection options.␟デフォルトの接続オプションを返します。␞␞<synopsis>␞
+␝{␟    char   *keyword;   /* The keyword of the option */
+    char   *envvar;    /* Fallback environment variable name */
+    char   *compiled;  /* Fallback compiled in default value */
+    char   *val;       /* Option's current value, or NULL */
+    char   *label;     /* Label for field in connect dialog */
+    char   *dispchar;  /* Indicates how to display this field
+                          in a connect dialog. Values are:
+                          ""        Display entered value as is
+                          "*"       Password field - hide value
+                          "D"       Debug option - don't show by default */
+    int     dispsize;  /* Field size in characters for dialog */␟    char   *keyword;   /* このオプションのキーワード */
+    char   *envvar;    /* 代替となる環境変数の名前 */
+    char   *compiled;  /* 代替となるコンパイル時に組み込まれたデフォルト値 */
+    char   *val;       /* オプションの現在値、もしくは、NULL */
+    char   *label;     /* 接続ダイアログ内の当該フィールドのラベル */
+    char   *dispchar;  /* 接続ダイアログ内の当該フィールドをどのように表示するかの指示
+                          値:
+                          ""        入力された値をそのまま表示
+                          "*"       値を隠すパスワードフィールド用
+                          "D"       デバッグオプション。デフォルトで何も表示しません */
+    int     dispsize;  /* ダイアログ用のフィールドの大きさ(文字数単位) */␞␞} PQconninfoOption;␞
+␝      <para>␟       Returns a connection options array.  This can be used to determine
+       all possible <xref linkend="libpq-PQconnectdb"/> options and their
+       current default values.  The return value points to an array of
+       <structname>PQconninfoOption</structname> structures, which ends
+       with an entry having a null <structfield>keyword</structfield> pointer.  The
+       null pointer is returned if memory could not be allocated. Note that
+       the current default values (<structfield>val</structfield> fields)
+       will depend on environment variables and other context.  A
+       missing or invalid service file will be silently ignored.  Callers
+       must treat the connection options data as read-only.␟接続オプションの配列を返します。
+これは、使用可能な<xref linkend="libpq-PQconnectdb"/>用オプションのすべてや、その時点でのデフォルト値を決定するために使用することができます。
+戻り値は、<structname>PQconninfoOption</structname>構造体の配列へのポインタで、<structfield>keyword</structfield>ポインタがNULLとなる項目が配列の末尾にきます。
+メモリが確保できなかった場合にはNULLポインタを返します。
+現在のデフォルト値(<structfield>val</structfield> フィールド)は、環境変数や他のコンテキストに依存します。
+不足しているか無効なサービスファイルは無視されます。
+呼び出し側では、接続オプションの情報は、読み込み専用として取り扱わなければいけません。␞␞      </para>␞
+␝      <para>␟       After processing the options array, free it by passing it to
+       <xref linkend="libpq-PQconninfoFree"/>.  If this is not done, a small amount of memory
+       is leaked for each call to <xref linkend="libpq-PQconndefaults"/>.␟オプションの配列を処理した後は、それを<xref linkend="libpq-PQconninfoFree"/>に渡して解放します。
+この処理をしないと、<xref linkend="libpq-PQconndefaults"/>が呼び出されるたびに少しずつメモリリークが発生します。␞␞      </para>␞
+␝      <para>␟       Returns the connection options used by a live connection.␟所在する接続で使用される接続オプションを返します。␞␞<synopsis>␞
+␝      <para>␟       Returns a connection options array.  This can be used to determine
+       all possible <xref linkend="libpq-PQconnectdb"/> options and the
+       values that were used to connect to the server. The return
+       value points to an array of <structname>PQconninfoOption</structname>
+       structures, which ends with an entry having a null <structfield>keyword</structfield>
+       pointer. All notes above for <xref linkend="libpq-PQconndefaults"/> also
+       apply to the result of <xref linkend="libpq-PQconninfo"/>.␟接続オプション配列を返します。これは全ての可能性のある<xref linkend="libpq-PQconnectdb"/>オプションとサーバに接続するのに使用される値を確定するために使用することができます。
+戻り値は<structname>PQconninfoOption</structname>構造体の配列を指し示します。それはnull <structfield>keyword</structfield> ポインタを持つ項目で終結します。<xref linkend="libpq-PQconndefaults"/>に対する上記の全ての注釈はまた<xref linkend="libpq-PQconninfo"/>の結果に適用されます。␞␞      </para>␞
+␝      <para>␟       Returns parsed connection options from the provided connection string.␟提供された接続文字列から構文解析された接続オプションを返します。␞␞␞
+␝      <para>␟       Parses a connection string and returns the resulting options as an
+       array; or returns <symbol>NULL</symbol> if there is a problem with the connection
+       string.  This function can be used to extract
+       the <xref linkend="libpq-PQconnectdb"/> options in the provided
+       connection string.  The return value points to an array of
+       <structname>PQconninfoOption</structname> structures, which ends
+       with an entry having a null <structfield>keyword</structfield> pointer.␟接続文字列の構文解析を行い、配列として結果オプションを返すか、または接続文字列に問題があった場合に<symbol>NULL</symbol>を返します。
+この関数を提供された接続文字列の中の<xref linkend="libpq-PQconnectdb"/>オプションを取り出すために使用することができます。
+戻り値は<structname>PQconninfoOption</structname>構造体の配列を指し示し、それはNULLの<structfield>keyword</structfield>ポインタを持つ項目で終結します。␞␞      </para>␞
+␝      <para>␟       All legal options will be present in the result array, but the
+       <literal>PQconninfoOption</literal> for any option not present
+       in the connection string will have <literal>val</literal> set to
+       <literal>NULL</literal>; default values are not inserted.␟正規なオプションはすべて、結果配列内に現れます。
+しかし接続文字列内に現れない、何らかのオプション用の<literal>PQconninfoOption</literal>は<literal>NULL</literal>に設定された<literal>val</literal>を持ちます。
+デフォルトは挿入されません。␞␞      </para>␞
+␝      <para>␟       If <literal>errmsg</literal> is not <symbol>NULL</symbol>, then <literal>*errmsg</literal> is set
+       to <symbol>NULL</symbol> on success, else to a <function>malloc</function>'d error string explaining
+       the problem.  (It is also possible for <literal>*errmsg</literal> to be
+       set to <symbol>NULL</symbol> and the function to return <symbol>NULL</symbol>;
+       this indicates an out-of-memory condition.)␟<literal>errmsg</literal>が非<symbol>NULL</symbol>であれば、成功した場合<literal>*errmsg</literal>は<symbol>NULL</symbol>に設定され、そうでなければ、問題を説明した<function>malloc</function>されたエラー文字列になります。
+（<literal>*errmsg</literal>が<symbol>NULL</symbol>に設定され、かつ、この関数が<symbol>NULL</symbol>を返すこともあり得ます。
+これはメモリ不足状態を意味します。）␞␞      </para>␞
+␝      <para>␟       After processing the options array, free it by passing it to
+       <xref linkend="libpq-PQconninfoFree"/>.  If this is not done, some memory
+       is leaked for each call to <xref linkend="libpq-PQconninfoParse"/>.
+       Conversely, if an error occurs and <literal>errmsg</literal> is not <symbol>NULL</symbol>,
+       be sure to free the error string using <xref linkend="libpq-PQfreemem"/>.␟オプション配列を処理した後、それを<xref linkend="libpq-PQconninfoFree"/>に渡して解放してください。
+これが行われない場合、<xref linkend="libpq-PQconninfoParse"/>へのそれぞれの呼び出しに対してメモリリークが起こります。
+反対に、エラーが起こり、そして<literal>errmsg</literal>が非<symbol>NULL</symbol>であれば、<xref linkend="libpq-PQfreemem"/>を使用してエラー文字列を必ず解放してください。␞␞      </para>␞
+␝      <para>␟       Closes  the  connection to the server.  Also frees
+       memory used by the <structname>PGconn</structname> object.␟サーバとの接続を閉ざします。
+また、<structname>PGconn</structname>オブジェクトが占めるメモリも解放します。␞␞<synopsis>␞
+␝      <para>␟       Note that even if the server connection attempt fails (as
+       indicated by <xref linkend="libpq-PQstatus"/>), the application should call <xref linkend="libpq-PQfinish"/>
+       to free the memory used by the <structname>PGconn</structname> object.
+       The <structname>PGconn</structname> pointer must not be used again after
+       <xref linkend="libpq-PQfinish"/> has been called.␟たとえサーバへの接続試行が失敗しても（<xref linkend="libpq-PQstatus"/>で調べます）、アプリケーションは<xref linkend="libpq-PQfinish"/>を呼び出し<structname>PGconn</structname>オブジェクトが占めるメモリを解放するべきです。
+そして<xref linkend="libpq-PQfinish"/>を呼び出したら、もう<structname>PGconn</structname>へのポインタを使ってはいけません。␞␞      </para>␞
+␝      <para>␟       Resets the communication channel to the server.␟サーバへの通信チャネルをリセットします。␞␞<synopsis>␞
+␝      <para>␟       This function will close the connection
+       to the server and attempt to establish a new
+       connection, using all the same
+       parameters previously used.  This might be useful for
+       error recovery if a working connection is lost.␟この関数はサーバへの接続を閉じ、以前使用したパラメータをすべて使用して、同一のサーバへ新しく接続を確立します。
+これは、作業中の接続が失われた場合のエラーの修復に役立つでしょう。␞␞      </para>␞
+␝      <para>␟       Reset the communication channel to the server, in a nonblocking manner.␟非ブロッキング方式で、サーバへの通信チャネルをリセットします。␞␞␞
+␝      <para>␟       These functions will close the connection to the server and attempt to
+       establish a new connection, using all the same
+       parameters previously used. This can be useful for error recovery if a
+       working connection is lost. They differ from <xref linkend="libpq-PQreset"/> (above) in that they
+       act in a nonblocking manner. These functions suffer from the same
+       restrictions as <xref linkend="libpq-PQconnectStartParams"/>, <function>PQconnectStart</function>
+       and <function>PQconnectPoll</function>.␟これらの関数はサーバへの接続を閉じ、それから再度、以前使用したパラメータをすべて使用して、同じサーバと新たな接続を確立しようとします。
+これらは作業中の接続が失われた場合のエラー修復に役立つでしょう。
+<xref linkend="libpq-PQreset"/>（前述）との違いは、この2つの関数が非ブロック方式で動作することです。
+また、これらの関数は<xref linkend="libpq-PQconnectStartParams"/>、<function>PQconnectStart</function>および<function>PQconnectPoll</function>と同じ制限を受けます。␞␞      </para>␞
+␝      <para>␟       To initiate a connection reset, call
+       <xref linkend="libpq-PQresetStart"/>. If it returns 0, the reset has
+       failed. If it returns 1, poll the reset using
+       <function>PQresetPoll</function> in exactly the same way as you
+       would create the connection using <function>PQconnectPoll</function>.␟接続のリセットを始めるためには<xref linkend="libpq-PQresetStart"/>を呼び出します。
+この関数がゼロを返す場合、リセットに失敗しています。
+戻り値が1ならば、<function>PQconnectPoll</function>を使って接続を確立した時とまったく同じに、<function>PQresetPoll</function>を使用してリセットのポーリングを行います。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQpingParams"/> reports the status of the
+       server.  It accepts connection parameters identical to those of
+       <xref linkend="libpq-PQconnectdbParams"/>, described above.  It is not
+       necessary to supply correct user name, password, or database name
+       values to obtain the server status; however, if incorrect values
+       are provided, the server will log a failed connection attempt.␟<xref linkend="libpq-PQpingParams"/>はサーバの状態を報告します。
+この関数は上述の<xref linkend="libpq-PQconnectdbParams"/>と同じ接続パラメータを受け付けます。
+サーバの状態を得るために正しいユーザ名、パスワード、データベース名を提供する必要はありません。
+しかし、不適切な値が供給されると、サーバは不成功に終わった接続の試みをログに残します。␞␞␞
+␝␟       The function returns one of the following values:␟この関数は以下の値のいずれかを返します。␞␞␞
+␝          <para>␟           The server is running and appears to be accepting connections.␟サーバは稼働中で、接続を受け付けているようです。␞␞          </para>␞
+␝          <para>␟           The server is running but is in a state that disallows connections
+           (startup, shutdown, or crash recovery).␟サーバは稼働中ですが、接続を許可しない状態（起動処理中、停止処理中、クラッシュリカバリ中）です。␞␞          </para>␞
+␝          <para>␟           The server could not be contacted.  This might indicate that the
+           server is not running, or that there is something wrong with the
+           given connection parameters (for example, wrong port number), or
+           that there is a network connectivity problem (for example, a
+           firewall blocking the connection request).␟サーバと通信できません。
+これは、サーバが稼働中ではない、指定した接続パラメータの何か（例えばポート番号の間違い）が間違っている、ネットワーク接続性の問題（例えば接続要求をブロックするファイアウォール）があることを示しているかもしれません。␞␞          </para>␞
+␝          <para>␟           No attempt was made to contact the server, because the supplied
+           parameters were obviously incorrect or there was some client-side
+           problem (for example, out of memory).␟指定されたパラメータが明らかに間違っている、または、（メモリ不足など）クライアント側の問題があったため、サーバとの通信を試行しませんでした。␞␞          </para>␞
+␝      <para>␟       <xref linkend="libpq-PQping"/> reports the status of the
+       server.  It accepts connection parameters identical to those of
+       <xref linkend="libpq-PQconnectdb"/>, described above.  It is not
+       necessary to supply correct user name, password, or database name
+       values to obtain the server status; however, if incorrect values
+       are provided, the server will log a failed connection attempt.␟<xref linkend="libpq-PQping"/>はサーバの状態を報告します。
+この関数は上述の<xref linkend="libpq-PQconnectdb"/>と同じ接続パラメータを受け付けます。
+サーバの状態を得るために正しいユーザ名、パスワード、データベース名を提供する必要はありません。
+しかし、不適切な値が供給されると、サーバは不成功に終わった接続の試みをログに残します。␞␞␞
+␝      <para>␟       The return values are the same as for <xref linkend="libpq-PQpingParams"/>.␟戻り値は<xref linkend="libpq-PQpingParams"/>と同じです。␞␞      </para>␞
+␝      <para>␟       <function>PQsetSSLKeyPassHook_OpenSSL</function> lets an application override
+       <application>libpq</application>'s <link linkend="libpq-ssl-clientcert">default
+       handling of encrypted client certificate key files</link> using
+       <xref linkend="libpq-connect-sslpassword"/> or interactive prompting.␟<function>PQsetSSLKeyPassHook_OpenSSL</function>はアプリケーションに<xref linkend="libpq-connect-sslpassword"/>や対話的なプロンプトを使って<application>libpq</application>の<link linkend="libpq-ssl-clientcert">暗号化されたクライアント証明書キーファイルのデフォルト処理</link>を置き換えさせます。␞␞␞
+␝␟       The application passes a pointer to a callback function with signature:␟アプリケーションは以下のシグネチャを持つコールバック関数のポインタを渡します。␞␞<programlisting>␞
+␝</programlisting>␟       which <application>libpq</application> will then call
+       <emphasis>instead of</emphasis> its default
+       <function>PQdefaultSSLKeyPassHook_OpenSSL</function> handler. The
+       callback should determine the password for the key and copy it to
+       result-buffer <parameter>buf</parameter> of size
+       <parameter>size</parameter>. The string in <parameter>buf</parameter>
+       must be null-terminated. The callback must return the length of the
+       password stored in <parameter>buf</parameter> excluding the null
+       terminator. On failure, the callback should set
+       <literal>buf[0] = '\0'</literal> and return 0. See
+       <function>PQdefaultSSLKeyPassHook_OpenSSL</function> in
+       <application>libpq</application>'s source code for an example.␟<application>libpq</application>はデフォルトの<function>PQdefaultSSLKeyPassHook_OpenSSL</function>ハンドラ<emphasis>の代わりに</emphasis>、これを呼び出します。
+コールバックはキーに対するパスワードを決定して、それを<parameter>size</parameter>の大きさを持つ結果バッファ<parameter>buf</parameter>にコピーすべきです。
+<parameter>buf</parameter>内の文字列はNULL終端でなければなりません。
+コールバックは<parameter>buf</parameter>に格納されたパスワードのNULL終端子を除いた長さを返さなければなりません。
+失敗した場合、コールバックは<literal>buf[0] = '\0'</literal>をセットし、0を返すべきです。
+例として、<application>libpq</application>のソースコードの<function>PQdefaultSSLKeyPassHook_OpenSSL</function>を参照してください。␞␞      </para>␞
+␝      <para>␟       If the user specified an explicit key location,
+       its path will be in <literal>conn->sslkey</literal> when the callback
+       is invoked. This will be empty if the default key path is being used.
+       For keys that are engine specifiers, it is up to engine implementations
+       whether they use the <productname>OpenSSL</productname> password
+       callback or define their own handling.␟ユーザが明示的なキー位置を指定した場合、コールバックが実行されたときにそのパスが<literal>conn->sslkey</literal>に含まれます。
+デフォルトのキーパスが使われている場合、これは空になります。
+エンジン指定子であるキーに対して、<productname>OpenSSL</productname>パスワードコールバックを使うか固有の処理を定義するかは、エンジン実装によります。␞␞      </para>␞
+␝      <para>␟       The app callback may choose to delegate unhandled cases to
+       <function>PQdefaultSSLKeyPassHook_OpenSSL</function>,
+       or call it first and try something else if it returns 0, or completely override it.␟アプリケーションのコールバックが対応していない場合について<function>PQdefaultSSLKeyPassHook_OpenSSL</function>に委託したり、最初に呼び出して0が返った場合に何らか他のことを試みたり、あるいは完全に上書きしたりすることにしても良いです。␞␞      </para>␞
+␝      <para>␟       The callback <emphasis>must not</emphasis> escape normal flow control with exceptions,
+       <function>longjmp(...)</function>, etc. It must return normally.␟コールバックは例外、<function>longjmp(...)</function>などで通常のフロー制御から脱出しては<emphasis>いけません</emphasis>。
+正常にリターンしなければなりません。␞␞      </para>␞
+␝      <para>␟       <function>PQgetSSLKeyPassHook_OpenSSL</function> returns the current
+       client certificate key password hook, or <literal>NULL</literal>
+       if none has been set.␟<function>PQgetSSLKeyPassHook_OpenSSL</function>は現在のクライアント証明書のキーパスワードのフックを、あるいは、設定されていない場合に<literal>NULL</literal>を返します。␞␞␞
+␝  <sect2 id="libpq-connstring">␟   <title>Connection Strings</title>␟   <title>接続文字列</title>␞␞␞
+␝   <para>␟    Several <application>libpq</application> functions parse a user-specified string to obtain
+    connection parameters.  There are two accepted formats for these strings:
+    plain keyword/value strings
+    and URIs.  URIs generally follow
+    <ulink url="https://datatracker.ietf.org/doc/html/rfc3986">RFC
+    3986</ulink>, except that multi-host connection strings are allowed
+    as further described below.␟複数の<application>libpq</application>関数は、接続パラメータを得るためにユーザが指定した文字列の解析を行います。
+この文字列として、単純なキーワード/値文字列とURIという２種類の書式が受け付けられます。
+URIは通常<ulink url="https://datatracker.ietf.org/doc/html/rfc3986">RFC 3986</ulink>に従いますが、以下で詳細を説明する複数ホスト接続文字列が使用できるところが例外です。␞␞   </para>␞
+␝   <sect3 id="libpq-connstring-keyword-value">␟    <title>Keyword/Value Connection Strings</title>␟    <title>キーワード／値形式の接続文字列</title>␞␞␞
+␝   <para>␟    In the keyword/value format, each parameter setting is in the form
+    <replaceable>keyword</replaceable> <literal>=</literal>
+    <replaceable>value</replaceable>, with space(s) between settings.
+    Spaces around a setting's equal sign are
+    optional. To write an empty value, or a value containing spaces, surround it
+    with single quotes, for example <literal>keyword = 'a value'</literal>.
+    Single quotes and backslashes within
+    a value must be escaped with a backslash, i.e., <literal>\'</literal> and
+    <literal>\\</literal>.␟キーワード／値書式では、各パラメータ設定は、各設定の間に空白文字があり、<replaceable>keyword</replaceable> <literal>=</literal> <replaceable>value</replaceable>という形式です。
+等号記号の前後の空白文字は省略可能です。
+空の値を書く、または空白文字を含む値を書くためには、<literal>keyword = 'a value'</literal>のように単一引用符で値を括ります。
+値内部の単一引用符とバックスラッシュはバックスラッシュでエスケープしなければなりません。
+つまり<literal>\'</literal>と<literal>\\</literal>です。␞␞   </para>␞
+␝   <para>␟    Example:␟以下に例を示します。␞␞<programlisting>␞
+␝   <para>␟    The recognized parameter key words are listed in <xref
+    linkend="libpq-paramkeywords"/>.␟有効なパラメータキーワードを<xref linkend="libpq-paramkeywords"/>に示します。␞␞   </para>␞
+␝   <sect3 id="libpq-connstring-uris">␟    <title>Connection URIs</title>␟    <title>接続URI</title>␞␞␞
+␝   <para>␟   The general form for a connection <acronym>URI</acronym> is:␟接続<acronym>URI</acronym>の一般的な形式を以下に示します。␞␞<synopsis>␞
+␝   <para>␟    The <acronym>URI</acronym> scheme designator can be either
+    <literal>postgresql://</literal> or <literal>postgres://</literal>.  Each
+    of the remaining <acronym>URI</acronym> parts is optional.  The
+    following examples illustrate valid <acronym>URI</acronym> syntax:␟<acronym>URI</acronym>スキーム指示子は<literal>postgresql://</literal>または<literal>postgres://</literal>のいずれかを取ることができます。
+個々の<acronym>URI</acronym>の残りの部品は省略可能です。
+以下の例で有効な<acronym>URI</acronym>構文の使用例を示します。␞␞<programlisting>␞
+␝</programlisting>␟    Values that would normally appear in the hierarchical part of
+    the <acronym>URI</acronym> can alternatively be given as named
+    parameters.  For example:␟<acronym>URI</acronym>の階層部分に通常現れる値は、代わりに名前付きパラメータとして与えられます。例:␞␞<programlisting>␞
+␝</programlisting>␟    All named parameters must match key words listed in
+    <xref linkend="libpq-paramkeywords"/>, except that for compatibility
+    with JDBC connection <acronym>URI</acronym>s, instances
+    of <literal>ssl=true</literal> are translated into
+    <literal>sslmode=require</literal>.␟JDBC接続<acronym>URI</acronym>との互換性のために、<literal>ssl=true</literal>のインスタンスが<literal>sslmode=require</literal>に変換される点を除き、すべての名前付きパラメータは<xref linkend="libpq-paramkeywords"/>に列挙されたキーワードと一致しなければなりません。␞␞   </para>␞
+␝   <para>␟    The connection <acronym>URI</acronym> needs to be encoded with <ulink
+    url="https://datatracker.ietf.org/doc/html/rfc3986#section-2.1">percent-encoding</ulink>
+    if it includes symbols with special meaning in any of its parts.  Here is
+    an example where the equal sign (<literal>=</literal>) is replaced with
+    <literal>%3D</literal> and the space character with
+    <literal>%20</literal>:␟接続<acronym>URI</acronym>は、その中のどこかの部分に特別な意味を持つシンボルを含む場合、<ulink url="https://datatracker.ietf.org/doc/html/rfc3986#section-2.1">パーセントエンコーディング</ulink>でエンコードされている必要があります。
+以下は等号(<literal>=</literal>)が<literal>%3D</literal>、空白が<literal>%20</literal>で置き換えられた例です。␞␞<programlisting>␞
+␝   <para>␟    The host part may be either a host name or an IP address.  To specify an
+    IPv6 address, enclose it in square brackets:␟ホスト部分は、ホスト名またはIPアドレスのいずれかです。
+IPv6アドレスを指定するには、角括弧で囲みます:␞␞<synopsis>␞
+␝   <para>␟    The host part is interpreted as described for the parameter <xref
+    linkend="libpq-connect-host"/>.  In particular, a Unix-domain socket
+    connection is chosen if the host part is either empty or looks like an
+    absolute path name,
+    otherwise a TCP/IP connection is initiated.  Note, however, that the
+    slash is a reserved character in the hierarchical part of the URI.  So, to
+    specify a non-standard Unix-domain socket directory, either omit the host
+    part of the URI and specify the host as a named parameter, or
+    percent-encode the path in the host part of the URI:␟ホスト部分はパラメータ<xref linkend="libpq-connect-host"/>で説明したように解釈されます。
+具体的には、ホスト部が空または絶対パス名のように見える場合、Unixドメインソケット接続が選択され、さもなければTCP/IP接続で初期化されます。
+しかしURIの階層部ではスラッシュが予約された文字であることに注意してください。
+このため、標準以外のUnixドメインソケットディレクトリを指定するためには、URIからホスト指定を省き、名前付きパラメータとしてホストを指定するか、URIのホスト要素内のパスをパーセントエンコードするかどちらかを行ってください。␞␞<programlisting>␞
+␝   <para>␟    It is possible to specify multiple host components, each with an optional
+    port component, in a single URI.  A URI of the form
+    <literal>postgresql://host1:port1,host2:port2,host3:port3/</literal>
+    is equivalent to a connection string of the form
+    <literal>host=host1,host2,host3 port=port1,port2,port3</literal>.
+    As further described below, each
+    host will be tried in turn until a connection is successfully established.␟単一のURIの中に、オプションのポート要素を伴う複数のホスト要素を指定することができます。
+<literal>postgresql://host1:port1,host2:port2,host3:port3/</literal>という形式のURIは、<literal>host=host1,host2,host3 port=port1,port2,port3</literal>という形式の接続文字列と同じです。
+更に以下に示すように、接続の確立に成功するまで、各々のホストが順番に試されます。␞␞   </para>␞
+␝   <sect3 id="libpq-multiple-hosts">␟     <title>Specifying Multiple Hosts</title>␟     <title>複数ホストの指定</title>␞␞␞
+␝     <para>␟       It is possible to specify multiple hosts to connect to, so that they are
+       tried in the given order. In the Keyword/Value format, the <literal>host</literal>,
+       <literal>hostaddr</literal>, and <literal>port</literal> options accept comma-separated
+       lists of values. The same number of elements must be given in each
+       option that is specified, such
+       that e.g., the first <literal>hostaddr</literal> corresponds to the first host name,
+       the second <literal>hostaddr</literal> corresponds to the second host name, and so
+       forth. As an exception, if only one <literal>port</literal> is specified, it
+       applies to all the hosts.␟接続先に複数のホストを指定することができ、指定された順に試されます。
+キーワード/値形式では、<literal>host</literal>、<literal>hostaddr</literal>、<literal>port</literal>オプションは、カンマで区切った値のリストを受け付けます。
+指定された各々のオプションでは、同じ数の要素を与えなければなりません。
+たとえば、最初の<literal>hostaddr</literal>は最初のホスト名に関連付けられ、二番目の<literal>hostaddr</literal>は二番目のホスト名に関連付けられる、という具合です。
+例外として、一つの<literal>port</literal>だけが指定された場合には、すべてのホストにそれが適用されます。␞␞     </para>␞
+␝     <para>␟       In the connection URI format, you can list multiple <literal>host:port</literal> pairs
+       separated by commas in the <literal>host</literal> component of the URI.␟接続URI形式では、<literal>host</literal>要素中にカンマで区切って複数の<literal>host:port</literal>ペアを指定できます。␞␞     </para>␞
+␝     <para>␟       In either format, a single host name can translate to multiple network
+       addresses. A common example of this is a host that has both an IPv4 and
+       an IPv6 address.␟いずれの形式でも、単一ホスト名は複数のネットワークアドレスに変換されることがあります。
+これの一般的な例はIPv4とIPv6のアドレスを両方持つホストです。␞␞     </para>␞
+␝     <para>␟       When multiple hosts are specified, or when a single host name is
+       translated to multiple addresses,  all the hosts and addresses will be
+       tried in order, until one succeeds. If none of the hosts can be reached,
+       the connection fails. If a connection is established successfully, but
+       authentication fails, the remaining hosts in the list are not tried.␟複数のホスト名が指定された場合、あるいは単一のホスト名が複数のアドレスに変換された場合、そのうちの一つが成功するまで、すべてのホストとアドレスがその順に試されます。
+どのホストも到達可能でなければ、接続は失敗します。
+接続の確立に成功しても、認証に失敗すると、リスト中の残りのホストは試されません。␞␞     </para>␞
+␝     <para>␟       If a password file is used, you can have different passwords for
+       different hosts. All the other connection options are the same for every
+       host in the list; it is not possible to e.g., specify different
+       usernames for different hosts.␟パスワードファイルが使用される場合は、異なるホストに対して異なるパスワードを使用できます。
+他の接続オプションは、リスト中のすべてのホストで同じです。
+たとえば、異なるユーザ名を異なるホストに指定することはできません。␞␞     </para>␞
+␝  <sect2 id="libpq-paramkeywords">␟   <title>Parameter Key Words</title>␟   <title>パラメータキーワード</title>␞␞␞
+␝   <para>␟    The currently recognized parameter key words are:␟現時点で有効なパラメータのキーワードは以下に示す通りです。␞␞␞
+␝       <para>␟        Name of host to connect to.<indexterm><primary>host
+        name</primary></indexterm> If a host name looks like an absolute path
+        name, it specifies Unix-domain communication rather than TCP/IP
+        communication; the value is the name of the directory in which the
+        socket file is stored.  (On Unix, an absolute path name begins with a
+        slash.  On Windows, paths starting with drive letters are also
+        recognized.)  If the host name starts with <literal>@</literal>, it is
+        taken as a Unix-domain socket in the abstract namespace (currently
+        supported on Linux and Windows).
+        The default behavior when <literal>host</literal> is not
+        specified, or is empty, is to connect to a Unix-domain
+        socket<indexterm><primary>Unix domain socket</primary></indexterm> in
+        <filename>/tmp</filename> (or whatever socket directory was specified
+        when <productname>PostgreSQL</productname> was built).  On Windows,
+        the default is to connect to <literal>localhost</literal>.␟接続するホスト名を指定します。
+<indexterm><primary>ホスト名</primary></indexterm> ホスト名が絶対パス名のように見えるなら、それはTCP/IPによる通信ではなく、Unixドメインの通信を示します。
+その場合、この値はソケットファイルを格納するディレクトリの名前になります。
+（Unixでは絶対パス名はスラッシュから始まります。Windowsではドライブ文字から始まるパスも認められます。）
+ホスト名が<literal>@</literal>から始まっていると、抽象名前空間（今のところLinuxとWindowsでサポートされています）内のUnixドメインソケットとして扱われます。
+<literal>host</literal>が指定されなかったり、空の場合のデフォルトの振る舞いは、<filename>/tmp</filename>（または、<productname>PostgreSQL</productname>の構築時に指定したソケットディレクトリ）にあるUnixドメインのソケットに接続することです。
+<indexterm><primary>Unixドメインソケット</primary></indexterm>
+Windowsでは、デフォルトは<literal>localhost</literal>に接続することです。␞␞       </para>␞
+␝       <para>␟        A comma-separated list of host names is also accepted, in which case
+        each host name in the list is tried in order; an empty item in the
+        list selects the default behavior as explained above. See
+        <xref linkend="libpq-multiple-hosts"/> for details.␟カンマで区切ったホスト名も受け付けます。
+この場合、リスト中のホスト名が順に試されます。
+リスト中の空の項目には、上で説明したデフォルトの挙動が適用されます。
+詳細は<xref linkend="libpq-multiple-hosts"/>をご覧ください。␞␞       </para>␞
+␝       <para>␟        Numeric IP address of host to connect to.  This should be in the
+        standard IPv4 address format, e.g., <literal>172.28.40.9</literal>.  If
+        your machine supports IPv6, you can also use those addresses.
+        TCP/IP communication is
+        always used when a nonempty string is specified for this parameter.
+        If this parameter is not specified, the value of <literal>host</literal>
+        will be looked up to find the corresponding IP address &mdash; or, if
+        <literal>host</literal> specifies an IP address, that value will be
+        used directly.␟接続するホストのIPアドレスを指定します。
+これは、<literal>172.28.40.9</literal>といった標準的なIPv4アドレス書式でなければなりません。
+使用するマシンでIPv6をサポートする場合は、そのアドレスを使用することもできます。
+このパラメータに空以外の文字列が指定されると、TCP/IP通信が常に使用されます。
+パラメータが指定されない場合、対応するIPアドレスを探すために<literal>host</literal>の値が調べられます。あるいは、<literal>host</literal>でIPアドレスを指定している場合、その値が直接使われます。␞␞       </para>␞
+␝       <para>␟        Using <literal>hostaddr</literal> allows the
+        application to avoid a host name look-up, which might be important
+        in applications with time constraints. However, a host name is
+        required for GSSAPI or SSPI authentication
+        methods, as well as for <literal>verify-full</literal> SSL
+        certificate verification.  The following rules are used:␟<literal>hostaddr</literal>を使用することで、アプリケーションがホスト名の検索を行なわずに済みます。
+特に時間的制約があるアプリケーションでは重要になるでしょう。
+しかし、GSSAPI、SSPI認証方式では、ホスト名が必要になります。
+<literal>verify-full</literal>SSL証明書検証を行う場合も同様です。
+以下の規則が使用されます。␞␞        <itemizedlist>␞
+␝          <para>␟           If <literal>host</literal> is specified
+           without <literal>hostaddr</literal>, a host name lookup occurs.
+           (When using <function>PQconnectPoll</function>, the lookup occurs
+           when <function>PQconnectPoll</function> first considers this host
+           name, and it may cause <function>PQconnectPoll</function> to block
+           for a significant amount of time.)␟<literal>hostaddr</literal>を使わずに<literal>host</literal>を指定した場合は、ホスト名の検索が発生します。
+（<function>PQconnectPoll</function>を使う場合、<function>PQconnectPoll</function>が最初にホスト名を考慮するときに、<function>PQconnectPoll</function>をかなり長い時間、ブロックさせてしまうかもしれません。）␞␞          </para>␞
+␝          <para>␟           If <literal>hostaddr</literal> is specified without <literal>host</literal>,
+           the value for <literal>hostaddr</literal> gives the server network address.
+           The connection attempt will fail if the authentication
+           method requires a host name.␟<literal>host</literal>を使わずに<literal>hostaddr</literal>を指定した場合、<literal>hostaddr</literal>の値はサーバのネットワークアドレスとなります。
+認証方式がホスト名を必要する場合は接続試行が失敗します。␞␞          </para>␞
+␝          <para>␟           If both <literal>host</literal> and <literal>hostaddr</literal> are specified,
+           the value for <literal>hostaddr</literal> gives the server network address.
+           The value for <literal>host</literal> is ignored unless the
+           authentication method requires it, in which case it will be
+           used as the host name.␟<literal>host</literal>と<literal>hostaddr</literal>の両方を指定した場合、<literal>hostaddr</literal>がサーバのネットワークアドレスとなります。
+<literal>host</literal>の値は認証方式で必要とされない限り無視され、必要とされる場合にはホスト名として使用されます。␞␞          </para>␞
+␝        </itemizedlist>␟        Note that authentication is likely to fail if <literal>host</literal>
+        is not the name of the server at network address <literal>hostaddr</literal>.
+        Also, when both <literal>host</literal> and <literal>hostaddr</literal>
+        are specified, <literal>host</literal>
+        is used to identify the connection in a password file (see
+        <xref linkend="libpq-pgpass"/>).␟<literal>host</literal>が<literal>hostaddr</literal>ネットワークアドレスに対応するマシンの名前と一致しない場合は、認証に失敗する可能性があるので注意してください。
+また、<literal>host</literal>と<literal>hostaddr</literal>の両方が指定されると、<literal>host</literal>がパスワードファイル(<xref linkend="libpq-pgpass"/>を参照)での接続の識別に使用されます。␞␞       </para>␞
+␝       <para>␟        A comma-separated list of <literal>hostaddr</literal> values is also
+        accepted, in which case each host in the list is tried in order.
+        An empty item in the list causes the corresponding host name to be
+        used, or the default host name if that is empty as well. See
+        <xref linkend="libpq-multiple-hosts"/> for details.␟カンマ区切りの<literal>hostaddr</literal>値のリストも受け付けます。
+この場合、リスト中のホストが順に試されます。
+リスト中の空の項目には、対応するホスト名が使用されます。
+そのホスト名も空の場合は、デフォルトのホスト名が使用されます。
+詳細は<xref linkend="libpq-multiple-hosts"/>をご覧ください。␞␞       </para>␞
+␝       <para>␟        Without either a host name or host address,
+        <application>libpq</application> will connect using a local
+        Unix-domain socket; or on Windows, it will attempt to connect to
+        <literal>localhost</literal>.␟ホスト名もホストのアドレスも用いない場合、<application>libpq</application>はローカルのUnixドメインソケットを使用して接続します。
+Windowsでは、<literal>localhost</literal>への接続を試みます。␞␞       </para>␞
+␝       <para>␟        Port number to connect to at the server host, or socket file
+        name extension for Unix-domain
+        connections.<indexterm><primary>port</primary></indexterm>
+        If multiple hosts were given in the <literal>host</literal> or
+        <literal>hostaddr</literal> parameters, this parameter may specify a
+        comma-separated list of ports of the same length as the host list, or
+        it may specify a single port number to be used for all hosts.
+        An empty string, or an empty item in a comma-separated list,
+        specifies the default port number established
+        when <productname>PostgreSQL</productname> was built.␟サーバホストでの接続用のポート番号、または、Unixドメイン接続の場合は、ソケットファイルの拡張子を指定します。
+<indexterm><primary>port</primary></indexterm>
+もし複数のホストが<literal>host</literal>あるいは<literal>hostaddr</literal>パラメータで与えられると、このパラメータで同じ長さのポートのリストを与えることができます。
+あるいは、一つのポート番号をすべてのホストに指定することもできます。
+空文字、あるいはカンマ区切りリスト中の空の項目は、<productname>PostgreSQL</productname>が構築されたときに設定されたデフォルトポート番号を指定します。␞␞       </para>␞
+␝      <para>␟       The database name.  Defaults to be the same as the user name.
+       In certain contexts, the value is checked for extended
+       formats; see <xref linkend="libpq-connstring"/> for more details on
+       those.␟データベース名を指定します。
+デフォルトはユーザ名と同じです。
+特定の文脈では、この値は拡張書式で検査されます。
+詳細については<xref linkend="libpq-connstring"/>を参照してください。␞␞      </para>␞
+␝      <para>␟       <productname>PostgreSQL</productname> user name to connect as.
+       Defaults to be the same as the operating system name of the user
+       running the application.␟データベースへ接続する<productname>PostgreSQL</productname>ユーザ名を指定します。
+デフォルトは、そのアプリケーションを実行しているユーザのオペレーティングシステム上の名前と同じです。␞␞      </para>␞
+␝      <para>␟       Password to be used if the server demands password authentication.␟サーバがパスワードによる認証を必要とした場合に使用されるパスワードを指定します。␞␞      </para>␞
+␝      <para>␟       Specifies the name of the file used to store passwords
+       (see <xref linkend="libpq-pgpass"/>).
+       Defaults to <filename>~/.pgpass</filename>, or
+       <filename>%APPDATA%\postgresql\pgpass.conf</filename> on Microsoft Windows.
+       (No error is reported if this file does not exist.)␟パスワードを格納するファイル名を指定します（<xref linkend="libpq-pgpass"/>参照）。
+デフォルトは<filename>~/.pgpass</filename>または、Microsoft Windowsでは<filename>%APPDATA%\postgresql\pgpass.conf</filename>です。
+（このファイルが存在しなくてもエラーは報告されません。）␞␞      </para>␞
+␝      <para>␟        Specifies the authentication method that the client requires from the
+        server. If the server does not use the required method to authenticate
+        the client, or if the authentication handshake is not fully completed by
+        the server, the connection will fail. A comma-separated list of methods
+        may also be provided, of which the server must use exactly one in order
+        for the connection to succeed. By default, any authentication method is
+        accepted, and the server is free to skip authentication altogether.␟クライアントがサーバに要求する認証方式を指定します。
+サーバがクライアントの認証に必要な方式を使用しない場合、またはサーバが認証ハンドシェイクを完全に完了しない場合、接続は失敗します。
+必要な方式のカンマ区切りリストも指定できます。サーバは接続に成功するために、このリストのうちの1つを使用する必要があります。
+デフォルトでは、任意の認証方式が受け入れられ、サーバは認証を完全に省略できます。␞␞      </para>␞
+␝      <para>␟        Methods may be negated with the addition of a <literal>!</literal>
+        prefix, in which case the server must <emphasis>not</emphasis> attempt
+        the listed method; any other method is accepted, and the server is free
+        not to authenticate the client at all. If a comma-separated list is
+        provided, the server may not attempt <emphasis>any</emphasis> of the
+        listed negated methods. Negated and non-negated forms may not be
+        combined in the same setting.␟方式は、<literal>!</literal>接頭辞を付けて否定できます。
+その場合、サーバはリストされた方式を試み<emphasis>ない</emphasis>ことになります。
+他の方式はすべて受け入れられます。また、サーバがクライアントを全く認証しないこともできます。
+カンマ区切りのリストが与えられた場合、サーバは、リストされた否定された方式の<emphasis>いずれも</emphasis>試みません。
+否定された形式と否定されていない形式は、同じ設定では組み合わせることができません。␞␞      </para>␞
+␝      <para>␟        As a final special case, the <literal>none</literal> method requires the
+        server not to use an authentication challenge. (It may also be negated,
+        to require some form of authentication.)␟最後の特殊な場合として、<literal>none</literal>方式はサーバが認証チャレンジを使用しないことを要求します。
+（何らかの形の認証を要求するために否定されることもあります。）␞␞      </para>␞
+␝      <para>␟        The following methods may be specified:␟以下の方式を指定できます。␞␞␞
+␝           <para>␟            The server must request plaintext password authentication.␟サーバは、平文パスワード認証を要求しなければなりません。␞␞           </para>␞
+␝           <para>␟            The server must request MD5 hashed password authentication.␟サーバは、MD5ハッシュパスワード認証を要求しなければなりません。␞␞           </para>␞
+␝           <para>␟            The server must either request a Kerberos handshake via
+            <acronym>GSSAPI</acronym> or establish a
+            <acronym>GSS</acronym>-encrypted channel (see also
+            <xref linkend="libpq-connect-gssencmode" />).␟サーバは<acronym>GSSAPI</acronym>を介してKerberosハンドシェイクを要求するか、<acronym>GSS</acronym>で暗号化されたチャネルを確立しなければなりません（<xref linkend="libpq-connect-gssencmode" />も参照してください）。␞␞           </para>␞
+␝           <para>␟            The server must request Windows <acronym>SSPI</acronym>
+            authentication.␟サーバはWindows <acronym>SSPI</acronym>認証を要求しなければなりません。␞␞           </para>␞
+␝           <para>␟            The server must successfully complete a SCRAM-SHA-256 authentication
+            exchange with the client.␟サーバは、クライアントとのSCRAM-SHA-256認証交換を正常に完了しなければなりません。␞␞           </para>␞
+␝           <para>␟            The server must not prompt the client for an authentication
+            exchange. (This does not prohibit client certificate authentication
+            via TLS, nor GSS authentication via its encrypted transport.)␟サーバはクライアントに認証交換を要求してはなりません。
+（これは、TLSによるクライアント証明書認証や、その暗号化されたトランスポートによるGSS認証を禁止するものではありません。）␞␞           </para>␞
+␝      <para>␟        This option controls the client's use of channel binding. A setting
+        of <literal>require</literal> means that the connection must employ
+        channel binding, <literal>prefer</literal> means that the client will
+        choose channel binding if available, and <literal>disable</literal>
+        prevents the use of channel binding. The default
+        is <literal>prefer</literal> if
+        <productname>PostgreSQL</productname> is compiled with SSL support;
+        otherwise the default is <literal>disable</literal>.␟このオプションはクライアントのチャネルバインディングの使用を制御します。
+<literal>require</literal>設定では接続はチャネルバインディングを使わなければならず、<literal>prefer</literal>ではクライアントが可能であればチャネルバインディングを使い、<literal>disable</literal>ではチャネルバインディングを使用させません。
+<productname>PostgreSQL</productname>がSSLサポートを伴ってコンパイルされている場合のデフォルトは<literal>prefer</literal>で、そうでなければデフォルトは<literal>disable</literal>です。␞␞      </para>␞
+␝      <para>␟        Channel binding is a method for the server to authenticate itself to
+        the client. It is only supported over SSL connections
+        with <productname>PostgreSQL</productname> 11 or later servers using
+        the <literal>SCRAM</literal> authentication method.␟チャネルバインディングはサーバが自身が信頼できることをクライアントに証明する方法です。
+これは、<literal>SCRAM</literal>認証方式を使った<productname>PostgreSQL</productname> 11以降のサーバとのSSL接続上でのみサポートされます。␞␞      </para>␞
+␝      <para>␟       Maximum time to wait while connecting, in seconds (write as a decimal integer,
+       e.g., <literal>10</literal>).  Zero, negative, or not specified means
+       wait indefinitely.
+       This timeout applies separately to each host name or IP address.
+       For example, if you specify two hosts and <literal>connect_timeout</literal>
+       is 5, each host will time out if no connection is made within 5
+       seconds, so the total time spent waiting for a connection might be
+       up to 10 seconds.␟接続中の最大待機時間を秒単位（10進整数で記述してください、<literal>10</literal>など）で指定します。
+ゼロ、負値、もしくは未設定は、無期限の待機を意味します。
+このタイムアウトは各ホスト名やIPアドレスに別々に適用されます。
+例えば、二つのホストを指定して、<literal>connect_timeout</literal>が5であるなら、各ホストが5秒以内に接続できないときにタイムアウトして、接続を待つ合計所要時間は10秒近くになるかもしれません。␞␞      </para>␞
+␝      <para>␟       This sets the <varname>client_encoding</varname>
+       configuration parameter for this connection.  In addition to
+       the values accepted by the corresponding server option, you
+       can use <literal>auto</literal> to determine the right
+       encoding from the current locale in the client
+       (<envar>LC_CTYPE</envar> environment variable on Unix
+       systems).␟接続用の<varname>client_encoding</varname>設定パラメータを設定します。
+対応するサーバオプションで受け付けられる値の他に、クライアントにおける現在のロケール（Unixシステムの場合は<envar>LC_CTYPE</envar>環境変数）から正しい符号化方式を決定する<literal>auto</literal>を使用することができます。␞␞      </para>␞
+␝       <para>␟        Specifies command-line options to send to the server at connection
+        start.  For example, setting this to <literal>-c geqo=off</literal>
+        or <literal>--geqo=off</literal> sets the session's value of the
+        <varname>geqo</varname> parameter to <literal>off</literal>.
+        Spaces within this string are considered to
+        separate command-line arguments, unless escaped with a backslash
+        (<literal>\</literal>); write <literal>\\</literal> to represent a literal
+        backslash.  For a detailed discussion of the available
+        options, consult <xref linkend="runtime-config"/>.␟接続開始時にサーバに送信するコマンドラインオプションを指定します。
+例えば、これを<literal>-c geqo=off</literal>または<literal>--geqo=off</literal>に設定すると、<varname>geqo</varname>パラメータのセッションの値が<literal>off</literal>に設定されます。
+この文字列中の空白はバックスラッシュ(<literal>\</literal>)でエスケープされていなければコマンドライン引数の区切りであるとみなされます。
+リテラルのバックスラッシュを表すには<literal>\\</literal>と書いて下さい。
+利用可能なオプションに関する詳細については<xref linkend="runtime-config"/>を参照してください。␞␞       </para>␞
+␝       <para>␟        Specifies a value for the <xref linkend="guc-application-name"/>
+        configuration parameter.␟<xref linkend="guc-application-name"/>設定パラメータの値を指定します。␞␞       </para>␞
+␝       <para>␟        Specifies a fallback value for the <xref
+        linkend="guc-application-name"/> configuration parameter.
+        This value will be used if no value has been given for
+        <literal>application_name</literal> via a connection parameter or the
+        <envar>PGAPPNAME</envar> environment variable.  Specifying
+        a fallback name is useful in generic utility programs that
+        wish to set a default application name but allow it to be
+        overridden by the user.␟<xref linkend="guc-application-name"/>設定パラメータの予備値を指定します。
+接続パラメータまたは<envar>PGAPPNAME</envar>環境変数により<literal>application_name</literal>の値が指定されない場合に、この値が使用されます。
+予備の名前を指定することは、デフォルトのアプリケーション名を設定したいが、ユーザにもそれを上書きできるようにしておきたい、一般的なユーティリティプログラムで有用です。␞␞       </para>␞
+␝       <para>␟        Controls whether client-side TCP keepalives are used. The default
+        value is 1, meaning on, but you can change this to 0, meaning off,
+        if keepalives are not wanted.  This parameter is ignored for
+        connections made via a Unix-domain socket.␟クライアント側におけるTCPキープアライブの使用を制御します。
+デフォルト値は1であり、有効であることを意味します。
+しかしキープアライブを望まない場合は、無効であることを意味するゼロに設定することができます。
+このパラメータはUnixドメインソケット経由の接続では無視されます。␞␞       </para>␞
+␝       <para>␟        Controls the number of seconds of inactivity after which TCP should
+        send a keepalive message to the server.  A value of zero uses the
+        system default. This parameter is ignored for connections made via a
+        Unix-domain socket, or if keepalives are disabled.
+        It is only supported on systems where <symbol>TCP_KEEPIDLE</symbol> or
+        an equivalent socket option is available, and on Windows; on other
+        systems, it has no effect.␟TCPがサーバにキープアライブメッセージを送信した後に活動を行わない期間を秒単位で制御します。
+ゼロという値ではシステムのデフォルトを使用します。
+Unixドメインソケット経由でなされた接続の場合もしくはキープアライブが無効な場合、このパラメータは無視されます。
+これは<symbol>TCP_KEEPIDLE</symbol>または同等のソケットオプションが利用できるシステムおよびWindowsでのみサポートされます。
+他のシステムでは効果がありません。␞␞       </para>␞
+␝       <para>␟        Controls the number of seconds after which a TCP keepalive message
+        that is not acknowledged by the server should be retransmitted.  A
+        value of zero uses the system default. This parameter is ignored for
+        connections made via a Unix-domain socket, or if keepalives are disabled.
+        It is only supported on systems where <symbol>TCP_KEEPINTVL</symbol> or
+        an equivalent socket option is available, and on Windows; on other
+        systems, it has no effect.␟TCPキープアライブメッセージに対する応答がサーバからない場合に、何秒後に再送を行うかを制御します。
+ゼロという値ではシステムのデフォルトを使用します。
+Unixドメインソケット経由でなされた接続の場合、またはキープアライブを無効にしている場合、このパラメータは無視されます。
+これは<symbol>TCP_KEEPINTVL</symbol>または同等のソケットオプションが利用できるシステムおよびWindowsでのみサポートされます。
+他のシステムでは効果がありません。␞␞       </para>␞
+␝       <para>␟        Controls the number of TCP keepalives that can be lost before the
+        client's connection to the server is considered dead.  A value of
+        zero uses the system default. This parameter is ignored for
+        connections made via a Unix-domain socket, or if keepalives are disabled.
+        It is only supported on systems where <symbol>TCP_KEEPCNT</symbol> or
+        an equivalent socket option is available; on other systems, it has no
+        effect.␟サーバへのクライアント接続が不要になったとみなすまで、何回キープアライブの欠落を認めるかを制御します。
+ゼロという値ではシステムのデフォルトを使用します。
+Unixドメインソケット経由でなされた接続の場合、またはキープアライブを無効にしている場合、このパラメータは無視されます。
+これは<symbol>TCP_KEEPCNT</symbol>または同等のソケットオプションが利用できるシステムでのみサポートされます。
+他のシステムでは効果がありません。␞␞       </para>␞
+␝       <para>␟        Controls the number of milliseconds that transmitted data may
+        remain unacknowledged before a connection is forcibly closed.
+        A value of zero uses the system default. This parameter is
+        ignored for connections made via a Unix-domain socket.
+        It is only supported on systems where <symbol>TCP_USER_TIMEOUT</symbol>
+        is available; on other systems, it has no effect.␟接続が強制的に閉じられるまで、送信されたデータに対して応答がない状況をどれだけ認めるかをミリ秒単位で制御します。
+値0はシステムのデフォルトを使用します。
+Unixドメインソケット経由でなされた接続の場合、このパラメータは無視されます。
+<symbol>TCP_USER_TIMEOUT</symbol>が利用可能なシステムでのみサポートされます。
+他のシステムでは効果がありません。␞␞       </para>␞
+␝      <para>␟       This option determines whether the connection should use the
+       replication protocol instead of the normal protocol.  This is what
+       PostgreSQL replication connections as well as tools such as
+       <application>pg_basebackup</application> use internally, but it can
+       also be used by third-party applications.  For a description of the
+       replication protocol, consult <xref linkend="protocol-replication"/>.␟このオプションは接続が通常プロトコルの代わりにレプリケーションプロトコルを使うかどうかを決めます。
+これはPostgreSQLのレプリケーション接続や<application>pg_basebackup</application>などのツールが内部的に使うものですが、サードパーティアプリケーションからも使われることがあります。
+レプリケーションプロトコルについての説明は<xref linkend="protocol-replication"/>を参照してください。␞␞      </para>␞
+␝      <para>␟       The following values, which are case-insensitive, are supported:␟以下の値がサポートされます。これらは大文字小文字を区別しません。␞␞       <variablelist>␞
+␝          <para>␟           The connection goes into physical replication mode.␟接続は物理レプリケーションモードになります。␞␞          </para>␞
+␝          <para>␟           The connection goes into logical replication mode, connecting to
+           the database specified in the <literal>dbname</literal> parameter.␟接続は論理レプリケーションモードになり、<literal>dbname</literal>パラメータで指定されたデータベースに接続します。␞␞          </para>␞
+␝          <para>␟           The connection is a regular one, which is the default behavior.␟接続は通常のものになります。これがデフォルトの振る舞いです。␞␞          </para>␞
+␝      <para>␟       In physical or logical replication mode, only the simple query protocol
+       can be used.␟物理あるいは論理レプリケーションモードでは、簡易問い合わせプロトコルのみが使用できます。␞␞      </para>␞
+␝       <para>␟        This option determines whether or with what priority a secure
+        <acronym>GSS</acronym> TCP/IP connection will be negotiated with the
+        server. There are three modes:␟このオプションは、<acronym>GSS</acronym>による安全なTCP/IP接続をサーバと調停するか、するのならどの優先度で調停するかを決定します。
+3つのモードがあります。␞␞␞
+␝           <para>␟            only try a non-<acronym>GSSAPI</acronym>-encrypted connection␟非<acronym>GSSAPI</acronym>暗号化接続のみ試行␞␞           </para>␞
+␝         <varlistentry>␟          <term><literal>prefer</literal> (default)</term>␟          <term><literal>prefer</literal> (デフォルト)</term>␞␞          <listitem>␞
+␝           <para>␟            if there are <acronym>GSSAPI</acronym> credentials present (i.e.,
+            in a credentials cache), first try
+            a <acronym>GSSAPI</acronym>-encrypted connection; if that fails or
+            there are no credentials, try a
+            non-<acronym>GSSAPI</acronym>-encrypted connection.  This is the
+            default when <productname>PostgreSQL</productname> has been
+            compiled with <acronym>GSSAPI</acronym> support.␟<acronym>GSSAPI</acronym>認証情報が(すなわち認証情報キャッシュに)存在すれば、まず<acronym>GSSAPI</acronym>暗号化接続を試行します。
+その試行に失敗した場合、もしくは認証情報がない場合には非<acronym>GSSAPI</acronym>暗号化接続を試行します。
+これが<productname>PostgreSQL</productname>を<acronym>GSSAPI</acronym>サポートを有効にしてコンパイルした場合のデフォルトです。␞␞           </para>␞
+␝           <para>␟            only try a <acronym>GSSAPI</acronym>-encrypted connection␟<acronym>GSSAPI</acronym>暗号化接続のみ試行␞␞           </para>␞
+␝       <para>␟        <literal>gssencmode</literal> is ignored for Unix domain socket
+        communication.  If <productname>PostgreSQL</productname> is compiled
+        without GSSAPI support, using the <literal>require</literal> option
+        will cause an error, while <literal>prefer</literal> will be accepted
+        but <application>libpq</application> will not actually attempt
+        a <acronym>GSSAPI</acronym>-encrypted
+        connection.<indexterm><primary>GSSAPI</primary><secondary sortas="libpq">with
+        libpq</secondary></indexterm>␟<literal>gssencmode</literal>はUnixドメインソケット通信では無視されます。
+<productname>PostgreSQL</productname>がGSSAPIなしでコンパイルされた場合、<literal>require</literal>オプションを使うとエラーになります。一方、<literal>prefer</literal>は受け付けられますが、<application>libpq</application>は実際には<acronym>GSSAPI</acronym>暗号化接続を試行しません。<indexterm><primary>GSSAPI</primary><secondary sortas="libpq">libpqでの</secondary></indexterm>␞␞       </para>␞
+␝       <para>␟        This option determines whether or with what priority a secure
+        <acronym>SSL</acronym> TCP/IP connection will be negotiated with the
+        server. There are six modes:␟このオプションは、どの<acronym>SSL</acronym>による安全なTCP/IP接続の優先度でサーバと調停するかを決定します。
+6つのモードがあります。␞␞␞
+␝           <para>␟            only try a non-<acronym>SSL</acronym> connection␟非<acronym>SSL</acronym>接続のみ試行␞␞           </para>␞
+␝           <para>␟            first try a non-<acronym>SSL</acronym> connection; if that
+            fails, try an <acronym>SSL</acronym> connection␟最初に非<acronym>SSL</acronym>接続を試行し、失敗したら、<acronym>SSL</acronym>接続を試行␞␞           </para>␞
+␝         <varlistentry>␟          <term><literal>prefer</literal> (default)</term>␟          <term><literal>prefer</literal> （デフォルト）</term>␞␞          <listitem>␞
+␝           <para>␟            first try an <acronym>SSL</acronym> connection; if that fails,
+            try a non-<acronym>SSL</acronym> connection␟最初に<acronym>SSL</acronym>接続を試行し、失敗したら、非<acronym>SSL</acronym>接続を試行␞␞           </para>␞
+␝           <para>␟            only try an <acronym>SSL</acronym> connection. If a root CA
+            file is present, verify the certificate in the same way as
+            if <literal>verify-ca</literal> was specified␟<acronym>SSL</acronym>接続のみ試行。
+ルートCAファイルが存在する場合、<literal>verify-ca</literal>が指定された場合と同じ方法で証明書が検証されます。␞␞           </para>␞
+␝           <para>␟            only try an <acronym>SSL</acronym> connection, and verify that
+            the server certificate is issued by a trusted
+            certificate authority (<acronym>CA</acronym>)␟<acronym>SSL</acronym>接続のみ試行し、サーバ証明書が信用された認証局（<acronym>CA</acronym>）から発行されたかを検証␞␞           </para>␞
+␝           <para>␟            only try an <acronym>SSL</acronym> connection, verify that the
+            server certificate is issued by a
+            trusted <acronym>CA</acronym> and that the requested server host name
+            matches that in the certificate␟<acronym>SSL</acronym>接続のみ試行し、サーバ証明書が信用された<acronym>CA</acronym>から発行されたか、およびそのサーバホスト名が証明書内のものと一致するかを検証␞␞           </para>␞
+␝␟        See <xref linkend="libpq-ssl"/> for a detailed description of how
+        these options work.␟これらのオプションがどのように動くのかについては<xref linkend="libpq-ssl"/>を参照してください。␞␞       </para>␞
+␝       <para>␟        <literal>sslmode</literal> is ignored for Unix domain socket
+        communication.
+        If <productname>PostgreSQL</productname> is compiled without SSL support,
+        using options <literal>require</literal>, <literal>verify-ca</literal>, or
+        <literal>verify-full</literal> will cause an error, while
+        options <literal>allow</literal> and <literal>prefer</literal> will be
+        accepted but <application>libpq</application> will not actually attempt
+        an <acronym>SSL</acronym>
+        connection.<indexterm><primary>SSL</primary><secondary
+        sortas="libpq">with libpq</secondary></indexterm>␟<literal>sslmode</literal>はUnixドメインソケット通信では無視されます。
+SSLサポートなしで<productname>PostgreSQL</productname>がコンパイルされた場合に、<literal>require</literal>、<literal>verify-ca</literal>、<literal>verify-full</literal>を使用するとエラーになります。
+一方、<literal>allow</literal>と<literal>prefer</literal>は使用できますが、実際に<application>libpq</application>は<acronym>SSL</acronym>接続を受け付けません。
+<indexterm><primary>SSL</primary><secondary sortas="libpq">libpqでの</secondary></indexterm>␞␞       </para>␞
+␝       <para>␟        Note that if <acronym>GSSAPI</acronym> encryption is possible,
+        that will be used in preference to <acronym>SSL</acronym>
+        encryption, regardless of the value of <literal>sslmode</literal>.
+        To force use of <acronym>SSL</acronym> encryption in an
+        environment that has working <acronym>GSSAPI</acronym>
+        infrastructure (such as a Kerberos server), also set
+        <literal>gssencmode</literal> to <literal>disable</literal>.␟<acronym>GSSAPI</acronym>暗号化が可能な場合、<literal>sslmode</literal>の値に関係なく、<acronym>SSL</acronym>暗号化よりも優先して使用されることに注意してください。
+<acronym>GSSAPI</acronym>インフラストラクチャが動作している環境（Kerberosサーバなど）で<acronym>SSL</acronym>暗号化を強制的に使用するには、<literal>gssencmode</literal>を<literal>disable</literal>に設定します。␞␞       </para>␞
+␝       <para>␟        This option is deprecated in favor of the <literal>sslmode</literal>
+        setting.␟このオプションは<literal>sslmode</literal>設定を支持する観点から廃止予定になっています。␞␞       </para>␞
+␝       <para>␟        If set to 1, an <acronym>SSL</acronym> connection to the server
+        is required (this is equivalent to <literal>sslmode</literal>
+        <literal>require</literal>).  <application>libpq</application> will then refuse
+        to connect if the server does not accept an
+        <acronym>SSL</acronym> connection.  If set to 0 (default),
+        <application>libpq</application> will negotiate the connection type with
+        the server (equivalent to <literal>sslmode</literal>
+        <literal>prefer</literal>).  This option is only available if
+        <productname>PostgreSQL</productname> is compiled with SSL support.␟1に設定することで、サーバへの<acronym>SSL</acronym>接続が必要になります
+(これは<literal>sslmode</literal>の<literal>require</literal>と同じです)。
+サーバが<acronym>SSL</acronym>接続を受け付けない場合、<application>libpq</application>は接続を拒絶します。
+0(デフォルト)に設定することで、<application>libpq</application>はサーバと接続形式の調停を行います。
+(<literal>sslmode</literal>の<literal>prefer</literal>と同じです。)
+SSLサポート付きで<productname>PostgreSQL</productname>をコンパイルした場合にのみ、このオプションが利用できます。␞␞       </para>␞
+␝       <para>␟        This option controls how SSL encryption is negotiated with the server,
+        if SSL is used. In the default <literal>postgres</literal> mode, the
+        client first asks the server if SSL is supported. In
+        <literal>direct</literal> mode, the client starts the standard SSL
+        handshake directly after establishing the TCP/IP connection. Traditional
+        <productname>PostgreSQL</productname> protocol negotiation is the most
+        flexible with different server configurations. If the server is known
+        to support direct <acronym>SSL</acronym> connections then the latter
+        requires one fewer round trip reducing connection latency and also
+        allows the use of protocol agnostic SSL network tools. The direct SSL
+        option was introduced in <productname>PostgreSQL</productname> version
+        17.␟このオプションは、SSLが使用されている場合に、SSL暗号化がサーバとどのように調停されるかを制御します。
+デフォルト<literal>postgres</literal>モードでは、クライアントは最初にサーバにSSLがサポートされているかどうかを尋ねます。
+<literal>direct</literal>モードでは、クライアントはTCP/IP接続を確立した後に直接標準SSLハンドシェイクを開始します。
+伝統的な<productname>PostgreSQL</productname>プロトコルネゴシエーションは、さまざまなサーバ設定に対して最も柔軟性があります。
+<productname>PostgreSQL</productname>サーバが直接<acronym>SSL</acronym>接続をサポートしているとわかっている場合、SSL接続では必要なラウンドトリップが1つ少なくなり、接続遅延が削減され、プロトコルに依存しないSSLネットワークツールを使用できるようになります。
+直接SSLオプションは、<productname>PostgreSQL</productname>バージョン17で導入されました。␞␞       </para>␞
+␝           <para>␟             perform <productname>PostgreSQL</productname> protocol
+             negotiation. This is the default if the option is not provided.␟<productname>PostgreSQL</productname>プロトコルのネゴシエーションを行います。
+このオプションが指定されていない場合のデフォルトです。␞␞           </para>␞
+␝           <para>␟             start SSL handshake directly after establishing the TCP/IP
+             connection.  This is only allowed with sslmode=require or higher,
+             because the weaker settings could lead to unintended fallback to
+             plaintext authentication when the server does not support direct
+             SSL handshake.␟TCP/IPハンドシェイクを確立した後に直接SSL接続を開始します。
+弱い設定では、サーバがSSL認証をサポートしない場合に、意図しないプレーンテキストハンドシェイクへのフォールバックが発生する可能性があるため、sslmode=require以上の場合にのみ許可されます。␞␞           </para>␞
+␝       <para>␟        If set to 1, data sent over SSL connections will be compressed.  If
+        set to 0, compression will be disabled.  The default is 0.  This
+        parameter is ignored if a connection without SSL is made.␟1に設定することで、SSL接続越えで送信されるデータは圧縮されます。
+0に設定すると、圧縮が無効になります。
+デフォルトは0です。
+このパラメータはSSLを使わない接続では無視されます。␞␞       </para>␞
+␝       <para>␟        SSL compression is nowadays considered insecure and its use is no
+        longer recommended.  <productname>OpenSSL</productname> 1.1.0 disabled
+        compression by default, and many operating system distributions
+        disabled it in prior versions as well, so setting this parameter to on
+        will not have any effect if the server does not accept compression.
+        <productname>PostgreSQL</productname> 14 disabled compression
+        completely in the backend.␟SSL圧縮は現在では安全ではないと考えられており、その使用は推奨されません。
+<productname>OpenSSL</productname> 1.1.0ではデフォルトで圧縮が無効になっており、多くのオペレーティングシステムのディストリビューションでも以前のバージョンでは無効になっていたため、このパラメータをonに設定してもサーバが圧縮を受け入れない場合は効果がありません。
+<productname>PostgreSQL</productname> 14ではバックエンドで圧縮が完全に無効になりました。␞␞       </para>␞
+␝       <para>␟        If security is not a primary concern, compression can improve
+        throughput if the network is the bottleneck.  Disabling compression
+        can improve response time and throughput if CPU performance is the
+        limiting factor.␟セキュリティが主要な関心でないなら、ネットワークがボトルネックであるとき圧縮でスループットを改善できます。
+CPU性能が律速要素であるなら、圧縮を無効化することで応答時間とスループットを改善できます。␞␞       </para>␞
+␝       <para>␟        This parameter specifies the file name of the client SSL
+        certificate, replacing the default
+        <filename>~/.postgresql/postgresql.crt</filename>.
+        This parameter is ignored if an SSL connection is not made.␟このパラメータは、<filename>~/.postgresql/postgresql.crt</filename>というデフォルトを置き換えるクライアントSSL証明書のファイル名を指定します。
+このパラメータはSSL接続が確立していない場合は無視されます。␞␞       </para>␞
+␝       <para>␟        This parameter specifies the location for the secret key used for
+        the client certificate. It can either specify a file name that will
+        be used instead of the default
+        <filename>~/.postgresql/postgresql.key</filename>, or it can specify a key
+        obtained from an external <quote>engine</quote> (engines are
+        <productname>OpenSSL</productname> loadable modules).  An external engine
+        specification should consist of a colon-separated engine name and
+        an engine-specific key identifier.  This parameter is ignored if an
+        SSL connection is not made.␟このパラメータはクライアント証明書に対して使用される秘密鍵の場所を指定します。
+デフォルトの<filename>~/.postgresql/postgresql.key</filename>の代わりに使用されるファイル名、または外部<quote>エンジン</quote>（エンジンとは<productname>OpenSSL</productname>ロード可能なモジュール）から得られるキーを指定することも可能です。
+外部エンジンの指定にはコロンで区切ったエンジン名とエンジン特有の鍵識別子を含んでいなければなりません。
+SSL接続が確立していない場合このパラメータは無視されます。␞␞       </para>␞
+␝       <para>␟        This parameter specifies the password for the secret key specified in
+        <literal>sslkey</literal>, allowing client certificate private keys
+        to be stored in encrypted form on disk even when interactive passphrase
+        input is not practical.␟このパラメータは<literal>sslkey</literal>で指定される秘密鍵に対するパスワードを指定して、対話的なパスフレーズ入力が現実的でないときにも、クライアント証明書のプライベートキーを暗号化された形式でディスクに格納できるようにします。␞␞       </para>␞
+␝       <para>␟        Specifying this parameter with any non-empty value suppresses the
+        <literal>Enter PEM pass phrase:</literal>
+        prompt that <productname>OpenSSL</productname> will emit by default
+        when an encrypted client certificate key is provided to
+        <literal>libpq</literal>.␟空でない値でこのパラメータを指定することで、暗号化されたクライアント証明書キーが<literal>libpq</literal>に供給されるときに<productname>OpenSSL</productname>がデフォルトで出す<literal>Enter PEM pass phrase:</literal>プロンプトを抑止します。␞␞       </para>␞
+␝       <para>␟        If the key is not encrypted this parameter is ignored. The parameter
+        has no effect on keys specified by <productname>OpenSSL</productname>
+        engines unless the engine uses the <productname>OpenSSL</productname>
+        password callback mechanism for prompts.␟キーが暗号化されていない場合、このパラメータは無視されます。
+<productname>OpenSSL</productname>エンジンがプロンプトに<productname>OpenSSL</productname>パスワードコールバックの仕組みを使わない限り、このパラメータはエンジンで指定されたキーに影響しません。␞␞       </para>␞
+␝       <para>␟        There is no environment variable equivalent to this option, and no
+        facility for looking it up in <filename>.pgpass</filename>. It can be
+        used in a service file connection definition. Users with
+        more sophisticated uses should consider using <productname>OpenSSL</productname> engines and
+        tools like PKCS#11 or USB crypto offload devices.␟このオプションと同等の環境変数、および、パスワードを<filename>.pgpass</filename>から探す機能はありません。
+このオプションはサービスファイルの接続定義で使用できます。
+より高度な使用法を用いるユーザは、<productname>OpenSSL</productname>エンジンとPKCS#11やUSB暗号オフロードデバイスといったツールの利用を検討すべきです。␞␞       </para>␞
+␝       <para>␟        This option determines whether a client certificate may be sent to the
+        server, and whether the server is required to request one. There are
+        three modes:␟このオプションは、クライアント証明書をサーバに送信するかどうか、およびサーバがそれを要求する必要があるかどうかを決定します。
+以下の3つのモードがあります。␞␞␞
+␝           <para>␟            A client certificate is never sent, even if one is available
+            (default location or provided via
+            <xref linkend="libpq-connect-sslcert" />).␟クライアント証明書は、（デフォルトの場所または<xref linkend="libpq-connect-sslcert" />で提供されていて）使用可能であっても、決して送信されません。␞␞           </para>␞
+␝           <para>␟            A certificate may be sent, if the server requests one and the
+            client has one to send.␟サーバが証明書を要求し、クライアントが送信する証明書を持っている場合は、証明書が送信されます。␞␞           </para>␞
+␝           <para>␟            The server <emphasis>must</emphasis> request a certificate. The
+            connection will fail if the client does not send a certificate and
+            the server successfully authenticates the client anyway.␟サーバは証明書を要求<emphasis>しなければなりません</emphasis>。
+サーバがクライアントの認証にとにかく成功したものの、クライアントが証明書を送信しなかった場合には、接続は失敗します。␞␞           </para>␞
+␝        <para>␟         <literal>sslcertmode=require</literal> doesn't add any additional
+         security, since there is no guarantee that the server is validating
+         the certificate correctly; PostgreSQL servers generally request TLS
+         certificates from clients whether they validate them or not. The
+         option may be useful when troubleshooting more complicated TLS
+         setups.␟<literal>sslcertmode=require</literal>は、サーバが証明書を正しく検証しているかどうかを保証しないため、さらにセキュリティを追加するものではありません。
+PostgreSQLサーバは、一般に、有効にするかどうかに関係なく、クライアントからTLS証明書を要求します。
+このオプションは、より複雑なTLS設定のトラブルシューティングに役立つ場合があります。␞␞        </para>␞
+␝       <para>␟        This parameter specifies the name of a file containing SSL
+        certificate authority (<acronym>CA</acronym>) certificate(s).
+        If the file exists, the server's certificate will be verified
+        to be signed by one of these authorities.  The default is
+        <filename>~/.postgresql/root.crt</filename>.␟このパラメータはSSL認証局(<acronym>CA</acronym>)の証明書のファイル名を指定します。
+このファイルが存在する場合、サーバ証明書はこれらの認証局の1つで署名されているかどうか検証されます。
+デフォルトは<filename>~/.postgresql/root.crt</filename>です。␞␞       </para>␞
+␝       <para>␟        The special value <literal>system</literal> may be specified instead, in
+        which case the trusted CA roots from the SSL implementation will be loaded. The exact
+        locations of these root certificates differ by SSL implementation and
+        platform. For <productname>OpenSSL</productname> in particular, the
+        locations may be further modified by the <envar>SSL_CERT_DIR</envar>
+        and <envar>SSL_CERT_FILE</envar> environment variables.␟代わりに、特別な値<literal>system</literal>を指定することもできます。この場合、SSL実装から信頼できるCAルートがロードされます。
+これらのルート証明書の正確な位置は、SSL実装とプラットフォームによって異なります。
+<productname>OpenSSL</productname>の場合、特に、<envar>SSL_CERT_DIR</envar>と<envar>SSL_CERT_FILE</envar>環境変数によって位置がさらに変更される可能性があります。␞␞       </para>␞
+␝        <para>␟         When using <literal>sslrootcert=system</literal>, the default
+         <literal>sslmode</literal> is changed to <literal>verify-full</literal>,
+         and any weaker setting will result in an error. In most cases it is
+         trivial for anyone to obtain a certificate trusted by the system for a
+         hostname they control, rendering <literal>verify-ca</literal> and all
+         weaker modes useless.␟<literal>sslrootcert=system</literal>を使用すると、デフォルトの<literal>sslmode</literal>は<literal>verify-full</literal>に変更され、より弱い設定はエラーになります。
+ほとんどの場合、自身が制御するホスト名に対してシステムが信頼する証明書を取得することは誰にでも簡単であり、<literal>verify-ca</literal>や他の弱いモードはすべて無意味になります。␞␞        </para>␞
+␝        <para>␟         The magic <literal>system</literal> value will take precedence over a
+         local certificate file with the same name. If for some reason you find
+         yourself in this situation, use an alternative path like
+         <literal>sslrootcert=./system</literal> instead.␟マジック値<literal>system</literal>は、同じ名前のローカル証明書ファイルよりも優先されます。
+何らかの理由でこのような状況になった場合は、代わりに<literal>sslrootcert=./system</literal>のような別のパスを使用してください。␞␞        </para>␞
+␝       <para>␟        This parameter specifies the file name of the SSL server certificate
+        revocation list (CRL).  Certificates listed in this file, if it
+        exists, will be rejected while attempting to authenticate the
+        server's certificate.  If neither
+        <xref linkend="libpq-connect-sslcrl"/> nor
+        <xref linkend="libpq-connect-sslcrldir"/> is set, this setting is
+        taken as
+        <filename>~/.postgresql/root.crl</filename>.␟このパラメータはSSLサーバ証明書失効リスト（CRL）のファイル名を指定します。
+このファイルに列挙された証明書が存在した場合、それはサーバ証明書を承認しようとする時に拒絶されます。
+<xref linkend="libpq-connect-sslcrl"/>も<xref linkend="libpq-connect-sslcrldir"/>も設定されていなければ、設定は<filename>~/.postgresql/root.crl</filename>から取得されます。␞␞       </para>␞
+␝       <para>␟        This parameter specifies the directory name of the SSL server certificate
+        revocation list (CRL).  Certificates listed in the files in this
+        directory, if it exists, will be rejected while attempting to
+        authenticate the server's certificate.␟このパラメータは、SSLサーバ証明書失効リスト(CRL)のディレクトリ名を指定します。
+このディレクトリのファイルにリストされている証明書が存在する場合は、サーバの証明書の認証中に拒否されます。␞␞       </para>␞
+␝       <para>␟        The directory needs to be prepared with the
+        <productname>OpenSSL</productname> command
+        <literal>openssl rehash</literal> or <literal>c_rehash</literal>.  See
+        its documentation for details.␟ディレクトリは、<productname>OpenSSL</productname>コマンド<literal>openssl rehash</literal>または<literal>c_rehash</literal>を使用して準備する必要があります。
+詳細はそのドキュメントを参照してください。␞␞       </para>␞
+␝       <para>␟        Both <literal>sslcrl</literal> and <literal>sslcrldir</literal> can be
+        specified together.␟<literal>sslcrl</literal>と<literal>sslcrldir</literal>の両方を同時に指定できます。␞␞       </para>␞
+␝       <para>␟        If set to 1 (default), libpq sets the TLS extension <quote>Server Name
+        Indication</quote> (<acronym>SNI</acronym>) on SSL-enabled connections.
+        By setting this parameter to 0, this is turned off.␟1(デフォルト)に設定されている場合、libpqはTLS拡張<quote>Server Name Indication</quote>(<acronym>SNI</acronym>)をSSL使用可能な接続に設定します。
+このパラメータを0に設定することにより、これはオフになります。␞␞       </para>␞
+␝       <para>␟        The Server Name Indication can be used by SSL-aware proxies to route
+        connections without having to decrypt the SSL stream.  (Note that
+        unless the proxy is aware of the PostgreSQL protocol handshake this
+        would require setting <literal>sslnegotiation</literal>
+        to <literal>direct</literal>.)
+        However, <acronym>SNI</acronym> makes the destination host name appear
+        in cleartext in the network traffic, so it might be undesirable in
+        some cases.␟Server Name Indicationは、SSLストリームを復号化することなく接続をルーティングするために、SSL対応プロキシによって使用できます。（プロキシがPostgreSQLプロトコルハンドシェイクを認識していない限り、<literal>sslnegotiation</literal>を<literal>direct</literal>に設定する必要があることに注意してください。）
+しかし、<acronym>SNI</acronym>は宛先ホスト名をネットワークトラフィック中に平文で表示しますので、場合によっては望ましくないかもしれません。␞␞       </para>␞
+␝       <para>␟        This parameter specifies the operating-system user name of the
+        server, for example <literal>requirepeer=postgres</literal>.
+        When making a Unix-domain socket connection, if this
+        parameter is set, the client checks at the beginning of the
+        connection that the server process is running under the specified
+        user name; if it is not, the connection is aborted with an error.
+        This parameter can be used to provide server authentication similar
+        to that available with SSL certificates on TCP/IP connections.
+        (Note that if the Unix-domain socket is in
+        <filename>/tmp</filename> or another publicly writable location,
+        any user could start a server listening there.  Use this parameter
+        to ensure that you are connected to a server run by a trusted user.)
+        This option is only supported on platforms for which the
+        <literal>peer</literal> authentication method is implemented; see
+        <xref linkend="auth-peer"/>.␟このパラメータは、例えば<literal>requirepeer=postgres</literal>のようにサーバのオペレーティングシステムのユーザ名を指定します。
+Unixドメインソケット接続を確立する時に、このパラメータが設定された場合、クライアントは接続開始時にサーバプロセスが指定されたユーザ名で稼働しているか検査し、稼働していない場合は接続をエラーとして中断します。
+このパラメータは、TCP/IP接続においてSSL証明書で実現するようなサーバ認証を実現するために使用することができます。
+（Unixドメインソケットが<filename>/tmp</filename>などの誰にでも書き込むことができる場所にある場合、誰でもそこで接続を監視するサーバを起動できることに注意してください。
+信頼できるユーザが起動したサーバに接続することを確実に行うために、このパラメータを使用してください。）
+このオプションは<literal>peer</literal>認証方式が実装されたプラットフォームでのみでサポートされます。
+<xref linkend="auth-peer"/>を参照してください。␞␞       </para>␞
+␝       <para>␟        This parameter specifies the minimum SSL/TLS protocol version to allow
+        for the connection. Valid values are <literal>TLSv1</literal>,
+        <literal>TLSv1.1</literal>, <literal>TLSv1.2</literal> and
+        <literal>TLSv1.3</literal>. The supported protocols depend on the
+        version of <productname>OpenSSL</productname> used, older versions
+        not supporting the most modern protocol versions. If not specified,
+        the default is <literal>TLSv1.2</literal>, which satisfies industry
+        best practices as of this writing.␟このパラメータは接続で許容されるSSL/TLSプロトコルの最小バージョンを指定します。
+有効な値は<literal>TLSv1</literal>、<literal>TLSv1.1</literal>、<literal>TLSv1.2</literal>、および、<literal>TLSv1.3</literal>です。
+対応しているプロトコルは使われている<productname>OpenSSL</productname>バージョンに依存し、より古いバージョンでは最新プロトコルバージョンに対応していません。
+指定しない場合、デフォルトは<literal>TLSv1.2</literal>で、これは執筆時点では業界標準を満たします。␞␞       </para>␞
+␝       <para>␟        This parameter specifies the maximum SSL/TLS protocol version to allow
+        for the connection. Valid values are <literal>TLSv1</literal>,
+        <literal>TLSv1.1</literal>, <literal>TLSv1.2</literal> and
+        <literal>TLSv1.3</literal>. The supported protocols depend on the
+        version of <productname>OpenSSL</productname> used, older versions
+        not supporting the most modern protocol versions. If not set, this
+        parameter is ignored and the connection will use the maximum bound
+        defined by the backend, if set. Setting the maximum protocol version
+        is mainly useful for testing or if some component has issues working
+        with a newer protocol.␟このパラメータは接続で許容されるSSL/TLSプロトコルの最大バージョンを指定します。
+有効な値は<literal>TLSv1</literal>、<literal>TLSv1.1</literal>、<literal>TLSv1.2</literal>、および、<literal>TLSv1.3</literal>です。
+対応しているプロトコルは使われている<productname>OpenSSL</productname>バージョンに依存し、より古いバージョンでは最新のプロトコルバージョンに対応していません。
+設定しない場合、このパラメータは無視されて、接続ではバックエンドで定義されている最大範囲が、もし定義されているなら、使われます。
+テストや、一部コンポーネントがより新しいプロトコルでの動作に問題がある場合に対して、大概はプロトコルの最大バージョンを設定することが有用です。␞␞       </para>␞
+␝       <para>␟        Kerberos service name to use when authenticating with GSSAPI.
+        This must match the service name specified in the server
+        configuration for Kerberos authentication to succeed. (See also
+        <xref linkend="gssapi-auth"/>.)
+        The default value is normally <literal>postgres</literal>,
+        but that can be changed when
+        building <productname>PostgreSQL</productname> via
+        the <option>--with-krb-srvnam</option> option
+        of <application>configure</application>.
+        In most environments, this parameter never needs to be changed.
+        Some Kerberos implementations might require a different service name,
+        such as Microsoft Active Directory which requires the service name
+        to be in upper case (<literal>POSTGRES</literal>).␟GSSAPIの認証時に使われるKerberosサービス名です。
+成功するためには、これはサーバのKerberos認証設定のサービス名と一致していなければなりません。
+(<xref linkend="gssapi-auth"/>も参照してください。)
+デフォルト値は通常<literal>postgres</literal>ですが、<productname>PostgreSQL</productname>を<application>configure</application>の<option>--with-krb-srvnam</option>オプションを使ってビルドすることにより変更できます。
+大抵の環境ではこのパラメータは滅多に変更の必要がありません。
+サービス名が大文字(<literal>POSTGRES</literal>)であることを要求するMicrosoft Active Directoryのように、ある種のKerberos実装では異なるサービス名が必要になるかもしれません。␞␞       </para>␞
+␝       <para>␟        GSS library to use for GSSAPI authentication.
+        Currently this is disregarded except on Windows builds that include
+        both GSSAPI and SSPI support.  In that case, set
+        this to <literal>gssapi</literal> to cause libpq to use the GSSAPI
+        library for authentication instead of the default SSPI.␟GSSAPI認証で使用されるGSSライブラリです。
+これは今のところ、GSSAPIとSSPIの両方のサポートを含むWindowsビルド版を除いて無視されます。
+その場合、認証にデフォルトのSSPIではなく、GSSAPIライブラリを使うようlibpqに強制するには、これを<literal>gssapi</literal>に設定してください。␞␞       </para>␞
+␝       <para>␟        Forward (delegate) GSS credentials to the server.  The default is
+        <literal>0</literal> which means credentials will not be forwarded
+        to the server.  Set this to <literal>1</literal> to have credentials
+        forwarded when possible.␟GSS資格証明をサーバに転送(委任)します。
+デフォルトは<literal>0</literal>で、これは資格証明がサーバに転送されないことを意味します。
+可能な場合に資格証明を転送するには<literal>1</literal>に設定します。␞␞       </para>␞
+␝       <para>␟        Service name to use for additional parameters.  It specifies a service
+        name in <filename>pg_service.conf</filename> that holds additional connection parameters.
+        This allows applications to specify only a service name so connection parameters
+        can be centrally maintained. See <xref linkend="libpq-pgservice"/>.␟追加のパラメータ用に使用されるサービス名です。
+<filename>pg_service.conf</filename>内の追加的な接続パラメータを保持するサービス名を指定します。
+これによりアプリケーションはサービス名だけを指定でき、接続パラメータを集中的に保守できるようになります。
+<xref linkend="libpq-pgservice"/>を参照してください。␞␞       </para>␞
+␝       <para>␟        This option determines whether the session must have certain
+        properties to be acceptable.  It's typically used in combination
+        with multiple host names to select the first acceptable alternative
+        among several hosts.  There are six modes:␟このオプションは、セッションが受け入れられるために特定のプロパティを持つ必要があるかどうかを決定します。
+これは通常、複数のホスト名と組み合わせて使用され、いくつかのホストの中から最初に受け入れられる代替を選択します。
+6つのモードがあります:␞␞␞
+␝           <para>␟            any successful connection is acceptable␟成功した接続は受け入れられます␞␞           </para>␞
+␝           <para>␟            session must accept read-write transactions by default (that
+            is, the server must not be in hot standby mode and
+            the <varname>default_transaction_read_only</varname> parameter
+            must be <literal>off</literal>)␟セッションはデフォルトで読み書きトランザクションを受け入れなければなりません(つまり、サーバはホットスタンバイモードであってはならず、<varname>default_transaction_read_only</varname>パラメータは<literal>off</literal>でなければなりません)。␞␞           </para>␞
+␝           <para>␟            session must not accept read-write transactions by default (the
+            converse)␟セッションはデフォルトで読み書きトランザクションを受け入れてはなりません(逆)␞␞           </para>␞
+␝           <para>␟            server must not be in hot standby mode␟サーバはホットスタンバイモードであってはなりません␞␞           </para>␞
+␝           <para>␟            server must be in hot standby mode␟サーバはホットスタンバイモードでなければなりません␞␞           </para>␞
+␝           <para>␟            first try to find a standby server, but if none of the listed
+            hosts is a standby server, try again in <literal>any</literal>
+            mode␟最初にスタンバイサーバを見つけようとしますが、リストされているホストがいずれもスタンバイサーバでない場合は、<literal>any</literal>モードで再試行します。␞␞           </para>␞
+␝       <para>␟        Controls the order in which the client tries to connect to the available
+        hosts and addresses. Once a connection attempt is successful no other
+        hosts and addresses will be tried. This parameter is typically used in
+        combination with multiple host names or a DNS record that returns
+        multiple IPs. This parameter can be used in combination with
+        <xref linkend="libpq-connect-target-session-attrs"/>
+        to, for example, load balance over standby servers only. Once successfully
+        connected, subsequent queries on the returned connection will all be
+        sent to the same server. There are currently two modes:␟使用可能なホストおよびアドレスへの接続をクライアントが試行する順序を制御します。
+接続試行が成功すると、他のホストおよびアドレスへの試行は行われません。
+このパラメータは、通常、複数のホスト名または複数のIPを返すDNSレコードと組み合わせて使用されます。
+このパラメータは、例えばスタンバイサーバのみで負荷分散を実行するために<xref linkend="libpq-connect-target-session-attrs"/>と組み合わせて使用できます。
+接続に成功すると、返された接続に対する後続の問い合わせはすべて同じサーバへ送られます。
+以下の2つのモードがあります。␞␞        <variablelist>␞
+␝           <para>␟            No load balancing across hosts is performed.  Hosts are tried in
+            the order in which they are provided and addresses are tried in
+            the order they are received from DNS or a hosts file.␟ホスト間の負荷分散は実行されません。
+ホストは与えられた順に試行され、アドレスはDNSやホストファイルから受け取った順に試行されます。␞␞           </para>␞
+␝           <para>␟            Hosts and addresses are tried in random order. This value is mostly
+            useful when opening multiple connections at the same time, possibly
+            from different machines. This way connections can be load balanced
+            across multiple <productname>PostgreSQL</productname> servers.␟ホストとアドレスはランダムな順序で試行されます。
+この値は、主に同時に複数の接続を開こうとする場合、おそらく異なるマシンからの接続を開こうとする場合に便利です。
+このようにして、複数の<productname>PostgreSQL</productname>サーバ間で接続を負荷分散できます。␞␞           </para>␞
+␝           <para>␟            While random load balancing, due to its random nature, will almost
+            never result in a completely uniform distribution, it statistically
+            gets quite close. One important aspect here is that this algorithm
+            uses two levels of random choices: First the hosts
+            will be resolved in random order. Then secondly, before resolving
+            the next host, all resolved addresses for the current host will be
+            tried in random order. This behaviour can skew the amount of
+            connections each node gets greatly in certain cases, for instance
+            when some hosts resolve to more addresses than others. But such a
+            skew can also be used on purpose, e.g. to increase the number of
+            connections a larger server gets by providing its hostname multiple
+            times in the host string.␟ランダム負荷分散は、そのランダムな性質のために、完全に均一な分布になることはほとんどありませんが、統計的には非常に近くなります。
+ここで重要な側面の1つは、このアルゴリズムが2つのレベルのランダム選択を使用することです。
+まず、ホストはランダムな順序で解決されます。
+次に、次のホストを解決する前に、現在のホストのすべての解決済みアドレスがランダムな順序で試されます。
+この動作は、特定のケースで各ノードが取得する接続の数を大幅に歪める可能性があります。たとえば、一部のホストが他のホストより多くのアドレスを解決する場合などです。
+しかし、このような歪曲は、特定の目的で意図的に使用することもできます。たとえば、ホスト文字列で複数回ホスト名を指定することによって、大きなサーバが取得する接続数を増やすことができます。␞␞           </para>␞
+␝           <para>␟            When using this value it's recommended to also configure a reasonable
+            value for <xref linkend="libpq-connect-connect-timeout"/>. Because then,
+            if one of the nodes that are used for load balancing is not responding,
+            a new node will be tried.␟この値を使用する場合、<xref linkend="libpq-connect-connect-timeout"/>にも妥当な値を設定することをお勧めします。
+なぜならそうすれば、負荷分散に使用されているノードの1つが応答しない場合、新しいノードが試されるからです。␞␞           </para>␞
+␝ <sect1 id="libpq-status">␟  <title>Connection Status Functions</title>␟  <title>接続状態関数</title>␞␞␞
+␝  <para>␟   These functions can be used to interrogate the status
+   of an existing database connection object.␟これらの関数を使用して、既存のデータベース接続オブジェクトの状態を調べることができます。␞␞  </para>␞
+␝    <indexterm><primary>libpq-int.h</primary></indexterm>␟    <application>libpq</application> application programmers should be careful to
+    maintain the <structname>PGconn</structname> abstraction.  Use the accessor
+    functions described below to get at the contents of <structname>PGconn</structname>.
+    Reference to internal <structname>PGconn</structname> fields using
+    <filename>libpq-int.h</filename> is not recommended because they are subject to change
+    in the future.␟<application>libpq</application>アプリケーションのプログラマは注意して<structname>PGconn</structname>という抽象化を維持してください。
+<structname>PGconn</structname>の内容は以下に挙げるアクセス用関数を使って取り出してください。
+<structname>PGconn</structname>構造体中のフィールドは将来予告なく変更されることがありますので、<filename>libpq-int.h</filename>を使用したフィールドの参照は避けてください。␞␞   </para>␞
+␝  <para>␟   The following functions return parameter values established at connection.
+   These values are fixed for the life of the connection.  If a multi-host
+   connection string is used, the values of <xref linkend="libpq-PQhost"/>,
+   <xref linkend="libpq-PQport"/>, and <xref linkend="libpq-PQpass"/> can change if a new connection
+   is established using the same <structname>PGconn</structname> object.  Other values
+   are fixed for the lifetime of the <structname>PGconn</structname> object.␟以下の関数は、接続で確立したパラメータの値を返します。
+これらの値は接続期間中固定されます。
+複数ホストの接続文字列が使用されている場合、同じ<structname>PGconn</structname>オブジェクトを使用して新しい接続が確立されると、<xref linkend="libpq-PQhost"/>、<xref linkend="libpq-PQport"/>、<xref linkend="libpq-PQpass"/>の値は変わる可能性があります。
+他の変数は<structname>PGconn</structname>の存在期間中固定されます。␞␞␞
+␝      <para>␟       Returns the database name of the connection.␟接続したデータベース名を返します。␞␞<synopsis>␞
+␝      <para>␟       Returns the user name of the connection.␟接続したユーザ名を返します。␞␞<synopsis>␞
+␝      <para>␟       Returns the password of the connection.␟接続したパスワードを返します。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQpass"/> will return either the password specified
+       in the connection parameters, or if there was none and the password
+       was obtained from the <link linkend="libpq-pgpass">password
+       file</link>, it will return that.  In the latter case,
+       if multiple hosts were specified in the connection parameters, it is
+       not possible to rely on the result of <xref linkend="libpq-PQpass"/> until
+       the connection is established.  The status of the connection can be
+       checked using the function <xref linkend="libpq-PQstatus"/>.␟<xref linkend="libpq-PQpass"/>は、接続パラメータで指定されたパスワードを返します。
+もし接続パラメータにパスワードがなくて、<link linkend="libpq-pgpass">パスワードファイル</link>からパスワードを取得できる場合には、そのパスワードを返します。
+この場合、接続パラメータに複数のホストが指定されていると、接続が確立するまでは、<xref linkend="libpq-PQpass"/>の結果を当てにすることはできません。
+接続の状態は、関数<xref linkend="libpq-PQstatus"/>で確認できます。␞␞      </para>␞
+␝      <para>␟       Returns the server host name of the active connection.
+       This can be a host name, an IP address, or a directory path if the
+       connection is via Unix socket.  (The path case can be distinguished
+       because it will always be an absolute path, beginning
+       with <literal>/</literal>.)␟実際に接続したサーバホスト名を返します。
+これはホスト名、IPアドレス、あるいはUnixソケット経由で接続している場合はディレクトリパスになります。
+（パスの場合は必ず<literal>/</literal>で始まる絶対パスになるので、他と区別できます。）␞␞<synopsis>␞
+␝      <para>␟       If the connection parameters specified both <literal>host</literal> and
+       <literal>hostaddr</literal>, then <xref linkend="libpq-PQhost"/> will
+       return the <literal>host</literal> information.  If only
+       <literal>hostaddr</literal> was specified, then that is returned.
+       If multiple hosts were specified in the connection parameters,
+       <xref linkend="libpq-PQhost"/> returns the host actually connected to.␟<literal>host</literal>と<literal>hostaddr</literal>の両方が指定されると、<xref linkend="libpq-PQhost"/>は、その<literal>host</literal>情報を返します。
+<literal>hostaddr</literal>だけが指定されると、それが返されます。
+接続パラメータ中に複数のホストが指定された場合には、<xref linkend="libpq-PQhost"/>は実際に接続しているホストの情報を返します。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQhost"/> returns <symbol>NULL</symbol> if the
+       <parameter>conn</parameter> argument is <symbol>NULL</symbol>.
+       Otherwise, if there is an error producing the host information (perhaps
+       if the connection has not been fully established or there was an
+       error), it returns an empty string.␟<parameter>conn</parameter>引数が<symbol>NULL</symbol>ならば、<xref linkend="libpq-PQhost"/>は<symbol>NULL</symbol>を返します。
+そうでない場合、もしホスト情報の生成中エラーとなったら（おそらく接続がまだ完全には確立されていないか、なんらかのエラーがある場合です）、空文字が返ります。␞␞      </para>␞
+␝      <para>␟       If multiple hosts were specified in the connection parameters, it is
+       not possible to rely on the result of <xref linkend="libpq-PQhost"/> until
+       the connection is established.  The status of the connection can be
+       checked using the function <xref linkend="libpq-PQstatus"/>.␟接続パラメータ中に複数のホストが指定されると、接続が確立するまでは<xref linkend="libpq-PQhost"/>の結果を当てにすることはできません。
+接続の状態は、<xref linkend="libpq-PQstatus"/>関数で確認できます。␞␞      </para>␞
+␝      <para>␟       Returns the server IP address of the active connection.
+       This can be the address that a host name resolved to,
+       or an IP address provided through the <literal>hostaddr</literal>
+       parameter.␟実際に接続したサーバIPアドレスを返します。
+これはホスト名を解決したアドレス、あるいは<literal>hostaddr</literal>パラメータ経由で与えられたIPアドレスになります。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQhostaddr"/> returns <symbol>NULL</symbol> if the
+       <parameter>conn</parameter> argument is <symbol>NULL</symbol>.
+       Otherwise, if there is an error producing the host information
+       (perhaps if the connection has not been fully established or
+       there was an error), it returns an empty string.␟<parameter>conn</parameter>引数が<symbol>NULL</symbol>ならば、<xref linkend="libpq-PQhostaddr"/>は<symbol>NULL</symbol>を返します。
+そうでない場合、もしホスト情報の生成がエラーとなったら（おそらく接続がまだ完全には確立されていないか、なんらかのエラーがある場合です）、空文字が返ります。␞␞      </para>␞
+␝      <para>␟       Returns the port of the active connection.␟実際に接続したポートを返します。␞␞␞
+␝      <para>␟       If multiple ports were specified in the connection parameters,
+       <xref linkend="libpq-PQport"/> returns the port actually connected to.␟接続パラメータ中に複数のポートが指定された場合には、<xref linkend="libpq-PQport"/>は実際に接続しているポートを返します。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQport"/> returns <symbol>NULL</symbol> if the
+       <parameter>conn</parameter> argument is <symbol>NULL</symbol>.
+       Otherwise, if there is an error producing the port information (perhaps
+       if the connection has not been fully established or there was an
+       error), it returns an empty string.␟<parameter>conn</parameter>引数が<symbol>NULL</symbol>ならば、<xref linkend="libpq-PQport"/>は<symbol>NULL</symbol>を返します。
+そうでない場合、もしホスト情報の生成がエラーとなったら（おそらく接続がまだ完全には確立されていないか、なんらかのエラーがある場合です）、空文字が返ります。␞␞      </para>␞
+␝      <para>␟       If multiple ports were specified in the connection parameters, it is
+       not possible to rely on the result of <xref linkend="libpq-PQport"/> until
+       the connection is established.  The status of the connection can be
+       checked using the function <xref linkend="libpq-PQstatus"/>.␟接続パラメータ中に複数のポートが指定されると、接続が確立するまでは<xref linkend="libpq-PQport"/>の結果を当てにすることはできません。
+接続の状態は、<xref linkend="libpq-PQstatus"/>関数で確認できます。␞␞      </para>␞
+␝      <para>␟       This function no longer does anything, but it remains for backwards
+       compatibility.  The function always return an empty string, or
+       <symbol>NULL</symbol> if the <parameter>conn</parameter> argument is
+       <symbol>NULL</symbol>.␟この関数はもう何もしませんが、後方互換性のために残っています。
+この関数は常に空の文字列を返します。
+<parameter>conn</parameter>引数が<symbol>NULL</symbol>の場合は<symbol>NULL</symbol>を返します。␞␞␞
+␝      <para>␟       Returns the command-line options passed in the connection request.␟接続要求時に渡されたコマンドラインオプションを返します。␞␞<synopsis>␞
+␝  <para>␟   The following functions return status data that can change as operations
+   are executed on the <structname>PGconn</structname> object.␟以下の関数は、<structname>PGconn</structname>オブジェクトに対して操作を行うことで変更可能な状態データを返します。␞␞␞
+␝      <para>␟       Returns the status of the connection.␟接続の状態を返します。␞␞<synopsis>␞
+␝      <para>␟       The status can be one of a number of values.  However, only two of
+       these are seen outside of an asynchronous connection procedure:
+       <literal>CONNECTION_OK</literal> and
+       <literal>CONNECTION_BAD</literal>. A good connection to the database
+       has the status <literal>CONNECTION_OK</literal>.  A failed
+       connection attempt is signaled by status
+       <literal>CONNECTION_BAD</literal>.  Ordinarily, an OK status will
+       remain so until <xref linkend="libpq-PQfinish"/>, but a communications
+       failure might result in the status changing to
+       <literal>CONNECTION_BAD</literal> prematurely.  In that case the
+       application could try to recover by calling
+       <xref linkend="libpq-PQreset"/>.␟この状態は多くの値の中の１つとなるはずです。
+しかし非同期接続手順の外部からは、その中でたった２つ、<literal>CONNECTION_OK</literal>と<literal>CONNECTION_BAD</literal>だけが現れます。
+データベースへの接続に問題がなければ、<literal>CONNECTION_OK</literal>状態になります。
+接続に失敗している場合は<literal>CONNECTION_BAD</literal>状態となります。
+通常、OK状態は<xref linkend="libpq-PQfinish"/>まで維持されますが、通信失敗のために早まって<literal>CONNECTION_BAD</literal>になることもあります。
+その場合、アプリケーションは<xref linkend="libpq-PQreset"/>を呼び出して修復を試みることができます。␞␞      </para>␞
+␝      <para>␟       See the entry for <xref linkend="libpq-PQconnectStartParams"/>, <function>PQconnectStart</function>
+       and <function>PQconnectPoll</function> with regards to other status codes that
+       might be returned.␟返される可能性があるその他の状態コードについては<xref linkend="libpq-PQconnectStartParams"/>、<function>PQconnectStart</function>および<function>PQconnectPoll</function>の項目を参照してください。␞␞      </para>␞
+␝      <para>␟       Returns the current in-transaction status of the server.␟サーバの現在のトランザクション内部状態を返します。␞␞␞
+␝␟       The status can be <literal>PQTRANS_IDLE</literal> (currently idle),
+       <literal>PQTRANS_ACTIVE</literal> (a command is in progress),
+       <literal>PQTRANS_INTRANS</literal> (idle, in a valid transaction block),
+       or <literal>PQTRANS_INERROR</literal> (idle, in a failed transaction block).
+       <literal>PQTRANS_UNKNOWN</literal> is reported if the connection is bad.
+       <literal>PQTRANS_ACTIVE</literal> is reported only when a query
+       has been sent to the server and not yet completed.␟この状態は、<literal>PQTRANS_IDLE</literal> (現在待機中)、<literal>PQTRANS_ACTIVE</literal> (コマンド実行中)、<literal>PQTRANS_INTRANS</literal> (有効なトランザクションブロック内で待機中)、<literal>PQTRANS_INERROR</literal> (無効なトランザクションブロック内で待機中)となり得ます。
+接続に問題がある場合のみ<literal>PQTRANS_UNKNOWN</literal>が報告されます。
+サーバへ問い合わせが送信されたが、まだ完了していない場合のみ<literal>PQTRANS_ACTIVE</literal>が報告されます。␞␞      </para>␞
+␝      <para>␟       Looks up a current parameter setting of the server.␟サーバの現在のパラメータ設定を検索します。␞␞␞
+␝␟       Certain parameter values are reported by the server automatically at
+       connection startup or whenever their values change.
+       <xref linkend="libpq-PQparameterStatus"/> can be used to interrogate these settings.
+       It returns the current value of a parameter if known, or <symbol>NULL</symbol>
+       if the parameter is not known.␟あるパラメータ値は、接続開始時に、もしくは、その値が変更された時は常にサーバによって自動的に報告されます。
+<xref linkend="libpq-PQparameterStatus"/>はそれらの設定の調査に役立ちます。
+パラメータの現在値がわかればその値を、わからない場合は<symbol>NULL</symbol>を返します。␞␞      </para>␞
+␝      <para>␟       Parameters reported as of the current release include:␟現在のリリースで報告されるパラメータは、次の通りです。␞␞       <simplelist type="vert" columns="2">␞
+␝       </simplelist>␟       (<varname>default_transaction_read_only</varname> and
+       <varname>in_hot_standby</varname> were not reported by releases before
+       14; <varname>scram_iterations</varname> was not reported by releases
+       before 16.)
+       Note that
+       <varname>server_version</varname>,
+       <varname>server_encoding</varname> and
+       <varname>integer_datetimes</varname>
+       cannot change after startup.␟（<varname>default_transaction_read_only</varname>と<varname>in_hot_standby</varname>は14より前のリリースでは報告されませんでした。<varname>scram_iterations</varname>は16より前のリリースでは報告されませんでした。
+なお、<varname>server_version</varname>、<varname>server_encoding</varname>、および<varname>integer_datetimes</varname>は起動後に変更できません。␞␞      </para>␞
+␝      <para>␟       If no value for <varname>standard_conforming_strings</varname> is reported,
+       applications can assume it is <literal>off</literal>, that is, backslashes
+       are treated as escapes in string literals.  Also, the presence of
+       this parameter can be taken as an indication that the escape string
+       syntax (<literal>E'...'</literal>) is accepted.␟<varname>standard_conforming_strings</varname>の値がないと報告された場合、アプリケーションは<literal>off</literal>と推測することができます。
+つまり、バックスラッシュは文字リテラル中のエスケープ文字として扱います。
+また、このパラメータが存在すると、エスケープ文字構文(<literal>E'...'</literal>)が受付けられることを意味するものと取られます。␞␞      </para>␞
+␝      <para>␟       Although the returned pointer is declared <literal>const</literal>, it in fact
+       points to mutable storage associated with the <literal>PGconn</literal> structure.
+       It is unwise to assume the pointer will remain valid across queries.␟返されるポインタは<literal>const</literal>と宣言されていますが、実際には<literal>PGconn</literal>構造体に関連付けされた変化する領域を指し示します。
+このポインタが諸問い合わせに渡って有効なままであるとみなすのは賢明ではありません。␞␞      </para>␞
+␝      <para>␟       Interrogates the frontend/backend protocol being used.␟使用されるフロントエンド/バックエンドプロトコルを調査します。␞␞<synopsis>␞
+␝</synopsis>␟       Applications might wish to use this function to determine whether certain
+       features are supported.  Currently, the possible values are 3
+       (3.0 protocol), or zero (connection bad).  The protocol version will
+       not change after connection startup is complete, but it could
+       theoretically change during a connection reset.  The 3.0 protocol is
+       supported by <productname>PostgreSQL</productname> server versions 7.4
+       and above.␟ある機能がサポートされているかどうかを決定するために、アプリケーションはこの関数を使用することができます。
+現在、取り得る値は3(3.0プロトコル)、あるいは0(接続不良)です。
+このプロトコルバージョンは接続の開始が完了した後で変更することはできません。
+しかし、理論的には接続のリセット時に変更可能です。
+3.0プロトコルは<productname>PostgreSQL</productname>サーババージョン7.4以降でサポートされています。␞␞      </para>␞
+␝      <para>␟       Returns an integer representing the server version.␟サーバのバージョンの整数表現を返します。␞␞<synopsis>␞
+␝      <para>␟       Applications might use this function to determine the version of the
+       database server they are connected to.  The result is formed by
+       multiplying the server's major version number by 10000 and adding
+       the minor version number.  For example, version 10.1 will be
+       returned as 100001, and version 11.0 will be returned as 110000.
+       Zero is returned if the connection is bad.␟この関数を使用してアプリケーションは接続したデータベースサーバのバージョンを決定することができます。
+返却値の形式は、メジャーバージョン番号に10000を掛け、マイナーバージョン番号を加えたものです。
+例えば、バージョン10.1では100001を返し、バージョン11.0では110000を返します。
+接続不良の場合は0が返されます。␞␞      </para>␞
+␝      <para>␟       Prior to major version 10, <productname>PostgreSQL</productname> used
+       three-part version numbers in which the first two parts together
+       represented the major version.  For those
+       versions, <xref linkend="libpq-PQserverVersion"/> uses two digits for each
+       part; for example version 9.1.5 will be returned as 90105, and
+       version 9.2.0 will be returned as 90200.␟バージョン10よりも前では、<productname>PostgreSQL</productname>では、最初の2つの部分がメジャーバージョンを表す、3つの部分からなるバージョン番号が使われていました。
+これらのバージョンでは、<xref linkend="libpq-PQserverVersion"/>はそれぞれの部分に2桁の数字を使います。
+たとえば、バージョン9.1.5では90105が返され、バージョン9.2.0では90200が返されます。␞␞      </para>␞
+␝      <para>␟       Therefore, for purposes of determining feature compatibility,
+       applications should divide the result of <xref linkend="libpq-PQserverVersion"/>
+       by 100 not 10000 to determine a logical major version number.
+       In all release series, only the last two digits differ between
+       minor releases (bug-fix releases).␟ですから、機能の互換性を見極めるのが目的なら、アプリケーションは<xref linkend="libpq-PQserverVersion"/>の結果を10000ではなく、100で割り、論理的なメジャーバージョンを求めるべきです。
+すべてのリリースで、最後の2桁だけがマイナーリリースで異なります。
+（バグ修正リリースです。）␞␞      </para>␞
+␝      <para>␟       Returns the error message most recently generated by
+       an operation on the connection.␟接続に対する操作によって最後に生成されたエラーメッセージを返します。␞␞␞
+␝      <para>␟       Nearly all <application>libpq</application> functions will set a message for
+       <xref linkend="libpq-PQerrorMessage"/> if they fail.  Note that by
+       <application>libpq</application> convention, a nonempty
+       <xref linkend="libpq-PQerrorMessage"/> result can consist of multiple lines,
+       and will include a trailing newline. The caller should not free
+       the result directly. It will be freed when the associated
+       <structname>PGconn</structname> handle is passed to
+       <xref linkend="libpq-PQfinish"/>.  The result string should not be
+       expected to remain the same across operations on the
+       <literal>PGconn</literal> structure.␟ほとんどすべての<application>libpq</application>関数は、失敗時に<xref linkend="libpq-PQerrorMessage"/>用のメッセージを設定します。
+<application>libpq</application>での決まりとして、空でない<xref linkend="libpq-PQerrorMessage"/>の結果は複数行に渡ることも可能で、最後に改行が含まれることがある点に注意してください。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGconn</structname>ハンドルが<xref linkend="libpq-PQfinish"/>に渡された時にこれは解放されます。
+<literal>PGconn</literal>構造体への操作を跨って、この結果文字列が同一であると想定してはいけません。␞␞      </para>␞
+␝      <para>␟       Obtains the file descriptor number of the connection socket to
+       the server.  A valid descriptor will be greater than or equal
+       to 0; a result of -1 indicates that no server connection is
+       currently open.  (This will not change during normal operation,
+       but could change during connection setup or reset.)␟サーバとの接続ソケットに対するファイル記述子番号を得ます。
+有効な記述子なら値は0以上です。
+-1の場合は、サーバとの接続がまだ開いていないことを示します。
+(これは通常の操作では変更することはできません。
+接続設定中やリセット中に変更されます。)␞␞␞
+␝      <para>␟       Returns the process <acronym>ID</acronym> (PID)<indexterm>
+        <primary>PID</primary>
+        <secondary>determining PID of server process</secondary>
+        <tertiary>in libpq</tertiary>
+       </indexterm>
+       of the backend process handling this connection.␟接続を処理するバックエンドのプロセス<acronym>ID</acronym>(PID)を返します。
+<indexterm><primary>PID</primary><secondary>サーバプロセスのPIDの決定</secondary><tertiary>libpqにおける</tertiary></indexterm>␞␞␞
+␝      <para>␟       The backend <acronym>PID</acronym> is useful for debugging
+       purposes and for comparison to <command>NOTIFY</command>
+       messages (which include the <acronym>PID</acronym> of the
+       notifying backend process).  Note that the
+       <acronym>PID</acronym> belongs to a process executing on the
+       database server host, not the local host!␟バックエンドの<acronym>PID</acronym>は、デバッグする場合や<command>NOTIFY</command>メッセージ（これは通知を発行したバックエンドプロセスの<acronym>PID</acronym>を含んでいます）の比較に便利です。
+この<acronym>PID</acronym>はデータベースサーバホスト上で実行されているプロセスのものであり、ローカルホスト側のものではありません！
+注意してください。␞␞      </para>␞
+␝      <para>␟       Returns true (1) if the connection authentication method
+       required a password, but none was available.
+       Returns false (0) if not.␟接続認証方式がパスワードを要求し、利用可能なパスワードがない場合真（1）を返します。
+さもなくば偽（0）を返します。␞␞␞
+␝      <para>␟       This function can be applied after a failed connection attempt
+       to decide whether to prompt the user for a password.␟この関数を、接続試行に失敗した後でユーザにパスワード入力を促すかどうかを決定するために適用することができます。␞␞      </para>␞
+␝      <para>␟       Returns true (1) if the connection authentication method
+       used a password. Returns false (0) if not.␟接続認証方式でパスワードを使用する場合は真（1）を返します。
+さもなくば偽（0）を返します。␞␞␞
+␝      <para>␟       This function can be applied after either a failed or successful
+       connection attempt to detect whether the server demanded a password.␟この関数は、接続の試みが失敗したか成功したかの後に、サーバがパスワードを要求したかどうかを検出するために適用できます。␞␞      </para>␞
+␝      <para>␟       Returns true (1) if the connection authentication method
+       used GSSAPI. Returns false (0) if not.␟接続認証方式が GSSAPI を使用している場合はtrue (1)を返します。
+使用していない場合はfalse (0)を返します。␞␞␞
+␝      <para>␟       This function can be applied to detect whether the connection was
+       authenticated with GSSAPI.␟この関数は、接続がGSSAPIで認証されたかどうかを検出するために適用できます。␞␞      </para>␞
+␝  <para>␟    The following functions return information related to SSL. This information
+    usually doesn't change after a connection is established.␟以下の関数はSSLに関連した情報を返します。
+この情報は通常、接続の確立後には変更されません。␞␞␞
+␝      <para>␟        Returns true (1) if the connection uses SSL, false (0) if not.␟接続がSSLを使っていれば真(1)、使っていなければ偽(0)を返します。␞␞␞
+␝      <para>␟        Returns SSL-related information about the connection.␟接続におけるSSL関連の情報を返します。␞␞␞
+␝      <para>␟       The list of available attributes varies depending on the SSL library
+       being used and the type of connection.  Returns NULL if the connection
+       does not use SSL or the specified attribute name is not defined for the
+       library in use.␟利用可能な属性のリストは使用されているSSLライブラリおよび接続の種類によって異なります。
+接続でSSLが使用されない場合、または指定した属性名が使用中のライブラリに定義されていない場合は、NULLが返されます。␞␞      </para>␞
+␝      <para>␟       The following attributes are commonly available:␟一般的には、以下の属性が利用可能です。␞␞       <variablelist>␞
+␝           <para>␟            Name of the SSL implementation in use. (Currently, only
+            <literal>"OpenSSL"</literal> is implemented)␟使用されているSSLの実装の名前です。
+（現在は<literal>"OpenSSL"</literal>だけが実装されています。）␞␞           </para>␞
+␝           <para>␟             SSL/TLS version in use. Common values
+             are <literal>"TLSv1"</literal>, <literal>"TLSv1.1"</literal>
+             and <literal>"TLSv1.2"</literal>, but an implementation may
+             return other strings if some other protocol is used.␟使用されているSSL/TLSのバージョンです。
+一般的な値は、<literal>"TLSv1"</literal>、<literal>"TLSv1.1"</literal>、<literal>"TLSv1.2"</literal>ですが、他のプロトコルが使用されれば、異なる文字列が返されるかもしれません。␞␞           </para>␞
+␝           <para>␟            Number of key bits used by the encryption algorithm.␟暗号アルゴリズムで使用されている鍵のビット数です。␞␞           </para>␞
+␝           <para>␟            A short name of the ciphersuite used, e.g.,
+            <literal>"DHE-RSA-DES-CBC3-SHA"</literal>. The names are specific
+            to each SSL implementation.␟使用されている暗号スイートの短縮名、例えば<literal>"DHE-RSA-DES-CBC3-SHA"</literal>です。
+この名前は各SSLの実装に固有のものです。␞␞           </para>␞
+␝           <para>␟            Returns "on" if SSL compression is in use, else it returns "off".␟SSL圧縮が使用されている場合は"on"を返し、使用されていない場合は"off"を返します。␞␞           </para>␞
+␝           <para>␟            Application protocol selected by the TLS Application-Layer
+            Protocol Negotiation (ALPN) extension.  The only protocol
+            supported by libpq is <literal>postgresql</literal>, so this is
+            mainly useful for checking whether the server supported ALPN or
+            not. Empty string if ALPN was not used.␟TLSアプリケーションレイヤプロトコルネゴシエーション(ALPN)拡張によって選択されたアプリケーションプロトコルです。
+libpqがサポートするプロトコルは<literal>postgresql</literal>のみであるため、これは主にサーバがALPNをサポートしているかどうかをチェックするのに役立ちます。
+ALPNが使用されなかった場合は空文字列です。␞␞           </para>␞
+␝      <para>␟       As a special case, the <literal>library</literal> attribute may be
+       queried without a connection by passing NULL as
+       the <literal>conn</literal> argument.  The result will be the default
+       SSL library name, or NULL if <application>libpq</application> was
+       compiled without any SSL support.  (Prior
+       to <productname>PostgreSQL</productname> version 15, passing NULL as
+       the <literal>conn</literal> argument always resulted in NULL.
+       Client programs needing to differentiate between the newer and older
+       implementations of this case may check the
+       <literal>LIBPQ_HAS_SSL_LIBRARY_DETECTION</literal> feature macro.)␟特殊なケースとして、<literal>library</literal>属性は、<literal>conn</literal>引数としてNULLを渡すことによって接続なしで照会することができます。
+結果はデフォルトのSSLライブラリ名、または<application>libpq</application>がSSLサポートなしでコンパイルされた場合にNULLになります。
+（<productname>PostgreSQL</productname>バージョン15より前では、<literal>conn</literal>引数としてNULLを渡すと常にNULLになりました。
+このケースの新しい実装と古い実装を区別する必要があるクライアントプログラムは、<literal>LIBPQ_HAS_SSL_LIBRARY_DETECTION</literal>機能マクロをチェックしてください。）␞␞      </para>␞
+␝      <para>␟       Returns an array of SSL attribute names that can be used
+       in <function>PQsslAttribute()</function>.
+       The array is terminated by a NULL pointer.␟<function>PQsslAttribute()</function>で使用できるSSL属性名の配列を返します。
+配列の最後のメンバにはNULLポインタが入ります。␞␞<synopsis>␞
+␝      <para>␟       If <literal>conn</literal> is NULL, the attributes available for the
+       default SSL library are returned, or an empty list
+       if <application>libpq</application> was compiled without any SSL
+       support.  If <literal>conn</literal> is not NULL, the attributes
+       available for the SSL library in use for the connection are returned,
+       or an empty list if the connection is not encrypted.␟<literal>conn</literal>がNULLの場合、デフォルトのSSLライブラリで使用可能な属性が返されます。
+または、<application>libpq</application>がSSLサポートなしでコンパイルされた場合は空のリストが返されます。
+<literal>conn</literal>がNULLでない場合、接続に使用されているSSLライブラリで使用可能な属性が返されます。接続が暗号化されていない場合は空のリストが返されます。␞␞      </para>␞
+␝      <para>␟       Returns a pointer to an SSL-implementation-specific object describing
+       the connection.  Returns NULL if the connection is not encrypted
+       or the requested type of object is not available from the connection's
+       SSL implementation.␟SSLの実装に固有な接続を説明するオブジェクトへのポインタを返します。
+接続が暗号化されていないか、要求されたタイプのオブジェクトが接続のSSLの実装から利用できない場合はNULLを返します。␞␞<synopsis>␞
+␝      <para>␟       The struct(s) available depend on the SSL implementation in use.
+       For <productname>OpenSSL</productname>, there is one struct,
+       available under the name <literal>OpenSSL</literal>,
+       and it returns a pointer to
+       <productname>OpenSSL</productname>'s <literal>SSL</literal> struct.
+       To use this function, code along the following lines could be used:␟利用可能な構造体は、使用されるSSLの実装に依存します。
+<productname>OpenSSL</productname>では、<literal>OpenSSL</literal>の名前の下に利用可能な構造体が1つあり、<productname>OpenSSL</productname>の<literal>SSL</literal>構造体へのポインタを返します。
+この関数を使用するには、以下のようなプログラムが利用できます。␞␞<programlisting><![CDATA[␞
+␝      <para>␟        /* use OpenSSL functions to access ssl */␟        /* sslにアクセスするためOpenSSLの関数を使う */␞␞    }␞
+␝      <para>␟       This structure can be used to verify encryption levels, check server
+       certificates, and more. Refer to the <productname>OpenSSL</productname>
+       documentation for information about this structure.␟この構造体は、暗号化レベルの確認、サーバ証明書の検証、その他に使用できます。
+この構造体に関する情報については<productname>OpenSSL</productname>のドキュメントを参照して下さい。␞␞      </para>␞
+␝       <indexterm><primary>SSL</primary><secondary sortas="libpq">in libpq</secondary></indexterm>␟       Returns the SSL structure used in the connection, or NULL
+       if SSL is not in use.␟接続で使用されているSSLの構造体を返します。
+SSLが使われていなければNULLを返します。␞␞␞
+␝   </variablelist>
+  </para>
+
+ </sect1>
+
+␟␟<!-- split-libpq0-end -->
+<!-- split-libpq1-start -->␞␞ <sect1 id="libpq-exec">␞
+␝      <para>␟       This function is equivalent to <literal>PQsslStruct(conn, "OpenSSL")</literal>. It should
+       not be used in new applications, because the returned struct is
+       specific to <productname>OpenSSL</productname> and will not be
+       available if another <acronym>SSL</acronym> implementation is used.
+       To check if a connection uses SSL, call
+       <xref linkend="libpq-PQsslInUse"/> instead, and for more details about the
+       connection, use <xref linkend="libpq-PQsslAttribute"/>.␟この関数は<literal>PQsslStruct(conn, "OpenSSL")</literal>と同等です。
+返される構造体は<productname>OpenSSL</productname>に固有のもので他の<acronym>SSL</acronym>実装が利用されていると使用できないので、新しく作成するアプリケーションでは使うべきではありません。
+接続がSSLを使用しているかどうかを調べるには、代わりに<xref linkend="libpq-PQsslInUse"/>を呼び出して下さい。
+また、接続に関するより詳細については<xref linkend="libpq-PQsslAttribute"/>を使って下さい。␞␞      </para>␞
+␝ <sect1 id="libpq-exec">␟  <title>Command Execution Functions</title>␟  <title>コマンド実行関数</title>␞␞␞
+␝  <para>␟   Once a connection to a database server has been successfully
+   established, the functions described here are used to perform
+   SQL queries and commands.␟いったんデータベースサーバへの接続の確立が成功すれば、本節で説明する関数を使ってSQLの問い合わせやコマンドを実行します。␞␞  </para>␞
+␝  <sect2 id="libpq-exec-main">␟   <title>Main Functions</title>␟   <title>主要な関数</title>␞␞␞
+␝       <para>␟        Submits a command to the server and waits for the result.␟コマンドをサーバに送信し、結果を待機します。␞␞␞
+␝       <para>␟        Returns a <structname>PGresult</structname> pointer or possibly a null
+        pointer.  A non-null pointer will generally be returned except in
+        out-of-memory conditions or serious errors such as inability to send
+        the command to the server.  The <xref linkend="libpq-PQresultStatus"/> function
+        should be called to check the return value for any errors (including
+        the value of a null pointer, in which case it will return
+        <symbol>PGRES_FATAL_ERROR</symbol>).  Use
+        <xref linkend="libpq-PQerrorMessage"/> to get more information about such
+        errors.␟戻り値は<structname>PGresult</structname>へのポインタ、場合によってはNULLポインタです。
+メモリ不足の状態、あるいはサーバへのコマンド送信が不可能といった深刻なエラーの場合を除けば、通常非NULLのポインタが返ります。
+<xref linkend="libpq-PQresultStatus"/>関数を呼び出して、何かエラー（NULLポインタ値を含むエラー。この場合は<symbol>PGRES_FATAL_ERROR</symbol>が返されます）がないか戻り値を検査しなければなりません。
+こうしたエラーの詳しい情報は<xref linkend="libpq-PQerrorMessage"/>で得ることができます。␞␞       </para>␞
+␝␟    The command string can include multiple SQL commands
+    (separated by semicolons).  Multiple queries sent in a single
+    <xref linkend="libpq-PQexec"/> call are processed in a single transaction, unless
+    there are explicit <command>BEGIN</command>/<command>COMMIT</command>
+    commands included in the query string to divide it into multiple
+    transactions.  (See <xref linkend="protocol-flow-multi-statement"/>
+    for more details about how the server handles multi-query strings.)
+    Note however that the returned
+    <structname>PGresult</structname> structure describes only the result
+    of the last command executed from the string.  Should one of the
+    commands fail, processing of the string stops with it and the returned
+    <structname>PGresult</structname> describes the error condition.␟コマンド文字列には（セミコロンで区切られた）複数のSQLコマンドを含めることができます。
+単一の<xref linkend="libpq-PQexec"/>呼び出しで送信された複数の問い合わせは、単一トランザクションで処理されます。
+ただし、問い合わせ文字列内に明示的な<command>BEGIN</command>/<command>COMMIT</command>コマンドがある場合は、複数のトランザクションに分離されます。
+（サーバがどのように複数問い合わせを処理するかの更なる詳細は<xref linkend="protocol-flow-multi-statement"/>を参照してください。）
+しかし、返される<structname>PGresult</structname>構造体には、その文字列内で最後に実行されたコマンドの結果のみが含まれることに注意してください。
+そのコマンドの1つが失敗したとすると、文字列の処理はそこで中断し、エラー条件が含まれる<structname>PGresult</structname>が返されます。␞␞   </para>␞
+␝       <para>␟        Submits a command to the server and waits for the result,
+        with the ability to pass parameters separately from the SQL
+        command text.␟サーバにコマンドを送信し、結果を待ちます。
+ただし、SQLコマンドテキストとは別にパラメータを渡すことができます。␞␞␞
+␝       <para>␟        <xref linkend="libpq-PQexecParams"/> is like <xref linkend="libpq-PQexec"/>, but offers additional
+        functionality: parameter values can be specified separately from the command
+        string proper, and query results can be requested in either text or binary
+        format.␟<xref linkend="libpq-PQexecParams"/>と<xref linkend="libpq-PQexec"/>は似ていますが、前者は次の機能が追加されています。
+パラメータ値をコマンド文字列とは別に適切に指定することができ、また、問い合わせの結果をテキスト書式としてでもバイナリ書式としてでも要求できます。␞␞       </para>␞
+␝       <para>␟        The function arguments are:␟この関数の引数を以下に示します。␞␞␞
+␝           <para>␟            The connection object to send the command through.␟接続オブジェクトです。これを通してコマンドを送信します。␞␞           </para>␞
+␝           <para>␟            The SQL command string to be executed. If parameters are used,
+            they are referred to in the command string as <literal>$1</literal>,
+            <literal>$2</literal>, etc.␟実行させるSQLコマンド文字列です。
+パラメータが使用される場合は、コマンド文字列内で<literal>$1</literal>、<literal>$2</literal>などのように参照されます。␞␞           </para>␞
+␝           <para>␟            The number of parameters supplied; it is the length of the arrays
+            <parameter>paramTypes[]</parameter>, <parameter>paramValues[]</parameter>,
+            <parameter>paramLengths[]</parameter>, and <parameter>paramFormats[]</parameter>. (The
+            array pointers can be <symbol>NULL</symbol> when <parameter>nParams</parameter>
+            is zero.)␟提供されるパラメータ数です。
+これは配列<parameter>paramTypes[]</parameter>、<parameter>paramValues[]</parameter>、<parameter>paramLengths[]</parameter>、<parameter>paramFormats[]</parameter>の要素数です。
+（この配列ポインタは、<parameter>nParams</parameter>が0の場合、<symbol>NULL</symbol>とすることができます。）␞␞           </para>␞
+␝           <para>␟            Specifies, by OID, the data types to be assigned to the
+            parameter symbols.  If <parameter>paramTypes</parameter> is
+            <symbol>NULL</symbol>, or any particular element in the array
+            is zero, the server infers a data type for the parameter symbol
+            in the same way it would do for an untyped literal string.␟パラメータシンボルに代入されるデータ型をOIDで指定したものです。
+<parameter>paramTypes</parameter>が<symbol>NULL</symbol>、または、ある配列要素が0の場合、サーバは、型指定のないリテラル文字列に対して行う推定方法と同じ方法を使用して、パラメータシンボルのデータ型を推定します。␞␞           </para>␞
+␝           <para>␟            Specifies the actual values of the parameters.  A null pointer
+            in this array means the corresponding parameter is null;
+            otherwise the pointer points to a zero-terminated text string
+            (for text format) or binary data in the format expected by the
+            server (for binary format).␟パラメータの実際の値を指定します。
+配列内のNULLポインタは対応するパラメータがNULLであることを意味します。
+さもなくば、このポインタはゼロ終端のテキスト文字列（テキスト書式）、または、サーバで想定している書式によるバイナリデータ（バイナリ書式）を指し示します。␞␞           </para>␞
+␝           <para>␟            Specifies the actual data lengths of binary-format parameters.
+            It is ignored for null parameters and text-format parameters.
+            The array pointer can be null when there are no binary parameters.␟バイナリ書式のパラメータの実データ長を指定します。
+NULLパラメータおよびテキスト書式のパラメータでは無視されます。
+バイナリパラメータが存在しない場合、この配列ポインタはNULLとしてもかまいません。␞␞           </para>␞
+␝           <para>␟            Specifies whether parameters are text (put a zero in the
+            array entry for the corresponding parameter) or binary (put
+            a one in the array entry for the corresponding parameter).
+            If the array pointer is null then all parameters are presumed
+            to be text strings.␟パラメータがテキスト（パラメータに対応する配列要素に0を設定）か、バイナリ（パラメータに対応する配列要素に1を設定）かを指定します。
+この配列ポインタがNULLの場合、すべてのパラメータはテキスト文字列であると仮定されます。␞␞           </para>␞
+␝           <para>␟            Values passed in binary format require knowledge of
+            the internal representation expected by the backend.
+            For example, integers must be passed in network byte
+            order.  Passing <type>numeric</type> values requires
+            knowledge of the server storage format, as implemented
+            in
+            <filename>src/backend/utils/adt/numeric.c::numeric_send()</filename> and
+            <filename>src/backend/utils/adt/numeric.c::numeric_recv()</filename>.␟バイナリ書式で渡された値は、バックエンドが想定する内部表現の知識を必要とします。
+例えば、整数はネットワークバイト順に渡されなければなりません。
+<type>numeric</type>による値は、<filename>src/backend/utils/adt/numeric.c::numeric_send()</filename>および<filename>src/backend/utils/adt/numeric.c::numeric_recv()</filename>で実装されたようにサーバストレージ書式の知識を必要とします。␞␞           </para>␞
+␝           <para>␟            Specify zero to obtain results in text format, or one to obtain
+            results in binary format.  (There is not currently a provision
+            to obtain different result columns in different formats,
+            although that is possible in the underlying protocol.)␟結果をテキスト書式で取り出したい場合は0を、バイナリ書式で取り出したい場合は1を指定します。
+（現時点では、プロトコル内部では実現可能ですが、結果の列ごとに異なる書式を指定して取り出す機構は存在しません。）␞␞           </para>␞
+␝   <para>␟    The primary advantage of <xref linkend="libpq-PQexecParams"/> over
+    <xref linkend="libpq-PQexec"/> is that parameter values can be separated from the
+    command string, thus avoiding the need for tedious and error-prone
+    quoting and escaping.␟<xref linkend="libpq-PQexec"/>に対する<xref linkend="libpq-PQexecParams"/>の主要な利点は、コマンド文字列とパラメータ値を分離することができることです。
+これにより、面倒でエラーを招きやすい引用符付けやエスケープ処理を行なう必要がなくなります。␞␞   </para>␞
+␝   <para>␟    Unlike <xref linkend="libpq-PQexec"/>, <xref linkend="libpq-PQexecParams"/> allows at most
+    one SQL command in the given string.  (There can be semicolons in it,
+    but not more than one nonempty command.)  This is a limitation of the
+    underlying protocol, but has some usefulness as an extra defense against
+    SQL-injection attacks.␟<xref linkend="libpq-PQexec"/>と異なり、<xref linkend="libpq-PQexecParams"/>は、文字列内に最大でも1つのSQLコマンドを入れることができます。
+（セミコロンを入れることはできますが、空でないコマンドを2つ以上入れることはできません。）
+これは、プロトコル自体の制限ですが、SQLインジェクション攻撃に対する追加の防御となりますので、多少役に立ちます。␞␞   </para>␞
+␝    <para>␟     Specifying parameter types via OIDs is tedious, particularly if you prefer
+     not to hard-wire particular OID values into your program.  However, you can
+     avoid doing so even in cases where the server by itself cannot determine the
+     type of the parameter, or chooses a different type than you want.  In the
+     SQL command text, attach an explicit cast to the parameter symbol to show what
+     data type you will send.  For example:␟OID経由のパラメータ型の指定は、特にプログラムの中で特定のOID値がソースに直接書き込まれることを好まない場合には退屈です。
+しかしながら、パラメータの型をサーバ自身で決定できない場合や、望む型と異なる型を選択する場合であっても、これを避けることができます。
+SQLコマンドテキストでどのデータ型を送信するかを示すためにパラメータシンボルに明示的なキャストをつけてください。
+以下が例です。␞␞<programlisting>␞
+␝</programlisting>␟     This forces parameter <literal>$1</literal> to be treated as <type>bigint</type>, whereas
+     by default it would be assigned the same type as <literal>x</literal>.  Forcing the
+     parameter type decision, either this way or by specifying a numeric type OID,
+     is strongly recommended when sending parameter values in binary format, because
+     binary format has less redundancy than text format and so there is less chance
+     that the server will detect a type mismatch mistake for you.␟デフォルトではパラメータ<literal>$1</literal>の型は<literal>x</literal>と同じデータ型に割り当てられますが、これにより強制的に<type>bigint</type>として扱われます。
+この方法または型のOIDを数字で指定する方法で、パラメータの型を強制的に決定することがバイナリ書式においてパラメータ値を送る時に強く推奨されます。
+これは、バイナリ書式はテキスト書式より情報が少なく、そのために、サーバが型の不一致という問題を検出する機会が少なくなるためです。␞␞    </para>␞
+␝       <para>␟        Submits a request to create a prepared statement with the
+        given parameters, and waits for completion.␟指定パラメータを持つ準備された文の作成要求を送信し、その完了を待ちます。␞␞<synopsis>␞
+␝       <para>␟        <xref linkend="libpq-PQprepare"/> creates a prepared statement for later
+        execution with <xref linkend="libpq-PQexecPrepared"/>.  This feature allows
+        commands to be executed repeatedly without being parsed and
+        planned each time;  see <xref linkend="sql-prepare"/> for details.␟<xref linkend="libpq-PQprepare"/>は、後で<xref linkend="libpq-PQexecPrepared"/>を使用して実行する準備された文を作成します。
+この機能を使用すると、コマンドを実行の度に解析して計画することなく、繰り返し実行することができます。
+詳しくは<xref linkend="sql-prepare"/>を参照してください。␞␞       </para>␞
+␝       <para>␟        The function creates a prepared statement named
+        <parameter>stmtName</parameter> from the <parameter>query</parameter> string, which
+        must contain a single SQL command.  <parameter>stmtName</parameter> can be
+        <literal>""</literal> to create an unnamed statement, in which case any
+        pre-existing unnamed statement is automatically replaced; otherwise
+        it is an error if the statement name is already defined in the
+        current session.  If any parameters are used, they are referred
+        to in the query as <literal>$1</literal>, <literal>$2</literal>, etc.
+        <parameter>nParams</parameter> is the number of parameters for which types
+        are pre-specified in the array <parameter>paramTypes[]</parameter>.  (The
+        array pointer can be <symbol>NULL</symbol> when
+        <parameter>nParams</parameter> is zero.) <parameter>paramTypes[]</parameter>
+        specifies, by OID, the data types to be assigned to the parameter
+        symbols.  If <parameter>paramTypes</parameter> is <symbol>NULL</symbol>,
+        or any particular element in the array is zero, the server assigns
+        a data type to the parameter symbol in the same way it would do
+        for an untyped literal string.  Also, the query can use parameter
+        symbols with numbers higher than <parameter>nParams</parameter>; data types
+        will be inferred for these symbols as well.  (See
+        <xref linkend="libpq-PQdescribePrepared"/> for a means to find out
+        what data types were inferred.)␟この関数は<parameter>query</parameter>文字列から<parameter>stmtName</parameter>という名前の準備された文を作成します。
+<parameter>query</parameter>は単一のSQLコマンドでなければなりません。
+<parameter>stmtName</parameter>を<literal>""</literal>にして、無名の文を作成することができます。
+もし、無名の文が既に存在していた場合は自動的に置き換えられます。
+その他の場合、文の名前が現在のセッションで既に存在するとエラーになります。
+何らかのパラメータが使用される場合、問い合わせ内では<literal>$1</literal>、<literal>$2</literal>などで参照します。
+<parameter>nParams</parameter>はパラメータ数です。
+その型については事前に<parameter>paramTypes[]</parameter>配列で指定されています。
+(<parameter>nParams</parameter>がゼロの場合、この配列ポインタは<symbol>NULL</symbol>にすることができます。)
+<parameter>paramTypes[]</parameter>は、OIDによりパラメータシンボルに割り当てるデータ型を指定します。
+<parameter>paramTypes</parameter>が<symbol>NULL</symbol>の場合、もしくは、配列内の特定要素がゼロの場合、サーバはそのパラメータシンボルに対して、型指定の無いリテラル文字列に対する処理と同等の方法でデータ型を割り当てます。
+また、問い合わせでは<parameter>nParams</parameter>より多くのパラメータシンボルを使用することができます。
+これらのシンボルに対するデータ型も同様に推測されます。
+（どのようなデータ型が推測されるかを検出する手法については<xref linkend="libpq-PQdescribePrepared"/>を参照してください。）␞␞       </para>␞
+␝       <para>␟        As with <xref linkend="libpq-PQexec"/>, the result is normally a
+        <structname>PGresult</structname> object whose contents indicate
+        server-side success or failure.  A null result indicates
+        out-of-memory or inability to send the command at all.  Use
+        <xref linkend="libpq-PQerrorMessage"/> to get more information about
+        such errors.␟<xref linkend="libpq-PQexec"/>同様、結果は通常<structname>PGresult</structname>オブジェクトで、その内容でサーバ側の成功や失敗を示します。
+NULLという結果はメモリ不足や全くコマンドを送信することができなかったことを示します。
+こうしたエラーの詳細情報を入手するには<xref linkend="libpq-PQerrorMessage"/>を使用してください。␞␞       </para>␞
+␝␟    Prepared statements for use with <xref linkend="libpq-PQexecPrepared"/> can also
+    be created by executing SQL <xref linkend="sql-prepare"/>
+    statements.␟<xref linkend="libpq-PQexecPrepared"/>で使用するための準備された文は、SQL <xref linkend="sql-prepare"/>文を実行して作成することもできます。␞␞   </para>␞
+␝       <para>␟        Sends a request to execute a prepared statement with given
+        parameters, and waits for the result.␟指定パラメータによる準備された文の実行要求を送信し、結果を待ちます。␞␞<synopsis>␞
+␝       <para>␟        <xref linkend="libpq-PQexecPrepared"/> is like <xref linkend="libpq-PQexecParams"/>,
+        but the command to be executed is specified by naming a
+        previously-prepared statement, instead of giving a query string.
+        This feature allows commands that will be used repeatedly to be
+        parsed and planned just once, rather than each time they are
+        executed.  The statement must have been prepared previously in
+        the current session.␟<xref linkend="libpq-PQexecPrepared"/>と<xref linkend="libpq-PQexecParams"/>は似ていますが、前者では実行されるコマンドは、問い合わせ文字列を与えるのではなく、事前に準備された文を指名することで指定されます。
+この機能により、繰り返し使用する予定のコマンドを実行する度にではなく、一度だけ解析、計画作成を行うことができます。
+この文は現在のセッションで事前に準備されていなければなりません。␞␞       </para>␞
+␝       <para>␟        The parameters are identical to <xref linkend="libpq-PQexecParams"/>, except that the
+        name of a prepared statement is given instead of a query string, and the
+        <parameter>paramTypes[]</parameter> parameter is not present (it is not needed since
+        the prepared statement's parameter types were determined when it was created).␟パラメータは、問い合わせ文字列ではなく指定された準備された文の名前を与える点を除き、<xref linkend="libpq-PQexecParams"/>と同じです。
+また、<parameter>paramTypes[]</parameter>パラメータは存在しません。
+(準備された文のパラメータ型はその作成時点で決定されているため、これは不要です。)␞␞       </para>␞
+␝       <para>␟        Submits a request to obtain information about the specified
+        prepared statement, and waits for completion.␟指定した準備された文に関する情報入手要求を送り、入手完了まで待機します。␞␞<synopsis>␞
+␝       <para>␟        <xref linkend="libpq-PQdescribePrepared"/> allows an application to obtain
+        information about a previously prepared statement.␟<xref linkend="libpq-PQdescribePrepared"/>により、アプリケーションは事前に準備された文に関する情報を入手できます。␞␞       </para>␞
+␝       <para>␟        <parameter>stmtName</parameter> can be <literal>""</literal> or <symbol>NULL</symbol> to reference
+        the unnamed statement, otherwise it must be the name of an existing
+        prepared statement.  On success, a <structname>PGresult</structname> with
+        status <literal>PGRES_COMMAND_OK</literal> is returned.  The
+        functions <xref linkend="libpq-PQnparams"/> and
+        <xref linkend="libpq-PQparamtype"/> can be applied to this
+        <structname>PGresult</structname> to obtain information about the parameters
+        of the prepared statement, and the functions
+        <xref linkend="libpq-PQnfields"/>, <xref linkend="libpq-PQfname"/>,
+        <xref linkend="libpq-PQftype"/>, etc. provide information about the
+        result columns (if any) of the statement.␟<parameter>stmtName</parameter>を<literal>""</literal>または<symbol>NULL</symbol>とすることで、無名の文を参照することができます。
+これ以外では、存在する準備された文の名前でなければなりません。
+成功すると、<literal>PGRES_COMMAND_OK</literal>というステータスの<structname>PGresult</structname>が返されます。
+<xref linkend="libpq-PQnparams"/>および<xref linkend="libpq-PQparamtype"/>関数をこの<structname>PGresult</structname>に適用して、準備された文のパラメータに関する情報を得ることができます。
+また、<xref linkend="libpq-PQnfields"/>、<xref linkend="libpq-PQfname"/>、<xref linkend="libpq-PQftype"/>関数などを使用して、文の結果列（もしあれば）に関する情報を提供できます。␞␞       </para>␞
+␝       <para>␟        Submits a request to obtain information about the specified
+        portal, and waits for completion.␟指定したポータルに関する情報入手要求を送信し、完了まで待機します。␞␞<synopsis>␞
+␝       <para>␟        <xref linkend="libpq-PQdescribePortal"/> allows an application to obtain
+        information about a previously created portal.
+        (<application>libpq</application> does not provide any direct access to
+        portals, but you can use this function to inspect the properties
+        of a cursor created with a <command>DECLARE CURSOR</command> SQL command.)␟<xref linkend="libpq-PQdescribePortal"/>により、アプリケーションは事前に作成されたポータルの情報を入手することができます。
+（<application>libpq</application>はポータルへの直接アクセスする方法を提供していませんが、この関数を使用して<command>DECLARE CURSOR</command> SQLコマンドで作成したカーソルの属性を確認することができます。）␞␞       </para>␞
+␝       <para>␟        <parameter>portalName</parameter> can be <literal>""</literal> or <symbol>NULL</symbol> to reference
+        the unnamed portal, otherwise it must be the name of an existing
+        portal.  On success, a <structname>PGresult</structname> with status
+        <literal>PGRES_COMMAND_OK</literal> is returned.  The functions
+        <xref linkend="libpq-PQnfields"/>, <xref linkend="libpq-PQfname"/>,
+        <xref linkend="libpq-PQftype"/>, etc. can be applied to the
+        <structname>PGresult</structname> to obtain information about the result
+        columns (if any) of the portal.␟<parameter>portalName</parameter>に<literal>""</literal>または<symbol>NULL</symbol>を指定して、無名のポータルを参照することができます。
+これ以外では、既存のポータルの名前でなければなりません。
+成功すると、<literal>PGRES_COMMAND_OK</literal>というステータスの<structname>PGresult</structname>が返されます。
+<xref linkend="libpq-PQnfields"/>、<xref linkend="libpq-PQfname"/>、<xref linkend="libpq-PQftype"/>関数などをこの<structname>PGresult</structname>に適用して、ポータルの結果列（もしあれば）に関する情報を得ることができます。␞␞       </para>␞
+␝       <para>␟        Submits a request to close the specified prepared statement, and waits
+        for completion.␟指定した準備された文をクローズする要求を送信し、完了を待機します。␞␞<synopsis>␞
+␝       <para>␟        <xref linkend="libpq-PQclosePrepared"/> allows an application to close
+        a previously prepared statement. Closing a statement releases all
+        of its associated resources on the server and allows its name to be
+        reused.␟<xref linkend="libpq-PQclosePrepared"/>を使用すると、アプリケーションは以前に作られた準備された文を閉じることができます。
+文を閉じると、サーバ上の関連するすべてのリソースが解放され、その名前を再利用できるようになります。␞␞       </para>␞
+␝       <para>␟        <parameter>stmtName</parameter> can be <literal>""</literal> or
+        <symbol>NULL</symbol> to reference the unnamed statement. It is fine
+        if no statement exists with this name, in that case the operation is a
+        no-op. On success, a <structname>PGresult</structname> with
+        status <literal>PGRES_COMMAND_OK</literal> is returned.␟<parameter>stmtName</parameter>は<literal>""</literal>または<symbol>NULL</symbol>で、名前のない文を参照できます。
+この名前がついた文は存在しなくてもよく、この場合は何も操作は行われません。
+成功した場合、ステータス<literal>PGRES_COMMAND_OK</literal>を持つ<structname>PGresult</structname>が返されます。␞␞       </para>␞
+␝       <para>␟        Submits a request to close the specified portal, and waits for
+        completion.␟指定されたポータルを閉じる要求を送信し、完了を待機します。␞␞<synopsis>␞
+␝       <para>␟        <xref linkend="libpq-PQclosePortal"/> allows an application to trigger
+        a close of a previously created portal. Closing a portal releases all
+        of its associated resources on the server and allows its name to be
+        reused. (<application>libpq</application> does not provide any
+        direct access to portals, but you can use this function to close a
+        cursor created with a <command>DECLARE CURSOR</command> SQL command.)␟<xref linkend="libpq-PQclosePortal"/>を使用すると、アプリケーションは以前に作成したポータルを閉じることができます。
+ポータルを閉じると、サーバ上の関連するすべてのリソースが解放され、その名前を再利用できるようになります。
+（<application>libpq</application>はポータルへの直接アクセスを提供しませんが、この関数を使用して<command>DECLARE CURSOR</command>SQLコマンドで作成されたカーソルを閉じることができます。）␞␞       </para>␞
+␝       <para>␟        <parameter>portalName</parameter> can be <literal>""</literal> or
+        <symbol>NULL</symbol> to reference the unnamed portal. It is fine
+        if no portal exists with this name, in that case the operation is a
+        no-op. On success, a <structname>PGresult</structname> with status
+        <literal>PGRES_COMMAND_OK</literal> is returned.␟<parameter>portalName</parameter>は<literal>""</literal>または<symbol>NULL</symbol>で、名前のないポータルを参照できます。
+この名前のポータルが存在しない場合は、操作は何も行われません。
+成功した場合、ステータス<literal>PGRES_COMMAND_OK</literal>を持つ<structname>PGresult</structname>が返されます。␞␞       </para>␞
+␝   <para>␟    The <structname>PGresult</structname><indexterm><primary>PGresult</primary></indexterm>
+    structure encapsulates the result returned by the server.
+    <application>libpq</application> application programmers should be
+    careful to maintain the <structname>PGresult</structname> abstraction.
+    Use the accessor functions below to get at the contents of
+    <structname>PGresult</structname>.  Avoid directly referencing the
+    fields of the <structname>PGresult</structname> structure because they
+    are subject to change in the future.␟<structname>PGresult</structname>構造体はサーバから返された結果をカプセル化します。
+<indexterm><primary>PGresult</primary></indexterm>
+<application>libpq</application>アプリケーションのプログラマは注意して<structname>PGresult</structname>という抽象化を維持してください。
+以下のアクセス用関数を使用して、<structname>PGresult</structname>の内容を取り出してください。
+将来の変更に影響されますので、<structname>PGresult</structname>構造体のフィールドを直接参照することは避けてください。␞␞␞
+␝       <para>␟        Returns the result status of the command.␟コマンドの結果状態を返します。␞␞<synopsis>␞
+␝       <para>␟        <xref linkend="libpq-PQresultStatus"/> can return one of the following values:␟<xref linkend="libpq-PQresultStatus"/>は以下のいずれかの値を返します。␞␞␞
+␝           <para>␟            The string sent to the server was empty.␟サーバに送信された文字列が空でした。␞␞           </para>␞
+␝           <para>␟            Successful completion of a command returning no data.␟データを返さないコマンドが正常終了しました。␞␞           </para>␞
+␝           <para>␟            Successful completion of a command returning data (such as
+            a <command>SELECT</command> or <command>SHOW</command>).␟データを返すコマンド(<command>SELECT</command>や<command>SHOW</command>など)が正常終了しました。␞␞           </para>␞
+␝           <para>␟            Copy Out (from server) data transfer started.␟(サーバからの)コピーアウトデータ転送が始まりました。␞␞           </para>␞
+␝           <para>␟            Copy In (to server) data transfer started.␟(サーバへの)コピーインデータ転送が始まりました。␞␞           </para>␞
+␝           <para>␟            The server's response was not understood.␟サーバが不明な応答を返しました。␞␞           </para>␞
+␝           <para>␟            A nonfatal error (a notice or warning) occurred.␟致命的ではない(注意喚起もしくは警告)エラーが発生しました。␞␞           </para>␞
+␝           <para>␟            A fatal error occurred.␟致命的なエラーが発生しました。␞␞           </para>␞
+␝           <para>␟            Copy In/Out (to and from server) data transfer started.  This
+            feature is currently used only for streaming replication,
+            so this status should not occur in ordinary applications.␟（サーバからおよびサーバへの）コピーイン/アウトデータ転送が始まりました。
+現在こればストリーミングレプリケーションのみで使用されます。
+このためこの状態は通常のアプリケーションでは起こりません。␞␞           </para>␞
+␝           <para>␟            The <structname>PGresult</structname> contains a single result tuple
+            from the current command.  This status occurs only when
+            single-row mode has been selected for the query
+            (see <xref linkend="libpq-single-row-mode"/>).␟<structname>PGresult</structname>には現在のコマンドからの結果タプルが１つ含まれます。
+この状態は問い合わせで単一行モードが選択された場合（<xref linkend="libpq-single-row-mode"/>参照）のみ起こります。␞␞           </para>␞
+␝           <para>␟            The <structname>PGresult</structname> contains several result tuples
+            from the current command.  This status occurs only when
+            chunked mode has been selected for the query
+            (see <xref linkend="libpq-single-row-mode"/>).
+            The number of tuples will not exceed the limit passed to
+            <xref linkend="libpq-PQsetChunkedRowsMode"/>.␟<structname>PGresult</structname>は現在のコマンドからの複数の結果タプルを含んでいます。
+この状態は、問い合わせに対してチャンクモードが選択された場合にのみ発生します（<xref linkend="libpq-single-row-mode"/>を参照してください）。
+タプル数は<xref linkend="libpq-PQsetChunkedRowsMode"/>に渡された制限を超えることはありません。␞␞           </para>␞
+␝           <para>␟            The <structname>PGresult</structname> represents a
+            synchronization point in pipeline mode, requested by either
+            <xref linkend="libpq-PQpipelineSync"/> or
+            <xref linkend="libpq-PQsendPipelineSync"/>.
+            This status occurs only when pipeline mode has been selected.␟<structname>PGresult</structname>は、パイプラインモードで<xref linkend="libpq-PQpipelineSync"/>または<xref linkend="libpq-PQsendPipelineSync"/>によって要求された同期ポイントを表します。
+この状態は、パイプラインモードが選択された場合にのみ発生します。␞␞           </para>␞
+␝           <para>␟            The <structname>PGresult</structname> represents a pipeline that has
+            received an error from the server.  <function>PQgetResult</function>
+            must be called repeatedly, and each time it will return this status code
+            until the end of the current pipeline, at which point it will return
+            <literal>PGRES_PIPELINE_SYNC</literal> and normal processing can
+            resume.␟<structname>PGresult</structname>は、サーバからエラーを受信したパイプラインを表します。
+<function>PQgetResult</function>は繰り返し呼び出されなければならず、現在のパイプラインが終了するまでこのステータスコードを返す度に<literal>PGRES_PIPELINE_SYNC</literal>を返し、通常の処理を再開できます。␞␞           </para>␞
+␝␟        If the result status is <literal>PGRES_TUPLES_OK</literal>,
+        <literal>PGRES_SINGLE_TUPLE</literal>, or
+        <literal>PGRES_TUPLES_CHUNK</literal>, then
+        the functions described below can be used to retrieve the rows
+        returned by the query.  Note that a <command>SELECT</command>
+        command that happens to retrieve zero rows still shows
+        <literal>PGRES_TUPLES_OK</literal>.
+        <literal>PGRES_COMMAND_OK</literal> is for commands that can never
+        return rows (<command>INSERT</command> or <command>UPDATE</command>
+        without a <literal>RETURNING</literal> clause,
+        etc.). A response of <literal>PGRES_EMPTY_QUERY</literal> might
+        indicate a bug in the client software.␟結果の状態が<literal>PGRES_TUPLES_OK</literal>、<literal>PGRES_SINGLE_TUPLE</literal>、または<literal>PGRES_TUPLES_CHUNK</literal>の場合、以下に説明する関数を使用して、問い合わせによって返された行を取り出すことができます。
+ただし、たまたま<command>SELECT</command>コマンドが返す行が０個だったような場合でも<literal>PGRES_TUPLES_OK</literal>となることに注意してください。
+<literal>PGRES_COMMAND_OK</literal>は、行を決して返さない(<literal>RETURNING</literal>句の無い<command>INSERT</command>または<command>UPDATE</command>など)コマンド用です。
+<literal>PGRES_EMPTY_QUERY</literal>という応答はクライアントソフトウェアの不具合を示しているかもしれません。␞␞       </para>␞
+␝       <para>␟        A result of status <symbol>PGRES_NONFATAL_ERROR</symbol> will
+        never be returned directly by <xref linkend="libpq-PQexec"/> or other
+        query execution functions; results of this kind are instead passed
+        to the notice processor (see <xref
+        linkend="libpq-notice-processing"/>).␟<symbol>PGRES_NONFATAL_ERROR</symbol>状態の場合、結果は<xref linkend="libpq-PQexec"/>や他の問い合わせ実行関数によって直接返されません。
+その代わりに、この種の結果は注意喚起プロセッサ(<xref linkend="libpq-notice-processing"/>を参照)に渡されます。␞␞       </para>␞
+␝       <para>␟        Converts the enumerated type returned by
+        <xref linkend="libpq-PQresultStatus"/> into a string constant describing the
+        status code. The caller should not free the result.␟<xref linkend="libpq-PQresultStatus"/>が返す列挙型から状態コードを説明する文字列定数に変換します。
+呼び出し元はこの結果を解放してはいけません。␞␞␞
+␝       <para>␟        Returns the error message associated with the command, or an empty string
+        if there was no error.␟コマンドに関するエラーメッセージを返します。
+エラーが何もなければ、空の文字列を返します。␞␞<synopsis>␞
+␝</synopsis>␟        If there was an error, the returned string will include a trailing
+        newline.  The caller should not free the result directly. It will
+        be freed when the associated <structname>PGresult</structname> handle is
+        passed to <xref linkend="libpq-PQclear"/>.␟エラーがあった場合、返される文字列の最後には改行が含まれます。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時にこれは解放されます。␞␞       </para>␞
+␝       <para>␟        Immediately following a <xref linkend="libpq-PQexec"/> or
+        <xref linkend="libpq-PQgetResult"/> call,
+        <xref linkend="libpq-PQerrorMessage"/> (on the connection) will return
+        the same string as <xref linkend="libpq-PQresultErrorMessage"/> (on
+        the result).  However, a <structname>PGresult</structname> will
+        retain its error message until destroyed, whereas the connection's
+        error message will change when subsequent operations are done.
+        Use <xref linkend="libpq-PQresultErrorMessage"/> when you want to
+        know the status associated with a particular
+        <structname>PGresult</structname>; use
+        <xref linkend="libpq-PQerrorMessage"/> when you want to know the
+        status from the latest operation on the connection.␟（接続に対する）<xref linkend="libpq-PQerrorMessage"/>も、<xref linkend="libpq-PQexec"/>または<xref linkend="libpq-PQgetResult"/>呼び出しの直後なら（結果に対する）<xref linkend="libpq-PQresultErrorMessage"/>と同じ文字列を返します。
+しかし、接続に対するエラーメッセージは続いて操作を行うと変化してしまうのに対し、<structname>PGresult</structname>は自身が破棄されるまでそのエラーメッセージを維持し続けます。
+この<xref linkend="libpq-PQresultErrorMessage"/>は個々の<structname>PGresult</structname>に結び付けられた状態を確認する時に、そして<xref linkend="libpq-PQerrorMessage"/>は接続における最後の操作の状態を確認する時に使用してください。␞␞       </para>␞
+␝       <para>␟        Returns a reformatted version of the error message associated with
+        a <structname>PGresult</structname> object.␟<structname>PGresult</structname>オブジェクトに関連したエラーメッセージの再フォーマットしたバージョンを返します。␞␞<synopsis>␞
+␝</synopsis>␟        In some situations a client might wish to obtain a more detailed
+        version of a previously-reported error.
+        <xref linkend="libpq-PQresultVerboseErrorMessage"/> addresses this need
+        by computing the message that would have been produced
+        by <xref linkend="libpq-PQresultErrorMessage"/> if the specified
+        verbosity settings had been in effect for the connection when the
+        given <structname>PGresult</structname> was generated.  If
+        the <structname>PGresult</structname> is not an error result,
+        <quote>PGresult is not an error result</quote> is reported instead.
+        The returned string includes a trailing newline.␟状況によっては、クライアントは以前に報告されたエラーのより詳細なバージョンを取得したいと思うかもしれません。
+<xref linkend="libpq-PQresultVerboseErrorMessage"/>は、指定の<structname>PGresult</structname>が生成されたときに、指定した冗長設定がその接続で使われていたなら<xref linkend="libpq-PQresultErrorMessage"/>が生成したであろうメッセージを計算することで、この要請に応えます。
+<structname>PGresult</structname>がエラーの結果ではない場合は、<quote>PGresult is not an error result</quote>が代わりに報告されます。
+返される文字列は行末に改行コードが含まれます。␞␞       </para>␞
+␝       <para>␟        Unlike most other functions for extracting data from
+        a <structname>PGresult</structname>, the result of this function is a freshly
+        allocated string.  The caller must free it
+        using <function>PQfreemem()</function> when the string is no longer needed.␟<structname>PGresult</structname>からデータを抽出する他の多くの関数と異なり、この関数の結果は新しく割り当てられた文字列です。
+その文字列が必要なくなったときは、呼び出し側が<function>PQfreemem()</function>を使ってそれを解放しなければなりません。␞␞       </para>␞
+␝       <para>␟        A NULL return is possible if there is insufficient memory.␟十分なメモリがないときは、NULLが返されることもありえます。␞␞       </para>␞
+␝       <para>␟        Returns an individual field of an error report.␟エラー報告の個々のフィールドを返します。␞␞<synopsis>␞
+␝</synopsis>␟        <parameter>fieldcode</parameter> is an error field identifier; see the symbols
+        listed below.  <symbol>NULL</symbol> is returned if the
+        <structname>PGresult</structname> is not an error or warning result,
+        or does not include the specified field.  Field values will normally
+        not include a trailing newline. The caller should not free the
+        result directly. It will be freed when the
+        associated <structname>PGresult</structname> handle is passed to
+        <xref linkend="libpq-PQclear"/>.␟<parameter>fieldcode</parameter>はエラーフィールド識別子です。
+以下に示すシンボルを参照してください。
+<structname>PGresult</structname>がエラーではない、もしくは、警告付きの結果である場合や指定したフィールドを含まない場合、<symbol>NULL</symbol>が返されます。
+通常フィールド値には改行が含まれません。
+フィールド値は関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時に解放されます。␞␞       </para>␞
+␝       <para>␟        The following field codes are available:␟以下のフィールドコードが使用できます。␞␞        <variablelist>␞
+␝           <para>␟            The severity; the field contents are <literal>ERROR</literal>,
+            <literal>FATAL</literal>, or <literal>PANIC</literal> (in an error message),
+            or <literal>WARNING</literal>, <literal>NOTICE</literal>, <literal>DEBUG</literal>,
+            <literal>INFO</literal>, or <literal>LOG</literal> (in a notice message), or
+            a localized translation of one of these.  Always present.␟深刻度。
+このフィールドの内容は(エラーメッセージの場合)<literal>ERROR</literal>、<literal>FATAL</literal>、もしくは、<literal>PANIC</literal>、(注意喚起メッセージの場合)<literal>WARNING</literal>、<literal>NOTICE</literal>、<literal>DEBUG</literal>、<literal>INFO</literal>、もしくは、<literal>LOG</literal>です。
+これらは、ローカライズ化により翻訳されている可能性があります。
+常に存在します。␞␞           </para>␞
+␝           <para>␟            The severity; the field contents are <literal>ERROR</literal>,
+            <literal>FATAL</literal>, or <literal>PANIC</literal> (in an error message),
+            or <literal>WARNING</literal>, <literal>NOTICE</literal>, <literal>DEBUG</literal>,
+            <literal>INFO</literal>, or <literal>LOG</literal> (in a notice message).
+            This is identical to the <symbol>PG_DIAG_SEVERITY</symbol> field except
+            that the contents are never localized.  This is present only in
+            reports generated by <productname>PostgreSQL</productname> versions 9.6
+            and later.␟深刻度。
+このフィールドの内容は(エラーメッセージの場合)<literal>ERROR</literal>、<literal>FATAL</literal>、もしくは、<literal>PANIC</literal>、(注意喚起メッセージの場合)<literal>WARNING</literal>、<literal>NOTICE</literal>、<literal>DEBUG</literal>、<literal>INFO</literal>、もしくは、<literal>LOG</literal>です。
+これは、内容がローカライズ化されないことを除き、<symbol>PG_DIAG_SEVERITY</symbol>と同一です。
+これは<productname>PostgreSQL</productname>のバージョン9.6以降で生成された報告にのみ存在します。␞␞           </para>␞
+␝           <para>␟            The SQLSTATE code for the error. The SQLSTATE code identifies
+            the type of error that has occurred; it can be used by
+            front-end applications to perform specific operations (such
+            as error handling) in response to a particular database error.
+            For a list of the possible SQLSTATE codes, see <xref
+            linkend="errcodes-appendix"/>. This field is not localizable,
+            and is always present.␟エラーのSQLSTATEコードです。
+SQLSTATEコードは発生したエラーの種類を識別します。
+フロントエンドアプリケーションにより、特定のデータベースエラーに対して所定の操作（エラー処理など）を行うために使用できます。
+起こり得るSQLSTATEコードの一覧については<xref linkend="errcodes-appendix"/>を参照してください。
+このフィールドはローカライズ化されず、また、常に存在します。␞␞           </para>␞
+␝           <para>␟            The primary human-readable error message (typically one line).
+            Always present.␟可読性を高めた主要エラーメッセージです。
+(通常は1行です。)
+常に存在します。␞␞           </para>␞
+␝           <para>␟            Detail: an optional secondary error message carrying more
+            detail about the problem.  Might run to multiple lines.␟詳細です。
+問題に関するより詳細を表す補助的なエラーメッセージです。
+複数行に跨る可能性があります。␞␞           </para>␞
+␝           <para>␟            Hint: an optional suggestion what to do about the problem.
+            This is intended to differ from detail in that it offers advice
+            (potentially inappropriate) rather than hard facts.  Might
+            run to multiple lines.␟ヒントです。
+問題の対応方法についての補助的な提言です。
+これは、詳細(detail)とは異なり、問題の事象ではなく、(適切でない可能性がありますが)アドバイスを提供することを目的としています。
+複数行に跨る可能性があります。␞␞           </para>␞
+␝           <para>␟            A string containing a decimal integer indicating an error cursor
+            position as an index into the original statement string.  The
+            first character has index 1, and positions are measured in
+            characters not bytes.␟元の問い合わせ文字列のインデックスとなる、エラーが発生したカーソル位置を示す10進整数を持つ文字列です。
+先頭文字がインデックス1となり、また、バイトではなく、文字数で数えた位置です。␞␞           </para>␞
+␝           <para>␟            This is defined the same as the
+            <symbol>PG_DIAG_STATEMENT_POSITION</symbol> field, but it is used
+            when the cursor position refers to an internally generated
+            command rather than the one submitted by the client.  The
+            <symbol>PG_DIAG_INTERNAL_QUERY</symbol> field will always appear when
+            this field appears.␟この定義は<symbol>PG_DIAG_STATEMENT_POSITION</symbol>フィールドと同じです。
+しかし、これは、クライアントが発行したコマンドではなく、カーソル位置が内部生成コマンドを参照する場合に使用されます。
+このフィールドが存在する時は常に<symbol>PG_DIAG_INTERNAL_QUERY</symbol>フィールドが存在します。␞␞           </para>␞
+␝           <para>␟            The text of a failed internally-generated command.  This could
+            be, for example, an SQL query issued by a PL/pgSQL function.␟失敗した内部生成コマンドのテキストです。
+これは、例えば、PL/pgSQL関数で発行されたSQL問い合わせになります。␞␞           </para>␞
+␝           <para>␟            An indication of the context in which the error occurred.
+            Presently this includes a call stack traceback of active
+            procedural language functions and internally-generated queries.
+            The trace is one entry per line, most recent first.␟エラーが発生した文脈を示すものです。
+今の所、これは活動中の手続き言語関数や内部生成問い合わせの呼び出しスタックの追跡情報が含まれます。
+この追跡は行単位で1項目であり、その順番は呼び出し順の反対になります。␞␞           </para>␞
+␝           <para>␟            If the error was associated with a specific database object,
+            the name of the schema containing that object, if any.␟そのエラーが特定のデータベースオブジェクトに付随する場合、もしあれば、そのオブジェクトを含むスキーマ名です。␞␞           </para>␞
+␝           <para>␟            If the error was associated with a specific table, the name of the
+            table.  (Refer to the schema name field for the name of the
+            table's schema.)␟そのエラーが特定のテーブルに付随する場合のテーブル名です。
+（テーブルのスキーマ名についてはスキーマ名フィールドを参照してください。）␞␞           </para>␞
+␝           <para>␟            If the error was associated with a specific table column, the name
+            of the column.  (Refer to the schema and table name fields to
+            identify the table.)␟そのエラーが特定のテーブル列に付随する場合の列名です。
+（テーブルを識別するにはスキーマとテーブル名フィールドを参照してください。）␞␞           </para>␞
+␝           <para>␟            If the error was associated with a specific data type, the name of
+            the data type.  (Refer to the schema name field for the name of
+            the data type's schema.)␟そのエラーが特定のデータ型に付随する場合のデータ型名です。
+（データ型のスキーマ名についてはスキーマ名フィールドを参照してください。）␞␞           </para>␞
+␝           <para>␟            If the error was associated with a specific constraint, the name
+            of the constraint.  Refer to fields listed above for the
+            associated table or domain.  (For this purpose, indexes are
+            treated as constraints, even if they weren't created with
+            constraint syntax.)␟そのエラーが特定の制約に付随する場合の制約名です。
+付随するテーブルまたはドメインについては上記にリストされたフィールドを参照してください。
+（この目的のために、制約は制約構文で作成されていなくてもインデックスは制約として扱われます。）␞␞           </para>␞
+␝           <para>␟            The file name of the source-code location where the error was
+            reported.␟エラーが報告された場所のソースコードのファイル名です。␞␞           </para>␞
+␝           <para>␟            The line number of the source-code location where the error
+            was reported.␟エラーが報告された場所のソースコードにおける行番号です。␞␞           </para>␞
+␝           <para>␟            The name of the source-code function reporting the error.␟エラーを報告した、ソースコードにおける関数名です。␞␞           </para>␞
+␝        <para>␟         The fields for schema name, table name, column name, data type name,
+         and constraint name are supplied only for a limited number of error
+         types; see <xref linkend="errcodes-appendix"/>.  Do not assume that
+         the presence of any of these fields guarantees the presence of
+         another field.  Core error sources observe the interrelationships
+         noted above, but user-defined functions may use these fields in other
+         ways.  In the same vein, do not assume that these fields denote
+         contemporary objects in the current database.␟スキーマ名、テーブル名、列名、データ型名、および制約名に対するフィールドは限定的なエラー型に対してのみ提供されます。<xref linkend="errcodes-appendix"/>を参照してください。
+これらのフィールドのいかなる存在もその他のフィールドの存在を保証すると推測してはなりません。
+コアエラーの出所は上に記載の相互関係を監視しますが、ユーザ定義関数はこれらフィールドを別目的で使用しているかもしれません。
+同様の脈絡で、使用しているデータベースで
+これらのフィールドが同時に存在するオブジェクトを意味すると推測してはなりません。␞␞        </para>␞
+␝       <para>␟        The client is responsible for formatting displayed information to meet
+        its needs; in particular it should break long lines as needed.
+        Newline characters appearing in the error message fields should be
+        treated as paragraph breaks, not line breaks.␟表示情報の必要に応じた整形はクライアントの責任です。
+具体的には、必要に応じて長い行を分割しなければなりません。
+エラーメッセージフィールド内の改行文字は、改行としてではなく段落として分かれたものとして取扱うべきです。␞␞       </para>␞
+␝       <para>␟        Errors generated internally by <application>libpq</application> will
+        have severity and primary message, but typically no other fields.␟<application>libpq</application>で内部的に生成されたエラーは、深刻度と主要メッセージを持ちますが、通常は他のフィールドを持ちません。␞␞       </para>␞
+␝       <para>␟        Note that error fields are only available from
+        <structname>PGresult</structname> objects, not
+        <structname>PGconn</structname> objects; there is no
+        <function>PQerrorField</function> function.␟エラーフィールドは<structname>PGresult</structname>からのみ利用でき、<structname>PGconn</structname>からは利用できません。
+<function>PQerrorField</function>という関数はありません。␞␞       </para>␞
+␝       <para>␟        Frees  the  storage  associated with a
+        <structname>PGresult</structname>.  Every command result should be
+        freed via <xref linkend="libpq-PQclear"/> when it  is  no  longer
+        needed.␟<structname>PGresult</structname>に割り当てられた記憶領域を解放します。
+個々の問い合わせ結果は、必要なくなった時に<xref linkend="libpq-PQclear"/>で解放するべきです。␞␞␞
+␝␟        If the argument is a <symbol>NULL</symbol> pointer, no operation is
+        performed.␟引数が<symbol>NULL</symbol>ポインタの場合、操作は実行されません。␞␞       </para>␞
+␝       <para>␟        You can keep a <structname>PGresult</structname> object around for
+        as long as you need it; it does not go away when you issue a new
+        command, nor even if you close the connection.  To get rid of it,
+        you must call <xref linkend="libpq-PQclear"/>.  Failure to do this
+        will result in memory leaks in your application.␟<structname>PGresult</structname>オブジェクトは必要な間保持することができます。
+新しい問い合わせを発行する場合でも、接続を閉じてしまうまでは<structname>PGresult</structname>は消えません。
+<structname>PGresult</structname>を解放するには、<xref linkend="libpq-PQclear"/>を呼び出さなくてはいけません。
+その操作に失敗してしまうと、アプリケーションのメモリリークを引き起こしてしまいます。␞␞       </para>␞
+␝  <sect2 id="libpq-exec-select-info">␟   <title>Retrieving Query Result Information</title>␟  <title>問い合わせ結果の情報の取り出し</title>␞␞␞
+␝   <para>␟    These functions are used to extract information from a
+    <structname>PGresult</structname> object that represents a successful
+    query result (that is, one that has status
+    <literal>PGRES_TUPLES_OK</literal>,
+    <literal>PGRES_SINGLE_TUPLE</literal>, or
+    <literal>PGRES_TUPLES_CHUNK</literal>).
+    They can also be used to extract
+    information from a successful Describe operation: a Describe's result
+    has all the same column information that actual execution of the query
+    would provide, but it has zero rows.  For objects with other status values,
+    these functions will act as though the result has zero rows and zero columns.␟これらの関数は、問い合わせ結果が成功したことを表す<structname>PGresult</structname>（つまり、<literal>PGRES_TUPLES_OK</literal>、<literal>PGRES_SINGLE_TUPLE</literal>、または<literal>PGRES_TUPLES_CHUNK</literal>のステータスを持つ）から情報を抽出するために使用されます。
+また、成功したDescribe操作から情報を抽出するためにも使用できます。Describeの結果には、実際の問い合わせの実行によって提供される列情報と同じ情報がすべて含まれますが、行は0です。
+他のステータス値を持つオブジェクトの場合、これらの関数は結果が0行と0列であるかのように動作します。␞␞   </para>␞
+␝      <para>␟       Returns the number of rows (tuples) in the query result.
+       (Note that <structname>PGresult</structname> objects are limited to no more
+       than <literal>INT_MAX</literal> rows, so an <type>int</type> result is
+       sufficient.)␟問い合わせ結果内の行(タプル)数を返します。
+（ <structname>PGresult</structname>オブジェクトは<literal>INT_MAX</literal>行に制限されているため、<type>int</type>の結果で十分です。）␞␞␞
+␝      <para>␟       Returns the number of columns (fields) in each row of the query
+       result.␟問い合わせ結果の各行の列(フィールド)の数を返します。␞␞␞
+␝      <para>␟       Returns the column name associated with the given column number.
+       Column numbers start at 0. The caller should not free the result
+       directly. It will be freed when the associated
+       <structname>PGresult</structname> handle is passed to
+       <xref linkend="libpq-PQclear"/>.␟指定した列番号に対応する列の名前を返します。
+列番号は0から始まります。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時にこれは解放されます。␞␞<synopsis>␞
+␝      <para>␟       <symbol>NULL</symbol> is returned if the column number is out of range.␟列番号が範囲外であった場合、<symbol>NULL</symbol>が返ります。␞␞      </para>␞
+␝      <para>␟       Returns the column number associated with the given column name.␟指定した列名に関連する列番号を返します。␞␞<synopsis>␞
+␝      <para>␟       -1 is returned if the given name does not match any column.␟指定した名前に一致する列がなければ、-1が返ります。␞␞      </para>␞
+␝      <para>␟       The given name is treated like an identifier in an SQL command,
+       that is, it is downcased unless double-quoted.  For example, given
+       a query result generated from the SQL command:␟指定した名前はSQLコマンドの識別子同様に扱われます。
+つまり、二重引用符でくくられていない限り、小文字化されます。
+例えば、以下のSQLで生成された問い合わせ結果を考えます。␞␞<programlisting>␞
+␝</programlisting>␟       we would have the results:␟以下により、結果を取り出すことができます。␞␞<programlisting>␞
+␝      <para>␟       Returns the OID of the table from which the given column was
+       fetched.  Column numbers start at 0.␟指定した列の抽出元であるテーブルのOIDを返します。
+列番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       <literal>InvalidOid</literal> is returned if the column number is out of range,
+       or if the specified column is not a simple reference to a table column.
+       You can query the system table <literal>pg_class</literal> to determine
+       exactly which table is referenced.␟列番号が範囲外の場合や指定した列がテーブル列への単純な参照でない場合、<literal>InvalidOid</literal>が返されます。
+<literal>pg_class</literal>システムテーブルに問い合わせ、どのテーブルが参照されているのかを正確に求めることができます。␞␞      </para>␞
+␝      <para>␟       The type <type>Oid</type> and the constant
+       <literal>InvalidOid</literal> will be defined when you include
+       the <application>libpq</application> header file. They will both
+       be some integer type.␟<application>libpq</application>ヘッダファイルをインクルードすると、<type>Oid</type>型と<literal>InvalidOid</literal>定数が定義されます。
+これらは両方とも何らかの整数型です。␞␞      </para>␞
+␝      <para>␟       Returns the column number (within its table) of the column making
+       up the specified query result column.  Query-result column numbers
+       start at 0, but table columns have nonzero numbers.␟指定した問い合わせ結果の列を作成した列の(それが属するテーブル内での)列番号を返します。
+問い合わせ結果の列番号は0から始まりますが、テーブル列には0以外の番号が付けられています。␞␞<synopsis>␞
+␝      <para>␟       Zero is returned if the column number is out of range, or if the
+       specified column is not a simple reference to a table column.␟列番号が範囲外の場合や指定した列がテーブル列への単純な参照でなかった場合、ゼロが返されます。␞␞      </para>␞
+␝      <para>␟       Returns the format code indicating the format of the given
+       column.  Column numbers start at 0.␟指定した列の書式を示す書式コードを返します。
+列番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       Format code zero indicates textual data representation, while format
+       code one indicates binary representation.  (Other codes are reserved
+       for future definition.)␟ゼロという書式コードはテキストデータ表現を示し、1という書式コードはバイナリ表現を示します。
+(他のコードは将来の定義のために予約されています。)␞␞      </para>␞
+␝      <para>␟       Returns the data type associated with the given  column number.
+       The  integer  returned is the internal OID number of the type.
+       Column numbers start at 0.␟指定した列番号に関連したデータ型を返します。
+返された整数はその型の内部的なOID番号です。
+列番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       You can query the system table <literal>pg_type</literal> to
+       obtain the names and properties of the various data types. The
+       <acronym>OID</acronym>s of the built-in data types are defined
+       in the file <filename>catalog/pg_type_d.h</filename>
+       in the <productname>PostgreSQL</productname>
+       installation's <filename>include</filename> directory.␟<literal>pg_type</literal>システムテーブルに問い合わせて、各種データ型の名前や属性を得ることができます。
+組み込みデータ型の<acronym>OID</acronym>は、<productname>PostgreSQL</productname>がインストールされた<filename>include</filename>ディレクトリ内の<filename>catalog/pg_type_d.h</filename>ファイルに定義されています。␞␞      </para>␞
+␝      <para>␟       Returns  the type modifier of the column associated with the
+       given column number.  Column numbers start at 0.␟指定した列番号に関連した列の型修飾子を返します。
+列番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       The interpretation of modifier values is type-specific; they
+       typically indicate precision or size limits.  The value -1 is
+       used to indicate <quote>no information available</quote>.  Most data
+       types do not use modifiers, in which case the value is always
+       -1.␟修飾子の値の解釈は型に固有なものです。
+通常これらは精度やサイズの制限を示します。
+-1という値は<quote>使用できる情報がない</quote>ことを示します。
+ほとんどのデータ型は修飾子を使用しません。
+この場合は常に-1という値になります。␞␞      </para>␞
+␝      <para>␟       Returns  the  size  in bytes of the column associated with the
+       given column number.  Column numbers start at 0.␟指定した列番号に関連した列のバイト単位のサイズを返します。
+列番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQfsize"/> returns the space allocated for this column
+       in a database row, in other words the size of the server's
+       internal representation of the data type.  (Accordingly, it is
+       not really very useful to clients.) A negative value indicates
+       the data type is variable-length.␟<xref linkend="libpq-PQfsize"/>はデータベース行内でその列用に割り当てられる領域を返します。
+言い替えると、そのデータ型についてのサーバでの内部表現のサイズです。
+(従って、実際にはクライアントから見るとあまり役には立ちません。)
+負の値は可変長データ型を示します。␞␞      </para>␞
+␝      <para>␟       Returns 1 if the <structname>PGresult</structname> contains binary data
+       and 0 if it contains text data.␟<structname>PGresult</structname>がバイナリデータを持つ場合は1を、テキストデータを持つ場合は0を返します。␞␞<synopsis>␞
+␝      <para>␟       This function is deprecated (except for its use in connection with
+       <command>COPY</command>), because it is possible for a single
+       <structname>PGresult</structname> to contain text data in some columns and
+       binary data in others.  <xref linkend="libpq-PQfformat"/> is preferred.
+       <xref linkend="libpq-PQbinaryTuples"/> returns 1 only if all columns of the
+       result are binary (format 1).␟この関数は廃れたものです。
+(<command>COPY</command>を行う接続での使用を除きます。)
+単一の<structname>PGresult</structname>で、ある列はテキストデータを持ち、他の列ではバイナリデータを持つことが可能であるためです。
+<xref linkend="libpq-PQfformat"/>の利用が推奨されます。
+結果のすべての列がバイナリ(書式1)の場合のみ<xref linkend="libpq-PQbinaryTuples"/>は1を返します。␞␞      </para>␞
+␝      <para>␟       Returns a single field value of one row of a
+       <structname>PGresult</structname>.  Row and column numbers start
+       at 0.  The caller should not free the result directly.  It will
+       be freed when the associated <structname>PGresult</structname> handle is
+       passed to <xref linkend="libpq-PQclear"/>.␟<structname>PGresult</structname>の1行における単一フィールドの値を返します。
+行番号と列番号は0から始まります。
+呼び出し元はこの結果を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時に、これは解放されます。␞␞<synopsis>␞
+␝      <para>␟       For data in text format, the value returned by
+       <xref linkend="libpq-PQgetvalue"/> is a null-terminated character
+       string  representation of the field value.  For data in binary
+       format, the value is in the binary representation determined by
+       the data type's <function>typsend</function> and <function>typreceive</function>
+       functions.  (The value is actually followed by a zero byte in
+       this case too, but that is not ordinarily useful, since the
+       value is likely to contain embedded nulls.)␟テキスト書式のデータでは、<xref linkend="libpq-PQgetvalue"/>で返される値はフィールド値のNULL終端の文字列表現となります。
+バイナリ書式のデータでは、この値はデータ型の<function>typsend</function>関数と<function>typreceive</function>関数で決まるバイナリ表現となります。
+(実際にはこの場合でも値の終わりにゼロというバイトが付与されます。
+しかし、この値の内部には大抵の場合NULLが埋め込まれていますので、通常このバイトは有用ではありません。)␞␞      </para>␞
+␝      <para>␟       An empty string is returned if the field value is null.  See
+       <xref linkend="libpq-PQgetisnull"/> to distinguish null values from
+       empty-string values.␟フィールド値がNULLの場合、空文字列が返されます。
+NULL値と空文字列という値とを区別する方法は<xref linkend="libpq-PQgetisnull"/>を参照してください。␞␞      </para>␞
+␝      <para>␟       The pointer returned  by  <xref linkend="libpq-PQgetvalue"/> points
+       to storage that is part of the <structname>PGresult</structname>
+       structure.  One should not modify the data it points to, and one
+       must explicitly copy the data into other storage if it is to be
+       used past the lifetime of the  <structname>PGresult</structname>
+       structure itself.␟<xref linkend="libpq-PQgetvalue"/>によって返されるポインタは<structname>PGresult</structname>構造体の一部の格納領域を指し示します。
+このポインタが指し示すデータを変更すべきではありません。
+また、<structname>PGresult</structname>構造体を解放した後も使用し続ける場合は、データを別の格納領域に明示的にコピーしなければなりません。␞␞      </para>␞
+␝      <para>␟       Tests a field for a null value.  Row and column numbers start
+       at 0.␟フィールドがNULL値かどうか検査します。
+行番号と列番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       This function returns  1 if the field is null and 0 if it
+       contains a non-null value.  (Note that
+       <xref linkend="libpq-PQgetvalue"/> will return an empty string,
+       not a null pointer, for a null field.)␟この関数は、フィールドがNULLの場合に1を、フィールドが非NULL値を持つ場合は0を返します。
+(<xref linkend="libpq-PQgetvalue"/>では、NULLフィールドはNULLポインタではなく空文字列を返すことに注意してください。)␞␞      </para>␞
+␝      <para>␟       Returns the actual length of a field value in bytes.  Row and
+       column numbers start at 0.␟実際のフィールド値の長さをバイト単位で返します。
+行番号と列番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       This is the actual data length for the particular data value,
+       that is, the size of the object pointed to by
+       <xref linkend="libpq-PQgetvalue"/>.  For text data format this is
+       the same as <function>strlen()</function>.  For binary format this is
+       essential information.  Note that one should <emphasis>not</emphasis>
+       rely on <xref linkend="libpq-PQfsize"/> to obtain the actual data
+       length.␟これは特定のデータ値についての実際のデータ長です。
+つまり、<xref linkend="libpq-PQgetvalue"/>によって指し示されるオブジェクトのサイズです。
+テキストデータ書式では<function>strlen()</function>と同一です。
+バイナリ書式ではこれは重要な情報です。
+実際のデータ長を取り出すために<xref linkend="libpq-PQfsize"/>を信用しては<emphasis>なりません</emphasis>。␞␞      </para>␞
+␝      <para>␟       Returns the number of parameters of a prepared statement.␟準備された文のパラメータ数を返します。␞␞<synopsis>␞
+␝      <para>␟       This function is only useful when inspecting the result of
+       <xref linkend="libpq-PQdescribePrepared"/>.  For other types of results it
+       will return zero.␟この関数は<xref linkend="libpq-PQdescribePrepared"/>の結果を確認する時にのみ有用です。
+他の種類の結果ではゼロを返します。␞␞      </para>␞
+␝      <para>␟       Returns the data type of the indicated statement parameter.
+       Parameter numbers start at 0.␟指定された文パラメータのデータ型を返します。
+パラメータ番号は0から始まります。␞␞<synopsis>␞
+␝      <para>␟       This function is only useful when inspecting the result of
+       <xref linkend="libpq-PQdescribePrepared"/>.  For other types of results it
+       will return zero.␟この関数は、<xref linkend="libpq-PQdescribePrepared"/>の結果を確認する時にのみ有用です。
+他の種類の結果ではゼロを返します。␞␞      </para>␞
+␝      <para>␟       Prints out all the rows and,  optionally,  the column names  to
+       the specified output stream.␟すべての行と列名(省略可能)を指定した出力ストリームに表示します。␞␞<synopsis>␞
+␝<synopsis>␟void PQprint(FILE *fout,      /* output stream */
+             const PGresult *res,
+             const PQprintOpt *po);
+typedef struct
+{
+    pqbool  header;      /* print output field headings and row count */
+    pqbool  align;       /* fill align the fields */
+    pqbool  standard;    /* old brain dead format */
+    pqbool  html3;       /* output HTML tables */
+    pqbool  expanded;    /* expand tables */
+    pqbool  pager;       /* use pager for output if needed */
+    char    *fieldSep;   /* field separator */
+    char    *tableOpt;   /* attributes for HTML table element */
+    char    *caption;    /* HTML table caption */
+    char    **fieldName; /* null-terminated array of replacement field names */
+} PQprintOpt;␟void PQprint(FILE *fout,      /* 出力ストリーム */
+             const PGresult *res,
+             const PQprintOpt *po);
+typedef struct
+{
+    pqbool  header;      /* フィールドヘッダ情報と行数の表示出力 */
+    pqbool  align;       /* 位置揃えのためのフィールドへの埋め込み */
+    pqbool  standard;    /* 古い、無くなりそうな書式 */
+    pqbool  html3;       /* HTML表出力 */
+    pqbool  expanded;    /* 拡張テーブル */
+    pqbool  pager;       /* 必要に応じたページャの使用 */
+    char    *fieldSep;   /* フィールド区切り文字 */
+    char    *tableOpt;   /* HTML表要素の属性 */
+    char    *caption;    /* HTML 表の表題 */
+    char    **fieldName; /* フィールド名を置き換えるNULL終端の配列 */
+} PQprintOpt;␞␞</synopsis>␞
+␝      <para>␟       This function was formerly used by <application>psql</application>
+       to print query results, but this is no longer the case.  Note
+       that it assumes all the data is in text format.␟この関数は以前に問い合わせ結果を表示するために<application>psql</application>で使用されていましたが、今ではもう使用されていません。
+これはすべてのデータがテキスト書式であるという前提で動作することに注意してください。␞␞      </para>␞
+␝  <sect2 id="libpq-exec-nonselect">␟   <title>Retrieving Other Result Information</title>␟   <title>他の結果情報の取り出し</title>␞␞␞
+␝   <para>␟    These functions are used to extract other information from
+    <structname>PGresult</structname> objects.␟これらの関数は<structname>PGresult</structname>オブジェクトからその他の情報を取り出すために使用されます。␞␞   </para>␞
+␝      <para>␟       Returns the command status tag from the SQL command that generated
+       the <structname>PGresult</structname>.␟<structname>PGresult</structname>を生成したSQLコマンドのコマンド状態タグを返します。␞␞<synopsis>␞
+␝      <para>␟       Commonly this is just the name of the command, but it might include
+       additional data such as the number of rows processed. The caller
+       should not free the result directly. It will be freed when the
+       associated <structname>PGresult</structname> handle is passed to
+       <xref linkend="libpq-PQclear"/>.␟これは通常単なるコマンド名ですが、処理行数など追加情報が含まれる場合もあります。
+呼び出し元はこの戻り値を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時にこれは解放されます。␞␞      </para>␞
+␝      <para>␟       Returns the number of rows affected by the SQL command.␟SQLコマンドにより影響を受けた行数を返します。␞␞<synopsis>␞
+␝      <para>␟       This function returns a string containing the number of rows
+       affected by the <acronym>SQL</acronym> statement that generated the
+       <structname>PGresult</structname>. This function can only be used following
+       the execution of a <command>SELECT</command>, <command>CREATE TABLE AS</command>,
+       <command>INSERT</command>, <command>UPDATE</command>, <command>DELETE</command>,
+       <command>MERGE</command>, <command>MOVE</command>, <command>FETCH</command>,
+       or <command>COPY</command> statement, or an <command>EXECUTE</command> of a
+       prepared query that contains an <command>INSERT</command>,
+       <command>UPDATE</command>, <command>DELETE</command>,
+       or <command>MERGE</command> statement.
+       If the command that generated the <structname>PGresult</structname> was anything
+       else, <xref linkend="libpq-PQcmdTuples"/> returns an empty string. The caller
+       should not free the return value directly. It will be freed when
+       the associated <structname>PGresult</structname> handle is passed to
+       <xref linkend="libpq-PQclear"/>.␟この関数は<structname>PGresult</structname>を生成した<acronym>SQL</acronym>コマンドにより影響を受けた行数を含む文字列を返します。
+この関数は<command>SELECT</command>、<command>CREATE TABLE AS</command>、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>、<command>MOVE</command>、<command>FETCH</command>、<command>COPY</command>文の実行、あるいは、<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>を含むプリペアド問い合わせの<command>EXECUTE</command>文の後でのみ使用することができます。
+<structname>PGresult</structname>を生成したコマンドが他のコマンドであった場合、<xref linkend="libpq-PQcmdTuples"/>は空文字列を返します。
+呼び出し元はこの戻り値を直接解放してはいけません。
+関連する<structname>PGresult</structname>ハンドルが<xref linkend="libpq-PQclear"/>に渡された時にこれは解放されます。␞␞      </para>␞
+␝      <para>␟       Returns the OID<indexterm><primary>OID</primary><secondary>in libpq</secondary></indexterm>
+       of the inserted row, if the <acronym>SQL</acronym> command was an
+       <command>INSERT</command> that inserted exactly one row into a table that
+       has OIDs, or a <command>EXECUTE</command> of a prepared query containing
+       a suitable <command>INSERT</command> statement.  Otherwise, this function
+       returns <literal>InvalidOid</literal>. This function will also
+       return <literal>InvalidOid</literal> if the table affected by the
+       <command>INSERT</command> statement does not contain OIDs.␟<acronym>SQL</acronym>コマンドが、OID<indexterm><primary>OID</primary><secondary>libpqにおける</secondary></indexterm>を持つテーブル内に1行のみを挿入する<command>INSERT</command>だった場合、あるいは、適切な<command>INSERT</command>を持つプリペアド問い合わせの<command>EXECUTE</command>だった場合に、挿入された行のOIDを返します。
+さもなくば<literal>InvalidOid</literal>を返します。
+また、<command>INSERT</command>文の影響を受けたテーブルがOIDを持たなかった場合、この関数は<literal>InvalidOid</literal>を返します。␞␞<synopsis>␞
+␝      <para>␟       This function is deprecated in favor of
+       <xref linkend="libpq-PQoidValue"/> and is not thread-safe.
+       It returns a string with the OID of the inserted row, while
+       <xref linkend="libpq-PQoidValue"/> returns the OID value.␟この関数は<xref linkend="libpq-PQoidValue"/>のため廃止予定になりました。
+またこれはスレッドセーフではありません。
+これは挿入された行のOIDを文字列として返します。
+一方<xref linkend="libpq-PQoidValue"/>はOID値を返します。␞␞<synopsis>␞
+␝   <indexterm zone="libpq-exec-escape-string">
+    <primary>escaping strings</primary>
+    <secondary>in libpq</secondary>
+   </indexterm>
+␟␟   <indexterm zone="libpq-exec-escape-string">
+    <primary>文字列のエスケープ</primary>
+    <secondary>libpqにおける</secondary>
+   </indexterm>␞␞␞
+␝  <sect2 id="libpq-exec-escape-string">␟   <title>Escaping Strings for Inclusion in SQL Commands</title>␟  <title>SQLコマンドに含めるための文字列のエスケープ処理</title>␞␞␞
+␝     <para>␟      <xref linkend="libpq-PQescapeLiteral"/> escapes a string for
+      use within an SQL command.  This is useful when inserting data
+      values as literal constants in SQL commands.  Certain characters
+      (such as quotes and backslashes) must be escaped to prevent them
+      from being interpreted specially by the SQL parser.
+      <xref linkend="libpq-PQescapeLiteral"/> performs this operation.␟<xref linkend="libpq-PQescapeLiteral"/>は、SQLコマンド内で使用するために文字列をエスケープします。
+これは、SQLコマンド内のリテラル定数としてデータ値を挿入する時に有用です。
+特定の文字(引用符やバックスラッシュ)は、SQLパーサによって特殊な解釈がなされないようにエスケープされなければなりません。
+<xref linkend="libpq-PQescapeLiteral"/>はこの操作を行います。␞␞     </para>␞
+␝     <para>␟      <xref linkend="libpq-PQescapeLiteral"/> returns an escaped version of the
+      <parameter>str</parameter> parameter in memory allocated with
+      <function>malloc()</function>.  This memory should be freed using
+      <function>PQfreemem()</function> when the result is no longer needed.
+      A terminating zero byte is not required, and should not be
+      counted in <parameter>length</parameter>.  (If a terminating zero byte is found
+      before <parameter>length</parameter> bytes are processed,
+      <xref linkend="libpq-PQescapeLiteral"/> stops at the zero; the behavior is
+      thus rather like <function>strncpy</function>.) The
+      return string has all special characters replaced so that they can
+      be properly processed by the <productname>PostgreSQL</productname>
+      string literal parser.  A terminating zero byte is also added.  The
+      single quotes that must surround <productname>PostgreSQL</productname>
+      string literals are included in the result string.␟<xref linkend="libpq-PQescapeLiteral"/>は<parameter>str</parameter>パラメータをエスケープしたものを<function>malloc()</function>で割り当てたメモリ内に返します。
+その結果が不要になったら、そのメモリを<function>PQfreemem()</function>を使用して解放しなければなりません。
+ゼロバイト終端は必要なく、<parameter>length</parameter>に含めて数えてはいけません。
+(<parameter>length</parameter>バイトを処理する前にゼロバイト終端が見つかると、<xref linkend="libpq-PQescapeLiteral"/>はそのゼロで終了します。
+この動作は<function>strncpy</function>と似ています。)
+返される文字列では、<productname>PostgreSQL</productname>文字列リテラルパーサで適切に処理することができるように、すべての特殊文字は置換されます。
+ゼロバイト終端も追加されます。
+<productname>PostgreSQL</productname>の文字列リテラルでは前後に必要となる単一引用符も、その結果文字列には含まれています。␞␞     </para>␞
+␝     <para>␟      On error, <xref linkend="libpq-PQescapeLiteral"/> returns <symbol>NULL</symbol> and a suitable
+      message is stored in the <parameter>conn</parameter> object.␟エラー時、<xref linkend="libpq-PQescapeLiteral"/>は<symbol>NULL</symbol>を返し、<parameter>conn</parameter>オブジェクト内に適切なメッセージを残します。␞␞     </para>␞
+␝      <para>␟       It is especially important to do proper escaping when handling
+       strings that were received from an untrustworthy source.
+       Otherwise there is a security risk: you are vulnerable to
+       <quote>SQL injection</quote> attacks wherein unwanted SQL commands are
+       fed to your database.␟信用できない入力元から受けとった文字列を扱う場合に適切なエスケープ処理を行なうことは非常に重要です。
+さもなくば、セキュリティ上の危険性が発生します。
+<quote>SQLインジェクション</quote>攻撃という弱点となり、好ましくないSQLコマンドがデータベースに流れてしまいます。␞␞      </para>␞
+␝     <para>␟      Note that it is neither necessary nor correct to do escaping when a data
+      value is passed as a separate parameter in <xref linkend="libpq-PQexecParams"/> or
+      its sibling routines.␟<xref linkend="libpq-PQexecParams"/>または同義のルーチン内で別のパラメータとしてデータ値が渡される場合は、エスケープすることは必要でもなければ正しくもないことに注意してください。␞␞     </para>␞
+␝     <para>␟      <xref linkend="libpq-PQescapeIdentifier"/> escapes a string for
+      use as an SQL identifier, such as a table, column, or function name.
+      This is useful when a user-supplied identifier might contain
+      special characters that would otherwise not be interpreted as part
+      of the identifier by the SQL parser, or when the identifier might
+      contain upper case characters whose case should be preserved.␟<xref linkend="libpq-PQescapeIdentifier"/>は、テーブル、列、関数名などのSQL識別子として使用できるように文字列をエスケープします。
+これはユーザが提供した識別子に、そのままではSQLパーサで識別子として解釈されない特殊な文字が含まれる可能性がある場合、または、大文字小文字の違いを維持しなければならない状況で識別子に大文字が含まれる可能性がある場合に有用です。␞␞     </para>␞
+␝     <para>␟      <xref linkend="libpq-PQescapeIdentifier"/> returns a version of the
+      <parameter>str</parameter> parameter escaped as an SQL identifier
+      in memory allocated with <function>malloc()</function>.  This memory must be
+      freed using <function>PQfreemem()</function> when the result is no longer
+      needed.  A terminating zero byte is not required, and should not be
+      counted in <parameter>length</parameter>.  (If a terminating zero byte is found
+      before <parameter>length</parameter> bytes are processed,
+      <xref linkend="libpq-PQescapeIdentifier"/> stops at the zero; the behavior is
+      thus rather like <function>strncpy</function>.) The
+      return string has all special characters replaced so that it
+      will be properly processed as an SQL identifier.  A terminating zero byte
+      is also added.  The return string will also be surrounded by double
+      quotes.␟<xref linkend="libpq-PQescapeIdentifier"/>は<parameter>str</parameter>パラメータをSQL識別子としてエスケープしたものを<function>malloc()</function>で割り当てたメモリ内に返します。
+その結果が不要になったら、そのメモリを<function>PQfreemem()</function>を使用して解放しなければなりません。
+ゼロバイト終端は必要なく、<parameter>length</parameter>に含めて数えてはいけません。
+(<parameter>length</parameter>バイトを処理する前にゼロバイト終端が見つかると、<xref linkend="libpq-PQescapeIdentifier"/>はそのゼロで終了します。
+この動作は<function>strncpy</function>と似ています。)
+返される文字列では、SQL識別子として適切に処理することができるように、すべての特殊文字は置換されます。
+ゼロバイト終端も追加されます。
+その結果文字列の前後には二重引用符が付与されます。␞␞     </para>␞
+␝     <para>␟      On error, <xref linkend="libpq-PQescapeIdentifier"/> returns <symbol>NULL</symbol> and a suitable
+      message is stored in the <parameter>conn</parameter> object.␟エラー時、<xref linkend="libpq-PQescapeIdentifier"/>は<symbol>NULL</symbol>を返し、<parameter>conn</parameter>オブジェクト内に適切なメッセージを残します。␞␞     </para>␞
+␝      <para>␟       As with string literals, to prevent SQL injection attacks,
+       SQL identifiers must be escaped when they are received from an
+       untrustworthy source.␟文字列リテラルと同様、SQLインジェクション攻撃を防ぐために、信頼できない入力元から受けとる場合にはSQL識別子をエスケープしなければなりません。␞␞      </para>␞
+␝     <para>␟      <xref linkend="libpq-PQescapeStringConn"/> escapes string literals, much like
+      <xref linkend="libpq-PQescapeLiteral"/>.  Unlike <xref linkend="libpq-PQescapeLiteral"/>,
+      the caller is responsible for providing an appropriately sized buffer.
+      Furthermore, <xref linkend="libpq-PQescapeStringConn"/> does not generate the
+      single quotes that must surround <productname>PostgreSQL</productname> string
+      literals; they should be provided in the SQL command that the
+      result is inserted into.  The parameter <parameter>from</parameter> points to
+      the first character of the string that is to be escaped, and the
+      <parameter>length</parameter> parameter gives the number of bytes in this
+      string.  A terminating zero byte is not required, and should not be
+      counted in <parameter>length</parameter>.  (If a terminating zero byte is found
+      before <parameter>length</parameter> bytes are processed,
+      <xref linkend="libpq-PQescapeStringConn"/> stops at the zero; the behavior is
+      thus rather like <function>strncpy</function>.) <parameter>to</parameter> shall point
+      to a buffer that is able to hold at least one more byte than twice
+      the value of <parameter>length</parameter>, otherwise the behavior is undefined.
+      Behavior is likewise undefined if the <parameter>to</parameter> and
+      <parameter>from</parameter> strings overlap.␟<xref linkend="libpq-PQescapeStringConn"/>は、<xref linkend="libpq-PQescapeLiteral"/>とほぼ同様に文字列リテラルをエスケープします。
+<xref linkend="libpq-PQescapeLiteral"/>とは異なり、呼び出し元が適切な大きさのバッファを提供することに責任を持ちます。
+さらに<xref linkend="libpq-PQescapeStringConn"/>は<productname>PostgreSQL</productname>の文字リテラルとして囲まれなければならない単一引用符を生成しません。
+これは、結果をSQLコマンドに挿入するときに付与しなければなりません。
+<parameter>from</parameter>パラメータはエスケープ対象の文字列の先頭を指すポインタです。
+<parameter>length</parameter>パラメータはこの文字列のバイト数を示します。
+ゼロバイト終端は必要なく、また、<parameter>length</parameter>ではこれを数えてはなりません。
+(もし<parameter>length</parameter>バイト処理する前にゼロバイト終端が存在すると、<xref linkend="libpq-PQescapeStringConn"/>はそのゼロで終了します。
+この動作は<function>strncpy</function>と同様です。)
+<parameter>to</parameter>は、最低でも<parameter>length</parameter>の2倍よりも1バイト多い文字を保持可能なバッファへのポインタにしなければなりません。
+さもないと、動作は不定になります。
+<parameter>to</parameter>と<parameter>from</parameter>文字領域が重なる場合の動作も不定です。␞␞     </para>␞
+␝     <para>␟      If the <parameter>error</parameter> parameter is not <symbol>NULL</symbol>, then
+      <literal>*error</literal> is set to zero on success, nonzero on error.
+      Presently the only possible error conditions involve invalid multibyte
+      encoding in the source string.  The output string is still generated
+      on error, but it can be expected that the server will reject it as
+      malformed.  On error, a suitable message is stored in the
+      <parameter>conn</parameter> object, whether or not <parameter>error</parameter> is <symbol>NULL</symbol>.␟<parameter>error</parameter>パラメータが<symbol>NULL</symbol>でなければ、<literal>*error</literal>には成功の0か、エラーの0以外が設定されます。
+現時点であり得る唯一のエラー条件は、元文字列に無効なマルチバイト符号が含まれている場合です。
+出力文字列はエラーであっても生成されますが、サーバが不整合として却下することが想定できます。
+エラーの際、適切なメッセージは<parameter>error</parameter>が<symbol>NULL</symbol>かどうかにかかわらず<parameter>conn</parameter>オブジェクト内に格納されます。␞␞     </para>␞
+␝     <para>␟      <xref linkend="libpq-PQescapeStringConn"/> returns the number of bytes written
+      to <parameter>to</parameter>, not including the terminating zero byte.␟<xref linkend="libpq-PQescapeStringConn"/>は<parameter>to</parameter>に書き出したバイト数を返します。
+ただし、文字数にはゼロバイト終端は含まれません。␞␞     </para>␞
+␝     <para>␟       <xref linkend="libpq-PQescapeString"/> is an older, deprecated version of
+       <xref linkend="libpq-PQescapeStringConn"/>.␟<xref linkend="libpq-PQescapeString"/>は<xref linkend="libpq-PQescapeStringConn"/>の推奨されない古いものです。␞␞<synopsis>␞
+␝     <para>␟      The only difference from <xref linkend="libpq-PQescapeStringConn"/> is that
+      <xref linkend="libpq-PQescapeString"/> does not take <structname>PGconn</structname>
+      or <parameter>error</parameter> parameters.
+      Because of this, it cannot adjust its behavior depending on the
+      connection properties (such as character encoding) and therefore
+      <emphasis>it might give the wrong results</emphasis>.  Also, it has no way
+      to report error conditions.␟<xref linkend="libpq-PQescapeStringConn"/>との唯一の違いは、<xref linkend="libpq-PQescapeString"/>は<structname>PGconn</structname>や<parameter>error</parameter>パラメータを取らないことです。
+このため(文字符号化方式のような)接続属性に依存する振舞いを調整できません。
+その結果<emphasis>間違った結果を返す可能性があります</emphasis>。
+また、エラー状態を通知する機能がありません。␞␞     </para>␞
+␝     <para>␟      <xref linkend="libpq-PQescapeString"/> can be used safely in
+      client programs that work with only one <productname>PostgreSQL</productname>
+      connection at a time (in this case it can find out what it needs to
+      know <quote>behind the scenes</quote>).  In other contexts it is a security
+      hazard and should be avoided in favor of
+      <xref linkend="libpq-PQescapeStringConn"/>.␟<xref linkend="libpq-PQescapeString"/>は、一度に1つの<productname>PostgreSQL</productname>接続のみで動作するクライアントプログラムでは安全に利用できます。
+(この場合知らなければならない<quote>裏側に隠された情報</quote>を知ることができるからです。)
+他の場合には、セキュリティ要因であり<xref linkend="libpq-PQescapeStringConn"/>を利用することで避けなければなりません。␞␞     </para>␞
+␝     <para>␟       Escapes binary data for use within an SQL command with the type
+       <type>bytea</type>.  As with <xref linkend="libpq-PQescapeStringConn"/>,
+       this is only used when inserting data directly into an SQL command string.␟<type>bytea</type>型としてSQLコマンド内で使用するバイナリデータをエスケープします。
+<xref linkend="libpq-PQescapeStringConn"/>と同様、これは、SQLコマンド文字列にデータを直接含める場合にのみに使用されます。␞␞<synopsis>␞
+␝      <para>␟       Certain byte values must be escaped when used as part of a
+       <type>bytea</type> literal in an <acronym>SQL</acronym> statement.
+       <xref linkend="libpq-PQescapeByteaConn"/> escapes bytes using
+       either hex encoding or backslash escaping.  See <xref
+       linkend="datatype-binary"/> for more information.␟<acronym>SQL</acronym>文内の<type>bytea</type>リテラルの一部として使用する場合、特定のバイト値はエスケープされなければなりません。
+<xref linkend="libpq-PQescapeByteaConn"/>は16進数符号化またはバックスラッシュエスケープ処理を使用してバイトをエスケープします。
+詳しくは<xref linkend="datatype-binary"/>を参照してください。␞␞      </para>␞
+␝      <para>␟       The <parameter>from</parameter> parameter points to the first
+       byte of the string that is to be escaped, and the
+       <parameter>from_length</parameter> parameter gives the number of
+       bytes in this binary string.  (A terminating zero byte is
+       neither necessary nor counted.)  The <parameter>to_length</parameter>
+       parameter points to a variable that will hold the resultant
+       escaped string length. This result string length includes the terminating
+       zero byte of the result.␟<parameter>from</parameter>パラメータはエスケープ対象の文字列の先頭バイトを指し示すポインタです。
+<parameter>from_length</parameter>パラメータは、このバイナリ列内のバイト数を指定します。
+(ゼロバイト終端は不要、かつ、数えられません。)
+<parameter>to_length</parameter>パラメータは結果となるエスケープされた文字列の長さを保持する変数へのポインタです。
+この結果文字列長は、結果内のゼロバイト終端を含みます。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQescapeByteaConn"/> returns an escaped version of the
+       <parameter>from</parameter> parameter binary string in memory
+       allocated with <function>malloc()</function>.  This memory should be freed using
+       <function>PQfreemem()</function> when the result is no longer needed.  The
+       return string has all special characters replaced so that they can
+       be properly processed by the <productname>PostgreSQL</productname>
+       string literal parser, and the <type>bytea</type> input function. A
+       terminating zero byte is also added.  The single quotes that must
+       surround <productname>PostgreSQL</productname> string literals are
+       not part of the result string.␟<xref linkend="libpq-PQescapeByteaConn"/>は、<parameter>from</parameter>パラメータが示すバイナリ文字列をエスケープしたものを<function>malloc()</function>で確保したメモリ内に返します。
+その結果が不要になったら、このメモリを<function>PQfreemem()</function>を使用して解放しなければなりません。
+返される文字列では、<productname>PostgreSQL</productname>リテラル文字列パーサと<type>bytea</type>入力関数によって適切に処理できるように、すべての特殊な文字が置換されています。
+ゼロバイト終端も追加されます。
+<productname>PostgreSQL</productname>のリテラル文字列をくくる単一引用符は結果文字列には含まれません。␞␞      </para>␞
+␝      <para>␟       On error, a null pointer is returned, and a suitable error message
+       is stored in the <parameter>conn</parameter> object.  Currently, the only
+       possible error is insufficient memory for the result string.␟エラー時、NULLポインタを返し適切なエラーメッセージを<parameter>conn</parameter>オブジェクトに格納します。
+現在、唯一あり得るエラーは結果文字列のメモリ不足です。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQescapeBytea"/> is an older, deprecated version of
+       <xref linkend="libpq-PQescapeByteaConn"/>.␟<xref linkend="libpq-PQescapeBytea"/>は、<xref linkend="libpq-PQescapeByteaConn"/>の推奨されない古いものです。␞␞<synopsis>␞
+␝      <para>␟       The only difference from <xref linkend="libpq-PQescapeByteaConn"/> is that
+       <xref linkend="libpq-PQescapeBytea"/> does not take a <structname>PGconn</structname>
+       parameter.  Because of this, <xref linkend="libpq-PQescapeBytea"/> can
+       only be used safely in client programs that use a single
+       <productname>PostgreSQL</productname> connection at a time (in this case
+       it can find out what it needs to know <quote>behind the
+       scenes</quote>).  It <emphasis>might give the wrong results</emphasis> if
+       used in programs that use multiple database connections (use
+       <xref linkend="libpq-PQescapeByteaConn"/> in such cases).␟<xref linkend="libpq-PQescapeBytea"/>の<xref linkend="libpq-PQescapeByteaConn"/>との唯一の違いは、<structname>PGconn</structname>パラメータです。
+このため<xref linkend="libpq-PQescapeBytea"/>は、一度に１つの<productname>PostgreSQL</productname>接続を使用するクライアントプログラムのみで安全に利用することができます。
+(この場合知らなければならない<quote>裏側に隠された情報</quote>を知ることができるからです。)
+複数のデータベース接続を使用するプログラムでは<emphasis>間違った結果を返す可能性があります</emphasis>。
+（このような場合は<xref linkend="libpq-PQescapeByteaConn"/>を使用してください。）␞␞      </para>␞
+␝      <para>␟       Converts a string representation of binary data into binary data
+       &mdash; the reverse of <xref linkend="libpq-PQescapeBytea"/>.  This
+       is needed when retrieving <type>bytea</type> data in text format,
+       but not when retrieving it in binary format.␟バイナリデータの文字列表現をバイナリデータに変換します。
+つまり、<xref linkend="libpq-PQescapeBytea"/>の逆です。
+これは、<type>bytea</type>データをテキスト書式で受けとった場合に必要とされます。
+しかし、バイナリ書式で受けとった場合は不要です。␞␞␞
+␝      <para>␟       The <parameter>from</parameter> parameter points to a string
+       such as might be returned by <xref linkend="libpq-PQgetvalue"/> when applied
+       to a <type>bytea</type> column. <xref linkend="libpq-PQunescapeBytea"/>
+       converts this string representation into its binary representation.
+       It returns a pointer to a buffer allocated with
+       <function>malloc()</function>, or <symbol>NULL</symbol> on error, and puts the size of
+       the buffer in <parameter>to_length</parameter>. The result must be
+       freed using <xref linkend="libpq-PQfreemem"/> when it is no longer needed.␟<parameter>from</parameter>パラメータは、例えば、<type>bytea</type>列に<xref linkend="libpq-PQgetvalue"/>を行なった場合に返される可能性がある、文字列を指し示すポインタです。
+<xref linkend="libpq-PQunescapeBytea"/>は、この文字列表現をバイナリ表現に変換します。
+<function>malloc()</function>で確保したバッファへのポインタを返します。
+エラー時は<symbol>NULL</symbol>です。
+また、このバッファのサイズを<parameter>to_length</parameter>に格納します。
+不要になったら、この結果を<xref linkend="libpq-PQfreemem"/>を使用して解放しなければなりません。␞␞      </para>␞
+␝      <para>␟       This conversion is not exactly the inverse of
+       <xref linkend="libpq-PQescapeBytea"/>, because the string is not expected
+       to be <quote>escaped</quote> when received from <xref linkend="libpq-PQgetvalue"/>.
+       In particular this means there is no need for string quoting considerations,
+       and so no need for a <structname>PGconn</structname> parameter.␟この変換は、<xref linkend="libpq-PQescapeBytea"/>の逆ではありません。
+文字列は<xref linkend="libpq-PQgetvalue"/>から受け取る場合<quote>エスケープされた</quote>ことを予想しないためです。
+特にこれは、文字列の引用符付けを意識する必要がなく、そのため<structname>PGconn</structname>パラメータを持つ必要がないことを意味します。␞␞      </para>␞
+␝  <indexterm zone="libpq-async">
+   <primary>nonblocking connection</primary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-async">
+  <primary>非ブロッキング接続</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-async">␟  <title>Asynchronous Command Processing</title>␟  <title>非同期コマンドの処理</title>␞␞␞
+␝  <para>␟   The <xref linkend="libpq-PQexec"/> function is adequate for submitting
+   commands in normal, synchronous applications.  It has a few
+   deficiencies, however, that can be of importance to some users:␟<xref linkend="libpq-PQexec"/>関数は普通の同期処理のアプリケーションにおけるコマンドの送信に適したものです。
+しかし、一部のユーザにとって重要な問題となり得る、数個の問題があります。␞␞␞
+␝     <para>␟      <xref linkend="libpq-PQexec"/> waits for the command to be completed.
+      The application might have other work to do (such as maintaining a
+      user interface), in which case it won't want to block waiting for
+      the response.␟<xref linkend="libpq-PQexec"/> はコマンドが完了するまで待機します。
+アプリケーションによっては(例えばユーザインタフェースの調整処理など)他に行うべき作業があります。
+この場合は応答待ちでブロックさせたくはありません。␞␞     </para>␞
+␝     <para>␟      Since the execution of the client application is suspended while it
+      waits for the result, it is hard for the application to decide that
+      it would like to try to cancel the ongoing command.  (It can be done
+      from a signal handler, but not otherwise.)␟クライアントアプリケーションの実行が結果を待っている間停止されるため、アプリケーションで送信したコマンドをキャンセルさせる指示を行うことは困難です。
+(シグナルハンドラを使って達成することができますが、他の方法はありません。)␞␞     </para>␞
+␝     <para>␟      <xref linkend="libpq-PQexec"/> can return only one
+      <structname>PGresult</structname> structure.  If the submitted command
+      string contains multiple <acronym>SQL</acronym> commands, all but
+      the last <structname>PGresult</structname> are discarded by
+      <xref linkend="libpq-PQexec"/>.␟<xref linkend="libpq-PQexec"/>が返すことができる<structname>PGresult</structname>構造体は1つだけです。
+もし送信した問い合わせ文字列が複数の<acronym>SQL</acronym>コマンドを含んでいる場合、<xref linkend="libpq-PQexec"/>は最後のものだけを除いて、残りすべての<structname>PGresult</structname>を破棄してしまいます。␞␞     </para>␞
+␝     <para>␟      <xref linkend="libpq-PQexec"/> always collects the command's entire result,
+      buffering it in a single <structname>PGresult</structname>.  While
+      this simplifies error-handling logic for the application, it can be
+      impractical for results containing many rows.␟<xref linkend="libpq-PQexec"/>は常にコマンドの結果全体を収集し、１つの<structname>PGresult</structname>内に保管します。
+アプリケーションにおけるエラー処理を簡単にしますが、多くの行になる結果では非現実的になるかもしれません。␞␞     </para>␞
+␝  <para>␟   Applications that do not like these limitations can instead use the
+   underlying functions that <xref linkend="libpq-PQexec"/> is built from:
+   <xref linkend="libpq-PQsendQuery"/> and <xref linkend="libpq-PQgetResult"/>.
+   There are also
+   <xref linkend="libpq-PQsendQueryParams"/>,
+   <xref linkend="libpq-PQsendPrepare"/>,
+   <xref linkend="libpq-PQsendQueryPrepared"/>,
+   <xref linkend="libpq-PQsendDescribePrepared"/>,
+   <xref linkend="libpq-PQsendDescribePortal"/>,
+   <xref linkend="libpq-PQsendClosePrepared"/>, and
+   <xref linkend="libpq-PQsendClosePortal"/>,
+   which can be used with <xref linkend="libpq-PQgetResult"/> to duplicate
+   the functionality of
+   <xref linkend="libpq-PQexecParams"/>,
+   <xref linkend="libpq-PQprepare"/>,
+   <xref linkend="libpq-PQexecPrepared"/>,
+   <xref linkend="libpq-PQdescribePrepared"/>,
+   <xref linkend="libpq-PQdescribePortal"/>,
+   <xref linkend="libpq-PQclosePrepared"/>, and
+   <xref linkend="libpq-PQclosePortal"/>
+   respectively.␟アプリケーションにとってこのような制限が望ましくない場合は、代わりに<xref linkend="libpq-PQexec"/>を構成する関数<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を使用してください。
+また、<xref linkend="libpq-PQsendQueryParams"/>、<xref linkend="libpq-PQsendPrepare"/>、<xref linkend="libpq-PQsendQueryPrepared"/>、<xref linkend="libpq-PQsendDescribePrepared"/>、<xref linkend="libpq-PQsendDescribePortal"/>、<xref linkend="libpq-PQsendClosePrepared"/>、<xref linkend="libpq-PQsendClosePortal"/>もあり、<xref linkend="libpq-PQgetResult"/>を使用して、それぞれ<xref linkend="libpq-PQexecParams"/>、<xref linkend="libpq-PQprepare"/>、<xref linkend="libpq-PQexecPrepared"/>、<xref linkend="libpq-PQdescribePrepared"/>、<xref linkend="libpq-PQdescribePortal"/>、<xref linkend="libpq-PQclosePrepared"/>、<xref linkend="libpq-PQclosePortal"/>の機能を複製できます。␞␞␞
+␝      <para>␟       Submits a command to the server without waiting for the result(s).
+       1 is returned if the command was successfully dispatched and 0 if
+       not (in which case, use <xref linkend="libpq-PQerrorMessage"/> to get more
+       information about the failure).␟結果を待つことなく、サーバにコマンドを発行します。
+コマンドの登録に成功した場合1が、失敗した場合0が返されます。
+(後者の場合、<xref linkend="libpq-PQerrorMessage"/>を使用して失敗についてのより多くの情報を取り出してください。)␞␞<synopsis>␞
+␝␟       After successfully calling <xref linkend="libpq-PQsendQuery"/>, call
+       <xref linkend="libpq-PQgetResult"/> one or more times to obtain the
+       results.  <xref linkend="libpq-PQsendQuery"/> cannot be called again
+       (on the same connection) until <xref linkend="libpq-PQgetResult"/>
+       has returned a null pointer, indicating that the command is done.␟<xref linkend="libpq-PQsendQuery"/>呼び出しが成功したら、<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出して、実行結果を取得します。
+<xref linkend="libpq-PQgetResult"/>がNULLポインタを返し、コマンドが完了したことを示すまでは、(同じ接続で)<xref linkend="libpq-PQsendQuery"/>を再度呼び出すことはできません。␞␞      </para>␞
+␝      <para>␟       In pipeline mode, this function is disallowed.␟パイプラインモードでは、この関数は使用できません。␞␞      </para>␞
+␝      <para>␟       Submits a command and separate parameters to the server without
+       waiting for the result(s).␟結果を待つことなく、サーバにコマンドとパラメータとを分けて発行します。␞␞<synopsis>␞
+␝␟       This is equivalent to <xref linkend="libpq-PQsendQuery"/> except that
+       query parameters can be specified separately from the query string.
+       The function's parameters are handled identically to
+       <xref linkend="libpq-PQexecParams"/>.  Like
+       <xref linkend="libpq-PQexecParams"/>, it allows only one command in the
+       query string.␟これは、問い合わせのパラメータが問い合わせ文字列と分けて指定できる点を除き、<xref linkend="libpq-PQsendQuery"/>と同じです。
+この関数のパラメータは<xref linkend="libpq-PQexecParams"/>と同様に扱われます。
+<xref linkend="libpq-PQexecParams"/>同様、問い合わせ文字列には1つのコマンドしか指定できません。␞␞      </para>␞
+␝      <para>␟       Sends a request to create a prepared statement with the given
+       parameters, without waiting for completion.␟指定パラメータを持つ準備された文の作成要求を送信します。
+その完了を待ちません。␞␞<synopsis>␞
+␝␟       This is an asynchronous version of <xref linkend="libpq-PQprepare"/>: it
+       returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       determine whether the server successfully created the prepared
+       statement.  The function's parameters are handled identically to
+       <xref linkend="libpq-PQprepare"/>.␟これは<xref linkend="libpq-PQprepare"/>の非同期版です。
+要求の登録に成功した場合1が、失敗した場合0が返されます。
+呼び出しの成功の後、サーバが準備された文の生成に成功したかを確認するためには<xref linkend="libpq-PQgetResult"/>を呼び出してください。
+この関数のパラメータは<xref linkend="libpq-PQprepare"/>と同様に扱われます。␞␞      </para>␞
+␝      <para>␟       Sends a request to execute a prepared statement with given
+       parameters, without waiting for the result(s).␟結果を待つことなく、指定したパラメータで準備された文の実行要求を送信します。␞␞<synopsis>␞
+␝␟       This is similar to <xref linkend="libpq-PQsendQueryParams"/>, but
+       the command to be executed is specified by naming a
+       previously-prepared statement, instead of giving a query string.
+       The function's parameters are handled identically to
+       <xref linkend="libpq-PQexecPrepared"/>.␟これは<xref linkend="libpq-PQsendQueryParams"/>と似ていますが、実行されるコマンドは問い合わせ文字列ではなく、事前に準備された文の名前で指定されます。
+この関数のパラメータは<xref linkend="libpq-PQexecPrepared"/>と同様に扱われます。␞␞      </para>␞
+␝      <para>␟       Submits a request to obtain information about the specified
+       prepared statement, without waiting for completion.␟指定した準備された文に関する情報入手要求を送ります。
+入手完了まで待機しません。␞␞<synopsis>␞
+␝␟       This is an asynchronous version of <xref linkend="libpq-PQdescribePrepared"/>:
+       it returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       obtain the results.  The function's parameters are handled
+       identically to <xref linkend="libpq-PQdescribePrepared"/>.␟これは<xref linkend="libpq-PQdescribePrepared"/>の非同期版です。
+要求の登録に成功した場合1が、失敗した場合0が返されます。
+呼び出しに成功した後、<xref linkend="libpq-PQgetResult"/>を呼び出して結果を入手してください。
+この関数のパラメータは<xref linkend="libpq-PQdescribePrepared"/>と同じように扱われます。␞␞      </para>␞
+␝      <para>␟       Submits a request to obtain information about the specified
+       portal, without waiting for completion.␟指定したポータルに関する情報入手要求を送信します。
+完了まで待機しません。␞␞<synopsis>␞
+␝␟       This is an asynchronous version of <xref linkend="libpq-PQdescribePortal"/>:
+       it returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       obtain the results.  The function's parameters are handled
+       identically to <xref linkend="libpq-PQdescribePortal"/>.␟これは<xref linkend="libpq-PQdescribePortal"/>の非同期版です。
+要求の登録に成功した場合1が、失敗した場合0が返されます。
+呼び出しに成功した後、<xref linkend="libpq-PQgetResult"/>を呼び出して結果を入手してください。
+この関数のパラメータは<xref linkend="libpq-PQdescribePortal"/>と同じように扱われます。␞␞      </para>␞
+␝      <para>␟       Submits a request to close the specified prepared statement, without
+       waiting for completion.␟完了を待たずに、指定した準備された文を閉じる要求を送信します。␞␞<synopsis>␞
+␝␟       This is an asynchronous version of <xref linkend="libpq-PQclosePrepared"/>:
+       it returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       obtain the results.  The function's parameters are handled
+       identically to <xref linkend="libpq-PQclosePrepared"/>.␟これは<xref linkend="libpq-PQclosePrepared"/>の非同期版です。
+要求を送信できた場合は1を、そうでない場合は0を返します。
+成功した場合は<xref linkend="libpq-PQgetResult"/>を呼び出して結果を取得します。
+この関数のパラメータは<xref linkend="libpq-PQclosePrepared"/>と同じように扱われます。␞␞      </para>␞
+␝      <para>␟       Submits a request to close specified portal, without waiting for
+       completion.␟完了を待たずに、指定されたポータルを閉じる要求を送信します。␞␞<synopsis>␞
+␝␟       This is an asynchronous version of <xref linkend="libpq-PQclosePortal"/>:
+       it returns 1 if it was able to dispatch the request, and 0 if not.
+       After a successful call, call <xref linkend="libpq-PQgetResult"/> to
+       obtain the results.  The function's parameters are handled
+       identically to <xref linkend="libpq-PQclosePortal"/>.␟これは<xref linkend="libpq-PQclosePortal"/>の非同期版です。
+要求を送信できた場合は1を、そうでない場合は0を返します。
+呼び出しが成功した後、結果を得るために<xref linkend="libpq-PQgetResult"/>を呼び出します。
+この関数のパラメータは<xref linkend="libpq-PQclosePortal"/>と同様に扱われます。␞␞      </para>␞
+␝      <para>␟       Waits for the next result from a prior
+       <xref linkend="libpq-PQsendQuery"/>,
+       <xref linkend="libpq-PQsendQueryParams"/>,
+       <xref linkend="libpq-PQsendPrepare"/>,
+       <xref linkend="libpq-PQsendQueryPrepared"/>,
+       <xref linkend="libpq-PQsendDescribePrepared"/>,
+       <xref linkend="libpq-PQsendDescribePortal"/>,
+       <xref linkend="libpq-PQsendClosePrepared"/>,
+       <xref linkend="libpq-PQsendClosePortal"/>,
+       <xref linkend="libpq-PQsendPipelineSync"/>, or
+       <xref linkend="libpq-PQpipelineSync"/>
+       call, and returns it.
+       A null pointer is returned when the command is complete and there
+       will be no more results.␟以前に呼び出した<xref linkend="libpq-PQsendQuery"/>、<xref linkend="libpq-PQsendQueryParams"/>、<xref linkend="libpq-PQsendPrepare"/>、<xref linkend="libpq-PQsendQueryPrepared"/>、<xref linkend="libpq-PQsendDescribePrepared"/>、<xref linkend="libpq-PQsendDescribePortal"/>、<xref linkend="libpq-PQsendClosePrepared"/>、<xref linkend="libpq-PQsendClosePortal"/>、<xref linkend="libpq-PQsendPipelineSync"/>、<xref linkend="libpq-PQpipelineSync"/>からの結果を待ち、その結果を返します。
+コマンドが完了し、これ以上結果がない場合は、NULLポインタが返されます。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQgetResult"/> must be called repeatedly until
+       it returns a null pointer, indicating that the command is done.
+       (If called when no command is active,
+       <xref linkend="libpq-PQgetResult"/> will just return a null pointer
+       at once.) Each non-null result from
+       <xref linkend="libpq-PQgetResult"/> should be processed using the
+       same <structname>PGresult</structname> accessor functions previously
+       described.  Don't forget to free each result object with
+       <xref linkend="libpq-PQclear"/> when done with it.  Note that
+       <xref linkend="libpq-PQgetResult"/> will block only if a command is
+       active and the necessary response data has not yet been read by
+       <xref linkend="libpq-PQconsumeInput"/>.␟<xref linkend="libpq-PQgetResult"/>は、コマンドの完了を示すNULLポインタが返るまで、繰り返し呼び出さなければなりません。
+(コマンド実行中以外での呼び出しでは、<xref linkend="libpq-PQgetResult"/>は単にNULLポインタを返します。)
+<xref linkend="libpq-PQgetResult"/>の非NULLの結果はそれぞれ前述と同じ<structname>PGresult</structname>アクセス用関数を使用して処理されなければなりません。
+各結果オブジェクトに対する処理が終わったら、そのオブジェクトを<xref linkend="libpq-PQclear"/>を使用して解放することを忘れないでください。
+コマンドが活動中、かつ、必要な応答データがまだ<xref linkend="libpq-PQconsumeInput"/>で読み込まれていない場合にのみ、<xref linkend="libpq-PQgetResult"/>がブロックすることに注意してください。␞␞      </para>␞
+␝      <para>␟       In pipeline mode, <function>PQgetResult</function> will return normally
+       unless an error occurs; for any subsequent query sent after the one
+       that caused the error until (and excluding) the next synchronization point,
+       a special result of type <literal>PGRES_PIPELINE_ABORTED</literal> will
+       be returned, and a null pointer will be returned after it.
+       When the pipeline synchronization point is reached, a result of type
+       <literal>PGRES_PIPELINE_SYNC</literal> will be returned.
+       The result of the next query after the synchronization point follows
+       immediately (that is, no null pointer is returned after
+       the synchronization point).␟パイプラインモードでは、<function>PQgetResult</function>はエラーが発生しない限り通常通りに戻ります。
+エラーを引き起こした問い合わせの後、次の同期ポイントまで（そして次の同期ポイントを除外して）送られた問い合わせに対しては、<literal>PGRES_PIPELINE_ABORTED</literal>型の特殊な結果が返され、その後にNULLポインタが返されます。
+パイプライン同期ポイントに到達すると、<literal>PGRES_PIPELINE_SYNC</literal>型の結果が返されます。
+同期ポイントの後の次の問い合わせの結果はすぐに続きます（つまり、同期ポイントの後にNULLポインタは返されません）。␞␞      </para>␞
+␝       <para>␟        Even when <xref linkend="libpq-PQresultStatus"/> indicates a fatal
+        error, <xref linkend="libpq-PQgetResult"/> should be called until it
+        returns a null pointer, to allow <application>libpq</application> to
+        process the error information completely.␟<xref linkend="libpq-PQresultStatus"/>が致命的なエラーを示した場合であっても、<application>libpq</application>がエラー情報を完全に処理できるようにNULLポインタが返されるまで<xref linkend="libpq-PQgetResult"/>を呼び出さなければなりません。␞␞       </para>␞
+␝  <para>␟   Using <xref linkend="libpq-PQsendQuery"/> and
+   <xref linkend="libpq-PQgetResult"/> solves one of
+   <xref linkend="libpq-PQexec"/>'s problems:  If a command string contains
+   multiple <acronym>SQL</acronym> commands, the results of those commands
+   can be obtained individually.  (This allows a simple form of overlapped
+   processing, by the way: the client can be handling the results of one
+   command while the server is still working on later queries in the same
+   command string.)␟<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を使うことで<xref linkend="libpq-PQexec"/>の問題は1つ解決します。
+つまり、コマンドが複数の<acronym>SQL</acronym>コマンドを含んでいる場合でも、これらのコマンドの結果を個々に得ることができるわけです
+（これは多重処理を単純な形で実現します。
+単一のコマンド文字列に含まれる複数の問い合わせの内、後ろのものが処理中でもフロントエンドは先に完了した結果から扱うことができるからです）。␞␞  </para>␞
+␝  <para>␟   Another frequently-desired feature that can be obtained with
+   <xref linkend="libpq-PQsendQuery"/> and <xref linkend="libpq-PQgetResult"/>
+   is retrieving large query results a limited number of rows at a time.
+   This is discussed
+   in <xref linkend="libpq-single-row-mode"/>.␟<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>で得られるもう一つの望ましい機能は、大量の問い合わせ結果について、一度あたりに限られた数の行を取り出すことです。
+これについては<xref linkend="libpq-single-row-mode"/>で説明します。␞␞  </para>␞
+␝  <para>␟   By itself, calling <xref linkend="libpq-PQgetResult"/>
+   will still cause the client to block until the server completes the
+   next <acronym>SQL</acronym> command.  This can be avoided by proper
+   use of two more functions:␟サーバが次の<acronym>SQL</acronym>コマンドの処理に入ると、それが完了するまでやはり<xref linkend="libpq-PQgetResult"/>の呼び出しがフロントエンドをブロックしてしまいます。
+さらに以下の2つの関数をうまく使用してこれを防ぐことができます。␞␞␞
+␝      <para>␟       If input is available from the server, consume it.␟サーバからの入力が可能になった場合、それを吸い取ります。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQconsumeInput"/> normally returns 1 indicating
+       <quote>no error</quote>, but returns 0 if there was some kind of
+       trouble (in which case <xref linkend="libpq-PQerrorMessage"/> can be
+       consulted).  Note that the result does not say whether any input
+       data was actually collected. After calling
+       <xref linkend="libpq-PQconsumeInput"/>, the application can check
+       <xref linkend="libpq-PQisBusy"/> and/or
+       <function>PQnotifies</function> to see if their state has changed.␟<xref linkend="libpq-PQconsumeInput"/>は通常、<quote>エラーなし</quote>を示す1を返しますが、何らかの障害があると0を返します（この場合は、<xref linkend="libpq-PQerrorMessage"/>を参考にしてください）。
+この結果は、何らかの入力データが実際に収集されたかどうかを示しているのではないことに注意してください。
+<xref linkend="libpq-PQconsumeInput"/>の呼び出し後、アプリケーションは<xref linkend="libpq-PQisBusy"/>、または必要があれば<function>PQnotifies</function>を呼び出して状態に変化がないか調べることができます。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQconsumeInput"/> can be called even if the
+       application is not prepared to deal with a result or notification
+       just yet.  The function will read available data and save it in
+       a buffer, thereby causing a <function>select()</function>
+       read-ready indication to go away.  The application can thus use
+       <xref linkend="libpq-PQconsumeInput"/> to clear the
+       <function>select()</function> condition immediately, and then
+       examine the results at leisure.␟<xref linkend="libpq-PQconsumeInput"/>は、結果や通知を扱うようにまだ準備していないアプリケーションからでも呼び出すことができます。
+この関数は有効なデータを読み込んでバッファに保存し、結果として<function>select</function>による読み込み準備完了の通知をリセットします。
+従ってアプリケーションは<xref linkend="libpq-PQconsumeInput"/>を使うと<function>select()</function>の検査条件をただちに満たすことができますから、あとはゆっくりと結果を調べてやればいいわけです。␞␞      </para>␞
+␝      <para>␟       Returns 1 if a command is busy, that is,
+       <xref linkend="libpq-PQgetResult"/> would block waiting for input.
+       A 0 return indicates that <xref linkend="libpq-PQgetResult"/> can be
+       called with assurance of not blocking.␟この関数が1を返したのであれば、問い合わせは処理の最中で、<xref linkend="libpq-PQgetResult"/>も入力を待ったままブロック状態になってしまうでしょう。
+0が返ったのであれば、<xref linkend="libpq-PQgetResult"/>を呼び出してもブロックされないことが保証されます。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQisBusy"/> will not itself attempt to read data
+       from the server; therefore <xref linkend="libpq-PQconsumeInput"/>
+       must be invoked first, or the busy state will never end.␟<xref linkend="libpq-PQisBusy"/>自身はサーバからデータを読み込む操作をしません。
+ですから、まず最初に<xref linkend="libpq-PQconsumeInput"/>を呼び出す必要があります。
+そうしないとビジー状態がいつまでも続きます。␞␞      </para>␞
+␝  <para>␟   A typical application using these functions will have a main loop that
+   uses <function>select()</function> or <function>poll()</function> to wait for
+   all the conditions that it must respond to.  One of the conditions
+   will be input available from the server, which in terms of
+   <function>select()</function> means readable data on the file
+   descriptor identified by <xref linkend="libpq-PQsocket"/>.  When the main
+   loop detects input ready, it should call
+   <xref linkend="libpq-PQconsumeInput"/> to read the input.  It can then
+   call <xref linkend="libpq-PQisBusy"/>, followed by
+   <xref linkend="libpq-PQgetResult"/> if <xref linkend="libpq-PQisBusy"/>
+   returns false (0).  It can also call <function>PQnotifies</function>
+   to detect <command>NOTIFY</command> messages (see <xref
+   linkend="libpq-notify"/>).␟これら3関数を使用するアプリケーションは通常、<function>select()</function>もしくは<function>poll()</function>を使用するメインループを持ち、対応しなければならないすべての状態を待機しています。
+その内の1つの条件は、サーバからの利用可能な入力となるでしょう。
+これは、<function>select()</function>の見地からは、<xref linkend="libpq-PQsocket"/>で識別されるファイル記述子上で読み込み可能なデータがあることを意味します。
+メインループが入力準備完了を検出すると、その入力を読み込むために<xref linkend="libpq-PQconsumeInput"/>を呼び出さなければなりません。
+そして、<xref linkend="libpq-PQisBusy"/>を、更に<xref linkend="libpq-PQisBusy"/>が偽(0)を返す場合に<xref linkend="libpq-PQgetResult"/>も呼び出すことができます。
+また、<function>PQnotifies</function>を呼び出して、<command>NOTIFY</command>メッセージ（<xref linkend="libpq-notify"/>を参照）を検出することもできます。␞␞  </para>␞
+␝  <para>␟   A client that uses
+   <xref linkend="libpq-PQsendQuery"/>/<xref linkend="libpq-PQgetResult"/>
+   can also attempt to cancel a command that is still being processed
+   by the server; see <xref linkend="libpq-cancel"/>.  But regardless of
+   the return value of <xref linkend="libpq-PQcancelBlocking"/>, the application
+   must continue with the normal result-reading sequence using
+   <xref linkend="libpq-PQgetResult"/>.  A successful cancellation will
+   simply cause the command to terminate sooner than it would have
+   otherwise.␟また、<xref linkend="libpq-PQsendQuery"/>/<xref linkend="libpq-PQgetResult"/>を使用するクライアントは、サーバで処理中のコマンドに対してキャンセルを試行することができます。<xref linkend="libpq-cancel"/>を参照してください。
+しかし、<xref linkend="libpq-PQcancelBlocking"/>の戻り値と関係なく、アプリケーションは<xref linkend="libpq-PQgetResult"/>を使用した通常の結果読み取り手順を続けなければなりません。
+キャンセル手続きの成功は単に、そのコマンドを通常よりも早めに終わらせるだけです。␞␞  </para>␞
+␝  <para>␟   By using the functions described above, it is possible to avoid
+   blocking while waiting for input from the database server.  However,
+   it is still possible that the application will block waiting to send
+   output to the server.  This is relatively uncommon but can happen if
+   very long SQL commands or data values are sent.  (It is much more
+   probable if the application sends data via <command>COPY IN</command>,
+   however.)  To prevent this possibility and achieve completely
+   nonblocking database operation, the following additional functions
+   can be used.␟上述の関数を使用して、データベースサーバからの入力待ちのためのブロックを行わずに済みます。
+しかしまだ、サーバへの出力送信を待つためにアプリケーションはブロックする可能性があります。
+これは比較的あまり発生しませんが、非常に長いSQLコマンドやデータ値が送信される場合に発生することがあります。
+(しかし、アプリケーションが<command>COPY IN</command>経由でデータを送信する場合よく発生します。)
+この発生を防ぎ、完全な非ブロックのデータベース操作を行うためには、さらに以下の関数を使用してください。␞␞␞
+␝      <para>␟       Sets the nonblocking status of the connection.␟接続の非ブロック状態を設定します。␞␞<synopsis>␞
+␝      <para>␟       Sets the state of the connection to nonblocking if
+       <parameter>arg</parameter> is 1, or blocking if
+       <parameter>arg</parameter> is 0.  Returns 0 if OK, -1 if error.␟<parameter>arg</parameter>が1の場合、接続状態を非ブロックに設定します。
+<parameter>arg</parameter>が0の場合はブロックに設定します。
+問題がなければ0が、エラー時は-1が返ります。␞␞      </para>␞
+␝      <para>␟       In the nonblocking state, successful calls to
+       <xref linkend="libpq-PQsendQuery"/>, <xref linkend="libpq-PQputline"/>,
+       <xref linkend="libpq-PQputnbytes"/>, <xref linkend="libpq-PQputCopyData"/>,
+       and <xref linkend="libpq-PQendcopy"/> will not block;  their changes
+       are stored in the local output buffer until they are flushed.
+       Unsuccessful calls will return an error and must be retried.␟非ブロック状態では<xref linkend="libpq-PQsendQuery"/>、<xref linkend="libpq-PQputline"/>、<xref linkend="libpq-PQputnbytes"/>、<xref linkend="libpq-PQputCopyData"/>および<xref linkend="libpq-PQendcopy"/>の成功した呼び出しはブロックされません。変更はフラッシュされるまでローカル出力バッファに格納されます。
+失敗した呼び出しはエラーを返しますので再試行しなければなりません。␞␞      </para>␞
+␝      <para>␟       Note that <xref linkend="libpq-PQexec"/> does not honor nonblocking
+       mode; if it is called, it will act in blocking fashion anyway.␟<xref linkend="libpq-PQexec"/>は非ブロックモードにはしたがわないことに注意してください。
+この関数の呼び出しは、必ずブロック方式で動作します。␞␞      </para>␞
+␝      <para>␟       Returns the blocking status of the database connection.␟データベース接続のブロック状態を返します。␞␞<synopsis>␞
+␝      <para>␟       Returns 1 if the connection is set to nonblocking mode and 0 if
+       blocking.␟接続が非ブロック状態の場合は1が、ブロック状態の場合は0が返ります。␞␞      </para>␞
+␝       <para>␟       Attempts to flush any queued output data to the server.  Returns
+       0 if successful (or if the send queue is empty), -1 if it failed
+       for some reason, or 1 if it was unable to send all the data in
+       the send queue yet (this case can only occur if the connection
+       is nonblocking).␟キューに蓄えられたサーバへの出力データのフラッシュを行います。
+成功時(および送信キューが空の場合)は0が返ります。
+何らかの原因で失敗した場合は-1が、送信キュー内のデータをすべて送信できなかった場合は1が返ります。
+(これは接続が非ブロックの場合にのみ発生します。)␞␞<synopsis>␞
+␝  <para>␟   After sending any command or data on a nonblocking connection, call
+   <xref linkend="libpq-PQflush"/>.  If it returns 1, wait for the socket
+   to become read- or write-ready.  If it becomes write-ready, call
+   <xref linkend="libpq-PQflush"/> again.  If it becomes read-ready, call
+   <xref linkend="libpq-PQconsumeInput"/>, then call
+   <xref linkend="libpq-PQflush"/> again.  Repeat until
+   <xref linkend="libpq-PQflush"/> returns 0.  (It is necessary to check for
+   read-ready and drain the input with <xref linkend="libpq-PQconsumeInput"/>,
+   because the server can block trying to send us data, e.g., NOTICE
+   messages, and won't read our data until we read its.)  Once
+   <xref linkend="libpq-PQflush"/> returns 0, wait for the socket to be
+   read-ready and then read the response as described above.␟非ブロック接続時にはコマンドやデータを送信した後に、<xref linkend="libpq-PQflush"/>を呼び出してください。
+1が返った場合、ソケットの読み込みまたは書き込み準備ができるまで待ってください。
+書き込み準備ができたら、<xref linkend="libpq-PQflush"/>を再度呼び出してください。
+読み込み準備ができたら、<xref linkend="libpq-PQconsumeInput"/>を呼び出してから、<xref linkend="libpq-PQflush"/>を再度呼び出してください。
+これを<xref linkend="libpq-PQflush"/>が0を返すまで繰り返してください。
+(例えばNOTICEメッセージのように、こちらがそのデータを読むまで、サーバがデータを送ろうとするのを妨げ、こちらのデータを読もうとしないことがありますので、読み込み準備ができたことを確認して<xref linkend="libpq-PQconsumeInput"/>で入力をすべて抜き取ることが必要です。)
+<xref linkend="libpq-PQflush"/>が0を返した後は、ソケットの読み込み準備が整うまで待ち、上述のように応答を読み取ってください。␞␞  </para>␞
+␝  <indexterm zone="libpq-pipeline-mode">
+   <primary>libpq</primary>
+   <secondary>pipeline mode</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-pipeline-mode">
+   <primary>libpq</primary>
+   <secondary>パイプラインモード</secondary>
+  </indexterm>␞␞␞
+␝  <indexterm zone="libpq-pipeline-mode">
+   <primary>pipelining</primary>
+   <secondary>in libpq</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-pipeline-mode">
+   <primary>パイプライン</primary>
+   <secondary>libpqにおける</secondary>
+  </indexterm>␞␞␞
+␝  <indexterm zone="libpq-pipeline-mode">
+   <primary>batch mode</primary>
+   <secondary>in libpq</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-pipeline-mode">
+   <primary>バッチモード</primary>
+   <secondary>libpqにおける</secondary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-pipeline-mode">␟  <title>Pipeline Mode</title>␟  <title>パイプラインモード</title>␞␞␞
+␝  <para>␟   <application>libpq</application> pipeline mode allows applications to
+   send a query without having to read the result of the previously
+   sent query.  Taking advantage of the pipeline mode, a client will wait
+   less for the server, since multiple queries/results can be
+   sent/received in a single network transaction.␟<application>libpq</application>パイプラインモードを使用すると、アプリケーションは以前に送信された問い合わせの結果を読み込まなくても問い合わせを送信できます。
+パイプラインモードを利用すると、1つのネットワークトランザクションで複数の問い合わせ/結果を送受信できるので、クライアントはサーバを待つ時間が少なくなります。␞␞  </para>␞
+␝  <para>␟   While pipeline mode provides a significant performance boost, writing
+   clients using the pipeline mode is more complex because it involves
+   managing a queue of pending queries and finding which result
+   corresponds to which query in the queue.␟パイプラインモードではパフォーマンスが大幅に向上しますが、パイプラインモードを使用してクライアントを作成すると、保留中の問い合わせのキューを管理し、どの結果がキュー内のどの問い合わせに対応するかを見つける必要があるため、より複雑になります。␞␞  </para>␞
+␝  <para>␟   Pipeline mode also generally consumes more memory on both the client and server,
+   though careful and aggressive management of the send/receive queue can mitigate
+   this.  This applies whether or not the connection is in blocking or non-blocking
+   mode.␟パイプラインモードでは、一般にクライアントとサーバの両方でより多くのメモリを消費しますが、送受信キューを注意深く積極的に管理することでこれを軽減できます。
+これは、接続がブロックモードか非ブロックモードかに関係なく適用されます。␞␞  </para>␞
+␝  <para>␟   While <application>libpq</application>'s pipeline API was introduced in
+   <productname>PostgreSQL</productname> 14, it is a client-side feature
+   which doesn't require special server support and works on any server
+   that supports the v3 extended query protocol.  For more information see
+   <xref linkend="protocol-flow-pipelining"/>.␟<application>libpq</application>のパイプラインAPIは、<productname>PostgreSQL</productname> 14で導入されましたが、これは特別なサーバサポートを必要としないクライアント側の機能であり、v3拡張問い合わせプロトコルをサポートするすべてのサーバで機能します。
+詳細については、<xref linkend="protocol-flow-pipelining"/>を参照してください。␞␞  </para>␞
+␝  <sect2 id="libpq-pipeline-using">␟   <title>Using Pipeline Mode</title>␟   <title>パイプラインモードの使用</title>␞␞␞
+␝   <para>␟    To issue pipelines, the application must switch the connection
+    into pipeline mode,
+    which is done with <xref linkend="libpq-PQenterPipelineMode"/>.
+    <xref linkend="libpq-PQpipelineStatus"/> can be used
+    to test whether pipeline mode is active.
+    In pipeline mode, only <link linkend="libpq-async">asynchronous operations</link>
+    that utilize the extended query protocol
+    are permitted, command strings containing multiple SQL commands are
+    disallowed, and so is <literal>COPY</literal>.
+    Using synchronous command execution functions
+    such as <function>PQfn</function>,
+    <function>PQexec</function>,
+    <function>PQexecParams</function>,
+    <function>PQprepare</function>,
+    <function>PQexecPrepared</function>,
+    <function>PQdescribePrepared</function>,
+    <function>PQdescribePortal</function>,
+    <function>PQclosePrepared</function>,
+    <function>PQclosePortal</function>,
+    is an error condition.
+    <function>PQsendQuery</function> is
+    also disallowed, because it uses the simple query protocol.
+    Once all dispatched commands have had their results processed, and
+    the end pipeline result has been consumed, the application may return
+    to non-pipelined mode with <xref linkend="libpq-PQexitPipelineMode"/>.␟パイプラインを発行するためには、アプリケーションは接続をパイプラインモードに切り替える必要があります。
+これは<xref linkend="libpq-PQenterPipelineMode"/>で行われます。
+<xref linkend="libpq-PQpipelineStatus"/>は、パイプラインモードがアクティブかどうかをテストするために使用できます。
+パイプラインモードでは、<link linkend="libpq-async">非同期操作</link>のみが許可され、複数のSQLコマンドを含むコマンド文字列、<literal>COPY</literal>は許可されません。
+<function>PQfn</function>、<function>PQexec</function>、<function>PQexecParams</function>、<function>PQprepare</function>、<function>PQexecPrepared</function>、<function>PQdescribePrepared</function>、<function>PQdescribePortal</function>、<function>PQclosePrepared</function>、<function>PQclosePortal</function>などの同期コマンド実行関数を使用するとエラー状態になります。
+<function>PQsendQuery</function>も禁止されています。なぜなら、簡易問い合わせプロトコルを使用するからです。
+登録されたすべてのコマンドの結果が処理され、パイプラインの終了結果が消費されると、アプリケーションは<xref linkend="libpq-PQexitPipelineMode"/>を使用して非パイプラインモードに戻ることができます。␞␞   </para>␞
+␝    <para>␟     It is best to use pipeline mode with <application>libpq</application> in
+     <link linkend="libpq-PQsetnonblocking">non-blocking mode</link>. If used
+     in blocking mode it is possible for a client/server deadlock to occur.␟パイプラインモードを<application>libpq</application>とともに<link linkend="libpq-PQsetnonblocking">非ブロックモード</link>で使用するのが最善です。
+ブロックモードで使用すると、クライアント/サーバのデッドロックが発生する可能性があります。␞␞      <footnote>␞
+␝       <para>␟        The client will block trying to send queries to the server, but the
+        server will block trying to send results to the client from queries
+        it has already processed. This only occurs when the client sends
+        enough queries to fill both its output buffer and the server's receive
+        buffer before it switches to processing input from the server,
+        but it's hard to predict exactly when that will happen.␟クライアントはサーバに問い合わせを送信しようとするのをブロックしますが、サーバは既に処理した問い合わせから結果をクライアントに送信しようとするのをブロックします。
+これは、クライアントが出力バッファとサーバの受信バッファの両方を満たすのに十分な問い合わせを送信してから、サーバからの入力処理に切り替える場合にのみ発生しますが、いつ発生するかを正確に予測するのは困難です。␞␞       </para>␞
+␝   <sect3 id="libpq-pipeline-sending">␟    <title>Issuing Queries</title>␟    <title>問い合わせ発行</title>␞␞␞
+␝    <para>␟     After entering pipeline mode, the application dispatches requests using
+     <xref linkend="libpq-PQsendQueryParams"/>
+     or its prepared-query sibling
+     <xref linkend="libpq-PQsendQueryPrepared"/>.
+     These requests are queued on the client-side until flushed to the server;
+     this occurs when <xref linkend="libpq-PQpipelineSync"/> is used to
+     establish a synchronization point in the pipeline,
+     or when <xref linkend="libpq-PQflush"/> is called.
+     The functions <xref linkend="libpq-PQsendPrepare"/>,
+     <xref linkend="libpq-PQsendDescribePrepared"/>,
+     <xref linkend="libpq-PQsendDescribePortal"/>,
+     <xref linkend="libpq-PQsendClosePrepared"/>, and
+     <xref linkend="libpq-PQsendClosePortal"/> also work in pipeline mode.
+     Result processing is described below.␟パイプラインモードに入った後、アプリケーションは<xref linkend="libpq-PQsendQueryParams"/>、またはその準備された問い合わせ版の兄弟である<xref linkend="libpq-PQsendQueryPrepared"/>を使用して要求を登録します。
+これらの要求は、サーバにフラッシュされるまでクライアント側で待ち行列に入れられます。
+これは、<xref linkend="libpq-PQpipelineSync"/>がパイプラインに同期ポイントを確立するために使用された場合、または<xref linkend="libpq-PQflush"/>が呼び出された場合に発生します。
+関数<xref linkend="libpq-PQsendPrepare"/>、<xref linkend="libpq-PQsendDescribePrepared"/>、<xref linkend="libpq-PQsendDescribePortal"/>、<xref linkend="libpq-PQsendClosePrepared"/>、<xref linkend="libpq-PQsendClosePortal"/>もパイプラインモードで動作します。
+結果の処理については後述します。␞␞    </para>␞
+␝    <para>␟     The server executes statements, and returns results, in the order the
+     client sends them.  The server will begin executing the commands in the
+     pipeline immediately, not waiting for the end of the pipeline.
+     Note that results are buffered on the server side; the server flushes
+     that buffer when a synchronization point is established with either
+     <function>PQpipelineSync</function> or
+     <function>PQsendPipelineSync</function>, or when
+     <function>PQsendFlushRequest</function> is called.
+     If any statement encounters an error, the server aborts the current
+     transaction and does not execute any subsequent command in the queue
+     until the next synchronization point;
+     a <literal>PGRES_PIPELINE_ABORTED</literal> result is produced for
+     each such command.
+     (This remains true even if the commands in the pipeline would rollback
+     the transaction.)
+     Query processing resumes after the synchronization point.␟サーバは文を実行し、クライアントが送信した順に結果を返します。
+サーバはパイプラインのコマンドの実行を即座に開始し、パイプラインの終了を待機しません。
+結果はサーバ側でバッファされることに注意してください;同期ポイントが<function>PQpipelineSync</function>か<function>PQsendPipelineSync</function>のどちらかで確立されたとき、または<function>PQsendFlushRequest</function>が呼び出されたとき、サーバはバッファをフラッシュします。
+いずれかの文でエラーが発生した場合、サーバは現在のトランザクションを中止し、次の同期ポイントまでキュー内の後続のコマンドを実行しません。
+このようなコマンドごとに<literal>PGRES_PIPELINE_ABORTED</literal>結果が生成されます(パイプラインのコマンドがトランザクションをロールバックする場合でも同様です)。
+問い合わせ処理は同期ポイント後に再開されます。␞␞    </para>␞
+␝    <para>␟     It's fine for one operation to depend on the results of a
+     prior one; for example, one query may define a table that the next
+     query in the same pipeline uses. Similarly, an application may
+     create a named prepared statement and execute it with later
+     statements in the same pipeline.␟1つの操作が前の操作の結果に依存することは問題ありません。
+たとえば、1つの問い合わせが同じパイプラインの次の問い合わせが使用するテーブルを定義することができます。
+同様に、アプリケーションは名前付きのプリペアドステートメントを作成し、同じパイプラインの後のステートメントで実行することができます。␞␞    </para>␞
+␝   <sect3 id="libpq-pipeline-results">␟    <title>Processing Results</title>␟    <title>処理結果</title>␞␞␞
+␝    <para>␟     To process the result of one query in a pipeline, the application calls
+     <function>PQgetResult</function> repeatedly and handles each result
+     until <function>PQgetResult</function> returns null.
+     The result from the next query in the pipeline may then be retrieved using
+     <function>PQgetResult</function> again and the cycle repeated.
+     The application handles individual statement results as normal.
+     When the results of all the queries in the pipeline have been
+     returned, <function>PQgetResult</function> returns a result
+     containing the status value <literal>PGRES_PIPELINE_SYNC</literal>␟パイプラインの1つの問い合わせの結果を処理するために、アプリケーションは<function>PQgetResult</function>を繰り返し呼び出し、<function>PQgetResult</function>がNULLを返すまで各結果を処理します。
+パイプラインの次の問い合わせの結果は、再度<function>PQgetResult</function>を使用して取得され、サイクルが繰り返されます。
+アプリケーションは個々の文の結果を通常どおり処理します。
+パイプラインのすべての問い合わせの結果が返されると、<function>PQgetResult</function>は状態値<literal>PGRES_PIPELINE_SYNC</literal>を含む結果を返します。␞␞    </para>␞
+␝    <para>␟     The client may choose to defer result processing until the complete
+     pipeline has been sent, or interleave that with sending further
+     queries in the pipeline; see <xref linkend="libpq-pipeline-interleave"/>.␟クライアントは、完全なパイプラインが送信されるまで結果処理を延期するか、パイプラインでさらに問い合わせを送信して結果処理をインターリーブするかを選択できます。
+<xref linkend="libpq-pipeline-interleave"/>を参照してください。␞␞    </para>␞
+␝    <para>␟     <function>PQgetResult</function> behaves the same as for normal
+     asynchronous processing except that it may contain the new
+     <type>PGresult</type> types <literal>PGRES_PIPELINE_SYNC</literal>
+     and <literal>PGRES_PIPELINE_ABORTED</literal>.
+     <literal>PGRES_PIPELINE_SYNC</literal> is reported exactly once for each
+     <function>PQpipelineSync</function> or
+     <function>PQsendPipelineSync</function> at the corresponding point
+     in the pipeline.
+     <literal>PGRES_PIPELINE_ABORTED</literal> is emitted in place of a normal
+     query result for the first error and all subsequent results
+     until the next <literal>PGRES_PIPELINE_SYNC</literal>;
+     see <xref linkend="libpq-pipeline-errors"/>.␟<function>PQgetResult</function>は通常の非同期処理と同じように動作しますが、新しい<type>PGresult</type>型<literal>PGRES_PIPELINE_SYNC</literal>と<literal>PGRES_PIPELINE_ABORTED</literal>が含まれる場合があります。
+<literal>PGRES_PIPELINE_SYNC</literal>は、パイプラインの対応するポイントの各<function>PQpipelineSync</function>または<function>PQsendPipelineSync</function>ごとに1回だけ報告されます。
+最初のエラーに対する通常の問い合わせ結果の代わりに<literal>PGRES_PIPELINE_ABORTED</literal>が出力され、次の<literal>PGRES_PIPELINE_SYNC</literal>までのすべての結果が出力されます。
+<xref linkend="libpq-pipeline-errors"/>を参照してください。␞␞    </para>␞
+␝    <para>␟     <function>PQisBusy</function>, <function>PQconsumeInput</function>, etc
+     operate as normal when processing pipeline results.  In particular,
+     a call to <function>PQisBusy</function> in the middle of a pipeline
+     returns 0 if the results for all the queries issued so far have been
+     consumed.␟パイプラインの結果を処理する場合、<function>PQisBusy</function>や<function>PQconsumeInput</function>などは通常どおりに動作します。
+特に、パイプラインの途中で<function>PQisBusy</function>を呼び出した場合、これまでに発行されたすべての問い合わせの結果が消費されていれば0を返します。␞␞    </para>␞
+␝    <para>␟     <application>libpq</application> does not provide any information to the
+     application about the query currently being processed (except that
+     <function>PQgetResult</function> returns null to indicate that we start
+     returning the results of next query). The application must keep track
+     of the order in which it sent queries, to associate them with their
+     corresponding results.
+     Applications will typically use a state machine or a FIFO queue for this.␟<application>libpq</application>は、現在処理されている問い合わせに関する情報をアプリケーションに提供しません(<function>PQgetResult</function>はNULLを返し、次の問い合わせの結果を返し始めることを示します)。
+アプリケーションは、問い合わせを送信した順序を追跡し、対応する結果と関連付ける必要があります。
+アプリケーションは通常、ステートマシンまたはFIFOキューを使用します。␞␞    </para>␞
+␝   <sect3 id="libpq-pipeline-errors">␟    <title>Error Handling</title>␟    <title>エラー処理</title>␞␞␞
+␝    <para>␟     From the client's perspective, after <function>PQresultStatus</function>
+     returns <literal>PGRES_FATAL_ERROR</literal>,
+     the pipeline is flagged as aborted.
+     <function>PQresultStatus</function> will report a
+     <literal>PGRES_PIPELINE_ABORTED</literal> result for each remaining queued
+     operation in an aborted pipeline. The result for
+     <function>PQpipelineSync</function> or
+     <function>PQsendPipelineSync</function> is reported as
+     <literal>PGRES_PIPELINE_SYNC</literal> to signal the end of the aborted pipeline
+     and resumption of normal result processing.␟クライアント側から見ると、<function>PQresultStatus</function>が<literal>PGRES_FATAL_ERROR</literal>を返した後、パイプラインは中断されたフラグが立てられます。
+<function>PQresultStatus</function>は、中断されたパイプラインの残りのキュー操作ごとに<literal>PGRES_PIPELINE_ABORTED</literal>結果を報告します。
+<function>PQpipelineSync</function>または<function>PQsendPipelineSync</function>の結果は<literal>PGRES_PIPELINE_SYNC</literal>として報告され、中断されたパイプラインの終了と通常の結果処理の再開を通知します。␞␞    </para>␞
+␝    <para>␟     The client <emphasis>must</emphasis> process results with
+     <function>PQgetResult</function> during error recovery.␟クライアントは、エラー修復中に<function>PQgetResult</function>で結果を処理しなければ<emphasis>なりません</emphasis>。␞␞    </para>␞
+␝    <para>␟     If the pipeline used an implicit transaction, then operations that have
+     already executed are rolled back and operations that were queued to follow
+     the failed operation are skipped entirely. The same behavior holds if the
+     pipeline starts and commits a single explicit transaction (i.e. the first
+     statement is <literal>BEGIN</literal> and the last is
+     <literal>COMMIT</literal>) except that the session remains in an aborted
+     transaction state at the end of the pipeline. If a pipeline contains
+     <emphasis>multiple explicit transactions</emphasis>, all transactions that
+     committed prior to the error remain committed, the currently in-progress
+     transaction is aborted, and all subsequent operations are skipped completely,
+     including subsequent transactions.  If a pipeline synchronization point
+     occurs with an explicit transaction block in aborted state, the next pipeline
+     will become aborted immediately unless the next command puts the transaction
+     in normal mode with <command>ROLLBACK</command>.␟パイプラインで暗黙的なトランザクションが使用された場合、すでに実行された操作はロールバックされ、失敗した操作に続くキューに入れられていた操作は完全にスキップされます。
+パイプラインが開始され、単一の明示的なトランザクションをコミットした場合(つまり、最初の文が<literal>BEGIN</literal>、最後の文が<literal>COMMIT</literal>)と同じ動作が成立します。
+ただし、セッションはパイプラインの終了時に中断されたトランザクション状態のままです。
+パイプラインに<emphasis>複数の明示的なトランザクション</emphasis>が含まれている場合、エラー以前にコミットされたすべてのトランザクションはコミットされたままになり、現在進行中のトランザクションは中断され、後続のトランザクションも含めて後続のすべての操作は完全にスキップされます。
+パイプライン同期ポイントが中断状態の明示的なトランザクションブロックで発生した場合、次のコマンドが<command>ROLLBACK</command>を使用してトランザクションを通常モードにしない限り、次のパイプラインは即時に中断されます。␞␞    </para>␞
+␝     <para>␟      The client must not assume that work is committed when it
+      <emphasis>sends</emphasis> a <literal>COMMIT</literal> &mdash; only when the
+      corresponding result is received to confirm the commit is complete.
+      Because errors arrive asynchronously, the application needs to be able to
+      restart from the last <emphasis>received</emphasis> committed change and
+      resend work done after that point if something goes wrong.␟クライアントは、<literal>COMMIT</literal>&mdash;を<emphasis>送信</emphasis>したときに作業がコミットされたと想定してはなりません。
+コミットが完了したことを確認するために対応する結果を受信したときだけです。
+エラーは非同期で到着するため、アプリケーションは最後に<emphasis>受信</emphasis>したコミット済みの変更から再起動し、何か問題が発生した場合にはその時点以降に行われた作業を再送信できる必要があります。␞␞     </para>␞
+␝   <sect3 id="libpq-pipeline-interleave">␟    <title>Interleaving Result Processing and Query Dispatch</title>␟    <title>インターリーブ結果処理と問い合わせ登録</title>␞␞␞
+␝    <para>␟     To avoid deadlocks on large pipelines the client should be structured
+     around a non-blocking event loop using operating system facilities
+     such as <function>select</function>, <function>poll</function>,
+     <function>WaitForMultipleObjectEx</function>, etc.␟大規模なパイプラインでデッドロックを回避するためには、クライアントは<function>select</function>、<function>poll</function>、<function>WaitForMultipleObjectEx</function>などのオペレーティングシステム機能を使用して、ノンブロッキングイベントループを中心に構築する必要があります。␞␞    </para>␞
+␝    <para>␟     The client application should generally maintain a queue of work
+     remaining to be dispatched and a queue of work that has been dispatched
+     but not yet had its results processed. When the socket is writable
+     it should dispatch more work. When the socket is readable it should
+     read results and process them, matching them up to the next entry in
+     its corresponding results queue.  Based on available memory, results from the
+     socket should be read frequently: there's no need to wait until the
+     pipeline end to read the results.  Pipelines should be scoped to logical
+     units of work, usually (but not necessarily) one transaction per pipeline.
+     There's no need to exit pipeline mode and re-enter it between pipelines,
+     or to wait for one pipeline to finish before sending the next.␟通常、クライアントアプリケーションは、登録される残りの作業キューと、登録されたがまだ結果が処理されていない作業キューを維持する必要があります。
+ソケットが書き込み可能な場合は、より多くの作業を登録する必要があります。
+ソケットが読み取り可能な場合は、結果を読み取って処理し、対応する結果キュー内の次のエントリと一致させる必要があります。
+使用可能なメモリに基づいて、ソケットからの結果は頻繁に読み取られる必要があります:結果を読み取るためにパイプラインが終了するまで待つ必要はありません。
+パイプラインは、通常(必ずしも必要ではありません)パイプラインごとに1つのトランザクションである論理作業単位にスコープされる必要があります。
+パイプラインモードを終了してパイプライン間で再入力したり、次のパイプラインを送信する前に1つのパイプラインが終了するのを待つ必要はありません。␞␞    </para>␞
+␝    <para>␟     An example using <function>select()</function> and a simple state
+     machine to track sent and received work is in
+     <filename>src/test/modules/libpq_pipeline/libpq_pipeline.c</filename>
+     in the PostgreSQL source distribution.␟送受信された作業を追跡するために<function>select()</function>と単純なステートマシンを使用する例は、PostgreSQLソース配布物の<filename>src/test/modules/libpq_pipeline/libpq_pipeline.c</filename>にあります。␞␞    </para>␞
+␝  <sect2 id="libpq-pipeline-functions">␟   <title>Functions Associated with Pipeline Mode</title>␟   <title>パイプラインモード関連関数</title>␞␞␞
+␝      <para>␟      Returns the current pipeline mode status of the
+      <application>libpq</application> connection.␟<application>libpq</application>接続の現在のパイプラインモード状態を返します。␞␞<synopsis>␞
+␝      <para>␟       <function>PQpipelineStatus</function> can return one of the following values:␟<function>PQpipelineStatus</function>は以下のいずれかの値を返すことができます。␞␞␞
+␝          <para>␟           The <application>libpq</application> connection is in
+           pipeline mode.␟<application>libpq</application>接続はパイプラインモードです。␞␞          </para>␞
+␝          <para>␟           The <application>libpq</application> connection is
+           <emphasis>not</emphasis> in pipeline mode.␟<application>libpq</application>接続はパイプラインモードでは<emphasis>ありません</emphasis>。␞␞          </para>␞
+␝          <para>␟           The <application>libpq</application> connection is in pipeline
+           mode and an error occurred while processing the current pipeline.
+           The aborted flag is cleared when <function>PQgetResult</function>
+           returns a result of type <literal>PGRES_PIPELINE_SYNC</literal>.␟<application>libpq</application>接続はパイプラインモードで、現在のパイプラインの処理中にエラーが発生しました。
+<function>PQgetResult</function>が<literal>PGRES_PIPELINE_SYNC</literal>型の結果を返すと、中断フラグがクリアされます。␞␞          </para>␞
+␝      <para>␟      Causes a connection to enter pipeline mode if it is currently idle or
+      already in pipeline mode.␟接続が現在アイドル状態であるか、すでにパイプラインモードになっている場合、接続をパイプラインモードにします。␞␞␞
+␝      <para>␟       Returns 1 for success.
+       Returns 0 and has no effect if the connection is not currently
+       idle, i.e., it has a result ready, or it is waiting for more
+       input from the server, etc.
+       This function does not actually send anything to the server,
+       it just changes the <application>libpq</application> connection
+       state.␟成功した場合は1を返します。
+接続が現在アイドル状態でない場合、つまり結果を準備している場合や、サーバからの入力を待っている場合などには0を返し、何の効果もありません。
+この関数は実際にはサーバに何も送信せず、単に<application>libpq</application>接続状態を変更します。␞␞      </para>␞
+␝      <para>␟       Causes a connection to exit pipeline mode if it is currently in pipeline mode
+       with an empty queue and no pending results.␟接続が現在パイプラインモードにあり、キューが空で、保留中の結果がない場合、接続はパイプラインモードを終了します。␞␞<synopsis>␞
+␝      <para>␟       Returns 1 for success.  Returns 1 and takes no action if not in
+       pipeline mode. If the current statement isn't finished processing,
+       or <function>PQgetResult</function> has not been called to collect
+       results from all previously sent query, returns 0 (in which case,
+       use <xref linkend="libpq-PQerrorMessage"/> to get more information
+       about the failure).␟成功した場合は1を返します。
+パイプラインモードでない場合は、1を返し、何も行いません。
+現在の文の処理が終了していない場合、または<function>PQgetResult</function>が以前に送信されたすべての問い合わせから結果を収集するために呼び出されていない場合は、0を返します(この場合、失敗に関する詳細情報を取得するには<xref linkend="libpq-PQerrorMessage"/>を使用します)。␞␞      </para>␞
+␝      <para>␟       Marks a synchronization point in a pipeline by sending a
+       <link linkend="protocol-flow-ext-query">sync message</link>
+       and flushing the send buffer. This serves as
+       the delimiter of an implicit transaction and an error recovery
+       point; see <xref linkend="libpq-pipeline-errors"/>.␟<link linkend="protocol-flow-ext-query">同期メッセージ</link>を送信し、送信バッファをフラッシュすることにより、パイプラインの同期ポイントをマークします。
+これは暗黙的なトランザクションとエラー修復ポイントの区切り文字として機能します。
+<xref linkend="libpq-pipeline-errors"/>を参照してください。␞␞␞
+␝      <para>␟       Returns 1 for success. Returns 0 if the connection is not in
+       pipeline mode or sending a
+       <link linkend="protocol-flow-ext-query">sync message</link>
+       failed.␟成功した場合は1を返します。
+接続がパイプラインモードでないか、<link linkend="protocol-flow-ext-query">同期メッセージ</link>の送信に失敗した場合は0を返します。␞␞      </para>␞
+␝      <para>␟       Marks a synchronization point in a pipeline by sending a
+       <link linkend="protocol-flow-ext-query">sync message</link>
+       without flushing the send buffer. This serves as
+       the delimiter of an implicit transaction and an error recovery
+       point; see <xref linkend="libpq-pipeline-errors"/>.␟送信バッファをフラッシュせずに<link linkend="protocol-flow-ext-query">同期メッセージ</link>を送信することで、パイプライン内の同期ポイントをマークします。
+これは暗黙的なトランザクションとエラー修復ポイントの区切り文字として機能します。<xref linkend="libpq-pipeline-errors"/>を参照してください。
+<xref linkend="libpq-pipeline-errors"/>を参照してください。␞␞␞
+␝      <para>␟       Returns 1 for success. Returns 0 if the connection is not in
+       pipeline mode or sending a
+       <link linkend="protocol-flow-ext-query">sync message</link>
+       failed.
+       Note that the message is not itself flushed to the server automatically;
+       use <function>PQflush</function> if necessary.␟成功した場合は1を返します。
+接続がパイプラインモードでないか、<link linkend="protocol-flow-ext-query">同期メッセージ</link>の送信に失敗した場合は0を返します。
+メッセージ自体は自動的にサーバにフラッシュされないことに注意してください。
+必要であれば<function>PQflush</function>を使用してください。␞␞      </para>␞
+␝      <para>␟       Sends a request for the server to flush its output buffer.␟サーバに出力バッファをフラッシュする要求を送信します。␞␞<synopsis>␞
+␝      <para>␟       Returns 1 for success.  Returns 0 on any failure.␟成功した場合は1を返します。
+失敗した場合は0を返します。␞␞      </para>␞
+␝      <para>␟       The server flushes its output buffer automatically as a result of
+       <function>PQpipelineSync</function> being called, or
+       on any request when not in pipeline mode; this function is useful
+       to cause the server to flush its output buffer in pipeline mode
+       without establishing a synchronization point.
+       Note that the request is not itself flushed to the server automatically;
+       use <function>PQflush</function> if necessary.␟サーバは、<function>PQpipelineSync</function>が呼び出された結果として、あるいはパイプラインモードでない要求があった場合に、自動的に出力バッファをフラッシュします。
+この関数は、同期ポイントを確立せずに、サーバにパイプラインモードで出力バッファをフラッシュさせるのに便利です。
+要求自体は自動的にサーバにフラッシュされないことに注意してください。必要であれば<function>PQflush</function>を使用してください。␞␞      </para>␞
+␝  <sect2 id="libpq-pipeline-tips">␟   <title>When to Use Pipeline Mode</title>␟   <title>いつパイプラインモードを使用するか</title>␞␞␞
+␝   <para>␟    Much like asynchronous query mode, there is no meaningful performance
+    overhead when using pipeline mode. It increases client application complexity,
+    and extra caution is required to prevent client/server deadlocks, but
+    pipeline mode can offer considerable performance improvements, in exchange for
+    increased memory usage from leaving state around longer.␟非同期問い合わせモードと同様に、パイプラインモードを使用する場合、意味のあるパフォーマンスオーバーヘッドはありません。
+これはクライアントアプリケーションの複雑さを増加させ、クライアント／サーバのデッドロックを防ぐために特別な注意が必要ですが、パイプラインモードは、状態をより長く残すことによるメモリ使用量の増加と引き換えに、かなりのパフォーマンス改善を提供することができます。␞␞   </para>␞
+␝   <para>␟    Pipeline mode is most useful when the server is distant, i.e., network latency
+    (<quote>ping time</quote>) is high, and also when many small operations
+    are being performed in rapid succession.  There is usually less benefit
+    in using pipelined commands when each query takes many multiples of the client/server
+    round-trip time to execute.  A 100-statement operation run on a server
+    300 ms round-trip-time away would take 30 seconds in network latency alone
+    without pipelining; with pipelining it may spend as little as 0.3 s waiting for
+    results from the server.␟パイプラインモードは、サーバが離れている場合、つまりネットワーク遅延(<quote>ping時間</quote>)が大きい場合や、多数の小さな操作が連続して実行されている場合に最も便利です。
+各問い合わせが実行するのにクライアント/サーバのラウンドトリップ時間の何倍もかかる場合、パイプラインコマンドを使用するメリットは通常少なくなります。
+ラウンドトリップ時間が300ミリ秒離れたサーバ上で100文の操作を実行すると、パイプライン処理なしでネットワーク遅延だけで30秒かかります。
+パイプライン処理を使用すると、サーバからの結果を待つのに0.3秒ほどしかかかりません。␞␞   </para>␞
+␝   <para>␟    Use pipelined commands when your application does lots of small
+    <literal>INSERT</literal>, <literal>UPDATE</literal> and
+    <literal>DELETE</literal> operations that can't easily be transformed
+    into operations on sets, or into a <literal>COPY</literal> operation.␟集合に対する操作や<literal>COPY</literal>操作に容易に変換できない小さな<literal>INSERT</literal>、<literal>UPDATE</literal>、<literal>DELETE</literal>操作をアプリケーションが大量に行う場合は、パイプラインコマンドを使用してください。␞␞   </para>␞
+␝   <para>␟    Pipeline mode is not useful when information from one operation is required by
+    the client to produce the next operation. In such cases, the client
+    would have to introduce a synchronization point and wait for a full client/server
+    round-trip to get the results it needs. However, it's often possible to
+    adjust the client design to exchange the required information server-side.
+    Read-modify-write cycles are especially good candidates; for example:␟パイプラインモードは、クライアントが次のオペレーションを生成するために1つのオペレーションからの情報を必要とする場合には便利ではありません。
+このような場合、クライアントは同期ポイントを導入し、クライアント／サーバの完全なラウンドトリップを待機して、必要な結果を取得する必要があります。
+ただし、クライアント設計を調整して、必要な情報をサーバ側で交換することも可能です。
+読み取り-変更-書き込みサイクルは特に適した候補です。
+たとえば、次のようになります。␞␞<programlisting>␞
+␝</programlisting>␟    could be much more efficiently done with:␟次のようにして、より効率的にできます。␞␞<programlisting>␞
+␝    Pipelining is less useful, and more complex, when a single pipeline contains
+    multiple transactions (see <xref linkend="libpq-pipeline-errors"/>).
+   </para>
+  </sect2>
+ </sect1>
+␟␟<!-- split-libpq1-end -->
+<!-- split-libpq2-start -->␞␞␞
+␝   <para>␟    Pipelining is less useful, and more complex, when a single pipeline contains
+    multiple transactions (see <xref linkend="libpq-pipeline-errors"/>).␟単一のパイプラインに複数のトランザクションが含まれている場合、パイプライン化はあまり有用ではなく、複雑になります（<xref linkend="libpq-pipeline-errors"/>を参照）。␞␞   </para>␞
+␝  <indexterm zone="libpq-single-row-mode">
+   <primary>libpq</primary>
+   <secondary>single-row mode</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-single-row-mode">
+   <primary>libpq</primary>
+   <secondary>単一行モード</secondary>
+  </indexterm>␞␞␞
+␝  <indexterm zone="libpq-single-row-mode">
+   <primary>libpq</primary>
+   <secondary>chunked mode</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-single-row-mode">
+   <primary>libpq</primary>
+   <secondary>チャンクモード</secondary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-single-row-mode">␟  <title>Retrieving Query Results in Chunks</title>␟  <title>問い合わせ結果をチャンクとして取り出す</title>␞␞␞
+␝  <para>␟   Ordinarily, <application>libpq</application> collects an SQL command's
+   entire result and returns it to the application as a single
+   <structname>PGresult</structname>.  This can be unworkable for commands
+   that return a large number of rows.  For such cases, applications can use
+   <xref linkend="libpq-PQsendQuery"/> and <xref linkend="libpq-PQgetResult"/> in
+   <firstterm>single-row mode</firstterm> or <firstterm>chunked
+   mode</firstterm>.  In these modes, result row(s) are returned to the
+   application as they are received from the server, one at a time for
+   single-row mode or in groups for chunked mode.␟通常、<application>libpq</application>はSQLコマンドの結果全体を収集し、それを１つの<structname>PGresult</structname>としてアプリケーションに返します。
+これは、多くの行数を返すコマンドでは動作しなくなるかもしれません。
+このような場合、アプリケーションは<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>で<firstterm>単一行モード</firstterm>または<firstterm>チャンクモード</firstterm>を使用することができます。
+これらのモードでは、結果の行は、サーバから受信されると、一度に1行ずつ、またはチャンクでグループ化されてアプリケーションに返されます。␞␞  </para>␞
+␝  <para>␟   To enter one of these modes, call <xref linkend="libpq-PQsetSingleRowMode"/>
+    or <xref linkend="libpq-PQsetChunkedRowsMode"/>
+   immediately after a successful call of <xref linkend="libpq-PQsendQuery"/>
+   (or a sibling function).  This mode selection is effective only for the
+   currently executing query.  Then call <xref linkend="libpq-PQgetResult"/>
+   repeatedly, until it returns null, as documented in <xref
+   linkend="libpq-async"/>.  If the query returns any rows, they are returned
+   as one or more <structname>PGresult</structname> objects, which look like
+   normal query results except for having status code
+   <literal>PGRES_SINGLE_TUPLE</literal> for single-row mode or
+   <literal>PGRES_TUPLES_CHUNK</literal> for chunked mode, instead of
+   <literal>PGRES_TUPLES_OK</literal>.  There is exactly one result row in
+   each <literal>PGRES_SINGLE_TUPLE</literal> object, while
+   a <literal>PGRES_TUPLES_CHUNK</literal> object contains at least one
+   row but not more than the specified number of rows per chunk.
+   After the last row, or immediately if
+   the query returns zero rows, a zero-row object with status
+   <literal>PGRES_TUPLES_OK</literal> is returned; this is the signal that no
+   more rows will arrive.  (But note that it is still necessary to continue
+   calling <xref linkend="libpq-PQgetResult"/> until it returns null.)  All of
+   these <structname>PGresult</structname> objects will contain the same row
+   description data (column names, types, etc.) that an ordinary
+   <structname>PGresult</structname> object for the query would have.
+   Each object should be freed with <xref linkend="libpq-PQclear"/> as usual.␟これらのモードのいずれかに入るには、<xref linkend="libpq-PQsendQuery"/> （またはその兄弟関数）の呼び出し直後に<xref linkend="libpq-PQsetSingleRowMode"/>または<xref linkend="libpq-PQsetChunkedRowsMode"/>を呼び出します。
+このモード選択は、現在実行中の問い合わせに対してのみ有効です。
+その後、<xref linkend="libpq-async"/>の説明通りに、NULLを返すようになるまで<xref linkend="libpq-PQgetResult"/>を繰り返し呼び出してください。
+問い合わせが何らかの行を返す場合、<literal>PGRES_TUPLES_OK</literal>ではなく<literal>PGRES_SINGLE_TUPLE</literal>である点を除けば、通常の問い合わせ結果と同じように見える、個々の<structname>PGresult</structname>オブジェクトを返します。
+問い合わせが何行かの行を返すと、それらは1つ以上の<structname>PGresult</structname>オブジェクトとして返されます。
+これらは通常の問い合わせ結果と同じように見えますが、<literal>PGRES_SINGLE_TUPLE</literal>がシングル行モードの場合は<literal>PGRES_TUPLES_OK</literal>ではなく、チャンクモードの場合は<literal>PGRES_TUPLES_CHUNK</literal>が付きます。
+各<literal>PGRES_SINGLE_TUPLE</literal>オブジェクトには1行の結果がありますが、<literal>PGRES_TUPLES_CHUNK</literal>オブジェクトには少なくとも1行、チャンクあたり指定された行数以下の結果があります。
+最後の行の後、またはクエリがゼロ行を返す場合は直ちに、ステータス<literal>PGRES_TUPLES_OK</literal>を持つゼロ行オブジェクトが返されます。これは、これ以上行が到着しないというシグナルです。
+（ただし、NULL を返すまでは、<xref linkend="libpq-PQgetResult"/>を呼び出し続ける必要があることに注意してください。）
+これらの<structname>PGresult</structname>オブジェクトはすべて、問い合わせの通常の<structname>PGresult</structname>オブジェクトと同じ行記述データ（列名、型など）を含みます。
+各オブジェクトは通常通り<xref linkend="libpq-PQclear"/>で解放する必要があります。␞␞  </para>␞
+␝  <para>␟   When using pipeline mode, single-row or chunked mode needs to be
+   activated for each query in the pipeline before retrieving results for
+   that query with <function>PQgetResult</function>.
+   See <xref linkend="libpq-pipeline-mode"/> for more information.␟パイプラインモードを使用する場合、単一行モードまたはチャンクモードは、<function>PQgetResult</function>でその問い合わせの結果を取得する前に、パイプラインの各問い合わせに対してアクティブにする必要があります。
+詳細は<xref linkend="libpq-pipeline-mode"/>を参照してください。␞␞  </para>␞
+␝      <para>␟       Select single-row mode for the currently-executing query.␟現在実行中の問い合わせについて単一行モードを選択します。␞␞␞
+␝      <para>␟       This function can only be called immediately after
+       <xref linkend="libpq-PQsendQuery"/> or one of its sibling functions,
+       before any other operation on the connection such as
+       <xref linkend="libpq-PQconsumeInput"/> or
+       <xref linkend="libpq-PQgetResult"/>.  If called at the correct time,
+       the function activates single-row mode for the current query and
+       returns 1.  Otherwise the mode stays unchanged and the function
+       returns 0.  In any case, the mode reverts to normal after
+       completion of the current query.␟この関数は<xref linkend="libpq-PQsendQuery"/>またはその系列の関数のいずれかの後即座に、<xref linkend="libpq-PQconsumeInput"/>や<xref linkend="libpq-PQgetResult"/>など接続に対する何らかの他の操作を行う前のみに呼び出すことができます。
+正しい時点で呼び出された場合、この関数は現在の問い合わせに対して単一行モードを有効にし、１を返します。
+この他の場合、モードは変更されず、関数はゼロを返します。
+いずれの場合でも、現在の問い合わせが完了した後に通常モードに戻ります。␞␞      </para>␞
+␝      <para>␟       Select chunked mode for the currently-executing query.␟現在実行中の問い合わせに対してチャンクモードを選択します。␞␞␞
+␝      <para>␟       This function is similar to
+       <xref linkend="libpq-PQsetSingleRowMode"/>, except that it
+       specifies retrieval of up to <replaceable>chunkSize</replaceable> rows
+       per <structname>PGresult</structname>, not necessarily just one row.
+       This function can only be called immediately after
+       <xref linkend="libpq-PQsendQuery"/> or one of its sibling functions,
+       before any other operation on the connection such as
+       <xref linkend="libpq-PQconsumeInput"/> or
+       <xref linkend="libpq-PQgetResult"/>.  If called at the correct time,
+       the function activates chunked mode for the current query and
+       returns 1.  Otherwise the mode stays unchanged and the function
+       returns 0.  In any case, the mode reverts to normal after
+       completion of the current query.␟この関数は<xref linkend="libpq-PQsetSingleRowMode"/>と似ていますが、必ずしも1行だけではなく、<structname>PGresult</structname>ごとに最大<replaceable>chunkSize</replaceable>行を取得する点が異なります。
+この関数は、<xref linkend="libpq-PQsendQuery"/>またはその兄弟関数の直後、および<xref linkend="libpq-PQconsumeInput"/>や<xref linkend="libpq-PQgetResult"/>などの接続上の他の操作の直前にのみ呼び出すことができます。
+正しいタイミングで呼び出されると、この関数は現在の問い合わせに対してチャンクモードをアクティブにし、1を返します。
+それ以外の場合、モードは変更されず、この関数は0を返します。
+いずれの場合も、現在の問い合わせが完了すると、モードは通常に戻ります。␞␞      </para>␞
+␝   <para>␟    While processing a query, the server may return some rows and then
+    encounter an error, causing the query to be aborted.  Ordinarily,
+    <application>libpq</application> discards any such rows and reports only the
+    error.  But in single-row or chunked mode, some rows may have already
+    been returned to the application. Hence, the application will see some
+    <literal>PGRES_SINGLE_TUPLE</literal> or <literal>PGRES_TUPLES_CHUNK</literal>
+    <structname>PGresult</structname>
+    objects followed by a <literal>PGRES_FATAL_ERROR</literal> object.  For
+    proper transactional behavior, the application must be designed to
+    discard or undo whatever has been done with the previously-processed
+    rows, if the query ultimately fails.␟問い合わせを処理している間、サーバはいくつか行を返した後にエラーになり、問い合わせがアボートする可能性があります。
+通常の<application>libpq</application>では、こうした行を破棄しエラーのみを報告します。
+しかし単一行モードあるいはチャンクモードでは、これらの行はすでにアプリケーションに返されています。
+このためアプリケーションは<literal>PGRES_SINGLE_TUPLE</literal>あるいは<literal>PGRES_TUPLES_CHUNK</literal>状態の<structname>PGresult</structname>オブジェクトをいくつか見た後に<literal>PGRES_FATAL_ERROR</literal>オブジェクトを見るかもしれません。
+適切な振る舞いのトランザクションのために、最終的に問い合わせが失敗した場合、アプリケーションはこれまで処理した行を破棄するまたは取り消すように設計しなければなりません。␞␞   </para>␞
+␝  <indexterm zone="libpq-cancel">
+   <primary>query cancellation</primary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-cancel">
+   <primary>SQL問い合わせのキャンセル</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-cancel">␟  <title>Canceling Queries in Progress</title>␟  <title>処理中の問い合わせのキャンセル</title>␞␞␞
+␝  <sect2 id="libpq-cancel-functions">␟   <title>Functions for Sending Cancel Requests</title>␟   <title>キャンセル要求の送信関数</title>␞␞   <variablelist>␞
+␝      <para>␟       Prepares a connection over which a cancel request can be sent.␟キャンセル要求を送信できる接続を準備します。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQcancelCreate"/> creates a
+       <structname>PGcancelConn</structname><indexterm><primary>PGcancelConn</primary></indexterm>
+       object, but it won't instantly start sending a cancel request over this
+       connection. A cancel request can be sent over this connection in a
+       blocking manner using <xref linkend="libpq-PQcancelBlocking"/> and in a
+       non-blocking manner using <xref linkend="libpq-PQcancelStart"/>.
+       The return value can be passed to <xref linkend="libpq-PQcancelStatus"/>
+       to check if the <structname>PGcancelConn</structname> object was
+       created successfully. The <structname>PGcancelConn</structname> object
+       is an opaque structure that is not meant to be accessed directly by the
+       application. This <structname>PGcancelConn</structname> object can be
+       used to cancel the query that's running on the original connection in a
+       thread-safe way.␟<xref linkend="libpq-PQcancelCreate"/>は<structname>PGcancelConn</structname><indexterm><primary>PGcancelConn</primary></indexterm>オブジェクトを作成しますが、この接続を介して直ちにキャンセルリクエストを送信し始めることはありません。
+キャンセル要求は、<xref linkend="libpq-PQcancelBlocking"/>を使用してブロッキング方式で、あるいは<xref linkend="libpq-PQcancelStart"/>を使用して非ブロッキング方式でこの接続を介して送信できます。
+戻り値は<xref linkend="libpq-PQcancelStatus"/>に渡して、<structname>PGcancelConn</structname>オブジェクトが正常に作成されたかどうかを調べることができます。
+<structname>PGcancelConn</structname>オブジェクトは、アプリケーションが直接アクセスすることを意図していない不透明な構造体です。
+この<structname>PGcancelConn</structname>オブジェクトは、スレッドセーフな方法で元の接続で実行中の問い合わせをキャンセルするために使用できます。␞␞      </para>␞
+␝      <para>␟       Many connection parameters of the original client will be reused when
+       setting up the connection for the cancel request. Importantly, if the
+       original connection requires encryption of the connection and/or
+       verification of the target host (using <literal>sslmode</literal> or
+       <literal>gssencmode</literal>), then the connection for the cancel
+       request is made with these same requirements. Any connection options
+       that are only used during authentication or after authentication of the
+       client are ignored though, because cancellation requests do not require
+       authentication and the connection is closed right after the cancellation
+       request is submitted.␟元のクライアントの多くの接続パラメータは、キャンセル要求の接続を設定するときに再利用されます。
+重要な点として、元の接続が接続の暗号化とターゲットホストの検証（<literal>sslmode</literal>または<literal>gssencmode</literal>を使用）を必要とする場合、キャンセル要求の接続はこれらの同じ要件を使用して作成されます。
+ただし、クライアントの認証中または認証後にのみ使用される接続オプションは無視されます。取り消し要求では認証は必要なく、接続は取り消し要求が送信された直後に閉じられるためです。␞␞      </para>␞
+␝      <para>␟       Note that when <function>PQcancelCreate</function> returns a non-null
+       pointer, you must call <xref linkend="libpq-PQcancelFinish"/> when you
+       are finished with it, in order to dispose of the structure and any
+       associated memory blocks. This must be done even if the cancel request
+       failed or was abandoned.␟<function>PQcancelCreate</function>がNULL以外のポインタを返した場合、構造体と関連するメモリブロックを始末するために、<xref linkend="libpq-PQcancelFinish"/>を呼び出す必要があります。
+これは、キャンセル要求が失敗したか、あるいは放棄された場合でも必要です。␞␞      </para>␞
+␝      <para>␟       Requests that the server abandons processing of the current command
+       in a blocking manner.␟サーバがブロック方式で現在のコマンドの処理を中止するように要求します。␞␞<synopsis>␞
+␝      <para>␟       The request is made over the given <structname>PGcancelConn</structname>,
+       which needs to be created with <xref linkend="libpq-PQcancelCreate"/>.
+       The return value of <xref linkend="libpq-PQcancelBlocking"/>
+       is 1 if the cancel request was successfully
+       dispatched and 0 if not. If it was unsuccessful, the error message can be
+       retrieved using <xref linkend="libpq-PQcancelErrorMessage"/>.␟この要求は、<xref linkend="libpq-PQcancelCreate"/>で作成する必要がある指定された<structname>PGcancel</structname>を介して行われます。
+取り消し要求が正常にディスパッチされた場合、<xref linkend="libpq-PQcancelBlocking"/>の返却値は1です。
+失敗した場合、エラーメッセージは<xref linkend="libpq-PQcancelErrorMessage"/>を使用して取得できます。␞␞      </para>␞
+␝      <para>␟       Successful dispatch of the cancellation is no guarantee that the request
+       will have any effect, however. If the cancellation is effective, the
+       command being canceled will terminate early and return an error result.
+       If the cancellation fails (say, because the server was already done
+       processing the command), then there will be no visible result at all.␟キャンセルの送信が成功しても、要求が有効になるとは限りません。
+キャンセルが有効な場合、キャンセルされるコマンドは早期に終了し、エラー結果を返します。
+キャンセルが失敗した場合 （サーバがコマンドの処理をすでに完了していた場合など）、目に見える結果はまったくありません。␞␞      </para>␞
+␝      <para>␟       Requests that the server abandons processing of the current command
+       in a non-blocking manner.␟サーバが非ブロッキング方式で現在のコマンドの処理を中止するように要求します。␞␞<synopsis>␞
+␝      <para>␟       The request is made over the given <structname>PGcancelConn</structname>,
+       which needs to be created with <xref linkend="libpq-PQcancelCreate"/>.
+       The return value of <xref linkend="libpq-PQcancelStart"/>
+       is 1 if the cancellation request could be started and 0 if not.
+       If it was unsuccessful, the error message can be
+       retrieved using <xref linkend="libpq-PQcancelErrorMessage"/>.␟この要求は、<xref linkend="libpq-PQcancelCreate"/>を使用して作成する必要がある指定された<structname>PGcancel</structname>を介して行われます。
+取り消し要求が開始できた場合、<xref linkend="libpq-PQcancelStart"/>の返却値は1です。
+開始できなかった場合、エラーメッセージは<xref linkend="libpq-PQcancelErrorMessage"/>を使用して取得できます。␞␞      </para>␞
+␝      <para>␟       If <function>PQcancelStart</function> succeeds, the next stage
+       is to poll <application>libpq</application> so that it can proceed with
+       the cancel connection sequence.
+       Use <xref linkend="libpq-PQcancelSocket"/> to obtain the descriptor of the
+       socket underlying the database connection.
+       (Caution: do not assume that the socket remains the same
+       across <function>PQcancelPoll</function> calls.)
+       Loop thus: If <function>PQcancelPoll(cancelConn)</function> last returned
+       <symbol>PGRES_POLLING_READING</symbol>, wait until the socket is ready to
+       read (as indicated by <function>select()</function>,
+       <function>poll()</function>, or similar system function).
+       Then call <function>PQcancelPoll(cancelConn)</function> again.
+       Conversely, if <function>PQcancelPoll(cancelConn)</function> last returned
+       <symbol>PGRES_POLLING_WRITING</symbol>, wait until the socket is ready
+       to write, then call <function>PQcancelPoll(cancelConn)</function> again.
+       On the first iteration, i.e., if you have yet to call
+       <function>PQcancelPoll(cancelConn)</function>, behave as if it last returned
+       <symbol>PGRES_POLLING_WRITING</symbol>.  Continue this loop until
+       <function>PQcancelPoll(cancelConn)</function> returns
+       <symbol>PGRES_POLLING_FAILED</symbol>, indicating the connection procedure
+       has failed, or <symbol>PGRES_POLLING_OK</symbol>, indicating cancel
+       request was successfully dispatched.␟<function>PQcancelStart</function>が成功した場合、次の段階は<application>libpq</application>をポーリングして、接続解除シーケンスを続行できるようにすることです。
+データベース接続の基礎となるソケットの記述子を取得するには、<xref linkend="libpq-PQcancelSocket"/>を使用します。
+（注意: ソケットは<function>PQcancelPoll</function>呼び出しの間は同じままだと仮定しないでください）。
+ループを次のように実行します。
+<function>PQcancelPoll(cancelConn)</function>が最後に<symbol>PGRES_POLLING_READING</symbol>を返した場合、ソケットが読み込みの準備ができるまで待ちます（<function>select()</function>や<function>poll()</function>などのシステム関数で指定します）。
+その後、再度<function>PQcancelPoll(cancelConn)</function>を呼び出します。
+逆に、<function>PQcancelPoll(cancelConn)</function>が最後に<symbol>PGRES_POLLING_WRITING</symbol>を返した場合、ソケットが書き込み可能になるまで待ってから、再度<function>PQcancelPoll(cancelConn)</function>を呼び出します。
+最初の反復では、つまり<function>PQcancelPoll(cancelConn)</function>をまだ呼び出していない場合は、最後に<symbol>PGRES_POLLING_WRITING</symbol>を返したかのように振る舞います。
+接続手続きが失敗したことを示す<symbol>PGRES_POLLING_FAILED</symbol>を返すか、または、<symbol>PGRES_POLLING_OK</symbol>を返して、キャンセル要求が正常にディスパッチされたことを示すまで、このループを続けます。␞␞      </para>␞
+␝      <para>␟       Successful dispatch of the cancellation is no guarantee that the request
+       will have any effect, however. If the cancellation is effective, the
+       command being canceled will terminate early and return an error result.
+       If the cancellation fails (say, because the server was already done
+       processing the command), then there will be no visible result at all.␟キャンセルの送信が成功しても、要求が有効になるとは限りません。
+キャンセルが有効な場合、キャンセルされるコマンドは早期に終了し、エラー結果を返します。
+キャンセルが失敗した場合 （サーバがコマンドの処理をすでに完了していた場合など）、目に見える結果はまったくありません。␞␞      </para>␞
+␝      <para>␟       At any time during connection, the status of the connection can be
+       checked by calling <xref linkend="libpq-PQcancelStatus"/>.
+       If this call returns <symbol>CONNECTION_BAD</symbol>, then
+       the cancel procedure has failed; if the call returns
+       <function>CONNECTION_OK</function>, then cancel request was
+       successfully dispatched.
+       Both of these states are equally detectable from the return value of
+       <function>PQcancelPoll</function>, described above.
+       Other states might also occur during (and only during) an asynchronous
+       connection procedure.
+       These indicate the current stage of the connection procedure and might
+       be useful to provide feedback to the user for example.
+       These statuses are:␟接続中はいつでも、<xref linkend="libpq-PQcancelStatus"/>を呼び出すことで接続の状態を確認できます。
+この呼び出しが<symbol>CONNECTION_BAD</symbol>を返した場合、キャンセル手続きは失敗です。
+この呼び出しが<function>CONNECTION_OK</function>を返した場合、キャンセル要求は正常にディスパッチされました。
+これらの状態はどちらも、上記の<function>PQcancelPoll</function>の戻り値から等しく検出できます。
+他の状態は、非同期接続手順の間（およびその間のみ）に発生することもあります。
+これらは、接続手順の現在の段階を示し、例えばユーザにフィードバックを提供するのに有用です。
+これらのステータスは次のとおりです。␞␞␞
+␝          <para>␟           Waiting for a call to <xref linkend="libpq-PQcancelStart"/> or
+           <xref linkend="libpq-PQcancelBlocking"/>, to actually open the
+           socket. This is the connection state right after
+           calling <xref linkend="libpq-PQcancelCreate"/>
+           or <xref linkend="libpq-PQcancelReset"/>. No connection to the
+           server has been initiated yet at this point. To actually start
+           sending the cancel request use <xref linkend="libpq-PQcancelStart"/> or
+           <xref linkend="libpq-PQcancelBlocking"/>.␟<xref linkend="libpq-PQcancelStart"/>や<xref linkend="libpq-PQcancelBlocking"/>への呼び出しを待って、実際にソケットを開いています。
+これは<xref linkend="libpq-PQcancelCreate"/>や<xref linkend="libpq-PQcancelReset"/>を呼んだ直後の接続の状態です。
+この時点ではサーバへの接続はまだ開始されていません。
+実際にキャンセルリクエストの送信を開始するには<xref linkend="libpq-PQcancelStart"/>や<xref linkend="libpq-PQcancelBlocking"/>を使います。␞␞          </para>␞
+␝          <para>␟           Waiting for connection to be made.␟接続の確立待ち状態です。␞␞          </para>␞
+␝          <para>␟           Connection OK; waiting to send.␟接続はOKです。送信待ち状態です。␞␞          </para>␞
+␝          <para>␟           Waiting for a response from the server.␟サーバからの応答待ち状態です。␞␞          </para>␞
+␝          <para>␟           Negotiating SSL encryption.␟SSL暗号化の調停状態です。␞␞          </para>␞
+␝          <para>␟           Negotiating GSS encryption.␟GSS暗号化の調停状態です。␞␞          </para>␞
+␝␟       Note that, although these constants will remain (in order to maintain
+       compatibility), an application should never rely upon these occurring in a
+       particular order, or at all, or on the status always being one of these
+       documented values. An application might do something like this:␟これらの定数は（互換性を保つため）なくなることはありませんが、アプリケーションは、これらが特定の順で出現したり、本書に書いてある値のどれかに必ずステータス値が該当するということを決して当てにしてはいけません。
+アプリケーションは、以下に示すようにするべきです。␞␞<programlisting>␞
+␝      <para>␟       The <literal>connect_timeout</literal> connection parameter is ignored
+       when using <function>PQcancelPoll</function>; it is the application's
+       responsibility to decide whether an excessive amount of time has elapsed.
+       Otherwise, <function>PQcancelStart</function> followed by a
+       <function>PQcancelPoll</function> loop is equivalent to
+       <xref linkend="libpq-PQcancelBlocking"/>.␟<function>PQcancelPoll</function>を使用する場合、<literal>connect_timeout</literal>接続パラメータは無視されます。
+経過時間が長過ぎるかどうかの判定はアプリケーションの責任で行ないます。
+そうでない場合、<function>PQcancelStart</function>とそれに続く<function>PQcancelPoll</function>ループは<xref linkend="libpq-PQcancelBlocking"/>と同等です。␞␞      </para>␞
+␝      <para>␟       Returns the status of the cancel connection.␟キャンセル接続の状態を返します。␞␞<synopsis>␞
+␝      <para>␟       The status can be one of a number of values.  However, only three of
+       these are seen outside of an asynchronous cancel procedure:
+       <literal>CONNECTION_ALLOCATED</literal>,
+       <literal>CONNECTION_OK</literal> and
+       <literal>CONNECTION_BAD</literal>. The initial state of a
+       <function>PGcancelConn</function> that's successfully created using
+       <xref linkend="libpq-PQcancelCreate"/> is <literal>CONNECTION_ALLOCATED</literal>.
+       A cancel request that was successfully dispatched
+       has the status <literal>CONNECTION_OK</literal>.  A failed
+       cancel attempt is signaled by status
+       <literal>CONNECTION_BAD</literal>.  An OK status will
+       remain so until <xref linkend="libpq-PQcancelFinish"/> or
+       <xref linkend="libpq-PQcancelReset"/> is called.␟ステータスは、いくつかの値のいずれかになります。
+しかし、非同期キャンセル手続きの外で見られるのは、<literal>CONNECTION_ALLOCATED</literal>、<literal>CONNECTION_OK</literal>、<literal>CONNECTION_BAD</literal>の3つだけです。
+<xref linkend="libpq-PQcancelCreate"/>を使用して正常に作成された<function>PGcancelConn</function>の初期状態は<literal>CONNECTION_ALLOCATED</literal>です。
+正常にディスパッチされたキャンセル要求は<literal>CONNECTION_OK</literal>の状態になります。
+キャンセルが失敗した場合、状態<literal>CONNECTION_BAD</literal>が通知されます。
+<xref linkend="libpq-PQcancelFinish"/>または<xref linkend="libpq-PQcancelReset"/>が呼び出されるまで、OK状態はそのまま残ります。␞␞      </para>␞
+␝      <para>␟       See the entry for <xref linkend="libpq-PQcancelStart"/> with regards
+       to other status codes that might be returned.␟返される可能性がある他の状態コードについては<xref linkend="libpq-PQcancelStart"/>の項目を参照してください。␞␞      </para>␞
+␝      <para>␟       Successful dispatch of the cancellation is no guarantee that the request
+       will have any effect, however. If the cancellation is effective, the
+       command being canceled will terminate early and return an error result.
+       If the cancellation fails (say, because the server was already done
+       processing the command), then there will be no visible result at all.␟キャンセルの送信が成功しても、要求が有効になるとは限りません。
+キャンセルが有効な場合、キャンセルされるコマンドは早期に終了し、エラー結果を返します。
+キャンセルが失敗した場合 （サーバがコマンドの処理をすでに完了していた場合など）、目に見える結果はまったくありません。␞␞      </para>␞
+␝      <para>␟       Obtains the file descriptor number of the cancel connection socket to
+       the server.␟サーバへのキャンセル接続ソケットのファイル記述子番号を取得する。␞␞<synopsis>␞
+␝      <para>␟       A valid descriptor will be greater than or equal to 0;
+       a result of -1 indicates that no server connection is currently open.
+       This might change as a result of calling any of the functions
+       in this section on the <structname>PGcancelConn</structname>
+       (except for <xref linkend="libpq-PQcancelErrorMessage"/> and
+       <function>PQcancelSocket</function> itself).␟有効なディスクリプタは0以上です。
+-1 の結果は、現在オープンしているサーバ接続がないことを示します。
+このセクションの関数を<structname>PGcancelConn</structname>（<xref linkend="libpq-PQcancelErrorMessage"/>と<function>PQcancelSocket</function>自身を除く）で呼び出すと、この値が変わる可能性があります。␞␞      </para>␞
+␝      <para>␟       Returns the error message most recently generated by an
+       operation on the cancel connection.␟接続解除操作で最後に生成されたエラーメッセージを返します。␞␞<synopsis>␞
+␝      <para>␟       Nearly all <application>libpq</application> functions that take a
+       <structname>PGcancelConn</structname> will set a message for
+       <xref linkend="libpq-PQcancelErrorMessage"/> if they fail.
+       Note that by <application>libpq</application> convention,
+       a nonempty <xref linkend="libpq-PQcancelErrorMessage"/> result
+       can consist of multiple lines, and will include a trailing newline.
+       The caller should not free the result directly.
+       It will be freed when the associated
+       <structname>PGcancelConn</structname> handle is passed to
+       <xref linkend="libpq-PQcancelFinish"/>.  The result string should not be
+       expected to remain the same across operations on the
+       <literal>PGcancelConn</literal> structure.␟<structname>PGcancelConn</structname>を取得する<application>libpq</application>関数のほとんどは、失敗した場合に<xref linkend="libpq-PQcancelErrorMessage"/>にメッセージを設定します。
+<application>libpq</application>の規則では、空でない<xref linkend="libpq-PQcancelErrorMessage"/>結果は複数行からなる可能性があり、最後に改行を含むことに注意してください。
+呼び出し元は、結果を直接解放しないでください。
+関連する<structname>PGcancelConn</structname>ハンドルが<xref linkend="libpq-PQcancelFinish"/>に渡されると解放されます。
+結果の文字列は<literal>PGcancelConn</literal>構造体に対する操作を通じて同じままになることは期待されません。␞␞      </para>␞
+␝      <para>␟       Closes the cancel connection (if it did not finish sending the
+       cancel request yet). Also frees memory used by the
+       <structname>PGcancelConn</structname> object.␟キャンセル接続を閉じます（キャンセル要求の送信がまだ完了していない場合）。
+また、<structname>PGcancelConn</structname>オブジェクトが使用するメモリを解放します。␞␞<synopsis>␞
+␝      <para>␟       Note that even if the cancel attempt fails (as
+       indicated by <xref linkend="libpq-PQcancelStatus"/>), the
+       application should call <xref linkend="libpq-PQcancelFinish"/>
+       to free the memory used by the <structname>PGcancelConn</structname>
+       object.
+       The <structname>PGcancelConn</structname> pointer must not be used
+       again after <xref linkend="libpq-PQcancelFinish"/> has been called.␟取り消しの試みが失敗した場合（<xref linkend="libpq-PQcancelStatus"/>で示されるように）でも、アプリケーションは<xref linkend="libpq-PQcancelFinish"/>を呼び出して<structname>PGcancelConn</structname>オブジェクトが使用したメモリを解放するようにしてください。
+<structname>PGcancelConn</structname>ポインタは<xref linkend="libpq-PQcancelFinish"/>が呼び出された後は再度使用してはなりません。␞␞      </para>␞
+␝      <para>␟       Resets the <symbol>PGcancelConn</symbol> so it can be reused for a new
+       cancel connection.␟新しいキャンセル接続で再利用できるように<symbol>PGcancelConn</symbol>をリセットします。␞␞<synopsis>␞
+␝      <para>␟       If the <symbol>PGcancelConn</symbol> is currently used to send a cancel
+       request, then this connection is closed. It will then prepare the
+       <symbol>PGcancelConn</symbol> object such that it can be used to send a
+       new cancel request.␟<symbol>PGcancelConn</symbol>が現在キャンセル要求を送信するために使用されている場合、この接続は閉じられます。
+次に、新しいキャンセル要求を送信するために使用できるように<symbol>PGcancelConn</symbol>オブジェクトを準備します。␞␞      </para>␞
+␝      <para>␟       This can be used to create one <structname>PGcancelConn</structname>
+       for a <structname>PGconn</structname> and reuse it multiple times
+       throughout the lifetime of the original <structname>PGconn</structname>.␟これは<structname>PGconn</structname>に対して1つの<structname>PGcancelConn</structname>を作成し、元の<structname>PGconn</structname>の存続期間中に何度も再利用することができます。␞␞      </para>␞
+␝  <sect2 id="libpq-cancel-deprecated">␟   <title>Obsolete Functions for Sending Cancel Requests</title>␟   <title>キャンセル要求を送るための廃れた関数</title>␞␞␞
+␝   <para>␟    These functions represent older methods of sending cancel requests.
+    Although they still work, they are deprecated due to not sending the cancel
+    requests in an encrypted manner, even when the original connection
+    specified <literal>sslmode</literal> or <literal>gssencmode</literal> to
+    require encryption. Thus these older methods are heavily discouraged from
+    being used in new code, and it is recommended to change existing code to
+    use the new functions instead.␟これらの関数は古い方法でキャンセル要求を送信するものです。
+これらはまだ動作しますが、元の接続が暗号化を要求するために<literal>sslmode</literal>または<literal>gssencmode</literal>を指定した場合でも、キャンセル要求を暗号化された方法で送信しないため、推奨されません。
+したがって、これらの古い方法は新しいコードではほとんど使用されず、既存のコードを変更して新しい関数を使用することをお勧めします。␞␞   </para>␞
+␝      <para>␟       Creates a data structure containing the information needed to cancel
+       a command using <xref linkend="libpq-PQcancel"/>.␟<xref linkend="libpq-PQcancel"/>を使用してコマンドをキャンセルするために必要な情報を含むデータ構造体を作成します。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQgetCancel"/> creates a
+       <structname>PGcancel</structname><indexterm><primary>PGcancel</primary></indexterm>
+       object given a <structname>PGconn</structname> connection object.
+       It will return <symbol>NULL</symbol> if the given <parameter>conn</parameter>
+       is <symbol>NULL</symbol> or an invalid connection.
+       The <structname>PGcancel</structname> object is an opaque
+       structure that is not meant to be accessed directly by the
+       application; it can only be passed to <xref linkend="libpq-PQcancel"/>
+       or <xref linkend="libpq-PQfreeCancel"/>.␟<xref linkend="libpq-PQgetCancel"/>は<structname>PGconn</structname>接続オブジェクトを与えられた<structname>PGcancel</structname><indexterm><primary>PGcancel</primary></indexterm>オブジェクトを作成します。
+指定された<parameter>conn</parameter>が<symbol>NULL</symbol>か、または無効な接続である場合、<symbol>NULL</symbol>を返します。
+<structname>PGcancel</structname>オブジェクトは不透明な構造体で、アプリケーションが直接アクセスするためのものではありません。これは<xref linkend="libpq-PQcancel"/>または<xref linkend="libpq-PQfreeCancel"/>に渡すことができるだけです。␞␞      </para>␞
+␝      <para>␟       Frees a data structure created by <xref linkend="libpq-PQgetCancel"/>.␟<xref linkend="libpq-PQgetCancel"/>で作成されたデータ構造を解放します。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQfreeCancel"/> frees a data object previously created
+       by <xref linkend="libpq-PQgetCancel"/>.␟<xref linkend="libpq-PQfreeCancel"/>は事前に<xref linkend="libpq-PQgetCancel"/>で作成されたデータオブジェクトを解放します。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQcancel"/> is a deprecated and insecure
+       variant of <xref linkend="libpq-PQcancelBlocking"/>, but one that can be
+       used safely from within a signal handler.␟<xref linkend="libpq-PQcancel"/>は、<xref linkend="libpq-PQcancelBlocking"/>の非推奨で安全でない変種ですが、シグナルハンドラ内から安全に使用できます。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQcancel"/> only exists because of backwards
+       compatibility reasons. <xref linkend="libpq-PQcancelBlocking"/> should be
+       used instead. The only benefit that <xref linkend="libpq-PQcancel"/> has
+       is that it can be safely invoked from a signal handler, if the
+       <parameter>errbuf</parameter> is a local variable in the signal handler.
+       However, this is generally not considered a big enough benefit to be
+       worth the security issues that this function has.␟<xref linkend="libpq-PQcancel"/>が存在するのは、下位互換性のためだけです。
+代わりに<xref linkend="libpq-PQcancelBlocking"/>を使用してください。
+<xref linkend="libpq-PQcancel"/>の唯一の利点は、<parameter>errbuf</parameter>がシグナルハンドラ内のローカル変数である場合に、シグナルハンドラから安全に呼び出すことができることです。
+しかし、一般的には、この関数が持つセキュリティ問題に見合うほど大きな利点とは考えられていません。␞␞      </para>␞
+␝      <para>␟       The <structname>PGcancel</structname> object is read-only as far as
+       <xref linkend="libpq-PQcancel"/> is concerned, so it can also be invoked
+       from a thread that is separate from the one manipulating the
+       <structname>PGconn</structname> object.␟<structname>PGcancel</structname>オブジェクトは<xref linkend="libpq-PQcancel"/>に関しては読み取り専用であるため、<structname>PGconn</structname>オブジェクトを操作するスレッドとは別のスレッドからも呼び出すことができます。␞␞      </para>␞
+␝      <para>␟       The return value of <xref linkend="libpq-PQcancel"/> is 1 if the
+       cancel request was successfully dispatched and 0 if not.
+       If not, <parameter>errbuf</parameter> is filled with an explanatory
+       error message.
+       <parameter>errbuf</parameter> must be a char array of size
+       <parameter>errbufsize</parameter> (the recommended size is 256 bytes).␟取り消し要求が正常にディスパッチされた場合、<xref linkend="libpq-PQcancel"/>の戻り値は1で、そうでなければ0です。
+ディスパッチされなかった場合、<parameter>errbuf</parameter>に説明的なエラーメッセージが入ります。
+<parameter>errbuf</parameter>は<parameter>errbufsize</parameter>のサイズ（推奨サイズは256バイト）の文字配列でなければなりません。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQrequestCancel"/> is a deprecated and insecure
+       variant of <xref linkend="libpq-PQcancelBlocking"/>.␟<xref linkend="libpq-PQrequestCancel"/>は、<xref linkend="libpq-PQcancelBlocking"/>の非推奨で安全でない変種です。␞␞<synopsis>␞
+␝      <para>␟       <xref linkend="libpq-PQrequestCancel"/> only exists because of backwards
+       compatibility reasons. <xref linkend="libpq-PQcancelBlocking"/> should be
+       used instead. There is no benefit to using
+       <xref linkend="libpq-PQrequestCancel"/> over
+       <xref linkend="libpq-PQcancelBlocking"/>.␟<xref linkend="libpq-PQrequestCancel"/>は下位互換性のために存在します。
+代わりに<xref linkend="libpq-PQcancelBlocking"/>を使用してください。
+<xref linkend="libpq-PQrequestCancel"/>を<xref linkend="libpq-PQcancelBlocking"/>よりも使用する利益はありません。␞␞      </para>␞
+␝      <para>␟       Requests that the server abandon processing of the current
+       command.  It operates directly on the
+       <structname>PGconn</structname> object, and in case of failure stores the
+       error message in the <structname>PGconn</structname> object (whence it can
+       be retrieved by <xref linkend="libpq-PQerrorMessage"/>).  Although
+       the functionality is the same, this approach is not safe within
+       multiple-thread programs or signal handlers, since it is possible
+       that overwriting the <structname>PGconn</structname>'s error message will
+       mess up the operation currently in progress on the connection.␟サーバに現在のコマンドの廃棄処理を要求します。
+これは<structname>PGconn</structname>オブジェクトを直接扱い、また、失敗した場合エラーメッセージは<structname>PGconn</structname>オブジェクト内に収納されます。
+(<xref linkend="libpq-PQerrorMessage"/>により取り出すことができます。)
+機能的には同一ですが、この方法は複数スレッドプログラムやシグナルハンドラでは安全ではありません。<structname>PGconn</structname>のエラーメッセージが上書きされることにより、その接続で現在進行中の操作を台無しにする可能性があるからです。␞␞      </para>␞
+␝  <indexterm zone="libpq-fastpath">
+   <primary>fast path</primary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-fastpath">
+   <primary>近道</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-fastpath">␟  <title>The Fast-Path Interface</title>␟  <title>近道インタフェース</title>␞␞␞
+␝  <para>␟   <productname>PostgreSQL</productname> provides a fast-path interface
+   to send simple function calls to the server.␟<productname>PostgreSQL</productname>は、サーバへの簡単な関数呼び出しを送信する近道 (fast-path) インタフェースを用意しています。␞␞  </para>␞
+␝   <para>␟    This interface is somewhat obsolete, as one can achieve similar
+    performance and greater functionality by setting up a prepared
+    statement to define the function call.  Then, executing the statement
+    with binary transmission of parameters and results substitutes for a
+    fast-path function call.␟この関数はどちらかというと廃れたものです。
+同様の性能やそれ以上の機能を、関数呼び出しを定義した準備された文を設定することで達成できるからです。
+そして、その文をパラメータと結果をバイナリ転送するように実行すれば、近道関数呼び出しを置き換えることになります。␞␞   </para>␞
+␝  <para>␟   The function <function id="libpq-PQfn">PQfn</function><indexterm><primary>PQfn</primary></indexterm>
+   requests execution of a server function via the fast-path interface:␟<function id="libpq-PQfn">PQfn</function><indexterm><primary>PQfn</primary></indexterm>関数は近道インタフェースを使ってサーバ関数の実行を要求します。␞␞<synopsis>␞
+␝  <para>␟   The <parameter>fnid</parameter> argument is the OID of the function to be
+   executed.  <parameter>args</parameter> and <parameter>nargs</parameter> define the
+   parameters to be passed to the function; they must match the declared
+   function argument list.  When the <parameter>isint</parameter> field of a
+   parameter structure is true, the <parameter>u.integer</parameter> value is sent
+   to the server as an integer of the indicated length (this must be
+   2 or 4 bytes); proper byte-swapping occurs.  When <parameter>isint</parameter>
+   is false, the indicated number of bytes at <parameter>*u.ptr</parameter> are
+   sent with no processing; the data must be in the format expected by
+   the server for binary transmission of the function's argument data
+   type.  (The declaration of <parameter>u.ptr</parameter> as being of
+   type <type>int *</type> is historical; it would be better to consider
+   it <type>void *</type>.)
+   <parameter>result_buf</parameter> points to the buffer in which to place
+   the function's return value.  The caller must have allocated sufficient
+   space to store the return value.  (There is no check!) The actual result
+   length in bytes will be returned in the integer pointed to by
+   <parameter>result_len</parameter>.  If a 2- or 4-byte integer result
+   is expected, set <parameter>result_is_int</parameter> to 1, otherwise
+   set it to 0.  Setting <parameter>result_is_int</parameter> to 1 causes
+   <application>libpq</application> to byte-swap the value if necessary, so that it
+   is delivered as a proper <type>int</type> value for the client machine;
+   note that a 4-byte integer is delivered into <parameter>*result_buf</parameter>
+   for either allowed result size.
+   When <parameter>result_is_int</parameter> is 0, the binary-format byte string
+   sent by the server is returned unmodified. (In this case it's better
+   to consider <parameter>result_buf</parameter> as being of
+   type <type>void *</type>.)␟<parameter>fnid</parameter>引数は実行する関数のOIDです。
+<parameter>args</parameter>と<parameter>nargs</parameter>は関数に渡すパラメータを定義します。
+これらは関数宣言における引数リストに一致しなければなりません。
+パラメータ構造体の<parameter>isint</parameter>が真の場合、<parameter>u.integer</parameter>の値はサーバに指定長の整数として送信されます。
+(これは2もしくは4バイトでなければなりません。)
+この時、適切なバイト順の交換が行なわれます。
+<parameter>isint</parameter>が偽の場合は、<parameter>*u.ptr</parameter>で指定されたバイト数が無処理で送信されます。
+関数のパラメータデータ型をバイナリ転送で行うために、このデータはサーバで想定する書式である必要があります。
+(<parameter>u.ptr</parameter>を<type>int *</type>型と宣言するのは歴史的なものです。<type>void *</type>と考えた方が良いでしょう。)
+<parameter>result_buf</parameter>は関数の戻り値を格納するバッファを指しています。
+呼び出し側は戻り値を格納するのに十分な領域を確保しておかなければいけません。
+（ライブラリ側ではこの検査はしていません！）
+バイト単位での結果の実データ長は<parameter>result_len</parameter>が指す整数で返されます。
+結果が2、4バイト整数だと想定できるなら<parameter>result_is_int</parameter>を1に、そうでなければ0を設定します。
+<parameter>result_is_int</parameter>を1にすれば、必要に応じて値のバイト順を入れ換えるよう<application>libpq</application>に指示することになります。
+そしてクライアントマシン上で正しい<type>int</type>値となるように転送します。
+4バイト整数は認められた結果の大きさで<parameter>*result_buf</parameter>に転送されることに注意してください。
+<parameter>result_is_int</parameter>が0の場合は、バックエンドが送ったバイナリ書式のバイト列を何も修正せずに返します。
+(この場合、<parameter>result_buf</parameter>は<type>void *</type>型と考えた方が良いでしょう。)␞␞  </para>␞
+␝  <para>␟   <function>PQfn</function> always returns a valid
+   <structname>PGresult</structname> pointer, with
+   status <literal>PGRES_COMMAND_OK</literal> for success
+   or <literal>PGRES_FATAL_ERROR</literal> if some problem was encountered.
+   The result status should be
+   checked before the result is used.   The caller is responsible for
+   freeing  the  <structname>PGresult</structname>  with
+   <xref linkend="libpq-PQclear"/> when it is no longer needed.␟<function>PQfn</function>は常に有効な<structname>PGresult*</structname>ポインタを返します。
+成功した場合は<literal>PGRES_COMMAND_OK</literal>、問題が発生した場合は<literal>PGRES_FATAL_ERROR</literal>のステータスが返されます。
+結果を使う前にはまず、結果ステータスを調べておくべきでしょう。
+結果が必要なくなった時点で、<xref linkend="libpq-PQclear"/>によって、<structname>PGresult</structname>を解放するのは、呼び出し側の責任です。␞␞  </para>␞
+␝  <para>␟   To pass a NULL argument to the function, set
+   the <parameter>len</parameter> field of that parameter structure
+   to <literal>-1</literal>; the <parameter>isint</parameter>
+   and <parameter>u</parameter> fields are then irrelevant.␟関数にNULL引数を渡すには、そのパラメータ構造体の<parameter>len</parameter>フィールドを<literal>-1</literal>に設定します。
+<parameter>isint</parameter>フィールドと<parameter>u</parameter>フィールドは無関係です。␞␞  </para>␞
+␝  <para>␟   If the function returns NULL, <parameter>*result_len</parameter> is set
+   to <literal>-1</literal>, and <parameter>*result_buf</parameter> is not
+   modified.␟この関数がNULLを返す場合、<parameter>*result_len</parameter>は<literal>-1</literal>に設定され、<parameter>*result_buf</parameter>は変更されません。␞␞  </para>␞
+␝  <para>␟   Note that it is not possible to handle set-valued results when using
+   this interface.  Also, the function must be a plain function, not an
+   aggregate, window function, or procedure.␟このインタフェースを使用した場合、セット値の結果を扱うことができないことに注意してください。
+また、関数は、集約関数、ウィンドウ関数またはプロシージャではなく、プレーンな関数である必要があります。␞␞  </para>␞
+␝  <indexterm zone="libpq-notify">
+   <primary>NOTIFY</primary>
+   <secondary>in libpq</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-notify">
+   <primary>NOTIFY</primary>
+   <secondary>libpqにおける</secondary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-notify">␟  <title>Asynchronous Notification</title>␟  <title>非同期通知</title>␞␞␞
+␝  <para>␟   <productname>PostgreSQL</productname> offers asynchronous notification
+   via the <command>LISTEN</command> and <command>NOTIFY</command>
+   commands.  A client session registers its interest in a particular
+   notification channel with the <command>LISTEN</command> command (and
+   can stop listening with the <command>UNLISTEN</command> command).  All
+   sessions listening on a particular channel will be notified
+   asynchronously when a <command>NOTIFY</command> command with that
+   channel name is executed by any session. A <quote>payload</quote> string can
+   be passed to communicate additional data to the listeners.␟<productname>PostgreSQL</productname>は、<command>LISTEN</command>と<command>NOTIFY</command>コマンドを使用した、非同期通知をサポートします。
+クライアントセッションは、<command>LISTEN</command>コマンドを使用して処理対象とする特定の通知チャネルを登録します。
+（通知監視を取り止めるには<command>UNLISTEN</command>コマンドを使用します。）
+任意のセッションでそのチャネル名による<command>NOTIFY</command>コマンドが実行されると、特定チャネルを監視しているすべてのセッションは非同期に通知を受け取ります。
+監視者に追加データを通信するために<quote>ペイロード</quote>文字列を渡すことができます。␞␞  </para>␞
+␝  <para>␟   <application>libpq</application> applications submit
+   <command>LISTEN</command>, <command>UNLISTEN</command>,
+   and <command>NOTIFY</command> commands as
+   ordinary SQL commands.  The arrival of <command>NOTIFY</command>
+   messages can subsequently be detected by calling
+   <function id="libpq-PQnotifies">PQnotifies</function>.<indexterm><primary>PQnotifies</primary></indexterm>␟<application>libpq</application>アプリケーションは、通常のSQLによる問い合わせと同じように<command>LISTEN</command>、<command>UNLISTEN</command>および<command>NOTIFY</command>コマンドを発行することができます。
+<command>NOTIFY</command>メッセージの到着は、続いて<function id="libpq-PQnotifies">PQnotifies</function>.<indexterm><primary>PQnotifies</primary></indexterm>を呼び出せば検出できます。␞␞  </para>␞
+␝  <para>␟   The function <function>PQnotifies</function> returns the next notification
+   from a list of unhandled notification messages received from the server.
+   It returns a null pointer if there are no pending notifications.  Once a
+   notification is returned from <function>PQnotifies</function>, it is considered
+   handled and will be removed from the list of notifications.␟<function>PQnotifies</function>関数は、サーバから受信した通知メッセージの未処理リストから次の通知を返します。
+保留中の通知がなくなればNULLポインタを返します。
+<function>PQnotifies</function>が通知を返すと、その通知は処理済みとみなされ、通知リストから取り除かれます。␞␞␞
+␝{␟    char *relname;              /* notification channel name */
+    int  be_pid;                /* process ID of notifying server process */
+    char *extra;                /* notification payload string */␟    char *relname;              /* 通知チャネル名 */
+    int  be_pid;                /* 通知元サーバプロセスのプロセスID */
+    char *extra;                /* 通知ペイロード文字列 */␞␞} PGnotify;␞
+␝␟   After processing a <structname>PGnotify</structname> object returned
+   by <function>PQnotifies</function>, be sure to free it with
+   <xref linkend="libpq-PQfreemem"/>.  It is sufficient to free the
+   <structname>PGnotify</structname> pointer; the
+   <structfield>relname</structfield> and <structfield>extra</structfield>
+   fields do not represent separate allocations.  (The names of these fields
+   are historical; in particular, channel names need not have anything to
+   do with relation names.)␟<function>PQnotifies</function>で返された<structname>PGnotify</structname>オブジェクトの処理が終わったら、<xref linkend="libpq-PQfreemem"/>を使用して確実に解放してください。
+<structname>PGnotify</structname>ポインタを解放することは重要です。
+<structfield>relname</structfield>と<structfield>extra</structfield>フィールドは別の割り当てを表していません。
+(これらのフィールド名は歴史的なものです。特にチャネル名はリレーション名と関係するものである必要はありません。)␞␞  </para>␞
+␝  <para>␟   <xref linkend="libpq-example-2"/> gives a sample program that illustrates
+   the use of asynchronous notification.␟<xref linkend="libpq-example-2"/>で非同期通知を使用したサンプルプログラムを示しています。␞␞  </para>␞
+␝  <para>␟   <function>PQnotifies</function> does not actually read data from the
+   server; it just returns messages previously absorbed by another
+   <application>libpq</application> function.  In ancient releases of
+   <application>libpq</application>, the only way to ensure timely receipt
+   of <command>NOTIFY</command> messages was to constantly submit commands, even
+   empty ones, and then check <function>PQnotifies</function> after each
+   <xref linkend="libpq-PQexec"/>.  While this still works, it is deprecated
+   as a waste of processing power.␟<function>PQnotifies</function>は実際にサーバのデータを読み出すわけではありません。
+これは単に、他の<application>libpq</application>関数が吸収してしまっていた通知メッセージを返すだけです。
+<application>libpq</application>の古いリリースでは、<command>NOTIFY</command>メッセージを適切な時点で確実に受け取るには、空の問い合わせでも何でも、とにかく一定時間ごとに問い合わせを送り、そして<xref linkend="libpq-PQexec"/>を実行するたびに<function>PQnotifies</function>を検査するしかありませんでした。
+今でもこの方法は動作しますが、処理能力の無駄使いをすることになるのでやめておくべきでしょう。␞␞  </para>␞
+␝  <para>␟   A better way to check for <command>NOTIFY</command> messages when you have no
+   useful commands to execute is to call
+   <xref linkend="libpq-PQconsumeInput"/>, then check
+   <function>PQnotifies</function>.  You can use
+   <function>select()</function> to wait for data to arrive from the
+   server, thereby using no <acronym>CPU</acronym> power unless there is
+   something to do.  (See <xref linkend="libpq-PQsocket"/> to obtain the file
+   descriptor number to use with <function>select()</function>.) Note that
+   this will work OK whether you submit commands with
+   <xref linkend="libpq-PQsendQuery"/>/<xref linkend="libpq-PQgetResult"/> or
+   simply use <xref linkend="libpq-PQexec"/>.  You should, however, remember
+   to check <function>PQnotifies</function> after each
+   <xref linkend="libpq-PQgetResult"/> or <xref linkend="libpq-PQexec"/>, to
+   see if any notifications came in during the processing of the command.␟実行すべき問い合わせがない時に<command>NOTIFY</command>メッセージを検査するよい方法は、まず<xref linkend="libpq-PQconsumeInput"/>を呼び出し、それから<function>PQnotifies</function>を検査することです。
+サーバからのデータの到着を<function>select()</function>で待つことができ、不必要な動作で<acronym>CPU</acronym>パワーを消費してしまうことがありません。
+（<function>select()</function>で使用するファイル記述子番号の取得については、<xref linkend="libpq-PQsocket"/>を参照してください。）
+なお、これは問い合わせに<xref linkend="libpq-PQsendQuery"/>と<xref linkend="libpq-PQgetResult"/>を使った時でも、またはおなじみの<xref linkend="libpq-PQexec"/>を使った時でも動作します。
+しかし通知がコマンドの処理中に届いていないかどうか、<xref linkend="libpq-PQgetResult"/>あるいは<xref linkend="libpq-PQexec"/>の実行ごとに<function>PQnotifies</function>を調べることを忘れないようにしておくべきです。␞␞  </para>␞
+␝  <indexterm zone="libpq-copy">
+   <primary>COPY</primary>
+   <secondary>with libpq</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-copy">
+   <primary>COPY</primary>
+   <secondary>libpqを使用した</secondary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-copy">␟  <title>Functions Associated with the <command>COPY</command> Command</title>␟  <title><command>COPY</command>コマンド関連関数</title>␞␞␞
+␝  <para>␟   The <command>COPY</command> command in
+   <productname>PostgreSQL</productname> has options to read from or write
+   to the network connection used by <application>libpq</application>.
+   The functions described in this section allow applications to take
+   advantage of this capability by supplying or consuming copied data.␟<productname>PostgreSQL</productname>の<command>COPY</command>コマンドでは、<application>libpq</application>が使っているネットワーク接続に対して読み込み、あるいは書き込みを選ぶことができるようになっています。
+本節で説明する関数により、アプリケーションはコピーするデータの提供やコピーされるデータの使用が可能になるという利点を持ちます。␞␞  </para>␞
+␝  <para>␟   The overall process is that the application first issues the SQL
+   <command>COPY</command> command via <xref linkend="libpq-PQexec"/> or one
+   of the equivalent functions.  The response to this (if there is no
+   error in the command) will be a <structname>PGresult</structname> object bearing
+   a status code of <literal>PGRES_COPY_OUT</literal> or
+   <literal>PGRES_COPY_IN</literal> (depending on the specified copy
+   direction).  The application should then use the functions of this
+   section to receive or transmit data rows.  When the data transfer is
+   complete, another <structname>PGresult</structname> object is returned to indicate
+   success or failure of the transfer.  Its status will be
+   <literal>PGRES_COMMAND_OK</literal> for success or
+   <literal>PGRES_FATAL_ERROR</literal> if some problem was encountered.
+   At this point further SQL commands can be issued via
+   <xref linkend="libpq-PQexec"/>.  (It is not possible to execute other SQL
+   commands using the same connection while the <command>COPY</command>
+   operation is in progress.)␟全体的な処理として、アプリケーションはまず<xref linkend="libpq-PQexec"/>もしくは同等な関数経由で<command>COPY</command> SQLコマンドを発行します。
+（コマンドでエラーが発生しなければ）この応答は、（指定したコピーの方向に応じて）<literal>PGRES_COPY_OUT</literal>もしくは<literal>PGRES_COPY_IN</literal>という状態コードを持った<structname>PGresult</structname>になります。
+その後、アプリケーションは本節の関数を使用して、行データを受信、もしくは、送信しなければなりません。
+データの転送が完了した時、転送に成功したか失敗したかを示す別の<structname>PGresult</structname>オブジェクトが返されます。
+その状態は、成功時には<literal>PGRES_COMMAND_OK</literal>になり、何らかの問題が起きていた時には <literal>PGRES_FATAL_ERROR</literal>になります。
+この時点で、別のSQLコマンドを<xref linkend="libpq-PQexec"/>経由で発行することができます。
+（<command>COPY</command>操作の実行中は、同じ接続を使用して他のSQLコマンドを実行することはできません。）␞␞  </para>␞
+␝  <para>␟   If a <command>COPY</command> command is issued via
+   <xref linkend="libpq-PQexec"/> in a string that could contain additional
+   commands, the application must continue fetching results via
+   <xref linkend="libpq-PQgetResult"/> after completing the <command>COPY</command>
+   sequence.  Only when <xref linkend="libpq-PQgetResult"/> returns
+   <symbol>NULL</symbol> is it certain that the <xref linkend="libpq-PQexec"/>
+   command string is done and it is safe to issue more commands.␟<command>COPY</command>コマンドが、他にもコマンドを含んだ文字列として<xref linkend="libpq-PQexec"/>経由で発行された場合、アプリケーションは<command>COPY</command>処理を終えた後に、<xref linkend="libpq-PQgetResult"/>経由で結果の取り出しを続けなければなりません。
+<xref linkend="libpq-PQexec"/>コマンド文字列が完了し、その後のコマンドが安全に発行できることが確実になるのは、<xref linkend="libpq-PQgetResult"/>が<symbol>NULL</symbol>を返す時のみです。␞␞  </para>␞
+␝  <para>␟   The functions of this section should be executed only after obtaining
+   a result status of <literal>PGRES_COPY_OUT</literal> or
+   <literal>PGRES_COPY_IN</literal> from <xref linkend="libpq-PQexec"/> or
+   <xref linkend="libpq-PQgetResult"/>.␟本節の関数は、<xref linkend="libpq-PQexec"/>もしくは<xref linkend="libpq-PQgetResult"/>から<literal>PGRES_COPY_OUT</literal>もしくは<literal>PGRES_COPY_IN</literal>という結果状態を得た後のみに実行されなければなりません。␞␞  </para>␞
+␝  <para>␟   A <structname>PGresult</structname> object bearing one of these status values
+   carries some additional data about the <command>COPY</command> operation
+   that is starting.  This additional data is available using functions
+   that are also used in connection with query results:␟これらの状態値の一つを持つ<structname>PGresult</structname>オブジェクトは、開始した<command>COPY</command>操作に関する追加データを持ちます。
+この追加データは、以下の問い合わせ結果を持つ接続で使用される関数を使用して利用することができます。␞␞␞
+␝      <para>␟       Returns the number of columns (fields) to be copied.␟コピーされる列(フィールド)数を返します。␞␞      </para>␞
+␝      <para>␟       0 indicates the overall copy format is textual (rows separated by
+       newlines, columns separated by separator characters, etc.).  1
+       indicates the overall copy format is binary.  See <xref
+       linkend="sql-copy"/> for more information.␟0は、コピー全体の書式がテキスト(改行で区切られた行、区切り文字で区切られた列など)であることを示します。
+1は、コピー全体の書式がバイナリであることを示します。
+詳細は<xref linkend="sql-copy"/>を参照してください。␞␞      </para>␞
+␝      <para>␟       Returns the format code (0 for text, 1 for binary) associated with
+       each column of the copy operation.  The per-column format codes
+       will always be zero when the overall copy format is textual, but
+       the binary format can support both text and binary columns.
+       (However, as of the current implementation of <command>COPY</command>,
+       only binary columns appear in a binary copy; so the per-column
+       formats always match the overall format at present.)␟コピー操作対象の列それぞれに関した書式コード(テキストでは0、バイナリでは1)を返します。
+コピー全体の書式がテキストの場合は、列単位の書式コードは常にゼロです。
+しかし、バイナリ書式はテキスト列もバイナリ列もサポートすることができます。
+(しかし、現在の<command>COPY</command>実装では、バイナリコピーでのみバイナリ列が発生します。
+そのため、今の所列単位の書式は常に全体の書式と一致します。)␞␞      </para>␞
+␝  <sect2 id="libpq-copy-send">␟   <title>Functions for Sending <command>COPY</command> Data</title>␟   <title><command>COPY</command>データ送信用関数</title>␞␞␞
+␝   <para>␟    These functions are used to send data during <literal>COPY FROM
+    STDIN</literal>.  They will fail if called when the connection is not in
+    <literal>COPY_IN</literal> state.␟これらの関数は、<literal>COPY FROM STDIN</literal>期間にデータを送信するために使用されます。
+接続が<literal>COPY_IN</literal>状態でない時に呼び出された場合、これらは失敗します。␞␞   </para>␞
+␝      <para>␟       Sends data to the server during <literal>COPY_IN</literal> state.␟<literal>COPY_IN</literal>状態の間、サーバにデータを送信します。␞␞<synopsis>␞
+␝      <para>␟       Transmits the <command>COPY</command> data in the specified
+       <parameter>buffer</parameter>, of length <parameter>nbytes</parameter>, to the server.
+       The result is 1 if the data was queued, zero if it was not queued
+       because of full buffers (this will only happen in nonblocking mode),
+       or -1 if an error occurred.
+       (Use <xref linkend="libpq-PQerrorMessage"/> to retrieve details if
+       the return value is -1.  If the value is zero, wait for write-ready
+       and try again.)␟指定した<parameter>buffer</parameter>にある<command>COPY</command>データを<parameter>nbytes</parameter>長分、サーバに送信します。
+データがキューに入れられた場合、この結果は1になります。
+バッファが一杯でキューに入らなかった場合はゼロになります。
+（これは、接続が非ブロックモードの場合にのみ起こります。）
+エラーが発生した場合は-1になります。
+（戻り値が-1の場合、詳細を取り出すためには<xref linkend="libpq-PQerrorMessage"/>を使用してください。
+戻り値がゼロの場合は書き込み準備が整うまで待ち、再実行してください。）␞␞      </para>␞
+␝      <para>␟       The application can divide the <command>COPY</command> data stream
+       into buffer loads of any convenient size.  Buffer-load boundaries
+       have no semantic significance when sending.  The contents of the
+       data stream must match the data format expected by the
+       <command>COPY</command> command; see <xref linkend="sql-copy"/> for details.␟アプリケーションは<command>COPY</command>データストリームを使いやすい大きさのバッファに分けて読み込むことができます。
+送信時の読み込みバッファの境界には意味的な重要性はありません。
+データストリームの内容は、<command>COPY</command>コマンドで想定しているデータ書式に一致している必要があります。
+詳細は<xref linkend="sql-copy"/>を参照してください。␞␞      </para>␞
+␝      <para>␟       Sends end-of-data indication to the server during <literal>COPY_IN</literal> state.␟<literal>COPY_IN</literal>状態の間に、サーバにデータ終了指示を送信します。␞␞<synopsis>␞
+␝      <para>␟       Ends the <literal>COPY_IN</literal> operation successfully if
+       <parameter>errormsg</parameter> is <symbol>NULL</symbol>.  If
+       <parameter>errormsg</parameter> is not <symbol>NULL</symbol> then the
+       <command>COPY</command> is forced to fail, with the string pointed to by
+       <parameter>errormsg</parameter> used as the error message.  (One should not
+       assume that this exact error message will come back from the server,
+       however, as the server might have already failed the
+       <command>COPY</command> for its own reasons.)␟<parameter>errormsg</parameter>が<symbol>NULL</symbol>なら、<literal>COPY_IN</literal>を成功として終了させます。
+<parameter>errormsg</parameter>が<symbol>NULL</symbol>ではないなら、<parameter>errormsg</parameter>の指し示す文字列をエラーメッセージとして用いて<command>COPY</command>を強制的に失敗させます。
+（しかし、このエラーメッセージがサーバからそのまま返ってくると仮定すべきではありません。サーバは既に別の原因で<command>COPY</command>に失敗していた可能性があります。）␞␞      </para>␞
+␝      <para>␟       The result is 1 if the termination message was sent; or in
+       nonblocking mode, this may only indicate that the termination
+       message was successfully queued.  (In nonblocking mode, to be
+       certain that the data has been sent, you should next wait for
+       write-ready and call <xref linkend="libpq-PQflush"/>, repeating until it
+       returns zero.)  Zero indicates that the function could not queue
+       the termination message because of full buffers; this will only
+       happen in nonblocking mode.  (In this case, wait for
+       write-ready and try the <xref linkend="libpq-PQputCopyEnd"/> call
+       again.)  If a hard error occurs, -1 is returned; you can use
+       <xref linkend="libpq-PQerrorMessage"/> to retrieve details.␟終端メッセージが送信された場合は結果は1になります。
+非ブロックモードでは、終端メッセージがキューに入れられたことしか意味しないかもしれません。
+（非ブロックモードでデータが送信されたことを確認するには、次に書き込み準備ができるまで待ち、<xref linkend="libpq-PQflush"/>を呼ぶことを、それが0を返すまでくり返します。）
+バッファが一杯で終端メッセージがキューに入れられなかった場合はゼロになります。
+これは、接続が非ブロックモードの場合にのみ起こります。
+（この場合、書き込み準備ができるまで待ち、再度<xref linkend="libpq-PQputCopyEnd"/>を呼び出してみてください。）
+ハードエラーが発生した場合は-1になります。
+このとき、詳細を取得するために<xref linkend="libpq-PQerrorMessage"/>を使用できます。␞␞      </para>␞
+␝      <para>␟       After successfully calling <xref linkend="libpq-PQputCopyEnd"/>, call
+       <xref linkend="libpq-PQgetResult"/> to obtain the final result status of the
+       <command>COPY</command> command.  One can wait for this result to be
+       available in the usual way.  Then return to normal operation.␟<xref linkend="libpq-PQputCopyEnd"/>の呼び出しに成功した後、<xref linkend="libpq-PQgetResult"/>を呼び出して<command>COPY</command>コマンドの最終的な結果状態を取り出してください。
+通常の方法でこの結果が使用できるようになるまで待機しても構いません。
+そして、通常の操作に戻ってください。␞␞      </para>␞
+␝  <sect2 id="libpq-copy-receive">␟   <title>Functions for Receiving <command>COPY</command> Data</title>␟   <title><command>COPY</command>データ受信用関数</title>␞␞␞
+␝   <para>␟    These functions are used to receive data during <literal>COPY TO
+    STDOUT</literal>.  They will fail if called when the connection is not in
+    <literal>COPY_OUT</literal> state.␟これらの関数は<literal>COPY TO STDOUT</literal>時にデータを受信するために使用されます。
+<literal>COPY_OUT</literal>状態以外の接続で呼び出すと、失敗します。␞␞   </para>␞
+␝      <para>␟       Receives data from the server during <literal>COPY_OUT</literal> state.␟<literal>COPY_OUT</literal>状態時にサーバからデータを受信します。␞␞<synopsis>␞
+␝      <para>␟       Attempts to obtain another row of data from the server during a
+       <command>COPY</command>.  Data is always returned one data row at
+       a time; if only a partial row is available, it is not returned.
+       Successful return of a data row involves allocating a chunk of
+       memory to hold the data.  The <parameter>buffer</parameter> parameter must
+       be non-<symbol>NULL</symbol>.  <parameter>*buffer</parameter> is set to
+       point to the allocated memory, or to <symbol>NULL</symbol> in cases
+       where no buffer is returned.  A non-<symbol>NULL</symbol> result
+       buffer should be freed using <xref linkend="libpq-PQfreemem"/> when no longer
+       needed.␟<command>COPY</command>期間中、サーバから別の行データの入手を試みます。
+常に1度に1つの行データが返されます。
+部分的な行のみが利用可能な場合は返されません。
+行データの取得に成功することは、そのデータを保持するためのメモリチャンクの割り当てを意味します。
+<parameter>buffer</parameter>パラメータは非<symbol>NULL</symbol>でなければなりません。
+<parameter>*buffer</parameter>は割り当てられたメモリへのポインタに、バッファが返されなかった場合は<symbol>NULL</symbol>に設定されます。
+非<symbol>NULL</symbol>の結果バッファは、不要になったら<xref linkend="libpq-PQfreemem"/>を使用して解放しなければなりません。␞␞      </para>␞
+␝      <para>␟       When a row is successfully returned, the return value is the number
+       of data bytes in the row (this will always be greater than zero).
+       The returned string is always null-terminated, though this is
+       probably only useful for textual <command>COPY</command>.  A result
+       of zero indicates that the <command>COPY</command> is still in
+       progress, but no row is yet available (this is only possible when
+       <parameter>async</parameter> is true).  A result of -1 indicates that the
+       <command>COPY</command> is done.  A result of -2 indicates that an
+       error occurred (consult <xref linkend="libpq-PQerrorMessage"/> for the reason).␟行の取り込みに成功した時、戻り値は行内のデータのバイト数になります。
+(これは常に0より大きくなります。)
+返された文字列は常にNULL終端ですが、おそらくテキスト<command>COPY</command>でのみ有用になるでしょう。
+ゼロという結果は、<command>COPY</command>が進行中で、行がまだ利用できない状態であることを示します。
+(<parameter>async</parameter>が真の場合にのみ発生することがあります。)
+-1という結果は、<command>COPY</command>が完了したことを示します。
+-2という結果はエラーが発生したことを示します。
+(その理由については<xref linkend="libpq-PQerrorMessage"/>を参照してください。)␞␞      </para>␞
+␝      <para>␟       When <parameter>async</parameter> is true (not zero),
+       <xref linkend="libpq-PQgetCopyData"/> will not block waiting for input; it
+       will return zero if the <command>COPY</command> is still in progress
+       but no complete row is available.  (In this case wait for read-ready
+       and then call <xref linkend="libpq-PQconsumeInput"/> before calling
+       <xref linkend="libpq-PQgetCopyData"/> again.)  When <parameter>async</parameter> is
+       false (zero), <xref linkend="libpq-PQgetCopyData"/> will block until data is
+       available or the operation completes.␟<parameter>async</parameter>が真(非0)の場合、<xref linkend="libpq-PQgetCopyData"/>は入力待ちのためのブロックを行いません。
+<command>COPY</command>実行中で完全な行を取り出せない場合<xref linkend="libpq-PQgetCopyData"/>は0を返します。
+(この場合、再試行の前に読み込み準備が整うまで待機してください。
+<xref linkend="libpq-PQconsumeInput"/>を呼び出したかどうかは関係ありません。)
+<parameter>async</parameter>が偽(0)の場合、<xref linkend="libpq-PQgetCopyData"/>はデータが利用できるようになるまで、もしくは、操作が完了するまでブロックします。␞␞      </para>␞
+␝      <para>␟       After <xref linkend="libpq-PQgetCopyData"/> returns -1, call
+       <xref linkend="libpq-PQgetResult"/> to obtain the final result status of the
+       <command>COPY</command> command.  One can wait for this result to be
+       available in the usual way.  Then return to normal operation.␟<xref linkend="libpq-PQgetCopyData"/>が-1を返した後、<xref linkend="libpq-PQgetResult"/>を呼び出して、<command>COPY</command>コマンドの最終結果状態を取り出してください。
+通常の方法で結果が利用できるようになるまで待機しても構いません。
+そして、通常の操作に戻ってください。␞␞      </para>␞
+␝  <sect2 id="libpq-copy-deprecated">␟   <title>Obsolete Functions for <command>COPY</command></title>␟   <title>廃れた<command>COPY</command>用関数</title>␞␞␞
+␝   <para>␟    These functions represent older methods of handling <command>COPY</command>.
+    Although they still work, they are deprecated due to poor error handling,
+    inconvenient methods of detecting end-of-data, and lack of support for binary
+    or nonblocking transfers.␟以下の関数は<command>COPY</command>を取扱う、古めの手法を行います。
+これらはまだ動作しますが、エラーの取扱いが貧弱であることやデータの終端を検知する方法が不便であることより使用を奨めません。␞␞   </para>␞
+␝      <para>␟       Reads  a  newline-terminated  line  of  characters (transmitted
+       by the server) into a buffer string of size <parameter>length</parameter>.␟改行で終端する文字列（サーバから送信されたもの）を長さ<parameter>length</parameter>のバッファ用文字列に読み込みます。␞␞<synopsis>␞
+␝      <para>␟       This function copies up to <parameter>length</parameter>-1 characters into
+       the buffer and converts the terminating newline into a zero byte.
+       <xref linkend="libpq-PQgetline"/> returns <symbol>EOF</symbol> at the
+       end of input, 0 if the entire line has been read, and 1 if the
+       buffer is full but the terminating newline has not yet been read.␟この関数はバッファに<parameter>length</parameter>-1個までの文字をコピーし、終端の改行を1バイトのゼロに置き換えます。
+<xref linkend="libpq-PQgetline"/>は、入力の終端では<symbol>EOF</symbol>を、行全体が読み込まれれば0を返します。
+そしてまだ終端の改行が読み込まれていないうちにバッファがいっぱいになってしまった場合は1を返します。␞␞       </para>␞
+␝       <para>␟       Note that the application must check to see if a new line consists
+       of  the  two characters  <literal>\.</literal>, which  indicates
+       that the server has finished sending the results  of  the
+       <command>COPY</command> command.  If  the  application might receive
+       lines that are more than <parameter>length</parameter>-1  characters  long,
+       care is needed to be sure it recognizes the <literal>\.</literal>
+       line correctly (and does not, for example, mistake the end of a
+       long data line for a terminator line).␟アプリケーションは新しく読み込んだ行が、<literal>\.</literal>という2文字であるかどうか確認しなければいけません。
+この2文字は、<command>COPY</command>コマンドの結果をサーバが送信し終えたことを示すものです。
+アプリケーションには、仮に<parameter>length</parameter>-1文字より長い行を受け取るようなことがあっても、間違いなく<literal>\.</literal>行を認識するような配慮が必要です
+（また例えば長いデータの行の終端を、最終行と取り違えないようにもしてください）。␞␞      </para>␞
+␝      <para>␟       Reads a row of <command>COPY</command> data (transmitted  by the
+       server) into a buffer without blocking.␟<command>COPY</command>データ行（サーバから送信されたもの）を、ブロッキングなしでバッファに読み込みます。␞␞<synopsis>␞
+␝      <para>␟       This function is similar to <xref linkend="libpq-PQgetline"/>, but it can be used
+       by applications
+       that must read <command>COPY</command> data asynchronously, that is, without blocking.
+       Having issued the <command>COPY</command> command and gotten a <literal>PGRES_COPY_OUT</literal>
+       response, the
+       application should call <xref linkend="libpq-PQconsumeInput"/> and
+       <xref linkend="libpq-PQgetlineAsync"/> until the
+       end-of-data signal is detected.␟<xref linkend="libpq-PQgetline"/>と似ていますが、<command>COPY</command>のデータを非同期的に、つまりブロッキングなしで読み出さなければならないアプリケーションで使用することができます。
+<command>COPY</command>コマンドを発行し、そして<literal>PGRES_COPY_OUT</literal>応答を受け取ったら、アプリケーションはデータ終了の合図を受け取るまで<xref linkend="libpq-PQconsumeInput"/>と<xref linkend="libpq-PQgetlineAsync"/>を呼び出します。␞␞       </para>␞
+␝       <para>␟       Unlike <xref linkend="libpq-PQgetline"/>, this function takes
+       responsibility for detecting end-of-data.␟<xref linkend="libpq-PQgetline"/>と違い、この関数はデータ終了の検出に対して責任を持ちます。␞␞      </para>␞
+␝      <para>␟       On each call, <xref linkend="libpq-PQgetlineAsync"/> will return data if a
+       complete data row is available in <application>libpq</application>'s input buffer.
+       Otherwise, no data is returned until the rest of the row arrives.
+       The function returns -1 if the end-of-copy-data marker has been recognized,
+       or 0 if no data is available, or a positive number giving the number of
+       bytes of data returned.  If -1 is returned, the caller must next call
+       <xref linkend="libpq-PQendcopy"/>, and then return to normal processing.␟<xref linkend="libpq-PQgetlineAsync"/>の個々の呼び出しでは、<application>libpq</application>の入力バッファ内で完全な行データが利用できる場合にデータを返します。
+さもなければ、行の残りが届くまでデータは返されません。
+この関数は、コピーデータの終端を示す符号を認識すると-1を、また何もデータがなければ0を、そしてデータを返す場合はそのバイト数を正の値で返します。
+もし-1が返されたら、呼び出し側は次に<xref linkend="libpq-PQendcopy"/>を呼び出さなければいけません。
+それから通常の処理に戻ります。␞␞      </para>␞
+␝      <para>␟       The data returned will not extend beyond a data-row boundary.  If possible
+       a whole row will be returned at one time.  But if the buffer offered by
+       the caller is too small to hold a row sent by the server, then a partial
+       data row will be returned.  With textual data this can be detected by testing
+       whether the last returned byte is <literal>\n</literal> or not.  (In a binary
+       <command>COPY</command>, actual parsing of the <command>COPY</command> data format will be needed to make the
+       equivalent determination.)
+       The returned string is not null-terminated.  (If you want to add a
+       terminating null, be sure to pass a <parameter>bufsize</parameter> one smaller
+       than the room actually available.)␟返されるデータは行データの境界を越えて拡張されることはありません。
+可能であれば行全体を一度に返します。
+しかし呼び出し側が準備したバッファが少なすぎ、サーバから送られてくる行を保持しておくことができない場合には、分割された行データを返します。
+テキストデータでは、これは最後の1バイトが<literal>\n</literal>かどうかを確認すれば検出できます。
+（バイナリ<command>COPY</command>の場合に同様の検出を行うためには、実際に<command>COPY</command>データの書式を解析しなければなりません。）
+なお、返される文字列はNULL終端ではありません。
+（NULL終端を後から付け加えるのであれば、実際に確保するバッファサイズ-1を<parameter>bufsize</parameter>として渡すようにしてください。）␞␞      </para>␞
+␝      <para>␟       Sends  a  null-terminated  string  to  the server.  Returns 0 if
+       OK and <symbol>EOF</symbol> if unable to send the string.␟サーバにNULL終端の文字列を送信します。
+問題なければ0を返します。
+文字列の送信ができなかった場合は<symbol>EOF</symbol>を返します。␞␞<synopsis>␞
+␝      <para>␟       The <command>COPY</command> data stream sent by a series of calls
+       to <xref linkend="libpq-PQputline"/> has the same format as that
+       returned by <xref linkend="libpq-PQgetlineAsync"/>, except that
+       applications are not obliged to send exactly one data row per
+       <xref linkend="libpq-PQputline"/> call; it is okay to send a partial
+       line or multiple lines per call.␟<xref linkend="libpq-PQputline"/>の呼び出しによって送信される<command>COPY</command>データストリームは、<xref linkend="libpq-PQgetlineAsync"/>で返される書式と同じ書式を持ちます。
+ただし、アプリケーションは、<xref linkend="libpq-PQputline"/>毎に正確に1つのデータ行を送信するように強制されていません。
+呼び出し毎に行の一部や複数の行を送信しても問題ありません。␞␞      </para>␞
+␝       <para>␟        Before <productname>PostgreSQL</productname> protocol 3.0, it was necessary
+        for the application to explicitly send the two characters
+        <literal>\.</literal> as a final line to indicate to the server that it had
+        finished sending <command>COPY</command> data.  While this still works, it is deprecated and the
+        special meaning of <literal>\.</literal> can be expected to be removed in a
+        future release.  It is sufficient to call <xref linkend="libpq-PQendcopy"/> after
+        having sent the actual data.␟<productname>PostgreSQL</productname>プロトコル3.0より前では、アプリケーションは、サーバに対して<command>COPY</command>データの送信を完了したことを通知するために、最終の行として<literal>\.</literal>という2文字を明示的に送信する必要がありました。
+これはまだ動作します。
+しかし、これは廃れたものとして、<literal>\.</literal>の特殊な意味は将来のリリースで無くなることが予想されます。
+実際のデータの送信完了後に<xref linkend="libpq-PQendcopy"/>を呼び出すことが重要です。␞␞       </para>␞
+␝      <para>␟       Sends  a  non-null-terminated  string  to  the server.  Returns
+       0 if OK and <symbol>EOF</symbol> if unable to send the string.␟NULL終端ではない文字列をサーバに送信します。
+問題なければ0を返します。
+文字列の送信ができなかった場合は<symbol>EOF</symbol>を返します。␞␞<synopsis>␞
+␝      <para>␟       This is exactly like <xref linkend="libpq-PQputline"/>, except that the data
+       buffer need not be null-terminated since the number of bytes to send is
+       specified directly.  Use this procedure when sending binary data.␟これはまさに<xref linkend="libpq-PQputline"/>と同様です。
+ただし、直接送信バイト数を指定するため、NULL終端である必要がありません。
+バイナリデータを送信する時はこのプロシージャを使用してください。␞␞      </para>␞
+␝      <para>␟       Synchronizes with the server.␟サーバと同期します。␞␞<synopsis>␞
+␝</synopsis>␟       This function waits until the  server  has  finished  the copying.
+       It should either be issued when the  last  string  has  been sent
+       to  the  server using <xref linkend="libpq-PQputline"/> or when the
+       last string has been  received  from  the  server using
+       <function>PQgetline</function>.  It must be issued or the server
+       will get <quote>out of sync</quote> with  the client.   Upon return
+       from this function, the server is ready to receive the next SQL
+       command.  The return value is 0  on  successful  completion,
+       nonzero otherwise.  (Use <xref linkend="libpq-PQerrorMessage"/> to
+       retrieve details if the return value is nonzero.)␟この関数はサーバがコピーを完了するのを待ちます。
+この関数は、<xref linkend="libpq-PQputline"/>を使ったサーバへの文字列送信が完了した時点、あるいは<function>PQgetline</function>を使ったサーバからの文字列受信が完了した時点のいずれでも呼び出さなければなりません。
+これを発行しないと、サーバはクライアントとの<quote>同期がずれた</quote>状態になってしまいます。
+この関数から戻った時点で、サーバは次のSQLコマンドを受ける準備が整います。
+正常に終了した場合、戻り値は0です。 さもなくば、非ゼロです。
+（戻り値が非ゼロの場合、<xref linkend="libpq-PQerrorMessage"/>を使用して詳細を取り出してください。）␞␞      </para>␞
+␝      <para>␟       When using <xref linkend="libpq-PQgetResult"/>, the application should
+       respond to a <literal>PGRES_COPY_OUT</literal> result by executing
+       <xref linkend="libpq-PQgetline"/> repeatedly, followed by
+       <xref linkend="libpq-PQendcopy"/> after the terminator line is seen.
+       It should then return to the <xref linkend="libpq-PQgetResult"/> loop
+       until <xref linkend="libpq-PQgetResult"/> returns a null pointer.
+       Similarly a <literal>PGRES_COPY_IN</literal> result is processed
+       by a series of <xref linkend="libpq-PQputline"/> calls followed by
+       <xref linkend="libpq-PQendcopy"/>, then return to the
+       <xref linkend="libpq-PQgetResult"/> loop.  This arrangement will
+       ensure that a <command>COPY</command> command embedded in a series
+       of <acronym>SQL</acronym> commands will be executed correctly.␟<xref linkend="libpq-PQgetResult"/>を使う場合、アプリケーションは<xref linkend="libpq-PQgetline"/>を繰り返し呼び出して<literal>PGRES_COPY_OUT</literal>に応答し、終端行を見つけたら続いて<xref linkend="libpq-PQendcopy"/>を呼び出さなければなりません。
+それから、<xref linkend="libpq-PQgetResult"/>がNULLポインタを返すまで、<xref linkend="libpq-PQgetResult"/>のループに戻らなければなりません。
+同じように <literal>PGRES_COPY_IN</literal>は連続した<xref linkend="libpq-PQputline"/>で処理し、それから<xref linkend="libpq-PQendcopy"/>で締めくくった後に<xref linkend="libpq-PQgetResult"/>のループに戻ります。
+このようにすることで、一連の<acronym>SQL</acronym>コマンド群に含めた<command>COPY</command>コマンドを確実に、また正しく実行できるはずです。␞␞      </para>␞
+␝      <para>␟       Older applications are likely to submit a <command>COPY</command>
+       via <xref linkend="libpq-PQexec"/> and assume that the transaction
+       is done after <xref linkend="libpq-PQendcopy"/>.  This will work
+       correctly only if the <command>COPY</command> is the only
+       <acronym>SQL</acronym> command in the command string.␟比較的古いアプリケーションでは、<command>COPY</command>を<xref linkend="libpq-PQexec"/>で実行し、<xref linkend="libpq-PQendcopy"/>の実行でトランザクションは完了する、と想定していることがよくあります。
+これはコマンド文字列中の<acronym>SQL</acronym>が<command>COPY</command>だけであった時にのみ正しく動作します。␞␞      </para>␞
+␝ <sect1 id="libpq-control">␟  <title>Control Functions</title>␟  <title>制御関数</title>␞␞␞
+␝  <para>␟   These functions control miscellaneous details of <application>libpq</application>'s
+   behavior.␟これらの関数は<application>libpq</application>の動作の各種詳細を制御します。␞␞  </para>␞
+␝     <para>␟      Returns the client encoding.␟クライアント符号化方式を返します。␞␞<synopsis>␞
+␝␟      Note that it returns the encoding ID, not a symbolic string
+      such as <literal>EUC_JP</literal>. If unsuccessful, it returns -1.
+      To convert an encoding ID to an encoding name, you
+      can use:␟これが<literal>EUC_JP</literal>などのシンボル文字列ではなく符号化方式IDを返すことに注意してください。
+成功しなかった場合には、-1が返ります。
+符号化方式IDを符号化方式名に変換するためには以下を使用してください。␞␞␞
+␝     <para>␟      Sets the client encoding.␟クライアント符号化方式を設定します。␞␞<synopsis>␞
+␝␟      <replaceable>conn</replaceable> is a connection to the server,
+      and <replaceable>encoding</replaceable> is the encoding you want to
+      use. If the function successfully sets the encoding, it returns 0,
+      otherwise -1. The current encoding for this connection can be
+      determined by using <xref linkend="libpq-PQclientEncoding"/>.␟<replaceable>conn</replaceable>はサーバへの接続、<replaceable>encoding</replaceable>は使用したい符号化方式です。
+この関数は符号化方式の設定に成功すると、ゼロを返します。
+さもなくば-1を返します。
+この接続における現在の符号化方式は<xref linkend="libpq-PQclientEncoding"/>を使用して決定することができます。␞␞     </para>␞
+␝     <para>␟      Determines the verbosity of messages returned by
+      <xref linkend="libpq-PQerrorMessage"/> and <xref linkend="libpq-PQresultErrorMessage"/>.␟<xref linkend="libpq-PQerrorMessage"/>と<xref linkend="libpq-PQresultErrorMessage"/>で返されるメッセージの冗長度を決定します。␞␞<synopsis>␞
+␝␟      <xref linkend="libpq-PQsetErrorVerbosity"/> sets the verbosity mode,
+      returning the connection's previous setting.
+      In <firstterm>TERSE</firstterm> mode, returned messages include
+      severity, primary text, and position only; this will normally fit on a
+      single line.  The <firstterm>DEFAULT</firstterm> mode produces messages
+      that include the above plus any detail, hint, or context fields (these
+      might span multiple lines).  The <firstterm>VERBOSE</firstterm> mode
+      includes all available fields.  The <firstterm>SQLSTATE</firstterm>
+      mode includes only the error severity and the <symbol>SQLSTATE</symbol>
+      error code, if one is available (if not, the output is like
+      <firstterm>TERSE</firstterm> mode).␟<xref linkend="libpq-PQsetErrorVerbosity"/>は冗長度モードを設定し、接続における以前の状態を返します。
+<firstterm>TERSE</firstterm>モードでは、返されるメッセージには深刻度、主テキスト、位置のみが含まれます。
+これは通常単一行に収まります。
+<firstterm>DEFAULT</firstterm>モードでは、上に加え、詳細、ヒント、文脈フィールドが含まれるメッセージが生成されます（これは複数行に跨るかもしれません。）
+<firstterm>VERBOSE</firstterm>モードでは、すべての利用可能なフィールドが含まれます。
+<firstterm>SQLSTATE</firstterm>モードでは、エラーの深刻度と、利用可能であれば<symbol>SQLSTATE</symbol>エラーコードだけが含まれます(利用できなければ、出力は<firstterm>TERSE</firstterm>モードのようになります)。␞␞     </para>␞
+␝     <para>␟      Changing the verbosity setting does not affect the messages available
+      from already-existing <structname>PGresult</structname> objects, only
+      subsequently-created ones.
+      (But see <xref linkend="libpq-PQresultVerboseErrorMessage"/> if you
+      want to print a previous error with a different verbosity.)␟冗長度の変更は、既に存在する<structname>PGresult</structname>オブジェクト内から取り出せるメッセージには影響を与えません。
+その後に作成されたオブジェクトにのみ影響を与えます。
+（ただし、以前のエラーを異なる冗長さで表示したい場合は<xref linkend="libpq-PQresultVerboseErrorMessage"/>を参照してください。）␞␞     </para>␞
+␝     <para>␟      Determines the handling of <literal>CONTEXT</literal> fields in messages
+      returned by <xref linkend="libpq-PQerrorMessage"/>
+      and <xref linkend="libpq-PQresultErrorMessage"/>.␟<xref linkend="libpq-PQerrorMessage"/>および<xref linkend="libpq-PQresultErrorMessage"/>から返されるメッセージ内の<literal>CONTEXT</literal>フィールドの扱いについて決定します。␞␞<synopsis>␞
+␝␟      <xref linkend="libpq-PQsetErrorContextVisibility"/> sets the context display mode,
+      returning the connection's previous setting.  This mode controls
+      whether the <literal>CONTEXT</literal> field is included in messages.
+      The <firstterm>NEVER</firstterm> mode
+      never includes <literal>CONTEXT</literal>, while <firstterm>ALWAYS</firstterm> always
+      includes it if available.  In <firstterm>ERRORS</firstterm> mode (the
+      default), <literal>CONTEXT</literal> fields are included only in error
+      messages, not in notices and warnings.
+      (However, if the verbosity setting is <firstterm>TERSE</firstterm>
+      or <firstterm>SQLSTATE</firstterm>, <literal>CONTEXT</literal> fields
+      are omitted regardless of the context display mode.)␟<xref linkend="libpq-PQsetErrorContextVisibility"/>はコンテキストの表示モードを設定し、その接続での以前の設定を返します。
+このモードはメッセージに<literal>CONTEXT</literal>フィールドが含まれるかどうかを制御します。
+<firstterm>NEVER</firstterm>モードでは、決して<literal>CONTEXT</literal>を含みませんが、<firstterm>ALWAYS</firstterm>では<literal>CONTEXT</literal>が利用可能であれば常に含まれます。
+<firstterm>ERRORS</firstterm>モード（デフォルト）では、<literal>CONTEXT</literal>はエラーメッセージには含まれますが、注意や警告では含まれません。
+（しかしながら、冗長設定が<firstterm>TERSE</firstterm>や<firstterm>SQLSTATE</firstterm>の場合は、コンテキストの表示モードに関わらず<literal>CONTEXT</literal>フィールドは省略されます。）␞␞     </para>␞
+␝     <para>␟      Changing this mode does not
+      affect the messages available from
+      already-existing <structname>PGresult</structname> objects, only
+      subsequently-created ones.
+      (But see <xref linkend="libpq-PQresultVerboseErrorMessage"/> if you
+      want to print a previous error with a different display mode.)␟このモードを変更しても、既存の<structname>PGresult</structname>から取得可能なメッセージには影響を与えず、その後で作成されるものにのみ影響します。
+（ただし、以前のエラーについて異なる表示モードで表示したい場合は、<xref linkend="libpq-PQresultVerboseErrorMessage"/>を参照してください。）␞␞     </para>␞
+␝     <para>␟      Enables tracing of the client/server communication to a debugging file
+      stream.␟クライアント／サーバ間の通信トレースを有効にし、デバッグ用のファイルストリームに書き出します。␞␞<synopsis>␞
+␝     <para>␟      Each line consists of: an optional timestamp, a direction indicator
+      (<literal>F</literal> for messages from client to server
+      or <literal>B</literal> for messages from server to client),
+      message length, message type, and message contents.
+      Non-message contents fields (timestamp, direction, length and message type)
+      are separated by a tab. Message contents are separated by a space.
+      Protocol strings are enclosed in double quotes, while strings used as data
+      values are enclosed in single quotes.  Non-printable chars are printed as
+      hexadecimal escapes.
+      Further message-type-specific detail can be found in
+      <xref linkend="protocol-message-formats"/>.␟各行は、オプションのタイムスタンプ、方向インジケータ（クライアントからサーバへのメッセージの場合は<literal>F</literal>、サーバからクライアントへのメッセージの場合は<literal>B</literal>）、メッセージ長、メッセージタイプ、およびメッセージ内容で構成されます。
+メッセージ内容以外のフィールド（タイムスタンプ、方向、長さ、メッセージタイプ）はタブで区切られます。
+メッセージ内容はスペースで区切られます。
+プロトコル文字列は二重引用符で囲まれますが、データ値として使用される文字列は単一引用符で囲まれます。
+表示できない文字は16進エスケープとして出力されます。
+メッセージタイプ固有の詳細については、<xref linkend="protocol-message-formats"/>を参照してください。␞␞     </para>␞
+␝      <para>␟       On Windows, if the <application>libpq</application> library and an application are
+       compiled with different flags, this function call will crash the
+       application because the internal representation of the <literal>FILE</literal>
+       pointers differ.  Specifically, multithreaded/single-threaded,
+       release/debug, and static/dynamic flags should be the same for the
+       library and all applications using that library.␟Windowsにおいて、<application>libpq</application>ライブラリとアプリケーションを異なるフラグでコンパイルすると、この関数呼び出しで<literal>FILE</literal>ポインタの内部表現の違いによりアプリケーションはクラッシュするでしょう。
+特に、このライブラリを使用するアプリケーションでは、マルチスレッド/シングルスレッド、リリース/デバッグ、静的リンク/動的リンクに関して、ライブラリと同じフラグを使わなければなりません。␞␞      </para>␞
+␝     <para>␟      Controls the tracing behavior of client/server communication.␟クライアント／サーバ通信のトレース動作を制御します。␞␞<synopsis>␞
+␝     <para>␟      <literal>flags</literal> contains flag bits describing the operating mode
+      of tracing.
+      If <literal>flags</literal> contains <literal>PQTRACE_SUPPRESS_TIMESTAMPS</literal>,
+      then the timestamp is not included when printing each message.
+      If <literal>flags</literal> contains <literal>PQTRACE_REGRESS_MODE</literal>,
+      then some fields are redacted when printing each message, such as object
+      OIDs, to make the output more convenient to use in testing frameworks.
+      This function must be called after calling <function>PQtrace</function>.␟<literal>flags</literal>には、トレースの動作モードを記述するフラグビットが含まれています。
+<literal>flags</literal>に<literal>PQTRACE_SUPPRESS_TIMESTAMPS</literal>が含まれている場合、各メッセージを出力するときにタイムスタンプは含まれません。
+<literal>flags</literal>に<literal>PQTRACE_REGRESS_MODE</literal>が含まれている場合、各メッセージを出力するときにオブジェクトOIDなどの一部のフィールドが編集され、テストフレームワークで使用しやすくなります。
+この関数は、<function>PQtrace</function>を呼び出した後に呼び出す必要があります。␞␞     </para>␞
+␝     <para>␟      Disables tracing started by <xref linkend="libpq-PQtrace"/>.␟<xref linkend="libpq-PQtrace"/>によって起動されたトレース処理を無効にします。␞␞<synopsis>␞
+␝ <sect1 id="libpq-misc">␟  <title>Miscellaneous Functions</title>␟  <title>雑多な関数</title>␞␞␞
+␝  <para>␟   As always, there are some functions that just don't fit anywhere.␟よくあることですが、うまく分類できない関数がいくつか存在します。␞␞  </para>␞
+␝     <para>␟      Frees memory allocated by <application>libpq</application>.␟<application>libpq</application>が割り当てたメモリを解放します。␞␞<synopsis>␞
+␝     <para>␟      Frees memory allocated by <application>libpq</application>, particularly
+      <xref linkend="libpq-PQescapeByteaConn"/>,
+      <xref linkend="libpq-PQescapeBytea"/>,
+      <xref linkend="libpq-PQunescapeBytea"/>,
+      and <function>PQnotifies</function>.
+      It is particularly important that this function, rather than
+      <function>free()</function>, be used on Microsoft Windows.  This is because
+      allocating memory in a DLL and releasing it in the application works
+      only if multithreaded/single-threaded, release/debug, and static/dynamic
+      flags are the same for the DLL and the application.  On non-Microsoft
+      Windows platforms, this function is the same as the standard library
+      function <function>free()</function>.␟具体的には<xref linkend="libpq-PQescapeByteaConn"/>、<xref linkend="libpq-PQescapeBytea"/>、<xref linkend="libpq-PQunescapeBytea"/>および<function>PQnotifies</function>により<application>libpq</application>が割り当てたメモリを解放します。
+Microsoft Windowsにおいて<function>free()</function>ではなく、この関数を使用することが特に重要です。
+DLLにおけるメモリ割り当てとアプリケーションにおけるその解放が、DLLとアプリケーションとでマルチスレッド/シングルスレッド、リリース用/デバッグ用、静的/動的フラグが同じ場合でのみ動作するためです。
+Microsoft Windowsプラットフォーム以外では、この関数は標準ライブラリの<function>free()</function>関数と同じです。␞␞     </para>␞
+␝     <para>␟      Frees the data structures allocated by
+      <xref linkend="libpq-PQconndefaults"/> or <xref linkend="libpq-PQconninfoParse"/>.␟<xref linkend="libpq-PQconndefaults"/>もしくは<xref linkend="libpq-PQconninfoParse"/>が割り当てたデータ構造を解放します。␞␞<synopsis>␞
+␝</synopsis>␟      If the argument is a <symbol>NULL</symbol> pointer, no operation is
+      performed.␟引数が<symbol>NULL</symbol>ポインタの場合、操作は実行されません。␞␞     </para>␞
+␝     <para>␟      A simple <xref linkend="libpq-PQfreemem"/> will not do for this, since
+      the array contains references to subsidiary strings.␟単純な<xref linkend="libpq-PQfreemem"/>は、配列が補助文字列への参照を含んでいることから、このためには作業しません。␞␞     </para>␞
+␝     <para>␟      Prepares the encrypted form of a <productname>PostgreSQL</productname> password.␟<productname>PostgreSQL</productname>パスワードの暗号化された形式を準備します。␞␞<synopsis>␞
+␝</synopsis>␟      This function is intended to be used by client applications that
+      wish to send commands like <literal>ALTER USER joe PASSWORD
+      'pwd'</literal>.  It is good practice not to send the original cleartext
+      password in such a command, because it might be exposed in command
+      logs, activity displays, and so on.  Instead, use this function to
+      convert the password to encrypted form before it is sent.␟この関数は、<literal>ALTER USER joe PASSWORD 'pwd'</literal>のようなコマンドを送信したいクライアントアプリケーションで使用されることを意図したものです。
+こうしたコマンドでは、コマンドログが活動の監視などで晒されてしまうため、元々の平文テキストでパスワードを送信しないことが推奨されています。
+その代わりに、この関数を使用して送信前にパスワードを暗号化形式に変換してください。␞␞     </para>␞
+␝     <para>␟      The <parameter>passwd</parameter> and <parameter>user</parameter> arguments
+      are the cleartext password, and the SQL name of the user it is for.
+      <parameter>algorithm</parameter> specifies the encryption algorithm
+      to use to encrypt the password. Currently supported algorithms are
+      <literal>md5</literal> and <literal>scram-sha-256</literal> (<literal>on</literal> and
+      <literal>off</literal> are also accepted as aliases for <literal>md5</literal>, for
+      compatibility with older server versions). Note that support for
+      <literal>scram-sha-256</literal> was introduced in <productname>PostgreSQL</productname>
+      version 10, and will not work correctly with older server versions. If
+      <parameter>algorithm</parameter> is <symbol>NULL</symbol>, this function will query
+      the server for the current value of the
+      <xref linkend="guc-password-encryption"/> setting. That can block, and
+      will fail if the current transaction is aborted, or if the connection
+      is busy executing another query. If you wish to use the default
+      algorithm for the server but want to avoid blocking, query
+      <varname>password_encryption</varname> yourself before calling
+      <xref linkend="libpq-PQencryptPasswordConn"/>, and pass that value as the
+      <parameter>algorithm</parameter>.␟<parameter>passwd</parameter>と<parameter>user</parameter>引数は、関数が使用する平文のパスワードとそのSQL上のユーザ名です。
+<parameter>algorithm</parameter>は、パスワードを暗号化するために使用する暗号化アルゴリズムを指定します。
+現在サポートされているアルゴリズムは、<literal>md5</literal>と<literal>scram-sha-256</literal>です。
+(古いサーババージョンとの互換性のために、<literal>md5</literal>の別名として、<literal>on</literal>と<literal>off</literal>も受け付けます。)
+<literal>scram-sha-256</literal>のサポートは、<productname>PostgreSQL</productname>バージョン10で導入されたので、古いサーババージョンでは正しく動作しないことに注意してください。
+<parameter>algorithm</parameter>が<symbol>NULL</symbol>なら、この関数はサーバに問い合わせて現在の<xref linkend="guc-password-encryption"/>設定を返します。
+これは、ブロックする可能性があり、また現在のトランザクションがアボートしているか、あるいは他の問い合わせを実行中でビジーなら失敗します。
+サーバのデフォルトアルゴリズムを使用したいが、ブロックは避けたい、という場合は、<xref linkend="libpq-PQencryptPasswordConn"/>を呼び出す前に<varname>password_encryption</varname>を自分で調べ、その値を<parameter>algorithm</parameter>に渡してください。␞␞     </para>␞
+␝     <para>␟      The return value is a string allocated by <function>malloc</function>.
+      The caller can assume the string doesn't contain any special characters
+      that would require escaping.  Use <xref linkend="libpq-PQfreemem"/> to free the
+      result when done with it. On error, returns <symbol>NULL</symbol>, and
+      a suitable message is stored in the connection object.␟戻り値は<function>malloc</function>で割り当てられた文字列です。
+呼び出し元は、その文字列にエスケープしなければならない特殊な文字列が含まれていないことを仮定することができます。
+処理が終わった時に<xref linkend="libpq-PQfreemem"/>を使用して結果を解放してください。
+エラーの場合に<symbol>NULL</symbol>が返され、接続オブジェクトに対応するメッセージが格納されます。␞␞     </para>␞
+␝     <para>␟      Changes a <productname>PostgreSQL</productname> password.␟<productname>PostgreSQL</productname>のパスワードを変更します。␞␞<synopsis>␞
+␝</synopsis>␟      This function uses <function>PQencryptPasswordConn</function>
+      to build and execute the command <literal>ALTER USER ... PASSWORD
+      '...'</literal>, thereby changing the user's password. It exists for
+      the same reason as <function>PQencryptPasswordConn</function>, but
+      is more convenient as it both builds and runs the command for you.
+      <xref linkend="libpq-PQencryptPasswordConn"/> is passed a
+      <symbol>NULL</symbol> for the algorithm argument, hence encryption is
+      done according to the server's <xref linkend="guc-password-encryption"/>
+      setting.␟この関数は<function>PQencryptPasswordConn</function>を使用して、コマンド<literal>ALTER ... PASSWORD '...'</literal>を実行し、これによりユーザのパスワードが変更されます。
+これは<function>PQencryptPasswordConn</function>と同じ理由で存在しますが、コマンドを構築して実行するのでより便利です。
+<xref linkend="libpq-PQencryptPasswordConn"/>はアルゴリズム引数に<symbol>NULL</symbol>を渡すので、サーバの<xref linkend="guc-password-encryption"/>設定に従って暗号化が行われます。␞␞     </para>␞
+␝     <para>␟      The <parameter>user</parameter> and <parameter>passwd</parameter> arguments
+      are the SQL name of the target user, and the new cleartext password.␟<parameter>user</parameter>と<parameter>passwd</parameter>引数は、対象ユーザのSQL名と新しい平文パスワードです。␞␞     </para>␞
+␝     <para>␟      Returns a <structname>PGresult</structname> pointer representing
+      the result of the <literal>ALTER USER</literal> command, or
+      a null pointer if the routine failed before issuing any command.
+      The <xref linkend="libpq-PQresultStatus"/> function should be called
+      to check the return value for any errors (including the value of a null
+      pointer, in which case it will return
+      <symbol>PGRES_FATAL_ERROR</symbol>). Use
+      <xref linkend="libpq-PQerrorMessage"/> to get more information about
+      such errors.␟<literal>ALTER USER</literal>コマンドの結果を表す<structname>PGresult</structname>ポインタ、またはコマンドを発行する前にルーチンが失敗した場合はNULLポインタを返します。
+エラーの結果（NULLポインタの場合も含み、そのケースは<symbol>PGRES_FATAL_ERROR</symbol>を返します）を確認するには、<xref linkend="libpq-PQresultStatus"/>関数を呼び出す必要があります。
+このようなエラーについての詳細は<xref linkend="libpq-PQerrorMessage"/>を参照してください。␞␞     </para>␞
+␝     <para>␟      Prepares the md5-encrypted form of a <productname>PostgreSQL</productname> password.␟md5暗号化形式の<productname>PostgreSQL</productname>パスワードを準備します。␞␞<synopsis>␞
+␝</synopsis>␟      <xref linkend="libpq-PQencryptPassword"/> is an older, deprecated version of
+      <xref linkend="libpq-PQencryptPasswordConn"/>. The difference is that
+      <xref linkend="libpq-PQencryptPassword"/> does not
+      require a connection object, and <literal>md5</literal> is always used as the
+      encryption algorithm.␟<xref linkend="libpq-PQencryptPassword"/>は、古くて非推奨のバージョンの<xref linkend="libpq-PQencryptPasswordConn"/>です。
+違いは、<xref linkend="libpq-PQencryptPassword"/>は接続オブジェクトを必要とせず、<literal>md5</literal>が常に暗号化アルゴリズムに使用されることです。␞␞     </para>␞
+␝     <para>␟      Constructs an empty <structname>PGresult</structname> object with the given status.␟与えられたステータスで空の<structname>PGresult</structname>オブジェクトを構築します。␞␞<synopsis>␞
+␝     <para>␟      This is <application>libpq</application>'s internal function to allocate and
+      initialize an empty <structname>PGresult</structname> object.  This
+      function returns <symbol>NULL</symbol> if memory could not be allocated. It is
+      exported because some applications find it useful to generate result
+      objects (particularly objects with error status) themselves.  If
+      <parameter>conn</parameter> is not null and <parameter>status</parameter>
+      indicates an error, the current error message of the specified
+      connection is copied into the <structname>PGresult</structname>.
+      Also, if <parameter>conn</parameter> is not null, any event procedures
+      registered in the connection are copied into the
+      <structname>PGresult</structname>.  (They do not get
+      <literal>PGEVT_RESULTCREATE</literal> calls, but see
+      <xref linkend="libpq-PQfireResultCreateEvents"/>.)
+      Note that <xref linkend="libpq-PQclear"/> should eventually be called
+      on the object, just as with a <structname>PGresult</structname>
+      returned by <application>libpq</application> itself.␟これは空の<structname>PGresult</structname>オブジェクトを割り当てて、初期化する<application>libpq</application>の内部関数です。
+メモリが割り当てられなかった場合、この関数は<symbol>NULL</symbol>を返します。
+一部のアプリケーションで結果オブジェクト（特にエラーステータスを伴ったオブジェクト）それ自身を生成することが便利であることが分かりましたので、外部公開されました。
+<parameter>conn</parameter>が非NULで、<parameter>status</parameter>がエラーを示唆している場合、特定された接続の現在のエラーメッセージは<structname>PGresult</structname>にコピーされます。
+同時に、<parameter>conn</parameter>が非NULLの場合、接続で登録された任意のイベントプロシージャは<structname>PGresult</structname>にコピーされます。
+（それらは<literal>PGEVT_RESULTCREATE</literal>呼び出しを受けませんが、<xref linkend="libpq-PQfireResultCreateEvents"/>を理解します。）
+<application>libpq</application>自身で返された<structname>PGresult</structname>と同様に、最終的にはこのオブジェクトに対して<xref linkend="libpq-PQclear"/>を呼び出さなければならないことに注意してください。␞␞     </para>␞
+␝     <para>␟      Fires a <literal>PGEVT_RESULTCREATE</literal> event (see <xref
+      linkend="libpq-events"/>) for each event procedure registered in the
+      <structname>PGresult</structname> object.  Returns non-zero for success,
+      zero if any event procedure fails.␟<structname>PGresult</structname>オブジェクトに登録されたそれぞれのイベントプロシージャに対し、<literal>PGEVT_RESULTCREATE</literal>イベント（<xref linkend="libpq-events"/>を参照）を発行します。
+イベントプロシージャが成功の場合は非ゼロ、失敗の場合はゼロを返します。␞␞␞
+␝     <para>␟      The <literal>conn</literal> argument is passed through to event procedures
+      but not used directly.  It can be <symbol>NULL</symbol> if the event
+      procedures won't use it.␟<literal>conn</literal>引数はイベントプロシージャに渡されますが、直接には使用されません。
+イベントプロシージャが使用しない場合は<symbol>NULL</symbol>で構いません。␞␞     </para>␞
+␝     <para>␟      Event procedures that have already received a
+      <literal>PGEVT_RESULTCREATE</literal> or <literal>PGEVT_RESULTCOPY</literal> event
+      for this object are not fired again.␟このオブジェクトに対し、<literal>PGEVT_RESULTCREATE</literal>もしくは<literal>PGEVT_RESULTCOPY</literal>イベントを過去に受け取ったイベントプロシージャは再び発行されません。␞␞     </para>␞
+␝     <para>␟      The main reason that this function is separate from
+      <xref linkend="libpq-PQmakeEmptyPGresult"/> is that it is often appropriate
+      to create a <structname>PGresult</structname> and fill it with data
+      before invoking the event procedures.␟この関数が<xref linkend="libpq-PQmakeEmptyPGresult"/>と分離されている主たる理由は、多くの場合イベントプロシージャを呼び出す前に<structname>PGresult</structname>を作成し、データを挿入するのが適切であることによります。␞␞     </para>␞
+␝     <para>␟      Makes a copy of a <structname>PGresult</structname> object.  The copy is
+      not linked to the source result in any way and
+      <xref linkend="libpq-PQclear"/> must be called when the copy is no longer
+      needed.  If the function fails, <symbol>NULL</symbol> is returned.␟<structname>PGresult</structname>オブジェクトのコピーを作ります。
+コピーは元の結果にいかなる方法でもリンクされず、コピーが不要になった時に<xref linkend="libpq-PQclear"/>を呼び出されなければなりません。
+関数が失敗すると<symbol>NULL</symbol>が返されます。␞␞␞
+␝     <para>␟      This is not intended to make an exact copy.  The returned result is
+      always put into <literal>PGRES_TUPLES_OK</literal> status, and does not
+      copy any error message in the source.  (It does copy the command status
+      string, however.)  The <parameter>flags</parameter> argument determines
+      what else is copied.  It is a bitwise OR of several flags.
+      <literal>PG_COPYRES_ATTRS</literal> specifies copying the source
+      result's attributes (column definitions).
+      <literal>PG_COPYRES_TUPLES</literal> specifies copying the source
+      result's tuples.  (This implies copying the attributes, too.)
+      <literal>PG_COPYRES_NOTICEHOOKS</literal> specifies
+      copying the source result's notify hooks.
+      <literal>PG_COPYRES_EVENTS</literal> specifies copying the source
+      result's events.  (But any instance data associated with the source
+      is not copied.)
+      The event procedures receive <literal>PGEVT_RESULTCOPY</literal> events.␟これは正確なコピーの作成を目的としたものではありません。
+返された結果は常に<literal>PGRES_TUPLES_OK</literal>状態の中に置かれ、元の結果におけるエラーメッセージはまったくコピーされません。
+（しかしコマンド状態文字列をコピーします。）
+<parameter>flags</parameter>引数はその他にコピーするものがないかを決定します。
+それはいくつかのフラグのビット単位のORです。
+<literal>PG_COPYRES_ATTRS</literal>は元の結果の属性（列定義）のコピーを指定します。
+<literal>PG_COPYRES_TUPLES</literal>は元の結果のタプルのコピーを指定します。
+（これは属性もコピーされることを意味しています。）
+<literal>PG_COPYRES_NOTICEHOOKS</literal>は元の結果の警告フックのコピーを指定します。
+<literal>PG_COPYRES_EVENTS</literal>は元の結果イベントのコピーを指定します。
+（しかし、元の結果に関連したインスタンスデータはまったくコピーされません。）
+イベントプロシージャは、<literal>PGEVT_RESULTCOPY</literal>イベントを受信します。␞␞     </para>␞
+␝     <para>␟      Sets the attributes of a <structname>PGresult</structname> object.␟<structname>PGresult</structname>オブジェクトの属性を設定します。␞␞<synopsis>␞
+␝     <para>␟      The provided <parameter>attDescs</parameter> are copied into the result.
+      If the <parameter>attDescs</parameter> pointer is <symbol>NULL</symbol> or
+      <parameter>numAttributes</parameter> is less than one, the request is
+      ignored and the function succeeds.  If <parameter>res</parameter>
+      already contains attributes, the function will fail.  If the function
+      fails, the return value is zero.  If the function succeeds, the return
+      value is non-zero.␟提供された<parameter>attDescs</parameter>は結果にコピーされます。
+もし<parameter>attDescs</parameter>ポインタが<symbol>NULL</symbol>、または<parameter>numAttributes</parameter>が１未満の場合、要求は無視され、関数は成功します。
+<parameter>res</parameter>が既に属性を所有している場合、関数は失敗に終わります。
+関数が失敗すると、戻り値はゼロです。
+関数が成功すると戻り値は非ゼロになります。␞␞     </para>␞
+␝     <para>␟      Sets a tuple field value of a <structname>PGresult</structname> object.␟<structname>PGresult</structname>オブジェクトのタプルフィールド値を設定します。␞␞<synopsis>␞
+␝     <para>␟      The function will automatically grow the result's internal tuples array
+      as needed.  However, the <parameter>tup_num</parameter> argument must be
+      less than or equal to <xref linkend="libpq-PQntuples"/>, meaning this
+      function can only grow the tuples array one tuple at a time.  But any
+      field of any existing tuple can be modified in any order.  If a value at
+      <parameter>field_num</parameter> already exists, it will be overwritten.
+      If <parameter>len</parameter> is -1 or
+      <parameter>value</parameter> is <symbol>NULL</symbol>, the field value
+      will be set to an SQL null value.  The
+      <parameter>value</parameter> is copied into the result's private storage,
+      thus is no longer needed after the function
+      returns.  If the function fails, the return value is zero.  If the
+      function succeeds, the return value is non-zero.␟必要に応じて関数は自動的に結果の内部タプル配列を肥大化させます。
+しかし、<parameter>tup_num</parameter>引数は<xref linkend="libpq-PQntuples"/>と同じか、もしくは小さくなければなりません。
+その意味は、この関数は一回にタプル配列を１タプル大きくさせるだけだからです。
+とは言っても、存在するいかなるタプルの任意のフィールドも、順序を問わず変更できます。
+もし<parameter>field_num</parameter>に値が既に存在すれば、書き換えられます。
+<parameter>len</parameter>が-1、または<parameter>value</parameter>が<symbol>NULL</symbol>であれば、フィールドの値はSQLのNULLに設定されます。
+<parameter>value</parameter>は結果のプライベート格納領域にコピーされるため、関数が返った後ではもう必要がなくなります。
+関数が失敗すると、戻り値はゼロです。
+関数が成功すると戻り値は非ゼロになります。␞␞     </para>␞
+␝     <para>␟      Allocate subsidiary storage for a <structname>PGresult</structname> object.␟<structname>PGresult</structname>オブジェクトに補助ストレージを割り当てます。␞␞<synopsis>␞
+␝     <para>␟      Any memory allocated with this function will be freed when
+      <parameter>res</parameter> is cleared.  If the function fails,
+      the return value is <symbol>NULL</symbol>.  The result is
+      guaranteed to be adequately aligned for any type of data,
+      just as for <function>malloc</function>.␟<parameter>res</parameter>が消去された時、この関数で割り付けられたメモリは解放されます。
+関数が失敗すると戻り値は<symbol>NULL</symbol>です。
+<function>malloc</function>と同じように、どのような種類のデータでも結果は適切に整列されることが保証されています。␞␞     </para>␞
+␝     <para>␟      Retrieves the number of bytes allocated for
+      a <structname>PGresult</structname> object.␟<structname>PGresult</structname>オブジェクトのために割り当てられたバイト数を取り出します。␞␞<synopsis>␞
+␝     <para>␟      This value is the sum of all <function>malloc</function> requests
+      associated with the <structname>PGresult</structname> object, that is,
+      all the memory that will be freed by <xref linkend="libpq-PQclear"/>.
+      This information can be useful for managing memory consumption.␟この値は、<structname>PGresult</structname>オブジェクトに関連する全ての<function>malloc</function>要求、つまり<xref linkend="libpq-PQclear"/>で解放される全てのメモリの合計です。
+この情報はメモリ消費量を管理するのに役立ちます。␞␞     </para>␞
+␝     <para>␟      Return the version of <productname>libpq</productname> that is being used.␟使用中の<productname>libpq</productname>のバージョンを返します。␞␞<synopsis>␞
+␝     <para>␟      The result of this function can be used to determine, at
+      run time, whether specific functionality is available in the currently
+      loaded version of libpq. The function can be used, for example,
+      to determine which connection options are available in
+      <xref linkend="libpq-PQconnectdb"/>.␟この関数の結果を使用して、現在読み込まれているバージョンのlibpqで特定の機能が利用可能かどうかを実行時に決定することができます。
+例えばこの関数を使用して、<xref linkend="libpq-PQconnectdb"/>でどの接続オプションが利用できるかを確認することができます。␞␞     </para>␞
+␝     <para>␟      The result is formed by multiplying the library's major version
+      number by 10000 and adding the minor version number.  For example,
+      version 10.1 will be returned as 100001, and version 11.0 will be
+      returned as 110000.␟返却値の形式は、メジャーバージョン番号に10000を掛け、マイナーバージョン番号を加えたものです。
+例えば、バージョン10.1では100001を返し、バージョン11.0では110000を返します。␞␞     </para>␞
+␝     <para>␟      Prior to major version 10, <productname>PostgreSQL</productname> used
+      three-part version numbers in which the first two parts together
+      represented the major version.  For those
+      versions, <xref linkend="libpq-PQlibVersion"/> uses two digits for each
+      part; for example version 9.1.5 will be returned as 90105, and
+      version 9.2.0 will be returned as 90200.␟バージョン10よりも前では、<productname>PostgreSQL</productname>では、最初の2つの部分がメジャーバージョンを表す、3つの部分からなるバージョン番号が使われていました。
+これらのバージョンでは、<xref linkend="libpq-PQlibVersion"/>はそれぞれの部分に2桁の数字を使います。
+たとえば、バージョン9.1.5では90105が返され、バージョン9.2.0では90200が返されます。␞␞     </para>␞
+␝     <para>␟      Therefore, for purposes of determining feature compatibility,
+      applications should divide the result of <xref linkend="libpq-PQlibVersion"/>
+      by 100 not 10000 to determine a logical major version number.
+      In all release series, only the last two digits differ between
+      minor releases (bug-fix releases).␟ですから、機能の互換性を見極めるのが目的なら、アプリケーションは<xref linkend="libpq-PQlibVersion"/>の結果を10000ではなく、100で割り、論理的なメジャーバージョンを求めるべきです。
+すべてのリリースで、最後の2桁だけがマイナーリリースで異なります。
+（バグ修正リリースです。）␞␞     </para>␞
+␝      <para>␟       This function appeared in <productname>PostgreSQL</productname> version 9.1, so
+       it cannot be used to detect required functionality in earlier
+       versions, since calling it will create a link dependency
+       on version 9.1 or later.␟この関数は<productname>PostgreSQL</productname>バージョン9.1で追加されました。
+このため以前のバージョンにおいて要求される機能を検知するために使用することができません。
+この関数の呼び出しがバージョン9.1以降とのリンク依存性を作成するためです。␞␞      </para>␞
+␝     <para>␟      Retrieves the current time, expressed as the number of microseconds
+      since the Unix epoch (that is, <type>time_t</type> times 1 million).␟現在時刻を取得します。これは、Unixエポックからの経過時間をマイクロ秒単位で表したものです（すなわち、<type>time_t</type>×100万です)。␞␞<synopsis>␞
+␝     <para>␟      This is primarily useful for calculating timeout values to use with
+      <xref linkend="libpq-PQsocketPoll"/>.␟これは主に、<xref linkend="libpq-PQsocketPoll"/>で使用するタイムアウト値を計算する場合に便利です。␞␞     </para>␞
+␝  <indexterm zone="libpq-notice-processing">
+   <primary>notice processing</primary>
+   <secondary>in libpq</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-notice-processing">
+   <primary>警告処理</primary>
+   <secondary>libpqでの</secondary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-notice-processing">␟  <title>Notice Processing</title>␟  <title>警告処理</title>␞␞␞
+␝  <para>␟   Notice and warning messages generated by the server are not returned
+   by the query execution functions, since they do not imply failure of
+   the query.  Instead they are passed to a notice handling function, and
+   execution continues normally after the handler returns.  The default
+   notice handling function prints the message on
+   <filename>stderr</filename>, but the application can override this
+   behavior by supplying its own handling function.␟問い合わせ実行関数では、サーバにより生成された通知と警告メッセージは、問い合わせの失敗を意味していないので返されません。
+その代わり、それらは通知処理関数に渡され、ハンドラから返った後も実行は通常通り継続します。
+デフォルトの通知処理関数は<filename>stderr</filename>にメッセージを出力しますが、アプリケーションは自身の処理関数を提供することでこの動作を書き換えることができます。␞␞  </para>␞
+␝  <para>␟   For historical reasons, there are two levels of notice handling, called
+   the notice receiver and notice processor.  The default behavior is for
+   the notice receiver to format the notice and pass a string to the notice
+   processor for printing.  However, an application that chooses to provide
+   its own notice receiver will typically ignore the notice processor
+   layer and just do all the work in the notice receiver.␟歴史的理由で、通知レシーバと通知プロセッサと呼ばれる２階層の通知処理が存在します。
+デフォルトの動作は、通知レシーバが通知を書式化し、出力のため通知プロセッサに文字列を渡します。
+しかし、独自の通知レシーバを提供することを選んだアプリケーションでは、通常、通知プロセッサ層を無視し、すべての作業を単に通知レシーバで行います。␞␞  </para>␞
+␝  <para>␟   The function <function id="libpq-PQsetNoticeReceiver">PQsetNoticeReceiver</function>
+   <indexterm><primary>notice receiver</primary></indexterm>
+   <indexterm><primary>PQsetNoticeReceiver</primary></indexterm> sets or
+   examines the current notice receiver for a connection object.
+   Similarly, <function id="libpq-PQsetNoticeProcessor">PQsetNoticeProcessor</function>
+   <indexterm><primary>notice processor</primary></indexterm>
+   <indexterm><primary>PQsetNoticeProcessor</primary></indexterm> sets or
+   examines the current notice processor.␟関数<function id="libpq-PQsetNoticeReceiver">PQsetNoticeReceiver</function><indexterm><primary>通知レシーバ</primary></indexterm><indexterm><primary>PQsetNoticeReceiver</primary></indexterm>は接続オブジェクトに対し現在の通知レシーバを設定もしくは確認します。
+同様に、<function id="libpq-PQsetNoticeProcessor">PQsetNoticeProcessor</function>は現在の通知プロセッサの設定もしくは確認を行います。
+<indexterm><primary>通知プロセッサ</primary></indexterm><indexterm><primary>PQsetNoticeProcessor</primary></indexterm>␞␞␞
+␝␟   Each of these functions returns the previous notice receiver or
+   processor function pointer, and sets the new value.  If you supply a
+   null function pointer, no action is taken, but the current pointer is
+   returned.␟各関数は、以前の通知レシーバもしくは通知プロセッサ用の関数へのポインタを返し、新しい値を設定します。
+関数ポインタにNULLを渡した場合、何も変更されず、現在のポインタが返されるだけです。␞␞  </para>␞
+␝  <para>␟   When a notice or warning message is received from the server, or
+   generated internally by <application>libpq</application>, the notice
+   receiver function is called.  It is passed the message in the form of
+   a <symbol>PGRES_NONFATAL_ERROR</symbol>
+   <structname>PGresult</structname>.  (This allows the receiver to extract
+   individual fields using <xref linkend="libpq-PQresultErrorField"/>, or obtain a
+   complete preformatted message using <xref linkend="libpq-PQresultErrorMessage"/>
+   or <xref linkend="libpq-PQresultVerboseErrorMessage"/>.)  The same
+   void pointer passed to <function>PQsetNoticeReceiver</function> is also
+   passed.  (This pointer can be used to access application-specific state
+   if needed.)␟サーバから注意/警告メッセージを受け取ると、あるいは、<application>libpq</application>内部で注意/警告メッセージが生成されると、通知レシーバ関数が呼び出されます。
+<symbol>PGRES_NONFATAL_ERROR</symbol> <structname>PGresult</structname>という形でメッセージが渡されます。
+（これにより、レシーバは<xref linkend="libpq-PQresultErrorField"/>を使用して個々のフィールドを取り出すことや、<xref linkend="libpq-PQresultErrorMessage"/>あるいは<xref linkend="libpq-PQresultVerboseErrorMessage"/>を使用して事前に整形された完全なメッセージを取得することができます。）
+<function>PQsetNoticeReceiver</function>に渡されたvoidポインタと同じものも渡されます。
+（このポインタを使用して、必要に応じてアプリケーション特有の状態にアクセスすることができます。）␞␞  </para>␞
+␝  <para>␟   The default notice receiver simply extracts the message (using
+   <xref linkend="libpq-PQresultErrorMessage"/>) and passes it to the notice
+   processor.␟デフォルトの通知レシーバは単に（<xref linkend="libpq-PQresultErrorMessage"/>を使用して）メッセージを取り出し、それを通知プロセッサに渡すだけです。␞␞  </para>␞
+␝  <para>␟   The notice processor is responsible for handling a notice or warning
+   message given in text form.  It is passed the string text of the message
+   (including a trailing newline), plus a void pointer that is the same
+   one passed to <function>PQsetNoticeProcessor</function>.  (This pointer
+   can be used to access application-specific state if needed.)␟通知プロセッサは、テキスト形式で与えられた注意/警告メッセージの取扱いに責任を持ちます。
+メッセージは（最後の改行を含む）文字列テキストで渡され、更に、<function>PQsetNoticeProcessor</function>に渡したものと同じvoidポインタも渡されます。
+（このポインタを使用して、必要に応じてアプリケーション特有の状態にアクセスすることができます。）␞␞  </para>␞
+␝  <para>␟   The default notice processor is simply:␟デフォルトの通知プロセッサは以下のような単純なものです。␞␞<programlisting>␞
+␝  <para>␟   Once you have set a notice receiver or processor, you should expect
+   that that function could be called as long as either the
+   <structname>PGconn</structname> object or <structname>PGresult</structname> objects made
+   from it exist.  At creation of a <structname>PGresult</structname>, the
+   <structname>PGconn</structname>'s current notice handling pointers are copied
+   into the <structname>PGresult</structname> for possible use by functions like
+   <xref linkend="libpq-PQgetvalue"/>.␟一旦通知レシーバや通知プロセッサを設定したら、<structname>PGconn</structname>オブジェクトか、それから生成された<structname>PGresult</structname>オブジェクトが存在している間は、その関数が呼び出される可能性があると考えておくべきです。
+<structname>PGresult</structname>の生成時には、<structname>PGconn</structname>の現在の警告処理用のポインタが、<xref linkend="libpq-PQgetvalue"/>のような関数で使用可能であるように、<structname>PGresult</structname>へコピーされます。␞␞  </para>␞
+␝ <sect1 id="libpq-events">␟  <title>Event System</title>␟  <title>イベントシステム</title>␞␞␞
+␝  <para>␟   <application>libpq</application>'s event system is designed to notify
+   registered event handlers about interesting
+   <application>libpq</application> events, such as the creation or
+   destruction of <structname>PGconn</structname> and
+   <structname>PGresult</structname> objects.  A principal use case is that
+   this allows applications to associate their own data with a
+   <structname>PGconn</structname> or <structname>PGresult</structname>
+   and ensure that that data is freed at an appropriate time.␟<application>libpq</application>のイベントシステムは、<structname>PGconn</structname>および<structname>PGresult</structname>オブジェクトの作成と削除のような関心を引く<application>libpq</application>イベントについて登録されたイベントハンドラに通知を行うため設計されています。
+主たる使用状況は、アプリケーションがそれ自身のデータを<structname>PGconn</structname>または<structname>PGresult</structname>と提携させ、データが適切な時間に解放されることを保証するものです。␞␞  </para>␞
+␝  <para>␟   Each registered event handler is associated with two pieces of data,
+   known to <application>libpq</application> only as opaque <literal>void *</literal>
+   pointers.  There is a <firstterm>pass-through</firstterm> pointer that is provided
+   by the application when the event handler is registered with a
+   <structname>PGconn</structname>.  The pass-through pointer never changes for the
+   life of the <structname>PGconn</structname> and all <structname>PGresult</structname>s
+   generated from it; so if used, it must point to long-lived data.
+   In addition there is an <firstterm>instance data</firstterm> pointer, which starts
+   out <symbol>NULL</symbol> in every <structname>PGconn</structname> and <structname>PGresult</structname>.
+   This pointer can be manipulated using the
+   <xref linkend="libpq-PQinstanceData"/>,
+   <xref linkend="libpq-PQsetInstanceData"/>,
+   <xref linkend="libpq-PQresultInstanceData"/> and
+   <xref linkend="libpq-PQresultSetInstanceData"/> functions.  Note that
+   unlike the pass-through pointer, instance data of a <structname>PGconn</structname>
+   is not automatically inherited by <structname>PGresult</structname>s created from
+   it.  <application>libpq</application> does not know what pass-through
+   and instance data pointers point to (if anything) and will never attempt
+   to free them &mdash; that is the responsibility of the event handler.␟それぞれの登録されたイベントハンドラは、<application>libpq</application>からは不透明な<literal>void *</literal>ポインタとしてだけ知られる２つのデータの断片と提携します。
+イベントハンドラが<structname>PGconn</structname>で登録された時にアプリケーションが提供する<firstterm>通過地点</firstterm>ポインタがあります。
+通過地点ポインタは<structname>PGconn</structname>やそれから生成されたすべての（複数の）<structname>PGresult</structname>が有効な間決して変わることはありません。
+したがって使用された場合、長期間生存しているデータを指し示します。
+さらに、<firstterm>インスタンスデータ</firstterm>ポインタがあって、それはすべての<structname>PGconn</structname>と<structname>PGresult</structname>で<symbol>NULL</symbol>から開始します。
+ポインタは、<xref linkend="libpq-PQinstanceData"/>、<xref linkend="libpq-PQsetInstanceData"/>、<xref linkend="libpq-PQresultInstanceData"/>および<xref linkend="libpq-PQresultSetInstanceData"/>関数を使って操作することができます。
+通過地点ポインタとは異なり、<structname>PGconn</structname>のインスタンスデータはそれから作成された<structname>PGresult</structname>により自動的に継承されません。
+<application>libpq</application>は通過地点とインスタンスデータポインタが（もしあったとしても）何を指し示すのか判らず、決して解放しようとは試みません。
+それはイベントハンドラの責任です。␞␞  </para>␞
+␝  <sect2 id="libpq-events-types">␟   <title>Event Types</title>␟   <title>イベントの種類</title>␞␞␞
+␝   <para>␟    The enum <literal>PGEventId</literal> names the types of events handled by
+    the event system.  All its values have names beginning with
+    <literal>PGEVT</literal>.  For each event type, there is a corresponding
+    event info structure that carries the parameters passed to the event
+    handlers.  The event types are:␟<literal>PGEventId</literal>列挙はイベントシステムにより処理されるイベントの種類に名前をつけます。
+その値はすべて<literal>PGEVT</literal>で始まる名前を持っています。
+それぞれのイベントの種類に対し、イベントハンドラに渡されるパラメータを運ぶ関連したイベント情報構造体があります。
+イベントの種類を以下に示します。␞␞   </para>␞
+␝      <para>␟       The register event occurs when <xref linkend="libpq-PQregisterEventProc"/>
+       is called.  It is the ideal time to initialize any
+       <literal>instanceData</literal> an event procedure may need.  Only one
+       register event will be fired per event handler per connection.  If the
+       event procedure fails (returns zero), the registration is canceled.␟レジスタイベントは、<xref linkend="libpq-PQregisterEventProc"/>が呼び出された時に発生します。
+イベントプロシージャが必要とする<literal>instanceData</literal>を初期化するのに理想的な時間です。
+接続ごとにイベントハンドラごとに1つのレジスタイベントしか発生しません。
+イベントプロシージャが失敗した場合（0を返す場合）、登録はキャンセルされます。␞␞␞
+␝␟       When a <literal>PGEVT_REGISTER</literal> event is received, the
+       <parameter>evtInfo</parameter> pointer should be cast to a
+       <structname>PGEventRegister *</structname>.  This structure contains a
+       <structname>PGconn</structname> that should be in the
+       <literal>CONNECTION_OK</literal> status; guaranteed if one calls
+       <xref linkend="libpq-PQregisterEventProc"/> right after obtaining a good
+       <structname>PGconn</structname>.  When returning a failure code, all
+       cleanup must be performed as no <literal>PGEVT_CONNDESTROY</literal>
+       event will be sent.␟<literal>PGEVT_REGISTER</literal>イベントが受け取られると、<parameter>evtInfo</parameter>ポインタは<structname>PGEventRegister *</structname>にキャストされなければなりません。
+この構造体は<literal>CONNECTION_OK</literal>状態ではなくてはならない<structname>PGconn</structname>を含んでいます。
+そしてそれは、効果のある<structname>PGconn</structname>を取得した直後、<xref linkend="libpq-PQregisterEventProc"/>を呼び出せば、保証されます。
+失敗コードを返すとき、<literal>PGEVT_CONNDESTROY</literal>イベントが送られないので、すべての消去が実行されなければなりません。␞␞      </para>␞
+␝      <para>␟       The connection reset event is fired on completion of
+       <xref linkend="libpq-PQreset"/> or <function>PQresetPoll</function>.  In
+       both cases, the event is only fired if the reset was successful.
+       The return value of the event procedure is ignored
+       in <productname>PostgreSQL</productname> v15 and later.
+       With earlier versions, however, it's important to return success
+       (nonzero) or the connection will be aborted.␟接続初期化イベントは<xref linkend="libpq-PQreset"/>または<function>PQresetPoll</function>の完了時点で発行されます。
+どちらの場合も、初期化が成功したときのみ発行されます。
+<productname>PostgreSQL</productname> v15以降では、イベントプロシージャの戻り値は無視されます。
+しかし、以前のバージョンでは、成功（ゼロ以外）を返すことが重要です。
+そうしないと接続は中断されます。␞␞␞
+␝␟       When a <literal>PGEVT_CONNRESET</literal> event is received, the
+       <parameter>evtInfo</parameter> pointer should be cast to a
+       <structname>PGEventConnReset *</structname>.  Although the contained
+       <structname>PGconn</structname> was just reset, all event data remains
+       unchanged.  This event should be used to reset/reload/requery any
+       associated <literal>instanceData</literal>.  Note that even if the
+       event procedure fails to process <literal>PGEVT_CONNRESET</literal>, it will
+       still receive a <literal>PGEVT_CONNDESTROY</literal> event when the connection
+       is closed.␟<literal>PGEVT_CONNRESET</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventConnReset *</structname>にキャストされなければなりません。
+含まれた<structname>PGconn</structname>は単に初期化されますが、すべてのイベントデータは変更されずに残ります。
+このイベントはすべての関連した<literal>instanceData</literal>の初期化・再読み込み・再問い合わせに使用されなければなりません。
+イベントプロシージャが<literal>PGEVT_CONNRESET</literal>処理に失敗したとしても、接続が閉じられた時<literal>PGEVT_CONNDESTROY</literal>イベントを依然として受け付けることに注意してください。␞␞      </para>␞
+␝      <para>␟       The connection destroy event is fired in response to
+       <xref linkend="libpq-PQfinish"/>.  It is the event procedure's
+       responsibility to properly clean up its event data as libpq has no
+       ability to manage this memory.  Failure to clean up will lead
+       to memory leaks.␟接続破棄イベントは<xref linkend="libpq-PQfinish"/>に対応して発行されます。
+libpqはこのメモリを管理する機能がありませんので、そのイベントデータを的確に消去するのはイベントプロシージャの責任です。
+消去の失敗はメモリリークに通じます。␞␞␞
+␝␟       When a <literal>PGEVT_CONNDESTROY</literal> event is received, the
+       <parameter>evtInfo</parameter> pointer should be cast to a
+       <structname>PGEventConnDestroy *</structname>.  This event is fired
+       prior to <xref linkend="libpq-PQfinish"/> performing any other cleanup.
+       The return value of the event procedure is ignored since there is no
+       way of indicating a failure from <xref linkend="libpq-PQfinish"/>.  Also,
+       an event procedure failure should not abort the process of cleaning up
+       unwanted memory.␟<literal>PGEVT_CONNDESTROY</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventConnDestroy *</structname>にキャストされなければなりません。
+このイベントは<xref linkend="libpq-PQfinish"/>が他のすべての消去を行う前に発行されます。
+イベントプロシージャの戻り値は、<xref linkend="libpq-PQfinish"/>から失敗を示唆する方法がないので無視されます。
+同時に、イベントプロシージャの失敗が不要なメモリ消去処理を中止してはなりません。␞␞      </para>␞
+␝      <para>␟       The result creation event is fired in response to any query execution
+       function that generates a result, including
+       <xref linkend="libpq-PQgetResult"/>.  This event will only be fired after
+       the result has been created successfully.␟結果作成イベントは、<xref linkend="libpq-PQgetResult"/>を含み、結果を生成する任意の問い合わせ実行関数に対応して発行されます。
+このイベントは結果が成功裏に作成されたときのみ発行されます。␞␞␞
+␝␟       When a <literal>PGEVT_RESULTCREATE</literal> event is received, the
+       <parameter>evtInfo</parameter> pointer should be cast to a
+       <structname>PGEventResultCreate *</structname>.  The
+       <parameter>conn</parameter> is the connection used to generate the
+       result.  This is the ideal place to initialize any
+       <literal>instanceData</literal> that needs to be associated with the
+       result.  If an event procedure fails (returns zero), that event
+       procedure will be ignored for the remaining lifetime of the result;
+       that is, it will not receive <literal>PGEVT_RESULTCOPY</literal>
+       or <literal>PGEVT_RESULTDESTROY</literal> events for this result or
+       results copied from it.␟<literal>PGEVT_RESULTCREATE</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCreate *</structname>にキャストされなければなりません。
+<parameter>conn</parameter>は結果を生成するために使われた接続です。
+これは、結果と関連しなければならないすべての<literal>instanceData</literal>を初期化するために、理想的な場所です。
+イベントプロシージャが失敗する（ゼロが返される）と、そのイベントプロシージャは結果の残りの存在期間中無視されます。
+つまり、この結果またはそこからコピーされた結果に対して、<literal>PGEVT_RESULTCOPY</literal>または<literal>PGEVT_RESULTDESTROY</literal>イベントを受け取りません。␞␞      </para>␞
+␝      <para>␟       The result copy event is fired in response to
+       <xref linkend="libpq-PQcopyResult"/>.  This event will only be fired after
+       the copy is complete.  Only event procedures that have
+       successfully handled the <literal>PGEVT_RESULTCREATE</literal>
+       or <literal>PGEVT_RESULTCOPY</literal> event for the source result
+       will receive <literal>PGEVT_RESULTCOPY</literal> events.␟結果コピーイベントは<xref linkend="libpq-PQcopyResult"/>の応答として発行されます。
+このイベントはコピーが完了した後にのみ発行されます。
+元の結果に対する<literal>PGEVT_RESULTCREATE</literal>もしくは<literal>PGEVT_RESULTCOPY</literal>イベントを成功裏に処理したイベントプロシージャのみ、<literal>PGEVT_RESULTCOPY</literal>イベントを受け取ります。␞␞␞
+␝␟       When a <literal>PGEVT_RESULTCOPY</literal> event is received, the
+       <parameter>evtInfo</parameter> pointer should be cast to a
+       <structname>PGEventResultCopy *</structname>.  The
+       <parameter>src</parameter> result is what was copied while the
+       <parameter>dest</parameter> result is the copy destination.  This event
+       can be used to provide a deep copy of <literal>instanceData</literal>,
+       since <literal>PQcopyResult</literal> cannot do that.  If an event
+       procedure fails (returns zero), that event procedure will be
+       ignored for the remaining lifetime of the new result; that is, it
+       will not receive <literal>PGEVT_RESULTCOPY</literal>
+       or <literal>PGEVT_RESULTDESTROY</literal> events for that result or
+       results copied from it.␟<literal>PGEVT_RESULTCOPY</literal>イベントが受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultCopy *</structname>にキャストされなければなりません。
+<parameter>src</parameter>は結果のコピー元で、<parameter>dest</parameter>結果はコピー先です。
+このイベントは<literal>instanceData</literal>のディープコピーを提供するために使用されます。
+<literal>PQcopyResult</literal>ではこれを行うことができないためです。
+もしイベントプロシージャが失敗する（ゼロが返される）と、そのイベントプロシージャは新しい結果の残りの存在期間中無視されます。
+つまり、その結果またはそこからコピーされた結果の<literal>PGEVT_RESULTCOPY</literal>または<literal>PGEVT_RESULTDESTROY</literal>イベントを受け取りません。␞␞      </para>␞
+␝      <para>␟       The result destroy event is fired in response to a
+       <xref linkend="libpq-PQclear"/>.  It is the event procedure's
+       responsibility to properly clean up its event data as libpq has no
+       ability to manage this memory.  Failure to clean up will lead
+       to memory leaks.␟結果破棄イベントは<xref linkend="libpq-PQclear"/>に対応して発行されます。
+libpqはこのメモリを管理する機能がありませんので、そのイベントデータを的確に消去するのはイベントプロシージャの責任です。
+消去の失敗はメモリリークに通じます。␞␞␞
+␝␟       When a <literal>PGEVT_RESULTDESTROY</literal> event is received, the
+       <parameter>evtInfo</parameter> pointer should be cast to a
+       <structname>PGEventResultDestroy *</structname>.  This event is fired
+       prior to <xref linkend="libpq-PQclear"/> performing any other cleanup.
+       The return value of the event procedure is ignored since there is no
+       way of indicating a failure from <xref linkend="libpq-PQclear"/>.  Also,
+       an event procedure failure should not abort the process of cleaning up
+       unwanted memory.␟<literal>PGEVT_RESULTDESTROY</literal>が受け取られた時、<parameter>evtInfo</parameter>ポインタは<structname>PGEventResultDestroy *</structname>にキャストされなければなりません。
+このイベントは<xref linkend="libpq-PQclear"/>がその他の消去を行う以前に起動されなければなりません。
+イベントプロシージャの戻り値は、<xref linkend="libpq-PQclear"/>から失敗を示唆する方法がないので無視されます。
+同時に、イベントプロシージャの失敗が不要なメモリ消去処理を中止してはなりません。␞␞      </para>␞
+␝  <sect2 id="libpq-events-proc">␟   <title>Event Callback Procedure</title>␟   <title>イベントコールバックプロシージャ</title>␞␞␞
+␝      <para>␟       <literal>PGEventProc</literal> is a typedef for a pointer to an
+       event procedure, that is, the user callback function that receives
+       events from libpq.  The signature of an event procedure must be␟<literal>PGEventProc</literal>はイベントプロシージャへのポインタに対するtypedefです。
+つまり、libpqからイベントを受け取るユーザコールバック関数です。
+イベントプロシージャのシグネチャは以下でなければなりません。␞␞␞
+␝␟       The <parameter>evtId</parameter> parameter indicates which
+       <literal>PGEVT</literal> event occurred.  The
+       <parameter>evtInfo</parameter> pointer must be cast to the appropriate
+       structure type to obtain further information about the event.
+       The <parameter>passThrough</parameter> parameter is the pointer
+       provided to <xref linkend="libpq-PQregisterEventProc"/> when the event
+       procedure was registered.  The function should return a non-zero value
+       if it succeeds and zero if it fails.␟<parameter>evtId</parameter>パラメータはどの<literal>PGEVT</literal>イベントが発生したかを示します。
+<parameter>evtInfo</parameter>ポインタは、イベントに対する追加情報を入手するため適切な構造体型にキャストされなければなりません。
+<parameter>passThrough</parameter>パラメータは、イベントプロシージャが登録された時、<xref linkend="libpq-PQregisterEventProc"/>に提供されるポインタです。
+関数は成功した場合非ゼロを、失敗した場合ゼロを返さなければなりません。␞␞      </para>␞
+␝      <para>␟       A particular event procedure can be registered only once in any
+       <structname>PGconn</structname>.  This is because the address of the procedure
+       is used as a lookup key to identify the associated instance data.␟特定のイベントプロシージャは任意の<structname>PGconn</structname>において一回だけ登録できます。
+これは、プロシージャのアドレスが関連するインスタンスデータを特定する検索キーとして用いられるからです。␞␞      </para>␞
+␝       <para>␟        On Windows, functions can have two different addresses: one visible
+        from outside a DLL and another visible from inside the DLL.  One
+        should be careful that only one of these addresses is used with
+        <application>libpq</application>'s event-procedure functions, else confusion will
+        result.  The simplest rule for writing code that will work is to
+        ensure that event procedures are declared <literal>static</literal>.  If the
+        procedure's address must be available outside its own source file,
+        expose a separate function to return the address.␟Windowsにおいて、関数は２つの異なるアドレスを持つことができます。
+外部から可視のDLLと内部から可視のDLLです。
+<application>libpq</application>のイベントプロシージャ関数ではこれらのアドレスのうちの１つだけが使用されることに注意してください。
+さもないと、混乱が起きます。
+正常に機能するコードを書く最も単純な規則は、イベントプロシージャが<literal>static</literal>として宣言されることを確実にすることです。
+もし、プロシージャのアドレスがそれ自身のファイルの外部から有効とならなければならない場合、アドレスを返すため別の関数を公開します。␞␞       </para>␞
+␝  <sect2 id="libpq-events-funcs">␟   <title>Event Support Functions</title>␟   <title>イベントサポート関数</title>␞␞␞
+␝      <para>␟       Registers an event callback procedure with libpq.␟libpqでイベントコールバックプロシージャを登録します。␞␞␞
+␝      <para>␟       An event procedure must be registered once on each
+       <structname>PGconn</structname> you want to receive events about.  There is no
+       limit, other than memory, on the number of event procedures that
+       can be registered with a connection.  The function returns a non-zero
+       value if it succeeds and zero if it fails.␟そのイベントを取得したいそれぞれの<structname>PGconn</structname>で１回イベントプロシージャは登録されなければなりません。
+一つの接続に登録できるイベントプロシージャの数には、メモリ以外の制限はありません。
+関数は成功した場合非ゼロ、失敗の場合ゼロを返します。␞␞      </para>␞
+␝      <para>␟       The <parameter>proc</parameter> argument will be called when a libpq
+       event is fired.  Its memory address is also used to lookup
+       <literal>instanceData</literal>.  The <parameter>name</parameter>
+       argument is used to refer to the event procedure in error messages.
+       This value cannot be <symbol>NULL</symbol> or a zero-length string.  The name string is
+       copied into the <structname>PGconn</structname>, so what is passed need not be
+       long-lived.  The <parameter>passThrough</parameter> pointer is passed
+       to the <parameter>proc</parameter> whenever an event occurs. This
+       argument can be <symbol>NULL</symbol>.␟libpqイベントが発行されたとき<parameter>proc</parameter>引数が呼ばれます。
+そのメモリアドレスは<literal>instanceData</literal>を検索するのにも使用されます。
+<parameter>name</parameter>引数はエラーメッセージ内でイベントプロシージャを参照するために使用されます。
+この値は<symbol>NULL</symbol>もしくは空文字列であってはなりません。
+このname文字列は<structname>PGconn</structname>にコピーされますので、渡されたものは長寿命である必要がありません。
+<parameter>passThrough</parameter>ポインタはイベントが発生した時はいつでも<parameter>proc</parameter>に渡されます。
+この引数は<symbol>NULL</symbol>であっても構いません。␞␞      </para>␞
+␝      <para>␟       Sets the connection <parameter>conn</parameter>'s <literal>instanceData</literal>
+       for procedure <parameter>proc</parameter> to <parameter>data</parameter>.  This
+       returns non-zero for success and zero for failure.  (Failure is
+       only possible if <parameter>proc</parameter> has not been properly
+       registered in <parameter>conn</parameter>.)␟<parameter>proc</parameter>プロシージャに対する<parameter>conn</parameter>接続の<literal>instanceData</literal>を<parameter>data</parameter>に設定します。
+成功の場合非ゼロ、失敗の場合ゼロが返ります。
+（<parameter>conn</parameter>で<parameter>proc</parameter>が正しく登録されていない場合のみ失敗する可能性があります。）␞␞␞
+␝      <para>␟       Returns the
+       connection <parameter>conn</parameter>'s <literal>instanceData</literal>
+       associated with procedure <parameter>proc</parameter>,
+       or <symbol>NULL</symbol> if there is none.␟<parameter>proc</parameter>プロシージャに関連した<parameter>conn</parameter>接続の<literal>instanceData</literal>、または存在しなければ<symbol>NULL</symbol>を返します。␞␞␞
+␝      <para>␟       Sets the result's <literal>instanceData</literal>
+       for <parameter>proc</parameter> to <parameter>data</parameter>.  This returns
+       non-zero for success and zero for failure.  (Failure is only
+       possible if <parameter>proc</parameter> has not been properly registered
+       in the result.)␟<parameter>proc</parameter>に対する結果の<literal>instanceData</literal>を<parameter>data</parameter>に設定します。
+成功の場合非ゼロ、失敗の場合ゼロが返ります。
+（結果で<parameter>proc</parameter>正しく登録されていない場合のみ失敗する可能性があります。）␞␞␞
+␝      <para>␟       Beware that any storage represented by <parameter>data</parameter>
+       will not be accounted for by <xref linkend="libpq-PQresultMemorySize"/>,
+       unless it is allocated using <xref linkend="libpq-PQresultAlloc"/>.
+       (Doing so is recommendable because it eliminates the need to free
+       such storage explicitly when the result is destroyed.)␟<parameter>data</parameter>で示された領域は、<xref linkend="libpq-PQresultAlloc"/>を使って割り当てたのでない限り、<xref linkend="libpq-PQresultMemorySize"/>では考慮されないことに注意してください。
+(結果を破棄する時に、領域を明示的に解放する必要がなくなりますので、<xref linkend="libpq-PQresultAlloc"/>を使って割り当てるのがお勧めです。)␞␞      </para>␞
+␝      <para>␟       Returns the result's <literal>instanceData</literal> associated with <parameter>proc</parameter>, or <symbol>NULL</symbol>
+       if there is none.␟<parameter>proc</parameter>に関連した結果の<literal>instanceData</literal>、または存在しなければ<symbol>NULL</symbol>を返します。␞␞␞
+␝  <sect2 id="libpq-events-example">␟   <title>Event Example</title>␟   <title>イベント事例</title>␞␞␞
+␝   <para>␟    Here is a skeleton example of managing private data associated with
+    libpq connections and results.␟以下にlibpq接続と結果に関連したプライベートデータを管理する例の大枠を示します。␞␞   </para>␞
+␝   <para>␟/* required header for libpq events (note: includes libpq-fe.h) */␟/* libpqイベントに必要なヘッダ（覚書：libpq-fe.hのインクルード） */␞␞#include <libpq-events.h>␞
+␝   <para>␟/* The instanceData */␟/* instanceData */␞␞typedef struct␞
+␝   <para>␟    /* called once on any connection that should receive events.
+     * Sends a PGEVT_REGISTER to myEventProc.
+     */␟    /* イベントを受け取るべきすべての接続で１回呼ばれる。
+     * myEventProcにPGEVT_REGISTERを送る。
+     */␞␞    if (!PQregisterEventProc(conn, myEventProc, "mydata_proc", NULL))␞
+␝   <para>␟    /* conn instanceData is available */␟    /* conn instanceDataが有効 */␞␞    data = PQinstanceData(conn, myEventProc);␞
+␝   <para>␟    /* Sends a PGEVT_RESULTCREATE to myEventProc */␟    /* myEventProcにPGEVT_RESULTCREATEを送る */␞␞    res = PQexec(conn, "SELECT 1 + 1");␞
+␝   <para>␟    /* result instanceData is available */␟    /* 結果 instanceDataが有効 */␞␞    data = PQresultInstanceData(res, myEventProc);␞
+␝   <para>␟    /* If PG_COPYRES_EVENTS is used, sends a PGEVT_RESULTCOPY to myEventProc */␟    /* PG_COPYRES_EVENTSが使われた場合、PGEVT_RESULTCOPYをmyEventProcに送る */␞␞    res_copy = PQcopyResult(res, PG_COPYRES_TUPLES | PG_COPYRES_EVENTS);␞
+␝   <para>␟    /* result instanceData is available if PG_COPYRES_EVENTS was
+     * used during the PQcopyResult call.
+     */␟    /* PQcopyResult呼び出しの過程でPG_COPYRES_EVENTSが使用された場合、
+     * 結果 instanceDataが有効
+     */␞␞    data = PQresultInstanceData(res_copy, myEventProc);␞
+␝   <para>␟    /* Both clears send a PGEVT_RESULTDESTROY to myEventProc */␟    /* 双方のclearがPGEVT_RESULTDESTROYをmyEventProcに送る */␞␞    PQclear(res);␞
+␝   <para>␟    /* Sends a PGEVT_CONNDESTROY to myEventProc */␟    /* PGEVT_CONNDESTROYをmyEventProcに送る */␞␞    PQfinish(conn);␞
+␝   <para>␟            /* associate app specific data with connection */␟            /* アプリ特有のデータを接続に関連付ける */␞␞            PQsetInstanceData(e->conn, myEventProc, data);␞
+␝   <para>␟            /* free instance data because the conn is being destroyed */␟            /* connが破棄されたのでインスタンスデータを解放 */␞␞            if (data)␞
+␝   <para>␟            /* associate app specific data with result (copy it from conn) */␟            /* アプリ特有のデータを結果と（connから複写して）関連付ける */␞␞            PQresultSetInstanceData(e->result, myEventProc, res_data);␞
+␝   <para>␟            /* associate app specific data with result (copy it from a result) */␟            /* アプリ特有のデータを結果と（結果から複写して）関連付ける */␞␞            PQresultSetInstanceData(e->dest, myEventProc, dest_data);␞
+␝   <para>␟            /* free instance data because the result is being destroyed */␟            /* 結果が破棄されたためインスタンスデータを解放 */␞␞            if (data)␞
+␝   <para>␟        /* unknown event ID, just return true. */␟        /* 未知のイベント識別子。単にtrueを返す */␞␞        default:␞
+␝   <para>␟    return true; /* event processing succeeded */␟    return true; /* イベント処理成功 */␞␞}␞
+␝  <indexterm zone="libpq-envars">
+   <primary>environment variable</primary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-envars">
+   <primary>環境変数</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-envars">␟  <title>Environment Variables</title>␟  <title>環境変数</title>␞␞␞
+␝  <para>␟   The following environment variables can be used to select default
+   connection parameter values, which will be used by
+   <xref linkend="libpq-PQconnectdb"/>, <xref linkend="libpq-PQsetdbLogin"/> and
+   <xref linkend="libpq-PQsetdb"/> if no value is directly specified by the calling
+   code.  These are useful to avoid hard-coding database connection
+   information into simple client applications, for example.␟以下の環境変数を使用して、呼び出し側のプログラムで直接値を指定しなかった場合の接続パラメータのデフォルト値を選ぶことができます。
+この値は、<xref linkend="libpq-PQconnectdb"/>、<xref linkend="libpq-PQsetdbLogin"/>および<xref linkend="libpq-PQsetdb"/>で使用されます。
+例えば、簡単なクライアントアプリケーションでは、データベース接続情報を直接プログラムに記述しない方が便利です。␞␞␞
+␝      </indexterm>␟      <envar>PGHOST</envar> behaves the same as the <xref
+      linkend="libpq-connect-host"/> connection parameter.␟<envar>PGHOST</envar>は<xref linkend="libpq-connect-host"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLNEGOTIATION</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslnegotiation"/> connection parameter.␟<envar>PGSSLNEGOTIATION</envar>は<xref linkend="libpq-connect-sslnegotiation"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGHOSTADDR</envar> behaves the same as the <xref
+      linkend="libpq-connect-hostaddr"/> connection parameter.
+      This can be set instead of or in addition to <envar>PGHOST</envar>
+      to avoid DNS lookup overhead.␟<envar>PGHOSTADDR</envar>は<xref linkend="libpq-connect-hostaddr"/>接続パラメータと同様に動作します。
+<envar>PGHOST</envar>の代わりに設定して、または、<envar>PGHOST</envar>に追加して、DNS検索に要するオーバーヘッドをなくすことができます。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGPORT</envar> behaves the same as the <xref
+      linkend="libpq-connect-port"/> connection parameter.␟<envar>PGPORT</envar>は<xref linkend="libpq-connect-port"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGDATABASE</envar> behaves the same as the <xref
+      linkend="libpq-connect-dbname"/> connection parameter.␟<envar>PGDATABASE</envar>は<xref linkend="libpq-connect-dbname"/>接続パラメータと同様に動作します。␞␞      </para>␞
+␝      </indexterm>␟      <envar>PGUSER</envar> behaves the same as the <xref
+      linkend="libpq-connect-user"/> connection parameter.␟<envar>PGUSER</envar>は<xref linkend="libpq-connect-user"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGPASSWORD</envar> behaves the same as the <xref
+      linkend="libpq-connect-password"/> connection parameter.
+      Use of this environment variable
+      is not recommended for security reasons, as some operating systems
+      allow non-root users to see process environment variables via
+      <application>ps</application>; instead consider using a password file
+      (see <xref linkend="libpq-pgpass"/>).␟<envar>PGPASSWORD</envar>は<xref linkend="libpq-connect-password"/>接続パラメータと同様に動作します。
+この環境変数は、一部のオペレーティングシステムではroot以外のユーザが<application>ps</application>コマンド経由で環境変数を見ることができるなど、セキュリティ上の理由から現在では推奨されていません。
+代わりにパスワードファイル(<xref linkend="libpq-pgpass"/>を参照してください)を使用することを検討してください。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGPASSFILE</envar> behaves the same as the <xref
+      linkend="libpq-connect-passfile"/> connection parameter.␟<envar>PGPASSFILE</envar>は<xref linkend="libpq-connect-passfile"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGREQUIREAUTH</envar> behaves the same as the <xref
+      linkend="libpq-connect-require-auth"/> connection parameter.␟<envar>PGREQUIREAUTH</envar>は<xref linkend="libpq-connect-require-auth"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGCHANNELBINDING</envar> behaves the same as the <xref
+      linkend="libpq-connect-channel-binding"/> connection parameter.␟ <envar>PGCHANNELBINDING</envar>は<xref linkend="libpq-connect-channel-binding"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSERVICE</envar> behaves the same as the <xref
+      linkend="libpq-connect-service"/> connection parameter.␟<envar>PGSERVICE</envar>は<xref linkend="libpq-connect-service"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSERVICEFILE</envar> specifies the name of the per-user
+      connection service file
+      (see <xref linkend="libpq-pgservice"/>).
+      Defaults to <filename>~/.pg_service.conf</filename>, or
+      <filename>%APPDATA%\postgresql\.pg_service.conf</filename> on
+      Microsoft Windows.␟<envar>PGSERVICEFILE</envar>は、ユーザ毎の接続サービスファイルを指定します(<xref linkend="libpq-pgservice"/>参照)。
+デフォルトは<filename>~/.pg_service.conf</filename>、Microsoft Windowsでは<filename>%APPDATA%\postgresql\.pg_service.conf</filename>です。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGOPTIONS</envar> behaves the same as the <xref
+      linkend="libpq-connect-options"/> connection parameter.␟<envar>PGOPTIONS</envar>は<xref linkend="libpq-connect-options"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGAPPNAME</envar> behaves the same as the <xref
+      linkend="libpq-connect-application-name"/> connection parameter.␟<envar>PGAPPNAME</envar>は<xref linkend="libpq-connect-application-name"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLMODE</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslmode"/> connection parameter.␟<envar>PGSSLMODE</envar>は<xref linkend="libpq-connect-sslmode"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGREQUIRESSL</envar> behaves the same as the <xref
+      linkend="libpq-connect-requiressl"/> connection parameter.
+      This environment variable is deprecated in favor of the
+      <envar>PGSSLMODE</envar> variable; setting both variables suppresses the
+      effect of this one.␟<envar>PGREQUIRESSL</envar>は<xref linkend="libpq-connect-requiressl"/>接続パラメータと同様に動作します。
+この環境変数は<envar>PGSSLMODE</envar>変数があるため、廃止予定となっています。
+両方の変数を設定すると、<envar>PGREQUIRESSL</envar>の設定は無視されます。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLCOMPRESSION</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslcompression"/> connection parameter.␟<envar>PGSSLCOMPRESSION</envar>は<xref linkend="libpq-connect-sslcompression"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLCERT</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslcert"/> connection parameter.␟<envar>PGSSLCERT</envar>は<xref linkend="libpq-connect-sslcert"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLKEY</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslkey"/> connection parameter.␟<envar>PGSSLKEY</envar>は<xref linkend="libpq-connect-sslkey"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLCERTMODE</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslcertmode"/> connection parameter.␟<envar>PGSSLCERTMODE</envar>は<xref linkend="libpq-connect-sslcertmode"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLROOTCERT</envar>  behaves the same as the <xref
+      linkend="libpq-connect-sslrootcert"/> connection parameter.␟<envar>PGSSLROOTCERT</envar>は<xref linkend="libpq-connect-sslrootcert"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLCRL</envar>  behaves the same as the <xref
+      linkend="libpq-connect-sslcrl"/> connection parameter.␟<envar>PGSSLCRL</envar>は<xref linkend="libpq-connect-sslcrl"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLCRLDIR</envar> behaves the same as the <xref
+      linkend="libpq-connect-sslcrldir"/> connection parameter.␟<envar>PGSSLCRLDIR</envar>は、<xref linkend="libpq-connect-sslcrldir"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLSNI</envar>  behaves the same as the <xref
+      linkend="libpq-connect-sslsni"/> connection parameter.␟<envar>PGSSLSNI</envar>は<xref linkend="libpq-connect-sslsni"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGREQUIREPEER</envar> behaves the same as the <xref
+      linkend="libpq-connect-requirepeer"/> connection parameter.␟<envar>PGREQUIREPEER</envar>は<xref linkend="libpq-connect-requirepeer"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLMINPROTOCOLVERSION</envar> behaves the same as the <xref
+      linkend="libpq-connect-ssl-min-protocol-version"/> connection parameter.␟ <envar>PGSSLMINPROTOCOLVERSION</envar>は<xref linkend="libpq-connect-ssl-min-protocol-version"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGSSLMAXPROTOCOLVERSION</envar> behaves the same as the <xref
+      linkend="libpq-connect-ssl-max-protocol-version"/> connection parameter.␟<envar>PGSSLMAXPROTOCOLVERSION</envar>は<xref linkend="libpq-connect-ssl-max-protocol-version"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGGSSENCMODE</envar> behaves the same as the <xref
+      linkend="libpq-connect-gssencmode"/> connection parameter.␟<envar>PGGSSENCMODE</envar>は<xref linkend="libpq-connect-gssencmode"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGKRBSRVNAME</envar>  behaves the same as the <xref
+      linkend="libpq-connect-krbsrvname"/> connection parameter.␟<envar>PGKRBSRVNAME</envar>は<xref linkend="libpq-connect-krbsrvname"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGGSSLIB</envar> behaves the same as the <xref
+      linkend="libpq-connect-gsslib"/> connection parameter.␟<envar>PGGSSLIB</envar>は<xref linkend="libpq-connect-gsslib"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGGSSDELEGATION</envar> behaves the same as the <xref
+      linkend="libpq-connect-gssdelegation"/> connection parameter.␟<envar>PGGSSDELEGATION</envar>は<xref linkend="libpq-connect-gssdelegation"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGCONNECT_TIMEOUT</envar>  behaves the same as the <xref
+      linkend="libpq-connect-connect-timeout"/> connection parameter.␟<envar>PGCONNECT_TIMEOUT</envar>は<xref linkend="libpq-connect-connect-timeout"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGCLIENTENCODING</envar> behaves the same as the <xref
+      linkend="libpq-connect-client-encoding"/> connection parameter.␟<envar>PGCLIENTENCODING</envar>は<xref linkend="libpq-connect-client-encoding"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGTARGETSESSIONATTRS</envar> behaves the same as the <xref
+      linkend="libpq-connect-target-session-attrs"/> connection parameter.␟<envar>PGTARGETSESSIONATTRS</envar>は<xref linkend="libpq-connect-target-session-attrs"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGLOADBALANCEHOSTS</envar> behaves the same as the <xref
+      linkend="libpq-connect-load-balance-hosts"/> connection parameter.␟<envar>PGLOADBALANCEHOSTS</envar>は<xref linkend="libpq-connect-load-balance-hosts"/>接続パラメータと同様に動作します。␞␞     </para>␞
+␝  <para>␟   The following environment variables can be used to specify default
+   behavior for each <productname>PostgreSQL</productname> session.  (See
+   also the <xref linkend="sql-alterrole"/>
+   and <xref linkend="sql-alterdatabase"/>
+   commands for ways to set default behavior on a per-user or per-database
+   basis.)␟以下の環境変数を使用して、<productname>PostgreSQL</productname>セッション毎のデフォルト動作を指定することができます。
+(また、ユーザ毎、もしくは、データベース毎を単位としたデフォルト動作の設定方法については<xref linkend="sql-alterrole"/>および<xref linkend="sql-alterdatabase"/>コマンドを参照してください。)␞␞␞
+␝      </indexterm>␟      <envar>PGDATESTYLE</envar> sets the default style of date/time
+      representation.  (Equivalent to <literal>SET datestyle TO
+      ...</literal>.)␟<envar>PGDATESTYLE</envar>はデフォルトの日付/時刻表現形式を設定します。
+(<literal>SET datestyle TO ...</literal>と等価です。)␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGTZ</envar> sets the default time zone.  (Equivalent to
+      <literal>SET timezone TO ...</literal>.)␟<envar>PGTZ</envar>はデフォルトの時間帯を設定します。
+(<literal>SET timezone TO ...</literal>と等価です。)␞␞     </para>␞
+␝      </indexterm>␟      <envar>PGGEQO</envar> sets the default mode for the genetic query
+      optimizer.  (Equivalent to <literal>SET geqo TO ...</literal>.)␟<envar>PGGEQO</envar>は遺伝的問い合わせオプティマイザのデフォルトのモードを設定します。
+(<literal>SET geqo TO ...</literal>と等価です。)␞␞     </para>␞
+␝␟   Refer to the <acronym>SQL</acronym> command <xref linkend="sql-set"/>
+   for information on correct values for these
+   environment variables.␟これらの環境変数の正確な値については、<xref linkend="sql-set"/> <acronym>SQL</acronym>コマンドを参照してください。␞␞  </para>␞
+␝  <para>␟   The following environment variables determine internal behavior of
+   <application>libpq</application>; they override compiled-in defaults.␟以下の環境変数は、<application>libpq</application>の内部動作を決定します。
+これらはコンパイル時のデフォルトを上書きします。␞␞␞
+␝      </indexterm>␟      <envar>PGSYSCONFDIR</envar> sets the directory containing the
+      <filename>pg_service.conf</filename> file and in a future version
+      possibly other system-wide configuration files.␟<envar>PGSYSCONFDIR</envar>は<filename>pg_service.conf</filename>ファイルがあるディレクトリを設定します。
+また今後のバージョンでは他のシステム全体の設定ファイルとなるかもしれません。␞␞     </para>␞
+␝   </itemizedlist>
+  </para>
+
+ </sect1>
+
+␟␟<!-- split-libpq2-end -->
+<!-- split-libpq3-start -->␞␞␞
+␝      </indexterm>␟      <envar>PGLOCALEDIR</envar> sets the directory containing the
+      <literal>locale</literal> files for message localization.␟<envar>PGLOCALEDIR</envar>はメッセージローカライゼーション用の<literal>locale</literal>ファイルがあるディレクトリを設定します。␞␞     </para>␞
+␝  <indexterm zone="libpq-pgpass">
+   <primary>password file</primary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-pgpass">
+   <primary>パスワードファイル</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-pgpass">␟  <title>The Password File</title>␟  <title>パスワードファイル</title>␞␞␞
+␝  <para>␟   The file <filename>.pgpass</filename> in a user's home directory can
+   contain passwords to
+   be used if the connection requires a password (and no password has been
+   specified otherwise). On Microsoft Windows the file is named
+   <filename>%APPDATA%\postgresql\pgpass.conf</filename> (where
+   <filename>%APPDATA%</filename> refers to the Application Data subdirectory in
+   the user's profile).
+   Alternatively, the password file to use can be specified
+   using the connection parameter <xref linkend="libpq-connect-passfile"/>
+   or the environment variable <envar>PGPASSFILE</envar>.␟ユーザのホームディレクトリの<filename>.pgpass</filename>は、接続にパスワードが必要な場合(かつ、他に指定されたパスワードが無かった場合)に使用するパスワードを格納するファイルです。
+Microsoft Windowsでは、このファイルの名前は<filename>%APPDATA%\postgresql\pgpass.conf</filename>(ここで<filename>%APPDATA%</filename>はユーザのプロファイル内のアプリケーションデータディレクトリ)です。
+他に、接続パラメータ<xref linkend="libpq-connect-passfile"/>を利用するか、環境変数<envar>PGPASSFILE</envar>で、パスワードファイルを指定できます。␞␞  </para>␞
+␝  <para>␟   This file should contain lines of the following format:␟このファイル内の行の書式は次の通りです。␞␞<synopsis>␞
+␝</synopsis>␟   (You can add a reminder comment to the file by copying the line above and
+   preceding it with <literal>#</literal>.)
+   Each of the first four fields can be a literal value, or
+   <literal>*</literal>, which matches anything.  The password field from
+   the first line that matches the current connection parameters will be
+   used.  (Therefore, put more-specific entries first when you are using
+   wildcards.) If an entry needs to contain <literal>:</literal> or
+   <literal>\</literal>, escape this character with <literal>\</literal>.
+   The host name field is matched to the <literal>host</literal> connection
+   parameter if that is specified, otherwise to
+   the <literal>hostaddr</literal> parameter if that is specified; if neither
+   are given then the host name <literal>localhost</literal> is searched for.
+   The host name <literal>localhost</literal> is also searched for when
+   the connection is a Unix-domain socket connection and
+   the <literal>host</literal> parameter
+   matches <application>libpq</application>'s default socket directory path.
+   In a standby server, a database field of <literal>replication</literal>
+   matches streaming replication connections made to the primary server.
+   The database field is of limited usefulness otherwise, because users have
+   the same password for all databases in the same cluster.␟（このファイルでは、上のような行をコピーし、その先頭に<literal>#</literal>をつけて忘れないようにコメントとして残すことができます。）
+先頭の4フィールドはそれぞれリテラル値にすることも、あるいはすべてに一致する<literal>*</literal>を使用することもできます。
+最初に現在の接続パラメータと一致した行のパスワードフィールドが使用されます。
+(従って、ワイルドカードを使用する場合は、始めの方により具体的な項目を入力してください。)
+項目内に<literal>:</literal>または<literal>\</literal>を含める必要があれば、<literal>\</literal>でこれらの文字をエスケープする必要があります。
+ホスト名フィールドは、<literal>host</literal>接続パラメータか、もし指定されていれば、<literal>hostaddr</literal>パラメータと一致します。
+どちらも指定されていなければ、ホスト名<literal>localhost</literal>が検索されます。
+接続がUnixドメインソケット接続で、<literal>host</literal>パラメータが<application>libpq</application>のデフォルトソケットディレクトリパスに一致した場合も、ホスト名<literal>localhost</literal>が検索されます。
+スタンバイサーバでは、<literal>replication</literal>という名称のデータベースは、プライマリサーバとの間でなされるストリーミングレプリケーション用の接続に一致します。
+同一のクラスタ内のすべてのデータベースに対するパスワードは同じものですので、データベースフィールドの有用性は限定的なものです。␞␞  </para>␞
+␝  <para>␟   On Unix systems, the permissions on a password file must
+   disallow any access to world or group; achieve this by a command such as
+   <command>chmod 0600 ~/.pgpass</command>.  If the permissions are less
+   strict than this, the file will be ignored.  On Microsoft Windows, it
+   is assumed that the file is stored in a directory that is secure, so
+   no special permissions check is made.␟Unixシステムにおいて、パスワードファイルの権限はグループ、他者へのアクセスをすべて拒否しなければなりません。
+これは<command>chmod 0600 ~/.pgpass</command>といったコマンドによって行います。
+権限をこれよりも緩くすると、このファイルは無視されます。
+Microsoft Windowsにおいては、このファイルが安全なディレクトリに格納されていることを前提としていますので、特別に行われる権限の検査はありません。␞␞  </para>␞
+␝  <indexterm zone="libpq-pgservice">
+   <primary>connection service file</primary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-pgservice">
+   <primary>接続サービスファイル</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-pgservice">␟  <title>The Connection Service File</title>␟  <title>接続サービスファイル</title>␞␞␞
+␝  <para>␟   The connection service file allows libpq connection parameters to be
+   associated with a single service name. That service name can then be
+   specified in a libpq connection string, and the associated settings will be
+   used. This allows connection parameters to be modified without requiring
+   a recompile of the libpq-using application. The service name can also be
+   specified using the <envar>PGSERVICE</envar> environment variable.␟接続サービスファイルにより、libpq接続パラメータをひとつのサービス名に関連付けることができます。
+サービス名は、libpq接続文字列によって指定され、関連付けられた設定が利用されます。
+これは、接続パラメータをlibpqを使用するアプリケーションの再コンパイルをせずに修正できるというものです。
+サービス名は<envar>PGSERVICE</envar>環境変数を利用することで使用できます。␞␞  </para>␞
+␝  <para>␟   Service names can be defined in either a per-user service file or a
+   system-wide file.  If the same service name exists in both the user
+   and the system file, the user file takes precedence.
+   By default, the per-user service file is named
+   <filename>~/.pg_service.conf</filename>.
+   On Microsoft Windows, it is named
+   <filename>%APPDATA%\postgresql\.pg_service.conf</filename> (where
+   <filename>%APPDATA%</filename> refers to the Application Data subdirectory
+   in the user's profile).  A different file name can be specified by
+   setting the environment variable <envar>PGSERVICEFILE</envar>.
+   The system-wide file is named <filename>pg_service.conf</filename>.
+   By default it is sought in the <filename>etc</filename> directory
+   of the <productname>PostgreSQL</productname> installation
+   (use <literal>pg_config --sysconfdir</literal> to identify this
+   directory precisely).  Another directory, but not a different file
+   name, can be specified by setting the environment variable
+   <envar>PGSYSCONFDIR</envar>.␟サービス名は、ユーザ単位のサービスファイルまたはシステム全体のファイルのいずれかで定義できます。
+ユーザとシステムファイルの両方に同じサービス名が存在する場合は、ユーザファイルが優先されます。
+デフォルトでは、ユーザ単位のサービスファイルは<filename>~/.pg_service.conf</filename>にあります。
+Microsoft Windowsでは、<filename>%APPDATA%\postgresql\.pg_service.conf</filename>という名前です（<filename>%APPDATA%</filename>は、ユーザプロファイル内のApplication Dataサブディレクトリです）。
+これは環境変数<envar>PGSERVICEFILE</envar>を設定することで上書きできます。
+システム全体のファイルは<filename>pg_service.conf</filename>という名前です。
+デフォルトでは、<productname>PostgreSQL</productname>インストールの<filename>etc</filename>ディレクトリに検索されます（このディレクトリを正確に識別するには<literal>pg_config--sysconfdir</literal>を使用します）。
+環境変数<envar>PGSYSCONFDIR</envar>を設定することで、別のディレクトリを指定できますが、異なるファイル名は指定できません。␞␞  </para>␞
+␝  <para>␟   Either service file uses an <quote>INI file</quote> format where the section
+   name is the service name and the parameters are connection
+   parameters; see <xref linkend="libpq-paramkeywords"/> for a list.  For
+   example:␟どちらのサービスファイルも<quote>INIファイル</quote>書式を使用します。
+セクション名がサービス名となり、パラメータが接続パラメータです。
+<xref linkend="libpq-paramkeywords"/>のリストを参照してください。
+以下に例を示します。␞␞<programlisting>␞
+␝</programlisting>␟   An example file is provided in
+   the <productname>PostgreSQL</productname> installation at
+   <filename>share/pg_service.conf.sample</filename>.␟例となるファイルが<productname>PostgreSQL</productname>インストールの<filename>share/pg_service.conf.sample</filename>にあります。␞␞  </para>␞
+␝  <para>␟   Connection parameters obtained from a service file are combined with
+   parameters obtained from other sources.  A service file setting
+   overrides the corresponding environment variable, and in turn can be
+   overridden by a value given directly in the connection string.
+   For example, using the above service file, a connection string
+   <literal>service=mydb port=5434</literal> will use
+   host <literal>somehost</literal>, port <literal>5434</literal>,
+   user <literal>admin</literal>, and other parameters as set by
+   environment variables or built-in defaults.␟サービスファイルから取得された接続パラメータは、他のソースから取得されたパラメータと組み合わされます。
+サービスファイルの設定は、対応する環境変数を上書きし、接続文字列で直接指定された値によって上書きすることができます。
+たとえば、上記のサービスファイルを使用すると、接続文字列<literal>service=mydb port=5434</literal>は、host<literal>somehost</literal>、port<literal>5434</literal>、user<literal>admin</literal>、および環境変数または組み込みデフォルトで設定されたその他のパラメータを使用します。␞␞  </para>␞
+␝  <indexterm zone="libpq-ldap">
+   <primary>LDAP connection parameter lookup</primary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-ldap">
+   <primary>LDAPによる接続パラメータ検索</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-ldap">␟  <title>LDAP Lookup of Connection Parameters</title>␟  <title>接続パラメータのLDAP検索</title>␞␞␞
+␝  <para>␟   If <application>libpq</application> has been compiled with LDAP support (option
+   <literal><option>--with-ldap</option></literal> for <command>configure</command>)
+   it is possible to retrieve connection options like <literal>host</literal>
+   or <literal>dbname</literal> via LDAP from a central server.
+   The advantage is that if the connection parameters for a database change,
+   the connection information doesn't have to be updated on all client machines.␟<application>libpq</application>がLDAPサポート（<command>configure</command>時の<literal><option>--with-ldap</option></literal>オプション）付きでコンパイルされている場合、中央サーバからLDAPを通して<literal>host</literal>や<literal>dbname</literal>などの接続オプションを取り出すことができます。
+この利点は、データベースの接続パラメータが変わった場合に、すべてのクライアントマシンで接続情報を更新しなくても済む点です。␞␞  </para>␞
+␝  <para>␟   LDAP connection parameter lookup uses the connection service file
+   <filename>pg_service.conf</filename> (see <xref
+   linkend="libpq-pgservice"/>).  A line in a
+   <filename>pg_service.conf</filename> stanza that starts with
+   <literal>ldap://</literal> will be recognized as an LDAP URL and an
+   LDAP query will be performed. The result must be a list of
+   <literal>keyword = value</literal> pairs which will be used to set
+   connection options.  The URL must conform to
+   <ulink url="https://datatracker.ietf.org/doc/html/rfc1959">RFC 1959</ulink>
+   and be of the form␟LDAP接続パラメータ検索は、<filename>pg_service.conf</filename>という接続サービスファイル（<xref linkend="libpq-pgservice"/>を参照）を使用します。
+<filename>pg_service.conf</filename>内の<literal>ldap://</literal>から始まる行は、LDAP URLとして認識され、LDAP問い合わせが実行されることを示します。
+その結果は、<literal>keyword = value</literal>という組み合わせのリストでなければなりません。
+これらが接続用オプションの設定に使用されます。
+このURLは<ulink url="https://datatracker.ietf.org/doc/html/rfc1959">RFC 1959</ulink>に従ったもので、以下のような形式でなければなりません。␞␞<synopsis>␞
+␝</synopsis>␟   where <replaceable>hostname</replaceable> defaults to
+   <literal>localhost</literal> and <replaceable>port</replaceable>
+   defaults to 389.␟ここで、<replaceable>hostname</replaceable>のデフォルトは<literal>localhost</literal>、<replaceable>port</replaceable>のデフォルトは389です。␞␞  </para>␞
+␝  <para>␟   Processing of <filename>pg_service.conf</filename> is terminated after
+   a successful LDAP lookup, but is continued if the LDAP server cannot
+   be contacted.  This is to provide a fallback with further LDAP URL
+   lines that point to different LDAP servers, classical <literal>keyword
+   = value</literal> pairs, or default connection options.  If you would
+   rather get an error message in this case, add a syntactically incorrect
+   line after the LDAP URL.␟<filename>pg_service.conf</filename>の処理はLDAP検索が成功した時に終わります。
+しかし、もしLDAPサーバへのアクセスができなかった場合は継続します。
+これはアクセスに失敗した時に、異なるLDAPサーバを指し示す他のLDAP行や以前からの<literal>keyword = value</literal>の組み合わせ、デフォルトの接続オプションを参照する予備機能を提供します。
+この場合にエラーメッセージを受け取りたい場合は、LDAP URL行の後に文法的に不正な行を記載してください。␞␞  </para>␞
+␝  <para>␟   A sample LDAP entry that has been created with the LDIF file␟LDIFファイルとして作成されたLDAP項目の例を以下に示します。␞␞<programlisting>␞
+␝</programlisting>␟   might be queried with the following LDAP URL:␟これは、以下のようなLDAP URLから得られます。␞␞<programlisting>␞
+␝  <para>␟   You can also mix regular service file entries with LDAP lookups.
+   A complete example for a stanza in <filename>pg_service.conf</filename>
+   would be:␟また、LDAP検索と通常のサービスファイル項目とを混在させることもできます。
+<filename>pg_service.conf</filename>の一節について完全な例を以下に示します。␞␞<programlisting>␞
+␝ <sect1 id="libpq-ssl">␟  <title>SSL Support</title>␟  <title>SSLサポート</title>␞␞␞
+␝  <para>␟   <productname>PostgreSQL</productname> has native support for using <acronym>SSL</acronym>
+   connections to encrypt client/server communications using
+   <acronym>TLS</acronym> protocols for increased security.
+   See <xref linkend="ssl-tcp"/> for details about the server-side
+   <acronym>SSL</acronym> functionality.␟<productname>PostgreSQL</productname>は、<acronym>TLS</acronym>プロトコルを使用して、セキュリティを高めるためにクライアントサーバ間の通信を暗号化する<acronym>SSL</acronym>接続の使用を元来サポートしています。
+サーバ側の<acronym>SSL</acronym>機能についての詳細は<xref linkend="ssl-tcp"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   <application>libpq</application> reads the system-wide
+   <productname>OpenSSL</productname> configuration file. By default, this
+   file is named <filename>openssl.cnf</filename> and is located in the
+   directory reported by <literal>openssl version -d</literal>.  This default
+   can be overridden by setting environment variable
+   <envar>OPENSSL_CONF</envar> to the name of the desired configuration
+   file.␟<application>libpq</application>はシステム全体に対する<productname>OpenSSL</productname>設定ファイルを読み込みます。
+デフォルトでは、ファイル名は<filename>openssl.cnf</filename>で、<literal>openssl version -d</literal>で報告されるディレクトリに格納されています。
+このデフォルトは<envar>OPENSSL_CONF</envar>環境変数に希望する設定ファイル名を設定することで変更することができます。␞␞  </para>␞
+␝ <sect2 id="libq-ssl-certificates">␟  <title>Client Verification of Server Certificates</title>␟  <title>サーバ証明書のクライアント検証</title>␞␞␞
+␝  <para>␟   By default, <productname>PostgreSQL</productname> will not perform any verification of
+   the server certificate. This means that it is possible to spoof the server
+   identity (for example by modifying a DNS record or by taking over the server
+   IP address) without the client knowing. In order to prevent spoofing,
+   the client must be able to verify the server's identity via a chain of
+   trust.  A chain of trust is established by placing a root (self-signed)
+   certificate authority (<acronym>CA</acronym>) certificate on one
+   computer and a leaf certificate <emphasis>signed</emphasis> by the
+   root certificate on another computer.  It is also possible to use an
+   <quote>intermediate</quote> certificate which is signed by the root
+   certificate and signs leaf certificates.␟デフォルトでは<productname>PostgreSQL</productname>はサーバ証明書の検証をまったく行いません。
+これは、（例えば、DNSレコードを変更したり、もしくはサーバのIPアドレスを乗っ取ったりして）クライアントに知られずにサーバの身元をなりすませることを意味します。
+なりすましを防止するには、クライアントは、トラストチェーン(chain of trust)を通じて、サーバの身元を検証できなければなりません。
+トラストチェーンは、ルート（自己署名）認証局（<acronym>CA</acronym>）証明書をあるコンピュータに設置し、そのルート証明書によって<emphasis>署名された</emphasis>リーフ証明書を他のコンピュータに設置することによって確立されます。
+また、ルート証明書によって署名された<quote>中間</quote>証明書を使って、リーフ証明書に署名することによっても可能です。␞␞  </para>␞
+␝  <para>␟   To allow the client to verify the identity of the server, place a root
+   certificate on the client and a leaf certificate signed by the root
+   certificate on the server.  To allow the server to verify the identity
+   of the client, place a root certificate on the server and a leaf
+   certificate signed by the root certificate on the client.  One or more
+   intermediate certificates (usually stored with the leaf certificate)
+   can also be used to link the leaf certificate to the root certificate.␟クライアントがサーバの身元を検証するためには、ルート証明書をクライアントに設置し、そのルート証明書によって署名されたリーフ証明書をサーバに設置します。
+サーバがクライアントの身元を検証するためには、ルート証明書をサーバに設置し、そのルート証明書によって署名されたリーフ証明書をクライアントに設置します。
+一つ以上の中間証明書（通常リーフ証明書とともに格納されます）を使って、リーフ証明書をルート証明書につなげることもできます。␞␞  </para>␞
+␝  <para>␟   Once a chain of trust has been established, there are two ways for
+   the client to validate the leaf certificate sent by the server.
+   If the parameter <literal>sslmode</literal> is set to <literal>verify-ca</literal>,
+   libpq will verify that the server is trustworthy by checking the
+   certificate chain up to the root certificate stored on the client.
+   If <literal>sslmode</literal> is set to <literal>verify-full</literal>,
+   libpq will <emphasis>also</emphasis> verify that the server host
+   name matches the name stored in the server certificate. The
+   SSL connection will fail if the server certificate cannot be
+   verified. <literal>verify-full</literal> is recommended in most
+   security-sensitive environments.␟トラストチェーンがひとたび確立されれば、クライアントがサーバから送信されたリーフ証明書を検証する二つの方法があります。
+パラメータ<literal>sslmode</literal>が<literal>verify-ca</literal>に設定されている場合、libpqはクライアントに格納されたルート証明書までの証明書連鎖を検査することで、サーバが信用に足るかを検証します。
+<literal>sslmode</literal>が<literal>verify-full</literal>に設定されていると、libpqは<emphasis>同時に</emphasis>サーバホスト名が証明書のそれと一致するかを検証します。
+SSL接続はサーバ証明書が検証されない場合失敗します。
+安全性に慎重を期するほとんどのサーバ環境では<literal>verify-full</literal>を推奨します。␞␞  </para>␞
+␝  <para>␟   In <literal>verify-full</literal> mode, the host name is matched against the
+   certificate's Subject Alternative Name attribute(s) (SAN), or against the
+   Common Name attribute if no SAN of type <literal>dNSName</literal> is
+   present.  If the certificate's name attribute starts with an asterisk
+   (<literal>*</literal>), the asterisk will be treated as
+   a wildcard, which will match all characters <emphasis>except</emphasis> a dot
+   (<literal>.</literal>). This means the certificate will not match subdomains.
+   If the connection is made using an IP address instead of a host name, the
+   IP address will be matched (without doing any DNS lookups) against SANs of
+   type <literal>iPAddress</literal> or <literal>dNSName</literal>.  If no
+   <literal>iPAddress</literal> SAN is present and no
+   matching <literal>dNSName</literal> SAN is present, the host IP address is
+   matched against the Common Name attribute.␟<literal>verify-full</literal>モードでは、ホスト名を証明書のサブジェクト別名(Subject Alternative Name(SAN))属性と、あるいは<literal>dNSName</literal>タイプのサブジェクト別名がないときはコモンネーム属性とマッチさせます。
+証明書の名前属性がアスタリスク（<literal>*</literal>）で始まると、それはワイルドカードとして取り扱われ、ドット（<literal>.</literal>）を<emphasis>除く</emphasis>すべての文字とマッチします。
+これは、証明書がサブドメインとマッチしないことを意味します。
+もし接続がホスト名ではなくIPアドレスを使用するのであれば、タイプ<literal>iPAddress</literal>または<literal>dNSName</literal>のSANに対してIPアドレスが照合されます(DNS検索は実行されません)。<literal>iPAddress</literal>SANが存在せず、マッチング<literal>dNSName</literal>SANが存在しない場合、ホストIPアドレスはコモンネーム属性に対して照合されます。␞␞  </para>␞
+␝   <para>␟    For backward compatibility with earlier versions of PostgreSQL, the host
+    IP address is verified in a manner different
+    from <ulink url="https://datatracker.ietf.org/doc/html/rfc6125">RFC 6125</ulink>.
+    The host IP address is always matched against <literal>dNSName</literal>
+    SANs as well as <literal>iPAddress</literal> SANs, and can be matched
+    against the Common Name attribute if no relevant SANs exist.␟PostgreSQLの以前のバージョンとの後方互換性のために、ホストIPアドレスは<ulink url="https://datatracker.ietf.org/doc/html/rfc6125">RFC 6125</ulink>とは異なる方法で検証されます。
+ホストIPアドレスは<literal>DNsName</literal>SANおよび<literal>IpAddress</literal>SANに対して常に照合され、関連するSANが存在しない場合はCommon Name属性に対して照合できます。␞␞   </para>␞
+␝  <para>␟   To allow server certificate verification, one or more root certificates
+   must be placed in the file <filename>~/.postgresql/root.crt</filename>
+   in the user's home directory.  (On Microsoft Windows the file is named
+   <filename>%APPDATA%\postgresql\root.crt</filename>.)  Intermediate
+   certificates should also be added to the file if they are needed to link
+   the certificate chain sent by the server to the root certificates
+   stored on the client.␟サーバ証明書の検証を可能にするには、1つ以上のルート証明書を、ユーザのホームディレクトリの<filename>~/.postgresql/root.crt</filename>ファイルに置かなければなりません。
+（Microsoft Windowsの場合、このファイルの名前は<filename>%APPDATA%\postgresql\root.crt</filename>です。）
+サーバより送信された証明書連鎖から、クライアントに格納されたルート証明書にリンクするために（中間証明書が）必要なら、中間証明書もそのファイルに追加する必要があります。␞␞  </para>␞
+␝  <para>␟   Certificate Revocation List (CRL) entries are also checked
+   if the file <filename>~/.postgresql/root.crl</filename> exists
+   (<filename>%APPDATA%\postgresql\root.crl</filename> on Microsoft
+   Windows).␟<filename>~/.postgresql/root.crl</filename>ファイル（Microsoft Windowsでは<filename>%APPDATA%\postgresql\root.crl</filename>）が存在する場合、証明書失効リスト（CRL）の項目もまた検査されます。␞␞  </para>␞
+␝  <para>␟   The location of the root certificate file and the CRL can be changed by
+   setting
+   the connection parameters <literal>sslrootcert</literal> and <literal>sslcrl</literal>
+   or the environment variables <envar>PGSSLROOTCERT</envar> and <envar>PGSSLCRL</envar>.
+   <literal>sslcrldir</literal> or the environment variable <envar>PGSSLCRLDIR</envar>
+   can also be used to specify a directory containing CRL files.␟ルート証明書ファイルとCRLの格納場所を接続パラメータ<literal>sslrootcert</literal>と<literal>sslcrl</literal>、もしくは環境変数<envar>PGSSLROOTCERT</envar>と<envar>PGSSLCRL</envar>で変更することができます。
+<literal>sslcrldir</literal>または環境変数<envar>PGSSLCRLDIR</envar>を使用して、CRLファイルを含むディレクトリを指定することもできます。␞␞  </para>␞
+␝   <para>␟    For backwards compatibility with earlier versions of PostgreSQL, if a
+    root CA file exists, the behavior of
+    <literal>sslmode</literal>=<literal>require</literal> will be the same
+    as that of <literal>verify-ca</literal>, meaning the server certificate
+    is validated against the CA. Relying on this behavior is discouraged,
+    and applications that need certificate validation should always use
+    <literal>verify-ca</literal> or <literal>verify-full</literal>.␟より古いバージョンのPostgreSQLとの後方互換性のために、ルートCAファイルが存在する場合、<literal>sslmode</literal>=<literal>require</literal>の動作は<literal>verify-ca</literal>の場合と同じになっています。
+つまり、サーバ証明書がCAに対して検証されます。
+この動作に依存することは勧めません。
+また証明書の検証を必要とするアプリケーションは常に<literal>verify-ca</literal>または<literal>verify-full</literal>を使用すべきです。␞␞   </para>␞
+␝ <sect2 id="libpq-ssl-clientcert">␟  <title>Client Certificates</title>␟  <title>クライアント証明書</title>␞␞␞
+␝  <para>␟   If the server attempts to verify the identity of the
+   client by requesting the client's leaf certificate,
+   <application>libpq</application> will send the certificate(s) stored in
+   file <filename>~/.postgresql/postgresql.crt</filename> in the user's home
+   directory.  The certificates must chain to the root certificate trusted
+   by the server.  A matching
+   private key file <filename>~/.postgresql/postgresql.key</filename> must also
+   be present.
+   On Microsoft Windows these files are named
+   <filename>%APPDATA%\postgresql\postgresql.crt</filename> and
+   <filename>%APPDATA%\postgresql\postgresql.key</filename>.
+   The location of the certificate and key files can be overridden by the
+   connection parameters <literal>sslcert</literal>
+   and <literal>sslkey</literal>, or by the
+   environment variables <envar>PGSSLCERT</envar> and <envar>PGSSLKEY</envar>.␟サーバが、クライアントのリーフ証明書を要求することによってクライアントの身元を検証しようとする場合、<application>libpq</application>はユーザのホームディレクトリにある<filename>~/.postgresql/postgresql.crt</filename>ファイルに格納された証明書を送信します。
+証明書は、サーバが信頼するルート証明書につながらなければなりません。
+対応する<filename>~/.postgresql/postgresql.key</filename>秘密キーファイルも存在しなければなりません。
+秘密キーファイルは他者やグループからのアクセスを許可してはいけません。
+Microsoft Windowsでは、このファイルの名前はそれぞれ<filename>%APPDATA%\postgresql\postgresql.crt</filename>と<filename>%APPDATA%\postgresql\postgresql.key</filename>です。
+証明書とキーファイルの格納場所は<literal>sslcert</literal>および<literal>sslkey</literal>接続パラメータ、または<envar>PGSSLCERT</envar>および<envar>PGSSLKEY</envar>環境変数で上書きされます。␞␞  </para>␞
+␝  <para>␟   On Unix systems, the permissions on the private key file must disallow
+   any access to world or group; achieve this by a command such as
+   <command>chmod 0600 ~/.postgresql/postgresql.key</command>.
+   Alternatively, the file can be owned by root and have group read access
+   (that is, <literal>0640</literal> permissions).  That setup is intended
+   for installations where certificate and key files are managed by the
+   operating system.  The user of <application>libpq</application> should
+   then be made a member of the group that has access to those certificate
+   and key files.  (On Microsoft Windows, there is no file permissions
+   check, since the <filename>%APPDATA%\postgresql</filename> directory is
+   presumed secure.)␟Unixシステムにおいて、秘密鍵ファイル権限はグループ、他者へのアクセスをすべて拒否しなければなりません。
+これは<command>chmod 0600~/.postgresql/postgresql.key</command>といったコマンドによって行います。
+あるいは、このファイルをrootが所有し、グループの読み取りアクセス権（つまり<literal>0640</literal>のアクセス権）を持つこともできます。
+このセットアップは、証明書と鍵ファイルがオペレーティングシステムによって管理されているインストールを対象としています。
+<application>libpq</application>のユーザは、これらの証明書と鍵ファイルへのアクセス権を持つグループのメンバになる必要があります。
+（Microsoft Windowsにおいては、<filename>%APPDATA%\postgresql</filename>ディレクトリが安全であると考えられるため、ファイルの権限の検査は行われません。）␞␞  </para>␞
+␝  <para>␟   The first certificate in <filename>postgresql.crt</filename> must be the
+   client's certificate because it must match the client's private key.
+   <quote>Intermediate</quote> certificates can be optionally appended
+   to the file &mdash; doing so avoids requiring storage of intermediate
+   certificates on the server (<xref linkend="guc-ssl-ca-file"/>).␟<filename>postgresql.crt</filename>中の最初の証明書は、クライアント証明書でなければなりません。
+クライアントの秘密鍵と一致していなければならないからです。
+オプションで、ファイルに<quote>中間</quote>証明書を追加することができます。
+そうすることによって、サーバ上に中間証明書（<xref linkend="guc-ssl-ca-file"/>）の格納が不要になります。␞␞  </para>␞
+␝  <para>␟   The certificate and key may be in PEM or ASN.1 DER format.␟証明書とキーはPEMまたはASN.1 DER形式です。␞␞  </para>␞
+␝  <para>␟   The key may be
+   stored in cleartext or encrypted with a passphrase using any algorithm
+   supported by <productname>OpenSSL</productname>, like AES-128. If the key
+   is stored encrypted, then the passphrase may be provided in the
+   <xref linkend="libpq-connect-sslpassword"/> connection option. If an
+   encrypted key is supplied and the <literal>sslpassword</literal> option
+   is absent or blank, a password will be prompted for interactively by
+   <productname>OpenSSL</productname> with a
+   <literal>Enter PEM pass phrase:</literal> prompt if a TTY is available.
+   Applications can override the client certificate prompt and the handling
+   of the <literal>sslpassword</literal> parameter by supplying their own
+   key password callback; see
+   <xref linkend="libpq-pqsetsslkeypasshook-openssl"/>.␟キーは平文テキストで、あるいは、<productname>OpenSSL</productname>で対応しているAES-128など任意のアルゴリズムを使ってパスフレーズで暗号化して、格納できます。
+キーが暗号化されて格納された場合、パスフレーズは<xref linkend="libpq-connect-sslpassword"/>接続オプションで供給してもよいです。
+暗号化されたキーが供給されて、かつ、<literal>sslpassword</literal>が無いか空欄の場合、TTYが利用可能であればパスワードは<productname>OpenSSL</productname>により<literal>Enter PEM pass phrase:</literal>プロンプトで対話的に入力が要求されます。
+アプリケーションはクライアント証明書のプロンプトと<literal>sslpassword</literal>パラメータの操作を、自身のキーパスワードコールバックを供給することで置き換えできます。
+<xref linkend="libpq-pqsetsslkeypasshook-openssl"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   For instructions on creating certificates, see <xref
+   linkend="ssl-certificate-creation"/>.␟証明書の作成手順については、<xref linkend="ssl-certificate-creation"/>をご覧ください。␞␞  </para>␞
+␝ <sect2 id="libpq-ssl-protection">␟  <title>Protection Provided in Different Modes</title>␟  <title>異なるモードで提供される保護</title>␞␞␞
+␝  <para>␟   The different values for the <literal>sslmode</literal> parameter provide different
+   levels of protection. SSL can provide
+   protection against three types of attacks:␟<literal>sslmode</literal>パラメータ値を変更することで、異なったレベルの保護を提供します。
+SSLは以下の３種類の攻撃に対する保護を提供することができます。␞␞␞
+␝    <varlistentry>␟     <term>Eavesdropping</term>␟     <term>盗聴</term>␞␞     <listitem>␞
+␝     <listitem>␟      <para>If a third party can examine the network traffic between the
+       client and the server, it can read both connection information (including
+       the user name and password) and the data that is passed. <acronym>SSL</acronym>
+       uses encryption to prevent this.␟<para>クライアント・サーバ間のネットワークトラフィックを第三者が監視することができれば、（ユーザ名とパスワードを含め）双方の接続情報と通過するデータを読み取ることができます。
+<acronym>SSL</acronym>はこれを防止するために暗号を使用します。␞␞      </para>␞
+␝    <varlistentry>␟     <term>Man-in-the-middle (<acronym>MITM</acronym>)</term>␟     <term>中間者攻撃（<acronym>MITM</acronym>）</term>␞␞     <listitem>␞
+␝     <listitem>␟      <para>If a third party can modify the data while passing between the
+       client and server, it can pretend to be the server and therefore see and
+       modify data <emphasis>even if it is encrypted</emphasis>. The third party can then
+       forward the connection information and data to the original server,
+       making it impossible to detect this attack. Common vectors to do this
+       include DNS poisoning and address hijacking, whereby the client is directed
+       to a different server than intended. There are also several other
+       attack methods that can accomplish this. <acronym>SSL</acronym> uses certificate
+       verification to prevent this, by authenticating the server to the client.␟<para>データがクライアント・サーバ間で渡されている時に、第三者がそのデータを変更できれば、サーバを装うことができ、従って<emphasis>たとえ暗号化されていても</emphasis>データを理解し変更することができます。
+第三者はそこで、この攻撃を検出不可能にする接続情報とデータを元のサーバに送ることができます。
+これを行う共通した媒介はDNSポイズニングとアドレス乗っ取りを含み、それに従ってクライアントは意図したサーバではなく異なったサーバに誘導されます。
+同時に、このことを成し遂げるいくつかの異なった攻撃も存在します。
+<acronym>SSL</acronym>はクライアントに対しサーバを認証することで、この防止に証明書検証を使用します。␞␞      </para>␞
+␝    <varlistentry>␟     <term>Impersonation</term>␟     <term>なりすまし</term>␞␞     <listitem>␞
+␝     <listitem>␟      <para>If a third party can pretend to be an authorized client, it can
+       simply access data it should not have access to. Typically this can
+       happen through insecure password management. <acronym>SSL</acronym> uses
+       client certificates to prevent this, by making sure that only holders
+       of valid certificates can access the server.␟<para>第三者が認定されたクライアントを装うことができれば、それはアクセスしてはならないデータに簡単にアクセス可能になります。
+典型的にこれは心もとないパスワード管理から生じます。
+<acronym>SSL</acronym>は有効な証明書の所持者のみサーバにアクセスできることを確実にすることで、この防止策としてクライアント証明書を使用します。␞␞      </para>␞
+␝  <para>␟   For a connection to be known SSL-secured, SSL usage must be configured
+   on <emphasis>both the client and the server</emphasis> before the connection
+   is made. If it is only configured on the server, the client may end up
+   sending sensitive information (e.g., passwords) before
+   it knows that the server requires high security. In libpq, secure
+   connections can be ensured
+   by setting the <literal>sslmode</literal> parameter to <literal>verify-full</literal> or
+   <literal>verify-ca</literal>, and providing the system with a root certificate to
+   verify against. This is analogous to using an <literal>https</literal>
+   <acronym>URL</acronym> for encrypted web browsing.␟SSLで信頼できるとされる接続では、SSLの使用を接続確立前に<emphasis>クライアントとサーバの双方において</emphasis>設定されなければなりません。
+サーバのみに構成されると、クライアントはサーバが高度なセキュリティを必要とすることが判る以前に、（例えばパスワードのような）機密事項を扱う情報を結局送ることになります。
+libpqにおいて、<literal>sslmode</literal>パラメータを<literal>verify-full</literal>または<literal>verify-ca</literal>に設定し、そして対象を検証するためルート証明書をシステムに提供することで、安全な接続を確実に行うことができます。
+これは暗号化されたweb閲覧に対する<literal>https</literal> <acronym>URL</acronym>の使用とよく似ています。␞␞  </para>␞
+␝  <para>␟   Once the server has been authenticated, the client can pass sensitive data.
+   This means that up until this point, the client does not need to know if
+   certificates will be used for authentication, making it safe to specify that
+   only in the server configuration.␟一度サーバが認証されると、クライアントは機密事項を扱うデータを送ることができます。
+この意味は、これまでクライアントは認証に証明書が使われているかどうかを知る必要がなく、サーバ構成においてのみこのことを指定しても安全だと言うことです。␞␞  </para>␞
+␝  <para>␟   All <acronym>SSL</acronym> options carry overhead in the form of encryption and
+   key-exchange, so there is a trade-off that has to be made between performance
+   and security. <xref linkend="libpq-ssl-sslmode-statements"/>
+   illustrates the risks the different <literal>sslmode</literal> values
+   protect against, and what statement they make about security and overhead.␟すべての<acronym>SSL</acronym>オプションでは暗号化の形式と鍵交換といったオーバーヘッドがかかります。
+このため性能と安全性との間で決定されるべきトレードオフがあります。
+<xref linkend="libpq-ssl-sslmode-statements"/>は異なる<literal>sslmode</literal>値が防御する危険性と、安全性とオーバーヘッドに対する声明を示したものです。␞␞  </para>␞
+␝  <table id="libpq-ssl-sslmode-statements">␟   <title>SSL Mode Descriptions</title>␟   <title>SSLモードの説明</title>␞␞   <tgroup cols="4">␞
+␝      <entry><literal>sslmode</literal></entry>␟      <entry>Eavesdropping protection</entry>␟      <entry>盗聴防止</entry>␞␞␞
+␝      <entry>Eavesdropping protection</entry>␟      <entry><acronym>MITM</acronym> protection</entry>␟      <entry><acronym>MITM</acronym>防止</entry>␞␞␞
+␝      <entry><acronym>MITM</acronym> protection</entry>␟      <entry>Statement</entry>␟      <entry>声明</entry>␞␞     </row>␞
+␝      <entry><literal>disable</literal></entry>␟      <entry>No</entry>␟      <entry>いいえ</entry>␞␞␞
+␝      <entry>No</entry>␟      <entry>No</entry>␟      <entry>いいえ</entry>␞␞␞
+␝      <entry>No</entry>␟      <entry>I don't care about security, and I don't want to pay the overhead
+       of encryption.
+      </entry>␟      <entry>セキュリティはどうでもよく、暗号化のオーバーヘッドを払いたくない
+      </entry>␞␞     </row>␞
+␝      <entry><literal>allow</literal></entry>␟      <entry>Maybe</entry>␟      <entry>たぶん</entry>␞␞␞
+␝      <entry>Maybe</entry>␟      <entry>No</entry>␟      <entry>いいえ</entry>␞␞␞
+␝      <entry>No</entry>␟      <entry>I don't care about security, but I will pay the overhead of
+       encryption if the server insists on it.
+      </entry>␟      <entry>セキュリティはどうでもよいが、サーバがそれを強く要求するのであれば暗号化のオーバーヘッドを払ってもよい
+      </entry>␞␞     </row>␞
+␝      <entry><literal>prefer</literal></entry>␟      <entry>Maybe</entry>␟      <entry>たぶん</entry>␞␞␞
+␝      <entry>Maybe</entry>␟      <entry>No</entry>␟      <entry>いいえ</entry>␞␞␞
+␝      <entry>No</entry>␟      <entry>I don't care about encryption, but I wish to pay the overhead of
+       encryption if the server supports it.
+      </entry>␟      <entry>セキュリティはどうでもよいが、サーバがそれをサポートするのであれば暗号化のオーバーヘッドを払ってもよい
+      </entry>␞␞     </row>␞
+␝      <entry><literal>require</literal></entry>␟      <entry>Yes</entry>␟      <entry>はい</entry>␞␞␞
+␝      <entry>Yes</entry>␟      <entry>No</entry>␟      <entry>いいえ</entry>␞␞␞
+␝      <entry>No</entry>␟      <entry>I want my data to be encrypted, and I accept the overhead. I trust
+       that the network will make sure I always connect to the server I want.
+      </entry>␟      <entry>データを暗号化して欲しい。そしてオーバーヘッドも受け入れる。意図したサーバに常に接続することをネットワークが確実にしてくれると信用する
+      </entry>␞␞     </row>␞
+␝      <entry><literal>verify-ca</literal></entry>␟      <entry>Yes</entry>␟      <entry>はい</entry>␞␞␞
+␝      <entry>Yes</entry>␟      <entry>Depends on CA policy</entry>␟      <entry>CAの方針に依存</entry>␞␞␞
+␝      <entry>Depends on CA policy</entry>␟      <entry>I want my data encrypted, and I accept the overhead. I want to be
+       sure that I connect to a server that I trust.
+      </entry>␟      <entry>データを暗号化して欲しい。そしてオーバーヘッドも受け入れる。信頼するサーバに確実に接続したい
+      </entry>␞␞     </row>␞
+␝      <entry><literal>verify-full</literal></entry>␟       <entry>Yes</entry>␟       <entry>はい</entry>␞␞␞
+␝       <entry>Yes</entry>␟       <entry>Yes</entry>␟       <entry>はい</entry>␞␞␞
+␝       <entry>Yes</entry>␟       <entry>I want my data encrypted, and I accept the overhead. I want to be
+        sure that I connect to a server I trust, and that it's the one I
+        specify.
+       </entry>␟       <entry>データを暗号化して欲しい。そしてオーバーヘッドも受け入れる。信頼するサーバに接続すること、そのサーバが指定したものであることを確実にしたい
+       </entry>␞␞      </row>␞
+␝  <para>␟   The difference between <literal>verify-ca</literal> and <literal>verify-full</literal>
+   depends on the policy of the root <acronym>CA</acronym>. If a public
+   <acronym>CA</acronym> is used, <literal>verify-ca</literal> allows connections to a server
+   that <emphasis>somebody else</emphasis> may have registered with the <acronym>CA</acronym>.
+   In this case, <literal>verify-full</literal> should always be used. If
+   a local <acronym>CA</acronym> is used, or even a self-signed certificate, using
+   <literal>verify-ca</literal> often provides enough protection.␟<literal>verify-ca</literal>と<literal>verify-full</literal>の差異はルート<acronym>CA</acronym>の規定に依存します。
+公的な<acronym>CA</acronym>が使用されるとき、<literal>verify-ca</literal>はその<acronym>CA</acronym>で<emphasis>他の誰か</emphasis>が登録したかもしれないサーバへの接続を許可します。
+この場合、<literal>verify-full</literal>が常に使用されなければなりません。
+独自<acronym>CA</acronym>が使用されるとき、または自己署名証明書であったとしても<literal>verify-ca</literal>は十分な防御策を提供します。␞␞  </para>␞
+␝  <para>␟   The default value for <literal>sslmode</literal> is <literal>prefer</literal>. As is shown
+   in the table, this makes no sense from a security point of view, and it only
+   promises performance overhead if possible. It is only provided as the default
+   for backward compatibility, and is not recommended in secure deployments.␟<literal>sslmode</literal>のデフォルト値は<literal>prefer</literal>です。
+表で示したように、これはセキュリティの視点では意味がなく、可能であれば性能上のオーバーヘッドを保証するだけです。
+これは後方互換性を提供するためのみにデフォルトとなっているもので、安全性確保の観点からは推奨されません。␞␞  </para>␞
+␝ <sect2 id="libpq-ssl-fileusage">␟  <title>SSL Client File Usage</title>␟  <title>SSLクライアントファイル使用方法</title>␞␞␞
+␝  <para>␟   <xref linkend="libpq-ssl-file-usage"/> summarizes the files that are
+   relevant to the SSL setup on the client.␟<xref linkend="libpq-ssl-file-usage"/>にクライアントにおけるSSL設定に関連するファイルをまとめます。␞␞  </para>␞
+␝  <table id="libpq-ssl-file-usage">␟   <title>Libpq/Client SSL File Usage</title>␟   <title>libpq/クライアントにおけるSSLファイルの使用方法</title>␞␞   <tgroup cols="3">␞
+␝     <row>␟      <entry>File</entry>␟      <entry>ファイル</entry>␞␞␞
+␝      <entry>File</entry>␟      <entry>Contents</entry>␟      <entry>内容</entry>␞␞␞
+␝      <entry>Contents</entry>␟      <entry>Effect</entry>␟      <entry>効果</entry>␞␞     </row>␞
+␝      <entry><filename>~/.postgresql/postgresql.crt</filename></entry>␟      <entry>client certificate</entry>␟      <entry>クライアント証明書</entry>␞␞␞
+␝      <entry>client certificate</entry>␟      <entry>sent to server</entry>␟      <entry>サーバにより要求されます</entry>␞␞     </row>␞
+␝      <entry><filename>~/.postgresql/postgresql.key</filename></entry>␟      <entry>client private key</entry>␟      <entry>クライアントの秘密キー</entry>␞␞␞
+␝      <entry>client private key</entry>␟      <entry>proves client certificate sent by owner; does not indicate
+      certificate owner is trustworthy</entry>␟      <entry>所有者により送信されるクライアント証明書を証明します。証明書の所有者が信頼できることを意味していません。</entry>␞␞     </row>␞
+␝      <entry><filename>~/.postgresql/root.crt</filename></entry>␟      <entry>trusted certificate authorities</entry>␟      <entry>信頼できる認証局</entry>␞␞␞
+␝      <entry>trusted certificate authorities</entry>␟      <entry>checks that server certificate is signed by a trusted certificate
+      authority</entry>␟      <entry>サーバ証明書が信頼できる認証局により署名されたか検査します。</entry>␞␞     </row>␞
+␝      <entry><filename>~/.postgresql/root.crl</filename></entry>␟      <entry>certificates revoked by certificate authorities</entry>␟      <entry>認証局により失効された証明書</entry>␞␞␞
+␝      <entry>certificates revoked by certificate authorities</entry>␟      <entry>server certificate must not be on this list</entry>␟      <entry>サーバ証明書はこのリストにあってはいけません</entry>␞␞     </row>␞
+␝ <sect2 id="libpq-ssl-initialize">␟  <title>SSL Library Initialization</title>␟  <title>SSLライブラリの初期化</title>␞␞␞
+␝  <para>␟   If your application initializes <literal>libssl</literal> and/or
+   <literal>libcrypto</literal> libraries and <application>libpq</application>
+   is built with <acronym>SSL</acronym> support, you should call
+   <xref linkend="libpq-PQinitOpenSSL"/> to tell <application>libpq</application>
+   that the <literal>libssl</literal> and/or <literal>libcrypto</literal> libraries
+   have been initialized by your application, so that
+   <application>libpq</application> will not also initialize those libraries.
+   However, this is unnecessary when using <productname>OpenSSL</productname>
+   version 1.1.0 or later, as duplicate initializations are no longer problematic.␟使用するアプリケーションが<literal>libssl</literal>と<literal>libcrypto</literal>の両方またはいずれか一方のライブラリを初期化し、<application>libpq</application>が<acronym>SSL</acronym>サポート付きで構築された場合、<literal>libssl</literal>と<literal>libcrypto</literal>の両方またはいずれか一方のライブラリはアプリケーションによって初期化されたことを<application>libpq</application>に伝えるため<xref linkend="libpq-PQinitOpenSSL"/>を呼び出さなければなりません。
+これにより、<application>libpq</application>はこれらのライブラリを初期化しなくなります。
+ただし、<productname>OpenSSL</productname>バージョン1.1.0以降を使用している場合は、重複の初期化に問題がなくなるため、これは不要です。␞␞  </para>␞
+␝      <para>␟       Allows applications to select which security libraries to initialize.␟アプリケーションがどのセキュリティライブラリを初期化するか選択することができます。␞␞<synopsis>␞
+␝      <para>␟       When <parameter>do_ssl</parameter> is non-zero, <application>libpq</application>
+       will initialize the <productname>OpenSSL</productname> library before first
+       opening a database connection.  When <parameter>do_crypto</parameter> is
+       non-zero, the <literal>libcrypto</literal> library will be initialized.  By
+       default (if <xref linkend="libpq-PQinitOpenSSL"/> is not called), both libraries
+       are initialized.  When SSL support is not compiled in, this function is
+       present but does nothing.␟<parameter>do_ssl</parameter>が非ゼロの時、<application>libpq</application>は最初のデータベース接続を開始する以前に<productname>OpenSSL</productname>ライブラリを初期化します。
+<parameter>do_crypto</parameter>が非ゼロの時、<literal>libcrypto</literal>ライブラリが初期化されます。
+デフォルトでは（<xref linkend="libpq-PQinitOpenSSL"/>が呼ばれない場合）、両方のライブラリが初期化されます。
+SSLサポートがコンパイルされていない場合、この関数は存在しますが何もしません。␞␞      </para>␞
+␝      <para>␟       If your application uses and initializes either <productname>OpenSSL</productname>
+       or its underlying <literal>libcrypto</literal> library, you <emphasis>must</emphasis>
+       call this function with zeroes for the appropriate parameter(s)
+       before first opening a database connection.  Also be sure that you
+       have done that initialization before opening a database connection.␟使用するアプリケーションが<productname>OpenSSL</productname>またはその基礎をなす<literal>libcrypto</literal>ライブラリのいずれかを使用し、そして初期化するのであれば、最初のデータベース接続開始以前に、適切なパラメータをゼロにしてこの関数を呼び出さなければ<emphasis>なりません</emphasis>。
+同時に、データベース接続開始前に初期化を行ったことの確認をしてください。␞␞      </para>␞
+␝      <para>␟       Allows applications to select which security libraries to initialize.␟アプリケーションがどのセキュリティライブラリを初期化するか選択することができます。␞␞<synopsis>␞
+␝      <para>␟       This function is equivalent to
+       <literal>PQinitOpenSSL(do_ssl, do_ssl)</literal>.
+       It is sufficient for applications that initialize both or neither
+       of <productname>OpenSSL</productname> and <literal>libcrypto</literal>.␟この関数は<literal>PQinitOpenSSL(do_ssl, do_ssl)</literal>と等価です。
+<productname>OpenSSL</productname>および<literal>libcrypto</literal>の両方を初期化する、もしくは両方ともしないアプリケーションにとっては（この関数で）十分です。␞␞      </para>␞
+␝      <para>␟       <xref linkend="libpq-PQinitSSL"/> has been present since
+       <productname>PostgreSQL</productname> 8.0, while <xref linkend="libpq-PQinitOpenSSL"/>
+       was added in <productname>PostgreSQL</productname> 8.4, so <xref linkend="libpq-PQinitSSL"/>
+       might be preferable for applications that need to work with older
+       versions of <application>libpq</application>.␟<productname>PostgreSQL</productname> 8.0以降、<xref linkend="libpq-PQinitSSL"/>は含まれていますが、<xref linkend="libpq-PQinitOpenSSL"/>は<productname>PostgreSQL</productname> 8.4で追加されました。
+従って、旧バージョンの<application>libpq</application>で動かす必要があるアプリケーションでは<xref linkend="libpq-PQinitSSL"/>の方が好ましいかもしれません。␞␞      </para>␞
+␝  <indexterm zone="libpq-threading">
+   <primary>threads</primary>
+   <secondary>with libpq</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-threading">
+   <primary>スレッド</primary>
+   <secondary>libpqにおける</secondary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-threading">␟  <title>Behavior in Threaded Programs</title>␟  <title>スレッド化プログラムの振舞い</title>␞␞␞
+␝  <para>␟   As of version 17, <application>libpq</application> is always reentrant and thread-safe.
+   However, one restriction is that no two threads attempt to manipulate
+   the same <structname>PGconn</structname> object at the same time. In particular,
+   you cannot issue concurrent commands from different threads through
+   the same connection object. (If you need to run concurrent commands,
+   use multiple connections.)␟バージョン17では、<application>libpq</application>は常に再入可能でスレッドセーフです。
+ただし、1つの制限として、2つのスレッドが同じ<structname>PGconn</structname>オブジェクトを同時に操作することはできません。
+特に、異なるスレッドから同じ接続オブジェクトを介して同時にコマンドを実行することはできません。（並行してコマンドを実行する必要がある場合は、複数の接続を使用してください。）␞␞  </para>␞
+␝  <para>␟   <structname>PGresult</structname> objects are normally read-only after creation,
+   and so can be passed around freely between threads.  However, if you use
+   any of the <structname>PGresult</structname>-modifying functions described in
+   <xref linkend="libpq-misc"/> or <xref linkend="libpq-events"/>, it's up
+   to you to avoid concurrent operations on the same <structname>PGresult</structname>,
+   too.␟<structname>PGresult</structname>オブジェクトは生成後、読み込み専用であり、そのためスレッド間で自由に渡すことができます。
+しかし<xref linkend="libpq-misc"/>や<xref linkend="libpq-events"/>で説明する<structname>PGresult</structname>を変更する関数のいずれかを使用している場合、同一の<structname>PGresult</structname>に対する同時操作を防ぐことも、作成者の責任です。␞␞  </para>␞
+␝  <para>␟   In earlier versions, <application>libpq</application> could be compiled
+   with or without thread support, depending on compiler options. This
+   function allows the querying of <application>libpq</application>'s
+   thread-safe status:␟以前のバージョンでは、<application>libpq</application>はコンパイラオプションに応じてスレッドサポート付きでコンパイルすることも、スレッドサポートなしでコンパイルすることもできました。
+この関数は<application>libpq</application>のスレッドセーフステータスを照会することができます。␞␞  </para>␞
+␝     <para>␟      Returns the thread safety status of the
+      <application>libpq</application> library.␟<application>libpq</application>ライブラリのスレッドセーフ状態を返します。␞␞<synopsis>␞
+␝     <para>␟      Returns 1 if the <application>libpq</application> is thread-safe
+      and 0 if it is not. Always returns 1 on version 17 and above.␟<application>libpq</application>がスレッドセーフである場合は1を、そうでない場合は0を返します。
+バージョン17以降では常に1を返します。␞␞     </para>␞
+␝  <para>␟   The deprecated functions <xref linkend="libpq-PQrequestCancel"/> and
+   <xref linkend="libpq-PQoidStatus"/> are not thread-safe and should not be
+   used in multithread programs.  <xref linkend="libpq-PQrequestCancel"/>
+   can be replaced by <xref linkend="libpq-PQcancelBlocking"/>.
+   <xref linkend="libpq-PQoidStatus"/> can be replaced by
+   <xref linkend="libpq-PQoidValue"/>.␟非推奨の関数、<xref linkend="libpq-PQrequestCancel"/>や<xref linkend="libpq-PQoidStatus"/>はスレッドセーフではありませんので、マルチスレッドプログラムでは使用してはなりません。
+<xref linkend="libpq-PQrequestCancel"/>は<xref linkend="libpq-PQcancelBlocking"/>に置き換えられます。
+<xref linkend="libpq-PQoidStatus"/>は<xref linkend="libpq-PQoidValue"/>に置き換えられます。␞␞  </para>␞
+␝  <para>␟   If you are using Kerberos inside your application (in addition to inside
+   <application>libpq</application>), you will need to do locking around
+   Kerberos calls because Kerberos functions are not thread-safe.  See
+   function <function>PQregisterThreadLock</function> in the
+   <application>libpq</application> source code for a way to do cooperative
+   locking between <application>libpq</application> and your application.␟(<application>libpq</application>の内部に加えて)アプリケーション中でKerberosを利用している場合、Kerberos関数はスレッドセーフではありませんのでKerberos呼び出しの前後をロックする必要があるでしょう。
+<application>libpq</application>とアプリケーション間のロック処理を協調させる方法として<application>libpq</application>のソースコードの<function>PQregisterThreadLock</function>関数を参照してください。␞␞  </para>␞
+␝  <indexterm zone="libpq-build">
+   <primary>compiling</primary>
+   <secondary>libpq applications</secondary>
+  </indexterm>
+␟␟  <indexterm zone="libpq-build">
+   <primary>コンパイル</primary>
+   <secondary>libpq アプリケーション</secondary>
+  </indexterm>␞␞␞
+␝ <sect1 id="libpq-build">␟  <title>Building <application>libpq</application> Programs</title>␟  <title><application>libpq</application>プログラムの構築</title>␞␞␞
+␝  <para>␟   To build (i.e., compile and link) a program using
+   <application>libpq</application> you need to do all of the following
+   things:␟<application>libpq</application>を使用するプログラムの構築(つまり、コンパイルとリンク)を行うためには、以下をすべて実施する必要があります。␞␞␞
+␝     <para>␟      Include the <filename>libpq-fe.h</filename> header file:␟<filename>libpq-fe.h</filename>ヘッダファイルをインクルードします。␞␞<programlisting>␞
+␝</programlisting>␟      If you failed to do that then you will normally get error messages
+      from your compiler similar to:␟これを忘れると、通常コンパイラから以下のようなエラーメッセージが発生します。␞␞<screen>␞
+␝     <para>␟      Point your compiler to the directory where the <productname>PostgreSQL</productname> header
+      files were installed, by supplying the
+      <literal>-I<replaceable>directory</replaceable></literal> option
+      to your compiler.  (In some cases the compiler will look into
+      the directory in question by default, so you can omit this
+      option.)  For instance, your compile command line could look
+      like:␟コンパイラに<literal>-I<replaceable>directory</replaceable></literal>オプションを付与することで、コンパイラに<productname>PostgreSQL</productname>ヘッダファイルをインストールしたディレクトリを通知します。
+（デフォルトでこのディレクトリを検索するコンパイラもあります。
+その場合はこのオプションを省くことができます。）
+例えば、以下のようなコンパイルコマンドになります。␞␞<programlisting>␞
+␝</programlisting>␟      If you are using makefiles then add the option to the
+      <varname>CPPFLAGS</varname> variable:␟Makefileを使用しているのであれば、<varname>CPPFLAGS</varname>変数にこのオプションを追加してください。␞␞<programlisting>␞
+␝     <para>␟      If there is any chance that your program might be compiled by
+      other users then you should not hardcode the directory location
+      like that.  Instead, you can run the utility
+      <command>pg_config</command><indexterm><primary>pg_config</primary><secondary
+      sortas="libpq">with libpq</secondary></indexterm> to find out where the header
+      files are on the local system:␟他のユーザがそのプログラムをコンパイルする可能性がある場合は、上のようにディレクトリの場所を直接書き込むべきではありません。
+その代わりに<command>pg_config</command><indexterm><primary>pg_config</primary><secondary sortas="libpq">libpqにおける</secondary></indexterm>ユーティリティを実行して、各システムにおけるヘッダファイルの在処を検索させることができます。␞␞<screen>␞
+␝     <para>␟      If you
+      have <command>pkg-config</command><indexterm><primary>pkg-config</primary><secondary sortas="libpq">with
+      libpq</secondary></indexterm> installed, you can run instead:␟もしも、<command>pkg-config</command>がインストールされている場合、代わりとして以下を実行します。<indexterm><primary>pkg-config</primary><secondary sortas="libpq">libpqにおける</secondary></indexterm>␞␞<screen>␞
+␝</screen>␟      Note that this will already include the <option>-I</option> in front of
+      the path.␟これは既にパスの最前部で<option>-I</option>が含まれていることに注意してください。␞␞     </para>␞
+␝     <para>␟      Failure to specify the correct option to the compiler will
+      result in an error message such as:␟正確なオプションを指定できなかった結果、コンパイラは以下のようなエラーメッセージを生成します。␞␞<screen>␞
+␝     <para>␟      When linking the final program, specify the option
+      <literal>-lpq</literal> so that the <application>libpq</application>
+      library gets pulled in, as well as the option
+      <literal>-L<replaceable>directory</replaceable></literal> to point
+      the compiler to the directory where the
+      <application>libpq</application> library resides.  (Again, the
+      compiler will search some directories by default.)  For maximum
+      portability, put the <option>-L</option> option before the
+      <option>-lpq</option> option.  For example:␟最終的なプログラムのリンク時、<literal>-lpq</literal>オプションを指定して、<application>libpq</application>ライブラリを組み込んでください。
+同時に<literal>-L<replaceable>directory</replaceable></literal>オプションを指定して、コンパイラに<application>libpq</application>ライブラリの在処を通知してください。
+（ここでも、コンパイラはデフォルトでいくつかのディレクトリを検索します。）
+移植性を最大にするために、<option>-lpq</option>オプションの前に<option>-L</option>を記述してください。
+以下に例を示します。␞␞<programlisting>␞
+␝     <para>␟      You can find out the library directory using
+      <command>pg_config</command> as well:␟同様に<command>pg_config</command>を使用してライブラリのあるディレクトリを見つけることもできます。␞␞<screen>␞
+␝     <para>␟      Or again use <command>pkg-config</command>:␟さもなくば、この場合もやはり<command>pkg-config</command>を使用します。␞␞<screen>␞
+␝</screen>␟      Note again that this prints the full options, not only the path.␟重ねて、これはパスのみならず全てのオプションを表示することに注意してください。␞␞     </para>␞
+␝     <para>␟      Error messages that point to problems in this area could look like
+      the following:␟この部分で問題があった場合のエラーメッセージは以下のようなものになります。␞␞<screen>␞
+␝</screen>␟      This means you forgot <option>-lpq</option>.␟これは<option>-lpq</option>の付け忘れを示します。␞␞<screen>␞
+␝</screen>␟      This means you forgot the <option>-L</option> option or did not
+      specify the right directory.␟これは<option>-L</option>の付け忘れ、あるいは、ディレクトリ指定の間違いを示します。␞␞     </para>␞
+␝ <sect1 id="libpq-example">␟  <title>Example Programs</title>␟  <title>サンプルプログラム</title>␞␞␞
+␝  <para>␟   These examples and others can be found in the
+   directory <filename>src/test/examples</filename> in the source code
+   distribution.␟以下を含むサンプルプログラムが、ソースコード配布物内の<filename>src/test/examples</filename>ディレクトリにあります。␞␞  </para>␞
+␝  <example id="libpq-example-1">␟   <title><application>libpq</application> Example Program 1</title>␟   <title><application>libpq</application> サンプルプログラム 1</title>␞␞␞
+␝  <example id="libpq-example-1">␟ *      Test the C version of libpq, the PostgreSQL frontend library.␟ *      C言語PostgreSQLフロントエンドライブラリlibpqの試験。␞␞ */␞
+␝  <example id="libpq-example-1">␟     * If the user supplies a parameter on the command line, use it as the
+     * conninfo string; otherwise default to setting dbname=postgres and using
+     * environment variables or defaults for all other connection parameters.␟     * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
+     * 提供されない場合はデフォルトでdbname=postgresを使用する。
+     * その他の接続パラメータについては環境変数やデフォルトを使用する。␞␞     */␞
+␝  <example id="libpq-example-1">␟    /* Make a connection to the database */␟    /* データベースとの接続を確立する */␞␞    conn = PQconnectdb(conninfo);␞
+␝  <example id="libpq-example-1">␟    /* Check to see that the backend connection was successfully made */␟    /* バックエンドとの接続確立に成功したかを確認する */␞␞    if (PQstatus(conn) != CONNECTION_OK)␞
+␝  <example id="libpq-example-1">␟    /* Set always-secure search path, so malicious users can't take control. */␟    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */␞␞    res = PQexec(conn,␞
+␝  <example id="libpq-example-1">␟     * Should PQclear PGresult whenever it is no longer needed to avoid memory
+     * leaks␟     * メモリリークを避けるため、必要なくなったときにはいつでもPGresultを 
+     * PQclearすべき␞␞     */␞
+␝  <example id="libpq-example-1">␟     * Our test case here involves using a cursor, for which we must be inside
+     * a transaction block.  We could do the whole thing with a single
+     * PQexec() of "select * from pg_database", but that's too trivial to make
+     * a good example.␟     * この試験ケースではカーソルを使用する。
+     * そのため、トランザクションブロック内で実行する必要がある。
+     * すべてを単一の"select * from pg_database"というPQexec()で行うこと
+     * も可能だが、例としては簡単過ぎる。␞␞     */␞
+␝  <example id="libpq-example-1">␟    /* Start a transaction block */␟    /* トランザクションブロックを開始する。 */␞␞    res = PQexec(conn, "BEGIN");␞
+␝  <example id="libpq-example-1">␟     * Fetch rows from pg_database, the system catalog of databases␟     * データベースのシステムカタログpg_databaseから行を取り出す。␞␞     */␞
+␝  <example id="libpq-example-1">␟    /* first, print out the attribute names */␟    /* まず属性名を表示する。 */␞␞    nFields = PQnfields(res);␞
+␝  <example id="libpq-example-1">␟    /* next, print out the rows */␟    /* そして行を表示する。 */␞␞    for (i = 0; i < PQntuples(res); i++)␞
+␝  <example id="libpq-example-1">␟    /* close the portal ... we don't bother to check for errors ... */␟    /* ポータルを閉じる。ここではエラーチェックは省略した… */␞␞    res = PQexec(conn, "CLOSE myportal");␞
+␝  <example id="libpq-example-1">␟    /* end the transaction */␟    /* トランザクションを終了する */␞␞    res = PQexec(conn, "END");␞
+␝  <example id="libpq-example-1">␟    /* close the connection to the database and cleanup */␟    /* データベースとの接続を閉じ、後始末を行う。 */␞␞    PQfinish(conn);␞
+␝  <example id="libpq-example-2">␟   <title><application>libpq</application> Example Program 2</title>␟   <title><application>libpq</application> サンプルプログラム 2</title>␞␞␞
+␝  <example id="libpq-example-2">␟ *      Test of the asynchronous notification interface␟ *      非同期通知インタフェースの試験␞␞ *␞
+␝  <example id="libpq-example-2">␟ * Start this program, then from psql in another window do
+ *   NOTIFY TBL2;
+ * Repeat four times to get this program to exit.␟ * このプログラムを起動し、別ウィンドウからpsqlを使用して以下を実行してください。
+ *   NOTIFY TBL2;
+ * 4回繰り返すとこのプログラムは終了します。␞␞ *␞
+␝  <example id="libpq-example-2">␟ * Or, if you want to get fancy, try this:
+ * populate a database with the following commands
+ * (provided in src/test/examples/testlibpq2.sql):␟ * もう少し凝りたければ、以下を実施してください。
+ * 以下のコマンド(src/test/examples/testlibpq2.sqlで提供)でデータベースを作成します。␞␞ *␞
+␝  <example id="libpq-example-2">␟ * Start this program, then from psql do this four times:␟ * このプログラムを起動し、psqlからこれを4回実行します。␞␞ *␞
+␝  <example id="libpq-example-2">␟     * If the user supplies a parameter on the command line, use it as the
+     * conninfo string; otherwise default to setting dbname=postgres and using
+     * environment variables or defaults for all other connection parameters.␟     * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
+     * 提供されない場合はデフォルトでdbname=postgresを使用する。
+     * その他の接続パラメータについては環境変数やデフォルトを使用する。␞␞     */␞
+␝  <example id="libpq-example-2">␟    /* Make a connection to the database */␟    /* データベースとの接続を確立する。 */␞␞    conn = PQconnectdb(conninfo);␞
+␝  <example id="libpq-example-2">␟    /* Check to see that the backend connection was successfully made */␟    /* バックエンドとの接続確立に成功したかを確認する */␞␞    if (PQstatus(conn) != CONNECTION_OK)␞
+␝  <example id="libpq-example-2">␟    /* Set always-secure search path, so malicious users can't take control. */␟    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */␞␞    res = PQexec(conn,␞
+␝  <example id="libpq-example-2">␟     * Should PQclear PGresult whenever it is no longer needed to avoid memory
+     * leaks␟     * メモリリークを避けるため、必要なくなったときにはいつでもPGresultを 
+     * PQclearすべき␞␞     */␞
+␝  <example id="libpq-example-2">␟     * Issue LISTEN command to enable notifications from the rule's NOTIFY.␟     * LISTENコマンドを発行して、ルールのNOTIFYからの通知を有効にする。␞␞     */␞
+␝  <example id="libpq-example-2">␟    /* Quit after four notifies are received. */␟    /* 4回通知を受けたら終了する。 */␞␞    nnotifies = 0;␞
+␝  <example id="libpq-example-2">␟         * Sleep until something happens on the connection.  We use select(2)
+         * to wait for input, but you could also use poll() or similar
+         * facilities.␟         * その接続で何かが起こるまで待機する。ここでは入力待ちのために
+         * select(2)を使用する。poll()や類似機能を使用することも可能
+         * である。␞␞         */␞
+␝  <example id="libpq-example-2">␟            break;              /* shouldn't happen */␟            break;              /* 発生してはならない。 */␞␞␞
+␝  <example id="libpq-example-2">␟        /* Now check for input */␟        /* ここで入力を確認する。 */␞␞        PQconsumeInput(conn);␞
+␝  <example id="libpq-example-2">␟    /* close the connection to the database and cleanup */␟    /* データベースとの接続を閉じ、後始末を行う。 */␞␞    PQfinish(conn);␞
+␝  <example id="libpq-example-3">␟   <title><application>libpq</application> Example Program 3</title>␟   <title><application>libpq</application> サンプルプログラム 3</title>␞␞␞
+␝  <example id="libpq-example-3">␟ *      Test out-of-line parameters and binary I/O.␟ *      行以外のパラメータとバイナリI/Oの試験。␞␞ *␞
+␝  <example id="libpq-example-3">␟ * Before running this, populate a database with the following commands
+ * (provided in src/test/examples/testlibpq3.sql):␟ * 実行前に、以下のコマンド(src/test/examples/testlibpq3.sqlで提供)を使用して
+ * データベースを作成してください。␞␞ *␞
+␝  <example id="libpq-example-3">␟ * The expected output is:␟ * 以下の出力が想定されます。␞␞ *␞
+␝  <example id="libpq-example-3">␟/* for ntohl/htonl */␟/* ntohl/htonl用 */␞␞#include <netinet/in.h>␞
+␝  <example id="libpq-example-3">␟ * This function prints a query result that is a binary-format fetch from
+ * a table defined as in the comment above.  We split it out because the
+ * main() function uses it twice.␟ * この関数は上のコメントで定義したテーブルからバイナリフォーマットでフェッチした
+ * クエリ結果を表示します。
+ * main() 関数が2度使うので、結果を分割します。␞␞ */␞
+␝  <example id="libpq-example-3">␟    /* Use PQfnumber to avoid assumptions about field order in result */␟    /* 結果中の列オーダーの仮定を嫌うので PQfnumber を利用する */
+    /* PQfnumber  */␞␞    i_fnum = PQfnumber(res, "i");␞
+␝  <example id="libpq-example-3">␟        /* Get the field values (we ignore possibility they are null!) */␟        /* 列の値を取得(NULLを出来る限り無視) */␞␞        iptr = PQgetvalue(res, i, i_fnum);␞
+␝  <example id="libpq-example-3">␟         * The binary representation of INT4 is in network byte order, which
+         * we'd better coerce to the local byte order.␟         * INT4のバイナリ表現はネットワークバイトオーダーによる。
+         * よって、ローカルバイトオーダーに合わせた方が良い。␞␞         */␞
+␝  <example id="libpq-example-3">␟         * The binary representation of TEXT is, well, text, and since libpq
+         * was nice enough to append a zero byte to it, it'll work just fine
+         * as a C string.␟         * TEXT型のバイナリ表現も同様にテキスト。
+         * 更にlibpqはその最後にゼロバイトを付与するので、
+         * C言語の文字列として単純に扱うことができる。␞␞         *␞
+␝  <example id="libpq-example-3">␟         * The binary representation of BYTEA is a bunch of bytes, which could
+         * include embedded nulls so we have to pay attention to field length.␟         * BYTEA のバイト表現はバイトの集まりである。
+         * null 埋め込みを含むのでフィールド長に注意を払わなければいけない。␞␞         */␞
+␝  <example id="libpq-example-3">␟     * If the user supplies a parameter on the command line, use it as the
+     * conninfo string; otherwise default to setting dbname=postgres and using
+     * environment variables or defaults for all other connection parameters.␟     * ユーザがコマンドラインでパラメータを提供した場合、conninfo文字列として使用する。
+     * 提供されない場合はデフォルトでdbname=postgresを使用する。
+     * その他の接続パラメータについては環境変数やデフォルトを使用する。␞␞     */␞
+␝  <example id="libpq-example-3">␟    /* Make a connection to the database */␟    /* データベースとの接続を確立する */␞␞    conn = PQconnectdb(conninfo);␞
+␝  <example id="libpq-example-3">␟    /* Check to see that the backend connection was successfully made */␟    /* バックエンドとの接続確立に成功したかを確認する */␞␞    if (PQstatus(conn) != CONNECTION_OK)␞
+␝  <example id="libpq-example-3">␟    /* Set always-secure search path, so malicious users can't take control. */␟    /* 悪意のユーザによる乗っ取りを防ぐように常に安全なサーチパスを設定 */␞␞    res = PQexec(conn, "SET search_path = testlibpq3");␞
+␝  <example id="libpq-example-3">␟     * The point of this program is to illustrate use of PQexecParams() with
+     * out-of-line parameters, as well as binary transmission of data.␟     * このプログラムのポイントは、行外パラメータを持つPQexecParams()の使用方法、
+     * および、データのバイナリ転送を示すことである。␞␞     *␞
+␝  <example id="libpq-example-3">␟     * This first example transmits the parameters as text, but receives the
+     * results in binary format.  By using out-of-line parameters we can avoid
+     * a lot of tedious mucking about with quoting and escaping, even though
+     * the data is text.  Notice how we don't have to do anything special with
+     * the quote mark in the parameter value.␟     * この最初の例はパラメータをテキストとして渡す。
+     * しかし結果はバイナリフォーマットで受ける。
+     * 行外パラメータを使うことで、データがテキストであっても引用符付けや
+     * エスケープ処理といった多くの長たらしいゴミをなくすことができる。
+     * パラメータ値内部の引用符に対して特殊な処理を行う必要がないことに注目して
+     * ほしい。␞␞     */␞
+␝  <example id="libpq-example-3">␟    /* Here is our out-of-line parameter value */␟    /* 以下が行外パラメータの値である。 */␞␞    paramValues[0] = "joe's place";␞
+␝  <example id="libpq-example-3">␟                       1,       /* one param */
+                       NULL,    /* let the backend deduce param type */
+                       paramValues,
+                       NULL,    /* don't need param lengths since text */
+                       NULL,    /* default to all text params */
+                       1);      /* ask for binary results */␟                       1,           /* パラメータは1つ。 */
+                       NULL,        /* バックエンドにパラメータの型を推測させる。 */
+                       paramValues,
+                       NULL,        /* テキストのため、パラメータ長は不要。 */
+                       NULL,        /* デフォルトですべてのパラメータはテキスト。 */
+                       1);          /* バイナリ結果を要求。 */␞␞␞
+␝  <example id="libpq-example-3">␟     * In this second example we transmit an integer parameter in binary form,
+     * and again retrieve the results in binary form.␟     * 2つ目の例は、バイナリフォームの中で整数値パラメータを渡す。
+     * そして再びバイナリフォームで結果を受け取る。␞␞     *␞
+␝  <example id="libpq-example-3">␟     * Although we tell PQexecParams we are letting the backend deduce
+     * parameter type, we really force the decision by casting the parameter
+     * symbol in the query text.  This is a good safety measure when sending
+     * binary parameters.␟     * バックエンドにパラメータタイプを推測させていると PQexecParams に伝えるが、
+     * クエリテキストの中にパラメータシンボルを入れることによって 強制的に決定する。
+     * これはバイナリパラメータに送るときに安全で良い大きさである。␞␞     */␞
+␝  <example id="libpq-example-3">␟    /* Convert integer value "2" to network byte order */␟    /* 整数値 "2" をネットワークバイトオーダーに変換 */␞␞    binaryIntVal = htonl((uint32_t) 2);␞
+␝  <example id="libpq-example-3">␟    /* Set up parameter arrays for PQexecParams */␟    /* PQexecParams 用にパラメータ配列をセットする */␞␞    paramValues[0] = (char *) &binaryIntVal;␞
+␝  <example id="libpq-example-3">␟    paramFormats[0] = 1;        /* binary */␟    paramFormats[0] = 1;        /* バイナリ */␞␞␞
+␝  <example id="libpq-example-3">␟                       1,       /* one param */
+                       NULL,    /* let the backend deduce param type */␟                       1,       /* パラメータは1つ */
+                       NULL,    /* バックエンドにパラメータの型を推測させる。 */␞␞                       paramValues,␞
+␝  <example id="libpq-example-3">␟                       1);      /* ask for binary results */␟                       1);      /* バイナリ結果を要求。 */␞␞␞
+␝  <example id="libpq-example-3">␟    /* close the connection to the database and cleanup */␟    /* データベースとの接続を閉じ、後始末を行う。 */␞␞    PQfinish(conn);␞
+␝</programlisting>
+  </example>
+
+ </sect1>
+</chapter>
+␟␟<!-- split-libpq3-end -->␞␞␞

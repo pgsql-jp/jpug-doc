@@ -1,0 +1,66 @@
+␝ <indexterm zone="sql-rollback-to">
+  <primary>savepoints</primary>
+  <secondary>rolling back</secondary>
+ </indexterm>
+␟␟ <indexterm zone="sql-rollback-to">
+  <primary>セーブポイント</primary>
+  <secondary>ロールバック</secondary>
+ </indexterm>␞␞␞
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>ROLLBACK TO SAVEPOINT</refname>␟  <refpurpose>roll back to a savepoint</refpurpose>␟  <refpurpose>セーブポイントまでロールバックする</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   Roll back all commands that were executed after the savepoint was
+   established and then start a new subtransaction at the same transaction level.
+   The savepoint remains valid and can be rolled back to again later,
+   if needed.␟セーブポイントの設定後に実行されたコマンドをすべてロールバックして、同じトランザクションレベルで新しいサブトランザクションを開始します。
+セーブポイントは有効なまま残るので、必要に応じて、その後再度ロールバックすることができます。␞␞  </para>␞
+␝  <para>␟   <command>ROLLBACK TO SAVEPOINT</command> implicitly destroys all savepoints that
+   were established after the named savepoint.␟<command>ROLLBACK TO SAVEPOINT</command>は、指定したセーブポイントより後に設定した全てのセーブポイントを暗黙的に破棄します。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      The savepoint to roll back to.␟ロールバック先のセーブポイントです。␞␞     </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   Use <link linkend="sql-release-savepoint"><command>RELEASE SAVEPOINT</command></link> to destroy a savepoint
+   without discarding the effects of commands executed after it was
+   established.␟セーブポイントの設定後に実行されたコマンドの結果を維持したままセーブポイントを破棄するには、<link linkend="sql-release-savepoint"><command>RELEASE SAVEPOINT</command></link>を使用してください。␞␞  </para>␞
+␝  <para>␟   Specifying a savepoint name that has not been established is an error.␟設定されていないセーブポイントの名前を指定するとエラーになります。␞␞  </para>␞
+␝  <para>␟   Cursors have somewhat non-transactional behavior with respect to
+   savepoints.  Any cursor that is opened inside a savepoint will be closed
+   when the savepoint is rolled back.  If a previously opened cursor is
+   affected by a <command>FETCH</command> or <command>MOVE</command> command inside a
+   savepoint that is later rolled back, the cursor remains at the
+   position that <command>FETCH</command> left it pointing to (that is, the cursor
+   motion caused by <command>FETCH</command> is not rolled back).
+   Closing a cursor is not undone by rolling back, either.
+   However, other side-effects caused by the cursor's query (such as
+   side-effects of volatile functions called by the query) <emphasis>are</emphasis>
+   rolled back if they occur during a savepoint that is later rolled back.
+   A cursor whose execution causes a transaction to abort is put in a
+   cannot-execute state, so while the transaction can be restored using
+   <command>ROLLBACK TO SAVEPOINT</command>, the cursor can no longer be used.␟カーソルはセーブポイントという観点から見るとトランザクションの外にあるかのように振舞います。
+セーブポイントの内部で開かれたカーソルは全て、そのセーブポイントがロールバックした時に閉ざされます。
+セーブポイントの前に開かれたカーソルに対しセーブポイント内で<command>FETCH</command>または<command>MOVE</command>コマンドを実行した場合、その後、ロールバックされたとしても、カーソルの位置は<command>FETCH</command>の結果、移動した位置から変わりません
+（つまり<command>FETCH</command>による位置の移動はロールバックされません）。
+また、カーソルのクローズはロールバックしても取り消すことはできません。
+しかしカーソルの問い合わせにより発生するその他の副作用（問い合わせにより呼出される揮発性関数の影響など）は、セーブポイント内で実行され、それがロールバックされた場合に、<emphasis>ロールバックされます</emphasis>。
+カーソルの実行によってトランザクションのアボートが引き起こされた場合、そのカーソルは実行不可能状態に遷移します。
+この場合、トランザクションは<command>ROLLBACK TO SAVEPOINT</command>を使用して戻すことができますが、そのカーソルは使用することができません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To undo the effects of the commands executed after <literal>my_savepoint</literal>
+   was established:␟<literal>my_savepoint</literal>の設定後に実行されたコマンドの効果を取り消します。␞␞<programlisting>␞
+␝  <para>␟   Cursor positions are not affected by savepoint rollback:␟セーブポイントへのロールバックは、カーソル位置に影響を与えません。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   The <acronym>SQL</acronym> standard specifies that the key word
+   <literal>SAVEPOINT</literal> is mandatory, but <productname>PostgreSQL</productname>
+   and <productname>Oracle</productname> allow it to be omitted.  SQL allows
+   only <literal>WORK</literal>, not <literal>TRANSACTION</literal>, as a noise word
+   after <literal>ROLLBACK</literal>.  Also, SQL has an optional clause
+   <literal>AND [ NO ] CHAIN</literal> which is not currently supported by
+   <productname>PostgreSQL</productname>.  Otherwise, this command conforms to
+   the SQL standard.␟標準<acronym>SQL</acronym>では、<literal>SAVEPOINT</literal>キーワードは必須です。
+しかし、<productname>PostgreSQL</productname>と<productname>Oracle</productname>では省略することができます。
+SQLで使用できるのは、<literal>WORK</literal>のみです。
+<literal>TRANSACTION</literal>は使用できず、<literal>ROLLBACK</literal>の後の意味のない言葉として扱われます。
+また、SQLでは<literal>AND [ NO ] CHAIN</literal>句(省略可能)がありますが、これは<productname>PostgreSQL</productname>では現在サポートされていません。
+その他については、このコマンドは標準SQLに準拠しています。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟BEGIN; DECLARE foo CURSOR FOR SELECT 1 UNION SELECT 2; SAVEPOINT foo; FETCH 1 FROM foo; ?column? ---------- 1 ROLLBACK TO SAVEPOINT foo; FETCH 1 FROM foo; ?column? ---------- 2 COMMIT; </programlisting></para> </programlisting></para>␟no translation␞␞␞

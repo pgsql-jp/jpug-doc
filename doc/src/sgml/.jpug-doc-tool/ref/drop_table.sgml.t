@@ -1,0 +1,41 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟<refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP TABLE</refname>␟  <refpurpose>remove a table</refpurpose>␟  <refpurpose>テーブルを削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP TABLE</command> removes tables from the database.
+   Only the table owner, the schema owner, and superuser can drop a
+   table.  To empty a table of rows
+   without destroying the table, use <link linkend="sql-delete"><command>DELETE</command></link>
+   or <link linkend="sql-truncate"><command>TRUNCATE</command></link>.␟<command>DROP TABLE</command>はデータベースからテーブルを削除します。
+テーブル所有者、スキーマ所有者、スーパーユーザのみがテーブルを削除することができます。
+テーブルを削除するのではなく、テーブルの行を空にするには、<link linkend="sql-delete"><command>DELETE</command></link>または<link linkend="sql-truncate"><command>TRUNCATE</command></link>を使用してください。␞␞  </para>␞
+␝  <para>␟   <command>DROP TABLE</command> always removes any indexes, rules,
+   triggers, and constraints that exist for the target table.
+   However, to drop a table that is referenced by a view or a foreign-key
+   constraint of another table, <literal>CASCADE</literal> must be
+   specified. (<literal>CASCADE</literal> will remove a dependent view entirely,
+   but in the foreign-key case it will only remove the foreign-key
+   constraint, not the other table entirely.)␟<command>DROP TABLE</command>は、削除対象のテーブルについて存在するインデックス、ルール、トリガ、制約を全て削除します。
+しかし、ビューや他のテーブルの外部キー制約によって参照されているテーブルを削除するには<literal>CASCADE</literal>を指定する必要があります。
+（<literal>CASCADE</literal>を指定すると、テーブルに依存するビューは完全に削除されます。外部キー制約によって参照されている場合は、外部キー制約のみが削除され、その外部キーを持つテーブルそのものは削除されません。）␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Do not throw an error if the table does not exist. A notice is issued
+      in this case.␟テーブルが存在しない場合でもエラーになりません。
+この場合、注意メッセージが発行されます。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of the table to drop.␟削除するテーブルの名前です（スキーマ修飾名も可）。␞␞     </para>␞
+␝     <para>␟      Automatically drop objects that depend on the table (such as
+      views),
+      and in turn all objects that depend on those objects
+      (see <xref linkend="ddl-depend"/>).␟削除するテーブルに依存しているオブジェクト（ビューなど）を自動的に削除し、さらにそれらのオブジェクトに依存するすべてのオブジェクトも削除します（<xref linkend="ddl-depend"/>参照）。␞␞     </para>␞
+␝     <para>␟      Refuse to drop the table if any objects depend on it.  This is
+      the default.␟依存しているオブジェクトがある場合に、テーブルの削除を拒否します。
+こちらがデフォルトです。␞␞     </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To destroy two tables, <literal>films</literal> and
+   <literal>distributors</literal>:␟2つのテーブル、<literal>films</literal>と<literal>distributors</literal>を削除します。␞␞␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   This command conforms to the SQL standard, except that the standard only
+   allows one table to be dropped per command, and apart from the
+   <literal>IF EXISTS</literal> option, which is a <productname>PostgreSQL</productname>
+   extension.␟このコマンドは標準SQLに準拠していますが、標準では1コマンドで1つのテーブルしか削除できないという点、および、<productname>PostgreSQL</productname>の拡張である<literal>IF EXISTS</literal>オプションを除きます。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟DROP TABLE films, distributors; </programlisting></para> </programlisting></para>␟no translation␞␞␞

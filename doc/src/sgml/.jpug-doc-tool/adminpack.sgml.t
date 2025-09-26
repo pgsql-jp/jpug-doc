@@ -1,0 +1,69 @@
+␝<sect1 id="adminpack" xreflabel="adminpack">␟ <title>adminpack &mdash; pgAdmin support toolpack</title>␟ <title>adminpack &mdash; pgAdminサポートツールパック</title>␞␞␞
+␝ <para>␟  <filename>adminpack</filename> provides a number of support functions which
+  <application>pgAdmin</application> and other administration and management tools can
+  use to provide additional functionality, such as remote management
+  of server log files.
+  Use of all these functions is only allowed to database superusers by default, but may be
+  allowed to other users by using the <command>GRANT</command> command.␟<filename>adminpack</filename>は、<application>pgAdmin</application>やその他の管理・運用ツールがサーバログファイルの遠隔管理を行うなどの、追加的な機能を提供できるようにするための数多くのサポート関数を提供します。
+デフォルトでは、この関数の使用はすべてデータベーススーパーユーザに限定されていますが、<command>GRANT</command>コマンドを使用して他のユーザに許可されている場合があります。␞␞ </para>␞
+␝ <para>␟  The functions shown in <xref linkend="functions-adminpack-table"/> provide
+  write access to files on the machine hosting the server.  (See also the
+  functions in <xref linkend="functions-admin-genfile-table"/>, which
+  provide read-only access.)
+  Only files within the database cluster directory can be accessed, unless the
+  user is a superuser or given privileges of one of the
+  <literal>pg_read_server_files</literal> or
+  <literal>pg_write_server_files</literal> roles, as appropriate for the
+  function, but either a relative or absolute path is allowable.␟<xref linkend="functions-adminpack-table"/>に示す関数はサーバをホスティングしているマシン上のファイルに対して書き込みアクセスを提供します。
+(<xref linkend="functions-admin-genfile-table"/>の関数も参照してください。そちらは読み取り専用アクセスを提供します。)
+ユーザがスーパーユーザか、関数に応じた<literal>pg_read_server_files</literal>、または<literal>pg_write_server_files</literal>ロールのいずれかの権限を与えられていない限り、データベースクラスタディレクトリ内のファイルにのみアクセス可能です。
+ただし、相対パスと絶対パスのどちらも利用できます。␞␞ </para>␞
+␝ <table id="functions-adminpack-table">␟  <title><filename>adminpack</filename> Functions</title>␟  <title><filename>adminpack</filename>関数</title>␞␞    <tgroup cols="1">␞
+␝       <entry role="func_table_entry"><para role="func_signature">␟        Function␟        関数␞␞       </para>␞
+␝       <para>␟        Description␟        説明␞␞       </para></entry>␞
+␝       <para>␟        Writes, or appends to, a text file.␟テキストファイルに書き込む、または追記する␞␞       </para></entry>␞
+␝       <para>␟        Flushes a file or directory to disk.␟ファイルまたはディレクトリをディスクにフラッシュする␞␞       </para></entry>␞
+␝       <para>␟        Renames a file.␟ファイル名を変更する␞␞       </para></entry>␞
+␝       <para>␟        Removes a file.␟ファイルを削除する␞␞       </para></entry>␞
+␝       <para>␟        Lists the log files in the <varname>log_directory</varname> directory.␟<varname>log_directory</varname>ディレクトリ内のログファイルの一覧を表示する␞␞       </para></entry>␞
+␝ <para>␟  <function>pg_file_write</function> writes the specified <parameter>data</parameter> into
+  the file named by <parameter>filename</parameter>.  If <parameter>append</parameter> is
+  false, the file must not already exist.  If <parameter>append</parameter> is true,
+  the file can already exist, and will be appended to if so.
+  Returns the number of bytes written.␟<function>pg_file_write</function>は指定された<parameter>data</parameter>を<parameter>filename</parameter>で指定されたファイルに書き込みます。
+<parameter>append</parameter>が偽であれば、ファイルは既に存在していてはいけません。
+<parameter>append</parameter>が真であれば、ファイルが既に存在していても構いません。その場合、追記されます。
+書き込んだバイト数を返します。␞␞ </para>␞
+␝ <para>␟  <function>pg_file_sync</function> fsyncs the specified file or directory
+  named by <parameter>filename</parameter>.  An error is thrown
+  on failure (e.g., the specified file is not present). Note that
+  <xref linkend="guc-data-sync-retry"/> has no effect on this function,
+  and therefore a PANIC-level error will not be raised even on failure to
+  flush database files.␟<function>pg_file_sync</function>は<parameter>filename</parameter>で指定されたファイルまたはディレクトリをfsyncします。
+(例えば、指定されたファイルが存在しないなど)失敗するとエラーを発生します。
+<xref linkend="guc-data-sync-retry"/>はこの関数には影響しませんので、データベースファイルのフラッシュの失敗であってもPANICレベルのエラーは起こらないことに注意してください。␞␞ </para>␞
+␝ <para>␟  <function>pg_file_rename</function> renames a file.  If <parameter>archivename</parameter>
+  is omitted or NULL, it simply renames <parameter>oldname</parameter>
+  to <parameter>newname</parameter> (which must not already exist).
+  If <parameter>archivename</parameter> is provided, it first
+  renames <parameter>newname</parameter> to <parameter>archivename</parameter> (which must
+  not already exist), and then renames <parameter>oldname</parameter>
+  to <parameter>newname</parameter>.  In event of failure of the second rename step,
+  it will try to rename <parameter>archivename</parameter> back
+  to <parameter>newname</parameter> before reporting the error.
+  Returns true on success, false if the source file(s) are not present or
+  not writable; other cases throw errors.␟<function>pg_file_rename</function>はファイルの名前を変更します。
+<parameter>archivename</parameter>が省略されたり、NULLである場合は、単純に<parameter>oldname</parameter>を<parameter>newname</parameter>(既に存在していてはいけません)に変更します。
+<parameter>archivename</parameter>が指定されていれば、まず<parameter>newname</parameter>を<parameter>archivename</parameter>(既に存在していてはいけません)に変更し、それから<parameter>oldname</parameter>を<parameter>newname</parameter>に変更します。
+第2段階の名前の変更が失敗した場合には、エラーを報告する前に<parameter>archivename</parameter>を<parameter>newname</parameter>に戻そうとします。
+成功した場合には真を、元のファイルが存在しなかったり、書き込みできなかった場合には偽を返します。その他の場合にはエラーを発生します。␞␞ </para>␞
+␝ <para>␟  <function>pg_file_unlink</function> removes the specified file.
+  Returns true on success, false if the specified file is not present
+  or the <function>unlink()</function> call fails; other cases throw errors.␟<function>pg_file_unlink</function>は指定されたファイルを削除します。
+成功した場合には真を、指定されたファイルが存在しなかったり、<function>unlink()</function>の呼出しが失敗した場合には偽を返します。その他の場合にはエラーを発生します。␞␞ </para>␞
+␝ <para>␟  <function>pg_logdir_ls</function> returns the start timestamps and path
+  names of all the log files in the <xref linkend="guc-log-directory"/>
+  directory.  The <xref linkend="guc-log-filename"/> parameter must have its
+  default setting (<literal>postgresql-%Y-%m-%d_%H%M%S.log</literal>) to use this
+  function.␟<function>pg_logdir_ls</function>は<xref linkend="guc-log-directory"/>ディレクトリ内にあるログファイルすべての開始時のタイムスタンプとパス名を返します。
+この関数を使うには、<xref linkend="guc-log-filename"/>パラメータはデフォルト設定(<literal>postgresql-%Y-%m-%d_%H%M%S.log</literal>)でなければなりません。␞␞ </para>␞

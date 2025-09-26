@@ -772,23 +772,35 @@ XIDのカウンタが一周して0に戻り、そして、突然に、過去に�
     When that happens, <command>VACUUM</command> will eventually need to perform an
     <firstterm>aggressive vacuum</firstterm>, which will freeze all eligible unfrozen
     XID and MXID values, including those from all-visible but not all-frozen pages.
-    In practice most tables require periodic aggressive vacuuming.
+-->
+《機械翻訳》«<command>VACUUM</command> uses the <link linkend="storage-vm">visibility map</link> to determine which pages of a table must be scanned. Normally, it will skip pages that don't have any dead row versions even if those pages might still have row versions with old XID values. Therefore, normal <command>VACUUM</command>s won't always freeze every old row version in the table. When that happens, <command>VACUUM</command> will eventually need to perform an <firstterm>aggressive vacuum</firstterm>, which will freeze all eligible unfrozen XID and MXID values, including those from all-visible but not all-frozen pages.»
+   </para>
+
+   <para>
+<!--
+    If a table is building up a backlog of all-visible but not all-frozen
+    pages, a normal vacuum may choose to scan skippable pages in an effort to
+    freeze them. Doing so decreases the number of pages the next aggressive
+    vacuum must scan. These are referred to as <firstterm>eagerly
+    scanned</firstterm> pages. Eager scanning can be tuned to attempt to freeze
+    more all-visible pages by increasing <xref
+    linkend="guc-vacuum-max-eager-freeze-failure-rate"/>. Even if eager
+    scanning has kept the number of all-visible but not all-frozen pages to a
+    minimum, most tables still require periodic aggressive vacuuming. However,
+    any pages successfully eager frozen may be skipped during an aggressive
+    vacuum, so eager freezing may minimize the overhead of aggressive vacuums.
+-->
+《機械翻訳》«If a table is building up a backlog of all-visible but not all-frozen pages, a normal vacuum may choose to scan skippable pages in an effort to freeze them. Doing so decreases the number of pages the next aggressive vacuum must scan. These are referred to as <firstterm>eagerly scanned</firstterm> pages. Eager scanning can be tuned to attempt to freeze more all-visible pages by increasing <xref linkend="guc-vacuum-max-eager-freeze-failure-rate"/>. Even if eager scanning has kept the number of all-visible but not all-frozen pages to a minimum, most tables still require periodic aggressive vacuuming. However, any pages successfully eager frozen may be skipped during an aggressive vacuum, so eager freezing may minimize the overhead of aggressive vacuums.»
+   </para>
+
+   <para>
     <xref linkend="guc-vacuum-freeze-table-age"/>
-    controls when <command>VACUUM</command> does that: all-visible but not all-frozen
+    controls when a table is aggressively vacuumed. All all-visible but not all-frozen
     pages are scanned if the number of transactions that have passed since the
     last such scan is greater than <varname>vacuum_freeze_table_age</varname> minus
     <varname>vacuum_freeze_min_age</varname>. Setting
     <varname>vacuum_freeze_table_age</varname> to 0 forces <command>VACUUM</command> to
     always use its aggressive strategy.
--->
-<command>VACUUM</command>は<link linkend="storage-vm">可視性マップ</link>を使用して、テーブルのどのページをスキャンする必要があるかを決定します。
-通常は、無効な行バージョンを持っていないページをスキップします。このとき、そのページに古いXID値の行バージョンがまだある可能性があったとしても読み飛ばします。
-したがって、通常の<command>VACUUM</command>では必ずしもテーブル内のすべての古い行バージョンを凍結するわけではありません。
-そのようなことが起きた場合には、最終的に<command>VACUUM</command>で<firstterm>積極的なバキューム</firstterm>を実行する必要があるでしょう。そのときは、全可視ではあるが全凍結ではないページにあるものを含めて、適切な凍結されていないXID値やMXID値をすべて凍結します。
-実際には、ほとんどのテーブルには定期的な積極的なバキュームが必要です。
-<xref linkend="guc-vacuum-freeze-table-age"/>は<command>VACUUM</command>がいつこれを行うかを制御します。
-つまり、最後にそのようなスキャンが行われた後に実行されたトランザクションの数が<varname>vacuum_freeze_table_age</varname>から<varname>vacuum_freeze_min_age</varname>を引いた数より大きいとき、全可視ではあるが全凍結ではないページもスキャンされます。
-<varname>vacuum_freeze_table_age</varname>を0に設定すると<command>VACUUM</command>は常にこの積極的な戦略を使うようになります。
    </para>
 
    <para>
@@ -961,10 +973,12 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
 
    <para>
 <!--
-    <command>VACUUM</command> normally only scans pages that have been modified
-    since the last vacuum, but <structfield>relfrozenxid</structfield> can only be
-    advanced when every page of the table
-    that might contain unfrozen XIDs is scanned.  This happens when
+    While <command>VACUUM</command> scans mostly pages that have been
+    modified since the last vacuum, it may also eagerly scan some
+    all-visible but not all-frozen pages in an attempt to freeze them, but
+    the <structfield>relfrozenxid</structfield> will only be advanced when
+    every page of the table that might contain unfrozen XIDs is scanned.
+    This happens when
     <structfield>relfrozenxid</structfield> is more than
     <varname>vacuum_freeze_table_age</varname> transactions old, when
     <command>VACUUM</command>'s <literal>FREEZE</literal> option is used, or when all
@@ -983,12 +997,13 @@ SELECT datname, age(datfrozenxid) FROM pg_database;
     <varname>autovacuum_freeze_max_age</varname> is reached, an autovacuum will soon
     be forced for the table.
 -->
-<command>VACUUM</command>は通常は最後のバキュームの後で変更されたページのみスキャンしますが、<structfield>relfrozenxid</structfield>はテーブルの凍結されていないXIDを含むかもしれないすべてのページをスキャンしたときのみ繰り上がります。
+《マッチ度[85.269122]》<command>VACUUM</command>は通常は最後のバキュームの後で変更されたページのみスキャンしますが、<structfield>relfrozenxid</structfield>はテーブルの凍結されていないXIDを含むかもしれないすべてのページをスキャンしたときのみ繰り上がります。
 これは、<structfield>relfrozenxid</structfield>が<varname>vacuum_freeze_table_age</varname>トランザクション年齢より大きい時、<command>VACUUM</command>の<literal>FREEZE</literal>オプションが使用された時、もしくは無効な行バージョンを削除するため全凍結になっていないすべてのページをバキュームしなければならなくなった時に発生します。
 <command>VACUUM</command>がテーブルの全凍結になっていないすべてのページをスキャンしたとき、<literal>age(relfrozenxid)</literal>は、使用された<varname>vacuum_freeze_min_age</varname>設定より若干大きくなるはずです
 （<command>VACUUM</command>を起動してから始まったトランザクションの数分大きくなります）。
 <command>VACUUM</command>は<structfield>relfrozenxid</structfield>をテーブルに残っている最も古いXIDに設定しますので、最後の値を厳密に要求されるものよりずっとより新しいものとすることが可能です。
 <structfield>relfrozenxid</structfield>を繰り上げる<command>VACUUM</command>が<varname>autovacuum_freeze_max_age</varname>に達するまでにテーブルに対して発行されない場合、そのテーブルに対して自動バキュームが早急に強制されます。
+《機械翻訳》«While <command>VACUUM</command> scans mostly pages that have been modified since the last vacuum, it may also eagerly scan some all-visible but not all-frozen pages in an attempt to freeze them, but the <structfield>relfrozenxid</structfield> will only be advanced when every page of the table that might contain unfrozen XIDs is scanned. This happens when <structfield>relfrozenxid</structfield> is more than <varname>vacuum_freeze_table_age</varname> transactions old, when <command>VACUUM</command>'s <literal>FREEZE</literal> option is used, or when all pages that are not already all-frozen happen to require vacuuming to remove dead row versions. When <command>VACUUM</command> scans every page in the table that is not already all-frozen, it should set <literal>age(relfrozenxid)</literal> to a value just a little more than the <varname>vacuum_freeze_min_age</varname> setting that was used (more by the number of transactions started since the <command>VACUUM</command> started). <command>VACUUM</command> will set <structfield>relfrozenxid</structfield> to the oldest XID that remains in the table, so it's possible that the final value will be much more recent than strictly required. If no <structfield>relfrozenxid</structfield>-advancing <command>VACUUM</command> is issued on the table until <varname>autovacuum_freeze_max_age</varname> is reached, an autovacuum will soon be forced for the table.»
    </para>
 
    <para>
@@ -1380,20 +1395,20 @@ MXIDが枯渇したときの通常の動作は、XIDが枯渇したときとほ�
 さもなければ、直前の<command>VACUUM</command>の後に不要となったタプル数が<quote>バキューム閾値</quote>を超えると、テーブルはバキュームされます。
 このバキューム閾値は以下のように定義されます。
 <programlisting>
-<!--
-vacuum threshold = vacuum base threshold + vacuum scale factor * number of tuples
--->
-バキューム閾値 = バキューム基礎閾値 + バキューム規模係数 * タプル数
+vacuum threshold = Minimum(vacuum max threshold, vacuum base threshold + vacuum scale factor * number of tuples)
 </programlisting>
 <!--
-    where the vacuum base threshold is
+    where the vacuum max threshold is
+    <xref linkend="guc-autovacuum-vacuum-max-threshold"/>,
+    the vacuum base threshold is
     <xref linkend="guc-autovacuum-vacuum-threshold"/>,
     the vacuum scale factor is
     <xref linkend="guc-autovacuum-vacuum-scale-factor"/>,
     and the number of tuples is
     <structname>pg_class</structname>.<structfield>reltuples</structfield>.
 -->
-ここで、バキューム基礎閾値は<xref linkend="guc-autovacuum-vacuum-threshold"/>、バキューム規模係数は<xref linkend="guc-autovacuum-vacuum-scale-factor"/>、タプル数は<structname>pg_class</structname>.<structfield>reltuples</structfield>です。
+《マッチ度[71.346705]》ここで、バキューム基礎閾値は<xref linkend="guc-autovacuum-vacuum-threshold"/>、バキューム規模係数は<xref linkend="guc-autovacuum-vacuum-scale-factor"/>、タプル数は<structname>pg_class</structname>.<structfield>reltuples</structfield>です。
+《機械翻訳》«where the vacuum max threshold is <xref linkend="guc-autovacuum-vacuum-max-threshold"/>, the vacuum base threshold is <xref linkend="guc-autovacuum-vacuum-threshold"/>, the vacuum scale factor is <xref linkend="guc-autovacuum-vacuum-scale-factor"/>, and the number of tuples is <structname>pg_class</structname>.<structfield>reltuples</structfield>.»
    </para>
 
    <para>
@@ -1427,16 +1442,16 @@ vacuum insert threshold = vacuum base insert threshold + vacuum insert scale fac
     If the <structfield>relfrozenxid</structfield> value of the table
     is more than <varname>vacuum_freeze_table_age</varname> transactions old,
     an aggressive vacuum is performed to freeze old tuples and advance
-    <structfield>relfrozenxid</structfield>; otherwise, only pages that have been modified
-    since the last vacuum are scanned.
+    <structfield>relfrozenxid</structfield>.
 -->
-ここで、バキューム挿入基礎閾値は<xref linkend="guc-autovacuum-vacuum-insert-threshold"/>、バキューム挿入規模係数は<xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>です。
+《マッチ度[86.443515]》ここで、バキューム挿入基礎閾値は<xref linkend="guc-autovacuum-vacuum-insert-threshold"/>、バキューム挿入規模係数は<xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>です。
 そのようなバキュームは、テーブルの一部を<firstterm>全可視</firstterm>と印づけたり、タプルを凍結したりもできますので、後続のバキュームで必要となる作業を減らせます。
 より早いバキュームによりタプルを凍結できますので、<command>INSERT</command>操作を受けたものの<command>UPDATE</command>/<command>DELETE</command>操作を全くもしくはほとんど受けていないテーブルに対しては、テーブルの<xref linkend="reloption-autovacuum-freeze-min-age"/>を低くすることが有益な場合があります。
 不要となったタプル数と挿入されたタプル数は、累積統計情報システムから取得されます。
 これは、<command>UPDATE</command>、<command>DELETE</command>および<command>INSERT</command>操作ごとに更新される、最終的には一貫性のある数です。
 テーブルの<structfield>relfrozenxid</structfield>値が<varname>vacuum_freeze_table_age</varname>トランザクション年齢より大きい場合、古いタプルを凍結して、<structfield>relfrozenxid</structfield>を繰り上げるため、積極的なバキュームが実行されます。
 そうでなければ最後のバキュームの後に変更されたページのみスキャンされます。
+《機械翻訳》«where the vacuum insert base threshold is <xref linkend="guc-autovacuum-vacuum-insert-threshold"/>, and vacuum insert scale factor is <xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>. Such vacuums may allow portions of the table to be marked as <firstterm>all visible</firstterm> and also allow tuples to be frozen, which can reduce the work required in subsequent vacuums. For tables which receive <command>INSERT</command> operations but no or almost no <command>UPDATE</command>/<command>DELETE</command> operations, it may be beneficial to lower the table's <xref linkend="reloption-autovacuum-freeze-min-age"/> as this may allow tuples to be frozen by earlier vacuums. The number of obsolete tuples and the number of inserted tuples are obtained from the cumulative statistics system; it is an eventually-consistent count updated by each <command>UPDATE</command>, <command>DELETE</command> and <command>INSERT</command> operation. If the <structfield>relfrozenxid</structfield> value of the table is more than <varname>vacuum_freeze_table_age</varname> transactions old, an aggressive vacuum is performed to freeze old tuples and advance <structfield>relfrozenxid</structfield>.»
    </para>
 
    <para>

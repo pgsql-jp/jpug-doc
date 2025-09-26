@@ -603,6 +603,18 @@ SQL文により生成されたバイト単位のWAL総量
 
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>wal_buffers_full</structfield> <type>bigint</type>
+      </para>
+      <para>
+<!--
+       Number of times the WAL buffers became full
+-->
+《機械翻訳》«Number of times the WAL buffers became full»
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
        <structfield>jit_functions</structfield> <type>bigint</type>
       </para>
       <para>
@@ -724,6 +736,30 @@ SQL文がJITコンパイルによる関数のタプルデフォームに費や�
 
      <row>
       <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>parallel_workers_to_launch</structfield> <type>bigint</type>
+      </para>
+      <para>
+<!--
+       Number of parallel workers planned to be launched
+-->
+《機械翻訳》«Number of parallel workers planned to be launched»
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
+       <structfield>parallel_workers_launched</structfield> <type>bigint</type>
+      </para>
+      <para>
+<!--
+       Number of parallel workers actually launched
+-->
+《機械翻訳》«Number of parallel workers actually launched»
+      </para></entry>
+     </row>
+
+     <row>
+      <entry role="catalog_table_entry"><para role="column_definition">
        <structfield>stats_since</structfield> <type>timestamp with time zone</type>
       </para>
       <para>
@@ -826,15 +862,35 @@ SQL文の最小/最大の統計情報収集が開始された時刻（<structfie
   <para>
 <!--
    In some cases, queries with visibly different texts might get merged into a
-   single <structname>pg_stat_statements</structname> entry.  Normally this will happen
-   only for semantically equivalent queries, but there is a small chance of
-   hash collisions causing unrelated queries to be merged into one entry.
+   single <structname>pg_stat_statements</structname> entry; as explained above,
+   this is expected to happen for semantically equivalent queries.
+   In addition, if the only difference between queries is the number of elements
+   in a list of constants, the list will get squashed down to a single element but shown
+   with a commented-out list indicator:
+-->
+《マッチ度[50.717703]》一部の状況では、見た目上異なるテキストを持つ問い合わせが１つの<structname>pg_stat_statements</structname>項目にまとめられることがあります。
+通常これは意味的に等しい問い合わせでのみ発生しますが、関連がない問い合わせが１つの項目にまとめられるハッシュ競合の可能性がわずかながら存在します。
+（しかしこれは別のユーザまたは別のデータベースに属する問い合わせでは発生することはあり得ません。）
+《機械翻訳》«In some cases, queries with visibly different texts might get merged into a single <structname>pg_stat_statements</structname> entry; as explained above, this is expected to happen for semantically equivalent queries. In addition, if the only difference between queries is the number of elements in a list of constants, the list will get squashed down to a single element but shown with a commented-out list indicator:»
+
+<screen>
+=# SELECT pg_stat_statements_reset();
+=# SELECT * FROM test WHERE a IN (1, 2, 3, 4, 5, 6, 7);
+=# SELECT * FROM test WHERE a IN (1, 2, 3, 4, 5, 6, 7, 8);
+=# SELECT query, calls FROM pg_stat_statements
+   WHERE query LIKE 'SELECT%';
+-[ RECORD 1 ]------------------------------
+query | SELECT * FROM test WHERE a IN ($1 /*, ... */)
+calls | 2
+</screen>
+
+<!--
+   In addition to these cases, there is a small chance of hash collisions
+   causing unrelated queries to be merged into one entry.
    (This cannot happen for queries belonging to different users or databases,
    however.)
 -->
-一部の状況では、見た目上異なるテキストを持つ問い合わせが１つの<structname>pg_stat_statements</structname>項目にまとめられることがあります。
-通常これは意味的に等しい問い合わせでのみ発生しますが、関連がない問い合わせが１つの項目にまとめられるハッシュ競合の可能性がわずかながら存在します。
-（しかしこれは別のユーザまたは別のデータベースに属する問い合わせでは発生することはあり得ません。）
+《機械翻訳》«In addition to these cases, there is a small chance of hash collisions causing unrelated queries to be merged into one entry. (This cannot happen for queries belonging to different users or databases, however.)»
   </para>
 
   <para>
@@ -861,20 +917,26 @@ SQL文の最小/最大の統計情報収集が開始された時刻（<structfie
    things, the internal object identifiers appearing in this representation.
    This has some counterintuitive implications.  For example,
    <filename>pg_stat_statements</filename> will consider two apparently-identical
-   queries to be distinct, if they reference a table that was dropped
-   and recreated between the executions of the two queries.
+   queries to be distinct, if they reference for example a function that was
+   dropped and recreated between the executions of the two queries.
+   Conversely, if a table is dropped and recreated between the
+   executions of queries, two apparently-identical queries may be
+   considered the same. However, if the alias for a table is different
+   for otherwise-similar queries, these queries will be considered
+   distinct.
    The hashing process is also sensitive to differences in
    machine architecture and other facets of the platform.
    Furthermore, it is not safe to assume that <structfield>queryid</structfield>
    will be stable across major versions of <productname>PostgreSQL</productname>.
 -->
-<structname>pg_stat_statements</structname>の消費者は、問い合わせテキストよりもより安定で信頼できる各項目への識別子として（おそらく<structfield>dbid</structfield>や<structfield>userid</structfield>と組み合わせて）<structfield>queryid</structfield>を使いたいかもしれません。
+《マッチ度[77.014716]》<structname>pg_stat_statements</structname>の消費者は、問い合わせテキストよりもより安定で信頼できる各項目への識別子として（おそらく<structfield>dbid</structfield>や<structfield>userid</structfield>と組み合わせて）<structfield>queryid</structfield>を使いたいかもしれません。
 しかし、<structfield>queryid</structfield>ハッシュ値の安定性には限定された保証しかないのを理解することは重要です。
 識別子は解析後の木から得られますので、その値は、とりわけ、この表現に現れる内部オブジェクト識別子の関数です。
 これは少々直観に反する結果です。
 例えば、<filename>pg_stat_statements</filename>は見たところは同一の問い合わせを、それらが2つの問い合わせの実行の間に削除され再作成されたテーブルを参照しているのであれば、別個のものとみなします。
 ハッシュ処理はプラットフォームのマシンアーキテクチャやその他の面の違いにも敏感です。
 その上、<productname>PostgreSQL</productname>のメジャーバージョンをまたがって<structfield>queryid</structfield>が安定であるとみなすのは安全ではありません。
+《機械翻訳》«Consumers of <structname>pg_stat_statements</structname> may wish to use <structfield>queryid</structfield> (perhaps in combination with <structfield>dbid</structfield> and <structfield>userid</structfield>) as a more stable and reliable identifier for each entry than its query text. However, it is important to understand that there are only limited guarantees around the stability of the <structfield>queryid</structfield> hash value. Since the identifier is derived from the post-parse-analysis tree, its value is a function of, among other things, the internal object identifiers appearing in this representation. This has some counterintuitive implications. For example, <filename>pg_stat_statements</filename> will consider two apparently-identical queries to be distinct, if they reference for example a function that was dropped and recreated between the executions of the two queries. Conversely, if a table is dropped and recreated between the executions of queries, two apparently-identical queries may be considered the same. However, if the alias for a table is different for otherwise-similar queries, these queries will be considered distinct. The hashing process is also sensitive to differences in machine architecture and other facets of the platform. Furthermore, it is not safe to assume that <structfield>queryid</structfield> will be stable across major versions of <productname>PostgreSQL</productname>.»
   </para>
 
   <para>

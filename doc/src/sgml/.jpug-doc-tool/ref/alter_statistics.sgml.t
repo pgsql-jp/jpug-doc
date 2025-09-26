@@ -1,0 +1,44 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refpurpose>␟   change the definition of an extended statistics object␟拡張統計オブジェクトの定義を変更する␞␞  </refpurpose>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>ALTER STATISTICS</command> changes the parameters of an existing
+   extended statistics object.  Any parameters not specifically set in the
+   <command>ALTER STATISTICS</command> command retain their prior settings.␟<command>ALTER STATISTICS</command>は既存の拡張統計オブジェクトのパラメータを変更します。
+<command>ALTER STATISTICS</command>コマンドで明示的に設定されないパラメータは、以前の設定を保持します。␞␞  </para>␞
+␝  <para>␟   You must own the statistics object to use <command>ALTER STATISTICS</command>.
+   To change a statistics object's schema, you must also
+   have <literal>CREATE</literal> privilege on the new schema.
+   To alter the owner, you must be able to <literal>SET ROLE</literal> to the
+   new owning role, and that role must have <literal>CREATE</literal>
+   privilege on the statistics object's schema.
+   (These restrictions enforce that altering
+   the owner doesn't do anything you couldn't do by dropping and recreating
+   the statistics object.  However, a superuser can alter ownership of any
+   statistics object anyway.)␟<command>ALTER STATISTICS</command>を使用するには、その統計オブジェクトを所有していなければなりません。
+統計オブジェクトのスキーマを変更するには、新しいスキーマに対する<literal>CREATE</literal>権限も持っていなければなりません。
+所有者を変更するには、新しい所有者ロールに対して<literal>SET ROLE</literal>ができなければなりません。また、そのロールは統計オブジェクトのスキーマに対する<literal>CREATE</literal>権限を持っていなければなりません。
+（これらの制限は、統計オブジェクトを削除し、そして再作成することによって実現できないことを、所有者を変更することで実現できることがないことを強制するものです。
+しかし、スーパーユーザはどの統計オブジェクトの所有者も変更できます。）␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝       <para>␟        The name (optionally schema-qualified) of the statistics object to be
+        altered.␟変更の対象となる統計オブジェクトの名前（オプションでスキーマ修飾可）です。␞␞       </para>␞
+␝       <para>␟        The user name of the new owner of the statistics object.␟統計オブジェクトの新しい所有者のユーザ名です。␞␞       </para>␞
+␝       <para>␟        The new name for the statistics object.␟統計オブジェクトの新しい名前です。␞␞       </para>␞
+␝       <para>␟        The new schema for the statistics object.␟統計オブジェクトの新しいスキーマです。␞␞       </para>␞
+␝       <para>␟        The statistic-gathering target for this statistics object for subsequent
+        <link linkend="sql-analyze"><command>ANALYZE</command></link> operations.
+        The target can be set in the range 0 to 10000.  Set it to
+        <literal>DEFAULT</literal> to revert to using the system default
+        statistics target (<xref linkend="guc-default-statistics-target"/>).
+        (Setting to a value of -1 is an obsolete way spelling to get the same
+        outcome.)
+        For more information on the use of statistics by the
+        <productname>PostgreSQL</productname> query planner, refer to
+        <xref linkend="planner-stats"/>.␟後続の<link linkend="sql-analyze"><command>ANALYZE</command></link>操作でこの統計オブジェクトについて統計情報を集める目標です。
+目標は0から10000の範囲で設定できます。
+システムのデフォルトの統計目標(<xref linkend="guc-default-statistics-target"/>)を使うように戻すためには、<literal>DEFAULT</literal>に設定します。
+（値を -1 に設定するのは、同じ結果を得るための古い方法です。）
+<productname>PostgreSQL</productname>問い合わせプランナによる統計情報の使用に関する詳細な情報は<xref linkend="planner-stats"/>を参照してください。␞␞       </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   There is no <command>ALTER STATISTICS</command> command in the SQL standard.␟標準SQLには<command>ALTER STATISTICS</command>コマンドはありません。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞

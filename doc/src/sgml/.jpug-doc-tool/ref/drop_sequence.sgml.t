@@ -1,0 +1,27 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟<refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP SEQUENCE</refname>␟  <refpurpose>remove a sequence</refpurpose>␟  <refpurpose>シーケンスを削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP SEQUENCE</command> removes sequence number
+   generators. A sequence can only be dropped by its owner or a superuser.␟<command>DROP SEQUENCE</command>はシーケンス番号ジェネレータを削除します。
+シーケンスの削除はその所有者またはスーパーユーザのみが可能です。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Do not throw an error if the sequence does not exist. A notice is issued
+      in this case.␟シーケンスが存在しない場合でもエラーになりません。
+この場合、注意メッセージが発行されます。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of a sequence.␟シーケンスの名前です（スキーマ修飾名も可）。␞␞     </para>␞
+␝     <para>␟      Automatically drop objects that depend on the sequence,
+      and in turn all objects that depend on those objects
+      (see <xref linkend="ddl-depend"/>).␟このシーケンスに依存しているオブジェクトを自動的に削除し、さらにそれらのオブジェクトに依存するすべてのオブジェクトも削除します（<xref linkend="ddl-depend"/>参照）。␞␞     </para>␞
+␝     <para>␟      Refuse to drop the sequence if any objects depend on it.  This
+      is the default.␟依存オブジェクトがある場合に、シーケンスの削除を拒否します。
+こちらがデフォルトです。␞␞     </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To remove the sequence <literal>serial</literal>:␟<literal>serial</literal>という名前のシーケンスを削除します。␞␞␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>DROP SEQUENCE</command> conforms to the <acronym>SQL</acronym>
+   standard, except that the standard only allows one
+   sequence to be dropped per command, and apart from the
+   <literal>IF EXISTS</literal> option, which is a <productname>PostgreSQL</productname>
+   extension.␟<command>DROP SEQUENCE</command>は標準<acronym>SQL</acronym>に準拠していますが、標準では1コマンドで1つのシーケンスしか削除できないという点、および、<productname>PostgreSQL</productname>の拡張である <literal>IF EXISTS</literal>オプションを除きます。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟DROP SEQUENCE serial; </programlisting></para> </programlisting></para>␟no translation␞␞␞

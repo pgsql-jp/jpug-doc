@@ -1,0 +1,34 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP EXTENSION</refname>␟  <refpurpose>remove an extension</refpurpose>␟  <refpurpose>拡張を削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP EXTENSION</command> removes extensions from the database.
+   Dropping an extension causes its member objects, and other explicitly
+   dependent routines (see <xref linkend="sql-alterroutine"/>,
+   the <literal>DEPENDS ON EXTENSION <replaceable>extension_name</replaceable>
+   </literal> action), to be dropped as well.␟<command>DROP EXTENSION</command>はデータベースから拡張を削除します。
+拡張を削除すると、そのメンバオブジェクトやその他明示的に依存するルーチン(<xref linkend="sql-alterroutine"/>の<literal>DEPENDS ON EXTENSION <replaceable>extension_name</replaceable></literal>の動作を参照してください)も削除されます。␞␞  </para>␞
+␝  <para>␟   You must own the extension to use <command>DROP EXTENSION</command>.␟<command>DROP EXTENSION</command>を使用するためにはその拡張を所有していなければなりません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Do not throw an error if the extension does not exist. A notice is issued
+      in this case.␟拡張が存在しない場合でもエラーになりません。
+この場合注意メッセージが発行されます。␞␞     </para>␞
+␝     <para>␟      The name of an installed extension.␟インストールされている拡張の名前です。␞␞     </para>␞
+␝     <para>␟      Automatically drop objects that depend on the extension,
+      and in turn all objects that depend on those objects
+      (see <xref linkend="ddl-depend"/>).␟削除する拡張に依存しているオブジェクトを自動的に削除し、さらにそれらのオブジェクトに依存するすべてのオブジェクトも削除します（<xref linkend="ddl-depend"/>参照）。␞␞     </para>␞
+␝     <para>␟      This option prevents the specified extensions from being dropped if
+      other objects, besides these extensions, their members, and their
+      explicitly dependent routines, depend on them. This is the default.␟このオプションは、以下のもの以外の他のオブジェクトが拡張に依存している場合に、指定された拡張を削除しないようにします。ここで、以下のものとは、これらの拡張、そのメンバ、および明示的に依存するルーチンです。
+こちらがデフォルトです。␞␞     </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To remove the extension <literal>hstore</literal> from the current
+   database:␟現在のデータベースから<literal>hstore</literal>拡張を削除します。␞␞<programlisting>␞
+␝</programlisting>␟   This command will fail if any of <literal>hstore</literal>'s objects
+   are in use in the database, for example if any tables have columns
+   of the <type>hstore</type> type.  Add the <literal>CASCADE</literal> option to
+   forcibly remove those dependent objects as well.␟例えば何らかのテーブルが<type>hstore</type>型の列を持つなど、データベース内で<literal>hstore</literal>のオブジェクトを使用している場合、このコマンドは失敗します。
+こうした依存するオブジェクトも含めて強制的に削除するには<literal>CASCADE</literal>を付けてください。␞␞  </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>DROP EXTENSION</command> is a <productname>PostgreSQL</productname>
+   extension.␟<command>DROP EXTENSION</command>は<productname>PostgreSQL</productname>の拡張です。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞

@@ -1,0 +1,29 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP TABLESPACE</refname>␟  <refpurpose>remove a tablespace</refpurpose>␟  <refpurpose>テーブル空間を削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP TABLESPACE</command> removes a tablespace from the system.␟<command>DROP TABLESPACE</command>はシステムからテーブル空間を削除します。␞␞  </para>␞
+␝  <para>␟   A tablespace can only be dropped by its owner or a superuser.
+   The tablespace must be empty of all database objects before it can be
+   dropped. It is possible that objects in other databases might still reside
+   in the tablespace even if no objects in the current database are using
+   the tablespace.  Also, if the tablespace is listed in the <xref
+   linkend="guc-temp-tablespaces"/> setting of any active session, the
+   <command>DROP</command> might fail due to temporary files residing in the
+   tablespace.␟テーブル空間を削除できるのは、その所有者もしくはスーパーユーザのみです。
+テーブル空間を削除する前に、全てのデータベースオブジェクトが空になっていなければなりません。
+現在のデータベース内のオブジェクトが使用していなかったとしても、他のデータベース内のオブジェクトがそのテーブル空間上にあることがあります。
+また、活動中のセッションのいずれかの<xref linkend="guc-temp-tablespaces"/>のリストにそのテーブル空間が含まれている場合、一時ファイルがそのテーブル空間に存在するために<command>DROP</command>が失敗する可能性があります。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Do not throw an error if the tablespace does not exist. A notice is issued
+      in this case.␟テーブル空間が存在しない場合でもエラーになりません。
+この場合注意メッセージが発行されます。␞␞     </para>␞
+␝     <para>␟      The name of a tablespace.␟テーブル空間の名前です。␞␞     </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝   <para>␟    <command>DROP TABLESPACE</command> cannot be executed inside a transaction block.␟トランザクションブロック内で<command>DROP TABLESPACE</command>を実行することはできません。␞␞   </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To remove tablespace <literal>mystuff</literal> from the system:␟テーブル空間<literal>mystuff</literal>をシステムから削除します。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>DROP TABLESPACE</command> is a <productname>PostgreSQL</productname>
+   extension.␟<command>DROP TABLESPACE</command>は<productname>PostgreSQL</productname>の拡張です。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟DROP TABLESPACE mystuff; </programlisting></para> </programlisting></para>␟no translation␞␞␞

@@ -1,0 +1,144 @@
+␝  <manvolnum>1</manvolnum>␟  <refmiscinfo>Application</refmiscinfo>␟  <refmiscinfo>アプリケーション</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>createdb</refname>␟  <refpurpose>create a new <productname>PostgreSQL</productname> database</refpurpose>␟  <refpurpose>新しい<productname>PostgreSQL</productname>データベースを作成する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1 id="r1-app-createdb-1">␟  <title>Description</title>␟  <title>説明</title>␞␞  <para>␞
+␝  <para>␟   <application>createdb</application> creates a new <productname>PostgreSQL</productname>
+   database.␟<application>createdb</application>は、新しい<productname>PostgreSQL</productname>データベースを作成します。␞␞  </para>␞
+␝  <para>␟   Normally, the database user who executes this command becomes the owner of
+   the new database.
+   However, a different owner can be specified via the <option>-O</option>
+   option, if the executing user has appropriate privileges.␟通常、このコマンドを実行したデータベースユーザが、新しいデータベースの所有者になります。
+ただし、コマンドを実行するユーザが適切な権限を持っている場合、<option>-O</option>オプションを使用して別のユーザを所有者に指定できます。␞␞  </para>␞
+␝  <para>␟   <application>createdb</application> is a wrapper around the
+   <acronym>SQL</acronym> command <link linkend="sql-createdatabase"><command>CREATE DATABASE</command></link>.
+   There is no effective difference between creating databases via
+   this utility and via other methods for accessing the server.␟<application>createdb</application>は<link linkend="sql-createdatabase"><command>CREATE DATABASE</command></link>という<acronym>SQL</acronym>コマンドのラッパーです。
+したがって、このユーティリティでデータベースを作成しても、これ以外の方法でサーバにアクセスしてデータベースを作成しても何も違いはありません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Options</title>␟  <title>オプション</title>␞␞␞
+␝  <para>␟   <application>createdb</application> accepts the following command-line arguments:␟<application>createdb</application>では、下記のコマンドライン引数を指定できます。␞␞␞
+␝       <para>␟        Specifies the name of the database to be created.  The name must be
+        unique among all <productname>PostgreSQL</productname> databases in this cluster.
+        The default is to create a database with the same name as the
+        current system user.␟作成するデータベースの名前を指定します。
+この名前はクラスタ内の全ての<productname>PostgreSQL</productname>データベースの中で一意でなければなりません。
+デフォルトでは、現在のシステムユーザと同じ名前でデータベースを作成します。␞␞       </para>␞
+␝       <para>␟        Specifies a comment to be associated with the newly created
+        database.␟新しく作成されるデータベースに関連付けるコメントを指定します。␞␞       </para>␞
+␝       <para>␟        Specifies the default tablespace for the database. (This name
+        is processed as a double-quoted identifier.)␟データベース用のデフォルトのテーブル空間を指定します。
+（この名前は二重引用符で囲まれた識別子として処理されます。）␞␞       </para>␞
+␝       <para>␟        Echo the commands that <application>createdb</application> generates
+        and sends to the server.␟<application>createdb</application>が生成し、サーバに送信するコマンドをエコー表示します。␞␞       </para>␞
+␝       <para>␟        Specifies the character encoding scheme to be used in this
+        database. The character sets supported by the
+        <productname>PostgreSQL</productname> server are described in
+        <xref linkend="multibyte-charset-supported"/>.␟このデータベース内で使用する文字符号化方式を指定します。
+<productname>PostgreSQL</productname>サーバでサポートされる文字セットについては<xref linkend="multibyte-charset-supported"/>で説明します。␞␞       </para>␞
+␝       <para>␟        Specifies the locale to be used in this database.  This is equivalent
+        to specifying <option>--lc-collate</option>,
+        <option>--lc-ctype</option>, and <option>--icu-locale</option> to the
+        same value. Some locales are only valid for ICU and must be set with
+        <option>--icu-locale</option>.␟このデータベースで使用されるロケールを指定します。
+これは、<option>--lc-collate</option>、<option>--lc-ctype</option>、および<option>--icu-locale</option>を同じ値に指定することと等価です。
+一部のロケールはICUに対してのみ有効であり、<option>--icu-locale</option>で設定することが必要です。␞␞       </para>␞
+␝       <para>␟        Specifies the LC_COLLATE setting to be used in this database.␟このデータベースで使用されるLC_COLLATE設定を指定します。␞␞       </para>␞
+␝       <para>␟        Specifies the LC_CTYPE setting to be used in this database.␟このデータベースで使用されるLC_CTYPE設定を指定します。␞␞       </para>␞
+␝       <para>␟        Specifies the locale name when the builtin provider is used. Locale support
+        is described in <xref linkend="locale"/>.␟組み込みプロバイダを使用する場合にロケール名を指定します。
+ロケールのサポートについては<xref linkend="locale"/>で説明します。␞␞       </para>␞
+␝       <para>␟        Specifies the ICU locale ID to be used in this database, if the
+        ICU locale provider is selected.␟ICUロケールプロバイダを選択した場合に、このデータベースで使用されるICUロケールIDを指定します。␞␞       </para>␞
+␝       <para>␟        Specifies additional collation rules to customize the behavior of the
+        default collation of this database.  This is supported for ICU only.␟このデータベースのデフォルトの照合の動作をカスタマイズするための追加の照合規則を指定します。
+これはICUのみでサポートされています。␞␞       </para>␞
+␝       <para>␟        Specifies the locale provider for the database's default collation.␟データベースのデフォルトの照合順序のロケールプロバイダを指定します。␞␞       </para>␞
+␝       <para>␟        Specifies the database user who will own the new database.
+        (This name is processed as a double-quoted identifier.)␟新しいデータベースの所有者となるデータベースユーザを指定します。
+（この名前は二重引用符で囲まれた識別子として処理されます。）␞␞       </para>␞
+␝       <para>␟        Specifies the database creation strategy.  See
+        <xref linkend="create-database-strategy" /> for more details.␟データベース作成手法を指定します。
+詳細は<xref linkend="create-database-strategy" />を参照してください。␞␞       </para>␞
+␝       <para>␟        Specifies the template database from which to build this
+        database.  (This name is processed as a double-quoted identifier.)␟このデータベースの構築に使用するテンプレートデータベースを指定します。
+（この名前は二重引用符で囲まれた識別子として処理されます。）␞␞       </para>␞
+␝       <para>␟       Print the <application>createdb</application> version and exit.␟<application>createdb</application>のバージョンを表示し、終了します。␞␞       </para>␞
+␝      <para>␟      Show help about <application>createdb</application> command line
+      arguments, and exit.␟<application>createdb</application>のコマンドライン引数の使用方法を表示し、終了します。␞␞      </para>␞
+␝   <para>␟    The options <option>-D</option>, <option>-l</option>, <option>-E</option>,
+    <option>-O</option>, and
+    <option>-T</option> correspond to options of the underlying
+    SQL command <link linkend="sql-createdatabase"><command>CREATE DATABASE</command></link>; see there for more information
+    about them.␟オプション<option>-D</option>、<option>-l</option>、<option>-E</option>、<option>-O</option>、および<option>-T</option>は、基盤となる<link linkend="sql-createdatabase"><command>CREATE DATABASE</command></link>というSQLコマンドのオプションにそれぞれ対応しています。
+詳細はそちらを参照してください。␞␞   </para>␞
+␝   <para>␟    <application>createdb</application> also accepts the following
+    command-line arguments for connection parameters:␟また<application>createdb</application>は、以下のコマンドライン引数を接続パラメータとして受け付けます。␞␞␞
+␝       <para>␟        Specifies the host name of the machine on which the
+        server is running.  If the value begins with a slash, it is used
+        as the directory for the Unix domain socket.␟サーバが稼働しているマシンのホスト名を指定します。
+この値がスラッシュから始まる場合、Unixドメインソケット用のディレクトリとして使用されます。␞␞       </para>␞
+␝       <para>␟        Specifies the TCP port or the local Unix domain socket file
+        extension on which the server is listening for connections.␟サーバが接続を監視するTCPポートもしくはUnixドメインソケットのファイル拡張子を指定します。␞␞       </para>␞
+␝       <para>␟        User name to connect as.␟接続に使用するユーザ名を指定します。␞␞       </para>␞
+␝       <para>␟        Never issue a password prompt.  If the server requires
+        password authentication and a password is not available by
+        other means such as a <filename>.pgpass</filename> file, the
+        connection attempt will fail.  This option can be useful in
+        batch jobs and scripts where no user is present to enter a
+        password.␟パスワードの入力を促しません。
+サーバがパスワード認証を必要とし、かつ、<filename>.pgpass</filename>ファイルなどの他の方法が利用できない場合、接続試行は失敗します。
+バッチジョブやスクリプトなどパスワードを入力するユーザが存在しない場合にこのオプションは有用かもしれません。␞␞       </para>␞
+␝       <para>␟        Force <application>createdb</application> to prompt for a
+        password before connecting to a database.␟データベースに接続する前に、<application>createdb</application>は強制的にパスワード入力を促します。␞␞       </para>␞
+␝       <para>␟        This option is never essential, since
+        <application>createdb</application> will automatically prompt
+        for a password if the server demands password authentication.
+        However, <application>createdb</application> will waste a
+        connection attempt finding out that the server wants a password.
+        In some cases it is worth typing <option>-W</option> to avoid the extra
+        connection attempt.␟サーバがパスワード認証を要求する場合<application>createdb</application>は自動的にパスワード入力を促しますので、これが重要になることはありません。
+しかし、<application>createdb</application>は、サーバにパスワードが必要かどうかを判断するための接続試行を無駄に行います。
+こうした余計な接続試行を防ぐために<option>-W</option>の入力が有意となる場合もあります。␞␞       </para>␞
+␝       <para>␟         Specifies the name of the database to connect to when creating the
+         new database. If not specified, the <literal>postgres</literal>
+         database will be used; if that does not exist (or if it is the name
+         of the new database being created), <literal>template1</literal> will
+         be used.
+         This can be a <link linkend="libpq-connstring">connection
+         string</link>.  If so, connection string parameters will override any
+         conflicting command line options.␟新しいデータベースを作成する時の接続先となるデータベースの名前を指定します。
+指定がなければ、<literal>postgres</literal>データベースが使用されます。
+もし存在しなければ（またはこれが作成しようとしているデータベースの名前であれば）<literal>template1</literal>が使用されます。
+これは<link linkend="libpq-connstring">接続文字列</link>でも構いません。
+その場合、接続文字列パラメータは衝突するコマンドラインオプションよりも優先します。␞␞       </para>␞
+␝ <refsect1>␟  <title>Environment</title>␟  <title>環境</title>␞␞␞
+␝     <para>␟      If set, the name of the database to create, unless overridden on
+      the command line.␟この値が設定されている場合、コマンドラインで上書きされなければ、設定された値が作成するデータベースの名前になります。␞␞     </para>␞
+␝     <para>␟      Default connection parameters.  <envar>PGUSER</envar> also
+      determines the name of the database to create, if it is not
+      specified on the command line or by <envar>PGDATABASE</envar>.␟デフォルトの接続パラメータです。
+コマンドラインでも<envar>PGDATABASE</envar>でも名前が指定されていない場合は、<envar>PGUSER</envar>が作成するデータベースの名前にもなります。␞␞     </para>␞
+␝     <para>␟      Specifies whether to use color in diagnostic messages. Possible values
+      are <literal>always</literal>, <literal>auto</literal> and
+      <literal>never</literal>.␟診断メッセージで色を使うかどうかを指定します。
+指定可能な値は<literal>always</literal>、<literal>auto</literal>、<literal>never</literal>です。␞␞     </para>␞
+␝  <para>␟   This utility, like most other <productname>PostgreSQL</productname> utilities,
+   also uses the environment variables supported by <application>libpq</application>
+   (see <xref linkend="libpq-envars"/>).␟このユーティリティは、他のほとんどの<productname>PostgreSQL</productname>ユーティリティと同様、<application>libpq</application>がサポートする環境変数(<xref linkend="libpq-envars"/>参照)も使います。␞␞  </para>␞
+␝ <refsect1>␟  <title>Diagnostics</title>␟  <title>診断</title>␞␞␞
+␝  <para>␟   In case of difficulty, see <xref linkend="sql-createdatabase"/>
+   and <xref linkend="app-psql"/> for
+   discussions of potential problems and error messages.
+   The database server must be running at the
+   targeted host.  Also, any default connection settings and environment
+   variables used by the <application>libpq</application> front-end
+   library will apply.␟問題が発生した場合、考えられる原因とエラーメッセージの説明について<xref linkend="sql-createdatabase"/>と<xref linkend="app-psql"/>を参照してください。
+データベースサーバは対象ホストで稼働していなければなりません。
+また、<application>libpq</application>フロントエンドライブラリで使用される、全てのデフォルトの接続設定と環境変数が適用されることも覚えておいてください。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝   <para>␟    To create the database <literal>demo</literal> using the default
+    database server:␟デフォルトのデータベースサーバを使用して<literal>demo</literal>データベースを作成します。␞␞<screen>␞
+␝   <para>␟    To create the database <literal>demo</literal> using the
+    server on host <literal>eden</literal>, port 5000, using the
+    <literal>template0</literal> template database,  here is the
+    command-line command and the underlying SQL command:␟<literal>eden</literal>ホスト上のポート番号5000のサーバを使用し、<literal>template0</literal>テンプレートデータベースを使用して<literal>demo</literal>データベースを作成する場合の、コマンドラインから入力するコマンドと背後で実行されるSQLコマンドを示します。␞␞<screen>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟<prompt>$ </prompt><userinput>createdb -p 5000 -h eden -T template0 -e demo</userinput> <computeroutput>CREATE DATABASE demo TEMPLATE template0;</computeroutput> </screen></para> </screen></para>␟no translation␞␞␞

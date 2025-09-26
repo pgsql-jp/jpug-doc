@@ -3,7 +3,7 @@
  * sinval.c
  *	  POSTGRES shared cache invalidation communication code.
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -16,7 +16,6 @@
 
 #include "access/xact.h"
 #include "miscadmin.h"
-#include "nodes/memnodes.h"
 #include "storage/latch.h"
 #include "storage/sinvaladt.h"
 #include "utils/inval.h"
@@ -183,7 +182,6 @@ ProcessCatchupInterrupt(void)
 		 * can just call AcceptInvalidationMessages() to do this.  If we
 		 * aren't, we start and immediately end a transaction; the call to
 		 * AcceptInvalidationMessages() happens down inside transaction start.
-		 * Be sure to preserve caller's memory context when we do that.
 		 *
 		 * It is awfully tempting to just call AcceptInvalidationMessages()
 		 * without the rest of the xact start/stop overhead, and I think that
@@ -197,14 +195,9 @@ ProcessCatchupInterrupt(void)
 		}
 		else
 		{
-			MemoryContext oldcontext = CurrentMemoryContext;
-
 			elog(DEBUG4, "ProcessCatchupEvent outside transaction");
 			StartTransactionCommand();
 			CommitTransactionCommand();
-			/* Caller's context had better not have been transaction-local */
-			Assert(MemoryContextIsValid(oldcontext));
-			MemoryContextSwitchTo(oldcontext);
 		}
 	}
 }

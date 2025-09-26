@@ -1,0 +1,45 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟<refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP OPERATOR CLASS</refname>␟  <refpurpose>remove an operator class</refpurpose>␟  <refpurpose>演算子クラスを削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP OPERATOR CLASS</command> drops an existing operator class.
+   To execute this command you must be the owner of the operator class.␟<command>DROP OPERATOR CLASS</command>は既存の演算子クラスを削除します。
+このコマンドを実行するには、演算子クラスの所有者でなければなりません。␞␞  </para>␞
+␝  <para>␟   <command>DROP OPERATOR CLASS</command> does not drop any of the operators
+   or functions referenced by the class.  If there are any indexes depending
+   on the operator class, you will need to specify
+   <literal>CASCADE</literal> for the drop to complete.␟<command>DROP OPERATOR CLASS</command>はそのクラスで参照される演算子や関数をまったく削除しません。
+演算子クラスに依存するインデックスがある場合、削除を成功させるためには<literal>CASCADE</literal>を指定する必要があります。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Do not throw an error if the operator class does not exist. A notice is issued
+      in this case.␟演算子クラスが存在しない場合でもエラーになりません。
+この場合注意メッセージが発行されます。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of an existing operator class.␟既存の演算子クラスの名前です（スキーマ修飾名も可）。␞␞     </para>␞
+␝     <para>␟      The name of the index access method the operator class is for.␟この演算子クラスを使用するインデックスアクセスメソッドの名前です。␞␞     </para>␞
+␝     <para>␟      Automatically drop objects that depend on the operator class (such as
+      indexes), and in turn all objects that depend on those objects
+      (see <xref linkend="ddl-depend"/>).␟この演算子クラスに依存しているオブジェクト（インデックスなど）を自動的に削除し、さらにそれらのオブジェクトに依存するすべてのオブジェクトも削除します
+（<xref linkend="ddl-depend"/>参照）。␞␞     </para>␞
+␝     <para>␟      Refuse to drop the operator class if any objects depend on it.
+      This is the default.␟依存しているオブジェクトがある場合に、その演算子クラスの削除を拒否します。
+こちらがデフォルトです。␞␞     </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   <command>DROP OPERATOR CLASS</command> will not drop the operator family
+   containing the class, even if there is nothing else left in the
+   family (in particular, in the case where the family was implicitly
+   created by <command>CREATE OPERATOR CLASS</command>).  An empty operator
+   family is harmless, but for the sake of tidiness you might wish to
+   remove the family with <command>DROP OPERATOR FAMILY</command>; or perhaps
+   better, use <command>DROP OPERATOR FAMILY</command> in the first place.␟<command>DROP OPERATOR CLASS</command>は、そのクラスを含む演算子族を削除しません。
+たとえその演算子族が空になったとしても（特にその演算子族が<command>CREATE OPERATOR CLASS</command>で暗黙的に作成された場合でも）です。
+空の演算子族は存在しても害はありませんが、整理するために<command>DROP OPERATOR FAMILY</command>を使用してこの演算子族を削除することができます。
+あるいは最初に<command>DROP OPERATOR FAMILY</command>を使って下さい。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   Remove the B-tree operator class <literal>widget_ops</literal>:␟<literal>widget_ops</literal>という名前のB-tree演算子クラスを削除します。␞␞␞
+␝␟   This command will not succeed if there are any existing indexes
+   that use the operator class.  Add <literal>CASCADE</literal> to drop
+   such indexes along with the operator class.␟演算子クラスを使用するインデックスが存在する場合、このコマンドは実行できません。
+このようなインデックスを演算子クラスとともに削除するには、<literal>CASCADE</literal>を指定します。␞␞  </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   There is no <command>DROP OPERATOR CLASS</command> statement in the
+   SQL standard.␟標準SQLには<command>DROP OPERATOR CLASS</command>は存在しません。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞

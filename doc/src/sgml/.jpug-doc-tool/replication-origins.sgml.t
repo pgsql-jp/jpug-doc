@@ -1,0 +1,92 @@
+␝ <indexterm zone="replication-origins">
+  <primary>Replication Progress Tracking</primary>
+ </indexterm>
+␟␟ <indexterm zone="replication-origins">
+  <primary>レプリケーション進捗の追跡</primary>
+ </indexterm>␞␞␞
+␝ <indexterm zone="replication-origins">
+  <primary>Replication Origins</primary>
+ </indexterm>
+␟␟ <indexterm zone="replication-origins">
+  <primary>レプリケーション起点</primary>
+ </indexterm>␞␞␞
+␝<chapter id="replication-origins">␟ <title>Replication Progress Tracking</title>␟ <title>レプリケーション進捗の追跡</title>␞␞␞
+␝ <para>␟  Replication origins are intended to make it easier to implement
+  logical replication solutions on top
+  of <link linkend="logicaldecoding">logical decoding</link>.
+  They provide a solution to two common problems:␟レプリケーション起点(replication origins)は、<link linkend="logicaldecoding">ロジカルデコーディング</link>の上に、論理レプリケーションソリューションを実装しやすくすることを意図しています。
+以下の2つの良くある問題に対して解決の方策を提供します。␞␞  <itemizedlist>␞
+␝   <listitem>␟    <para>How to safely keep track of replication progress</para>␟    <para>レプリケーション進捗をどうやって安全に追跡するか</para>␞␞   </listitem>␞
+␝   <listitem>␟    <para>How to change replication behavior based on the
+     origin of a row; for example, to prevent loops in bi-directional
+     replication setups</para>␟    <para>たとえば双方向レプリケーションにおけるループを回避するために、起点の行ごとに、いかにしてレプリケーションの挙動を変えるか</para>␞␞   </listitem>␞
+␝ <para>␟  Replication origins have just two properties, a name and an ID. The name,
+  which is what should be used to refer to the origin across systems, is
+  free-form <type>text</type>. It should be used in a way that makes conflicts
+  between replication origins created by different replication solutions
+  unlikely; e.g., by prefixing the replication solution's name to it.
+  The ID is used only to avoid having to store the long version
+  in situations where space efficiency is important. It should never be shared
+  across systems.␟レプリケーション起点は、名前とIDから構成されます。
+システム中で起点を参照する際に使われる名前は、任意の<type>text</type>です。
+その名前は、たとえばレプリケーションソリューションの名前を接頭辞にすることにより、別々のレプリケーションソリューションによって作成されたレプリケーション起点が衝突することがないように使われるべきです。
+IDは、空間効率が重要な場合に、長い名前を格納することを避けたいときにのみ使用します。
+システム間で共有すべきものではありません。␞␞ </para>␞
+␝ <para>␟  Replication origins can be created using the function
+  <link linkend="pg-replication-origin-create"><function>pg_replication_origin_create()</function></link>;
+  dropped using
+  <link linkend="pg-replication-origin-drop"><function>pg_replication_origin_drop()</function></link>;
+  and seen in the
+  <link linkend="catalog-pg-replication-origin"><structname>pg_replication_origin</structname></link>
+  system catalog.␟レプリケーション起点は<link linkend="pg-replication-origin-create"><function>pg_replication_origin_create()</function></link>で作成し、<link linkend="pg-replication-origin-drop"><function>pg_replication_origin_drop()</function></link>で削除し、<link linkend="catalog-pg-replication-origin"><structname>pg_replication_origin</structname></link>システムカタログを使って参照します。␞␞ </para>␞
+␝ <para>␟  One nontrivial part of building a replication solution is to keep track of
+  replay progress in a safe manner. When the applying process, or the whole
+  cluster, dies, it needs to be possible to find out up to where data has
+  successfully been replicated. Naive solutions to this, such as updating a
+  row in a table for every replayed transaction, have problems like run-time
+  overhead and database bloat.␟レプリケーションソリューションを構築する際に無視できない問題は、どうやってリプレイの進捗を安全に追跡するか、ということです。
+(訳注: ログを)適用するプロセス、あるいはシステム全体が死んだ時に、どこまでデータのレプリケーションが成功したかを見つけることができなければなりません。
+トランザクションのリプレイの度にテーブルの行を更新するような素朴なソリューションは、実行時のオーバーヘッドとデータベースの肥大化問題を起こします。␞␞ </para>␞
+␝ <para>␟  Using the replication origin infrastructure a session can be
+  marked as replaying from a remote node (using the
+  <link linkend="pg-replication-origin-session-setup"><function>pg_replication_origin_session_setup()</function></link>
+  function). Additionally the <acronym>LSN</acronym> and commit
+  time stamp of every source transaction can be configured on a per
+  transaction basis using
+  <link linkend="pg-replication-origin-xact-setup"><function>pg_replication_origin_xact_setup()</function></link>.
+  If that's done replication progress will persist in a crash safe
+  manner. Replay progress for all replication origins can be seen in the
+  <link linkend="view-pg-replication-origin-status">
+   <structname>pg_replication_origin_status</structname>
+  </link> view. An individual origin's progress, e.g., when resuming
+  replication, can be acquired using
+  <link linkend="pg-replication-origin-progress"><function>pg_replication_origin_progress()</function></link>
+  for any origin or
+  <link linkend="pg-replication-origin-session-progress"><function>pg_replication_origin_session_progress()</function></link>
+  for the origin configured in the current session.␟レプリケーション起点のインフラを使用することにより、あるセッションに対してリモートノードからリプレイしていることの目印を付けることができます。(<link linkend="pg-replication-origin-session-setup"><function>pg_replication_origin_session_setup()</function></link>を使います)
+また、  <link linkend="pg-replication-origin-xact-setup"><function>pg_replication_origin_xact_setup()</function></link>を使ってすべてのソーストランザクションに対してトランザクション単位で<acronym>LSN</acronym>とタイムスタンプを記録するように設定することができます。
+終了後は、クラッシュに対して安全な方法で、レプリケーションの進捗は永続的に記録されます。
+すべてのレプリケーション起点のリプレイの進捗は、<link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link>ビューで参照できます。
+たとえばレプリケーションの再開の際などには、個々の起点の進捗を、<link linkend="pg-replication-origin-progress"><function>pg_replication_origin_progress()</function></link>で参照できます。
+現在のセッションに起点が設定されている場合は、<link linkend="pg-replication-origin-session-progress"><function>pg_replication_origin_session_progress()</function></link>を使用します。␞␞ </para>␞
+␝ <para>␟  In replication topologies more complex than replication from exactly one
+  system to one other system, another problem can be that it is hard to avoid
+  replicating replayed rows again. That can lead both to cycles in the
+  replication and inefficiencies. Replication origins provide an optional
+  mechanism to recognize and prevent that. When configured using the functions
+  referenced in the previous paragraph, every change and transaction passed to
+  output plugin callbacks (see <xref linkend="logicaldecoding-output-plugin"/>)
+  generated by the session is tagged with the replication origin of the
+  generating session.  This allows treating them differently in the output
+  plugin, e.g., ignoring all but locally-originating rows.  Additionally
+  the <link linkend="logicaldecoding-output-plugin-filter-origin">
+  <function>filter_by_origin_cb</function></link> callback can be used
+  to filter the logical decoding change stream based on the
+  source. While less flexible, filtering via that callback is
+  considerably more efficient than doing it in the output plugin.␟厳密に一つのシステムから別の一つのシステムにレプリケーションする以上のより複雑なレプリケーションのトポロジでは、リプレイされた行を再びレプリケーションするのを避けるのが難しいという別な問題が発生するかもしれません。
+これにより、レプリケーションの巡回と、非効率性の両方が発生するかもしれません。
+レプリケーション起点には、この問題を認識し、避けるためのオプションの機構があります。
+前段で言及した関数を使うと、出力プラグインコールバック(<xref linkend="logicaldecoding-output-plugin"/>参照)に渡されるすべての更新とトランザクションに、セッションを生成しているレプリケーション起点がタグ付けされます。
+これにより、出力プラグインの中でそれらの扱いを分けることができます。たとえばローカルに起因する行以外はすべて無視するような場合です。
+また追加で、ソースに基づくロジカルデコーディングの変更ストリームをフィルタするために<link linkend="logicaldecoding-output-plugin-filter-origin"><function>filter_by_origin_cb</function></link>コールバックを使うことができます。
+これは柔軟ではありませんが、アウトプットプラグインを通してフィルタリングするのはずっと効率的です。␞␞ </para>␞

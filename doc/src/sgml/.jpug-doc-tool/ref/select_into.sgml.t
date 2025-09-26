@@ -1,0 +1,64 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟<refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>SELECT INTO</refname>␟  <refpurpose>define a new table from the results of a query</refpurpose>␟  <refpurpose>問い合わせの結果からの新しいテーブルを定義する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>SELECT INTO</command> creates a new table and fills it
+   with data computed by a query.  The data is not returned to the
+   client, as it is with a normal <command>SELECT</command>.  The new
+   table's columns have the names and data types associated with the
+   output columns of the <command>SELECT</command>.␟<command>SELECT INTO</command>は新しいテーブルを作成し、そこに問い合わせによって計算したデータを格納します。
+このデータは通常の<command>SELECT</command>のようにはクライアントに返されません。
+新しいテーブルの列は<command>SELECT</command>の出力列に関連するデータ型と名前を持ちます。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝  <varlistentry>␟   <term><literal>TEMPORARY</literal> or <literal>TEMP</literal></term>␟   <term><literal>TEMPORARY</literal>または<literal>TEMP</literal></term>␞␞   <listitem>␞
+␝    <para>␟     If specified, the table is created as a temporary table.  Refer
+     to <xref linkend="sql-createtable"/> for details.␟このオプションが指定された場合、テーブルは一時テーブルとして作成されます。
+詳細は<xref linkend="sql-createtable"/>を参照してください。␞␞    </para>␞
+␝    <para>␟     If specified, the table is created as an unlogged table.  Refer
+     to <xref linkend="sql-createtable"/> for details.␟指定された場合、テーブルはログをとらないテーブルとして作成されます。
+詳細は<xref linkend="sql-createtable"/>を参照してください。␞␞    </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of the table to be created.␟作成するテーブルの名前です（スキーマ修飾名も可）。␞␞     </para>␞
+␝  <para>␟   All other parameters are described in detail under <xref
+   linkend="sql-select"/>.␟その他のパラメータについては、<xref linkend="sql-select"/>で詳細に説明されています。␞␞  </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   <link linkend="sql-createtableas"><command>CREATE TABLE AS</command></link> is functionally similar to
+   <command>SELECT INTO</command>.  <command>CREATE TABLE AS</command>
+   is the recommended syntax, since this form of <command>SELECT
+   INTO</command> is not available in <application>ECPG</application>
+   or <application>PL/pgSQL</application>, because they interpret the
+   <literal>INTO</literal> clause differently. Furthermore,
+   <command>CREATE TABLE AS</command> offers a superset of the
+   functionality provided by <command>SELECT INTO</command>.␟<link linkend="sql-createtableas"><command>CREATE TABLE AS</command></link>は機能的には<command>SELECT INTO</command>と同等です。
+<application>ECPG</application>や<application>PL/pgSQL</application>では<literal>INTO</literal>句の解釈が異なるため、<command>SELECT INTO</command>という形式は使用できません。
+そのため、<command>CREATE TABLE AS</command>構文を使用することをお勧めします。
+さらに、<command>CREATE TABLE AS</command>は、<command>SELECT INTO</command>の機能に加え、さらに多くの機能を提供します。␞␞  </para>␞
+␝  <para>␟   In contrast to <command>CREATE TABLE AS</command>, <command>SELECT
+   INTO</command> does not allow specifying properties like a table's access
+   method with <xref linkend="sql-createtable-method" /> or the table's
+   tablespace with <xref linkend="sql-createtable-tablespace" />. Use
+   <command>CREATE TABLE AS</command> if necessary.  Therefore, the default table
+   access method is chosen for the new table. See <xref
+   linkend="guc-default-table-access-method"/> for more information.␟<command>CREATE TABLE AS</command>とは対照的に、<command>SELECT INTO</command>では<xref linkend="sql-createtable-method" />でのテーブルアクセスメソッドや<xref linkend="sql-createtable-tablespace" />でのテーブルのテーブル空間のような属性を指定できません。
+必要なら<command>CREATE TABLE AS</command>を使ってください。
+そのため、新しいテーブルにはデフォルトテーブルアクセスメソッドが選ばれます。
+より詳細な情報は<xref linkend="guc-default-table-access-method"/>を参照してください。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   Create a new table <literal>films_recent</literal> consisting of only
+   recent entries from the table <literal>films</literal>:␟テーブル<literal>films</literal>の最近の項目のみから構成される、新しいテーブル<literal>films_recent</literal>を作成します。␞␞␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   The SQL standard uses <command>SELECT INTO</command> to
+   represent selecting values into scalar variables of a host program,
+   rather than creating a new table.  This indeed is the usage found
+   in <application>ECPG</application> (see <xref linkend="ecpg"/>) and
+   <application>PL/pgSQL</application> (see <xref linkend="plpgsql"/>).
+   The <productname>PostgreSQL</productname> usage of <command>SELECT
+   INTO</command> to represent table creation is historical.  Some other SQL
+   implementations also use <command>SELECT INTO</command> in this way (but
+   most SQL implementations support <command>CREATE TABLE AS</command>
+   instead).  Apart from such compatibility considerations, it is best to use
+   <command>CREATE TABLE AS</command> for this purpose in new code.␟標準SQLでは、<command>SELECT INTO</command>は新しいテーブルの作成ではなく、選択した値をホストプログラムのスカラ変数とするために使われます。
+これは実際、<application>ECPG</application>（<xref linkend="ecpg"/>を参照）や<application>PL/pgSQL</application>（<xref linkend="plpgsql"/>を参照）で見られる使用方法です。
+<productname>PostgreSQL</productname>において、テーブルを作成する<command>SELECT INTO</command>の用法は歴史的なものです。
+他のSQL実装でも<command>SELECT INTO</command>をこのように使っているものがあります(が、ほとんどのSQL実装は、その代わりに<command>CREATE TABLE AS</command>をサポートしています)。
+そのような互換性の考慮を除けば、新しいコードでは、この目的のためには<command>CREATE TABLE AS</command>を使うのが最善です。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟SELECT * INTO films_recent FROM films WHERE date_prod &gt;= '2002-01-01'; </programlisting></para> </programlisting></para>␟no translation␞␞␞

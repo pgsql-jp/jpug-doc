@@ -1,0 +1,1764 @@
+␝<chapter id="views">␟ <title>System Views</title>␟ <title>システムビュー</title>␞␞␞
+␝  <para>␟   In addition to the system catalogs, <productname>PostgreSQL</productname>
+   provides a number of built-in views.  Some system views provide convenient
+   access to some commonly used queries on the system catalogs.  Other views
+   provide access to internal server state.␟システムカタログに加え<productname>PostgreSQL</productname>は数多くの組み込みビューを提供しています。
+システムビューはいくつかの一般的に使用されるシステムカタログに対する問い合わせに手近にアクセスできるようにします。
+他のビューはサーバ状態内部へのアクセスを提供します。␞␞  </para>␞
+␝  <para>␟   The information schema (<xref linkend="information-schema"/>) provides
+   an alternative set of views which overlap the functionality of the system
+   views.  Since the information schema is SQL-standard whereas the views
+   described here are <productname>PostgreSQL</productname>-specific,
+   it's usually better to use the information schema if it provides all
+   the information you need.␟情報スキーマ（<xref linkend="information-schema"/>）はシステムビューと重複する、もう一方のビューの集合を提供しています。
+ここで説明しているビューは<productname>PostgreSQL</productname>特有のものであるのに対し、情報スキーマは標準SQLであることから、もし情報スキーマが必要とする情報をすべて提供してくれるのであれば情報スキーマを使用する方が良いでしょう。␞␞  </para>␞
+␝  <para>␟   <xref linkend="view-table"/> lists the system views described here.
+   More detailed documentation of each view follows below.
+   There are some additional views that provide access to accumulated
+   statistics; they are described in
+   <xref linkend="monitoring-stats-views-table"/>.␟<xref linkend="view-table"/>は、ここで説明しているシステムビューの一覧です。
+それぞれのビューのさらに詳細な説明は、これより後に述べられています。
+蓄積された統計情報の結果にアクセスするためのいくつかの追加のビューがあります。
+それらは<xref linkend="monitoring-stats-views-table"/>で説明されています。␞␞  </para>␞
+␝ <sect1 id="views-overview">␟  <title>Overview</title>␟  <title>概要</title>␞␞␞
+␝  <para>␟   <xref linkend="view-table"/> lists the system views.
+   More detailed documentation of each catalog follows below.
+   Except where noted, all the views described here are read-only.␟<xref linkend="view-table"/>はシステムビューの一覧です。
+それぞれのカタログのさらに詳細な説明は、これより後に述べられています。
+注意書きがない限り、ここでのすべてのビューは読み取り専用です。␞␞  </para>␞
+␝  <table id="view-table">␟   <title>System Views</title>␟   <title>システムビュー</title>␞␞␞
+␝     <row>␟      <entry>View Name</entry>␟      <entry>ビュー名</entry>␞␞␞
+␝      <entry>View Name</entry>␟      <entry>Purpose</entry>␟      <entry>目的</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-available-extensions"><structname>pg_available_extensions</structname></link></entry>␟      <entry>available extensions</entry>␟      <entry>利用可能な拡張</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-available-extension-versions"><structname>pg_available_extension_versions</structname></link></entry>␟      <entry>available versions of extensions</entry>␟      <entry>利用可能な拡張のバージョン</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-backend-memory-contexts"><structname>pg_backend_memory_contexts</structname></link></entry>␟      <entry>backend memory contexts</entry>␟      <entry>バックエンドメモリコンテキスト</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-config"><structname>pg_config</structname></link></entry>␟      <entry>compile-time configuration parameters</entry>␟      <entry>コンパイル時の設定パラメータ</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-cursors"><structname>pg_cursors</structname></link></entry>␟      <entry>open cursors</entry>␟      <entry>開いているカーソル</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-file-settings"><structname>pg_file_settings</structname></link></entry>␟      <entry>summary of configuration file contents</entry>␟      <entry>設定ファイルの内容の要約</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-group"><structname>pg_group</structname></link></entry>␟      <entry>groups of database users</entry>␟      <entry>データベースのユーザのグループ</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-hba-file-rules"><structname>pg_hba_file_rules</structname></link></entry>␟      <entry>summary of client authentication configuration file contents</entry>␟      <entry>クライアント認証の設定ファイルの内容の要約</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-ident-file-mappings"><structname>pg_ident_file_mappings</structname></link></entry>␟      <entry>summary of client user name mapping configuration file contents</entry>␟      <entry>クライアントユーザ名マッピング設定ファイルの内容の要約</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-indexes"><structname>pg_indexes</structname></link></entry>␟      <entry>indexes</entry>␟      <entry>インデックス</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-locks"><structname>pg_locks</structname></link></entry>␟      <entry>locks currently held or awaited</entry>␟      <entry>現在保持されている、または待っているロック</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-matviews"><structname>pg_matviews</structname></link></entry>␟      <entry>materialized views</entry>␟      <entry>マテリアライズドビュー</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-policies"><structname>pg_policies</structname></link></entry>␟      <entry>policies</entry>␟      <entry>ポリシー</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-prepared-statements"><structname>pg_prepared_statements</structname></link></entry>␟      <entry>prepared statements</entry>␟      <entry>準備済みの文</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link></entry>␟      <entry>prepared transactions</entry>␟      <entry>準備済みのトランザクション</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-publication-tables"><structname>pg_publication_tables</structname></link></entry>␟      <entry>publications and information of their associated tables</entry>␟      <entry>パブリケーションとその関連テーブルの情報</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link></entry>␟      <entry>information about replication origins, including replication progress</entry>␟      <entry>レプリケーションの進捗を含めたレプリケーション起点に関する情報</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-replication-slots"><structname>pg_replication_slots</structname></link></entry>␟      <entry>replication slot information</entry>␟      <entry>レプリケーションスロットの情報</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-roles"><structname>pg_roles</structname></link></entry>␟      <entry>database roles</entry>␟      <entry>データベースロール</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-rules"><structname>pg_rules</structname></link></entry>␟      <entry>rules</entry>␟      <entry>ルール</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-seclabels"><structname>pg_seclabels</structname></link></entry>␟      <entry>security labels</entry>␟      <entry>セキュリティラベル</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-sequences"><structname>pg_sequences</structname></link></entry>␟      <entry>sequences</entry>␟      <entry>シーケンス</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-settings"><structname>pg_settings</structname></link></entry>␟      <entry>parameter settings</entry>␟      <entry>パラメータ設定</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-shadow"><structname>pg_shadow</structname></link></entry>␟      <entry>database users</entry>␟      <entry>データベースのユーザ</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-shmem-allocations"><structname>pg_shmem_allocations</structname></link></entry>␟      <entry>shared memory allocations</entry>␟      <entry>獲得共有メモリ</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-stats"><structname>pg_stats</structname></link></entry>␟      <entry>planner statistics</entry>␟      <entry>プランナ統計情報</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-stats-ext"><structname>pg_stats_ext</structname></link></entry>␟      <entry>extended planner statistics</entry>␟      <entry>プランナの拡張統計情報</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-stats-ext-exprs"><structname>pg_stats_ext_exprs</structname></link></entry>␟      <entry>extended planner statistics for expressions</entry>␟      <entry>演算式のプランナの拡張統計情報</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-tables"><structname>pg_tables</structname></link></entry>␟      <entry>tables</entry>␟      <entry>テーブル</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-timezone-abbrevs"><structname>pg_timezone_abbrevs</structname></link></entry>␟      <entry>time zone abbreviations</entry>␟      <entry>時間帯省略形</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-timezone-names"><structname>pg_timezone_names</structname></link></entry>␟      <entry>time zone names</entry>␟      <entry>時間帯名</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-user"><structname>pg_user</structname></link></entry>␟      <entry>database users</entry>␟      <entry>データベースのユーザ</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-user-mappings"><structname>pg_user_mappings</structname></link></entry>␟      <entry>user mappings</entry>␟      <entry>ユーザマッピング</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-views"><structname>pg_views</structname></link></entry>␟      <entry>views</entry>␟      <entry>ビュー</entry>␞␞     </row>␞
+␝      <entry><link linkend="view-pg-wait-events"><structname>pg_wait_events</structname></link></entry>␟      <entry>wait events</entry>␟      <entry>待機イベント</entry>␞␞     </row>␞
+␝  <para>␟   The <structname>pg_available_extensions</structname> view lists the
+   extensions that are available for installation.
+   See also the
+   <link linkend="catalog-pg-extension"><structname>pg_extension</structname></link>
+   catalog, which shows the extensions currently installed.␟<structname>pg_available_extensions</structname>ビューはインストレーションで利用可能な拡張を列挙します。
+現在インストールされている拡張を表す<link linkend="catalog-pg-extension"><structname>pg_extension</structname></link>カタログも参照してください。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_available_extensions</structname> Columns</title>␟   <title><structname>pg_available_extensions</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Extension name␟拡張名␞␞      </para></entry>␞
+␝      <para>␟       Name of default version, or <literal>NULL</literal> if none is
+       specified␟デフォルトのバージョン名称。何も指定がなければ<literal>NULL</literal>␞␞      </para></entry>␞
+␝      <para>␟       Currently installed version of the extension,
+       or <literal>NULL</literal> if not installed␟現在インストールされている拡張のバージョン。インストールされていない場合は<literal>NULL</literal>␞␞      </para></entry>␞
+␝      <para>␟       Comment string from the extension's control file␟拡張の制御ファイルからのコメント文字列␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_available_extensions</structname> view is read-only.␟<structname>pg_available_extensions</structname>ビューは読み取り専用です。␞␞  </para>␞
+␝  <para>␟   The <structname>pg_available_extension_versions</structname> view lists the
+   specific extension versions that are available for installation.
+   See also the <link
+   linkend="catalog-pg-extension"><structname>pg_extension</structname></link>
+   catalog, which shows the extensions currently installed.␟<structname>pg_available_extension_versions</structname>ビューはインストレーションで利用可能な特定の拡張のバージョンを列挙します。
+現在インストールされている拡張を表す<link linkend="catalog-pg-extension"><structname>pg_extension</structname></link>カタログも参照してください。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_available_extension_versions</structname> Columns</title>␟   <title><structname>pg_available_extension_versions</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Extension name␟拡張名␞␞      </para></entry>␞
+␝      <para>␟       Version name␟バージョン名称␞␞      </para></entry>␞
+␝      <para>␟       True if this version of this extension is currently
+       installed␟trueの場合は、現在このバージョンの拡張がインストールされている␞␞      </para></entry>␞
+␝      <para>␟       True if only superusers are allowed to install this extension
+       (but see <structfield>trusted</structfield>)␟trueの場合は、スーパーユーザがこの拡張をインストールできる（ただし、<structfield>trusted</structfield>を見てください）␞␞      </para></entry>␞
+␝      <para>␟       True if the extension can be installed by non-superusers
+       with appropriate privileges␟trueの場合は、適切な権限を持つ非スーパーユーザがこの拡張をインストールできる␞␞      </para></entry>␞
+␝      <para>␟       True if extension can be relocated to another schema␟trueの場合は、拡張が他のスキーマに再配置可能である␞␞      </para></entry>␞
+␝      <para>␟       Name of the schema that the extension must be installed into,
+       or <literal>NULL</literal> if partially or fully relocatable␟拡張がインストールされなければならないスキーマの名前。
+一部の再配置またはすべての再配置を行うことができる場合は<literal>NULL</literal>␞␞      </para></entry>␞
+␝      <para>␟       Names of prerequisite extensions,
+       or <literal>NULL</literal> if none␟前もって必要な拡張の名前。なければ<literal>NULL</literal>␞␞      </para></entry>␞
+␝      <para>␟       Comment string from the extension's control file␟拡張の制御ファイルからのコメント文字列␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_available_extension_versions</structname> view is
+   read-only.␟<structname>pg_available_extension_versions</structname>ビューは読み取り専用です。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_backend_memory_contexts</structname> displays all
+   the memory contexts of the server process attached to the current session.␟<structname>pg_backend_memory_contexts</structname>ビューは、現在のセッションにアタッチされているサーバプロセスのすべてのメモリコンテキストを表示します。␞␞  </para>␞
+␝  <para>␟   <structname>pg_backend_memory_contexts</structname> contains one row
+   for each memory context.␟<structname>pg_backend_memory_contexts</structname>の各1行が各々のメモリコンテキストを格納します。␞␞  </para>␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Name of the memory context␟メモリコンテキストの名前␞␞      </para></entry>␞
+␝      <para>␟       Identification information of the memory context. This field is truncated at 1024 bytes␟メモリコンテキストの識別情報。このフィールドは1024バイトで切り捨てられる␞␞      </para></entry>␞
+␝      <para>␟       Name of the parent of this memory context␟このメモリコンテキストの親の名前␞␞      </para></entry>␞
+␝      <para>␟       Distance from TopMemoryContext in context tree␟コンテキストツリーにおけるTopMemoryContextからの距離␞␞      </para></entry>␞
+␝      <para>␟       Total bytes allocated for this memory context␟このメモリコンテキストで確保した合計バイト数␞␞      </para></entry>␞
+␝      <para>␟       Total number of blocks allocated for this memory context␟このメモリコンテキストで確保した合計ブロック数␞␞      </para></entry>␞
+␝      <para>␟       Free space in bytes␟バイト単位の空き領域␞␞      </para></entry>␞
+␝      <para>␟       Total number of free chunks␟空きチャンクの数␞␞      </para></entry>␞
+␝      <para>␟       Used space in bytes␟バイト単位の使用領域␞␞      </para></entry>␞
+␝  <para>␟   By default, the <structname>pg_backend_memory_contexts</structname> view can be
+   read only by superusers or roles with the privileges of the
+   <literal>pg_read_all_stats</literal> role.␟デフォルトでは<structname>pg_backend_memory_contexts</structname>ビューはスーパーユーザか、<literal>pg_read_all_stats</literal>ロールの権限を持つユーザのみが読み取り専用でアクセスできます。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_config</structname> describes the
+   compile-time configuration parameters of the currently installed
+   version of <productname>PostgreSQL</productname>. It is intended, for example, to
+   be used by software packages that want to interface to
+   <productname>PostgreSQL</productname> to facilitate finding the required header
+   files and libraries. It provides the same basic information as the
+   <xref linkend="app-pgconfig"/> <productname>PostgreSQL</productname> client
+   application.␟<structname>pg_config</structname>ビューは、現在インストールされている<productname>PostgreSQL</productname>のバージョンのコンパイル時設定パラメータを表示します。
+例えば、<productname>PostgreSQL</productname>とインタフェースしたいソフトウェアパッケージによって、要求されるヘッダファイルとライブラリを探す手助けとなるために使用されることが意図されます。
+<productname>PostgreSQL</productname>クライアントアプリケーションである<xref linkend="app-pgconfig"/>と同様な基本的な情報を提供します。␞␞  </para>␞
+␝  <para>␟   By default, the <structname>pg_config</structname> view can be read
+   only by superusers.␟デフォルトでは<structname>pg_config</structname>ビューはスーパーユーザだけが読み取りできます。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_config</structname> Columns</title>␟   <title><structname>pg_config</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       The parameter name␟パラメータ名␞␞      </para></entry>␞
+␝      <para>␟       The parameter value␟パラメータ値␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_cursors</structname> view lists the cursors that
+   are currently available. Cursors can be defined in several ways:␟<structname>pg_cursors</structname>ビューは現在利用可能なカーソルを列挙します。
+以下のようにカーソルは複数の方法で定義可能です。␞␞   <itemizedlist>␞
+␝     <para>␟      via the <link linkend="sql-declare"><command>DECLARE</command></link>
+      statement in SQL␟SQLから<link linkend="sql-declare"><command>DECLARE</command></link>文経由。␞␞     </para>␞
+␝     <para>␟      via the Bind message in the frontend/backend protocol, as
+      described in <xref linkend="protocol-flow-ext-query"/>␟<xref linkend="protocol-flow-ext-query"/>で説明する、フロントエンド/バックエンドプロトコルからBindメッセージ経由。␞␞     </para>␞
+␝     <para>␟      via the Server Programming Interface (SPI), as described in
+      <xref linkend="spi-interface"/>␟<xref linkend="spi-interface"/>で説明する、サーバプログラミングインタフェース（SPI）経由。␞␞     </para>␞
+␝␟   The <structname>pg_cursors</structname> view displays cursors
+   created by any of these means. Cursors only exist for the duration
+   of the transaction that defines them, unless they have been
+   declared <literal>WITH HOLD</literal>. Therefore non-holdable
+   cursors are only present in the view until the end of their
+   creating transaction.␟<structname>pg_cursors</structname>ビューは、上のいずれかの方法で作成されたカーソルを表示します。
+カーソルは、<literal>WITH HOLD</literal>と宣言されていない限り、それを定義したトランザクション期間しか存在しません。
+したがって、保持不可能なカーソルは、作成元トランザクションが終わるまでの間のみ、このビューに現れます。␞␞␞
+␝    <para>␟     Cursors are used internally to implement some of the components
+     of <productname>PostgreSQL</productname>, such as procedural languages.
+     Therefore, the <structname>pg_cursors</structname> view might include cursors
+     that have not been explicitly created by the user.␟手続き言語など、一部の<productname>PostgreSQL</productname>の要素を実装するために内部的にカーソルが使用されています。
+したがって、<structname>pg_cursors</structname>にはユーザが明示的に作成していないカーソルも含まれる可能性があります。␞␞    </para>␞
+␝  <table>␟   <title><structname>pg_cursors</structname> Columns</title>␟   <title><structname>pg_cursors</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       The name of the cursor␟カーソルの名前␞␞      </para></entry>␞
+␝      <para>␟       The verbatim query string submitted to declare this cursor␟カーソル宣言の際に投稿された逐語的問い合わせ文字列␞␞      </para></entry>␞
+␝      <para>␟       <literal>true</literal> if the cursor is holdable (that is, it
+       can be accessed after the transaction that declared the cursor
+       has committed); <literal>false</literal> otherwise␟<literal>true</literal>の場合は、保持可能カーソル（つまりカーソルを宣言したトランザクションがコミットされた後でもアクセス可能なカーソル）。
+それ以外は<literal>false</literal>␞␞      </para></entry>␞
+␝      <para>␟       <literal>true</literal> if the cursor was declared
+       <literal>BINARY</literal>; <literal>false</literal>
+       otherwise␟<literal>true</literal>の場合は、カーソルが<literal>BINARY</literal>で宣言されている。
+それ以外は<literal>false</literal>␞␞      </para></entry>␞
+␝      <para>␟       <literal>true</literal> if the cursor is scrollable (that is, it
+       allows rows to be retrieved in a nonsequential manner);
+       <literal>false</literal> otherwise␟<literal>true</literal>の場合は、カーソルがスクロール可能（順序通り以外の方法に行を取り出すことが可能）。
+それ以外は<literal>false</literal>␞␞      </para></entry>␞
+␝      <para>␟       The time at which the cursor was declared␟カーソルが宣言された時間。␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_cursors</structname> view is read-only.␟<structname>pg_cursors</structname>ビューは読み取り専用です。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_file_settings</structname> provides a summary of
+   the contents of the server's configuration file(s).  A row appears in
+   this view for each <quote>name = value</quote> entry appearing in the files,
+   with annotations indicating whether the value could be applied
+   successfully.  Additional row(s) may appear for problems not linked to
+   a <quote>name = value</quote> entry, such as syntax errors in the files.␟<structname>pg_file_settings</structname>ビューはサーバの設定ファイルの内容の要約を提供します。
+ファイル内にある各<quote>name = value</quote>のエントリについて、このビューの1行が存在し、その値が正しく適用可能かどうかの注釈が含まれます。
+ファイル内の構文エラーなど<quote>name = value</quote>のエントリと関係のない問題についての行がさらに存在することもあります。␞␞  </para>␞
+␝  <para>␟   This view is helpful for checking whether planned changes in the
+   configuration files will work, or for diagnosing a previous failure.
+   Note that this view reports on the <emphasis>current</emphasis> contents of the
+   files, not on what was last applied by the server.  (The
+   <link linkend="view-pg-settings"><structname>pg_settings</structname></link>
+   view is usually sufficient to determine that.)␟設定ファイルについて予定している変更が動作するかどうかの確認や、以前のエラーの調査分析をする際にこのビューは役立ちます。
+このビューはファイルの<emphasis>現在の</emphasis>内容についてレポートするのであって、サーバが最後に適用した内容ではないことに注意してください。
+（後者を知るには、通常は<link linkend="view-pg-settings"><structname>pg_settings</structname></link>ビューで十分でしょう。）␞␞  </para>␞
+␝  <para>␟   By default, the <structname>pg_file_settings</structname> view can be read
+   only by superusers.␟デフォルトで、<structname>pg_file_settings</structname>ビューはスーパーユーザのみが参照可能です。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_file_settings</structname> Columns</title>␟   <title><structname>pg_file_settings</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Full path name of the configuration file␟設定ファイルの完全なパス名␞␞      </para></entry>␞
+␝      <para>␟       Line number within the configuration file where the entry appears␟設定ファイル内のエントリの行番号␞␞      </para></entry>␞
+␝      <para>␟       Order in which the entries are processed (1..<replaceable>n</replaceable>)␟エントリが処理される順序（1..<replaceable>n</replaceable>）␞␞      </para></entry>␞
+␝      <para>␟       Configuration parameter name␟設定パラメータ名␞␞      </para></entry>␞
+␝      <para>␟       Value to be assigned to the parameter␟パラメータに代入される値␞␞      </para></entry>␞
+␝      <para>␟       True if the value can be applied successfully␟trueの場合は、値が正しく適用可能␞␞      </para></entry>␞
+␝      <para>␟       If not null, an error message indicating why this entry could
+       not be applied␟NULLでないときは、このエントリが適用できない理由についてのエラーメッセージ␞␞      </para></entry>␞
+␝  <para>␟   If the configuration file contains syntax errors or invalid parameter
+   names, the server will not attempt to apply any settings from it, and
+   therefore all the <structfield>applied</structfield> fields will read as false.
+   In such a case there will be one or more rows with
+   non-null <structfield>error</structfield> fields indicating the
+   problem(s).  Otherwise, individual settings will be applied if possible.
+   If an individual setting cannot be applied (e.g., invalid value, or the
+   setting cannot be changed after server start) it will have an appropriate
+   message in the <structfield>error</structfield> field.  Another way that
+   an entry might have <structfield>applied</structfield> = false is that it is
+   overridden by a later entry for the same parameter name; this case is not
+   considered an error so nothing appears in
+   the <structfield>error</structfield> field.␟設定ファイルに構文エラーや不正なパラメータ名がある場合、サーバはファイル内の設定をまったく適用せず、すべての<structfield>applied</structfield>フィールドはfalseになります。
+このような場合は、<structfield>error</structfield>フィールドが非NULLで問題を示唆する行が1行以上あるでしょう。
+それ以外の場合は、個々の設定は可能であれば適用されます。
+個々の設定が適用できない場合（例えば、不正な値、サーバの起動後は設定が変更できないなど）は<structfield>error</structfield>フィールドに適切なメッセージがあります。
+エントリの<structfield>applied</structfield> = falseになる別の理由は、同じパラメータがそれより後のエントリで上書きされている場合です。
+この場合はエラーとはみなされませんので、<structfield>error</structfield>フィールドには何も表示されません。␞␞  </para>␞
+␝  <para>␟   See <xref linkend="config-setting"/> for more information about the various
+   ways to change run-time parameters.␟実行時パラメータを変更する様々な方法について、詳しくは<xref linkend="config-setting"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_group</structname> exists for backwards
+   compatibility: it emulates a catalog that existed in
+   <productname>PostgreSQL</productname> before version 8.1.
+   It shows the names and members of all roles that are marked as not
+   <structfield>rolcanlogin</structfield>, which is an approximation to the set
+   of roles that are being used as groups.␟<structname>pg_group</structname>ビューは下位互換のために存在しています。
+バージョン8.1以前の<productname>PostgreSQL</productname>のカタログを模擬しています。
+このビューは、<structfield>rolcanlogin</structfield>としてマークされていない、すべてのロールの名前とメンバを保持しています。
+これはグループとして使用されているロールの集合と似ています。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_group</structname> Columns</title>␟   <title><structname>pg_group</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>groname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of the group␟グループの名前␞␞      </para></entry>␞
+␝       <structfield>grosysid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       ID of this group␟グループのID␞␞      </para></entry>␞
+␝       <structfield>grolist</structfield> <type>oid[]</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       An array containing the IDs of the roles in this group␟このグループのロールIDを含む配列␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_hba_file_rules</structname> provides a summary of
+   the contents of the client authentication configuration file,
+   <link linkend="auth-pg-hba-conf"><filename>pg_hba.conf</filename></link>.
+   A row appears in this view for each
+   non-empty, non-comment line in the file, with annotations indicating
+   whether the rule could be applied successfully.␟<structname>pg_hba_file_rules</structname>ビューはクライアント認証の設定ファイル<link linkend="auth-pg-hba-conf"><filename>pg_hba.conf</filename></link>の内容の要約を提供します。
+設定ファイル内の空でない、コメントでもない各行について、このビュー内に行が1つあり、ルールが正しく適用できたかどうかを示す注記が入ります。␞␞  </para>␞
+␝  <para>␟   This view can be helpful for checking whether planned changes in the
+   authentication configuration file will work, or for diagnosing a previous
+   failure.  Note that this view reports on the <emphasis>current</emphasis> contents
+   of the file, not on what was last loaded by the server.␟このビューは、認証の設定ファイルについて計画している変更が動作するかどうかを確認する、あるいは以前の失敗について分析するのに役立つでしょう。
+このビューはサーバが最後に読み込んだものではなく、ファイルの<emphasis>現在の</emphasis>内容について報告することに注意してください。␞␞  </para>␞
+␝  <para>␟   By default, the <structname>pg_hba_file_rules</structname> view can be read
+   only by superusers.␟デフォルトでは、スーパーユーザのみが<structname>pg_hba_file_rules</structname>ビューを読み取ることができます。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_hba_file_rules</structname> Columns</title>␟   <title><structname>pg_hba_file_rules</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Number of this rule, if valid, otherwise <literal>NULL</literal>.
+       This indicates the order in which each rule is considered
+       until a match is found during authentication.␟有効な場合はこのルールの番号。そうでない場合は<literal>NULL</literal>。
+これは、認証中に一致が見つかるまで各ルールが検討される順序を示します。␞␞      </para></entry>␞
+␝      <para>␟       Name of the file containing this rule␟このルールを含むファイルの名前␞␞      </para></entry>␞
+␝      <para>␟       Line number of this rule in <literal>file_name</literal>␟<literal>file_name</literal>内のこのルールの行番号␞␞      </para></entry>␞
+␝      <para>␟       Type of connection␟接続の種別␞␞      </para></entry>␞
+␝      <para>␟       List of database name(s) to which this rule applies␟このルールが適用されるデータベース名のリスト␞␞      </para></entry>␞
+␝      <para>␟       List of user and group name(s) to which this rule applies␟このルールが適用されるユーザ名とグループ名のリスト␞␞      </para></entry>␞
+␝      <para>␟       Host name or IP address, or one
+       of <literal>all</literal>, <literal>samehost</literal>,
+       or <literal>samenet</literal>, or null for local connections␟ホスト名、IPアドレス、あるいは<literal>all</literal>、<literal>samehost</literal>、<literal>samenet</literal>のいずれか。ローカル接続の場合はNULL。␞␞      </para></entry>␞
+␝      <para>␟       IP address mask, or null if not applicable␟IPアドレスマスク。当てはまらない場合はNULL␞␞      </para></entry>␞
+␝      <para>␟       Authentication method␟認証方法␞␞      </para></entry>␞
+␝      <para>␟       Options specified for authentication method, if any␟認証方法について指定されたオプション（あれば）␞␞      </para></entry>␞
+␝      <para>␟       If not null, an error message indicating why this
+       line could not be processed␟NULLでないなら、この行がなぜ処理できなかったかを示すエラーメッセージ␞␞      </para></entry>␞
+␝  <para>␟   Usually, a row reflecting an incorrect entry will have values for only
+   the <structfield>line_number</structfield> and <structfield>error</structfield> fields.␟不正なエントリに対応する行は、通常は<structfield>line_number</structfield>フィールドと<structfield>error</structfield>フィールドにのみ値が入ります。␞␞  </para>␞
+␝  <para>␟   See <xref linkend="client-authentication"/> for more information about
+   client authentication configuration.␟クライアント認証設定の詳細については<xref linkend="client-authentication"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_ident_file_mappings</structname> provides a summary
+   of the contents of the client user name mapping configuration file,
+   <link linkend="auth-username-maps"><filename>pg_ident.conf</filename></link>.
+   A row appears in this view for each non-empty, non-comment line in the file,
+   with annotations indicating whether the map could be applied successfully.␟<structname>pg_ident_file_mappings</structname>ビューはクライアントユーザ名マッピング設定ファイル<link linkend="auth-username-maps"><filename>pg_ident.conf</filename></link>の内容の要約を提供します。
+ファイル内の空でない、コメントでもない各行について、このビュー内に行が1つあり、マップが正しく適用できたかどうかを示す注記が入ります。␞␞  </para>␞
+␝  <para>␟   This view can be helpful for checking whether planned changes in the
+   authentication configuration file will work, or for diagnosing a previous
+   failure.  Note that this view reports on the <emphasis>current</emphasis>
+   contents of the file, not on what was last loaded by the server.␟このビューは、認証の設定ファイルについて計画している変更が動作するかどうかを確認する、あるいは以前の失敗について分析するのに役立つでしょう。
+このビューはサーバが最後に読み込んだものではなく、ファイルの<emphasis>現在の</emphasis>内容について報告することに注意してください。␞␞  </para>␞
+␝  <para>␟   By default, the <structname>pg_ident_file_mappings</structname> view can be
+   read only by superusers.␟デフォルトで、<structname>pg_ident_file_mappings</structname>ビューはスーパーユーザのみが参照可能です。␞␞  </para>␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Number of this map, in priority order, if valid, otherwise
+       <literal>NULL</literal>␟有効な場合は、優先順位の中でこのマップの番号。そうでない場合は<literal>NULL</literal>␞␞      </para></entry>␞
+␝      <para>␟       Name of the file containing this map␟このマップを含むファイルの名前␞␞      </para></entry>␞
+␝      <para>␟       Line number of this map in <literal>file_name</literal>␟<literal>file_name</literal>内のこのマップの行番号␞␞      </para></entry>␞
+␝      <para>␟       Name of the map␟マップの名前␞␞      </para></entry>␞
+␝      <para>␟       Detected user name of the client␟検出されたクライアントのユーザ名␞␞      </para></entry>␞
+␝      <para>␟       Requested PostgreSQL user name␟要求されたPostgreSQLユーザ名␞␞      </para></entry>␞
+␝      <para>␟       If not <literal>NULL</literal>, an error message indicating why this
+       line could not be processed␟<literal>NULL</literal>でないなら、この行がなぜ処理できなかったかを示すエラーメッセージ␞␞      </para></entry>␞
+␝  <para>␟   Usually, a row reflecting an incorrect entry will have values for only
+   the <structfield>line_number</structfield> and <structfield>error</structfield> fields.␟不正なエントリに対応する行は、通常は<structfield>line_number</structfield>フィールドと<structfield>error</structfield>フィールドにのみ値が入ります。␞␞  </para>␞
+␝  <para>␟   See <xref linkend="client-authentication"/> for more information about
+   client authentication configuration.␟クライアント認証設定の詳細については<xref linkend="client-authentication"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_indexes</structname> provides access to
+   useful information about each index in the database.␟<structname>pg_indexes</structname>ビューはデータベース内のそれぞれのインデックスについて有用な情報を提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_indexes</structname> Columns</title>␟   <title><structname>pg_indexes</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table and index␟テーブルとインデックスを含むスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table the index is for␟インデックスのついているテーブルの名前␞␞      </para></entry>␞
+␝       <structfield>indexname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of index␟インデックスの名前␞␞      </para></entry>␞
+␝       <structfield>tablespace</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>.<structfield>spcname</structfield>)␟（参照先 <link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>.<structfield>spcname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of tablespace containing index (null if default for database)␟インデックスを含むテーブル空間の名前（データベースのデフォルトはNULL）␞␞      </para></entry>␞
+␝      <para>␟       Index definition (a reconstructed <xref linkend="sql-createindex"/>
+       command)␟インデックス定義（再作成用<xref linkend="sql-createindex"/>コマンド）␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_locks</structname> provides access to
+   information about the locks held by active processes within the
+   database server.  See <xref linkend="mvcc"/> for more discussion
+   of locking.␟<structname>pg_locks</structname>ビューはデータベースサーバ内でアクティブなプロセスによって保持されたロックに関する情報へのアクセスを提供します。
+ロックに関するより詳細な説明は<xref linkend="mvcc"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   <structname>pg_locks</structname> contains one row per active lockable
+   object, requested lock mode, and relevant process.  Thus, the same
+   lockable object might
+   appear many times, if multiple processes are holding or waiting
+   for locks on it.  However, an object that currently has no locks on it
+   will not appear at all.␟<structname>pg_locks</structname>にはロック対象となる進行中のオブジェクト、要求されたロックモード、および関連するプロセス毎に1つの行を持ちます。
+ですから、もし複数のプロセスが同じロック対象オブジェクトに対してロックを保持していたりロックを待機している場合には、同じロック対象オブジェクトが何度も出現することがあります。
+しかし現在ロックされていないオブジェクトはまったく現れません。␞␞  </para>␞
+␝  <para>␟   There are several distinct types of lockable objects:
+   whole relations (e.g., tables), individual pages of relations,
+   individual tuples of relations,
+   transaction IDs (both virtual and permanent IDs),
+   and general database objects (identified by class OID and object OID,
+   in the same way as in <link linkend="catalog-pg-description"><structname>pg_description</structname></link> or
+   <link linkend="catalog-pg-depend"><structname>pg_depend</structname></link>).  Also, the right to extend a
+   relation is represented as a separate lockable object, as is the right to
+   update <structname>pg_database</structname>.<structfield>datfrozenxid</structfield>.
+   Also, <quote>advisory</quote> locks can be taken on numbers that have
+   user-defined meanings.␟ロック対象オブジェクトには異なる型がいくつか存在します。
+リレーション全体（例：テーブル）、リレーションの個別のページ、リレーションの個別のタプル、トランザクションID（仮想と永続の両方のID）、一般的なデータベースオブジェクト（これは<link linkend="catalog-pg-description"><structname>pg_description</structname></link>や<link linkend="catalog-pg-depend"><structname>pg_depend</structname></link>と同様にクラスOIDとオブジェクトOIDで識別されます）。
+さらに、リレーションを拡張する権利は、<structname>pg_database</structname>.<structfield>datfrozenxid</structfield>を更新する権利と同様に、別のロック対象オブジェクトとして表現されます。
+また<quote>勧告的</quote>ロックはユーザ定義の意味を持つ複数から形成されるかもしれません。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_locks</structname> Columns</title>␟   <title><structname>pg_locks</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Type of the lockable object:
+       <literal>relation</literal>,
+       <literal>extend</literal>,
+       <literal>frozenid</literal>,
+       <literal>page</literal>,
+       <literal>tuple</literal>,
+       <literal>transactionid</literal>,
+       <literal>virtualxid</literal>,
+       <literal>spectoken</literal>,
+       <literal>object</literal>,
+       <literal>userlock</literal>,
+       <literal>advisory</literal>, or
+       <literal>applytransaction</literal>.
+       (See also <xref linkend="wait-event-lock-table"/>.)␟ロックオブジェクトのタイプ：
+<literal>relation</literal>、
+<literal>extend</literal>、
+<literal>frozenid</literal>、
+<literal>page</literal>、
+<literal>tuple</literal>、
+<literal>transactionid</literal>、
+<literal>virtualxid</literal>、
+<literal>spectoken</literal>、
+<literal>object</literal>、
+<literal>userlock</literal>、
+<literal>advisory</literal>、
+<literal>applytransaction</literal>のどれかです。
+（<xref linkend="wait-event-lock-table"/>も参照してください。）␞␞      </para></entry>␞
+␝       <structfield>database</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       OID of the database in which the lock target exists, or
+       zero if the target is a shared object, or
+       null if the target is a transaction ID␟ロック対象が存在しているデータベースのOID。対象が共有オブジェクトの場合はゼロ。対象がトランザクションIDである場合はNULL␞␞      </para></entry>␞
+␝       <structfield>relation</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       OID of the relation targeted by the lock, or null if the target is not
+       a relation or part of a relation␟ロックの対象となるリレーションのOID。対象がリレーションではない場合かリレーションの一部である場合はNULL␞␞      </para></entry>␞
+␝      <para>␟       Page number targeted by the lock within the relation,
+       or null if the target is not a relation page or tuple␟ロックの対象となるリレーション内のページ番号。対象がタプルもしくはリレーションページではない場合はNULL␞␞      </para></entry>␞
+␝      <para>␟       Tuple number targeted by the lock within the page,
+       or null if the target is not a tuple␟ページ内のロックの対象となっているタプル番号。対象がタプルではない場合はNULL␞␞      </para></entry>␞
+␝      <para>␟       Virtual ID of the transaction targeted by the lock,
+       or null if the target is not a virtual transaction ID;  see
+       <xref linkend="transactions"/>␟ロックの対象となるトランザクションの仮想ID。対象が仮想トランザクションIDではない場合はNULL。
+<xref linkend="transactions"/>を参照してください。␞␞      </para></entry>␞
+␝      <para>␟       ID of the transaction targeted by the lock, or null if the target
+       is not a transaction ID;  <xref linkend="transactions"/>␟ロックの対象となるトランザクションのID。対象がトランザクションIDではない場合はNULL。
+<xref linkend="transactions"/>を参照してください。␞␞      </para></entry>␞
+␝       <structfield>classid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       OID of the system catalog containing the lock target, or null if the
+       target is not a general database object␟ロックの対象を含むシステムカタログのOID。対象が一般的なデータベースオブジェクトではない場合はNULL␞␞      </para></entry>␞
+␝       <structfield>objid</structfield> <type>oid</type>␟       (references any OID column)␟（いずれかのOID列）␞␞      </para>␞
+␝      <para>␟       OID of the lock target within its system catalog, or null if the
+       target is not a general database object␟システムカタログ内のロックの対象のOID。
+対象が一般的なデータベースオブジェクトでない場合はNULL␞␞      </para></entry>␞
+␝      <para>␟       Column number targeted by the lock (the
+       <structfield>classid</structfield> and <structfield>objid</structfield> refer to the
+       table itself),
+       or zero if the target is some other general database object,
+       or null if the target is not a general database object␟ロック対象の列番号（<structfield>classid</structfield>と<structfield>objid</structfield>はテーブル自身を参照します）、その他の一般的なデータベースオブジェクトではゼロ、一般的ではないデータベースオブジェクトではNULL␞␞      </para></entry>␞
+␝      <para>␟       Virtual ID of the transaction that is holding or awaiting this lock␟ロックを保持、もしくは待っている仮想トランザクションID␞␞      </para></entry>␞
+␝      <para>␟       Process ID of the server process holding or awaiting this
+       lock, or null if the lock is held by a prepared transaction␟ロックを保持、もしくは待っているサーバプロセスのプロセスID。
+ただしプリペアドトランザクションによりロックが保持されている場合はNULL␞␞      </para></entry>␞
+␝      <para>␟       Name of the lock mode held or desired by this process (see <xref linkend="locking-tables"/> and <xref linkend="xact-serializable"/>)␟このプロセスで保持または要求するロックモードの名称。
+（<xref linkend="locking-tables"/>および<xref linkend="xact-serializable"/>参照）␞␞      </para></entry>␞
+␝      <para>␟       True if lock is held, false if lock is awaited␟trueの場合は、ロックが保持されている。
+falseの場合は、ロックが待ち状態␞␞      </para></entry>␞
+␝      <para>␟       True if lock was taken via fast path, false if taken via main
+       lock table␟trueの場合は、ファストパス経由でロックが獲得されている。
+falseの場合は、メインロックテーブル経由で獲得されている␞␞      </para></entry>␞
+␝      <para>␟       Time when the server process started waiting for this lock,
+       or null if the lock is held.
+       Note that this can be null for a very short period of time after
+       the wait started even though <structfield>granted</structfield>
+       is <literal>false</literal>.␟サーバプロセスがこのロックを待ち始めた時刻。ロックを獲得していればNULL。
+<structfield>granted</structfield>が<literal>false</literal>であっても、待ちを開始してから非常に短い時間の間、これはNULLになることがあることに注意してください。␞␞      </para></entry>␞
+␝  <para>␟   <structfield>granted</structfield> is true in a row representing a lock
+   held by the indicated process.  False indicates that this process is
+   currently waiting to acquire this lock, which implies that at least one
+   other process is holding or waiting for a conflicting lock mode on the same
+   lockable object.  The waiting process will sleep until the other lock is
+   released (or a deadlock situation is detected).  A single process can be
+   waiting to acquire at most one lock at a time.␟指定されたプロセスにより保持されているロックを表す行内では<structfield>granted</structfield>はtrueです。
+falseの場合は、このロックを獲得するため現在プロセスが待機中であることを示しています。
+つまり、同じロック対象のオブジェクトに対して何らかの他のプロセスが競合するロックを保持、もしくは待機していることを意味します。
+待機中のプロセスはその別のプロセスがロックを解放するまで活動を控えます（もしくはデッドロック状態が検出されることになります）。
+単一プロセスでは一度に多くても1つのロックを獲得するために待機します。␞␞  </para>␞
+␝  <para>␟   Throughout running a transaction, a server process holds an exclusive lock
+   on the transaction's virtual transaction ID.  If a permanent ID is assigned
+   to the transaction (which normally happens only if the transaction changes
+   the state of the database), it also holds an exclusive lock on the
+   transaction's permanent transaction ID until it ends.  When a process finds
+   it necessary to wait specifically for another transaction to end, it does
+   so by attempting to acquire share lock on the other transaction's ID
+   (either virtual or permanent ID depending on the situation). That will
+   succeed only when the other transaction terminates and releases its locks.␟トランザクションの実行中は常に、サーバプロセスはその仮想トランザクションID上に排他的ロックをかけます。
+もしある永続IDがトランザクションに割り当てられる（普通はトランザクションがデータベースの状態を変化させるときのみに発生します）と、トランザクションは終了するまで永続トランザクションIDに対して排他ロックを保持します。
+あるトランザクションが他のトランザクションを特定して終了まで待機しなければならないと判断した場合、他とみなしたトランザクションのIDに対し共有ロックを獲得するように試み、目的を達します（仮想IDであるか永続IDであるかは、その状況によります）。
+これは、他とみなしたトランザクションが完了し、そしてロックを解放した場合のみ成功します。␞␞  </para>␞
+␝  <para>␟   Although tuples are a lockable type of object,
+   information about row-level locks is stored on disk, not in memory,
+   and therefore row-level locks normally do not appear in this view.
+   If a process is waiting for a
+   row-level lock, it will usually appear in the view as waiting for the
+   permanent transaction ID of the current holder of that row lock.␟タプルはロック対象のオブジェクト種類ですが、行レベルロックについての情報はメモリではなく、ディスクに保存されます。
+よって行レベルロックは通常、このビューには現れません。
+もしプロセスが行レベルロックの待ち状態である場合は、その行ロックを保持している永続トランザクションIDを待つ状態で、そのトランザクションはビューに現れます。␞␞  </para>␞
+␝  <para>␟   A speculative insertion lock consists of a transaction ID and a speculative
+   insertion token. The speculative insertion token is displayed in the
+   <structfield>objid</structfield> column.␟投機的挿入ロックは、トランザクションIDと投機的な挿入トークンから構成されます。
+投機的な挿入トークンは<structfield>objid</structfield>列に表示されます。␞␞  </para>␞
+␝  <para>␟   Advisory locks can be acquired on keys consisting of either a single
+   <type>bigint</type> value or two integer values.
+   A <type>bigint</type> key is displayed with its
+   high-order half in the <structfield>classid</structfield> column, its low-order half
+   in the <structfield>objid</structfield> column, and <structfield>objsubid</structfield> equal
+   to 1. The original <type>bigint</type> value can be reassembled with the
+   expression <literal>(classid::bigint &lt;&lt; 32) |
+   objid::bigint</literal>. Integer keys are displayed with the
+   first key in the
+   <structfield>classid</structfield> column, the second key in the <structfield>objid</structfield>
+   column, and <structfield>objsubid</structfield> equal to 2.  The actual meaning of
+   the keys is up to the user.  Advisory locks are local to each database,
+   so the <structfield>database</structfield> column is meaningful for an advisory lock.␟勧告的ロックは、単一の<type>bigint</type>値、または、2つの整数値をキーとして獲得できます。
+<type>bigint</type>の場合は、その上位半分が<structfield>classid</structfield>列内に表示され、残りの下位半分は<structfield>objid</structfield>列内に表示されます。
+また、<structfield>objsubid</structfield>は1です。
+元の<type>bigint</type>値を<literal>(classid::bigint &lt;&lt; 32) | objid::bigint</literal>という式で再構成できます。
+整数値キーでは、最初のキーが<structfield>classid</structfield>列に、2番目のキーが<structfield>objid</structfield>列に表示され、<structfield>objsubid</structfield>は2です。
+キーの実際の意味はユーザに任されています。
+勧告的ロックはデータベースに対して局所的ですので、勧告的ロックでは<structfield>database</structfield>列が意味を持ちます。␞␞  </para>␞
+␝  <para>␟   Apply transaction locks are used in parallel mode to apply the transaction
+   in logical replication. The remote transaction ID is displayed in the
+   <structfield>transactionid</structfield> column. The <structfield>objsubid</structfield>
+   displays the lock subtype which is 0 for the lock used to synchronize the
+   set of changes, and 1 for the lock used to wait for the transaction to
+   finish to ensure commit order.␟適用トランザクションロックは、論理レプリケーションでトランザクションを適用するために並列モードで使用されます。
+リモートトランザクションIDは<structfield>transactionid</structfield>列に表示されます。
+<structfield>objsubid</structfield>は、ロックのサブタイプを表示します。
+これは、変更のセットを同期するために使用されるロックの場合は0で、トランザクションを終了してコミット順序を保証するために使用されるロックの場合は1です。␞␞  </para>␞
+␝  <para>␟   <structname>pg_locks</structname> provides a global view of all locks
+   in the database cluster, not only those relevant to the current database.
+   Although its <structfield>relation</structfield> column can be joined
+   against <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield> to identify locked
+   relations, this will only work correctly for relations in the current
+   database (those for which the <structfield>database</structfield> column
+   is either the current database's OID or zero).␟<structname>pg_locks</structname>は現行のデータベースに関連するロックのみならず、データベースクラスタ内のすべてのロックに関する全体的なビューを提供します。
+<structfield>relation</structfield>列はロックされたリレーションを識別するために<link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>と結合できますが、これは現行のデータベース内のリレーション（<structfield>database</structfield>列が現行のデータベースのOIDまたはゼロとなっているもの）に対してのみ正常に動作します。␞␞  </para>␞
+␝  <para>␟   The <structfield>pid</structfield> column can be joined to the
+   <structfield>pid</structfield> column of the
+   <link linkend="monitoring-pg-stat-activity-view">
+   <structname>pg_stat_activity</structname></link>
+   view to get more
+   information on the session holding or awaiting each lock,
+   for example␟それぞれのロックを保持もしくは待機しているセッションのさらなる情報を入手するため<link linkend="monitoring-pg-stat-activity-view"><structname>pg_stat_activity</structname></link>ビューの<structfield>pid</structfield>列と<structfield>pid</structfield>列を結合できます。
+例えば、このような感じです。␞␞<programlisting>␞
+␝</programlisting>␟   Also, if you are using prepared transactions, the
+   <structfield>virtualtransaction</structfield> column can be joined to the
+   <structfield>transaction</structfield> column of the <link
+   linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>
+   view to get more information on prepared transactions that hold locks.
+   (A prepared transaction can never be waiting for a lock,
+   but it continues to hold the locks it acquired while running.)
+   For example:␟また、プリペアドトランザクションを使用している場合には、ロックを保持しているプリペアドトランザクションに関してより多くの情報を得るため、<structfield>virtualtransaction</structfield>列は、<link linkend="view-pg-prepared-xacts"><structname>pg_prepared_xacts</structname></link>ビューの<structfield>transaction</structfield>列と結合できます。
+（プリペアドトランザクションはロックを待つことはありませんが、実行時に獲得したロックを保持し続けます。）
+例えば、このような感じです。␞␞<programlisting>␞
+␝  <para>␟   While it is possible to obtain information about which processes block
+   which other processes by joining <structname>pg_locks</structname> against
+   itself, this is very difficult to get right in detail.  Such a query would
+   have to encode knowledge about which lock modes conflict with which
+   others.  Worse, the <structname>pg_locks</structname> view does not expose
+   information about which processes are ahead of which others in lock wait
+   queues, nor information about which processes are parallel workers running
+   on behalf of which other client sessions.  It is better to use
+   the <function>pg_blocking_pids()</function> function
+   (see <xref linkend="functions-info-session-table"/>) to identify which
+   process(es) a waiting process is blocked behind.␟<structname>pg_locks</structname>ビューとそれ自身の結合によって、どのプロセスが他のどのプロセスをブロックしているかの情報を入手することが可能ですが、同時に詳細な正しい情報を得ることは非常に困難です。
+このようなクエリはどのロックモードが他のものと衝突しているかについての知見を書き出すべきです。
+さらに悪いことに、<structname>pg_locks</structname>ビューは、ロック待ちキューにてどのプロセスが他のどのプロセスに先行しているかの情報を提供しない、またはどのプロセスが他のクライアントセッションのために動作している並列ワーカープロセスかの情報を提供しません。
+待機しているプロセスが、どのプロセスにブロックされているかを識別するためにより良い方法は、<function>pg_blocking_pids()</function>関数（<xref linkend="functions-info-session-table"/>を参照してください）を使用することです。␞␞  </para>␞
+␝  <para>␟   The <structname>pg_locks</structname> view displays data from both the
+   regular lock manager and the predicate lock manager, which are
+   separate systems; in addition, the regular lock manager subdivides its
+   locks into regular and <firstterm>fast-path</firstterm> locks.
+   This data is not guaranteed to be entirely consistent.
+   When the view is queried,
+   data on fast-path locks (with <structfield>fastpath</structfield> = <literal>true</literal>)
+   is gathered from each backend one at a time, without freezing the state of
+   the entire lock manager, so it is possible for locks to be taken or
+   released while information is gathered.  Note, however, that these locks are
+   known not to conflict with any other lock currently in place.  After
+   all backends have been queried for fast-path locks, the remainder of the
+   regular lock manager is locked as a unit, and a consistent snapshot of all
+   remaining locks is collected as an atomic action.  After unlocking the
+   regular lock manager, the predicate lock manager is similarly locked and all
+   predicate locks are collected as an atomic action.  Thus, with the exception
+   of fast-path locks, each lock manager will deliver a consistent set of
+   results, but as we do not lock both lock managers simultaneously, it is
+   possible for locks to be taken or released after we interrogate the regular
+   lock manager and before we interrogate the predicate lock manager.␟<structname>pg_locks</structname>ビューは、異なるシステムにおける、通常のロックマネージャと述語ロックマネージャの両方からのデータを表示します。
+さらに通常のロックマネージャではロックを通常ロックと<firstterm>近道</firstterm>ロックに細分化します。
+このデータが完全に一貫性があることは保証されません。
+ビューが問い合わせられると、近道ロック（<structfield>fastpath</structfield> = <literal>true</literal>が真）は、ロックマネージャ全体の状態を凍結することなく、各バックエンドからひとつひとつ収集されます。
+このため情報収集期間中にロックが獲得されたり解放されたりされる可能性があります。
+しかし、これらのロックはその時点で存在する他のロックと競合することがないことが分かっていることに注意してください。
+近道ロックについてすべてのバックエンドを問い合わせた後、通常のロックマネージャの残りは１つの単位としてロックされ、残りすべてのロックの一貫性があるスナップショットを原子的な処理で収集します。
+ロックマネージャのロックを解除した後、述語ロックマネージャは同様にロックされ、すべての述語ロックを原子的な処理で収集します。
+このように、近道ロックという例外がありますが、各ロックマネージャは一貫性をもった結果セットを生成します。
+しかし、両方のロックマネージャを同時にロックしませんので、通常のロックマネージャを問い合わせた後と述語ロックマネージャを問い合わせる前の間にロックが獲得されたり解放されたりされる可能性があります。␞␞  </para>␞
+␝  <indexterm zone="view-pg-matviews">
+   <primary>materialized views</primary>
+  </indexterm>
+␟␟  <indexterm zone="view-pg-matviews">
+   <primary>マテリアライズドビュー</primary>
+  </indexterm>␞␞  </para>␞
+␝  <para>␟   Locking the regular and/or predicate lock manager could have some
+   impact on database performance if this view is very frequently accessed.
+   The locks are held only for the minimum amount of time necessary to
+   obtain data from the lock managers, but this does not completely eliminate
+   the possibility of a performance impact.␟このビューが頻繁にアクセスされている場合は、通常もしくは述語ロックマネージャをロックするとデータベースのパフォーマンスに影響があります。
+ロックマネージャからデータを取得するために、ロックは必要最低限の時間だけ保持されますが、パフォーマンスに影響がある可能性が全くないわけではありません。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_matviews</structname> provides access to
+   useful information about each materialized view in the database.␟<structname>pg_matviews</structname>ビューは、データベース内のマテリアライズドビューそれぞれに関する有用な情報へのアクセスを提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_matviews</structname> Columns</title>␟   <title><structname>pg_matviews</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing materialized view␟マテリアライズドビューを含むスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>matviewname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of materialized view␟マテリアライズドビューの名前␞␞      </para></entry>␞
+␝       <structfield>matviewowner</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of materialized view's owner␟マテリアライズドビューの所有者の名前␞␞      </para></entry>␞
+␝       <structfield>tablespace</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>.<structfield>spcname</structfield>)␟（参照先 <link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>.<structfield>spcname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of tablespace containing materialized view (null if default for database)␟マテリアライズドビューを含むテーブル空間の名前（データベースのデフォルトであればNULL）␞␞      </para></entry>␞
+␝      <para>␟       True if materialized view has (or recently had) any indexes␟trueの場合は、マテリアライズドビューがインデックスを持つ（または最近まで持っていた）␞␞      </para></entry>␞
+␝      <para>␟       True if materialized view is currently populated␟trueの場合は、マテリアライズドビューが現在データ投入されている␞␞      </para></entry>␞
+␝      <para>␟       Materialized view definition (a reconstructed <xref linkend="sql-select"/> query)␟マテリアライズドビューの定義（再構成された<xref linkend="sql-select"/>問い合わせ）␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_policies</structname> provides access to
+   useful information about each row-level security policy in the database.␟<structname>pg_policies</structname>ビューはデータベース内の行単位セキュリティのポリシーについて便利な情報へのアクセスを提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_policies</structname> Columns</title>␟   <title><structname>pg_policies</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table policy is on␟ポリシーが適用されているテーブルがあるスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table policy is on␟ポリシーが適用されているテーブルの名前␞␞      </para></entry>␞
+␝       <structfield>policyname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-policy"><structname>pg_policy</structname></link>.<structfield>polname</structfield>)␟（参照先 <link linkend="catalog-pg-policy"><structname>pg_policy</structname></link>.<structfield>polname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of policy␟ポリシーの名前␞␞      </para></entry>␞
+␝      <para>␟       Is the policy permissive or restrictive?␟許容(permissive)ポリシーか、制限(restrictive)ポリシーか␞␞      </para></entry>␞
+␝      <para>␟       The roles to which this policy applies␟このポリシーが適用されるロール␞␞      </para></entry>␞
+␝      <para>␟       The command type to which the policy is applied␟ポリシーが適用されるコマンドの種類␞␞      </para></entry>␞
+␝      <para>␟       The expression added to the security barrier qualifications for
+       queries that this policy applies to␟このポリシーが適用される問い合わせにセキュリティバリアの制約として追加される式␞␞      </para></entry>␞
+␝      <para>␟       The expression added to the WITH CHECK qualifications for
+       queries that attempt to add rows to this table␟このテーブルに行を追加する問い合わせにWITH CHECKの制約として追加される式␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_prepared_statements</structname> view displays
+   all the prepared statements that are available in the current
+   session. See <xref linkend="sql-prepare"/> for more information about prepared
+   statements.␟<structname>pg_prepared_statements</structname>ビューは現在のセッションで利用可能な準備済み文をすべて表示します。
+準備済み文についての詳細は<xref linkend="sql-prepare"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   <structname>pg_prepared_statements</structname> contains one row
+   for each prepared statement. Rows are added to the view when a new
+   prepared statement is created and removed when a prepared statement
+   is released (for example, via the <link linkend="sql-deallocate"><command>DEALLOCATE</command></link> command).␟<structname>pg_prepared_statements</structname>には、1つの準備済み文に対して一行が存在します。
+新しい準備済み文が作成されると行が追加され、準備済み文が解放される（例えば<link linkend="sql-deallocate"><command>DEALLOCATE</command></link>を使用）と行が削除されます。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_prepared_statements</structname> Columns</title>␟   <title><structname>pg_prepared_statements</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       The identifier of the prepared statement␟準備済み文の識別子␞␞      </para></entry>␞
+␝      <para>␟       The query string submitted by the client to create this
+       prepared statement. For prepared statements created via SQL,
+       this is the <command>PREPARE</command> statement submitted by
+       the client. For prepared statements created via the
+       frontend/backend protocol, this is the text of the prepared
+       statement itself.␟この準備済み文を作成するためにクライアントが送付した問い合わせ文字列。
+SQL経由で作成された準備済み文では、これはクライアントが送信した<command>PREPARE</command>文です。
+フロントエンド/バックエンドプロトコル経由で作成された準備済み文では、これは準備済み文自身のテキストです。␞␞      </para></entry>␞
+␝      <para>␟       The time at which the prepared statement was created␟準備済み文が作成された時間␞␞      </para></entry>␞
+␝      <para>␟       The expected parameter types for the prepared statement in the
+       form of an array of <type>regtype</type>. The OID corresponding
+       to an element of this array can be obtained by casting the
+       <type>regtype</type> value to <type>oid</type>.␟<type>regtype</type>配列形式の準備済み文が想定しているパラメータ型。
+配列要素に対応するOIDは、<type>regtype</type>から<type>oid</type>へのキャストを行うことで取り出すことができます。␞␞      </para></entry>␞
+␝      <para>␟       The types of the columns returned by the prepared statement in the
+       form of an array of <type>regtype</type>. The OID corresponding
+       to an element of this array can be obtained by casting the
+       <type>regtype</type> value to <type>oid</type>.
+       If the prepared statement does not provide a result (e.g., a DML
+       statement), then this field will be null.␟<type>regtype</type>配列形式の準備済み文が返す列の型。
+配列要素に対応するOIDは、<type>regtype</type>から<type>oid</type>へのキャストを行うことで取り出すことができます。
+準備済み文が結果を提供しない場合（例えばDML文）は、このフィールドはNULLになります。␞␞      </para></entry>␞
+␝      <para>␟       <literal>true</literal> if the prepared statement was created
+       via the <command>PREPARE</command> SQL command;
+       <literal>false</literal> if the statement was prepared via the
+       frontend/backend protocol␟<literal>true</literal>の場合は、準備済み文が<command>PREPARE</command> SQLコマンド経由で作成された。
+<literal>false</literal>の場合は、フロントエンド/バックエンドプロトコル経由で文が準備された␞␞      </para></entry>␞
+␝      <para>␟       Number of times generic plan was chosen␟汎用計画が選択された回数␞␞      </para></entry>␞
+␝      <para>␟       Number of times custom plan was chosen␟カスタム計画が選択された回数␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_prepared_statements</structname> view is read-only.␟<structname>pg_prepared_statements</structname>ビューは読み取り専用です。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_prepared_xacts</structname> displays
+   information about transactions that are currently prepared for two-phase
+   commit (see <xref linkend="sql-prepare-transaction"/> for details).␟<structname>pg_prepared_xacts</structname>ビューは、現状で2相コミットのためにプリペアドトランザクションについての情報を表示します（詳細は<xref linkend="sql-prepare-transaction"/>を参照してください）。␞␞  </para>␞
+␝  <para>␟   <structname>pg_prepared_xacts</structname> contains one row per prepared
+   transaction.  An entry is removed when the transaction is committed or
+   rolled back.␟<structname>pg_prepared_xacts</structname>は、プリペアドトランザクション毎に1つの行を含みます。
+この項目はトランザクションがコミットもしくはロールバックされたときに削除されます。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_prepared_xacts</structname> Columns</title>␟   <title><structname>pg_prepared_xacts</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Numeric transaction identifier of the prepared transaction␟プリペアドトランザクションに対する数値のトランザクション識別子␞␞      </para></entry>␞
+␝      <para>␟       Global transaction identifier that was assigned to the transaction␟トランザクションに割り当てられたグローバルのトランザクション識別子␞␞      </para></entry>␞
+␝      <para>␟       Time at which the transaction was prepared for commit␟トランザクションがコミットのために準備された時間␞␞      </para></entry>␞
+␝       <structfield>owner</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of the user that executed the transaction␟トランザクションを実行したユーザ名␞␞      </para></entry>␞
+␝       <structfield>database</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>datname</structfield>)␟（参照先 <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>datname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of the database in which the transaction was executed␟トランザクションを実行したデータベース名␞␞      </para></entry>␞
+␝  <para>␟   When the <structname>pg_prepared_xacts</structname> view is accessed, the
+   internal transaction manager data structures are momentarily locked, and
+   a copy is made for the view to display.  This ensures that the
+   view produces a consistent set of results, while not blocking
+   normal operations longer than necessary.  Nonetheless
+   there could be some impact on database performance if this view is
+   frequently accessed.␟<structname>pg_prepared_xacts</structname>ビューにアクセスすると、内部のトランザクション管理データ構造が一時的にロックされます。
+そして表示用にコピーが作成されます。
+これは、必要以上に長く通常の操作をブロックさせずに、ビューが一貫性のある結果を生成することを保証します。
+このビューが頻繁にアクセスされると、データベースの性能になんらかの影響を及ぼします。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_publication_tables</structname> provides
+   information about the mapping between publications and information of
+   tables they contain.  Unlike the underlying catalog
+   <link linkend="catalog-pg-publication-rel"><structname>pg_publication_rel</structname></link>,
+   this view expands publications defined as
+   <link linkend="sql-createpublication-params-for-all-tables"><literal>FOR ALL TABLES</literal></link>
+   and <link linkend="sql-createpublication-params-for-tables-in-schema"><literal>FOR TABLES IN SCHEMA</literal></link>,
+   so for such publications there will be a row for each eligible table.␟<structname>pg_publication_tables</structname>ビューはパブリケーションとそれに含まれるテーブルの間のマッピングに関する情報を提供します。
+その元となるカタログ<link linkend="catalog-pg-publication-rel"><structname>pg_publication_rel</structname></link>とは異なり、このビューは<link linkend="sql-createpublication-params-for-all-tables"><literal>FOR ALL TABLES</literal></link>と<link linkend="sql-createpublication-params-for-tables-in-schema"><literal>FOR TABLES IN SCHEMA</literal></link>で定義されたパブリケーションを展開するため、そのようなパブリケーションについては対象となる各テーブルについて1行があります。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_publication_tables</structname> Columns</title>␟   <title><structname>pg_publication_tables</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>pubname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-publication"><structname>pg_publication</structname></link>.<structfield>pubname</structfield>)␟（参照先 <link linkend="catalog-pg-publication"><structname>pg_publication</structname></link>.<structfield>pubname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of publication␟パブリケーションの名前␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table␟テーブルがあるスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table␟テーブルの名前␞␞      </para></entry>␞
+␝       <structfield>attnames</structfield> <type>name[]</type>␟       (references <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attname</structfield>)␟（参照先 <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attname</structfield>）␞␞      </para>␞
+␝      <para>␟       Names of table columns included in the publication. This contains all
+       the columns of the table when the user didn't specify the column list
+       for the table.␟パブリケーションに含まれるテーブル列の名前。
+ユーザがテーブルの列リストを指定しなかった場合に、テーブルのすべての列が含まれます。␞␞      </para></entry>␞
+␝      <para>␟       Expression for the table's publication qualifying condition␟テーブルのパブリケーション必要条件の式␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_replication_origin_status</structname> view
+   contains information about how far replay for a certain origin has
+   progressed.  For more on replication origins
+   see <xref linkend="replication-origins"/>.␟<structname>pg_replication_origin_status</structname>ビューには、ある起点の再生の進捗についての情報が含まれます。
+レプリケーション起点についての詳細は<xref linkend="replication-origins"/>を参照してください。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_replication_origin_status</structname> Columns</title>␟   <title><structname>pg_replication_origin_status</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>local_id</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-replication-origin"><structname>pg_replication_origin</structname></link>.<structfield>roident</structfield>)␟（参照先 <link linkend="catalog-pg-replication-origin"><structname>pg_replication_origin</structname></link>.<structfield>roident</structfield>）␞␞      </para>␞
+␝      <para>␟       internal node identifier␟内部ノード識別子␞␞      </para></entry>␞
+␝       <structfield>external_id</structfield> <type>text</type>␟       (references <link linkend="catalog-pg-replication-origin"><structname>pg_replication_origin</structname></link>.<structfield>roname</structfield>)␟（参照先 <link linkend="catalog-pg-replication-origin"><structname>pg_replication_origin</structname></link>.<structfield>roname</structfield>）␞␞      </para>␞
+␝      <para>␟       external node identifier␟外部ノード識別子␞␞      </para></entry>␞
+␝      <para>␟       The origin node's LSN up to which data has been replicated.␟そのデータまで複製されたことを示す起点ノードのLSN␞␞      </para></entry>␞
+␝      <para>␟       This node's LSN at which <literal>remote_lsn</literal> has
+       been replicated. Used to flush commit records before persisting
+       data to disk when using asynchronous commits.␟その<literal>remote_lsn</literal>が複製されたことを示す、このノードのLSN。
+非同期コミットを使用している場合に、データをディスクに書き出す前にコミットレコードをフラッシュするために使用されます。␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_replication_slots</structname> view provides a listing
+   of all replication slots that currently exist on the database cluster,
+   along with their current state.␟<structname>pg_replication_slots</structname>は、現在存在するデータベースクラスタとその状態、全てのレプリケーションスロットの一覧を提供します。␞␞  </para>␞
+␝  <para>␟   For more on replication slots,
+   see <xref linkend="streaming-replication-slots"/> and <xref linkend="logicaldecoding"/>.␟レプリケーションスロットに関する詳細は、<xref linkend="streaming-replication-slots"/>と<xref linkend="logicaldecoding"/>を参照してください。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_replication_slots</structname> Columns</title>␟   <title><structname>pg_replication_slots</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       A unique, cluster-wide identifier for the replication slot␟クラスタ間で一意なレプリケーションスロットの識別子␞␞      </para></entry>␞
+␝      <para>␟       The base name of the shared object containing the output plugin this logical slot is using, or null for physical slots.␟出力プラグインに使用されている論理スロットまたは物理スロットの場合はNULL、を含む共有オブジェクトの基底名。␞␞      </para></entry>␞
+␝      <para>␟       The slot type: <literal>physical</literal> or <literal>logical</literal>␟スロットのタイプ：<literal>physical</literal>または<literal>logical</literal>␞␞      </para></entry>␞
+␝       <structfield>datoid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       The OID of the database this slot is associated with, or
+       null. Only logical slots have an associated database.␟このスロットと関連しているデータベースのOID、またはNULL。論理スロットだけがデータベースと関連を持つことができます。␞␞      </para></entry>␞
+␝       <structfield>database</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>datname</structfield>)␟（参照先 <link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>datname</structfield>）␞␞      </para>␞
+␝      <para>␟       The name of the database this slot is associated with, or
+       null. Only logical slots have an associated database.␟このスロットと関連しているデータベース名、またはNULL。論理スロットだけがデータベースと関連を持つことができます。␞␞      </para></entry>␞
+␝      <para>␟       True if this is a temporary replication slot. Temporary slots are
+       not saved to disk and are automatically dropped on error or when
+       the session has finished.␟trueの場合は、これが一時レプリケーションスロットである。
+一時スロットはディスクに保存されず、エラーのとき、またはセッションが終了したときには自動的に削除されます。␞␞      </para></entry>␞
+␝      <para>␟       True if this slot is currently being streamed␟trueの場合は、このスロットが現在ストリーミングされている␞␞      </para></entry>␞
+␝      <para>␟       The process ID of the session streaming data for this slot.
+       <literal>NULL</literal> if inactive.␟このスロットのデータをストリーミングしているセッションのプロセスID。
+非アクティブな場合は<literal>NULL</literal>。␞␞      </para></entry>␞
+␝      <para>␟       The oldest transaction that this slot needs the database to
+       retain.  <literal>VACUUM</literal> cannot remove tuples deleted
+       by any later transaction.␟このスロットがデータベースとの接続を必要としている最も古いトランザクション。
+<literal>VACUUM</literal> は後でトランザクションによって削除されたタプルを除去できません。␞␞      </para></entry>␞
+␝      <para>␟       The oldest transaction affecting the system catalogs that this
+       slot needs the database to retain.  <literal>VACUUM</literal> cannot
+       remove catalog tuples deleted by any later transaction.␟このスロットがデータベースとの接続を必要としている、システムカタログに影響する最も古いトランザクション。
+<literal>VACUUM</literal>は後でトランザクションによって削除されたカタログのタプルを除去できません。␞␞      </para></entry>␞
+␝      <para>␟       The address (<literal>LSN</literal>) of oldest WAL which still
+       might be required by the consumer of this slot and thus won't be
+       automatically removed during checkpoints unless this LSN
+       gets behind more than <xref linkend="guc-max-slot-wal-keep-size"/>
+       from the current LSN.  <literal>NULL</literal>
+       if the <literal>LSN</literal> of this slot has never been reserved.␟消費者のスロットによって必要とされており、LSNが現在のLSNから<xref linkend="guc-max-slot-wal-keep-size"/>以上遅れていない限り、チェックポイント中に自動的に削除されない最も古いWALのアドレス（<literal>LSN</literal>）です。
+このスロットの<literal>LSN</literal>が保存されていなければ<literal>NULL</literal>です。␞␞      </para></entry>␞
+␝      <para>␟       The address (<literal>LSN</literal>) up to which the logical
+       slot's consumer has confirmed receiving data. Data corresponding to the
+       transactions committed before this <literal>LSN</literal> is not
+       available anymore. <literal>NULL</literal> for physical slots.␟利用者がデータの受信を確認できている論理スロットのアドレス（<literal>LSN</literal>）。
+この<literal>LSN</literal>より前にコミットされたトランザクションに対応するデータは、もはや有効ではありません。
+物理スロットの場合は<literal>NULL</literal>。␞␞      </para></entry>␞
+␝      <para>␟       Availability of WAL files claimed by this slot.
+       Possible values are:␟このスロットが報告するWALファイルの入手可能性。
+可能な値は以下です。␞␞       <itemizedlist>␞
+␝        <listitem>␟         <para><literal>reserved</literal> means that the claimed files
+          are within <varname>max_wal_size</varname>.</para>␟<para><literal>reserved</literal>。報告されたファイルは<varname>max_wal_size</varname>内であることを意味します。</para>␞␞        </listitem>␞
+␝        <listitem>␟         <para><literal>extended</literal> means
+          that <varname>max_wal_size</varname> is exceeded but the files are
+          still retained, either by the replication slot or
+          by <varname>wal_keep_size</varname>.␟<para><literal>extended</literal>。<varname>max_wal_size</varname>は超えているものの、ファイルはレプリケーションスロットあるいは<varname>wal_keep_size</varname>によって保存されていることを意味します。␞␞         </para>␞
+␝         <para>␟          <literal>unreserved</literal> means that the slot no longer
+          retains the required WAL files and some of them are to be removed at
+          the next checkpoint.  This typically occurs when
+          <xref linkend="guc-max-slot-wal-keep-size"/> is set to
+          a non-negative value.  This state can return
+          to <literal>reserved</literal> or <literal>extended</literal>.␟<literal>unreserved</literal>。スロットはもはや要求されたWALファイルを保持しておらず、その一部が次のチェックポイントで削除される予定であることを意味しています。
+これは通常、<xref linkend="guc-max-slot-wal-keep-size"/>が負ではない値に設定されている場合に発生します。
+この状態は<literal>reserved</literal>または<literal>extended</literal>に戻ることができます。␞␞         </para>␞
+␝         <para>␟          <literal>lost</literal> means that this slot is no longer usable.␟<literal>lost</literal>。このスロットが使用できなくなったことを意味します。␞␞         </para>␞
+␝      <para>␟       The number of bytes that can be written to WAL such that this slot
+       is not in danger of getting in state "lost".  It is NULL for lost
+       slots, as well as if <varname>max_slot_wal_keep_size</varname>
+       is <literal>-1</literal>.␟「ロスト」状態に陥る危険性のないスロットにおいて、WALに書き込むことのできるバイト数です。
+失われたスロットに対して、あるいは<varname>max_slot_wal_keep_size</varname>が<literal>-1</literal>ならNULLです。␞␞      </para></entry>␞
+␝      <para>␟       True if the slot is enabled for decoding prepared transactions.  Always
+       false for physical slots.␟trueの場合は、準備されたトランザクションのデコーディングのためにスロットが有効。
+物理スロットでは常にfalse。␞␞      </para></entry>␞
+␝      <para>␟        The time when the slot became inactive. <literal>NULL</literal> if the
+        slot is currently being streamed.
+        Note that for slots on the standby that are being synced from a
+        primary server (whose <structfield>synced</structfield> field is
+        <literal>true</literal>), the <structfield>inactive_since</structfield>
+        indicates the time when slot synchronization (see <xref
+        linkend="logicaldecoding-replication-slots-synchronization"/>)
+        was most recently stopped.  <literal>NULL</literal> if the slot
+        has always been synchronized. On standby, this is useful for slots
+        that are being synced from a primary server (whose
+        <structfield>synced</structfield> field is <literal>true</literal>)
+        so they know when the slot stopped being synchronized.␟スロットが非アクティブになった時間。
+スロットが現在ストリーミングされている場合は<literal>NULL</literal>。
+スタンバイ上のスロットがプライマリサーバから同期されている（<structfield>synced</structfield>フィールドが<literal>true</literal>である）場合、<structfield>inactive_since</structfield>はスロットの同期（<xref linkend="logicaldecoding-replication-slots-synchronization"/>を参照）が最後に停止された時間を示すことに注意してください。
+スロットが常に同期されている場合は<literal>NULL</literal>。
+スタンバイでは、プライマリサーバから同期されているスロット（<structfield>synced</structfield> フィールドが<literal>true</literal>）であるため、スロットの同期がいつ停止したかを知ることができます。␞␞      </para></entry>␞
+␝      <para>␟       True if this logical slot conflicted with recovery (and so is now
+       invalidated). When this column is true, check
+       <structfield>invalidation_reason</structfield> column for the conflict
+       reason. Always NULL for physical slots.␟trueの場合は、この論理スロットがリカバリと競合した（したため、無効になっている）。
+この列がtrueの場合、競合理由を<structfield>invalidation_reason</structfield>列で確認してください。
+物理スロットでは常にNULL。␞␞      </para></entry>␞
+␝      <para>␟       The reason for the slot's invalidation. It is set for both logical and
+       physical slots. <literal>NULL</literal> if the slot is not invalidated.
+       Possible values are:␟スロットが無効化された理由。
+論理スロットと物理スロットの両方で設定されます。
+スロットが無効化されない場合は<literal>NULL</literal>。
+指定可能な値は以下のとおりです。␞␞       <itemizedlist spacing="compact">␞
+␝         <para>␟          <literal>wal_removed</literal> means that the required WAL has been
+          removed.␟<literal>wal_removed</literal>は、必要なWALが削除されたことを意味します。␞␞         </para>␞
+␝         <para>␟          <literal>rows_removed</literal> means that the required rows have
+          been removed. It is set only for logical slots.␟<literal>rows_removed</literal>は、必要な行が削除されたことを意味します。
+これは論理スロットに対してのみ設定されます。␞␞         </para>␞
+␝         <para>␟          <literal>wal_level_insufficient</literal> means that the
+          primary doesn't have a <xref linkend="guc-wal-level"/> sufficient to
+          perform logical decoding.  It is set only for logical slots.␟<literal>wal_level_insufficient</literal>は、プライマリがロジカルデコーディングを実行するのに十分な<xref linkend="guc-wal-level"/>を持っていないことを意味します。
+これは論理スロットに対してのみ設定されます。␞␞         </para>␞
+␝      <para>␟       True if this is a logical slot enabled to be synced to the standbys
+       so that logical replication can be resumed from the new primary
+       after failover. Always false for physical slots.␟trueの場合は、この論理スロットがスタンバイに同期されるように有効になっており、フェイルオーバー後の新しいプライマリから論理レプリケーションを再開できます。
+物理スロットの場合は、常にfalse。␞␞      </para></entry>␞
+␝      <para>␟       True if this is a logical slot that was synced from a primary server.
+       On a hot standby, the slots with the synced column marked as true can
+       neither be used for logical decoding nor dropped manually. The value
+       of this column has no meaning on the primary server; the column value on
+       the primary is default false for all slots but may (if leftover from a
+       promoted standby) also be true.␟trueの場合は、これがプライマリサーバから同期された論理スロットです。
+ホットスタンバイでは、同期されたカラムがtrueとマークされているスロットは、ロジカルデコーディングにも手動でドロップすることもできません。
+この列の値はプライマリサーバでは意味を持ちません。
+プライマリの列の値は、すべてのスロットに対してfalseですが、（昇格したスタンバイから残っている場合）trueになる場合もあります。␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_roles</structname> provides access to
+   information about database roles.  This is simply a publicly
+   readable view of
+   <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>
+   that blanks out the password field.␟<structname>pg_roles</structname>ビューはデータベースのロールに関する情報を提供します。
+これは単に一般に公開されている<link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>のビューですが、パスワード列が空白になっています。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_roles</structname> Columns</title>␟   <title><structname>pg_roles</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Role name␟ロール名␞␞      </para></entry>␞
+␝      <para>␟       Role has superuser privileges␟ロールはスーパーユーザの権限を持っている␞␞      </para></entry>␞
+␝      <para>␟       Role automatically inherits privileges of roles it is a
+       member of␟ロールは自動的にメンバとして属するロールの権限を継承する␞␞      </para></entry>␞
+␝      <para>␟       Role can create more roles␟ロールはロールを作成できる␞␞      </para></entry>␞
+␝      <para>␟       Role can create databases␟ロールはデータベースを作成できる␞␞      </para></entry>␞
+␝      <para>␟       Role can log in. That is, this role can be given as the initial
+       session authorization identifier␟ロールはログインできる。つまりロールはセッションを始める認証の識別子となることができます␞␞      </para></entry>␞
+␝      <para>␟       Role is a replication role. A replication role can initiate replication
+       connections and create and drop replication slots.␟ロールはレプリケーション用のロール。
+レプリケーションロールは、レプリケーション接続を開始すること、およびレプリケーションスロットを作成および削除できます。␞␞      </para></entry>␞
+␝      <para>␟       For roles that can log in, this sets maximum number of concurrent
+       connections this role can make.  -1 means no limit.␟ログイン可能なロールでは、これはロールが確立できる同時実行接続数を設定します。
+-1は制限無しを意味します。␞␞      </para></entry>␞
+␝      <para>␟       Not the password (always reads as <literal>********</literal>)␟パスワードでありません（常に<literal>********</literal>のように読まれます）␞␞      </para></entry>␞
+␝      <para>␟       Password expiry time (only used for password authentication);
+       null if no expiration␟パスワード有効期限（パスワード認証でのみ使用）。
+NULLの場合には満了時間はありません。␞␞      </para></entry>␞
+␝      <para>␟       Role bypasses every row-level security policy, see
+       <xref linkend="ddl-rowsecurity"/> for more information.␟すべての行単位セキュリティポリシーを無視するロール。詳しくは<xref linkend="ddl-rowsecurity"/>を参照してください。␞␞      </para></entry>␞
+␝      <para>␟       Role-specific defaults for run-time configuration variables␟実行時設定変数に関するロール固有のデフォルト␞␞      </para></entry>␞
+␝       <structfield>oid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       ID of role␟ロールのID␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_rules</structname> provides access to
+   useful information about query rewrite rules.␟   <structname>pg_rules</structname>ビューは問い合わせ書き換えルールについての有用な情報へのアクセスを提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_rules</structname> Columns</title>␟   <title><structname>pg_rules</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table␟テーブルがあるスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table the rule is for␟ルールの対象のテーブル名␞␞      </para></entry>␞
+␝       <structfield>rulename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-rewrite"><structname>pg_rewrite</structname></link>.<structfield>rulename</structfield>)␟（参照先 <link linkend="catalog-pg-rewrite"><structname>pg_rewrite</structname></link>.<structfield>rulename</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of rule␟ルール名␞␞      </para></entry>␞
+␝      <para>␟       Rule definition (a reconstructed creation command)␟ルール定義（再構築された生成コマンド）␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_rules</structname> view excludes the <literal>ON SELECT</literal> rules
+   of views and materialized views; those can be seen in
+   <link linkend="view-pg-views"><structname>pg_views</structname></link> and <link linkend="view-pg-matviews"><structname>pg_matviews</structname></link>.␟<structname>pg_rules</structname>ビューは、ビューおよびマテリアライズドビューに対する<literal>ON SELECT</literal>ルールを除外します。
+これらは<link linkend="view-pg-views"><structname>pg_views</structname></link>および<link linkend="view-pg-matviews"><structname>pg_matviews</structname></link>にあります。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_seclabels</structname> provides information about
+   security labels.  It as an easier-to-query version of the
+   <link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link> catalog.␟<structname>pg_seclabels</structname>ビューはセキュリティラベルに関する情報を提供します。
+これは<link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link>カタログをより問い合わせし易くしたものです。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_seclabels</structname> Columns</title>␟   <title><structname>pg_seclabels</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>objoid</structfield> <type>oid</type>␟       (references any OID column)␟（いずれかのOID列）␞␞      </para>␞
+␝      <para>␟       The OID of the object this security label pertains to␟このセキュリティラベルが関係するオブジェクトのOID␞␞      </para></entry>␞
+␝       <structfield>classoid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       The OID of the system catalog this object appears in␟このオブジェクトが現れるシステムカタログのOID␞␞      </para></entry>␞
+␝      <para>␟       For a security label on a table column, this is the column number (the
+       <structfield>objoid</structfield> and <structfield>classoid</structfield> refer to
+       the table itself).  For all other object types, this column is
+       zero.␟テーブル列上のセキュリティラベルでは、これは列番号です（<structfield>objoid</structfield>および<structfield>classoid</structfield>はテーブル自身を参照します）。
+他のすべての種類のオブジェクトでは、この列はゼロです。␞␞      </para></entry>␞
+␝      <para>␟       The type of object to which this label applies, as text.␟このラベルが適用されるオブジェクトの種類のテキスト表現␞␞      </para></entry>␞
+␝       <structfield>objnamespace</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       The OID of the namespace for this object, if applicable;
+       otherwise NULL.␟もし適用可能であればこのオブジェクト用の名前空間のOID。そうでない場合はNULL␞␞      </para></entry>␞
+␝      <para>␟       The name of the object to which this label applies, as text.␟このラベルが適用されるオブジェクト名称のテキスト表現␞␞      </para></entry>␞
+␝       <structfield>provider</structfield> <type>text</type>␟       (references <link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link>.<structfield>provider</structfield>)␟（参照先 <link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link>.<structfield>provider</structfield>）␞␞      </para>␞
+␝      <para>␟       The label provider associated with this label.␟このラベルに関連付いたラベルプロバイダです。␞␞      </para></entry>␞
+␝       <structfield>label</structfield> <type>text</type>␟       (references <link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link>.<structfield>label</structfield>)␟（参照先 <link linkend="catalog-pg-seclabel"><structname>pg_seclabel</structname></link>.<structfield>label</structfield>）␞␞      </para>␞
+␝      <para>␟       The security label applied to this object.␟このオブジェクトに適用されるセキュリティラベルです。␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_sequences</structname> provides access to
+   useful information about each sequence in the database.␟<structname>pg_sequences</structname>ビューはデータベース内の各シーケンスについての有用な情報へのアクセスを提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_sequences</structname> Columns</title>␟   <title><structname>pg_sequences</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing sequence␟シーケンスがあるスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>sequencename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of sequence␟シーケンスの名前␞␞      </para></entry>␞
+␝       <structfield>sequenceowner</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of sequence's owner␟シーケンスの所有者の名前␞␞      </para></entry>␞
+␝       <structfield>data_type</structfield> <type>regtype</type>␟       (references <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-type"><structname>pg_type</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       Data type of the sequence␟シーケンスのデータ型␞␞      </para></entry>␞
+␝      <para>␟       Start value of the sequence␟シーケンスの開始値␞␞      </para></entry>␞
+␝      <para>␟       Minimum value of the sequence␟シーケンスの最小値␞␞      </para></entry>␞
+␝      <para>␟       Maximum value of the sequence␟シーケンスの最大値␞␞      </para></entry>␞
+␝      <para>␟       Increment value of the sequence␟シーケンスの増分値␞␞      </para></entry>␞
+␝      <para>␟       Whether the sequence cycles␟シーケンスが周回するかどうか␞␞      </para></entry>␞
+␝      <para>␟       Cache size of the sequence␟シーケンスのキャッシュサイズ␞␞      </para></entry>␞
+␝      <para>␟       The last sequence value written to disk.  If caching is used,
+       this value can be greater than the last value handed out from the
+       sequence.␟ディスクに書き込まれた最後のシーケンス値。
+キャッシュが使用されている場合、この値はシーケンスから最後に取り出された値より大きくなることがあります。␞␞      </para></entry>␞
+␝  <para>␟   The <structfield>last_value</structfield> column will read as null if any of
+   the following are true:␟<structfield>last_value</structfield>列は以下のいずれかがtrueである場合、NULLとして読み込みます。␞␞   <itemizedlist>␞
+␝     <para>␟      The sequence has not been read from yet.␟シーケンスからまだ読み取られていない。␞␞     </para>␞
+␝     <para>␟      The current user does not have <literal>USAGE</literal> or
+      <literal>SELECT</literal> privilege on the sequence.␟現在のユーザがシーケンスについて<literal>USAGE</literal>あるいは<literal>SELECT</literal>権限を持っていない。␞␞     </para>␞
+␝     <para>␟      The sequence is unlogged and the server is a standby.␟ログを取らないシーケンスで、サーバはスタンバイ。␞␞     </para>␞
+␝  <para>␟   The view <structname>pg_settings</structname> provides access to
+   run-time parameters of the server.  It is essentially an alternative
+   interface to the <link linkend="sql-show"><command>SHOW</command></link>
+   and <link linkend="sql-set"><command>SET</command></link> commands.
+   It also provides access to some facts about each parameter that are
+   not directly available from <link linkend="sql-show"><command>SHOW</command></link>, such as minimum and
+   maximum values.␟<structname>pg_settings</structname>ビューはサーバの実行時パラメータへのアクセスを提供します。
+基本的に<link linkend="sql-show"><command>SHOW</command></link>と<link linkend="sql-set"><command>SET</command></link>コマンドの代わりとなるインタフェースです。
+同時に最大・最小値などのように<link linkend="sql-show"><command>SHOW</command></link>コマンドでは直接入手できないそれぞれのパラメータのいくつかの実状にアクセスする機能を提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_settings</structname> Columns</title>␟   <title><structname>pg_settings</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Run-time configuration parameter name␟実行時設定パラメータ名␞␞      </para></entry>␞
+␝      <para>␟       Current value of the parameter␟パラメータの現在値␞␞      </para></entry>␞
+␝      <para>␟       Implicit unit of the parameter␟暗黙的なパラメータの単位␞␞      </para></entry>␞
+␝      <para>␟       Logical group of the parameter␟パラメータの論理グループ␞␞      </para></entry>␞
+␝      <para>␟       A brief description of the parameter␟パラメータの簡潔な説明␞␞      </para></entry>␞
+␝      <para>␟       Additional, more detailed, description of the parameter␟追加で、より詳細なパラメータについての説明␞␞      </para></entry>␞
+␝      <para>␟       Context required to set the parameter's value (see below)␟パラメータ値を設定するために必要な文脈（後述）␞␞      </para></entry>␞
+␝      <para>␟       Parameter type (<literal>bool</literal>, <literal>enum</literal>,
+       <literal>integer</literal>, <literal>real</literal>, or <literal>string</literal>)␟パラメータの型（<literal>bool</literal>、<literal>enum</literal>、<literal>integer</literal>、<literal>real</literal>もしくは<literal>string</literal>）␞␞      </para></entry>␞
+␝      <para>␟       Source of the current parameter value␟現在のパラメータ値のソース␞␞      </para></entry>␞
+␝      <para>␟       Minimum allowed value of the parameter (null for non-numeric
+       values)␟容認されている最小のパラメータ値（数値でない場合はNULL）␞␞      </para></entry>␞
+␝      <para>␟       Maximum allowed value of the parameter (null for non-numeric
+       values)␟容認されている最大のパラメータ値（数値でない場合はNULL）␞␞      </para></entry>␞
+␝      <para>␟       Allowed values of an enum parameter (null for non-enum
+       values)␟許可された列挙パラメータの値（列挙型ではない場合はNULL）␞␞      </para></entry>␞
+␝      <para>␟       Parameter value assumed at server startup if the parameter is
+       not otherwise set␟パラメータが設定されていなかったとした場合に仮定されるサーバ起動時のパラメータ値␞␞      </para></entry>␞
+␝      <para>␟       Value that <link linkend="sql-reset"><command>RESET</command></link> would reset the parameter to
+       in the current session␟現状のセッションにおいて<link linkend="sql-reset"><command>RESET</command></link>によって戻されるパラメータの値␞␞      </para></entry>␞
+␝      <para>␟       Configuration file the current value was set in (null for
+       values set from sources other than configuration files, or when
+       examined by a user who neither is a superuser nor has privileges of
+       <literal>pg_read_all_settings</literal>); helpful when using
+       <literal>include</literal> directives in configuration files␟現状の値が設定されている設定ファイル（設定ファイル以外のソースから設定された値の場合、スーパーユーザでも<literal>pg_read_all_settings</literal>の権限を持たないユーザから検査された時はNULLです）。
+設定ファイル内で<literal>include</literal>指示子を使用する時に役に立ちます。␞␞      </para></entry>␞
+␝      <para>␟       Line number within the configuration file the current value was
+       set at (null for values set from sources other than configuration files,
+       or when examined by a user who neither is a superuser nor has privileges of
+       <literal>pg_read_all_settings</literal>).␟現状の値が設定されている設定ファイル内の行番号（設定ファイル以外のソースから設定された値の場合、スーパーユーザでも<literal>pg_read_all_settings</literal>の権限を持たないユーザから検査された時はNULLです）。␞␞      </para></entry>␞
+␝      <para>␟       <literal>true</literal> if the value has been changed in the
+       configuration file but needs a restart; or <literal>false</literal>
+       otherwise.␟<literal>true</literal>の場合は、値が設定ファイル内で変更されたが再起動が必要。
+それ以外は<literal>false</literal>␞␞      </para></entry>␞
+␝  <para>␟   There are several possible values of <structfield>context</structfield>.
+   In order of decreasing difficulty of changing the setting, they are:␟<structfield>context</structfield>が取り得る値は複数あります。
+この設定の変更の困難さを軽くするために、以下に示します。␞␞  </para>␞
+␝     <para>␟      These settings cannot be changed directly; they reflect internally
+      determined values.  Some of them may be adjustable by rebuilding the
+      server with different configuration options, or by changing options
+      supplied to <application>initdb</application>.␟これらの設定は直接変更できません。
+これらは内部で決定された値を反映するものです。
+一部は異なる設定オプションでサーバを再構築する、または、<application>initdb</application>に与えるオプションを変更することで調整できます。␞␞     </para>␞
+␝     <para>␟      These settings can only be applied when the server starts, so any change
+      requires restarting the server.  Values for these settings are typically
+      stored in the <filename>postgresql.conf</filename> file, or passed on
+      the command line when starting the server.  Of course, settings with any
+      of the lower <structfield>context</structfield> types can also be
+      set at server start time.␟これらの設定はサーバ起動時にのみ適用できます。
+このため何かを変更するためにはサーバを再起動しなければなりません。
+これらの設定用の値は通常<filename>postgresql.conf</filename>ファイル内に格納されている、あるいは、サーバを起動する際のコマンドラインから渡されます。
+当然ながら、より低い種類の<structfield>context</structfield>を持つ設定もサーバ起動時に設定できます。␞␞     </para>␞
+␝     <para>␟      Changes to these settings can be made in
+      <filename>postgresql.conf</filename> without restarting the server.
+      Send a <systemitem>SIGHUP</systemitem> signal to the postmaster to
+      cause it to re-read <filename>postgresql.conf</filename> and apply
+      the changes.  The postmaster will also forward the
+      <systemitem>SIGHUP</systemitem> signal to its child processes so that
+      they all pick up the new value.␟これらの設定は、サーバを再起動することなく<filename>postgresql.conf</filename>内を変更することで行うことができます。
+<filename>postgresql.conf</filename>を再度読み込み、変更を適用させるためには、postmasterに<systemitem>SIGHUP</systemitem>シグナルを送信してください。
+すべての子プロセスが新しい値を選択するように、postmasterは同時に子プロセスに<systemitem>SIGHUP</systemitem>シグナルを転送します。␞␞     </para>␞
+␝     <para>␟      Changes to these settings can be made in
+      <filename>postgresql.conf</filename> without restarting the server.
+      They can also be set for a particular session in the connection request
+      packet (for example, via <application>libpq</application>'s <literal>PGOPTIONS</literal>
+      environment variable), but only if the connecting user is a superuser
+      or has been granted the appropriate <literal>SET</literal> privilege.
+      However, these settings never change in a session after it is started.
+      If you change them in <filename>postgresql.conf</filename>, send a
+      <systemitem>SIGHUP</systemitem> signal to the postmaster to cause it to
+      re-read <filename>postgresql.conf</filename>.  The new values will only
+      affect subsequently-launched sessions.␟これらの設定は、サーバを再起動することなく<filename>postgresql.conf</filename>内を変更することで行うことができます。
+また、接続要求パケットの中で特定のセッション向けに設定することもできます（例えば<application>libpq</application>の<literal>PGOPTIONS</literal>環境変数）が、これは接続ユーザがスーパーユーザか、適切な<literal>SET</literal>権限を与えられたユーザの場合に限られます。
+しかし、これらの設定はセッションが開始してから、そのセッションの中で変更することはできません。
+<filename>postgresql.conf</filename>内でそれらを変更した場合は、<filename>postgresql.conf</filename>を再度読み込ませるために、postmasterに<systemitem>SIGHUP</systemitem>シグナルを送信してください。
+新しい値はその後で始まったセッションにのみ影響を与えます。␞␞     </para>␞
+␝     <para>␟      Changes to these settings can be made in
+      <filename>postgresql.conf</filename> without restarting the server.
+      They can also be set for a particular session in the connection request
+      packet (for example, via <application>libpq</application>'s <literal>PGOPTIONS</literal>
+      environment variable); any user can make such a change for their session.
+      However, these settings never change in a session after it is started.
+      If you change them in <filename>postgresql.conf</filename>, send a
+      <systemitem>SIGHUP</systemitem> signal to the postmaster to cause it to
+      re-read <filename>postgresql.conf</filename>.  The new values will only
+      affect subsequently-launched sessions.␟これらの設定は、サーバを再起動することなく<filename>postgresql.conf</filename>内を変更することで行うことができます。
+また、接続要求パケットの中で特定のセッション向けに設定することもできます（例えば<application>libpq</application>の<literal>PGOPTIONS</literal>環境変数）。
+どのユーザでも、自分のセッション向けにそのような変更ができます。
+しかし、これらの設定はセッションが開始してから、そのセッションの中で変更することはできません。
+<filename>postgresql.conf</filename>内でそれらを変更した場合は、<filename>postgresql.conf</filename>を再度読み込ませるために、postmasterに<systemitem>SIGHUP</systemitem>シグナルを送信してください。
+新しい値はその後で始まったセッションにのみ影響を与えます。␞␞     </para>␞
+␝     <para>␟      These settings can be set from <filename>postgresql.conf</filename>,
+      or within a session via the <command>SET</command> command; but only superusers
+      and users with the appropriate <literal>SET</literal> privilege
+      can change them via <command>SET</command>.  Changes in
+      <filename>postgresql.conf</filename> will affect existing sessions
+      only if no session-local value has been established with <command>SET</command>.␟これらの設定は<filename>postgresql.conf</filename>、または、セッションの中で<command>SET</command>コマンドを使用することで設定ができます。
+しかし<command>SET</command>経由で変更できるのは、接続するユーザがスーパーユーザか、適切な<literal>SET</literal>権限を与えられたユーザに限られます。
+<filename>postgresql.conf</filename>内の変更は、セッション独自の値が<command>SET</command>で設定されていない場合にのみ、既存のセッションに影響を与えます。␞␞     </para>␞
+␝     <para>␟      These settings can be set from <filename>postgresql.conf</filename>,
+      or within a session via the <command>SET</command> command.  Any user is
+      allowed to change their session-local value.  Changes in
+      <filename>postgresql.conf</filename> will affect existing sessions
+      only if no session-local value has been established with <command>SET</command>.␟これらの設定は<filename>postgresql.conf</filename>、または、セッションの中で<command>SET</command>コマンドを使用することで設定ができます。
+任意のユーザが自身のセッション独自の値を変更することが許されています。
+<filename>postgresql.conf</filename>内の変更は、セッション独自の値が<command>SET</command>で設定されていない場合にのみ、既存のセッションに影響を与えます。␞␞     </para>␞
+␝  <para>␟   See <xref linkend="config-setting"/> for more information about the various
+   ways to change these parameters.␟これらのパラメータを変更する各種方法に関する情報については<xref linkend="config-setting"/>を参照してください。␞␞  </para>␞
+␝  <para>␟   This view cannot be inserted into or deleted from, but it can be updated.  An
+   <command>UPDATE</command> applied to a row of <structname>pg_settings</structname>
+   is equivalent to executing the <command>SET</command> command on that named
+   parameter. The change only affects the value used by the current
+   session. If an <command>UPDATE</command> is issued within a transaction
+   that is later aborted, the effects of the <command>UPDATE</command> command
+   disappear when the transaction is rolled back. Once the surrounding
+   transaction is committed, the effects will persist until the end of the
+   session, unless overridden by another <command>UPDATE</command> or
+   <command>SET</command>.␟このビューには挿入も削除もできませんが、更新することは可能です。
+<structname>pg_settings</structname>の行へ適用された<command>UPDATE</command>は、<command>SET</command>コマンドを名前付きの引数に対して実行するのと同等です。
+<structname>pg_settings</structname>行に適用される<command>UPDATE</command>は名前付きのパラメータに対して<command>SET</command>コマンドを実行することと同値です。
+変更は現在のセッションで使用されている値にのみ有効です。
+もしも後に中止されるトランザクション内で<command>UPDATE</command>が発行されると、トランザクションがロールバックされた時点で<command>UPDATE</command>コマンドは効力を失います。
+排他制御中のトランザクションがひとたびコミットされると、その効果は他の<command>UPDATE</command>もしくは<command>SET</command>コマンドで上書きされない限りセッションの完了まで保たれます。␞␞  </para>␞
+␝  <para>␟   This view does not
+   display <link linkend="runtime-config-custom">customized options</link>
+   unless the extension module that defines them has been loaded by the
+   backend process executing the query (e.g., via a mention in
+   <xref linkend="guc-shared-preload-libraries"/>,
+   a call to a C function in the extension, or the
+   <link linkend="sql-load"><command>LOAD</command></link> command).
+   For example, since <link linkend="archive-modules">archive modules</link>
+   are normally loaded only by the archiver process not regular sessions,
+   this view will not display any customized options defined by such modules
+   unless special action is taken to load them into the backend process
+   executing the query.␟<link linkend="runtime-config-custom">カスタマイズオプション</link>を定義する拡張モジュールが、クエリを実行するバックエンドプロセスによって（たとえば<xref linkend="guc-shared-preload-libraries"/>で記述された方法、拡張モジュール内のC関数の呼び出し、<link linkend="sql-load"><command>LOAD</command></link>コマンドなどによって）ロードされていない限り、このビューには表示されません。
+たとえば、<link linkend="archive-modules">アーカイブモジュール</link>は通常、通常のセッションではなくアーカイバプロセスによってのみロードされるため、クエリを実行するバックエンドプロセスにロードするための特別なアクションがとられていない限り、このビューにはこれらのモジュールによって定義されたカスタマイズされたオプションは表示されません。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_shadow</structname> exists for backwards
+   compatibility: it emulates a catalog that existed in
+   <productname>PostgreSQL</productname> before version 8.1.
+   It shows properties of all roles that are marked as
+   <structfield>rolcanlogin</structfield> in
+   <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.␟<structname>pg_shadow</structname>ビューは下位互換のために存在しています。
+バージョン8.1以前の<productname>PostgreSQL</productname>に存在していたカタログを模擬します。
+<link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>内で<structfield>rolcanlogin</structfield>のマークがついた全てのロールの属性を保持します。␞␞  </para>␞
+␝  <para>␟   The name stems from the fact that this table
+   should not be readable by the public since it contains passwords.
+   <link linkend="view-pg-user"><structname>pg_user</structname></link>
+   is a publicly readable view on
+   <structname>pg_shadow</structname> that blanks out the password field.␟名前の由来は、このテーブルがパスワードを含むため、一般的には読めないことから来ています。
+<link linkend="view-pg-user"><structname>pg_user</structname></link>は、<structname>pg_shadow</structname>のビューですが、パスワードの列が空白となっているため一般に読むことが可能です。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_shadow</structname> Columns</title>␟   <title><structname>pg_shadow</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>usename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       User name␟ユーザ名␞␞      </para></entry>␞
+␝       <structfield>usesysid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       ID of this user␟ユーザID␞␞      </para></entry>␞
+␝      <para>␟       User can create databases␟ユーザはデータベースを作成可能です。␞␞      </para></entry>␞
+␝      <para>␟       User is a superuser␟ユーザはスーパーユーザです。␞␞      </para></entry>␞
+␝      <para>␟       User can initiate streaming replication and put the system in and
+       out of backup mode.␟ユーザはストリーミングレプリケーションを開始することができ、システムをバックアップモードにしたり、戻したりできます。␞␞      </para></entry>␞
+␝      <para>␟       User bypasses every row-level security policy, see
+       <xref linkend="ddl-rowsecurity"/> for more information.␟ユーザはすべての行単位セキュリティポリシーを無視します。
+詳しくは<xref linkend="ddl-rowsecurity"/>を参照してください。␞␞      </para></entry>␞
+␝      <para>␟       Encrypted password; null if none.  See
+       <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>
+       for details of how encrypted passwords are stored.␟暗号化されたパスワード。存在しない場合はNULLです。
+暗号化されたパスワードの格納方法については<link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>を参照してください。␞␞      </para></entry>␞
+␝      <para>␟       Password expiry time (only used for password authentication)␟パスワード有効期限（パスワード認証でのみ使用）␞␞      </para></entry>␞
+␝      <para>␟       Session defaults for run-time configuration variables␟実行時設定変数のセッションデフォルト␞␞      </para></entry>␞
+␝  <para>␟   The <structname>pg_shmem_allocations</structname> view shows allocations
+   made from the server's main shared memory segment.  This includes both
+   memory allocated by <productname>PostgreSQL</productname> itself and memory
+   allocated by extensions using the mechanisms detailed in
+   <xref linkend="xfunc-shared-addin" />.␟<structname>pg_shmem_allocations</structname>ビューは、サーバの主共有メモリセグメントによるメモリの獲得状況を表示します。
+これは<productname>PostgreSQL</productname>自身が獲得したメモリと、<xref linkend="xfunc-shared-addin" />で詳細を説明している機構を使って拡張が獲得したメモリの両方が含まれます。␞␞  </para>␞
+␝  <para>␟   Note that this view does not include memory allocated using the dynamic
+   shared memory infrastructure.␟このビューは動的共有メモリ基盤を使って獲得したメモリは含まれないことに注意してください。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_shmem_allocations</structname> Columns</title>␟   <title><structname>pg_shmem_allocations</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       The name of the shared memory allocation. NULL for unused memory
+       and <literal>&lt;anonymous&gt;</literal> for anonymous
+       allocations.␟共有メモリ獲得の名前です。
+NULLなら未使用のメモリで、無名の獲得なら<literal>&lt;anonymous&gt;</literal>です。␞␞      </para></entry>␞
+␝      <para>␟       The offset at which the allocation starts. NULL for anonymous
+       allocations, since details related to them are not known.␟この獲得が開始する位置です。
+無名の獲得は詳細が不明なので、NULLとなります。␞␞      </para></entry>␞
+␝      <para>␟       Size of the allocation in bytes␟バイト単位の獲得サイズ␞␞      </para></entry>␞
+␝      <para>␟       Size of the allocation in bytes including padding. For anonymous
+       allocations, no information about padding is available, so the
+       <literal>size</literal> and <literal>allocated_size</literal> columns
+       will always be equal. Padding is not meaningful for free memory, so
+       the columns will be equal in that case also.␟パディングを含むバイト単位の獲得サイズです。
+無名の獲得では、パディングに関する情報はありません。ですから<literal>size</literal>と<literal>allocated_size</literal>列は常に同じです。
+パディングは未使用メモリでは意味がありません。ですからそのような列でも同じになります。␞␞      </para></entry>␞
+␝  <para>␟   Anonymous allocations are allocations that have been made
+   with <literal>ShmemAlloc()</literal> directly, rather than via
+   <literal>ShmemInitStruct()</literal> or
+   <literal>ShmemInitHash()</literal>.␟無名の獲得は、<literal>ShmemInitStruct()</literal>あるいは<literal>ShmemInitHash()</literal>ではなく、<literal>ShmemAlloc()</literal>で直接行われたものです。␞␞  </para>␞
+␝  <para>␟   By default, the <structname>pg_shmem_allocations</structname> view can be
+   read only by superusers or roles with privileges of the
+   <literal>pg_read_all_stats</literal> role.␟デフォルトでは<structname>pg_shmem_allocations</structname>はスーパーユーザか、<literal>pg_read_all_stats</literal>ロールの権限を持つロールだけが読み取りできます。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_stats</structname> provides access to
+   the information stored in the <link
+   linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>
+   catalog.  This view allows access only to rows of
+   <link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link> that correspond to tables the
+   user has permission to read, and therefore it is safe to allow public
+   read access to this view.␟<structname>pg_stats</structname>ビューは<link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>カタログの情報にアクセスするためのビューです。
+このビューは、ユーザが読み込み権限を持つテーブルに一致する<link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>の行に対してのみアクセスを許可しています。
+よって、このビューに対して一般に読み込みを許可しても安全です。␞␞  </para>␞
+␝  <para>␟   <structname>pg_stats</structname> is also designed to present the
+   information in a more readable format than the underlying catalog
+   &mdash; at the cost that its schema must be extended whenever new slot types
+   are defined for <link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>.␟<structname>pg_stats</structname>も、その基礎となっているカタログよりも、より読みやすい書式で情報を提供するように設計されています。
+しかし、これは、もし<link linkend="catalog-pg-statistic"><structname>pg_statistic</structname></link>に対して新しいスロット型が定義されるたびに、スキーマが拡張されなくてはならない、という犠牲を払っています。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_stats</structname> Columns</title>␟   <title><structname>pg_stats</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table␟テーブルがあるスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table␟テーブルの名前␞␞      </para></entry>␞
+␝       <structfield>attname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attname</structfield>)␟（参照先 <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of column described by this row␟この行が記述する列名␞␞      </para></entry>␞
+␝      <para>␟       If true, this row includes values from child tables, not just the
+       values in the specified table␟trueの場合は、この行には指定されたテーブルの値だけではなく、子テーブルの値が含まれます␞␞      </para></entry>␞
+␝      <para>␟       Fraction of column entries that are null␟NULLとなっている列項目の割合␞␞      </para></entry>␞
+␝      <para>␟       Average width in bytes of column's entries␟列項目のバイト単位による平均幅␞␞      </para></entry>␞
+␝      <para>␟       If greater than zero, the estimated number of distinct values in the
+       column.  If less than zero, the negative of the number of distinct
+       values divided by the number of rows.  (The negated form is used when
+       <command>ANALYZE</command> believes that the number of distinct values is
+       likely to increase as the table grows; the positive form is used when
+       the column seems to have a fixed number of possible values.)  For
+       example, -1 indicates a unique column in which the number of distinct
+       values is the same as the number of rows.␟ゼロより大きい値は列内の個別値の推定数です。
+ゼロより小さければ行数で個別値を割算した数字の負数です。
+（テーブルが肥大するにつれ個別値の増大があり得ると<command>ANALYZE</command>が判断した場合に負変換形式が使われます。
+正変換形式は列の取り得る値が固定数を持つと思われる場合に使用されます。）
+例えば-1は個別値の数が行数と等しいような、一意な列を表します。␞␞      </para></entry>␞
+␝      <para>␟       A list of the most common values in the column. (Null if
+       no values seem to be more common than any others.)␟列の中の最も共通した値のリストです。
+（他の値よりもより共通している値がない場合はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A list of the frequencies of the most common values,
+       i.e., number of occurrences of each divided by total number of rows.
+       (Null when <structfield>most_common_vals</structfield> is.)␟最も一般的な値の出現頻度のリストで、つまり行の総数で出現数を割算した数字です。
+（<structfield>most_common_vals</structfield>がNULLの時はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A list of values that divide the column's values into groups of
+       approximately equal population.  The values in
+       <structfield>most_common_vals</structfield>, if present, are omitted from this
+       histogram calculation.  (This column is null if the column data type
+       does not have a <literal>&lt;</literal> operator or if the
+       <structfield>most_common_vals</structfield> list accounts for the entire
+       population.)␟列の値を満遍なく似たような数でグループに分配した値のリストです。
+<structfield>most_common_vals</structfield>の値がもし存在すればこのヒストグラム計算は行われません。
+（列データ型が<literal>&lt;</literal>演算子を所有しない場合、もしくは<structfield>most_common_vals</structfield>が全体の構成要素アカウントをリストしている場合、この列はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       Statistical correlation between physical row ordering and
+       logical ordering of the column values.  This ranges from -1 to +1.
+       When the value is near -1 or +1, an index scan on the column will
+       be estimated to be cheaper than when it is near zero, due to reduction
+       of random access to the disk.  (This column is null if the column data
+       type does not have a <literal>&lt;</literal> operator.)␟物理的な[訳注：ディスク上の]行の並び順と論理的な列の値の並び順に関する統計的相関です。
+この値は-1から+1の範囲です。
+値が-1もしくは+1の近辺にある時、ディスクにランダムアクセスする必要が少なくなるためこの列に対してのインデックススキャンはゼロ近辺にある場合に比較して安価であると推定されます。
+（列データ型に<literal>&lt;</literal>演算子がない場合、この列はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A list of non-null element values most often appearing within values of
+       the column. (Null for scalar types.)␟列の値の中で最もよく出現する非NULLの要素値のリストです。（スカラ型の場合はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A list of the frequencies of the most common element values, i.e., the
+       fraction of rows containing at least one instance of the given value.
+       Two or three additional values follow the per-element frequencies;
+       these are the minimum and maximum of the preceding per-element
+       frequencies, and optionally the frequency of null elements.
+       (Null when <structfield>most_common_elems</structfield> is.)␟最も一般的な要素値の出現頻度のリストで、与えられた値の少なくとも1つのインスタンスを含む行の断片です。
+2つもしくは3つの追加の値が1つの要素ごとの出現頻度に続きます。
+最小で最大の要素ごとの出現頻度があります。さらにオプションとしてNULL要素の出現頻度もあります。
+（<structfield>most_common_elems</structfield>がNULLの時はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A histogram of the counts of distinct non-null element values within the
+       values of the column, followed by the average number of distinct
+       non-null elements.  (Null for scalar types.)␟列の値でNULLではない要素値の個別数のヒストグラム。これは個別のNULLではない平均値が後に続きます。（スカラ型の場合はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A histogram of the lengths of non-empty and non-null range values of a
+       range type column. (Null for non-range types.)␟範囲型の列が空やNULLでない範囲値の長さのヒストグラム。
+（範囲型以外の場合はNULL。）␞␞      </para>␞
+␝      <para>␟       This histogram is calculated using the <literal>subtype_diff</literal>
+       range function regardless of whether range bounds are inclusive.␟このヒストグラムは、範囲の境界が包括的であるかどうかに関係なく、<literal>subtype_diff</literal>範囲関数を使用して計算されます。␞␞      </para></entry>␞
+␝      <para>␟       Fraction of column entries whose values are empty ranges.
+       (Null for non-range types.)␟列項目の値が空の範囲である割合。
+（範囲型以外の場合はNULL。）␞␞      </para></entry>␞
+␝      <para>␟       A histogram of lower and upper bounds of non-empty and non-null range
+       values. (Null for non-range types.)␟空やNULLではない範囲値の上限と下限のヒストグラム。
+（範囲型以外の場合はNULL。）␞␞      </para>␞
+␝      <para>␟       These two histograms are represented as a single array of ranges, whose
+       lower bounds represent the histogram of lower bounds, and upper bounds
+       represent the histogram of upper bounds.␟これら2つのヒストグラムは、範囲の単一の配列として表され、その下限は下限のヒストグラムを表し、上限は上限のヒストグラムを表します。␞␞      </para></entry>␞
+␝  <para>␟   The maximum number of entries in the array fields can be controlled on a
+   column-by-column basis using the <link linkend="sql-altertable"><command>ALTER
+   TABLE SET STATISTICS</command></link>
+   command, or globally by setting the
+   <xref linkend="guc-default-statistics-target"/> run-time parameter.␟配列の最大項目数は<link linkend="sql-altertable"><command>ALTER TABLE SET STATISTICS</command></link>コマンドで列ごとに設定されるか、もしくは<xref linkend="guc-default-statistics-target"/>実行時パラメータで包括的に設定されるかのいずれかです。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_stats_ext</structname> provides access to
+   information about each extended statistics object in the database,
+   combining information stored in the <link
+   linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>
+   and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
+   catalogs.  This view allows access only to rows of
+   <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link> and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
+   that correspond to tables the user owns, and therefore
+   it is safe to allow public read access to this view.␟<structname>pg_stats_ext</structname>ビューは<link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>と<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>カタログに格納されている情報へのアクセスを提供します。
+このビューは、ユーザが所有するテーブルに対応する<link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>と<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>の行に対してのみアクセスを許可しています。
+よって、このビューに対して一般に読み込みを許可しても安全です。␞␞  </para>␞
+␝  <para>␟   <structname>pg_stats_ext</structname> is also designed to present the
+   information in a more readable format than the underlying catalogs
+   &mdash; at the cost that its schema must be extended whenever new types
+   of extended statistics are added to <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.␟<structname>pg_stats_ext</structname>も、その基礎となっているカタログよりも、より読みやすい書式で情報を提供するように設計されています。
+しかし、これは<link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>に対して新しいスロット型が定義されるたびに、スキーマが拡張されなくてはならない、という犠牲を払っています。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_stats_ext</structname> Columns</title>␟   <title><structname>pg_stats_ext</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table␟テーブルがあるスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table␟テーブルの名前␞␞      </para></entry>␞
+␝       <structfield>statistics_schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing extended statistics object␟拡張統計情報オブジェクトを含むスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>statistics_name</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.<structfield>stxname</structfield>)␟（参照先 <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.<structfield>stxname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of extended statistics object␟拡張統計情報オブジェクトの名前␞␞      </para></entry>␞
+␝       <structfield>statistics_owner</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Owner of the extended statistics object␟拡張統計情報オブジェクト所有者␞␞      </para></entry>␞
+␝       <structfield>attnames</structfield> <type>name[]</type>␟       (references <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attname</structfield>)␟（参照先 <link linkend="catalog-pg-attribute"><structname>pg_attribute</structname></link>.<structfield>attname</structfield>）␞␞      </para>␞
+␝      <para>␟       Names of the columns included in the extended statistics object␟拡張統計情報オブジェクトが定義された列名␞␞      </para></entry>␞
+␝      <para>␟       Expressions included in the extended statistics object␟拡張統計情報オブジェクトが含む式␞␞      </para></entry>␞
+␝      <para>␟       Types of extended statistics object enabled for this record␟このレコードに対して有効になった拡張統計情報の型␞␞      </para></entry>␞
+␝       <structfield>inherited</structfield> <type>bool</type>␟       (references <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>.<structfield>stxdinherit</structfield>)␟（参照先 <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>.<structfield>stxdinherit</structfield>）␞␞      </para>␞
+␝      <para>␟       If true, the stats include values from child tables, not just the
+       values in the specified relation␟trueの場合は、統計情報には指定されたリレーションの値だけではなく、子テーブルの値も含まれます。␞␞      </para></entry>␞
+␝      <para>␟       N-distinct counts for combinations of column values. If greater
+       than zero, the estimated number of distinct values in the combination.
+       If less than zero, the negative of the number of distinct values divided
+       by the number of rows.
+       (The negated form is used when <command>ANALYZE</command> believes that
+       the number of distinct values is likely to increase as the table grows;
+       the positive form is used when the column seems to have a fixed number
+       of possible values.)  For example, -1 indicates a unique combination of
+       columns in which the number of distinct combinations is the same as the
+       number of rows.␟列値の組み合わせに対するN個別統計カウント。
+ゼロよりも大きければ、その組み合わせに対する個別の値の数の見積で、ゼロよりも小さければ、個別の値の数の見積を符号反転し行数で割ったものです。
+（負の値の形式は、<command>ANALYZE</command>がテーブルが大きくなるにつれ個別の値の数も大きくなると判断した場合に使用されます。
+正の値の形式は、可能な値の数が定まった数になると思われる時に使用されます。）
+たとえば-1は、列のユニークな組み合わせに対し異なる組み合わせの数が行数と同じであることを示しています。␞␞      </para></entry>␞
+␝      <para>␟       Functional dependency statistics␟関数従属性統計情報␞␞      </para></entry>␞
+␝      <para>␟       A list of the most common combinations of values in the columns.
+       (Null if no combinations seem to be more common than any others.)␟列における最も共通した値の組み合わせのリスト。
+（他の組み合わせよりも共通した組み合わせが見つからない場合はNULL。）␞␞      </para></entry>␞
+␝      <para>␟       A list of NULL flags for the most common combinations of values.
+       (Null when <structfield>most_common_vals</structfield> is.)␟最も共通した値の組み合わせに対するNULLフラグのリスト。
+（<structfield>most_common_vals</structfield>がNULLならNULL。）␞␞      </para></entry>␞
+␝      <para>␟       A list of the frequencies of the most common combinations,
+       i.e., number of occurrences of each divided by total number of rows.
+       (Null when <structfield>most_common_vals</structfield> is.)␟最も共通した組み合わせの発生頻度のリスト。つまり、発生数を合計行数で割ったもの。
+（<structfield>most_common_vals</structfield>がNULLならNULL。）␞␞      </para></entry>␞
+␝      <para>␟       A list of the base frequencies of the most common combinations,
+       i.e., product of per-value frequencies.
+       (Null when <structfield>most_common_vals</structfield> is.)␟最も共通した組み合わせの発生頻度の基底のリスト。つまり値ごとの頻度の積。
+（<structfield>most_common_vals</structfield>がNULLの時はNULLです。）␞␞      </para></entry>␞
+␝  <para>␟   The maximum number of entries in the array fields can be controlled on a
+   column-by-column basis using the <link linkend="sql-altertable"><command>ALTER
+   TABLE SET STATISTICS</command></link> command, or globally by setting the
+   <xref linkend="guc-default-statistics-target"/> run-time parameter.␟配列フィールド中の最大項目数は<link linkend="sql-altertable"><command>ALTER TABLE SET STATISTICS</command></link>コマンドを使って列ごとに管理することも、あるいは<xref linkend="guc-default-statistics-target"/>実行時パラメータで広域的に設定することもできます。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_stats_ext_exprs</structname> provides access to
+   information about all expressions included in extended statistics objects,
+   combining information stored in the <link
+   linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>
+   and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
+   catalogs.  This view allows access only to rows of
+   <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link> and <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>
+   that correspond to tables the user owns, and therefore
+   it is safe to allow public read access to this view.␟<structname>pg_stats_ext_exprs</structname>ビューは、<link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>と<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>カタログと組み合わせて拡張統計オブジェクトに含まれるすべての式に関する情報へのアクセスを提供します。
+このビューは、ユーザが所有するテーブルに対応する<link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>と<link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>の行に対してのみアクセスを許可しています。
+よって、このビューに対して一般に読み込みを許可しても安全です。␞␞  </para>␞
+␝  <para>␟   <structname>pg_stats_ext_exprs</structname> is also designed to present
+   the information in a more readable format than the underlying catalogs
+   &mdash; at the cost that its schema must be extended whenever the structure
+   of statistics in <structname>pg_statistic_ext</structname> changes.␟また<structname>pg_stats_ext_exprs</structname>は背後にあるカタログよりも可読性の高い情報を提供するように設計されています。
+ただしそのために<structname>pg_statistic_ext</structname>の統計情報の構造が変更されるたびに、そのスキーマを拡張しなければならないというコストがかかります。␞␞  </para>␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table␟テーブルを含むスキーマ名␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table the statistics object is defined on␟統計情報オブジェクトが定義されているテーブル名␞␞      </para></entry>␞
+␝       <structfield>statistics_schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing extended statistics object␟拡張統計情報オブジェクトを含むスキーマ名␞␞      </para></entry>␞
+␝       <structfield>statistics_name</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.<structfield>stxname</structfield>)␟（参照先 <link linkend="catalog-pg-statistic-ext"><structname>pg_statistic_ext</structname></link>.<structfield>stxname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of extended statistics object␟拡張統計オブジェクトの名前␞␞      </para></entry>␞
+␝       <structfield>statistics_owner</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Owner of the extended statistics object␟拡張統計オブジェクトの所有者␞␞      </para></entry>␞
+␝      <para>␟       Expression included in the extended statistics object␟拡張統計オブジェクトに含まれる式␞␞      </para></entry>␞
+␝       <structfield>inherited</structfield> <type>bool</type>␟       (references <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>.<structfield>stxdinherit</structfield>)␟（参照先 <link linkend="catalog-pg-statistic-ext-data"><structname>pg_statistic_ext_data</structname></link>.<structfield>stxdinherit</structfield>）␞␞      </para>␞
+␝      <para>␟       If true, the stats include values from child tables, not just the
+       values in the specified relation␟trueの場合は、統計情報には指定されたリレーションの値だけではなく、子テーブルの値も含まれます。␞␞      </para></entry>␞
+␝      <para>␟       Fraction of expression entries that are null␟NULLである式項目の割合␞␞      </para></entry>␞
+␝      <para>␟       Average width in bytes of expression's entries␟式項目の幅の平均バイト数␞␞      </para></entry>␞
+␝      <para>␟       If greater than zero, the estimated number of distinct values in the
+       expression.  If less than zero, the negative of the number of distinct
+       values divided by the number of rows.  (The negated form is used when
+       <command>ANALYZE</command> believes that the number of distinct values is
+       likely to increase as the table grows; the positive form is used when
+       the expression seems to have a fixed number of possible values.)  For
+       example, -1 indicates a unique expression in which the number of distinct
+       values is the same as the number of rows.␟ゼロよりも大きければ、式中の個別の値の数の見積で、ゼロよりも小さければ、個別の値の数を符号反転し行数で割ったものです。
+（負の値の形式は、<command>ANALYZE</command>がテーブルが大きくなるにつれ個別の値の数も大きくなると判断した場合に使用されます。
+正の値の形式は、可能な値の数が定まった数になると思われる時に使用されます。）
+たとえば-1は、列のユニークな組み合わせに対し異なる組み合わせの数が行数と同じであることを示しています。␞␞      </para></entry>␞
+␝      <para>␟       A list of the most common values in the expression. (Null if
+       no values seem to be more common than any others.)␟列における最も共通した値の組み合わせのリスト。
+（他の組み合わせよりも共通した組み合わせが見つからない場合はNULL。）␞␞      </para></entry>␞
+␝      <para>␟       A list of the frequencies of the most common values,
+       i.e., number of occurrences of each divided by total number of rows.
+       (Null when <structfield>most_common_vals</structfield> is.)␟最も共通した値の発生頻度のリスト。つまり、発生数を合計行数で割ったもの。
+（<structfield>most_common_vals</structfield>がNULLならNULL。）␞␞      </para></entry>␞
+␝      <para>␟       A list of values that divide the expression's values into groups of
+       approximately equal population.  The values in
+       <structfield>most_common_vals</structfield>, if present, are omitted from this
+       histogram calculation.  (This expression is null if the expression data type
+       does not have a <literal>&lt;</literal> operator or if the
+       <structfield>most_common_vals</structfield> list accounts for the entire
+       population.)␟式の値を大体同じ母集団のグループ分けになるようにする値のリスト。
+<structfield>most_common_vals</structfield>があれば、この中の値はこのヒストグラムの計算では無視されます。
+（この式は式のデータ型が<literal>&lt;</literal>演算子を持たないか、<structfield>most_common_vals</structfield>リストが全体の人口を取り扱う時にはNULLとなります。）␞␞      </para></entry>␞
+␝      <para>␟       Statistical correlation between physical row ordering and
+       logical ordering of the expression values.  This ranges from -1 to +1.
+       When the value is near -1 or +1, an index scan on the expression will
+       be estimated to be cheaper than when it is near zero, due to reduction
+       of random access to the disk.  (This expression is null if the expression's
+       data type does not have a <literal>&lt;</literal> operator.)␟物理的な行の順序と式の値の論理的な順序の間の統計的な相関。
+範囲は-1から+1です。
+値が-1あるいは+1に近ければ、ディスクへのランダムアクセスが減るので、式に対するインデックススキャンはその値がゼロに近いときよりも安価であると見積もられます。
+（式のデータ型が<literal>&lt;</literal>演算子を持たなければ、式はNULLとなります。）␞␞      </para></entry>␞
+␝      <para>␟       A list of non-null element values most often appearing within values of
+       the expression. (Null for scalar types.)␟列の値の中で最もよく出現する非NULLの要素値のリストです。（スカラ型の場合はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A list of the frequencies of the most common element values, i.e., the
+       fraction of rows containing at least one instance of the given value.
+       Two or three additional values follow the per-element frequencies;
+       these are the minimum and maximum of the preceding per-element
+       frequencies, and optionally the frequency of null elements.
+       (Null when <structfield>most_common_elems</structfield> is.)␟最も一般的な要素値の出現頻度のリストで、与えられた値の少なくとも1つのインスタンスを含む行の断片です。
+2つもしくは3つの追加の値が1つの要素ごとの出現頻度に続きます。
+最小で最大の要素ごとの出現頻度があります。さらにオプションとしてNULL要素の出現頻度もあります。
+（<structfield>most_common_elems</structfield>がNULLの時はNULLです。）␞␞      </para></entry>␞
+␝      <para>␟       A histogram of the counts of distinct non-null element values within the
+       values of the expression, followed by the average number of distinct
+       non-null elements.  (Null for scalar types.)␟列の値でNULLではない要素値の個別数のヒストグラム。これは個別のNULLではない平均値が後に続きます。（スカラ型の場合はNULLです。）␞␞      </para></entry>␞
+␝  <para>␟   The maximum number of entries in the array fields can be controlled on a
+   column-by-column basis using the <link linkend="sql-altertable"><command>ALTER
+   TABLE SET STATISTICS</command></link> command, or globally by setting the
+   <xref linkend="guc-default-statistics-target"/> run-time parameter.␟<link linkend="sql-altertable"><command>ALTER TABLE SET STATISTICS</command></link>コマンドを使って配列フィールドの最大のエントリ数を列単位に制御できます。
+あるいは<xref linkend="guc-default-statistics-target"/>実行時パラメータを設定して一括で制御できます。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_tables</structname> provides access to
+   useful information about each table in the database.␟   <structname>pg_tables</structname>ビューはデータベース内のそれぞれのテーブルに関する有用な情報へのアクセスを提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_tables</structname> Columns</title>␟   <title><structname>pg_tables</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing table␟テーブルがあるスキーマの名前␞␞      </para></entry>␞
+␝       <structfield>tablename</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table␟テーブルの名前␞␞      </para></entry>␞
+␝       <structfield>tableowner</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of table's owner␟テーブルの所有者␞␞      </para></entry>␞
+␝       <structfield>tablespace</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>.<structfield>spcname</structfield>)␟（参照先 <link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>.<structfield>spcname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of tablespace containing table (null if default for database)␟テーブルを含むテーブル空間の名前（データベースのデフォルトの場合はNULL）␞␞      </para></entry>␞
+␝       <structfield>hasindexes</structfield> <type>bool</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relhasindex</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relhasindex</structfield>）␞␞      </para>␞
+␝      <para>␟       True if table has (or recently had) any indexes␟trueの場合は、テーブルがインデックスを持っている（もしくは最近まで持っていた）␞␞      </para></entry>␞
+␝       <structfield>hasrules</structfield> <type>bool</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relhasrules</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relhasrules</structfield>）␞␞      </para>␞
+␝      <para>␟       True if table has (or once had) rules␟trueの場合は、テーブルにルールがある（もしくは以前あった）␞␞      </para></entry>␞
+␝       <structfield>hastriggers</structfield> <type>bool</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relhastriggers</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relhastriggers</structfield>）␞␞      </para>␞
+␝      <para>␟       True if table has (or once had) triggers␟trueの場合は、テーブルにトリガがある（もしくは以前あった）␞␞      </para></entry>␞
+␝       <structfield>rowsecurity</structfield> <type>bool</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relrowsecurity</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relrowsecurity</structfield>）␞␞      </para>␞
+␝      <para>␟       True if row security is enabled on the table␟trueの場合は、テーブルの行セキュリティが有効␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_timezone_abbrevs</structname> provides a list
+   of time zone abbreviations that are currently recognized by the datetime
+   input routines.  The contents of this view change when the
+   <xref linkend="guc-timezone-abbreviations"/> run-time parameter is modified.␟<structname>pg_timezone_abbrevs</structname>ビューは、現在日付時間の入力処理で認識されている、時間帯省略形のリストを提供します。
+このビューの内容は、<xref linkend="guc-timezone-abbreviations"/>実行時パラメータが変更された時に変わります。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_timezone_abbrevs</structname> Columns</title>␟   <title><structname>pg_timezone_abbrevs</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Time zone abbreviation␟時間帯省略形␞␞      </para></entry>␞
+␝      <para>␟       Offset from UTC (positive means east of Greenwich)␟UTCからのオフセット（正はグリニッジより東側を意味する）␞␞      </para></entry>␞
+␝      <para>␟       True if this is a daylight-savings abbreviation␟trueの場合は、夏時間省略形␞␞      </para></entry>␞
+␝  <para>␟   While most timezone abbreviations represent fixed offsets from UTC,
+   there are some that have historically varied in value
+   (see <xref linkend="datetime-config-files"/> for more information).
+   In such cases this view presents their current meaning.␟多くのタイムゾーンの省略形は、UTCからの固定されたオフセットで表現されている一方で、いくつかのものは歴史的にオフセット値が変化しています（詳細は<xref linkend="datetime-config-files"/>を参照してください）。
+このような場合には、それらの現在の意味を表示します。␞␞  </para>␞
+␝  <para>␟   The view <structname>pg_timezone_names</structname> provides a list
+   of time zone names that are recognized by <command>SET TIMEZONE</command>,
+   along with their associated abbreviations, UTC offsets,
+   and daylight-savings status.  (Technically,
+   <productname>PostgreSQL</productname> does not use UTC because leap
+   seconds are not handled.)
+   Unlike the abbreviations shown in <link
+   linkend="view-pg-timezone-abbrevs"><structname>pg_timezone_abbrevs</structname></link>, many of these names imply a set of daylight-savings transition
+   date rules.  Therefore, the associated information changes across local DST
+   boundaries.  The displayed information is computed based on the current
+   value of <function>CURRENT_TIMESTAMP</function>.␟<structname>pg_timezone_names</structname>ビューは、<command>SET TIMEZONE</command>で認識される時間帯名称の一覧を提供します。
+ここには、その関連付けされた省略形、UTCオフセット、夏時間状況などが含まれます。
+（<productname>PostgreSQL</productname>は技術的には、うるう秒を扱いませんので、UTCを使用しません。）
+<link linkend="view-pg-timezone-abbrevs"><structname>pg_timezone_abbrevs</structname></link>で示した省略形とは異なり、名前の多くが夏時間変換規則を意味しています。
+したがって、関連する情報はローカルなDST境界によって異なります。
+表示される情報は、現在の<function>CURRENT_TIMESTAMP</function>に基づいて計算されたものです。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_timezone_names</structname> Columns</title>␟   <title><structname>pg_timezone_names</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Time zone name␟時間帯名␞␞      </para></entry>␞
+␝      <para>␟       Time zone abbreviation␟時間帯省略形␞␞      </para></entry>␞
+␝      <para>␟       Offset from UTC (positive means east of Greenwich)␟UTCからのオフセット（正はグリニッジより東側を意味する）␞␞      </para></entry>␞
+␝      <para>␟       True if currently observing daylight savings␟trueの場合は、現在夏時間である␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_user</structname> provides access to
+   information about database users.  This is simply a publicly
+   readable view of
+   <link linkend="view-pg-shadow"><structname>pg_shadow</structname></link>
+   that blanks out the password field.␟<structname>pg_user</structname>ビューはデータベースユーザに関する情報へのアクセスを提供します。
+これはパスワードフィールドを隠蔽した<link linkend="view-pg-shadow"><structname>pg_shadow</structname></link>を公に読めるようにしたビューです。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_user</structname> Columns</title>␟   <title><structname>pg_user</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       User name␟ユーザ名␞␞      </para></entry>␞
+␝      <para>␟       ID of this user␟ユーザID␞␞      </para></entry>␞
+␝      <para>␟       User can create databases␟ユーザはデータベースを作成可能です。␞␞      </para></entry>␞
+␝      <para>␟       User is a superuser␟ユーザはスーパーユーザです。␞␞      </para></entry>␞
+␝      <para>␟       User can initiate streaming replication and put the system in and
+       out of backup mode.␟ユーザはストリーミングレプリケーションを開始することができ、システムをバックアップモードにしたり、戻したりできます。␞␞      </para></entry>␞
+␝      <para>␟       User bypasses every row-level security policy, see
+       <xref linkend="ddl-rowsecurity"/> for more information.␟ユーザはすべての行単位セキュリティポリシーを無視します。
+詳しくは<xref linkend="ddl-rowsecurity"/>を参照してください。␞␞      </para></entry>␞
+␝      <para>␟       Not the password (always reads as <literal>********</literal>)␟パスワードでありません（常に<literal>********</literal>のように読まれます）␞␞      </para></entry>␞
+␝      <para>␟       Password expiry time (only used for password authentication)␟パスワード有効期限（パスワード認証でのみ使用）␞␞      </para></entry>␞
+␝      <para>␟       Session defaults for run-time configuration variables␟実行時設定変数のセッションデフォルト␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_user_mappings</structname> provides access
+   to information about user mappings.  This is essentially a publicly
+   readable view of
+   <link linkend="catalog-pg-user-mapping"><structname>pg_user_mapping</structname></link>
+   that leaves out the options field if the user has no rights to use
+   it.␟<structname>pg_user_mappings</structname>ビューはユーザマッピングについての情報へのアクセスを提供します。
+これはユーザが使用する権利を持っていないオプションフィールドを取り除いた、基本的には公開されていて読み取り可能な<link linkend="catalog-pg-user-mapping"><structname>pg_user_mapping</structname></link>のビューです。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_user_mappings</structname> Columns</title>␟   <title><structname>pg_user_mappings</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>umid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-user-mapping"><structname>pg_user_mapping</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-user-mapping"><structname>pg_user_mapping</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       OID of the user mapping␟ユーザマッピングのOID␞␞      </para></entry>␞
+␝       <structfield>srvid</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-foreign-server"><structname>pg_foreign_server</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-foreign-server"><structname>pg_foreign_server</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       The OID of the foreign server that contains this mapping␟マッピングを保持する外部サーバのOID␞␞      </para></entry>␞
+␝       <structfield>srvname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-foreign-server"><structname>pg_foreign_server</structname></link>.<structfield>srvname</structfield>)␟（参照先 <link linkend="catalog-pg-foreign-server"><structname>pg_foreign_server</structname></link>.<structfield>srvname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of the foreign server␟外部サーバの名前␞␞      </para></entry>␞
+␝       <structfield>umuser</structfield> <type>oid</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>oid</structfield>）␞␞      </para>␞
+␝      <para>␟       OID of the local role being mapped, or zero if the user mapping is public␟マッピングされているローカルのロールのOID。
+ユーザマッピングが公開されている場合はゼロになります。␞␞      </para></entry>␞
+␝      <para>␟       Name of the local user to be mapped␟マッピングされているローカルユーザの名前␞␞      </para></entry>␞
+␝      <para>␟       User mapping specific options, as <quote>keyword=value</quote> strings␟<quote>keyword=value</quote>文字列のようなユーザマッピングの特定のオプション␞␞      </para></entry>␞
+␝  <para>␟   To protect password information stored as a user mapping option,
+   the <structfield>umoptions</structfield> column will read as null
+   unless one of the following applies:␟ユーザマッピングオプションとして格納されたパスワード情報を保護するために、<structfield>umoptions</structfield>列は以下に該当しない限りはNULLとして読み込みます。␞␞   <itemizedlist>␞
+␝     <para>␟      current user is the user being mapped, and owns the server or
+      holds <literal>USAGE</literal> privilege on it␟現在のユーザはマッピングされているユーザであり、サーバを所有しているか、サーバ上に<literal>USAGE</literal>権限を持っている␞␞     </para>␞
+␝     <para>␟      current user is the server owner and mapping is for <literal>PUBLIC</literal>␟現在のユーザはサーバ所有者であり、<literal>PUBLIC</literal>としてマッピングされている␞␞     </para>␞
+␝     <para>␟      current user is a superuser␟現在のユーザはスーパーユーザである␞␞     </para>␞
+␝  <para>␟   The view <structname>pg_views</structname> provides access to
+   useful information about each view in the database.␟   <structname>pg_views</structname>ビューはデータベース内のそれぞれのビューに関する有用な情報へのアクセスを提供します。␞␞  </para>␞
+␝  <table>␟   <title><structname>pg_views</structname> Columns</title>␟   <title><structname>pg_views</structname>の列</title>␞␞   <tgroup cols="1">␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝       <structfield>schemaname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>)␟（参照先 <link linkend="catalog-pg-namespace"><structname>pg_namespace</structname></link>.<structfield>nspname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of schema containing view␟ビューを持つスキーマ名␞␞      </para></entry>␞
+␝       <structfield>viewname</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>)␟（参照先 <link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of view␟ビュー名␞␞      </para></entry>␞
+␝       <structfield>viewowner</structfield> <type>name</type>␟       (references <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>)␟（参照先 <link linkend="catalog-pg-authid"><structname>pg_authid</structname></link>.<structfield>rolname</structfield>）␞␞      </para>␞
+␝      <para>␟       Name of view's owner␟ビューの所有者␞␞      </para></entry>␞
+␝      <para>␟       View definition (a reconstructed <xref linkend="sql-select"/> query)␟ビュー定義（再構築された<xref linkend="sql-select"/>問い合わせ）␞␞      </para></entry>␞
+␝  <para>␟   The view <structname>pg_wait_events</structname> provides description about the
+   wait events.␟<structname>pg_wait_events</structname>ビューは、待機イベントに関する説明を提供します。␞␞  </para>␞
+␝      <entry role="catalog_table_entry"><para role="column_definition">␟       Column Type␟列 型␞␞      </para>␞
+␝      <para>␟       Description␟説明␞␞      </para></entry>␞
+␝      <para>␟       Wait event type␟待機イベントの種別␞␞      </para></entry>␞
+␝      <para>␟       Wait event name␟待機イベント名␞␞      </para></entry>␞
+␝      <para>␟       Wait event description␟待機イベントの説明␞␞      </para></entry>␞
+␝␟<structfield>name</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>default_version</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>installed_version</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>comment</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>version</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>installed</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>superuser</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>trusted</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>relocatable</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>schema</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>requires</structfield> <type>name[]</type>␟no translation␞␞␞
+␝␟<structfield>comment</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>ident</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>parent</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>level</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>total_bytes</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>total_nblocks</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>free_bytes</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>free_chunks</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>used_bytes</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>setting</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>statement</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>is_holdable</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>is_binary</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>is_scrollable</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>creation_time</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>sourcefile</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>sourceline</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>seqno</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>setting</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>applied</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>error</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>rule_number</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>file_name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>line_number</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>type</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>database</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>user_name</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>address</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>netmask</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>auth_method</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>options</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>error</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>map_number</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>file_name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>line_number</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>map_name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>sys_name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>pg_username</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>error</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>indexdef</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>locktype</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>page</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>tuple</structfield> <type>int2</type>␟no translation␞␞␞
+␝␟<structfield>virtualxid</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>transactionid</structfield> <type>xid</type>␟no translation␞␞␞
+␝␟<structfield>objsubid</structfield> <type>int2</type>␟no translation␞␞␞
+␝␟<structfield>virtualtransaction</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>pid</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>mode</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>granted</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>fastpath</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>waitstart</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>hasindexes</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>ispopulated</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>definition</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>permissive</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>roles</structfield> <type>name[]</type>␟no translation␞␞␞
+␝␟<structfield>cmd</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>qual</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>with_check</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>statement</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>prepare_time</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>parameter_types</structfield> <type>regtype[]</type>␟no translation␞␞␞
+␝␟<structfield>result_types</structfield> <type>regtype[]</type>␟no translation␞␞␞
+␝␟<structfield>from_sql</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>generic_plans</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>custom_plans</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>transaction</structfield> <type>xid</type>␟no translation␞␞␞
+␝␟<structfield>gid</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>prepared</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>rowfilter</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>remote_lsn</structfield> <type>pg_lsn</type>␟no translation␞␞␞
+␝␟<structfield>local_lsn</structfield> <type>pg_lsn</type>␟no translation␞␞␞
+␝␟<structfield>slot_name</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>plugin</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>slot_type</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>temporary</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>active</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>active_pid</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>xmin</structfield> <type>xid</type>␟no translation␞␞␞
+␝␟<structfield>catalog_xmin</structfield> <type>xid</type>␟no translation␞␞␞
+␝␟<structfield>restart_lsn</structfield> <type>pg_lsn</type>␟no translation␞␞␞
+␝␟<structfield>confirmed_flush_lsn</structfield> <type>pg_lsn</type>␟no translation␞␞␞
+␝␟<structfield>wal_status</structfield> <type>text</type>␟no translation␞␞␞
+␝␟</para></entry> </para></entry>␟no translation␞␞␞
+␝␟<structfield>safe_wal_size</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>two_phase</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>inactive_since</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>conflicting</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>invalidation_reason</structfield> <type>text</type>␟no translation␞␞␞
+␝␟</para></entry> </para></entry>␟no translation␞␞␞
+␝␟<structfield>failover</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>synced</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolname</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>rolsuper</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolinherit</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolcreaterole</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolcreatedb</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolcanlogin</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolreplication</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolconnlimit</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>rolpassword</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>rolvaliduntil</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>rolbypassrls</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>rolconfig</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>definition</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>objsubid</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>objtype</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>objname</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>start_value</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>min_value</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>max_value</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>increment_by</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>cycle</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>cache_size</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>last_value</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>setting</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>unit</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>category</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>short_desc</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>extra_desc</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>context</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>vartype</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>source</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>min_val</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>max_val</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>enumvals</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>boot_val</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>reset_val</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>sourcefile</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>sourceline</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>pending_restart</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>usecreatedb</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>usesuper</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>userepl</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>usebypassrls</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>passwd</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>valuntil</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>useconfig</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>off</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>size</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>allocated_size</structfield> <type>int8</type>␟no translation␞␞␞
+␝␟<structfield>inherited</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>null_frac</structfield> <type>float4</type>␟no translation␞␞␞
+␝␟<structfield>avg_width</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>n_distinct</structfield> <type>float4</type>␟no translation␞␞␞
+␝␟<structfield>most_common_vals</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>most_common_freqs</structfield> <type>float4[]</type>␟no translation␞␞␞
+␝␟<structfield>histogram_bounds</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>correlation</structfield> <type>float4</type>␟no translation␞␞␞
+␝␟<structfield>most_common_elems</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>most_common_elem_freqs</structfield> <type>float4[]</type>␟no translation␞␞␞
+␝␟<structfield>elem_count_histogram</structfield> <type>float4[]</type>␟no translation␞␞␞
+␝␟<structfield>range_length_histogram</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>range_empty_frac</structfield> <type>float4</type>␟no translation␞␞␞
+␝␟<structfield>range_bounds_histogram</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>exprs</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>kinds</structfield> <type>char[]</type>␟no translation␞␞␞
+␝␟<structfield>n_distinct</structfield> <type>pg_ndistinct</type>␟no translation␞␞␞
+␝␟<structfield>dependencies</structfield> <type>pg_dependencies</type>␟no translation␞␞␞
+␝␟<structfield>most_common_vals</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>most_common_val_nulls</structfield> <type>bool[]</type>␟no translation␞␞␞
+␝␟<structfield>most_common_freqs</structfield> <type>float8[]</type>␟no translation␞␞␞
+␝␟<structfield>most_common_base_freqs</structfield> <type>float8[]</type>␟no translation␞␞␞
+␝␟<structfield>expr</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>null_frac</structfield> <type>float4</type>␟no translation␞␞␞
+␝␟<structfield>avg_width</structfield> <type>int4</type>␟no translation␞␞␞
+␝␟<structfield>n_distinct</structfield> <type>float4</type>␟no translation␞␞␞
+␝␟<structfield>most_common_vals</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>most_common_freqs</structfield> <type>float4[]</type>␟no translation␞␞␞
+␝␟<structfield>histogram_bounds</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>correlation</structfield> <type>float4</type>␟no translation␞␞␞
+␝␟<structfield>most_common_elems</structfield> <type>anyarray</type>␟no translation␞␞␞
+␝␟<structfield>most_common_elem_freqs</structfield> <type>float4[]</type>␟no translation␞␞␞
+␝␟<structfield>elem_count_histogram</structfield> <type>float4[]</type>␟no translation␞␞␞
+␝␟<structfield>abbrev</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>utc_offset</structfield> <type>interval</type>␟no translation␞␞␞
+␝␟<structfield>is_dst</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>abbrev</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>utc_offset</structfield> <type>interval</type>␟no translation␞␞␞
+␝␟<structfield>is_dst</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>usename</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>usesysid</structfield> <type>oid</type>␟no translation␞␞␞
+␝␟<structfield>usecreatedb</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>usesuper</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>userepl</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>usebypassrls</structfield> <type>bool</type>␟no translation␞␞␞
+␝␟<structfield>passwd</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>valuntil</structfield> <type>timestamptz</type>␟no translation␞␞␞
+␝␟<structfield>useconfig</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>usename</structfield> <type>name</type>␟no translation␞␞␞
+␝␟<structfield>umoptions</structfield> <type>text[]</type>␟no translation␞␞␞
+␝␟<structfield>definition</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>type</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>name</structfield> <type>text</type>␟no translation␞␞␞
+␝␟<structfield>description</structfield> <type>text</type>␟no translation␞␞␞

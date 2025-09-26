@@ -216,6 +216,20 @@ WITH RECURSIVE subdepartment AS
 )
 SELECT * FROM subdepartment ORDER BY name;
 
+-- exercise the deduplication code of a UNION with mixed input slot types
+WITH RECURSIVE subdepartment AS
+(
+	-- select all columns to prevent projection
+	SELECT id, parent_department, name FROM department WHERE name = 'A'
+
+	UNION
+
+	-- joins do projection
+	SELECT d.id, d.parent_department, d.name FROM department AS d
+	INNER JOIN subdepartment AS sd ON d.parent_department = sd.id
+)
+SELECT * FROM subdepartment ORDER BY name;
+
 -- inside subqueries
 SELECT count(*) FROM (
     WITH RECURSIVE t(n) AS (
@@ -1082,6 +1096,20 @@ from int4_tbl;
 select ( with cte(foo) as ( values(f1) )
           values((select foo from cte)) )
 from int4_tbl;
+
+--
+-- test for bug #19055: interaction of WITH with aggregates
+--
+-- The reference to cte1 must determine the aggregate's level,
+-- even though it contains no Vars referencing cte1
+explain (verbose, costs off)
+select f1, (with cte1(x,y) as (select 1,2)
+            select count((select i4.f1 from cte1))) as ss
+from int4_tbl i4;
+
+select f1, (with cte1(x,y) as (select 1,2)
+            select count((select i4.f1 from cte1))) as ss
+from int4_tbl i4;
 
 --
 -- test for nested-recursive-WITH bug

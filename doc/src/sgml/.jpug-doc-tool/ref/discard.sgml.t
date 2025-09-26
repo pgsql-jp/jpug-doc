@@ -1,0 +1,35 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DISCARD</refname>␟  <refpurpose>discard session state</refpurpose>␟  <refpurpose>セッションの状態を破棄する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DISCARD</command> releases internal resources associated with a
+   database session.  This command is useful for partially or fully
+   resetting the session's state.  There are several subcommands to
+   release different types of resources; the <command>DISCARD ALL</command>
+   variant subsumes all the others, and also resets additional state.␟<command>DISCARD</command>はデータベースセッションに関連した内部リソースを解放します。
+このコマンドはセッションの状態を部分的あるいは完全にリセットするのに役に立ちます。
+様々な種類のリソースを解放するためにいくつかのサブコマンドがあります。
+<command>DISCARD ALL</command>は他のすべてを包含し、さらにまた追加の状態もリセットします。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Releases all cached query plans, forcing re-planning to occur
+      the next time the associated prepared statement is used.␟キャッシュされた問い合わせ計画をすべて解放します。
+これにより、関連するプリペアド文が次に使われたとき、強制的に計画がやり直されます。␞␞     </para>␞
+␝     <para>␟      Discards all cached sequence-related state,
+      including <function>currval()</function>/<function>lastval()</function>
+      information and any preallocated sequence values that have not
+      yet been returned by <function>nextval()</function>.
+      (See <xref linkend="sql-createsequence"/> for a description of
+      preallocated sequence values.)␟キャッシュされたシーケンスに関連する状態をすべて破棄します。
+これには、<function>currval()</function>/<function>lastval()</function>の情報、および事前に割り当てられたシーケンスの値で、まだ<function>nextval()</function>によって返されていないものを含みます。
+(事前に割り当てられたシーケンスの値については<xref linkend="sql-createsequence"/>を参照してください。)␞␞     </para>␞
+␝   <varlistentry>␟    <term><literal>TEMPORARY</literal> or <literal>TEMP</literal></term>␟    <term><literal>TEMPORARY</literal>または<literal>TEMP</literal></term>␞␞    <listitem>␞
+␝     <para>␟      Drops all temporary tables created in the current session.␟現在のセッションで作成された一時テーブルをすべて削除します。␞␞     </para>␞
+␝     <para>␟      Releases all temporary resources associated with the current
+      session and resets the session to its initial state.
+      Currently, this has the same effect as executing the following sequence
+      of statements:␟現在のセッションに関連付いた一時的なリソースを解放し、セッションを初期状態に戻します。
+現時点でこれは、以下に示す一連の文を実行することと同じ効果があります。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝   <para>␟    <command>DISCARD ALL</command> cannot be executed inside a transaction block.␟<command>DISCARD ALL</command>をトランザクションブロック内で実行することはできません。␞␞   </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>DISCARD</command> is a <productname>PostgreSQL</productname> extension.␟<command>DISCARD</command>は<productname>PostgreSQL</productname>の拡張です。␞␞  </para>␞
+␝␟CLOSE ALL; SET SESSION AUTHORIZATION DEFAULT; RESET ALL; DEALLOCATE ALL; UNLISTEN *; SELECT pg_advisory_unlock_all(); DISCARD PLANS; DISCARD TEMP; DISCARD SEQUENCES; </programlisting></para> </programlisting></para>␟no translation␞␞␞

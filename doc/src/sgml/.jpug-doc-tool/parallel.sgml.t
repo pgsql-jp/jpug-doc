@@ -1,0 +1,461 @@
+␝  <indexterm zone="parallel-query">
+   <primary>parallel query</primary>
+  </indexterm>
+␟␟  <indexterm zone="parallel-query">
+   <primary>パラレルクエリ</primary>
+  </indexterm>␞␞␞
+␝ <chapter id="parallel-query">␟  <title>Parallel Query</title>␟  <title>パラレルクエリ</title>␞␞␞
+␝  <para>␟   <productname>PostgreSQL</productname> can devise query plans that can leverage
+   multiple CPUs in order to answer queries faster.  This feature is known
+   as parallel query.  Many queries cannot benefit from parallel query, either
+   due to limitations of the current implementation or because there is no
+   imaginable query plan that is any faster than the serial query plan.
+   However, for queries that can benefit, the speedup from parallel query
+   is often very significant.  Many queries can run more than twice as fast
+   when using parallel query, and some queries can run four times faster or
+   even more.  Queries that touch a large amount of data but return only a
+   few rows to the user will typically benefit most.  This chapter explains
+   some details of how parallel query works and in which situations it can be
+   used so that users who wish to make use of it can understand what to expect.␟<productname>PostgreSQL</productname>は、クエリの応答をより速くするために、複数のCPUを活用するクエリプランを生成することができます。
+この機能は、パラレルクエリとして知られています。
+多くのクエリはパラレルクエリの恩恵にあずかることができません。
+その理由は、現在の実装の制限によるもの、あるいは直列にクエリを実行するよりも速いと思われるクエリプランが存在しないため、のどちらかです。
+しかし、パラレルクエリの恩恵にあずかることのできるクエリでは、パラレルクエリによる高速化は、しばしばかなりのものとなります。
+多くのクエリではパラレルクエリを使用すると2倍以上速くなり、中には4倍かそれ以上に速くなるものもあります。
+大量のデータにアクセスするが、返却する行が少ないクエリが典型的には最大の恩恵にあずかります。
+この章では、パラレルクエリの利用を希望しているユーザが、そこから何が期待できるのかを理解できるようにするために、パラレルクエリの動作の詳細と、どのような状況でユーザがパラレルクエリを使用できるのか説明します。␞␞  </para>␞
+␝ <sect1 id="how-parallel-query-works">␟  <title>How Parallel Query Works</title>␟  <title>パラレルクエリはどのように動くのか</title>␞␞␞
+␝   <para>␟    When the optimizer determines that parallel query is the fastest execution
+    strategy for a particular query, it will create a query plan that includes
+    a <firstterm>Gather</firstterm> or <firstterm>Gather Merge</firstterm>
+    node.  Here is a simple example:␟あるクエリの最速の実行戦略がパラレルクエリであるとオプティマイザが決定すると、<firstterm>Gather</firstterm>または<firstterm>Gather Merge</firstterm>ノードを含むクエリプランを作成します。
+単純な例を示します。␞␞␞
+␝   <para>␟    In all cases, the <literal>Gather</literal> or
+    <literal>Gather Merge</literal> node will have exactly one
+    child plan, which is the portion of the plan that will be executed in
+    parallel.  If the <literal>Gather</literal> or <literal>Gather Merge</literal> node is
+    at the very top of the plan tree, then the entire query will execute in
+    parallel.  If it is somewhere else in the plan tree, then only the portion
+    of the plan below it will run in parallel.  In the example above, the
+    query accesses only one table, so there is only one plan node other than
+    the <literal>Gather</literal> node itself; since that plan node is a child of the
+    <literal>Gather</literal> node, it will run in parallel.␟どの場合でも、<literal>Gather</literal>または<literal>Gather Merge</literal>ノードは、正確に一つの子ノードを持ちます。
+子プランは、プランの中で並列に実行される部分です。
+<literal>Gather</literal>または<literal>Gather Merge</literal>ノードがプランツリーの中で最上位にある場合は、クエリ全体が並列に実行されます。
+<literal>Gather</literal>または<literal>Gather Merge</literal>ノードがプランツリーの他の部分にある場合は、その部分だけが並列に実行されます。
+上の例では、クエリはただ一つのテーブルにアクセスするので、<literal>Gather</literal>ノード自身以外では、たった一つのプランノードだけが存在します。
+そのプランノードは<literal>Gather</literal>ノードの子ノードなので、並列に実行されます。␞␞   </para>␞
+␝   <para>␟    <link linkend="using-explain">Using EXPLAIN</link>, you can see the number of
+    workers chosen by the planner.  When the <literal>Gather</literal> node is reached
+    during query execution, the process that is implementing the user's
+    session will request a number of <link linkend="bgworker">background
+    worker processes</link> equal to the number
+    of workers chosen by the planner.  The number of background workers that
+    the planner will consider using is limited to at most
+    <xref linkend="guc-max-parallel-workers-per-gather"/>.  The total number
+    of background workers that can exist at any one time is limited by both
+    <xref linkend="guc-max-worker-processes"/> and
+    <xref linkend="guc-max-parallel-workers"/>.  Therefore, it is possible for a
+    parallel query to run with fewer workers than planned, or even with
+    no workers at all.  The optimal plan may depend on the number of workers
+    that are available, so this can result in poor query performance.  If this
+    occurrence is frequent, consider increasing
+    <varname>max_worker_processes</varname> and <varname>max_parallel_workers</varname>
+    so that more workers can be run simultaneously or alternatively reducing
+    <varname>max_parallel_workers_per_gather</varname> so that the planner
+    requests fewer workers.␟<link linkend="using-explain">EXPLAINを使って</link>、プランナが選択したワーカーの数を見ることができます。
+クエリの実行中に<literal>Gather</literal>ノードに到達すると、ユーザのセッションに対応しているプロセスは、プランナが選択したワーカーと同じ数の<link linkend="bgworker">バックグラウンドワーカープロセス</link>を要求します。
+プランナが使用を検討するバックグラウンドワーカーの数は、最大でも<xref linkend="guc-max-parallel-workers-per-gather"/>に制限されます。
+ある時点で存在できるバックグラウンドワーカーの数は、<xref linkend="guc-max-worker-processes"/>と<xref linkend="guc-max-parallel-workers"/>の両方を満たすように制限されます。
+ですから、あるパラレルクエリが、プラン時よりも少ない数のワーカープロセスによって実行されたり、まったくワーカープロセスなしに実行されることがあり得ます。
+最適なプランは利用可能なワーカーの数に依存することもあるので、これは低い性能をもたらす結果になるかもしれません。
+これがしばしば起こるようなら、<varname>max_worker_processes</varname>と<varname>max_parallel_workers</varname>を増やしてより多くのワーカーが同時に実行できるようにするか、 <varname>max_parallel_workers_per_gather</varname>を減らして、プランナがより少ない数のワーカーを要求するようにすることを考慮してください。␞␞   </para>␞
+␝   <para>␟    Every background worker process that is successfully started for a given
+    parallel query will execute the parallel portion of the plan.  The leader
+    will also execute that portion of the plan, but it has an additional
+    responsibility: it must also read all of the tuples generated by the
+    workers.  When the parallel portion of the plan generates only a small
+    number of tuples, the leader will often behave very much like an additional
+    worker, speeding up query execution.  Conversely, when the parallel portion
+    of the plan generates a large number of tuples, the leader may be almost
+    entirely occupied with reading the tuples generated by the workers and
+    performing any further processing steps that are required by plan nodes
+    above the level of the <literal>Gather</literal> node or
+    <literal>Gather Merge</literal> node.  In such cases, the leader will
+    do very little of the work of executing the parallel portion of the plan.␟与えられたパラレルクエリから起動されたすべてのバックグラウンドワーカープロセスは、そのプランの一部を実行します。
+リーダーはそうしたプランの部分を実行するだけでなく、追加の任務が与えられます。
+つまり、ワーカーが生成したすべてのタプルを読み込まなければなりません。
+プラン中のパラレル部分が少数のタプルしか生成しない場合は、リーダーは追加のワーカーとほぼ同じように振る舞い、クエリの実行を高速化します。
+反対にプラン中のパラレル部分が大量のタプルを生成する場合は、リーダーはワーカーが生成したタプルの読み込みと、<literal>Gather</literal>ノードあるいは<literal>Gather Merge</literal>より上位のプランノードが要求する追加の処理ステップに忙殺されるかもしれません。
+そのような場合は、リーダーはプランの並列実行部分のごく一部しか処理しません。␞␞   </para>␞
+␝   <para>␟    When the node at the top of the parallel portion of the plan is
+    <literal>Gather Merge</literal> rather than <literal>Gather</literal>, it indicates that
+    each process executing the parallel portion of the plan is producing
+    tuples in sorted order, and that the leader is performing an
+    order-preserving merge.  In contrast, <literal>Gather</literal> reads tuples
+    from the workers in whatever order is convenient, destroying any sort
+    order that may have existed.␟プランの並列部分の最上位ノードが<literal>Gather</literal>ではなくて<literal>Gather Merge</literal>なら、プランの並列部分を実行する各プロセスはタプルをソート順に生成し、リーダーはソート順を保存するマージを実行していることを意味します。
+対照的に、<literal>Gather</literal>は、ワーカーから都合の良い順でタプルを読み込むので、ソート順が存在しているとしても、それを壊してしまいます。␞␞   </para>␞
+␝ <sect1 id="when-can-parallel-query-be-used">␟  <title>When Can Parallel Query Be Used?</title>␟  <title>どのような時にパラレルクエリは使用できるのか？</title>␞␞␞
+␝  <para>␟    There are several settings that can cause the query planner not to
+    generate a parallel query plan under any circumstances.  In order for
+    any parallel query plans whatsoever to be generated, the following
+    settings must be configured as indicated.␟どのような状況においても、プランナにパラレルクエリプランを生成させなくしてしまう設定があります。
+とにかくパラレルクエリプランを生成させるためには、次に示すように設定しなければなりません。␞␞  </para>␞
+␝      <para>␟        <xref linkend="guc-max-parallel-workers-per-gather"/> must be set to a
+        value that is greater than zero. This is a special case of the more
+        general principle that no more workers should be used than the number
+        configured via <varname>max_parallel_workers_per_gather</varname>.␟<xref linkend="guc-max-parallel-workers-per-gather"/>は0より大きい値に設定しなければなりません。
+<varname>max_parallel_workers_per_gather</varname>で設定した数以上のワーカーは使用されないという一般原則に含まれる個別のケースです。␞␞      </para>␞
+␝  <para>␟    In addition, the system must not be running in single-user mode.  Since
+    the entire database system is running as a single process in this situation,
+    no background workers will be available.␟加えて、システムはシングルユーザモードで動いていてはいけません。
+この場合はデータベースシステム全体が一つのプロセスとして動いているので、バックグラウンドワーカーが使えません。␞␞  </para>␞
+␝  <para>␟    Even when it is in general possible for parallel query plans to be
+    generated, the planner will not generate them for a given query
+    if any of the following are true:␟一般にパラレルクエリプランが生成可能な場合でも、以下のうち一つでも真であると、プランナはクエリに対するパラレルクエリプランを生成しません。␞␞  </para>␞
+␝      <para>␟        The query writes any data or locks any database rows. If a query
+        contains a data-modifying operation either at the top level or within
+        a CTE, no parallel plans for that query will be generated.  As an
+        exception, the following commands, which create a new table and populate
+        it, can use a parallel plan for the underlying <literal>SELECT</literal>
+        part of the query:␟クエリがデータを書き込むか、データベースの行をロックする場合。
+クエリがデータ更新操作をトップレベルあるいはCTE内で含むと、そのクエリに対するパラレルプランは生成されません。
+例外として、新しいテーブルを作成したりデータを追加したりする次のコマンドでは、そのクエリの<literal>SELECT</literal>部分に対してパラレルプランが使用できます。␞␞␞
+␝      <para>␟        The query might be suspended during execution. In any situation in
+        which the system thinks that partial or incremental execution might
+        occur, no parallel plan is generated. For example, a cursor created
+        using <link linkend="sql-declare">DECLARE CURSOR</link> will never use
+        a parallel plan. Similarly, a PL/pgSQL loop of the form
+        <literal>FOR x IN query LOOP .. END LOOP</literal> will never use a
+        parallel plan, because the parallel query system is unable to verify
+        that the code in the loop is safe to execute while parallel query is
+        active.␟クエリが実行中に一時停止する場合。
+クエリの一部あるいは増分の実行が発生するとシステムが判断すると、パラレルプランは生成されません。
+たとえば、<link linkend="sql-declare">DECLARE CURSOR</link>で作られるカーソルは、決してパラレルプランを使用しません。
+同様に、<literal>FOR x IN query LOOP .. END LOOP</literal>のPL/pgSQLループは、決してパラレルプランを使用しません。
+パラレルクエリが実行中に、ループの中のコードを実行しても安全かどうか、パラレルクエリシステムが判断できないからです。␞␞      </para>␞
+␝      <para>␟        The query uses any function marked <literal>PARALLEL UNSAFE</literal>.
+        Most system-defined functions are <literal>PARALLEL SAFE</literal>,
+        but user-defined functions are marked <literal>PARALLEL
+        UNSAFE</literal> by default. See the discussion of
+        <xref linkend="parallel-safety"/>.␟クエリが<literal>PARALLEL UNSAFE</literal>とマーク付されている関数を使っています。
+ほとんどのシステム定義の関数は<literal>PARALLEL SAFE</literal>です。
+しかし、ユーザ定義関数はデフォルトで<literal>PARALLEL UNSAFE</literal>とマーク付されます。
+<xref linkend="parallel-safety"/>の説明をご覧ください。␞␞      </para>␞
+␝      <para>␟        The query is running inside of another query that is already parallel.
+        For example, if a function called by a parallel query issues an SQL
+        query itself, that query will never use a parallel plan. This is a
+        limitation of the current implementation, but it may not be desirable
+        to remove this limitation, since it could result in a single query
+        using a very large number of processes.␟クエリが、すでにパラレル実行している別のクエリの内部で走っている場合。
+たとえば、パラレルクエリから呼ばれている関数自身がSQLクエリを発行すると、そのクエリは決してパラレルプランを使用しません。
+これは現在の実装の制限によるものですが、この制限を取り外すのは好ましくないかもしれません。
+なぜなら、単一のクエリが非常に大きな数のプロセスを使用する結果となることがあり得るからです。␞␞      </para>␞
+␝  <para>␟    Even when a parallel query plan is generated for a particular query, there
+    are several circumstances under which it will be impossible to execute
+    that plan in parallel at execution time.  If this occurs, the leader
+    will execute the portion of the plan below the <literal>Gather</literal>
+    node entirely by itself, almost as if the <literal>Gather</literal> node were
+    not present.  This will happen if any of the following conditions are met:␟あるクエリに対してパラレルクエリプランが生成された場合でも、実行時にプランを並列に実行できないような状況があります。
+この状況においては、まるで<literal>Gather</literal>ノードが存在しなかったかのように、リーダーは<literal>Gather</literal>ノード以下部分のプランのすべてを自分自身で実行します。
+これは、以下の条件のどれかが当てはまると起こります。␞␞  </para>␞
+␝      <para>␟        No background workers can be obtained because of the limitation that
+        the total number of background workers cannot exceed
+        <xref linkend="guc-max-worker-processes"/>.␟バックグラウンドワーカー数の合計が<xref linkend="guc-max-worker-processes"/>を超えてはいけない、という制限によってバックグラウンドワーカーが得られない場合。␞␞      </para>␞
+␝      <para>␟        No background workers can be obtained because of the limitation that
+        the total number of background workers launched for purposes of
+        parallel query cannot exceed <xref linkend="guc-max-parallel-workers"/>.␟パラレルクエリ目的で起動されたバックグラウンドワーカー数の合計が<xref linkend="guc-max-parallel-workers"/>を超えてはいけない、という制限によってバックグラウンドワーカーが得られない場合。␞␞      </para>␞
+␝      <para>␟        The client sends an Execute message with a non-zero fetch count.
+        See the discussion of the
+        <link linkend="protocol-flow-ext-query">extended query protocol</link>.
+        Since <link linkend="libpq">libpq</link> currently provides no way to
+        send such a message, this can only occur when using a client that
+        does not rely on libpq.  If this is a frequent
+        occurrence, it may be a good idea to set
+        <xref linkend="guc-max-parallel-workers-per-gather"/> to zero in
+        sessions where it is likely, so as to avoid generating query plans
+        that may be suboptimal when run serially.␟クライアントが0ではないフェッチカウント付きのExecuteメッセージを送信した場合。
+<link linkend="protocol-flow-ext-query">拡張問い合わせプロトコル</link>の説明をご覧ください。
+現在の<link linkend="libpq">libpq</link>にはそのようなメッセージを送る方法がないため、これはlibpqに依存しないクライアントを使った時にだけ起こります。
+これが頻繁に起こるようなら、順次実行したときに最適ではないプランが生成されるのを防ぐために、それが起こりそうなセッションの中で、<xref linkend="guc-max-parallel-workers-per-gather"/>を0に設定すると良いかもしれません。␞␞      </para>␞
+␝ <sect1 id="parallel-plans">␟  <title>Parallel Plans</title>␟  <title>パラレルプラン</title>␞␞␞
+␝  <para>␟    Because each worker executes the parallel portion of the plan to
+    completion, it is not possible to simply take an ordinary query plan
+    and run it using multiple workers.  Each worker would produce a full
+    copy of the output result set, so the query would not run any faster
+    than normal but would produce incorrect results.  Instead, the parallel
+    portion of the plan must be what is known internally to the query
+    optimizer as a <firstterm>partial plan</firstterm>; that is, it must be constructed
+    so that each process that executes the plan will generate only a
+    subset of the output rows in such a way that each required output row
+    is guaranteed to be generated by exactly one of the cooperating processes.
+    Generally, this means that the scan on the driving table of the query
+    must be a parallel-aware scan.␟各々のワーカーは完了すべきプランのパラレル部分を実行するので、単に通常のクエリプランを適用し、複数のワーカーを使って実行することはできません。
+それぞれのワーカーが結果セットの全体のコピーを生成するので、クエリは通常よりも決して速くなりませんし、不正な結果を生成してしまいます。
+そうではなくて、プランのパラレル部分は、クエリオプティマイザの内部で<firstterm>部分プラン</firstterm>として知られているものでなくてはなりません。
+すなわち、プランを実行する各プロセスが、要求される個々の出力行が、協調動作するプロセスの正確に１個だけによって生成されることが保証されているような方法で、出力行の一部だけを生成します。
+一般に、これはクエリの処理対象のテーブルに対するスキャンは、パラレル対応のスキャンでなければならないことを意味します。␞␞  </para>␞
+␝ <sect2 id="parallel-scans">␟  <title>Parallel Scans</title>␟  <title>パラレルスキャン</title>␞␞␞
+␝  <para>␟    The following types of parallel-aware table scans are currently supported.␟今のところ、次に示すパラレル対応のテーブルスキャンがサポートされています。␞␞␞
+␝      <para>␟        In a <emphasis>parallel sequential scan</emphasis>, the table's blocks will
+        be divided into ranges and shared among the cooperating processes.  Each
+        worker process will complete the scanning of its given range of blocks before
+        requesting an additional range of blocks.␟<emphasis>パラレルシーケンシャルスキャン</emphasis>では、テーブルのブロックは範囲に分割され、協調するプロセス間で共有されます。
+各ワーカープロセスは、ブロックの追加範囲を要求する前に、与えられたブロックの範囲のスキャンを完了します。␞␞      </para>␞
+␝      <para>␟        In a <emphasis>parallel bitmap heap scan</emphasis>, one process is chosen
+        as the leader.  That process performs a scan of one or more indexes
+        and builds a bitmap indicating which table blocks need to be visited.
+        These blocks are then divided among the cooperating processes as in
+        a parallel sequential scan.  In other words, the heap scan is performed
+        in parallel, but the underlying index scan is not.␟<emphasis>パラレルビットマップヒープスキャン</emphasis>では、一つのプロセスがリーダーに選ばれます。
+そのプロセスは、一つ以上のインデックスをスキャンし、アクセスする必要のあるブロックを示すビットマップを作成します。
+次にこれらのブロックは、パラレルシーケンシャルスキャン同様、協調するプロセスに割り当てられます。
+つまり、ヒープスキャンは並列であるものの、対応するインデックススキャンは並列ではありません。␞␞      </para>␞
+␝      <para>␟        In a <emphasis>parallel index scan</emphasis> or <emphasis>parallel index-only
+        scan</emphasis>, the cooperating processes take turns reading data from the
+        index.  Currently, parallel index scans are supported only for
+        btree indexes.  Each process will claim a single index block and will
+        scan and return all tuples referenced by that block; other processes can
+        at the same time be returning tuples from a different index block.
+        The results of a parallel btree scan are returned in sorted order
+        within each worker process.␟<emphasis>パラレルインデックススキャン</emphasis>あるいは<emphasis>パラレルインデックスオンリースキャン</emphasis>では、協調するプロセスは、交代でインデックスからデータを読み込みます。
+今のところ、パラレルインデックススキャンは、btreeインデックスのみでサポートされています。
+個々のプロセスは単一のインデックスブロックを要求し、スキャンしてそのブロックから参照されているすべてのタプルを返却します。
+他のプロセスは同時に他のインデックスからタプルを返却することができます。
+並列btreeスキャンの結果は、ワーカー内におけるソート順の結果で返却されます。␞␞      </para>␞
+␝␟    Other scan types, such as scans of non-btree indexes, may support
+    parallel scans in the future.␟btree以外のインデックススキャンのような他のスキャンタイプは、将来パラレルスキャンをサポートするかもしれません。␞␞  </para>␞
+␝ <sect2 id="parallel-joins">␟  <title>Parallel Joins</title>␟  <title>パラレルジョイン</title>␞␞␞
+␝  <para>␟    Just as in a non-parallel plan, the driving table may be joined to one or
+    more other tables using a nested loop, hash join, or merge join.  The
+    inner side of the join may be any kind of non-parallel plan that is
+    otherwise supported by the planner provided that it is safe to run within
+    a parallel worker.  Depending on the join type, the inner side may also be
+    a parallel plan.␟非パラレルプランと同様、処理対象のテーブルは、1個以上の他のテーブルとネステッドループ、ハッシュ結合、マージ結合で結合することができます。
+結合の内側は、パラレルワーカー中で実行しても安全だという条件下で、プランナがサポートするどのような非パラレルプランであっても構いません。
+結合タイプによっては内側がパラレルプランであってもよいです。␞␞  </para>␞
+␝      <para>␟        In a <emphasis>nested loop join</emphasis>, the inner side is always
+        non-parallel.  Although it is executed in full, this is efficient if
+        the inner side is an index scan, because the outer tuples and thus
+        the loops that look up values in the index are divided over the
+        cooperating processes.␟<emphasis>ネステッドループ結合</emphasis>では、内側は常に非パラレルです。
+外側タプルとこのようなインデックスで値を探すループは共同するプロセス間で分割されるので、全体で実行されても内側がインデックススキャンであるなら、これは効率的です。␞␞      </para>␞
+␝      <para>␟        In a <emphasis>merge join</emphasis>, the inner side is always
+        a non-parallel plan and therefore executed in full.  This may be
+        inefficient, especially if a sort must be performed, because the work
+        and resulting data are duplicated in every cooperating process.␟<emphasis>マージ結合</emphasis>では、内側は常に非パラレルプランで、それゆえに全体で実行されます。
+特にソート実行を要する場合、全ての共同プロセスで処理と結果データが重複するので、これは非効率的と考えられます。␞␞      </para>␞
+␝      <para>␟        In a <emphasis>hash join</emphasis> (without the "parallel" prefix),
+        the inner side is executed in full by every cooperating process
+        to build identical copies of the hash table.  This may be inefficient
+        if the hash table is large or the plan is expensive.  In a
+        <emphasis>parallel hash join</emphasis>, the inner side is a
+        <emphasis>parallel hash</emphasis> that divides the work of building
+        a shared hash table over the cooperating processes.␟（parallelが付かない）<emphasis>ハッシュ結合</emphasis>では、内側は全ての共同プロセスがハッシュテーブルの同じコピーを作ることで、全体で実行されます。
+ハッシュテーブルが大きかったり、そのプランが高価である場合、これは非効率的と考えられます。
+<emphasis>パラレルハッシュ結合</emphasis>では、内側は共有ハッシュテーブルの構築処理を共同プロセス間で分割する<emphasis>パラレルハッシュ</emphasis>です。␞␞      </para>␞
+␝ <sect2 id="parallel-aggregation">␟  <title>Parallel Aggregation</title>␟  <title>パラレル集約</title>␞␞  <para>␞
+␝  <para>␟    <productname>PostgreSQL</productname> supports parallel aggregation by aggregating in
+    two stages.  First, each process participating in the parallel portion of
+    the query performs an aggregation step, producing a partial result for
+    each group of which that process is aware.  This is reflected in the plan
+    as a <literal>Partial Aggregate</literal> node.  Second, the partial results are
+    transferred to the leader via <literal>Gather</literal> or <literal>Gather
+    Merge</literal>.  Finally, the leader re-aggregates the results across all
+    workers in order to produce the final result.  This is reflected in the
+    plan as a <literal>Finalize Aggregate</literal> node.␟<productname>PostgreSQL</productname>は、ふたつのステージで集約処理を行うことによってパラレル集約処理をサポートします。
+まず、クエリのパラレル部分に参加している個々のプロセスが集約ステップを実行し、それぞれのプロセスが認識しているグループに対する部分的な結果を生成します。
+これは<literal>Partial Aggregate</literal>ノードとしてプラン中に反映されています。
+次に、<literal>Gather</literal>または<literal>Gather Merge</literal>ノードを通じて部分的な結果がリーダーに転送されます。
+最後に、リーダーは、すべてのワーカーにまたがる結果を再集約して、最終的な結果を生成します。
+これは、<literal>Finalize Aggregate</literal>ノードとしてプラン中に反映されています。␞␞  </para>␞
+␝  <para>␟    Because the <literal>Finalize Aggregate</literal> node runs on the leader
+    process, queries that produce a relatively large number of groups in
+    comparison to the number of input rows will appear less favorable to the
+    query planner. For example, in the worst-case scenario the number of
+    groups seen by the <literal>Finalize Aggregate</literal> node could be as many as
+    the number of input rows that were seen by all worker processes in the
+    <literal>Partial Aggregate</literal> stage. For such cases, there is clearly
+    going to be no performance benefit to using parallel aggregation. The
+    query planner takes this into account during the planning process and is
+    unlikely to choose parallel aggregate in this scenario.␟<literal>Finalize Aggregate</literal>ノードはリーダープロセスで実行されるので、入力行数の割には、比較的多数のグループを生成するクエリは、クエリプランナはあまり好ましくないものとして認識します。
+たとえば最悪の場合、<literal>Finalize Aggregate</literal>ノードが認識するグループ数は、<literal>Partial Aggregate</literal>ですべてのワーカープロセスが認識する入力行数と同じだけの数になります。
+こうした場合には、明らかにパラレル集約を利用する性能上の利点がないことになります。
+クエリプランナはプラン処理中にこれを考慮するので、このシナリオでパラレル集約を採用することはまずありません。␞␞  </para>␞
+␝  <para>␟    Parallel aggregation is not supported in all situations.  Each aggregate
+    must be <link linkend="parallel-safety">safe</link> for parallelism and must
+    have a combine function.  If the aggregate has a transition state of type
+    <literal>internal</literal>, it must have serialization and deserialization
+    functions.  See <xref linkend="sql-createaggregate"/> for more details.
+    Parallel aggregation is not supported if any aggregate function call
+    contains <literal>DISTINCT</literal> or <literal>ORDER BY</literal> clause and is also
+    not supported for ordered set aggregates or when  the query involves
+    <literal>GROUPING SETS</literal>.  It can only be used when all joins involved in
+    the query are also part of the parallel portion of the plan.␟どんな状況でもパラレル集約がサポートされているわけではありません。
+個々の集約は並列処理<link linkend="parallel-safety">安全</link>で、結合関数(combine function)を持っていなければなりません。
+その集約が<literal>internal</literal>型の遷移状態を持っているならば、シリアライズ関数とデシリアライズ関数を持っていなければなりません。
+更なる詳細は<xref linkend="sql-createaggregate"/>をご覧ください。
+パラレル集約は、集約関数呼び出しが<literal>DISTINCT</literal>あるいは<literal>ORDER BY</literal>句を含む場合、また 順序集合集約、あるいはクエリが<literal>GROUPING SETS</literal>を実行する場合にはサポートされません。
+パラレル集約は、クエリの中で実行されるすべての結合が、プラン中の並列実行部分の一部であるときにのみ利用できます。␞␞  </para>␞
+␝ <sect2 id="parallel-append">␟  <title>Parallel Append</title>␟  <title>パラレルアペンド</title>␞␞␞
+␝  <para>␟    Whenever <productname>PostgreSQL</productname> needs to combine rows
+    from multiple sources into a single result set, it uses an
+    <literal>Append</literal> or <literal>MergeAppend</literal> plan node.
+    This commonly happens when implementing <literal>UNION ALL</literal> or
+    when scanning a partitioned table.  Such nodes can be used in parallel
+    plans just as they can in any other plan.  However, in a parallel plan,
+    the planner may instead use a <literal>Parallel Append</literal> node.␟<productname>PostgreSQL</productname>が複数のソースから一つの結果セットへの行の連結を必要とするときはいつでも、<literal>Append</literal>または<literal>MergeAppend</literal>プランノードが使われます。
+これは一般に<literal>UNION ALL</literal>を実施するときや、パーティションテーブルをスキャンするときに発生します。
+他のプランと同様にこのようなノードをパラレルプランで使うことができます。
+しかしながら、パラレルプランではプランナは代わりに<literal>Parallel Append</literal>ノードを使ってもよいです。␞␞  </para>␞
+␝  <para>␟    When an <literal>Append</literal> node is used in a parallel plan, each
+    process will execute the child plans in the order in which they appear,
+    so that all participating processes cooperate to execute the first child
+    plan until it is complete and then move to the second plan at around the
+    same time.  When a <literal>Parallel Append</literal> is used instead, the
+    executor will instead spread out the participating processes as evenly as
+    possible across its child plans, so that multiple child plans are executed
+    simultaneously.  This avoids contention, and also avoids paying the startup
+    cost of a child plan in those processes that never execute it.␟<literal>Append</literal>ノードがパラレルプランで使われるとき、各プロセスは子プランをそれらの出現順に実行します。そのため、全ての参加しているプロセスは共同して最初の子プランを完了するまで実行して、その後、一斉に次プランに移ります。
+代わりに<literal>Parallel Append</literal>が使われるときには、エグゼキュータは逆に参加しているプロセスを各子プランにできるだけ均等に分散させます。そのため、複数の子プランは同時並行に実行されます。
+これは競合を回避し、また、プランを実行することのないプロセスで子プランの開始コストが生じることも回避します。␞␞  </para>␞
+␝  <para>␟    Also, unlike a regular <literal>Append</literal> node, which can only have
+    partial children when used within a parallel plan, a <literal>Parallel
+    Append</literal> node can have both partial and non-partial child plans.
+    Non-partial children will be scanned by only a single process, since
+    scanning them more than once would produce duplicate results.  Plans that
+    involve appending multiple results sets can therefore achieve
+    coarse-grained parallelism even when efficient partial plans are not
+    available.  For example, consider a query against a partitioned table
+    that can only be implemented efficiently by using an index that does
+    not support parallel scans.  The planner might choose a <literal>Parallel
+    Append</literal> of regular <literal>Index Scan</literal> plans; each
+    individual index scan would have to be executed to completion by a single
+    process, but different scans could be performed at the same time by
+    different processes.␟また、パラレルプランの中で使われるときだけ部分的な子プランを持てる、通常の<literal>Append</literal>ノードと違い、<literal>Parallel Append</literal>ノードは部分的、非部分的のどちらの子プランも持つことができます。
+複数回のスキャンは重複した結果をもたらすため、非部分的な子プランは単一プロセスのみからスキャンされます。
+複数の結果セットの連結に関わるプランは、効率的なパラレルプランが不可能なときでも、それゆえ粗い並列性を実現できます。
+例えば、パラレルスキャンをサポートしないインデックスを使うことでのみ効率的に実行できるパーティションテーブルに対する問い合わせを考えてください。
+プランナは通常の<literal>Index Scan</literal>プランの<literal>Parallel Append</literal>を選ぶことができます。
+個々のインデックススキャンは単一プロセスで最後まで実行しなければなりませんが、別のスキャンは同時に別プロセスで実行することができます。␞␞  </para>␞
+␝  <para>␟    <xref linkend="guc-enable-parallel-append" /> can be used to disable
+    this feature.␟本機能を無効にするために<xref linkend="guc-enable-parallel-append" />を使用できます。␞␞  </para>␞
+␝ <sect2 id="parallel-plan-tips">␟  <title>Parallel Plan Tips</title>␟  <title>パラレルプランに関するヒント</title>␞␞␞
+␝  <para>␟    If a query that is expected to do so does not produce a parallel plan,
+    you can try reducing <xref linkend="guc-parallel-setup-cost"/> or
+    <xref linkend="guc-parallel-tuple-cost"/>.  Of course, this plan may turn
+    out to be slower than the serial plan that the planner preferred, but
+    this will not always be the case.  If you don't get a parallel
+    plan even with very small values of these settings (e.g., after setting
+    them both to zero), there may be some reason why the query planner is
+    unable to generate a parallel plan for your query.  See
+    <xref linkend="when-can-parallel-query-be-used"/> and
+    <xref linkend="parallel-safety"/> for information on why this may be
+    the case.␟パラレルプランを生成すると期待していたクエリがそうならない場合には、<xref linkend="guc-parallel-setup-cost"/>または<xref linkend="guc-parallel-tuple-cost"/>を減らしてみてください。
+もちろん、このプランは結局のところ、プランナが選択した順次実行プランよりも遅いということもあり得ますが、いつもそうだとは限りません。
+これらの設定値を非常に小さく（つまり両方とも0に）したにも関わらずパラレルプランを得られない場合、あなたのクエリのためにクエリプランナがパラレルプランを生成できない何か理由があるのかもしれません。
+そうしたケースに該当しているかどうかを、<xref linkend="when-can-parallel-query-be-used"/>と<xref linkend="parallel-safety"/>を参照して確認してください。␞␞  </para>␞
+␝  <para>␟    When executing a parallel plan, you can use <literal>EXPLAIN (ANALYZE,
+    VERBOSE)</literal> to display per-worker statistics for each plan node.
+    This may be useful in determining whether the work is being evenly
+    distributed between all plan nodes and more generally in understanding the
+    performance characteristics of the plan.␟パラレルプランを実行する際には、<literal>EXPLAIN (ANALYZE, VERBOSE)</literal>を使って個々のプランノードに対するワーカーごとの状態を表示することができます。
+これは、すべてのプランノードに均等に仕事が分散されているかどうかを確認すること、そしてもっと一般的には、プランの性能特性を理解するのに役に立つかもしれません。␞␞  </para>␞
+␝ <sect1 id="parallel-safety">␟  <title>Parallel Safety</title>␟  <title>パラレル安全</title>␞␞␞
+␝  <para>␟    The planner classifies operations involved in a query as either
+    <firstterm>parallel safe</firstterm>, <firstterm>parallel restricted</firstterm>,
+    or <firstterm>parallel unsafe</firstterm>.  A parallel safe operation is one that
+    does not conflict with the use of parallel query.  A parallel restricted
+    operation is one that cannot be performed in a parallel worker, but that
+    can be performed in the leader while parallel query is in use.  Therefore,
+    parallel restricted operations can never occur below a <literal>Gather</literal>
+    or <literal>Gather Merge</literal> node, but can occur elsewhere in a plan that
+    contains such a node.  A parallel unsafe operation is one that cannot
+    be performed while parallel query is in use, not even in the leader.
+    When a query contains anything that is parallel unsafe, parallel query
+    is completely disabled for that query.␟プランナは、クエリ中に実行される操作を<firstterm>パラレル安全（parallel safe）</firstterm>、<firstterm>パラレル制限（parallel restricted）</firstterm>、<firstterm>パラレル非安全（parallel unsafe）</firstterm>に分類します。
+パラレル安全操作は、パラレルクエリとコンフリクトしない操作です。
+パラレル制限操作は、パラレルクエリを利用中に、パラレルワーカー中では実行できないが、リーダーによって実行できる操作です。
+したがって、パラレル制限操作は、<literal>Gather</literal>あるいは<literal>Gather Merge</literal>ノードより下では決して実行されませんが、<literal>Gather</literal>ノードを含むプランの別の場所では実行されるかもしれません。
+パラレル非安全操作は、パラレルクエリ利用中に、リーダーも含めて実行できない操作です。
+クエリがパラレル非安全なものを含む場合は、クエリ中でのパラレルクエリの利用は全くできなくなります。␞␞  </para>␞
+␝  <para>␟    The following operations are always parallel restricted:␟次の操作は常にパラレル制限です。␞␞  </para>␞
+␝      <para>␟        Scans of common table expressions (CTEs).␟共通テーブル式（CTE）のスキャン␞␞      </para>␞
+␝      <para>␟        Scans of temporary tables.␟一時テーブルのスキャン␞␞      </para>␞
+␝      <para>␟        Scans of foreign tables, unless the foreign data wrapper has
+        an <literal>IsForeignScanParallelSafe</literal> API that indicates otherwise.␟外部テーブルのスキャン。
+外部データラッパーが<literal>IsForeignScanParallelSafe</literal>APIを持ち、パラレル安全を返す場合を除く。␞␞      </para>␞
+␝      <para>␟        Plan nodes that reference a correlated <literal>SubPlan</literal>.␟関連する<literal>SubPlan</literal>を参照するプランノード␞␞      </para>␞
+␝ <sect2 id="parallel-labeling">␟  <title>Parallel Labeling for Functions and Aggregates</title>␟  <title>関数と集約のためのパラレルラベル付け</title>␞␞␞
+␝  <para>␟    The planner cannot automatically determine whether a user-defined
+    function or aggregate is parallel safe, parallel restricted, or parallel
+    unsafe, because this would require predicting every operation that the
+    function could possibly perform.  In general, this is equivalent to the
+    Halting Problem and therefore impossible.  Even for simple functions
+    where it could conceivably be done, we do not try, since this would be expensive
+    and error-prone.  Instead, all user-defined functions are assumed to
+    be parallel unsafe unless otherwise marked.  When using
+    <xref linkend="sql-createfunction"/> or
+    <xref linkend="sql-alterfunction"/>, markings can be set by specifying
+    <literal>PARALLEL SAFE</literal>, <literal>PARALLEL RESTRICTED</literal>, or
+    <literal>PARALLEL UNSAFE</literal> as appropriate.  When using
+    <xref linkend="sql-createaggregate"/>, the
+    <literal>PARALLEL</literal> option can be specified with <literal>SAFE</literal>,
+    <literal>RESTRICTED</literal>, or <literal>UNSAFE</literal> as the corresponding value.␟プランナは、自動的にはユーザ定義関数や集約がパラレル安全か、パラレル制限か、あるいはパラレル非安全かを決定することはできません。
+この関数が潜在的に実行する可能性のあるすべての操作を予測することが、このために要求されるからです。
+一般的には、これは停止性問題と同等で、それ故に不可能です。
+おそらく終了できると思われる単純な関数においてさえ、私達は試みません。なぜなら、そうした予測は高価でエラーを起こしやすいからです。
+その代わりに、そうではないとマークされない限り、すべてのユーザ定義関数は、パラレル非安全と見なされます。
+<xref linkend="sql-createfunction"/>あるいは<xref linkend="sql-alterfunction"/>を使用するときは、
+適当な<literal>PARALLEL SAFE</literal>、<literal>PARALLEL RESTRICTED</literal>、<literal>PARALLEL UNSAFE</literal>を指定することによってマーキングを行うことができます。
+<xref linkend="sql-createaggregate"/>を利用するときは、対応する値にしたがって、<literal>SAFE</literal>、<literal>RESTRICTED</literal>、<literal>UNSAFE</literal>のどれかを<literal>PARALLEL</literal>オプションに指定します。␞␞  </para>␞
+␝  <para>␟    Functions and aggregates must be marked <literal>PARALLEL UNSAFE</literal>
+    if they write to the database, change the transaction state (other than by
+    using a subtransaction for error recovery), access sequences, or make
+    persistent changes to
+    settings.  Similarly, functions must be marked <literal>PARALLEL
+    RESTRICTED</literal> if they access temporary tables, client connection state,
+    cursors, prepared statements, or miscellaneous backend-local state that
+    the system cannot synchronize across workers. For example,
+    <literal>setseed</literal> and <literal>random</literal> are parallel restricted for
+    this last reason.␟関数あるいは集約は、データベースに書き込むか、（エラー回復のためにサブトランザクションを使う場合以外で）トランザクションの状態を変更するか、シーケンスにアクセスするか、あるいは、恒久的な設定変更を行う場合、<literal>PARALLEL UNSAFE</literal>とマークされなければなりません。
+同様に関数は、一時テーブル、クライアントの接続状態、カーソル、準備された文、システムがワーカーの間で同期できないその他のバックエンドローカルな状態にアクセスする場合、<literal>PARALLEL RESTRICTED</literal>とマークされなければなりません。
+たとえば、<literal>setseed</literal>と<literal>random</literal>は、最後の理由により、パラレル制限です。␞␞  </para>␞
+␝  <para>␟    In general, if a function is labeled as being safe when it is restricted or
+    unsafe, or if it is labeled as being restricted when it is in fact unsafe,
+    it may throw errors or produce wrong answers when used in a parallel query.
+    C-language functions could in theory exhibit totally undefined behavior if
+    mislabeled, since there is no way for the system to protect itself against
+    arbitrary C code, but in most likely cases the result will be no worse than
+    for any other function. If in doubt, it is probably best to label functions
+    as <literal>UNSAFE</literal>.␟一般的に制限あるいは非安全な関数が安全とラベル付されたり、実際には非安全なのに制限付きとラベル付されると、パラレルクエリの中で使用される際に、エラーを生じたり、間違った結果を生成するかもしれません。
+誤ったラベル付をされると、C言語関数は理論的にはまったく未定義の振る舞いを示すことがあります。
+システムは任意のCコードから身を守るすべがないからです。
+しかしもっとも起こりえる可能性としては、他の関数のよりも悪いということはなさそうです。
+もし自信がないなら、たぶんその関数を<literal>UNSAFE</literal>とラベル付するのが最善でしょう。␞␞  </para>␞
+␝  <para>␟    If a function executed within a parallel worker acquires locks that are
+    not held by the leader, for example by querying a table not referenced in
+    the query, those locks will be released at worker exit, not end of
+    transaction. If you write a function that does this, and this behavior
+    difference is important to you, mark such functions as
+    <literal>PARALLEL RESTRICTED</literal>
+    to ensure that they execute only in the leader.␟パラレルワーカーの中で実行される関数がリーダーが獲得していないロックを獲得する場合、たとえばクエリ中で参照されていないテーブルに対して問い合わせを実行する場合などは、これらのロックはトランザクションが終了した時点ではなく、ワーカーが終了する際に解放されます。
+もしあなたがこれを行う関数を作成し、こうした振る舞いの違いがあなたにとって重要ならば、関数がリーダーの中だけで実行されることを保証するために、関数を<literal>PARALLEL RESTRICTED</literal>とマーク付けしてください。␞␞  </para>␞
+␝  <para>␟    Note that the query planner does not consider deferring the evaluation of
+    parallel-restricted functions or aggregates involved in the query in
+    order to obtain a superior plan.  So, for example, if a <literal>WHERE</literal>
+    clause applied to a particular table is parallel restricted, the query
+    planner will not consider performing a scan of that table in the parallel
+    portion of a plan.  In some cases, it would be
+    possible (and perhaps even efficient) to include the scan of that table in
+    the parallel portion of the query and defer the evaluation of the
+    <literal>WHERE</literal> clause so that it happens above the <literal>Gather</literal>
+    node.  However, the planner does not do this.␟より良いプランを得るために、プランナがクエリの中で実行されるパラレル制限な関数や集約の評価の遅延を考慮することはないことに注意してください。
+したがって、たとえばあるテーブルに適用される<literal>WHERE</literal>句がパラレル制限であるときに、クエリプランナはプランの並列実行部分中のテーブルに対してスキャンを実行をすることを考慮しません。
+ある場合においては、クエリ中のパラレル部分におけるテーブルのスキャンを含むようにして、<literal>WHERE</literal>句の評価を遅らせ、<literal>Gather</literal>ノード上で実行されるようにすることも可能でしょう（そしてその方が効率が良いことさえあります）。
+しかし、プランナはそうしたことは行いません。␞␞  </para>␞
+␝␟<para><command>CREATE TABLE ... AS</command></para> <para><command>CREATE TABLE ... AS</command></para>␟no translation␞␞␞
+␝␟<para><command>SELECT INTO</command></para> <para><command>SELECT INTO</command></para>␟no translation␞␞␞
+␝␟<para><command>CREATE MATERIALIZED VIEW</command></para> <para><command>CREATE MATERIALIZED VIEW</command></para>␟no translation␞␞␞
+␝␟<para><command>REFRESH MATERIALIZED VIEW</command></para> <para><command>REFRESH MATERIALIZED VIEW</command></para>␟no translation␞␞␞

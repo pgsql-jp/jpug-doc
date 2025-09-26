@@ -5,7 +5,7 @@
  *	  commands.  At one time acted as an interface between the Lisp and C
  *	  systems.
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -122,7 +122,7 @@ CommandIsReadOnly(PlannedStmt *pstmt)
 /*
  * Determine the degree to which a utility command is read only.
  *
- * Note the definitions of the relevant flags in src/include/utility/tcop.h.
+ * Note the definitions of the relevant flags in src/include/tcop/utility.h.
  */
 static int
 ClassifyUtilityCommandAsReadOnly(Node *parsetree)
@@ -535,6 +535,9 @@ ProcessUtility(PlannedStmt *pstmt,
  * event trigger code not be invoked when doing START TRANSACTION for
  * example, because we might need to refresh the event trigger cache,
  * which requires being in a valid transaction.
+ *
+ * When adding or moving utility commands, check that the documentation in
+ * event-trigger.sgml is kept up to date.
  */
 void
 standard_ProcessUtility(PlannedStmt *pstmt,
@@ -1155,7 +1158,7 @@ ProcessUtilitySlow(ParseState *pstate,
 						{
 							CreateStmt *cstmt = (CreateStmt *) stmt;
 							Datum		toast_options;
-							static char *validnsps[] = HEAP_RELOPT_NAMESPACES;
+							const char *const validnsps[] = HEAP_RELOPT_NAMESPACES;
 
 							/* Remember transformed RangeVar for LIKE */
 							table_rv = cstmt->relation;
@@ -1688,7 +1691,7 @@ ProcessUtilitySlow(ParseState *pstate,
 				PG_TRY(2);
 				{
 					address = ExecRefreshMatView((RefreshMatViewStmt *) parsetree,
-												 queryString, params, qc);
+												 queryString, qc);
 				}
 				PG_FINALLY(2);
 				{
@@ -1709,7 +1712,7 @@ ProcessUtilitySlow(ParseState *pstate,
 				break;
 
 			case T_CreateDomainStmt:
-				address = DefineDomain((CreateDomainStmt *) parsetree);
+				address = DefineDomain(pstate, (CreateDomainStmt *) parsetree);
 				break;
 
 			case T_CreateConversionStmt:
@@ -1880,7 +1883,7 @@ ProcessUtilitySlow(ParseState *pstate,
 					if (!IsA(rel, RangeVar))
 						ereport(ERROR,
 								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-								 errmsg("only a single relation is allowed in CREATE STATISTICS")));
+								 errmsg("CREATE STATISTICS only supports relation names in the FROM clause")));
 
 					/*
 					 * CREATE STATISTICS will influence future execution plans

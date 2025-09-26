@@ -698,10 +698,10 @@ SELECT relpages, reltuples FROM pg_class WHERE relname = 't';
 次の例では、<structfield>a</structfield>列に関する<literal>WHERE</literal>条件の見積もり結果を示しています。
 
 <programlisting>
-EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT * FROM t WHERE a = 1;
                                  QUERY PLAN
 -------------------------------------------------------------------&zwsp;------------
- Seq Scan on t  (cost=0.00..170.00 rows=100 width=8) (actual rows=100 loops=1)
+ Seq Scan on t  (cost=0.00..170.00 rows=100 width=8) (actual rows=100.00 loops=1)
    Filter: (a = 1)
    Rows Removed by Filter: 9900
 </programlisting>
@@ -722,10 +722,10 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1;
 では、<literal>AND</literal>条件でつないで、この二つの列に同じ条件を適用するとどうなるか見てみましょう。
 
 <programlisting>
-EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
                                  QUERY PLAN
 -------------------------------------------------------------------&zwsp;----------
- Seq Scan on t  (cost=0.00..195.00 rows=1 width=8) (actual rows=100 loops=1)
+ Seq Scan on t  (cost=0.00..195.00 rows=1 width=8) (actual rows=100.00 loops=1)
    Filter: ((a = 1) AND (b = 1))
    Rows Removed by Filter: 9900
 </programlisting>
@@ -754,10 +754,10 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
 <programlisting>
 CREATE STATISTICS stts (dependencies) ON a, b FROM t;
 ANALYZE t;
-EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
                                   QUERY PLAN
 -------------------------------------------------------------------&zwsp;------------
- Seq Scan on t  (cost=0.00..195.00 rows=100 width=8) (actual rows=100 loops=1)
+ Seq Scan on t  (cost=0.00..195.00 rows=100 width=8) (actual rows=100.00 loops=1)
    Filter: ((a = 1) AND (b = 1))
    Rows Removed by Filter: 9900
 </programlisting>
@@ -782,12 +782,12 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
 <command>GROUP BY</command>句が生成するグループ数のような、複数列の集合のカーディナリティの見積もりについても、同様の問題が起きます。
 <command>GROUP BY</command>の対象が単一の列なら、N個別値の推定（HashAggregateノードが返す推定行数で示されます）はとても正確です。
 <programlisting>
-EXPLAIN (ANALYZE, TIMING OFF) SELECT COUNT(*) FROM t GROUP BY a;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT COUNT(*) FROM t GROUP BY a;
                                        QUERY PLAN
 -------------------------------------------------------------------&zwsp;----------------------
- HashAggregate  (cost=195.00..196.00 rows=100 width=12) (actual rows=100 loops=1)
+ HashAggregate  (cost=195.00..196.00 rows=100 width=12) (actual rows=100.00 loops=1)
    Group Key: a
-   -&gt;  Seq Scan on t  (cost=0.00..145.00 rows=10000 width=4) (actual rows=10000 loops=1)
+   -&gt;  Seq Scan on t  (cost=0.00..145.00 rows=10000 width=4) (actual rows=10000.00 loops=1)
 </programlisting>
 <!--
     But without multivariate statistics, the estimate for the number of
@@ -796,12 +796,12 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT COUNT(*) FROM t GROUP BY a;
 -->
 しかし、多変量統計がないと、二つの列についての<command>GROUP BY</command>問い合わせにおけるグループ数の見積もりは、次の例のようにひと桁ずれてしまいます。
 <programlisting>
-EXPLAIN (ANALYZE, TIMING OFF) SELECT COUNT(*) FROM t GROUP BY a, b;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT COUNT(*) FROM t GROUP BY a, b;
                                        QUERY PLAN
 -------------------------------------------------------------------&zwsp;-------------------------
- HashAggregate  (cost=220.00..230.00 rows=1000 width=16) (actual rows=100 loops=1)
+ HashAggregate  (cost=220.00..230.00 rows=1000 width=16) (actual rows=100.00 loops=1)
    Group Key: a, b
-   -&gt;  Seq Scan on t  (cost=0.00..145.00 rows=10000 width=8) (actual rows=10000 loops=1)
+   -&gt;  Seq Scan on t  (cost=0.00..145.00 rows=10000 width=8) (actual rows=10000.00 loops=1)
 </programlisting>
 <!--
     By redefining the statistics object to include n-distinct counts for the
@@ -812,12 +812,12 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT COUNT(*) FROM t GROUP BY a, b;
 DROP STATISTICS stts;
 CREATE STATISTICS stts (dependencies, ndistinct) ON a, b FROM t;
 ANALYZE t;
-EXPLAIN (ANALYZE, TIMING OFF) SELECT COUNT(*) FROM t GROUP BY a, b;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT COUNT(*) FROM t GROUP BY a, b;
                                        QUERY PLAN
 -------------------------------------------------------------------&zwsp;-------------------------
- HashAggregate  (cost=220.00..221.00 rows=100 width=16) (actual rows=100 loops=1)
+ HashAggregate  (cost=220.00..221.00 rows=100 width=16) (actual rows=100.00 loops=1)
    Group Key: a, b
-   -&gt;  Seq Scan on t  (cost=0.00..145.00 rows=10000 width=8) (actual rows=10000 loops=1)
+   -&gt;  Seq Scan on t  (cost=0.00..145.00 rows=10000 width=8) (actual rows=10000.00 loops=1)
 </programlisting>
    </para>
 
@@ -865,10 +865,10 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT COUNT(*) FROM t GROUP BY a, b;
 DROP STATISTICS stts;
 CREATE STATISTICS stts2 (mcv) ON a, b FROM t;
 ANALYZE t;
-EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT * FROM t WHERE a = 1 AND b = 1;
                                    QUERY PLAN
 -------------------------------------------------------------------&zwsp;------------
- Seq Scan on t  (cost=0.00..195.00 rows=100 width=8) (actual rows=100 loops=1)
+ Seq Scan on t  (cost=0.00..195.00 rows=100 width=8) (actual rows=100.00 loops=1)
    Filter: ((a = 1) AND (b = 1))
    Rows Removed by Filter: 9900
 </programlisting>
@@ -941,10 +941,10 @@ SELECT m.* FROM pg_statistic_ext join pg_statistic_ext_data on (oid = stxoid),
 関数従属性に比べて、<acronym>MCV</acronym>は主要な利点が2つあります。1つ目は、リストが実際の値を格納していることで、これによりどの組み合わせが適合するのか決定できます。
 
 <programlisting>
-EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 10;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT * FROM t WHERE a = 1 AND b = 10;
                                  QUERY PLAN
 -------------------------------------------------------------------&zwsp;--------
- Seq Scan on t  (cost=0.00..195.00 rows=1 width=8) (actual rows=0 loops=1)
+ Seq Scan on t  (cost=0.00..195.00 rows=1 width=8) (actual rows=0.00 loops=1)
    Filter: ((a = 1) AND (b = 10))
    Rows Removed by Filter: 10000
 </programlisting>
@@ -958,10 +958,10 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a = 1 AND b = 10;
 例えば、以下のような同じテーブルに対する範囲の問い合わせを考えてみましょう。
 
 <programlisting>
-EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a &lt;= 49 AND b &gt; 49;
+EXPLAIN (ANALYZE, TIMING OFF, BUFFERS OFF) SELECT * FROM t WHERE a &lt;= 49 AND b &gt; 49;
                                 QUERY PLAN
 -------------------------------------------------------------------&zwsp;--------
- Seq Scan on t  (cost=0.00..195.00 rows=1 width=8) (actual rows=0 loops=1)
+ Seq Scan on t  (cost=0.00..195.00 rows=1 width=8) (actual rows=0.00 loops=1)
    Filter: ((a &lt;= 49) AND (b &gt; 49))
    Rows Removed by Filter: 10000
 </programlisting>
@@ -1013,10 +1013,14 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a &lt;= 49 AND b &gt; 49;
    accurately, the function that the operator is based on).  If not, then the
    selectivity estimator will behave as if no statistics are available, and
    the planner will proceed with default or fall-back assumptions.
+   The <xref linkend="app-psql"/> program's
+   <command><link linkend="app-psql-meta-command-do-lc">\do+</link></command>
+   meta-command is useful to determine which operators are marked as leakproof.
 -->
-このことを防ぐため、すべての組み込みの選択性推定関数には以下のことが適用されます。
+《マッチ度[70.485175]》このことを防ぐため、すべての組み込みの選択性推定関数には以下のことが適用されます。
 問い合わせの計画を作成するとき、保存されている統計情報を使用できるためには、現在のユーザはテーブルあるいは対象の列に<literal>SELECT</literal>権限を持っている必要がある、あるいは使用する演算子（正確には、演算子の元となる関数）が<literal>LEAKPROOF</literal>である必要があります。
 そうでないときは、選択性推定はあたかも利用可能な統計情報がないかのような動作をし、プランナはデフォルトあるいは代替の推定に従って処理をします。
+《機械翻訳》«In order to prevent this, the following applies to all built-in selectivity estimation functions. When planning a query, in order to be able to use stored statistics, the current user must either have <literal>SELECT</literal> privilege on the table or the involved columns, or the operator used must be <literal>LEAKPROOF</literal> (more accurately, the function that the operator is based on). If not, then the selectivity estimator will behave as if no statistics are available, and the planner will proceed with default or fall-back assumptions. The <xref linkend="app-psql"/> program's <command><link linkend="app-psql-meta-command-do-lc">\do+</link></command> meta-command is useful to determine which operators are marked as leakproof.»
   </para>
 
   <para>
@@ -1026,13 +1030,13 @@ EXPLAIN (ANALYZE, TIMING OFF) SELECT * FROM t WHERE a &lt;= 49 AND b &gt; 49;
    error, in which case this mechanism is invisible in practice.  But if the
    user is reading from a security-barrier view, then the planner might wish
    to check the statistics of an underlying table that is otherwise
-   inaccessible to the user.  In that case, the operator should be leak-proof
+   inaccessible to the user.  In that case, the operator should be leakproof
    or the statistics will not be used.  There is no direct feedback about
    that, except that the plan might be suboptimal.  If one suspects that this
    is the case, one could try running the query as a more privileged user,
    to see if a different plan results.
 -->
-ユーザがテーブルや列について必要な権限を持っていない場合、最終的には権限不足のエラーを受け取ることが多いでしょう。
+《マッチ度[94.860499]》ユーザがテーブルや列について必要な権限を持っていない場合、最終的には権限不足のエラーを受け取ることが多いでしょう。
 この場合、上記の仕組みは実際にはユーザからはわかりません。
 しかし、ユーザがセキュリティバリアビューから読み取ろうとしている場合、プランナはそのビューの元となっているテーブルの統計情報を検査したいと思うかもしれず、またユーザはそのテーブルにはアクセス権がないかもしれません。
 その場合は、演算子がリークプルーフ(leak-proof)でなければ、統計情報は使用されません。

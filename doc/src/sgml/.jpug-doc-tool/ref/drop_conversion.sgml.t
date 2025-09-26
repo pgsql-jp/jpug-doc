@@ -1,0 +1,25 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟<refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP CONVERSION</refname>␟  <refpurpose>remove a conversion</refpurpose>␟  <refpurpose>符号化方式変換を削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1 id="sql-dropconversion-description">␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP CONVERSION</command> removes a previously defined conversion.
+   To be able to drop a conversion, you must own the conversion.␟<command>DROP CONVERSION</command>を使用すると、以前に定義した符号化方式変換（以下、単に「変換」と記します）を削除できます。
+変換を削除するには、その変換を所有していなければなりません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝      <para>␟       Do not throw an error if the conversion does not exist.
+       A notice is issued in this case.␟変換が存在しない場合でもエラーになりません。
+この場合注意メッセージが発行されます。␞␞      </para>␞
+␝      <para>␟       The name of the conversion. The conversion name can be
+       schema-qualified.␟変換の名前です。変換名はスキーマ修飾可能です。␞␞      </para>␞
+␝      <para>␟       These key words do not have any effect, since there are no
+       dependencies on conversions.␟変換は依存関係を持たないため、これらのキーワードを指定しても効果はありません。␞␞      </para>␞
+␝ <refsect1 id="sql-dropconversion-examples">␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To drop the conversion named <literal>myname</literal>:␟<literal>myname</literal>という名前の変換を削除します。␞␞<programlisting>␞
+␝ <refsect1 id="sql-dropconversion-compat">␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   There is no <command>DROP CONVERSION</command> statement in the SQL
+   standard, but a <command>DROP TRANSLATION</command> statement that
+   goes along with the <command>CREATE TRANSLATION</command> statement
+   that is similar to the <command>CREATE CONVERSION</command>
+   statement in PostgreSQL.␟標準SQLには<command>DROP CONVERSION</command>文はありません。
+しかし、PostgreSQLの<command>CREATE CONVERSION</command>に似た<command>CREATE TRANSLATION</command>文があるように、<command>DROP TRANSLATION</command>文があります。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟DROP CONVERSION myname; </programlisting></para> </programlisting></para>␟no translation␞␞␞

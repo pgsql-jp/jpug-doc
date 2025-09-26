@@ -1,0 +1,269 @@
+␝<sect1 id="ltree" xreflabel="ltree">␟ <title>ltree &mdash; hierarchical tree-like data type</title>␟ <title>ltree &mdash; 階層ツリーを模擬したデータ型</title>␞␞␞
+␝ <para>␟  This module implements a data type <type>ltree</type> for representing
+  labels of data stored in a hierarchical tree-like structure.
+  Extensive facilities for searching through label trees are provided.␟本モジュールは階層ツリーを模擬した構造に格納されたデータのラベルを表現する <type>ltree</type>データ型を実装します。
+ラベルツリー全体を検索する高度な機能を提供します。␞␞ </para>␞
+␝ <para>␟  This module is considered <quote>trusted</quote>, that is, it can be
+  installed by non-superusers who have <literal>CREATE</literal> privilege
+  on the current database.␟このモジュールは<quote>trusted</quote>と見なされます。つまり、現在のデータベースに対して<literal>CREATE</literal>権限を持つ非スーパーユーザがインストールできます。␞␞ </para>␞
+␝ <sect2 id="ltree-definitions">␟  <title>Definitions</title>␟  <title>定義</title>␞␞␞
+␝  <para>␟   A <firstterm>label</firstterm> is a sequence of alphanumeric characters,
+   underscores, and hyphens. Valid alphanumeric character ranges are
+   dependent on the database locale. For example, in C locale, the characters
+   <literal>A-Za-z0-9_-</literal> are allowed.
+   Labels must be no more than 1000 characters long.␟<firstterm>ラベル</firstterm>は、英数字、アンダースコア、ハイフンの並びです。
+有効な英数字の範囲はデータベースのロケールに依存します。
+例えば、Cロケールでは<literal>A-Za-z0-9_-</literal>という文字が許されます。
+ラベルの長さは1000文字以内でなければなりません。␞␞  </para>␞
+␝  <para>␟   Examples: <literal>42</literal>, <literal>Personal_Services</literal>␟例えば<literal>42</literal>、<literal>Personal_Services</literal>です。␞␞  </para>␞
+␝  <para>␟   A <firstterm>label path</firstterm> is a sequence of zero or more
+   labels separated by dots, for example <literal>L1.L2.L3</literal>, representing
+   a path from the root of a hierarchical tree to a particular node.  The
+   length of a label path cannot exceed 65535 labels.␟<firstterm>ラベル経路</firstterm>は、例えば<literal>L1.L2.L3</literal>のようなドットで区切られた0個以上のラベルの並びであり、階層ツリーのルートから特定のノードまでの経路を表します。
+ラベル経路の長さは65535ラベルを超えることはできません。␞␞  </para>␞
+␝  <para>␟   Example: <literal>Top.Countries.Europe.Russia</literal>␟例：<literal>'Top.Countries.Europe.Russia'</literal>␞␞  </para>␞
+␝  <para>␟   The <filename>ltree</filename> module provides several data types:␟<filename>ltree</filename>モジュールは以下の複数のデータ型を提供します。␞␞  </para>␞
+␝    <para>␟     <type>ltree</type> stores a label path.␟<type>ltree</type>はラベル経路を格納します。␞␞    </para>␞
+␝    <para>␟     <type>lquery</type> represents a regular-expression-like pattern
+     for matching <type>ltree</type> values.  A simple word matches that
+     label within a path.  A star symbol (<literal>*</literal>) matches zero
+     or more labels.  These can be joined with dots to form a pattern that
+     must match the whole label path.  For example:␟<type>lquery</type>は、<type>ltree</type>値に一致する正規表現のようなパターンを表現します。
+単一の単語は経路内のラベルに一致します。
+スター記号（<literal>*</literal>）は0個以上のラベルに一致します。
+ドットでつなげることで、ラベル経路全体に一致するパターンを形作ることができます。
+以下に例を示します。␞␞<synopsis>␞
+␝<synopsis>␟foo         <lineannotation>Match the exact label path <literal>foo</literal></lineannotation>
+*.foo.*     <lineannotation>Match any label path containing the label <literal>foo</literal></lineannotation>
+*.foo       <lineannotation>Match any label path whose last label is <literal>foo</literal></lineannotation>␟foo         <lineannotation>正確に<literal>foo</literal>というラベル経路に一致します。</lineannotation>
+*.foo.*     <lineannotation><literal>foo</literal>というラベルを含むラベル経路すべてに一致します。</lineannotation>
+*.foo       <lineannotation><literal>foo</literal>というラベルで終わるラベル経路すべてに一致します。</lineannotation>␞␞</synopsis>␞
+␝    <para>␟     Both star symbols and simple words can be quantified to restrict how many
+     labels they can match:␟スター記号と単一の単語のどちらも一致可能なラベル数を制限するために量指定を行うことができます。␞␞<synopsis>␞
+␝<synopsis>␟*{<replaceable>n</replaceable>}        <lineannotation>Match exactly <replaceable>n</replaceable> labels</lineannotation>
+*{<replaceable>n</replaceable>,}       <lineannotation>Match at least <replaceable>n</replaceable> labels</lineannotation>
+*{<replaceable>n</replaceable>,<replaceable>m</replaceable>}      <lineannotation>Match at least <replaceable>n</replaceable> but not more than <replaceable>m</replaceable> labels</lineannotation>
+*{,<replaceable>m</replaceable>}       <lineannotation>Match at most <replaceable>m</replaceable> labels &mdash; same as </lineannotation>*{0,<replaceable>m</replaceable>}
+foo{<replaceable>n</replaceable>,<replaceable>m</replaceable>}    <lineannotation>Match at least <replaceable>n</replaceable> but not more than <replaceable>m</replaceable> occurrences of <literal>foo</literal></lineannotation>
+foo{,}      <lineannotation>Match any number of occurrences of <literal>foo</literal>, including zero</lineannotation>␟*{<replaceable>n</replaceable>}        <lineannotation>正確に<replaceable>n</replaceable>個のラベルに一致します。</lineannotation>
+*{<replaceable>n</replaceable>,}       <lineannotation>少なくとも<replaceable>n</replaceable>個のラベルに一致します。</lineannotation>
+*{<replaceable>n</replaceable>,<replaceable>m</replaceable>}      <lineannotation>少なくとも<replaceable>n</replaceable>個に一致し、多くても<replaceable>m</replaceable>個を超えないラベルに一致します。</lineannotation>
+*{,<replaceable>m</replaceable>}       <lineannotation>最大<replaceable>m</replaceable>個のラベルに一致します。つまりと次と同じです。</lineannotation>*{0,<replaceable>m</replaceable>}
+foo{<replaceable>n</replaceable>,<replaceable>m</replaceable>}    <lineannotation>少なくとも<replaceable>n</replaceable>個に一致し、多くても<replaceable>m</replaceable>個を超えない<literal>foo</literal>に一致します。</lineannotation>
+foo{,}      <lineannotation>ゼロを含む任意の数の<literal>foo</literal>に一致します。</lineannotation>␞␞</synopsis>␞
+␝</synopsis>␟     In the absence of any explicit quantifier, the default for a star symbol
+     is to match any number of labels (that is, <literal>{,}</literal>) while
+     the default for a non-star item is to match exactly once (that
+     is, <literal>{1}</literal>).␟明示的な量指定子が存在しなければ、スター記号に対するデフォルトは任意の数のラベルに一致(つまり<literal>{,}</literal>)である一方、非スター項目に対するデフォルトは正確に1回(つまり<literal>{1}</literal>)です。␞␞    </para>␞
+␝    <para>␟     There are several modifiers that can be put at the end of a non-star
+     <type>lquery</type> item to make it match more than just the exact match:␟単なる正確な一致以上の一致を行うために、スターでない<type>lquery</type>項目の終端に記述できる複数の修飾子が存在します。␞␞<synopsis>␞
+␝<synopsis>␟@           <lineannotation>Match case-insensitively, for example <literal>a@</literal> matches <literal>A</literal></lineannotation>
+*           <lineannotation>Match any label with this prefix, for example <literal>foo*</literal> matches <literal>foobar</literal></lineannotation>
+%           <lineannotation>Match initial underscore-separated words</lineannotation>␟@           <lineannotation>大文字小文字を区別しない一致。例えば<literal>a@</literal>は<literal>A</literal>に一致します。</lineannotation>
+*           <lineannotation>この接頭辞を持つすべてのラベルに一致。例えば<literal>foo*</literal>は<literal>foobar</literal>に一致します。</lineannotation>
+%           <lineannotation>最初のアンダースコアで区切られた単語に一致。</lineannotation>␞␞</synopsis>␞
+␝</synopsis>␟     The behavior of <literal>%</literal> is a bit complicated.  It tries to match
+     words rather than the entire label.  For example
+     <literal>foo_bar%</literal> matches <literal>foo_bar_baz</literal> but not
+     <literal>foo_barbaz</literal>.  If combined with <literal>*</literal>, prefix
+     matching applies to each word separately, for example
+     <literal>foo_bar%*</literal> matches <literal>foo1_bar2_baz</literal> but
+     not <literal>foo1_br2_baz</literal>.␟<literal>%</literal>の動作は多少複雑です。
+ラベル全体ではなく単語一致を試みます。
+例えば<literal>foo_bar%</literal>は<literal>foo_bar_baz</literal>に一致しますが<literal>foo_barbaz</literal>に一致しません。
+<literal>*</literal>と組み合わせる場合、接頭辞一致が各単語ごとに適用されます。
+例えば<literal>foo_bar%*</literal>は<literal>foo1_bar2_baz</literal>に一致しますが、<literal>foo1_br2_baz</literal>に一致しません。␞␞    </para>␞
+␝    <para>␟     Also, you can write several possibly-modified non-star items separated with
+     <literal>|</literal> (OR) to match any of those items, and you can put
+     <literal>!</literal> (NOT) at the start of a non-star group to match any
+     label that doesn't match any of the alternatives.  A quantifier, if any,
+     goes at the end of the group; it means some number of matches for the
+     group as a whole (that is, some number of labels matching or not matching
+     any of the alternatives).␟また、項目のいずれかに一致させるために<literal>|</literal>（論理和）で区切って、修飾子が付いているかもしれない複数の非スター項目を記述することもできます。
+さらに、非スターグループ先頭に<literal>!</literal> (否定)を記述して選択肢のいずれにも一致しないすべてのラベルに一致させることもできます。
+もしあれば、量指定子はグループの最後になります。これはグループ全体として一致する数を意味します(すなわち、一致するラベルの数、または、選択肢のいずれにも一致しない数です)。␞␞    </para>␞
+␝    <para>␟     Here's an annotated example of <type>lquery</type>:␟以下に注釈付きの<type>lquery</type>の例を示します。␞␞<programlisting>␞
+␝</programlisting>␟     This query will match any label path that:␟この問い合わせは以下のようなラベルに一致します。␞␞    </para>␞
+␝      <para>␟       begins with the label <literal>Top</literal>␟<literal>Top</literal>ラベルから始まる。␞␞      </para>␞
+␝      <para>␟       and next has zero to two labels before␟次いで0から2個のラベルを持つ。␞␞      </para>␞
+␝      <para>␟       a label beginning with the case-insensitive prefix <literal>sport</literal>␟直後に<literal>sport</literal>接頭辞（大文字小文字の区別無）から始まるラベルを持つ。␞␞      </para>␞
+␝      <para>␟       then has one or more labels, none of which
+       match <literal>football</literal> nor <literal>tennis</literal>␟そして、<literal>football</literal>にも<literal>tennis</literal>にも一致しない1つ以上のラベルを持つ。␞␞      </para>␞
+␝      <para>␟       and then ends with a label beginning with <literal>Russ</literal> or
+       exactly matching <literal>Spain</literal>.␟<literal>Russ</literal>から始まる、または、正確に<literal>Spain</literal>に一致するラベルで終わる。␞␞      </para>␞
+␝   <listitem>␟    <para><type>ltxtquery</type> represents a full-text-search-like
+    pattern for matching <type>ltree</type> values.  An
+    <type>ltxtquery</type> value contains words, possibly with the
+    modifiers <literal>@</literal>, <literal>*</literal>, <literal>%</literal> at the end;
+    the modifiers have the same meanings as in <type>lquery</type>.
+    Words can be combined with <literal>&amp;</literal> (AND),
+    <literal>|</literal> (OR), <literal>!</literal> (NOT), and parentheses.
+    The key difference from
+    <type>lquery</type> is that <type>ltxtquery</type> matches words without
+    regard to their position in the label path.␟    <para>
+<type>ltxtquery</type>は<type>ltree</type>値に対する全文検索のようなパターンを表します。
+<type>ltxtquery</type>値は、おそらく最後に<literal>@</literal>、<literal>*</literal>、<literal>%</literal>修飾子を持った単語からなります。
+修飾子の意味は<type>lquery</type>と同じです。
+単語は<literal>&amp;</literal> (論理積)、<literal>|</literal> (論理和)、<literal>!</literal> (否定)、括弧を組み合わせることが可能です。
+主な<type>lquery</type>との違いは、<type>ltxtquery</type>はラベル経路上の位置を考慮せずに単語に一致することです。␞␞    </para>␞
+␝    <para>␟     Here's an example <type>ltxtquery</type>:␟<type>ltxtquery</type>の例を示します。␞␞<programlisting>␞
+␝</programlisting>␟     This will match paths that contain the label <literal>Europe</literal> and
+     any label beginning with <literal>Russia</literal> (case-insensitive),
+     but not paths containing the label <literal>Transportation</literal>.
+     The location of these words within the path is not important.
+     Also, when <literal>%</literal> is used, the word can be matched to any
+     underscore-separated word within a label, regardless of position.␟これは<literal>Europe</literal>ラベルと<literal>Russia</literal>（大文字小文字の区別無）から始まるラベルを含む経路に一致します。
+しかし、<literal>Transportation</literal>ラベルを含む経路は一致しません。
+経路内の単語の位置は重要ではありません。
+また、<literal>%</literal>が使用された場合、位置に関係なく、単語をラベル内のアンダースコアで区切られた何らかの単語に一致させることができます。␞␞    </para>␞
+␝  <para>␟   Note: <type>ltxtquery</type> allows whitespace between symbols, but
+   <type>ltree</type> and <type>lquery</type> do not.␟注意：<type>ltxtquery</type>ではシンボルの間に空白を入れることができますが、<type>ltree</type>と<type>lquery</type>ではできません。␞␞  </para>␞
+␝ <sect2 id="ltree-ops-funcs">␟  <title>Operators and Functions</title>␟  <title>演算子と関数</title>␞␞␞
+␝  <para>␟   Type <type>ltree</type> has the usual comparison operators
+   <literal>=</literal>, <literal>&lt;&gt;</literal>,
+   <literal>&lt;</literal>, <literal>&gt;</literal>, <literal>&lt;=</literal>, <literal>&gt;=</literal>.
+   Comparison sorts in the order of a tree traversal, with the children
+   of a node sorted by label text.  In addition, the specialized
+   operators shown in <xref linkend="ltree-op-table"/> are available.␟<type>ltree</type>型は、通常の比較演算子<literal>=</literal>、<literal>&lt;&gt;</literal>、<literal>&lt;</literal>、<literal>&gt;</literal>、<literal>&lt;=</literal>、<literal>&gt;=</literal>を持ちます。
+比較では、ツリーの巡回順でソートされ、ノードの子要素はラベルテキストでソートされます。
+さらに、<xref linkend="ltree-op-table"/>に示す特殊な演算子が使用可能です。␞␞  </para>␞
+␝  <table id="ltree-op-table">␟   <title><type>ltree</type> Operators</title>␟   <title><type>ltree</type>演算子</title>␞␞    <tgroup cols="1">␞
+␝       <entry role="func_table_entry"><para role="func_signature">␟        Operator␟        演算子␞␞       </para>␞
+␝       <para>␟        Description␟        説明␞␞       </para></entry>␞
+␝       <para>␟        Is left argument an ancestor of right (or equal)?␟左辺の引数が右辺の祖先要素（か同じ）かどうか？␞␞       </para></entry>␞
+␝       <para>␟        Is left argument a descendant of right (or equal)?␟左辺の引数が右辺の子孫要素（か同じ）かどうか？␞␞       </para></entry>␞
+␝       <para>␟        Does <type>ltree</type> match <type>lquery</type>?␟<type>ltree</type>が<type>lquery</type>に一致するかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Does <type>ltree</type> match any <type>lquery</type> in array?␟<type>ltree</type>が配列内のいずれかの<type>lquery</type>に一致するかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Does <type>ltree</type> match <type>ltxtquery</type>?␟<type>ltree</type>が<type>ltxtquery</type>に一致するかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Concatenates <type>ltree</type> paths.␟<type>ltree</type>経路を連結します。␞␞       </para></entry>␞
+␝       <para>␟        Converts text to <type>ltree</type> and concatenates.␟テキストを<type>ltree</type>に変換し、連結します。␞␞       </para></entry>␞
+␝       <para>␟        Does array contain an ancestor of <type>ltree</type>?␟配列に<type>ltree</type>の祖先要素が含まれるかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Does array contain a descendant of <type>ltree</type>?␟配列に<type>ltree</type>の子孫要素が含まれるかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Does array contain any path matching <type>lquery</type>?␟配列に<type>lquery</type>に一致する経路が含まれるかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Does <type>ltree</type> array contain any path matching
+        any <type>lquery</type>?␟<type>ltree</type>配列にいずれかの<type>lquery</type>に一致する経路が含まれるかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Does array contain any path matching <type>ltxtquery</type>?␟配列に<type>ltxtquery</type>に一致する経路が含まれるかどうか？␞␞       </para></entry>␞
+␝       <para>␟        Returns first array entry that is an ancestor of <type>ltree</type>,
+        or <literal>NULL</literal> if none.␟<type>ltree</type>の祖先要素となる配列内の最初の要素を、存在しなければ<literal>NULL</literal>を返します。␞␞       </para></entry>␞
+␝       <para>␟        Returns first array entry that is a descendant of <type>ltree</type>,
+        or <literal>NULL</literal> if none.␟<type>ltree</type>の子孫要素となる配列内の最初の要素を、存在しなければ<literal>NULL</literal>を返します。␞␞       </para></entry>␞
+␝       <para>␟        Returns first array entry that matches <type>lquery</type>,
+        or <literal>NULL</literal> if none.␟<type>lquery</type>に一致する配列内の最初の要素を、存在しなければ<literal>NULL</literal>を返します。␞␞       </para></entry>␞
+␝       <para>␟        Returns first array entry that matches <type>ltxtquery</type>,
+        or <literal>NULL</literal> if none.␟<type>ltxtquery</type>に一致する配列内の最初の要素を、存在しなければ<literal>NULL</literal>を返します。␞␞       </para></entry>␞
+␝  <para>␟   The operators <literal>&lt;@</literal>, <literal>@&gt;</literal>,
+   <literal>@</literal> and <literal>~</literal> have analogues
+   <literal>^&lt;@</literal>, <literal>^@&gt;</literal>, <literal>^@</literal>,
+   <literal>^~</literal>, which are the same except they do not use
+   indexes.  These are useful only for testing purposes.␟演算子<literal>&lt;@</literal>、<literal>@&gt;</literal>、<literal>@</literal>、<literal>~</literal>には類似の演算子<literal>^&lt;@</literal>、<literal>^@&gt;</literal>、<literal>^@</literal>、<literal>^~</literal>があります。
+後者はインデックスを使用しない点を除き、同一です。
+後者は試験の際にだけ役に立ちます。␞␞  </para>␞
+␝  <para>␟   The available functions are shown in <xref linkend="ltree-func-table"/>.␟使用可能な関数を<xref linkend="ltree-func-table"/>に示します。␞␞  </para>␞
+␝  <table id="ltree-func-table">␟   <title><type>ltree</type> Functions</title>␟   <title><type>ltree</type>関数</title>␞␞    <tgroup cols="1">␞
+␝       <entry role="func_table_entry"><para role="func_signature">␟        Function␟        関数␞␞       </para>␞
+␝       <para>␟        Description␟        説明␞␞       </para>␞
+␝       <para>␟        Example(s)␟        例␞␞       </para></entry>␞
+␝       <para>␟        Returns subpath of <type>ltree</type> from
+        position <parameter>start</parameter> to
+        position <parameter>end</parameter>-1 (counting from 0).␟<parameter>start</parameter>位置から<parameter>end</parameter>-1位置までの<type>ltree</type>の部分経路を返します（位置は0から始まります）。␞␞       </para>␞
+␝       <para>␟        Returns subpath of <type>ltree</type> starting at
+        position <parameter>offset</parameter>, with
+        length <parameter>len</parameter>.  If <parameter>offset</parameter>
+        is negative, subpath starts that far from the end of the path.
+        If <parameter>len</parameter> is negative, leaves that many labels off
+        the end of the path.␟<parameter>offset</parameter>位置から<parameter>len</parameter>個の<type>ltree</type>の部分経路を返します。
+<parameter>offset</parameter>が負の場合、部分経路は経路の終端から数えた位置から始まります。
+<parameter>len</parameter>が負の場合、経路の終端から指定個のラベルを除きます。␞␞       </para>␞
+␝       <para>␟        Returns subpath of <type>ltree</type> starting at
+        position <parameter>offset</parameter>, extending to end of path.
+        If <parameter>offset</parameter> is negative, subpath starts that far
+        from the end of the path.␟<parameter>offset</parameter>位置から経路の終端までの<type>ltree</type>の部分経路を返します。
+<parameter>offset</parameter>が負の場合、部分経路は経路の終端から数えた位置から始まります。␞␞       </para>␞
+␝       <para>␟        Returns number of labels in path.␟経路内のラベル数を返します。␞␞       </para>␞
+␝       <para>␟        Returns position of first occurrence of <parameter>b</parameter> in
+        <parameter>a</parameter>, or -1 if not found.␟<parameter>a</parameter>内で<parameter>b</parameter>が最初に出現する位置を、存在しなければ-1を返します。␞␞       </para>␞
+␝       <para>␟        Returns position of first occurrence of <parameter>b</parameter>
+        in <parameter>a</parameter>, or -1 if not found.  The search starts at
+        position <parameter>offset</parameter>;
+        negative <parameter>offset</parameter> means
+        start <parameter>-offset</parameter> labels from the end of the path.␟<parameter>a</parameter>内で<parameter>b</parameter>が最初に出現する位置を、存在しなければ-1を返します。
+検索は<parameter>offset</parameter>から始まります。負の<parameter>offset</parameter>は経路終端から<parameter>-offset</parameter>ラベルから検索を始めることを意味します。␞␞       </para>␞
+␝       <para>␟        Casts <type>text</type> to <type>ltree</type>.␟<type>text</type>を<type>ltree</type>にキャストします。␞␞       </para></entry>␞
+␝       <para>␟        Casts <type>ltree</type> to <type>text</type>.␟<type>ltree</type>を<type>text</type>にキャストします。␞␞       </para></entry>␞
+␝       <para>␟        Computes longest common ancestor of paths
+        (up to 8 arguments are supported).␟経路で共通する最長接頭辞を計算します（最大8個の引数をサポートします）。␞␞       </para>␞
+␝       <para>␟        Computes longest common ancestor of paths in array.␟配列内の経路で共通する最長接頭辞を計算します。␞␞       </para>␞
+␝ <sect2 id="ltree-indexes">␟  <title>Indexes</title>␟  <title>インデックス</title>␞␞  <para>␞
+␝  <para>␟   <filename>ltree</filename> supports several types of indexes that can speed
+   up the indicated operators:␟<filename>ltree</filename>は、以下で示された演算子を高速化できる、複数種類のインデックスをサポートします。␞␞  </para>␞
+␝    <para>␟     B-tree index over <type>ltree</type>:
+     <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
+     <literal>&gt;=</literal>, <literal>&gt;</literal>␟<type>ltree</type>に対するB-treeインデックス：<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>=</literal>、<literal>&gt;=</literal>、<literal>&gt;</literal>␞␞    </para>␞
+␝    <para>␟     Hash index over <type>ltree</type>:
+     <literal>=</literal>␟<type>ltree</type>に対するハッシュインデックス：
+<literal>=</literal>␞␞    </para>␞
+␝    <para>␟     GiST index over <type>ltree</type> (<literal>gist_ltree_ops</literal>
+     opclass):
+     <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
+     <literal>&gt;=</literal>, <literal>&gt;</literal>,
+     <literal>@&gt;</literal>, <literal>&lt;@</literal>,
+     <literal>@</literal>, <literal>~</literal>, <literal>?</literal>␟<type>ltree</type>に対するGiSTインデックス(<literal>gist_ltree_ops</literal>演算子クラス)：
+<literal>&lt;</literal>、<literal>&lt;=</literal>、<literal>=</literal>、<literal>&gt;=</literal>、<literal>&gt;</literal>、<literal>@&gt;</literal>、<literal>&lt;@</literal>、<literal>@</literal>、<literal>~</literal>、<literal>?</literal>␞␞    </para>␞
+␝    <para>␟     <literal>gist_ltree_ops</literal> GiST opclass approximates a set of
+     path labels as a bitmap signature.  Its optional integer parameter
+     <literal>siglen</literal> determines the
+     signature length in bytes.  The default signature length is 8 bytes.
+     The length must be a positive multiple of <type>int</type> alignment
+     (4 bytes on most machines)) up to 2024.  Longer
+     signatures lead to a more precise search (scanning a smaller fraction of the index and
+     fewer heap pages), at the cost of a larger index.␟<literal>gist_ltree_ops</literal> GiST演算子クラスは経路ラベルの集合をビットマップ署名として近似します。
+オプションの整数パラメータ<literal>siglen</literal>は、署名の長さをバイト単位で決定します。
+デフォルトの署名の長さは8バイトです。
+長さは、<type>int</type>整列(ほとんどのマシンで4バイト)の正の倍数であり、最大で2024であることが必要です。
+長い署名では、インデックスはより大きくなってしまいますが、(インデックスのより小さな部分とより少ないヒープページをスキャンすることで)検索がより正確になります。␞␞    </para>␞
+␝    <para>␟     Example of creating such an index with the default signature length of 8 bytes:␟デフォルトの署名の長さが8バイトのインデックスを作成する例。␞␞    </para>␞
+␝    <para>␟     Example of creating such an index with a signature length of 100 bytes:␟署名の長さが100バイトのインデックスを作成する例。␞␞    </para>␞
+␝    <para>␟     GiST index over <type>ltree[]</type> (<literal>gist__ltree_ops</literal>
+     opclass):
+     <literal>ltree[] &lt;@ ltree</literal>, <literal>ltree @&gt; ltree[]</literal>,
+     <literal>@</literal>, <literal>~</literal>, <literal>?</literal>␟<type>ltree[]</type>に対するGiSTインデックス（<literal>gist__ltree_ops</literal>演算子クラス）：<literal>ltree[] &lt;@ ltree</literal>、<literal>ltree @&gt; ltree[]</literal>、<literal>@</literal>、<literal>~</literal>、<literal>?</literal>␞␞    </para>␞
+␝    <para>␟     <literal>gist__ltree_ops</literal> GiST opclass works similarly to
+     <literal>gist_ltree_ops</literal> and also takes signature length as
+     a parameter.  The default value of <literal>siglen</literal> in
+      <literal>gist__ltree_ops</literal> is 28 bytes.␟<literal>gist__ltree_ops</literal> GiST演算子クラスは<literal>gist_ltree_ops</literal>と同じように動作しますが、署名の長さをパラメータとして取ります。
+<literal>gist__ltree_ops</literal>での<literal>siglen</literal>のデフォルトの値は28バイトです。␞␞    </para>␞
+␝    <para>␟     Example of creating such an index with the default signature length of 28 bytes:␟デフォルトの署名の長さが28バイトのインデックスを作成する例。␞␞    </para>␞
+␝    <para>␟     Example of creating such an index with a signature length of 100 bytes:␟署名の長さが100バイトのインデックスを作成する例。␞␞    </para>␞
+␝    <para>␟     Note: This index type is lossy.␟注意：この種類のインデックスは非可逆です。␞␞    </para>␞
+␝ <sect2 id="ltree-example">␟  <title>Example</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   This example uses the following data (also available in file
+   <filename>contrib/ltree/ltreetest.sql</filename> in the source distribution):␟この例は、後述のデータを使用します（ソース配布内の<filename>contrib/ltree/ltreetest.sql</filename>ファイルでも利用可能です）。␞␞  </para>␞
+␝  <para>␟   Now, we have a table <structname>test</structname> populated with data describing
+   the hierarchy shown below:␟これで、以下の階層を記述するデータが投入された<structname>test</structname>テーブルができます。␞␞  </para>␞
+␝  <para>␟   We can do inheritance:␟継承を行うことができます。␞␞<screen>␞
+␝  <para>␟   Here are some examples of path matching:␟経路一致の例をいくつか示します。␞␞<screen>␞
+␝  <para>␟   Here are some examples of full text search:␟全文検索の例をいくつか示します。␞␞<screen>␞
+␝  <para>␟   Path construction using functions:␟関数を使用した経路構築の例です。␞␞<screen>␞
+␝  <para>␟   We could simplify this by creating an SQL function that inserts a label
+   at a specified position in a path:␟経路内の位置にラベルを挿入するSQL関数を作成することで、これを簡略化することができます。␞␞<screen>␞
+␝ <sect2 id="ltree-transforms">␟  <title>Transforms</title>␟  <title>変換</title>␞␞␞
+␝  <para>␟   The <literal>ltree_plpython3u</literal> extension implements transforms for
+   the <type>ltree</type> type for PL/Python. If installed and specified when
+   creating a function, <type>ltree</type> values are mapped to Python lists.
+   (The reverse is currently not supported, however.)␟<literal>ltree_plpython3u</literal>拡張は、PL/Python用の<type>ltree</type>型の変換を実装します。
+関数を作成するときにこの変換をインストールして指定していれば、<type>ltree</type>の値はPythonのリストにマップされます。
+(しかしながら、その逆は今のところサポートされていません。)␞␞  </para>␞
+␝   <para>␟    It is strongly recommended that the transform extension be installed in
+    the same schema as <filename>ltree</filename>.  Otherwise there are
+    installation-time security hazards if a transform extension's schema
+    contains objects defined by a hostile user.␟変換の拡張は<filename>ltree</filename>と同じスキーマにインストールすることを強く勧めます。
+さもないと、変換の拡張のスキーマが悪意のあるユーザにより定義されたオブジェクトを含んでいた場合に、インストール時のセキュリティ問題になります。␞␞   </para>␞
+␝ <sect2 id="ltree-authors">␟  <title>Authors</title>␟  <title>作者</title>␞␞␞
+␝  <para>␟   All work was done by Teodor Sigaev (<email>teodor@stack.net</email>) and
+   Oleg Bartunov (<email>oleg@sai.msu.su</email>). See
+   <ulink url="http://www.sai.msu.su/~megera/postgres/gist/"></ulink> for
+   additional information. Authors would like to thank Eugeny Rodichev for
+   helpful discussions. Comments and bug reports are welcome.␟開発はすべてTeodor Sigaev (<email>teodor@stack.net</email>)とOleg Bartunov (<email>oleg@sai.msu.su</email>)によりなされました。
+さらなる情報については<ulink url="http://www.sai.msu.su/~megera/postgres/gist/"></ulink>を参照してください。
+作者は有用な議論を行ったEugeny Rodichevに感謝しています。
+コメントや不具合報告を歓迎します。␞␞  </para>␞

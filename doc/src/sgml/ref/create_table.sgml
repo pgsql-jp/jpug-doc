@@ -70,17 +70,17 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
 <phrase>ここで<replaceable class="parameter">column_constraint</replaceable>は以下の通りです。</phrase>
 
 [ CONSTRAINT <replaceable class="parameter">constraint_name</replaceable> ]
-{ NOT NULL |
+{ NOT NULL [ NO INHERIT ]  |
   NULL |
   CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ] |
   DEFAULT <replaceable>default_expr</replaceable> |
-  GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED |
+  GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) [ STORED | VIRTUAL ] |
   GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY [ ( <replaceable>sequence_options</replaceable> ) ] |
   UNIQUE [ NULLS [ NOT ] DISTINCT ] <replaceable class="parameter">index_parameters</replaceable> |
   PRIMARY KEY <replaceable class="parameter">index_parameters</replaceable> |
   REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ]
     [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
-[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ] [ ENFORCED | NOT ENFORCED ]
 
 <!--
 <phrase>and <replaceable class="parameter">table_constraint</replaceable> is:</phrase>
@@ -89,13 +89,14 @@ CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXI
 
 [ CONSTRAINT <replaceable class="parameter">constraint_name</replaceable> ]
 { CHECK ( <replaceable class="parameter">expression</replaceable> ) [ NO INHERIT ] |
-  UNIQUE [ NULLS [ NOT ] DISTINCT ] ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> |
-  PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> |
+  NOT NULL <replaceable class="parameter">column_name</replaceable> [ NO INHERIT ] |
+  UNIQUE [ NULLS [ NOT ] DISTINCT ] ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, <replaceable class="parameter">column_name</replaceable> WITHOUT OVERLAPS ] ) <replaceable class="parameter">index_parameters</replaceable> |
+  PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, <replaceable class="parameter">column_name</replaceable> WITHOUT OVERLAPS ] ) <replaceable class="parameter">index_parameters</replaceable> |
   EXCLUDE [ USING <replaceable class="parameter">index_method</replaceable> ] ( <replaceable class="parameter">exclude_element</replaceable> WITH <replaceable class="parameter">operator</replaceable> [, ... ] ) <replaceable class="parameter">index_parameters</replaceable> [ WHERE ( <replaceable class="parameter">predicate</replaceable> ) ] |
-  FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] ) REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] ) ]
+  FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, PERIOD <replaceable class="parameter">column_name</replaceable> ] ) REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] [, PERIOD <replaceable class="parameter">refcolumn</replaceable> ] ) ]
     [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE <replaceable
 class="parameter">referential_action</replaceable> ] [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ] }
-[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+[ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ] [ ENFORCED | NOT ENFORCED ]
 
 <!--
 <phrase>and <replaceable class="parameter">like_option</replaceable> is:</phrase>
@@ -312,6 +313,13 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
 -->
 これを指定すると、(ID列またはシリアル列用の)ログを取らないテーブルと一緒に作成されたシーケンスも、ログを取らないものとして作成されます。
      </para>
+
+     <para>
+<!--
+      This form is not supported for partitioned tables.
+-->
+《機械翻訳》«This form is not supported for partitioned tables.»
+     </para>
     </listitem>
    </varlistentry>
 
@@ -350,27 +358,23 @@ WITH ( MODULUS <replaceable class="parameter">numeric_literal</replaceable>, REM
      <para>
 <!--
       Creates a <firstterm>typed table</firstterm>, which takes its
-      structure from the specified composite type (name optionally
-      schema-qualified).  A typed table is tied to its type; for
-      example the table will be dropped if the type is dropped
-      (with <literal>DROP TYPE ... CASCADE</literal>).
+      structure from the specified stand-alone composite type (that is,
+      one created using <xref linkend="sql-createtype"/>) though it still
+      produces a new composite type as well.  The table will have a
+      dependency on the referenced type, meaning that cascaded alter and
+      drop actions on that type will propagate to the table.
 -->
-指定した複合型(スキーマ修飾可能)から構造を取り出した<firstterm>型付きテーブル</firstterm>を作成します。
-型付きテーブルはその型に束縛されます。
-例えば、型が(<literal>DROP TYPE ... CASCADE</literal>で)削除されるとそのテーブルは削除されます。
+《機械翻訳》«Creates a <firstterm>typed table</firstterm>, which takes its structure from the specified stand-alone composite type (that is, one created using <xref linkend="sql-createtype"/>) though it still produces a new composite type as well. The table will have a dependency on the referenced type, meaning that cascaded alter and drop actions on that type will propagate to the table.»
      </para>
 
      <para>
 <!--
-      When a typed table is created, then the data types of the
-      columns are determined by the underlying composite type and are
-      not specified by the <literal>CREATE TABLE</literal> command.
+      A typed table always has the same column names and data types as the
+      type it is derived from, so you cannot specify additional columns.
       But the <literal>CREATE TABLE</literal> command can add defaults
-      and constraints to the table and can specify storage parameters.
+      and constraints to the table, as well as specify storage parameters.
 -->
-型付きテーブルが作成されると、その列のデータ型は背後の複合型により決定され、<literal>CREATE TABLE</literal>コマンドでは指定されません。
-しかし<literal>CREATE TABLE</literal>コマンドではテーブルにデフォルトと制約を追加できます。
-また、格納パラメータの指定も可能です。
+《機械翻訳》«A typed table always has the same column names and data types as the type it is derived from, so you cannot specify additional columns. But the <literal>CREATE TABLE</literal> command can add defaults and constraints to the table, as well as specify storage parameters.»
      </para>
     </listitem>
    </varlistentry>
@@ -1036,11 +1040,13 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
         <listitem>
          <para>
 <!--
-          Any generation expressions of copied column definitions will be
-          copied.  By default, new columns will be regular base columns.
+          Any generation expressions as well as the stored/virtual choice of
+          copied column definitions will be copied.  By default, new columns
+          will be regular base columns.
 -->
-コピーされた列定義の全ての生成式がコピーされます。
+《マッチ度[64.197531]》コピーされた列定義の全ての生成式がコピーされます。
 デフォルトでは新たな列は通常の基底列となります。
+《機械翻訳》«Any generation expressions as well as the stored/virtual choice of copied column definitions will be copied. By default, new columns will be regular base columns.»
          </para>
         </listitem>
        </varlistentry>
@@ -1165,13 +1171,21 @@ Bツリー演算子クラスがない場合はエラーが報告されます。
    </varlistentry>
 
    <varlistentry id="sql-createtable-parms-not-null">
-    <term><literal>NOT NULL</literal></term>
+    <term><literal>NOT NULL [ NO INHERIT ] </literal></term>
     <listitem>
      <para>
 <!--
       The column is not allowed to contain null values.
 -->
 その列がNULL値を持てないことを指定します。
+     </para>
+
+     <para>
+<!--
+      A constraint marked with <literal>NO INHERIT</literal> will not propagate to
+      child tables.
+-->
+<literal>NO INHERIT</literal>と印が付いた制約は子テーブルには伝搬しません。
      </para>
     </listitem>
    </varlistentry>
@@ -1238,7 +1252,8 @@ TRUEまたはUNKNOWNと評価される式は成功します。
       A constraint marked with <literal>NO INHERIT</literal> will not propagate to
       child tables.
 -->
-<literal>NO INHERIT</literal>と印が付いた制約は子テーブルには伝搬しません。
+《マッチ度[86.666667]》<literal>NO INHERIT</literal>と印が付いた制約は子テーブルには伝搬しません。
+《機械翻訳》«A constraint marked with <literal>NO INHERIT</literal> will not propagate to child tables.»
      </para>
 
      <para>
@@ -1287,7 +1302,7 @@ TRUEまたはUNKNOWNと評価される式は成功します。
    </varlistentry>
 
    <varlistentry id="sql-createtable-parms-generated-stored">
-    <term><literal>GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) STORED</literal><indexterm><primary>generated column</primary></indexterm></term>
+    <term><literal>GENERATED ALWAYS AS ( <replaceable>generation_expr</replaceable> ) [ STORED | VIRTUAL ]</literal><indexterm><primary>generated column</primary></indexterm></term>
     <listitem>
      <para>
 <!--
@@ -1301,10 +1316,13 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 
      <para>
 <!--
-      The keyword <literal>STORED</literal> is required to signify that the
-      column will be computed on write and will be stored on disk.
+      When <literal>VIRTUAL</literal> is specified, the column will be
+      computed when it is read, and it will not occupy any storage.  When
+      <literal>STORED</literal> is specified, the column will be computed on
+      write and will be stored on disk.  <literal>VIRTUAL</literal> is the
+      default.
 -->
-キーワード<literal>STORED</literal>は列が書き込み時に計算されてディスクに格納されることをあらわすのに必要とされます。
+《機械翻訳》«When <literal>VIRTUAL</literal> is specified, the column will be computed when it is read, and it will not occupy any storage. When <literal>STORED</literal> is specified, the column will be computed on write and will be stored on disk. <literal>VIRTUAL</literal> is the default.»
      </para>
 
      <para>
@@ -1316,6 +1334,18 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 生成式はそのテーブルの他の列を参照できますが、他の生成列は参照できません。
 使われる全ての関数と演算子はIMMUTABLEでなければなりません。
 他テーブルを参照することはできません。
+     </para>
+
+     <para>
+<!--
+      A virtual generated column cannot have a user-defined type, and the
+      generation expression of a virtual generated column must not reference
+      user-defined functions or types, that is, it can only use built-in
+      functions or types.  This applies also indirectly, such as for functions
+      or types that underlie operators or casts.  (This restriction does not
+      exist for stored generated columns.)
+-->
+《機械翻訳》«A virtual generated column cannot have a user-defined type, and the generation expression of a virtual generated column must not reference user-defined functions or types, that is, it can only use built-in functions or types. This applies also indirectly, such as for functions or types that underlie operators or casts. (This restriction does not exist for stored generated columns.)»
      </para>
     </listitem>
    </varlistentry>
@@ -1397,11 +1427,8 @@ TRUEまたはUNKNOWNと評価される式は成功します。
    </varlistentry>
 
    <varlistentry id="sql-createtable-parms-unique">
-<!--
     <term><literal>UNIQUE [ NULLS [ NOT ] DISTINCT ]</literal> (column constraint)</term>
--->
-    <term><literal>UNIQUE [ NULLS [ NOT ] DISTINCT ]</literal> (列制約)</term>
-    <term><literal>UNIQUE [ NULLS [ NOT ] DISTINCT ] ( <replaceable class="parameter">column_name</replaceable> [, ... ] )</literal>
+    <term><literal>UNIQUE [ NULLS [ NOT ] DISTINCT ] ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, <replaceable class="parameter">column_name</replaceable> WITHOUT OVERLAPS ] )</literal>
 <!--
     <optional> <literal>INCLUDE ( <replaceable class="parameter">column_name</replaceable> [, ...])</literal> </optional> (table constraint)</term>
 -->
@@ -1421,6 +1448,30 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 <literal>UNIQUE</literal>制約は、テーブルの1つまたは複数の列からなるグループが、一意な値のみを持つことができることを指定します。
 一意性テーブル制約の動作は一意性列制約と同じですが、さらに複数列にまたがる機能を持ちます。
 それゆえ、制約は2つの行はその列の少なくとも1つが異なることを強制します。
+     </para>
+
+     <para>
+<!--
+      If the <literal>WITHOUT OVERLAPS</literal> option is specified for the
+      last column, then that column is checked for overlaps instead of
+      equality.  In that case, the other columns of the constraint will allow
+      duplicates so long as the duplicates don't overlap in the
+      <literal>WITHOUT OVERLAPS</literal> column.  (This is sometimes called a
+      temporal key, if the column is a range of dates or timestamps, but
+      <productname>PostgreSQL</productname> allows ranges over any base type.)
+      In effect, such a constraint is enforced with an <literal>EXCLUDE</literal>
+      constraint rather than a <literal>UNIQUE</literal> constraint.  So for
+      example <literal>UNIQUE (id, valid_at WITHOUT OVERLAPS)</literal> behaves
+      like <literal>EXCLUDE USING GIST (id WITH =, valid_at WITH
+      &amp;&amp;)</literal>.  The <literal>WITHOUT OVERLAPS</literal> column
+      must have a range or multirange type.  Empty ranges/multiranges are
+      not permitted.  The non-<literal>WITHOUT OVERLAPS</literal> columns of
+      the constraint can be any type that can be compared for equality in a
+      GiST index.  By default, only range types are supported, but you can use
+      other types by adding the <xref linkend="btree-gist"/> extension (which
+      is the expected way to use this feature).
+-->
+《機械翻訳》«If the <literal>WITHOUT OVERLAPS</literal> option is specified for the last column, then that column is checked for overlaps instead of equality. In that case, the other columns of the constraint will allow duplicates so long as the duplicates don't overlap in the <literal>WITHOUT OVERLAPS</literal> column. (This is sometimes called a temporal key, if the column is a range of dates or timestamps, but <productname>PostgreSQL</productname> allows ranges over any base type.) In effect, such a constraint is enforced with an <literal>EXCLUDE</literal> constraint rather than a <literal>UNIQUE</literal> constraint. So for example <literal>UNIQUE (id, valid_at WITHOUT OVERLAPS)</literal> behaves like <literal>EXCLUDE USING GIST (id WITH =, valid_at WITH &amp;&amp;)</literal>. The <literal>WITHOUT OVERLAPS</literal> column must have a range or multirange type. Empty ranges/multiranges are not permitted. The non-<literal>WITHOUT OVERLAPS</literal> columns of the constraint can be any type that can be compared for equality in a GiST index. By default, only range types are supported, but you can use other types by adding the <xref linkend="btree-gist"/> extension (which is the expected way to use this feature).»
      </para>
 
      <para>
@@ -1456,11 +1507,14 @@ TRUEまたはUNKNOWNと評価される式は成功します。
      <para>
 <!--
       Adding a unique constraint will automatically create a unique btree
-      index on the column or group of columns used in the constraint.  The
-      created index has the same name as the unique constraint.
+      index on the column or group of columns used in the constraint.  But if
+      the constraint includes a <literal>WITHOUT OVERLAPS</literal> clause, it
+      will use a GiST index.  The created index has the same name as the
+      unique constraint.
 -->
-一意性制約を加えると、制約で使われている列や列のグループに一意性btreeインデックスが自動的に作られます。
+《マッチ度[62.837838]》一意性制約を加えると、制約で使われている列や列のグループに一意性btreeインデックスが自動的に作られます。
 作成されるインデックスは、一意性制約と同じ名前になります。
+《機械翻訳》«Adding a unique constraint will automatically create a unique btree index on the column or group of columns used in the constraint. But if the constraint includes a <literal>WITHOUT OVERLAPS</literal> clause, it will use a GiST index. The created index has the same name as the unique constraint.»
      </para>
 
      <para>
@@ -1483,11 +1537,8 @@ TRUEまたはUNKNOWNと評価される式は成功します。
    </varlistentry>
 
    <varlistentry id="sql-createtable-parms-primary-key">
-<!--
     <term><literal>PRIMARY KEY</literal> (column constraint)</term>
--->
-    <term><literal>PRIMARY KEY</literal> （列制約）</term>
-    <term><literal>PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] )</literal>
+    <term><literal>PRIMARY KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, <replaceable class="parameter">column_name</replaceable> WITHOUT OVERLAPS ] )</literal>
 <!--
     <optional> <literal>INCLUDE ( <replaceable class="parameter">column_name</replaceable> [, ...])</literal> </optional> (table constraint)</term>
 -->
@@ -1542,11 +1593,12 @@ TRUEまたはUNKNOWNと評価される式は成功します。
 <!--
       Adding a <literal>PRIMARY KEY</literal> constraint will automatically
       create a unique btree index on the column or group of columns used in
-      the constraint.  That index has the same name as the primary key
-      constraint.
+      the constraint, or GiST if <literal>WITHOUT OVERLAPS</literal> was
+      specified.
 -->
-<literal>PRIMARY KEY</literal>制約を追加すると、制約で使用する列や列のグループに一意性のbtreeインデックスが自動的に作られます。
+《マッチ度[65.437788]》<literal>PRIMARY KEY</literal>制約を追加すると、制約で使用する列や列のグループに一意性のbtreeインデックスが自動的に作られます。
 そのインデックスは、主キー制約と同じ名前になります。
+《機械翻訳》«Adding a <literal>PRIMARY KEY</literal> constraint will automatically create a unique btree index on the column or group of columns used in the constraint, or GiST if <literal>WITHOUT OVERLAPS</literal> was specified.»
      </para>
 
      <para>
@@ -1652,10 +1704,10 @@ predicateの前後に括弧が必要であることに注意して下さい。
       are not a part of any partition key, which can be compared using any
       appropriate operator.
 -->
-複数レベルのパーティション階層に対して排他制約を設定する場合は、対象パーティションテーブルのパーティションキーにあるすべての列が、そのすべての子孫テーブルパーティションの列と同様に、制約定義に含まれている必要があります。
+《機械翻訳》マルチ-レベルのパーティション階層に対して排他制約を設定する場合は、ターゲットのパーティションテーブルのパーティションキーにあるすべての列が、そのすべての子孫テーブルパーティションの列と同様に、制約定義に含まれている必要があります。
 さらに、これらの列は等価演算子を使用して比較する必要があります。
-これらの制限により、競合する可能性のある行が同じパーティションに存在することが保証されます。
-制約は、いずれのパーティションキーの一部ではない他の列を参照することもでき、適切な演算子を使用して比較できます。
+競合する可能性のある行が同じパーティションに存在するという保証の制限があります。
+制約は、いずれのパーティションキーのパートでもない他の列を参照することもでき、適切な演算子を使用して比較できます。
      </para>
     </listitem>
    </varlistentry>
@@ -1666,8 +1718,8 @@ predicateの前後に括弧が必要であることに注意して下さい。
 -->
     <term><literal>REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> ) ] [ MATCH <replaceable class="parameter">matchtype</replaceable> ] [ ON DELETE <replaceable class="parameter">action</replaceable> ] [ ON UPDATE <replaceable class="parameter">action</replaceable> ]</literal> （列制約）</term>
 
-   <term><literal>FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] )
-    REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] ) ]
+   <term><literal>FOREIGN KEY ( <replaceable class="parameter">column_name</replaceable> [, ... ] [, PERIOD <replaceable class="parameter">column_name</replaceable> ] )
+    REFERENCES <replaceable class="parameter">reftable</replaceable> [ ( <replaceable class="parameter">refcolumn</replaceable> [, ... ] [, PERIOD <replaceable class="parameter">refcolumn</replaceable> ] ) ]
     [ MATCH <replaceable class="parameter">matchtype</replaceable> ]
     [ ON DELETE <replaceable class="parameter">referential_action</replaceable> ]
     [ ON UPDATE <replaceable class="parameter">referential_action</replaceable> ]</literal>
@@ -1687,7 +1739,48 @@ predicateの前後に括弧が必要であることに注意して下さい。
       primary key of the <replaceable class="parameter">reftable</replaceable>
       is used.  Otherwise, the <replaceable class="parameter">refcolumn</replaceable>
       list must refer to the columns of a non-deferrable unique or primary key
-      constraint or be the columns of a non-partial unique index.  The user
+      constraint or be the columns of a non-partial unique index.
+-->
+《機械翻訳》«These clauses specify a foreign key constraint, which requires that a group of one or more columns of the new table must only contain values that match values in the referenced column(s) of some row of the referenced table. If the <replaceable class="parameter">refcolumn</replaceable> list is omitted, the primary key of the <replaceable class="parameter">reftable</replaceable> is used. Otherwise, the <replaceable class="parameter">refcolumn</replaceable> list must refer to the columns of a non-deferrable unique or primary key constraint or be the columns of a non-partial unique index.»
+     </para>
+
+     <para>
+<!--
+      If the last column is marked with <literal>PERIOD</literal>, it is
+      treated in a special way.  While the non-<literal>PERIOD</literal>
+      columns are compared for equality (and there must be at least one of
+      them), the <literal>PERIOD</literal> column is not.  Instead, the
+      constraint is considered satisfied if the referenced table has matching
+      records (based on the non-<literal>PERIOD</literal> parts of the key)
+      whose combined <literal>PERIOD</literal> values completely cover the
+      referencing record's.  In other words, the reference must have a
+      referent for its entire duration.  This column must be a range or
+      multirange type.  In addition, the referenced table must have a primary
+      key or unique constraint declared with <literal>WITHOUT
+      OVERLAPS</literal>. Finally, if the foreign key has a PERIOD
+      <replaceable class="parameter">column_name</replaceable> specification
+      the corresponding <replaceable class="parameter">refcolumn</replaceable>,
+      if present, must also be marked <literal>PERIOD</literal>.  If the
+      <replaceable class="parameter">refcolumn</replaceable> clause is omitted,
+      and thus the reftable's primary key constraint chosen, the primary key
+      must have its final column marked <literal>WITHOUT OVERLAPS</literal>.
+-->
+《機械翻訳》«If the last column is marked with <literal>PERIOD</literal>, it is treated in a special way. While the non-<literal>PERIOD</literal> columns are compared for equality (and there must be at least one of them), the <literal>PERIOD</literal> column is not. Instead, the constraint is considered satisfied if the referenced table has matching records (based on the non-<literal>PERIOD</literal> parts of the key) whose combined <literal>PERIOD</literal> values completely cover the referencing record's. In other words, the reference must have a referent for its entire duration. This column must be a range or multirange type. In addition, the referenced table must have a primary key or unique constraint declared with <literal>WITHOUT OVERLAPS</literal>. Finally, if the foreign key has a PERIOD <replaceable class="parameter">column_name</replaceable> specification the corresponding <replaceable class="parameter">refcolumn</replaceable>, if present, must also be marked <literal>PERIOD</literal>. If the <replaceable class="parameter">refcolumn</replaceable> clause is omitted, and thus the reftable's primary key constraint chosen, the primary key must have its final column marked <literal>WITHOUT OVERLAPS</literal>.»
+     </para>
+
+     <para>
+<!--
+      For each pair of referencing and referenced column, if they are of a
+      collatable data type, then the collations must either be both
+      deterministic or else both the same.  This ensures that both columns
+      have a consistent notion of equality.
+-->
+《機械翻訳》«For each pair of referencing and referenced column, if they are of a collatable data type, then the collations must either be both deterministic or else both the same. This ensures that both columns have a consistent notion of equality.»
+     </para>
+
+     <para>
+<!--
+      The user
       must have <literal>REFERENCES</literal> permission on the referenced
       table (either the whole table, or the specific referenced columns).  The
       addition of a foreign key constraint requires a
@@ -1695,14 +1788,7 @@ predicateの前後に括弧が必要であることに注意して下さい。
       Note that foreign key constraints cannot be defined between temporary
       tables and permanent tables.
 -->
-これらの句は、外部キー制約を指定します。
-外部キー制約は、新しいテーブルの1つまたは複数の列の集合が、被参照テーブルの一部の行の被参照列に一致する値を持たなければならないことを指定するものです。
-<replaceable class="parameter">refcolumn</replaceable>リストが省略された場合、<replaceable class="parameter">reftable</replaceable>の主キーが使用されます。
-そうでない場合、<replaceable class="parameter">refcolumn</replaceable>リストは遅延不可の一意性または主キー制約の列を参照するか、部分インデックスでない一意インデックスの列でなければなりません。
-被参照列は、被参照テーブルにおいて遅延不可の一意性制約もしくは主キー制約を持った列でなければなりません。
-ユーザは被参照テーブル（テーブル全体または特定の被参照列）について<literal>REFERENCES</literal>権限を持っていなければなりません。
-外部キー制約の追加は被参照テーブルに<literal>SHARE ROW EXCLUSIVE</literal>ロックを必要とします。
-一時テーブルと永続テーブルとの間で外部キー制約を定義できないことに注意してください。
+《機械翻訳》«The user must have <literal>REFERENCES</literal> permission on the referenced table (either the whole table, or the specific referenced columns). The addition of a foreign key constraint requires a <literal>SHARE ROW EXCLUSIVE</literal> lock on the referenced table. Note that foreign key constraints cannot be defined between temporary tables and permanent tables.»
      </para>
 
      <para>
@@ -1743,17 +1829,17 @@ predicateの前後に括弧が必要であることに注意して下さい。
       clause specifies the action to perform when a referenced column
       in the referenced table is being updated to a new value. If the
       row is updated, but the referenced column is not actually
-      changed, no action is done. Referential actions other than the
-      <literal>NO ACTION</literal> check cannot be deferred, even if
-      the constraint is declared deferrable. There are the following possible
-      actions for each clause:
+      changed, no action is done. Referential actions are executed as part of
+      the data changing command, even if the constraint is deferred.  There
+      are the following possible actions for each clause:
 -->
-さらに、被参照列のデータが変更された場合、このテーブルの列のデータに何らかの動作が発生します。
+《マッチ度[79.970972]》さらに、被参照列のデータが変更された場合、このテーブルの列のデータに何らかの動作が発生します。
 <literal>ON DELETE</literal>句は、被参照テーブルの被参照行が削除されようとした場合の動作を指定します。
 同様に<literal>ON UPDATE</literal>句は、被参照テーブルの被参照列が新しい値に更新されようとした場合の動作を指定します。
 行の更新があった場合でも、被参照列が実際に変更されない場合は、動作は実行されません。
 制約が遅延可能と宣言されていても、<literal>NO ACTION</literal>検査以外の参照動作は遅延させられません。
 各句について、以下の動作を指定可能です。
+《機械翻訳》«In addition, when the data in the referenced columns is changed, certain actions are performed on the data in this table's columns. The <literal>ON DELETE</literal> clause specifies the action to perform when a referenced row in the referenced table is being deleted. Likewise, the <literal>ON UPDATE</literal> clause specifies the action to perform when a referenced column in the referenced table is being updated to a new value. If the row is updated, but the referenced column is not actually changed, no action is done. Referential actions are executed as part of the data changing command, even if the constraint is deferred. There are the following possible actions for each clause:»
 
       <variablelist>
        <varlistentry id="sql-createtable-parms-references-refact-no-action">
@@ -1761,15 +1847,16 @@ predicateの前後に括弧が必要であることに注意して下さい。
         <listitem>
          <para>
 <!--
-          Produce an error indicating that the deletion or update
+          Produce an error if the deletion or update
           would create a foreign key constraint violation.
           If the constraint is deferred, this
           error will be produced at constraint check time if there still
           exist any referencing rows.  This is the default action.
 -->
-削除もしくは更新により外部キー制約違反が起こることを示すエラーを発生します。
+《マッチ度[73.577236]》削除もしくは更新により外部キー制約違反が起こることを示すエラーを発生します。
 制約が遅延可能な場合、何らかの参照行が存在する限り、このエラーは制約の検査時点で発生します。
 これはデフォルトの動作です。
+《機械翻訳》«Produce an error if the deletion or update would create a foreign key constraint violation. If the constraint is deferred, this error will be produced at constraint check time if there still exist any referencing rows. This is the default action.»
          </para>
         </listitem>
        </varlistentry>
@@ -1779,13 +1866,22 @@ predicateの前後に括弧が必要であることに注意して下さい。
         <listitem>
          <para>
 <!--
-          Produce an error indicating that the deletion or update
-          would create a foreign key constraint violation.
-          This is the same as <literal>NO ACTION</literal> except that
-          the check is not deferrable.
+          Produce an error if a row to be deleted or updated matches a row in
+          the referencing table.  This prevents the action even if the state
+          after the action would not violate the foreign key constraint.  In
+          particular, it prevents updates of referenced rows to values that
+          are distinct but compare as equal.  (But it does not prevent
+          <quote>no-op</quote> updates that update a column to the same
+          value.)
 -->
-削除もしくは更新が外部キー制約違反となることを示すエラーを発生します。
-検査が遅延できない点を除き、<literal>NO ACTION</literal>と同じです。
+《機械翻訳》«Produce an error if a row to be deleted or updated matches a row in the referencing table. This prevents the action even if the state after the action would not violate the foreign key constraint. In particular, it prevents updates of referenced rows to values that are distinct but compare as equal. (But it does not prevent <quote>no-op</quote> updates that update a column to the same value.)»
+         </para>
+
+         <para>
+<!--
+          In a temporal foreign key, this option is not supported.
+-->
+《機械翻訳》«In a temporal foreign key, this option is not supported.»
          </para>
         </listitem>
        </varlistentry>
@@ -1801,6 +1897,13 @@ predicateの前後に括弧が必要であることに注意して下さい。
 -->
 削除された行を参照している行は全て削除します。また、参照している列の値を、被参照列の新しい値にします。
          </para>
+
+         <para>
+<!--
+          In a temporal foreign key, this option is not supported.
+-->
+《機械翻訳》«In a temporal foreign key, this option is not supported.»
+         </para>
         </listitem>
        </varlistentry>
 
@@ -1815,6 +1918,13 @@ predicateの前後に括弧が必要であることに注意して下さい。
 -->
 すべての参照列または参照列の指定したサブセットをNULLに設定します。
 列のサブセットは、<literal>ON DELETE</literal>アクションに対してのみ指定できます。
+         </para>
+
+         <para>
+<!--
+          In a temporal foreign key, this option is not supported.
+-->
+《機械翻訳》«In a temporal foreign key, this option is not supported.»
          </para>
         </listitem>
        </varlistentry>
@@ -1833,6 +1943,13 @@ predicateの前後に括弧が必要であることに注意して下さい。
 すべての参照列または参照列の指定したサブセットをそのデフォルト値に設定します。
 列のサブセットは、<literal>ON DELETE</literal>アクションに対してのみ指定できます。
 （デフォルト値がNULLでない場合は被参照テーブルの中にデフォルト値に一致する行が存在しなければなりません。さもないと操作が失敗します。）
+         </para>
+
+         <para>
+<!--
+          In a temporal foreign key, this option is not supported.
+-->
+《機械翻訳》«In a temporal foreign key, this option is not supported.»
          </para>
         </listitem>
        </varlistentry>
@@ -1901,6 +2018,45 @@ predicateの前後に括弧が必要であることに注意して下さい。
 これがデフォルトです。
 制約が<literal>INITIALLY DEFERRED</literal>の場合、トランザクションの終了時にのみ検査されます。
 制約検査の時期は<link linkend="sql-set-constraints"><command>SET CONSTRAINTS</command></link>コマンドを使用して変更することができます。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="sql-createtable-parms-enforced">
+    <term><literal>ENFORCED</literal></term>
+    <term><literal>NOT ENFORCED</literal></term>
+    <listitem>
+     <para>
+<!--
+      When the constraint is <literal>ENFORCED</literal>, then the database
+      system will ensure that the constraint is satisfied, by checking the
+      constraint at appropriate times (after each statement or at the end of
+      the transaction, as appropriate).  That is the default.  If the
+      constraint is <literal>NOT ENFORCED</literal>, the database system will
+      not check the constraint.  It is then up to the application code to
+      ensure that the constraints are satisfied.  The database system might
+      still assume that the data actually satisfies the constraint for
+      optimization decisions where this does not affect the correctness of the
+      result.
+-->
+《機械翻訳》«When the constraint is <literal>ENFORCED</literal>, then the database system will ensure that the constraint is satisfied, by checking the constraint at appropriate times (after each statement or at the end of the transaction, as appropriate). That is the default. If the constraint is <literal>NOT ENFORCED</literal>, the database system will not check the constraint. It is then up to the application code to ensure that the constraints are satisfied. The database system might still assume that the data actually satisfies the constraint for optimization decisions where this does not affect the correctness of the result.»
+     </para>
+
+     <para>
+<!--
+      <literal>NOT ENFORCED</literal> constraints can be useful as
+      documentation if the actual checking of the constraint at run time is
+      too expensive.
+-->
+《機械翻訳》«<literal>NOT ENFORCED</literal> constraints can be useful as documentation if the actual checking of the constraint at run time is too expensive.»
+     </para>
+
+     <para>
+<!--
+      This is currently only supported for foreign key and <literal>CHECK</literal>
+      constraints.
+-->
+《機械翻訳》«This is currently only supported for foreign key and <literal>CHECK</literal> constraints.»
      </para>
     </listitem>
    </varlistentry>
@@ -2294,30 +2450,19 @@ falseの場合、トランザクションIDの周回問題を回避するため�
    <varlistentry id="reloption-vacuum-truncate" xreflabel="vacuum_truncate">
     <term><literal>vacuum_truncate</literal>, <literal>toast.vacuum_truncate</literal> (<type>boolean</type>)
     <indexterm>
-     <primary><varname>vacuum_truncate</varname> storage parameter</primary>
-    </indexterm>
-    <indexterm>
-     <primary><varname>vacuum_truncate</varname>格納パラメータ</primary>
+     <primary><varname>vacuum_truncate</varname></primary>
+     <secondary>storage parameter</secondary>
     </indexterm>
     </term>
     <listitem>
      <para>
 <!--
-      Enables or disables vacuum to try to truncate off any empty pages
-      at the end of this table. The default value is <literal>true</literal>.
-      If <literal>true</literal>, <command>VACUUM</command> and
-      autovacuum do the truncation and the disk space for
-      the truncated pages is returned to the operating system.
-      Note that the truncation requires <literal>ACCESS EXCLUSIVE</literal>
-      lock on the table. The <literal>TRUNCATE</literal> parameter
-      of <link linkend="sql-vacuum"><command>VACUUM</command></link>, if specified, overrides the value
-      of this option.
+      Per-table value for <xref linkend="guc-vacuum-truncate"/> parameter.  The
+      <literal>TRUNCATE</literal> parameter of
+      <link linkend="sql-vacuum"><command>VACUUM</command></link>, if
+      specified, overrides the value of this option.
 -->
-バキュームがテーブル末尾の空ページの切り捨てを試みることを、有効または無効にします。
-デフォルト値は<literal>true</literal>です。
-<literal>true</literal>の場合、<command>VACUUM</command>と自動バキュームは切り捨てを行い切り捨てられたページのディスク領域はオペレーティングシステムに返されます。
-切り捨てにはテーブルに<literal>ACCESS EXCLUSIVE</literal>ロックが必要であることに注意してください。
-<link linkend="sql-vacuum"><command>VACUUM</command></link>の<literal>TRUNCATE</literal>パラメータは、指定されていたなら本オプションを上書きします。
+《機械翻訳》«Per-table value for <xref linkend="guc-vacuum-truncate"/> parameter. The <literal>TRUNCATE</literal> parameter of <link linkend="sql-vacuum"><command>VACUUM</command></link>, if specified, overrides the value of this option.»
      </para>
     </listitem>
    </varlistentry>
@@ -2343,6 +2488,25 @@ falseの場合、トランザクションIDの周回問題を回避するため�
      </para>
     </listitem>
    </varlistentry>
+
+   <varlistentry id="reloption-autovacuum-vacuum-max-threshold" xreflabel="autovacuum_vacuum_max_threshold">
+    <term><literal>autovacuum_vacuum_max_threshold</literal>, <literal>toast.autovacuum_vacuum_max_threshold</literal> (<type>integer</type>)
+    <indexterm>
+     <primary><varname>autovacuum_vacuum_max_threshold</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
+   <listitem>
+    <para>
+<!--
+     Per-table value for <xref linkend="guc-autovacuum-vacuum-max-threshold"/>
+     parameter.
+-->
+《マッチ度[80.952381]》<xref linkend="guc-autovacuum-vacuum-threshold"/>パラメータについて、テーブル毎に設定する値です。
+《機械翻訳》«Per-table value for <xref linkend="guc-autovacuum-vacuum-max-threshold"/> parameter.»
+    </para>
+   </listitem>
+  </varlistentry>
 
    <varlistentry id="reloption-autovacuum-vacuum-scale-factor" xreflabel="autovacuum_vacuum_scale_factor">
     <term><literal>autovacuum_vacuum_scale_factor</literal>, <literal>toast.autovacuum_vacuum_scale_factor</literal> (<type>floating point</type>)
@@ -2658,6 +2822,25 @@ falseの場合、トランザクションIDの周回問題を回避するため�
       parameter.
 -->
 <xref linkend="guc-log-autovacuum-min-duration"/>パラメータについて、テーブル毎に設定する値です。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="reloption-vacuum-max-eager-freeze-failure-rate" xreflabel="vacuum_max_eager_freeze_failure_rate">
+    <term><literal>vacuum_max_eager_freeze_failure_rate</literal>, <literal>toast.vacuum_max_eager_freeze_failure_rate</literal> (<type>floating point</type>)
+    <indexterm>
+     <primary><varname>vacuum_max_eager_freeze_failure_rate</varname></primary>
+     <secondary>storage parameter</secondary>
+    </indexterm>
+    </term>
+    <listitem>
+     <para>
+<!--
+      Per-table value for <xref linkend="guc-vacuum-max-eager-freeze-failure-rate"/>
+      parameter.
+-->
+《マッチ度[70.786517]》<xref linkend="guc-vacuum-multixact-freeze-table-age"/>パラメータについて、テーブル毎に設定する値です。
+《機械翻訳》«Per-table value for <xref linkend="guc-vacuum-max-eager-freeze-failure-rate"/> parameter.»
      </para>
     </listitem>
    </varlistentry>
@@ -3366,17 +3549,6 @@ CREATE TABLE cities_partdef
 <productname>PostgreSQL</productname>はより緩やかで、制約名は特定のテーブルやドメインに付加された制約の中で一意であることだけが求められます。
 しかしながら、この追加的な自由はインデックスに基づく制約（<literal>UNIQUE</literal>、<literal>PRIMARY KEY</literal>、および<literal>EXCLUDE</literal>制約）にはありません。なぜなら、関連付けられたインデックスは制約と同じに命名されて、インデックス名は同スキーマ内の全てのリレーションの中で一意でなければならないからです。
    </para>
-
-   <para>
-<!--
-    Currently, <productname>PostgreSQL</productname> does not record names
-    for not-null constraints at all, so they are not
-    subject to the uniqueness restriction.  This might change in a future
-    release.
--->
-今のところ、<productname>PostgreSQL</productname>は非NULL制約の名前を全く記録しませんので、これらは一意性の制限の対象ではありません。
-これは将来のリリースで変更されるかもしれません。
-   </para>
   </refsect2>
 
   <refsect2>
@@ -3455,11 +3627,12 @@ SQL:1999以降では、異なる構文と意味体系による単一継承を定
 
    <para>
 <!--
-    The option <literal>STORED</literal> is not standard but is also used by
-    other SQL implementations.  The SQL standard does not specify the storage
-    of generated columns.
+    The options <literal>STORED</literal> and <literal>VIRTUAL</literal> are
+    not standard but are also used by other SQL implementations.  The SQL
+    standard does not specify the storage of generated columns.
 -->
-オプション<literal>STORED</literal>は標準ではありませんが他のSQL実装でも使われています。標準SQLは生成列の格納を規定していません。
+《マッチ度[75.124378]》オプション<literal>STORED</literal>は標準ではありませんが他のSQL実装でも使われています。標準SQLは生成列の格納を規定していません。
+《機械翻訳》«The options <literal>STORED</literal> and <literal>VIRTUAL</literal> are not standard but are also used by other SQL implementations. The SQL standard does not specify the storage of generated columns.»
    </para>
   </refsect2>
 

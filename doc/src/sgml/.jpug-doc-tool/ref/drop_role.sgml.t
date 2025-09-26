@@ -1,0 +1,50 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP ROLE</refname>␟  <refpurpose>remove a database role</refpurpose>␟  <refpurpose>データベースロールを削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP ROLE</command> removes the specified role(s).
+   To drop a superuser role, you must be a superuser yourself;
+   to drop non-superuser roles, you must have <literal>CREATEROLE</literal>
+   privilege and have been granted <literal>ADMIN OPTION</literal> on the role.␟<command>DROP ROLE</command>は指定したロール（複数可）を削除します。
+スーパーユーザロールを削除するには、自身もスーパーユーザでなければなりません。
+スーパーユーザ以外のロールを削除するには、<literal>CREATEROLE</literal>権限を持ち、そのロールに対して<literal>ADMIN OPTION</literal>が付与されていなければなりません。␞␞  </para>␞
+␝  <para>␟   A role cannot be removed if it is still referenced in any database
+   of the cluster; an error will be raised if so.  Before dropping the role,
+   you must drop all the objects it owns (or reassign their ownership)
+   and revoke any privileges the role has been granted on other objects.
+   The <link linkend="sql-reassign-owned"><command>REASSIGN
+   OWNED</command></link> and <link linkend="sql-drop-owned"><command>DROP
+   OWNED</command></link>
+   commands can be useful for this purpose; see <xref linkend="role-removal"/>
+   for more discussion.␟データベースクラスタのいずれかから参照されている場合、ロールを削除することができません。
+削除しようとしてもエラーとなります。
+ロールを削除する前に、そのロールが所有するオブジェクトすべてを削除（またはその所有権を変更）しなければなりません。
+また、そのロールが他のオブジェクトについて付与された権限も取り消されなければなりません。
+この目的のためには<link linkend="sql-reassign-owned"><command>REASSIGN OWNED</command></link>および<link linkend="sql-drop-owned"><command>DROP OWNED</command></link>コマンドが有用です。
+詳しくは<xref linkend="role-removal"/>を参照して下さい。␞␞  </para>␞
+␝  <para>␟   However, it is not necessary to remove role memberships involving
+   the role; <command>DROP ROLE</command> automatically revokes any memberships
+   of the target role in other roles, and of other roles in the target role.
+   The other roles are not dropped nor otherwise affected.␟しかし、ロール内のロールメンバ資格を削除する必要はありません。
+<command>DROP ROLE</command>は自動的に他のロール内にある対象ロールのメンバ資格を取り消します。
+他のロールは削除されることも何らかの影響を受けることもありません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Do not throw an error if the role does not exist. A notice is issued
+      in this case.␟ロールが存在しない場合でもエラーになりません。
+この場合注意メッセージが発行されます。␞␞     </para>␞
+␝     <para>␟      The name of the role to remove.␟削除対象のロールの名前です。␞␞     </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   <productname>PostgreSQL</productname> includes a program <xref
+   linkend="app-dropuser"/> that has the
+   same functionality as this command (in fact, it calls this command)
+   but can be run from the command shell.␟<productname>PostgreSQL</productname>には、このコマンドと同じ機能を持つプログラム<xref linkend="app-dropuser"/>があります。
+（実際には、このプログラムはこのコマンドを呼び出しています。）
+こちらはコマンドシェルから実行することができます。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To drop a role:␟ロールを削除します。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   The SQL standard defines <command>DROP ROLE</command>, but it allows
+   only one role to be dropped at a time, and it specifies different
+   privilege requirements than <productname>PostgreSQL</productname> uses.␟標準SQLでは<command>DROP ROLE</command>を定義していますが、一度に1つのロールしか削除することができません。
+また、<productname>PostgreSQL</productname>とは異なる権限が必要であると規定しています。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟DROP ROLE jonathan; </programlisting></para> </programlisting></para>␟no translation␞␞␞

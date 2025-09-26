@@ -1,0 +1,26 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟<refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP DOMAIN</refname>␟  <refpurpose>remove a domain</refpurpose>␟  <refpurpose>ドメインを削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP DOMAIN</command> removes a domain.  Only the owner of
+   a domain can remove it.␟<command>DROP DOMAIN</command>はドメインを削除します。
+ドメインを削除できるのは、ドメインの所有者のみです。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      Do not throw an error if the domain does not exist. A notice is issued
+      in this case.␟ドメインが存在しない場合でもエラーになりません。
+この場合注意メッセージが発行されます。␞␞     </para>␞
+␝     <para>␟      The name (optionally schema-qualified) of an existing domain.␟既存のドメインの名前です（スキーマ修飾名も可）。␞␞     </para>␞
+␝     <para>␟      Automatically drop objects that depend on the domain (such as
+      table columns),
+      and in turn all objects that depend on those objects
+      (see <xref linkend="ddl-depend"/>).␟ドメインに依存するオブジェクト（テーブルの列など）を自動的に削除し、さらにそれらのオブジェクトに依存するすべてのオブジェクトも削除します（<xref linkend="ddl-depend"/>参照）。␞␞     </para>␞
+␝     <para>␟      Refuse to drop the domain if any objects depend on it.  This is
+      the default.␟依存しているオブジェクトがある場合、そのドメインの削除要求を拒否します。
+これがデフォルトです。␞␞     </para>␞
+␝ <refsect1 id="sql-dropdomain-examples">␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   To remove the domain <type>box</type>:␟ドメイン<type>box</type>を削除します。␞␞␞
+␝ <refsect1 id="sql-dropdomain-compatibility">␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   This command conforms to the SQL standard, except for the
+   <literal>IF EXISTS</literal> option, which is a <productname>PostgreSQL</productname>
+   extension.␟このコマンドは標準SQLに準拠していますが、<productname>PostgreSQL</productname>の拡張である<literal>IF EXISTS</literal>オプションを除きます。␞␞  </para>␞
+␝ <refsect1 id="sql-dropdomain-see-also">␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟DROP DOMAIN box; </programlisting></para> </programlisting></para>␟no translation␞␞␞

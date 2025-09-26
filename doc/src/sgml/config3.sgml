@@ -502,240 +502,6 @@ PostgreSQLは<literal>origin</literal>と<literal>local</literal>の設定を内
       </listitem>
      </varlistentry>
 
-     <varlistentry id="guc-vacuum-freeze-table-age" xreflabel="vacuum_freeze_table_age">
-      <term><varname>vacuum_freeze_table_age</varname> (<type>integer</type>)
-      <indexterm>
-       <primary><varname>vacuum_freeze_table_age</varname> configuration parameter</primary>
-      </indexterm>
-      <indexterm>
-       <primary><varname>vacuum_freeze_table_age</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        <command>VACUUM</command> performs an aggressive scan if the table's
-        <structname>pg_class</structname>.<structfield>relfrozenxid</structfield> field has reached
-        the age specified by this setting.  An aggressive scan differs from
-        a regular <command>VACUUM</command> in that it visits every page that might
-        contain unfrozen XIDs or MXIDs, not just those that might contain dead
-        tuples.  The default is 150 million transactions.  Although users can
-        set this value anywhere from zero to two billion, <command>VACUUM</command>
-        will silently limit the effective value to 95% of
-        <xref linkend="guc-autovacuum-freeze-max-age"/>, so that a
-        periodic manual <command>VACUUM</command> has a chance to run before an
-        anti-wraparound autovacuum is launched for the table. For more
-        information see
-        <xref linkend="vacuum-for-wraparound"/>.
--->
-テーブルの<structname>pg_class</structname>.<structfield>relfrozenxid</structfield>フィールドがこの設定で指定した時期に達すると、<command>VACUUM</command>は積極的なテーブルスキャンを行います。
-積極的なスキャンは、無効タプルを含む可能性のあるページだけではなく、凍結されていないXIDあるいはMXIDを含むすべてのページを読む点で通常の<command>VACUUM</command>とは異なります。
-デフォルトは1.5億トランザクションです。
-ユーザはこの値をゼロから20億までの任意の値に設定することができますが、<command>VACUUM</command>は警告することなく、周回問題対策のautovacuumがテーブルに対して起動する前に定期的な手動<command>VACUUM</command>が実行する機会を持つように、<xref linkend="guc-autovacuum-freeze-max-age"/>の95%に実効値を制限します。
-詳細は<xref linkend="vacuum-for-wraparound"/>を参照してください。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-vacuum-freeze-min-age" xreflabel="vacuum_freeze_min_age">
-      <term><varname>vacuum_freeze_min_age</varname> (<type>integer</type>)
-      <indexterm>
-       <primary><varname>vacuum_freeze_min_age</varname> configuration parameter</primary>
-      </indexterm>
-      <indexterm>
-       <primary><varname>vacuum_freeze_min_age</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        Specifies the cutoff age (in transactions) that
-        <command>VACUUM</command> should use to decide whether to
-        trigger freezing of pages that have an older XID.
-        The default is 50 million transactions.  Although
-        users can set this value anywhere from zero to one billion,
-        <command>VACUUM</command> will silently limit the effective value to half
-        the value of <xref linkend="guc-autovacuum-freeze-max-age"/>, so
-        that there is not an unreasonably short time between forced
-        autovacuums.  For more information see <xref
-        linkend="vacuum-for-wraparound"/>.
--->
-<command>VACUUM</command>が、古いXIDを持つページをフリーズするきっかけとするかどうかを決定する、カットオフ年代を（トランザクション単位で）指定します。
-デフォルトは5千万トランザクションです。
-ユーザはこの値を0から10億までの間で任意の値に設定することができますが、<command>VACUUM</command>は警告なく<xref linkend="guc-autovacuum-freeze-max-age"/>の半分までの値に値を制限します。
-このため、強制的なautovacuumの間隔が不合理に短くなることはありません。
-詳細は<xref linkend="vacuum-for-wraparound"/>を参照してください。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-vacuum-failsafe-age" xreflabel="vacuum_failsafe_age">
-      <term><varname>vacuum_failsafe_age</varname> (<type>integer</type>)
-      <indexterm>
-       <primary><varname>vacuum_failsafe_age</varname> configuration parameter</primary>
-      </indexterm>
-      <indexterm>
-       <primary><varname>vacuum_failsafe_age</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        Specifies the maximum age (in transactions) that a table's
-        <structname>pg_class</structname>.<structfield>relfrozenxid</structfield>
-        field can attain before <command>VACUUM</command> takes
-        extraordinary measures to avoid system-wide transaction ID
-        wraparound failure.  This is <command>VACUUM</command>'s
-        strategy of last resort.  The failsafe typically triggers
-        when an autovacuum to prevent transaction ID wraparound has
-        already been running for some time, though it's possible for
-        the failsafe to trigger during any <command>VACUUM</command>.
--->
-<command>VACUUM</command>がシステム全体に渡るトランザクションID周回障害を避けるために異例の措置を取るようになる、テーブルの<structname>pg_class</structname>.<structfield>relfrozenxid</structfield>フィールドが到達する最大の（トランザクション数単位での）年齢を指定します。
-これは<command>VACUUM</command>の最後の手段となる戦略です。
-この安全機構は典型的には、トランザクションID周回を防ぐための自動バキュームがすでに走っているときに起動されます。
-しかし、すべての<command>VACUUM</command>の実行中にこの安全機構が起動する可能性があります。
-       </para>
-       <para>
-<!--
-        When the failsafe is triggered, any cost-based delay that is
-        in effect will no longer be applied, further non-essential
-        maintenance tasks (such as index vacuuming) are bypassed, and any
-        <glossterm linkend="glossary-buffer-access-strategy">Buffer Access Strategy</glossterm>
-        in use will be disabled resulting in <command>VACUUM</command> being
-        free to make use of all of
-        <glossterm linkend="glossary-shared-memory">shared buffers</glossterm>.
--->
-この安全機構が起動すると、すべての有効なコストに基づく遅延はもはや適用されず、（インデックスのバキュームのような）必須ではない保守タスクは迂回されます。
-使用中の<glossterm linkend="glossary-buffer-access-strategy">バッファアクセスストラテジ</glossterm>は無効になり、その結果<command>VACUUM</command>は<glossterm linkend="glossary-shared-memory">共有バッファ</glossterm>のすべてを自由に使用することになります。
-       </para>
-       <para>
-<!--
-        The default is 1.6 billion transactions.  Although users can
-        set this value anywhere from zero to 2.1 billion,
-        <command>VACUUM</command> will silently adjust the effective
-        value to no less than 105% of <xref
-         linkend="guc-autovacuum-freeze-max-age"/>.
--->
-デフォルトは16億トランザクションです。
-ユーザはこの値をゼロから21億までの間で設定できますが、<command>VACUUM</command>は<xref linkend="guc-autovacuum-freeze-max-age"/>の105%よりも小さくならないように実際の値を調整します。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-vacuum-multixact-freeze-table-age" xreflabel="vacuum_multixact_freeze_table_age">
-      <term><varname>vacuum_multixact_freeze_table_age</varname> (<type>integer</type>)
-      <indexterm>
-       <primary><varname>vacuum_multixact_freeze_table_age</varname> configuration parameter</primary>
-      </indexterm>
-      <indexterm>
-       <primary><varname>vacuum_multixact_freeze_table_age</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        <command>VACUUM</command> performs an aggressive scan if the table's
-        <structname>pg_class</structname>.<structfield>relminmxid</structfield> field has reached
-        the age specified by this setting.  An aggressive scan differs from
-        a regular <command>VACUUM</command> in that it visits every page that might
-        contain unfrozen XIDs or MXIDs, not just those that might contain dead
-        tuples.  The default is 150 million multixacts.
-        Although users can set this value anywhere from zero to two billion,
-        <command>VACUUM</command> will silently limit the effective value to 95% of
-        <xref linkend="guc-autovacuum-multixact-freeze-max-age"/>, so that a
-        periodic manual <command>VACUUM</command> has a chance to run before an
-        anti-wraparound is launched for the table.
-        For more information see <xref linkend="vacuum-for-multixact-wraparound"/>.
--->
-<structname>pg_class</structname>.<structfield>relminmxid</structfield>フィールドがこの設定値で指定した年代に達すると<command>VACUUM</command>はテーブルの積極的なスキャンを行います。
-積極的なスキャンは、無効タプルを含む可能性のあるページだけではなく、凍結XIDあるいはMXIDを含むすべてのページを読む点で通常の<command>VACUUM</command>とは異なります。
-デフォルトは1億5千万トランザクションです。
-ユーザは0から20億まで任意の値を設定できますが、テーブルに対してラップアラウンド防止処理が起動される前に定期的な手動<command>VACUUM</command>が走ることができるように、<command>VACUUM</command>は<xref linkend="guc-autovacuum-multixact-freeze-max-age"/>の95%に暗黙的に制限します。
-詳細は<xref linkend="vacuum-for-multixact-wraparound"/>をご覧ください。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-vacuum-multixact-freeze-min-age" xreflabel="vacuum_multixact_freeze_min_age">
-      <term><varname>vacuum_multixact_freeze_min_age</varname> (<type>integer</type>)
-      <indexterm>
-       <primary><varname>vacuum_multixact_freeze_min_age</varname> configuration parameter</primary>
-      </indexterm>
-      <indexterm>
-       <primary><varname>vacuum_multixact_freeze_min_age</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        Specifies the cutoff age (in multixacts) that <command>VACUUM</command>
-        should use to decide whether to trigger freezing of pages with
-        an older multixact ID.  The default is 5 million multixacts.
-        Although users can set this value anywhere from zero to one billion,
-        <command>VACUUM</command> will silently limit the effective value to half
-        the value of <xref linkend="guc-autovacuum-multixact-freeze-max-age"/>,
-        so that there is not an unreasonably short time between forced
-        autovacuums.
-        For more information see <xref linkend="vacuum-for-multixact-wraparound"/>.
--->
-<command>VACUUM</command>がテーブルをスキャンする際に、ページを凍結するきっかけとするかどうかを決める下限値をマルチトランザクション単位で指定します。
-デフォルトは500万マルチトランザクションです。
-ユーザは0から10億まで任意の値を設定できますが、強制的な自動バキュームの間隔が短くなり過ぎないように、<command>VACUUM</command>は<xref linkend="guc-autovacuum-multixact-freeze-max-age"/>の半分に暗黙的に実効的な値を制限します。
-詳細は<xref linkend="vacuum-for-multixact-wraparound"/>をご覧ください。
-       </para>
-      </listitem>
-     </varlistentry>
-
-     <varlistentry id="guc-vacuum-multixact-failsafe-age" xreflabel="vacuum_multixact_failsafe_age">
-      <term><varname>vacuum_multixact_failsafe_age</varname> (<type>integer</type>)
-      <indexterm>
-       <primary><varname>vacuum_multixact_failsafe_age</varname> configuration parameter</primary>
-      </indexterm>
-      <indexterm>
-       <primary><varname>vacuum_multixact_failsafe_age</varname>設定パラメータ</primary>
-      </indexterm>
-      </term>
-      <listitem>
-       <para>
-<!--
-        Specifies the maximum age (in multixacts) that a table's
-        <structname>pg_class</structname>.<structfield>relminmxid</structfield>
-        field can attain before <command>VACUUM</command> takes
-        extraordinary measures to avoid system-wide multixact ID
-        wraparound failure.  This is <command>VACUUM</command>'s
-        strategy of last resort.  The failsafe typically triggers when
-        an autovacuum to prevent transaction ID wraparound has already
-        been running for some time, though it's possible for the
-        failsafe to trigger during any <command>VACUUM</command>.
--->
-<command>VACUUM</command>がシステム全体マルチトランザクションID周回障害を避けるために異例の措置を取るようになる、テーブルの<structname>pg_class</structname>.<structfield>relminmxid</structfield>フィールドが到達する最大の（マルチトランザクション数単位での）年齢を指定します。
-これは<command>VACUUM</command>最後の手段となる戦略です。
-この安全機構は典型的には、トランザクションID周回を防ぐための自動バキュームがすでに走っているときに起動されます。
-しかし、すべての<command>VACUUM</command>の実行中にこの安全機構が起動する可能性があります。
-       </para>
-       <para>
-<!--
-        When the failsafe is triggered, any cost-based delay that is
-        in effect will no longer be applied, and further non-essential
-        maintenance tasks (such as index vacuuming) are bypassed.
--->
-この安全機構が起動すると、すべての有効なコストに基づく遅延はもはや適用されず、（インデックスのバキュームのような）必須ではない保守タスクは迂回されます。
-       </para>
-       <para>
-<!--
-        The default is 1.6 billion multixacts.  Although users can set
-        this value anywhere from zero to 2.1 billion,
-        <command>VACUUM</command> will silently adjust the effective
-        value to no less than 105% of <xref
-         linkend="guc-autovacuum-multixact-freeze-max-age"/>.
--->
-デフォルトは16億マルチトランザクションです。
-ユーザはこの値をゼロから21億までの間で設定できますが、<command>VACUUM</command>は<xref linkend="guc-autovacuum-multixact-freeze-max-age"/>の105%よりも小さくならないように実際の値を調整します。
-       </para>
-      </listitem>
-     </varlistentry>
-
      <varlistentry id="guc-bytea-output" xreflabel="bytea_output">
       <term><varname>bytea_output</varname> (<type>enum</type>)
       <indexterm>
@@ -1133,18 +899,21 @@ SET XML OPTION { DOCUMENT | CONTENT };
       <listitem>
        <para>
 <!--
-        Sets the collection of time zone abbreviations that will be accepted
-        by the server for datetime input.  The default is <literal>'Default'</literal>,
+        Sets the collection of additional time zone abbreviations that
+        will be accepted by the server for datetime input (beyond any
+        abbreviations defined by the current <varname>TimeZone</varname>
+        setting).  The default is <literal>'Default'</literal>,
         which is a collection that works in most of the world; there are
         also <literal>'Australia'</literal> and <literal>'India'</literal>,
         and other collections can be defined for a particular installation.
         See <xref linkend="datetime-config-files"/> for more information.
 -->
-サーバで日付時刻の入力として受付け可能となる時間帯省略形の集合を設定します。
+《マッチ度[71.624266]》サーバで日付時刻の入力として受付け可能となる時間帯省略形の集合を設定します。
 デフォルトは<literal>'Default'</literal>です。
 これはほぼ全世界で通じる集合です。
 また、<literal>Australia</literal>、<literal>India</literal>、その他特定のインストレーションで定義可能な集合が存在します。
 詳細は<xref linkend="datetime-config-files"/>を参照してください。
+《機械翻訳》«Sets the collection of additional time zone abbreviations that will be accepted by the server for datetime input (beyond any abbreviations defined by the current <varname>TimeZone</varname> setting). The default is <literal>'Default'</literal>, which is a collection that works in most of the world; there are also <literal>'Australia'</literal> and <literal>'India'</literal>, and other collections can be defined for a particular installation. See <xref linkend="datetime-config-files"/> for more information.»
        </para>
       </listitem>
      </varlistentry>
@@ -1295,7 +1064,8 @@ SET XML OPTION { DOCUMENT | CONTENT };
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
 -->
-この設定を変更できるのは、スーパーユーザと適切な<literal>SET</literal>権限を持つユーザだけです。
+《マッチ度[84.615385]》この設定を変更できるのは、スーパーユーザと適切な<literal>SET</literal>権限を持つユーザだけです。
+《機械翻訳》«Only superusers and users with the appropriate <literal>SET</literal> privilege can change this setting.»
        </para>
       </listitem>
      </varlistentry>
@@ -1625,11 +1395,8 @@ PostgreSQLで使用することを意図したライブラリだけがこの方�
 このパラメータは、接続の開始時にのみ効果があります。
 以降の変更は効果がありません。
 もし指定したライブラリが見つからない場合は、接続は失敗します。
-<!--
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
--->
-この設定を変更できるのは、スーパーユーザと適切な<literal>SET</literal>権限を持つユーザだけです。
        </para>
 
        <para>
@@ -1867,6 +1634,116 @@ dynamic_library_path = 'C:\tools\postgresql;H:\my_project\lib;$libdir'
 このパラメータはスーパーユーザと、適切な<literal>SET</literal>権限を持つユーザによって実行時に変更することができますが、この方法での設定は、そのクライアント接続が終わるまでしか有効になりません。
 ですので、この方法は開発目的でのみ使用すべきです。
 推奨方法はこのパラメータを<filename>postgresql.conf</filename>設定ファイル内で設定することです。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-extension-control-path" xreflabel="extension_control_path">
+      <term><varname>extension_control_path</varname> (<type>string</type>)
+      <indexterm>
+       <primary><varname>extension_control_path</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        A path to search for extensions, specifically extension control files
+        (<filename><replaceable>name</replaceable>.control</filename>).  The
+        remaining extension script and secondary control files are then loaded
+        from the same directory where the primary control file was found.
+        See <xref linkend="extend-extensions-files"/> for details.
+-->
+《機械翻訳》«A path to search for extensions, specifically extension control files (<filename><replaceable>name</replaceable>.control</filename>). The remaining extension script and secondary control files are then loaded from the same directory where the primary control file was found. See <xref linkend="extend-extensions-files"/> for details.»
+       </para>
+
+       <para>
+<!--
+        The value for <varname>extension_control_path</varname> must be a
+        list of absolute directory paths separated by colons (or semi-colons
+        on Windows).  If a list element starts
+        with the special string <literal>$system</literal>, the
+        compiled-in <productname>PostgreSQL</productname> extension
+        directory is substituted for <literal>$system</literal>; this
+        is where the extensions provided by the standard
+        <productname>PostgreSQL</productname> distribution are installed.
+        (Use <literal>pg_config &#45;-sharedir</literal> to find out the name of
+        this directory.) For example:
+-->
+《マッチ度[75.886525]》<varname>dynamic_library_path</varname>の値は、絶対パスのディレクトリ名をコロン（Windowsの場合はセミコロン）で区切った一覧です。
+この一覧の要素が特別な<literal>$libdir</literal>という値から始まる場合、コンパイルされた<productname>PostgreSQL</productname>パッケージのライブラリディレクトリで<literal>$libdir</literal>は置換されます。
+ここには、<productname>PostgreSQL</productname>の標準配布物により提供されるモジュールがインストールされます。
+（このディレクトリ名を表示するには、<literal>pg_config --pkglibdir</literal> を使用してください。）
+例を以下に示します。
+《機械翻訳》«The value for <varname>extension_control_path</varname> must be a list of absolute directory paths separated by colons (or semi-colons on Windows). If a list element starts with the special string <literal>$system</literal>, the compiled-in <productname>PostgreSQL</productname> extension directory is substituted for <literal>$system</literal>; this is where the extensions provided by the standard <productname>PostgreSQL</productname> distribution are installed. (Use <literal>pg_config --sharedir</literal> to find out the name of this directory.) For example:»
+<programlisting>
+extension_control_path = '/usr/local/share/postgresql:/home/my_project/share:$system'
+</programlisting>
+<!--
+        or, in a Windows environment:
+-->
+《マッチ度[72.413793]》Windows環境の場合は以下です。
+《機械翻訳》«or, in a Windows environment:»
+<programlisting>
+extension_control_path = 'C:\tools\postgresql;H:\my_project\share;$system'
+</programlisting>
+<!--
+        Note that the specified paths elements are expected to have a
+        subdirectory <filename>extension</filename> which will contain the
+        <filename>.control</filename> and <filename>.sql</filename> files; the
+        <filename>extension</filename> suffix is automatically appended to
+        each path element.
+-->
+《機械翻訳》«Note that the specified paths elements are expected to have a subdirectory <filename>extension</filename> which will contain the <filename>.control</filename> and <filename>.sql</filename> files; the <filename>extension</filename> suffix is automatically appended to each path element.»
+       </para>
+
+       <para>
+<!--
+        The default value for this parameter is
+        <literal>'$system'</literal>. If the value is set to an empty
+        string, the default <literal>'$system'</literal> is also assumed.
+-->
+《マッチ度[57.485030]》このパラメータのデフォルト値は<literal>'$libdir'</literal>です。
+この値が空に設定された場合、自動的なパス検索は無効になります。
+《機械翻訳》«The default value for this parameter is <literal>'$system'</literal>. If the value is set to an empty string, the default <literal>'$system'</literal> is also assumed.»
+       </para>
+
+       <para>
+<!--
+        If extensions with equal names are present in multiple directories in
+        the configured path, only the instance found first in the path will be
+        used.
+-->
+《機械翻訳》«If extensions with equal names are present in multiple directories in the configured path, only the instance found first in the path will be used.»
+       </para>
+
+       <para>
+<!--
+        This parameter can be changed at run time by superusers and users
+        with the appropriate <literal>SET</literal> privilege, but a
+        setting done that way will only persist until the end of the
+        client connection, so this method should be reserved for
+        development purposes. The recommended way to set this parameter
+        is in the <filename>postgresql.conf</filename> configuration
+        file.
+-->
+《マッチ度[85.066667]》このパラメータはスーパーユーザと、適切な<literal>SET</literal>権限を持つユーザによって実行時に変更することができますが、この方法での設定は、そのクライアント接続が終わるまでしか有効になりません。
+ですので、この方法は開発目的でのみ使用すべきです。
+推奨方法はこのパラメータを<filename>postgresql.conf</filename>設定ファイル内で設定することです。
+《機械翻訳》«This parameter can be changed at run time by superusers and users with the appropriate <literal>SET</literal> privilege, but a setting done that way will only persist until the end of the client connection, so this method should be reserved for development purposes. The recommended way to set this parameter is in the <filename>postgresql.conf</filename> configuration file.»
+       </para>
+
+       <para>
+<!--
+        Note that if you set this parameter to be able to load extensions from
+        nonstandard locations, you will most likely also need to set <xref
+        linkend="guc-dynamic-library-path"/> to a correspondent location, for
+        example,
+-->
+《機械翻訳》«Note that if you set this parameter to be able to load extensions from nonstandard locations, you will most likely also need to set <xref linkend="guc-dynamic-library-path"/> to a correspondent location, for example,»
+<programlisting>
+extension_control_path = '/usr/local/share/postgresql:$system'
+dynamic_library_path = '/usr/local/lib/postgresql:$libdir'
+</programlisting>
        </para>
       </listitem>
      </varlistentry>
@@ -2514,7 +2391,7 @@ GINインデックススキャンにより返されるセットのソフトな�
         Turning this setting off is intended for environments where the
         configuration of <productname>PostgreSQL</productname> is managed by
         some external tool.
-        In such environments, a well intentioned superuser might
+        In such environments, a well-intentioned superuser might
         <emphasis>mistakenly</emphasis> use <command>ALTER SYSTEM</command>
         to change the configuration instead of using the external tool.
         This might result in unintended behavior, such as the external tool
@@ -2523,10 +2400,11 @@ GINインデックススキャンにより返されるセットのソフトな�
         Setting this parameter to <literal>off</literal> can
         help avoid such mistakes.
 -->
-この設定をオフにすることは、<productname>PostgreSQL</productname>の設定が外部のツールによって管理されている環境を対象としています。
+《マッチ度[84.494774]》この設定をオフにすることは、<productname>PostgreSQL</productname>の設定が外部のツールによって管理されている環境を対象としています。
 このような環境では、善意のスーパーユーザがツールを使わずに、<emphasis>誤って</emphasis><command>ALTER SYSTEM</command>を使って設定を変更する可能性があります。
 これにより、外部ツールを使って後で設定を更新したときに、変更を上書きするなど、意図しない振る舞いとなる可能性があります。
 このパラメータを<literal>オフ</literal>に設定すると、そのような間違いを避けるための助けになります。
+《機械翻訳》«Turning this setting off is intended for environments where the configuration of <productname>PostgreSQL</productname> is managed by some external tool. In such environments, a well-intentioned superuser might <emphasis>mistakenly</emphasis> use <command>ALTER SYSTEM</command> to change the configuration instead of using the external tool. This might result in unintended behavior, such as the external tool overwriting the change at some later point in time when it updates the configuration. Setting this parameter to <literal>off</literal> can help avoid such mistakes.»
        </para>
 
        <para>
@@ -2813,11 +2691,14 @@ Linuxでは代わりに、オペレーティングシステムに対して、デ
         had at server startup.
         (On Microsoft Windows this parameter will always display
         <literal>0700</literal>.) See
-        <xref linkend="app-initdb-allow-group-access"/> for more information.
+        <link linkend="app-initdb-allow-group-access">the
+        <application>initdb</application> <option>-g</option> option</link>
+        for more information.
 -->
-このパラメータは、Unixシステムでは起動時のデータディレクトリのパーミッション（<xref linkend="guc-data-directory"/>により定義されます）を報告します。
+《マッチ度[67.292225]》このパラメータは、Unixシステムでは起動時のデータディレクトリのパーミッション（<xref linkend="guc-data-directory"/>により定義されます）を報告します。
 （Microsoft Windowsではこのパラメータは常に<literal>0700</literal>を表示します。）
 さらなる情報は<xref linkend="app-initdb-allow-group-access"/>をご覧ください。
+《機械翻訳》«On Unix systems this parameter reports the permissions the data directory (defined by <xref linkend="guc-data-directory"/>) had at server startup. (On Microsoft Windows this parameter will always display <literal>0700</literal>.) See <link linkend="app-initdb-allow-group-access">the <application>initdb</application> <option>-g</option> option</link> for more information.»
        </para>
       </listitem>
      </varlistentry>
@@ -2991,6 +2872,27 @@ Linuxでは代わりに、オペレーティングシステムに対して、デ
         default value is 32 keys.
 -->
 インデックスキーの最大数を報告します。サーバをビルドする際に<literal>INDEX_MAX_KEYS</literal>の値で決定されます。デフォルトの値は32キーです。
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-num-os-semaphores" xreflabel="num_os_semaphores">
+      <term><varname>num_os_semaphores</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>num_os_semaphores</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        Reports the number of semaphores that are needed for the server based
+        on the configured number of allowed connections
+        (<xref linkend="guc-max-connections"/>), allowed autovacuum worker
+        processes (<xref linkend="guc-autovacuum-max-workers"/>), allowed WAL
+        sender processes (<xref linkend="guc-max-wal-senders"/>), allowed
+        background processes (<xref linkend="guc-max-worker-processes"/>), etc.
+-->
+《機械翻訳》«Reports the number of semaphores that are needed for the server based on the configured number of allowed connections (<xref linkend="guc-max-connections"/>), allowed autovacuum worker processes (<xref linkend="guc-autovacuum-max-workers"/>), allowed WAL sender processes (<xref linkend="guc-max-wal-senders"/>), allowed background processes (<xref linkend="guc-max-worker-processes"/>), etc.»
        </para>
       </listitem>
      </varlistentry>
@@ -3371,7 +3273,37 @@ WALディスクブロックの容量を報告します。
         Only superusers and users with the appropriate <literal>SET</literal>
         privilege can change this setting.
 -->
-この設定を変更できるのは、スーパーユーザと適切な<literal>SET</literal>権限を持つユーザだけです。
+《マッチ度[84.615385]》この設定を変更できるのは、スーパーユーザと適切な<literal>SET</literal>権限を持つユーザだけです。
+《機械翻訳》«Only superusers and users with the appropriate <literal>SET</literal> privilege can change this setting.»
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-debug-copy-parse-plan-trees" xreflabel="debug_copy_parse_plan_trees">
+      <term><varname>debug_copy_parse_plan_trees</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>debug_copy_parse_plan_trees</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        Enabling this forces all parse and plan trees to be passed through
+        <function>copyObject()</function>, to facilitate catching errors and
+        omissions in <function>copyObject()</function>.  The default is off.
+-->
+《機械翻訳》«Enabling this forces all parse and plan trees to be passed through <function>copyObject()</function>, to facilitate catching errors and omissions in <function>copyObject()</function>. The default is off.»
+       </para>
+
+       <para>
+<!--
+        This parameter is only available when
+        <symbol>DEBUG_NODE_TESTS_ENABLED</symbol> was defined at compile time
+        (which happens automatically when using the
+        <application>configure</application> option
+        <option>&#45;-enable-cassert</option>).
+-->
+《機械翻訳》«This parameter is only available when <symbol>DEBUG_NODE_TESTS_ENABLED</symbol> was defined at compile time (which happens automatically when using the <application>configure</application> option <option>--enable-cassert</option>).»
        </para>
       </listitem>
      </varlistentry>
@@ -3543,6 +3475,66 @@ WALディスクブロックの容量を報告します。
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-debug-raw-expression-coverage-test" xreflabel="debug_raw_expression_coverage_test">
+      <term><varname>debug_raw_expression_coverage_test</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>debug_raw_expression_coverage_test</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        Enabling this forces all raw parse trees for DML statements to be
+        scanned by <function>raw_expression_tree_walker()</function>, to
+        facilitate catching errors and omissions in that function.  The
+        default is off.
+-->
+《機械翻訳》«Enabling this forces all raw parse trees for DML statements to be scanned by <function>raw_expression_tree_walker()</function>, to facilitate catching errors and omissions in that function. The default is off.»
+       </para>
+
+       <para>
+<!--
+        This parameter is only available when
+        <symbol>DEBUG_NODE_TESTS_ENABLED</symbol> was defined at compile time
+        (which happens automatically when using the
+        <application>configure</application> option
+        <option>&#45;-enable-cassert</option>).
+-->
+《機械翻訳》«This parameter is only available when <symbol>DEBUG_NODE_TESTS_ENABLED</symbol> was defined at compile time (which happens automatically when using the <application>configure</application> option <option>--enable-cassert</option>).»
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-debug-write-read-parse-plan-trees" xreflabel="debug_write_read_parse_plan_trees">
+      <term><varname>debug_write_read_parse_plan_trees</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>debug_write_read_parse_plan_trees</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        Enabling this forces all parse and plan trees to be passed through
+        <filename>outfuncs.c</filename>/<filename>readfuncs.c</filename>, to
+        facilitate catching errors and omissions in those modules.  The
+        default is off.
+-->
+《機械翻訳》«Enabling this forces all parse and plan trees to be passed through <filename>outfuncs.c</filename>/<filename>readfuncs.c</filename>, to facilitate catching errors and omissions in those modules. The default is off.»
+       </para>
+
+       <para>
+<!--
+        This parameter is only available when
+        <symbol>DEBUG_NODE_TESTS_ENABLED</symbol> was defined at compile time
+        (which happens automatically when using the
+        <application>configure</application> option
+        <option>&#45;-enable-cassert</option>).
+-->
+《機械翻訳》«This parameter is only available when <symbol>DEBUG_NODE_TESTS_ENABLED</symbol> was defined at compile time (which happens automatically when using the <application>configure</application> option <option>--enable-cassert</option>).»
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-ignore-system-indexes" xreflabel="ignore_system_indexes">
       <term><varname>ignore_system_indexes</varname> (<type>boolean</type>)
       <indexterm>
@@ -3665,13 +3657,8 @@ WALディスクブロックの容量を報告します。
        <para>
 <!--
         If on, emit information about resource usage during sort operations.
-        This parameter is only available if the <symbol>TRACE_SORT</symbol> macro
-        was defined when <productname>PostgreSQL</productname> was compiled.
-        (However, <symbol>TRACE_SORT</symbol> is currently defined by default.)
 -->
-もしも有効であれば、並べ替え操作の間のリソース使用についての情報を放出します。
-このパラメータは <productname>PostgreSQL</productname>がコンパイルされた時、<symbol>TRACE_SORT</symbol>マクロが定義されている場合にのみ有効です。
-（とは言っても、現在<symbol>TRACE_SORT</symbol>はデフォルトで定義されています。）
+《機械翻訳》«If on, emit information about resource usage during sort operations.»
        </para>
       </listitem>
      </varlistentry>

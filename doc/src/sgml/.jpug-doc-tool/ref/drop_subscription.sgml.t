@@ -1,0 +1,53 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>DROP SUBSCRIPTION</refname>␟  <refpurpose>remove a subscription</refpurpose>␟  <refpurpose>サブスクリプションを削除する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>DROP SUBSCRIPTION</command> removes a subscription from the
+   database cluster.␟<command>DROP SUBSCRIPTION</command>はデータベースクラスタからサブスクリプションを削除します。␞␞  </para>␞
+␝  <para>␟   To execute this command the user must be the owner of the subscription.␟このコマンドを実行するには、ユーザはサブスクリプションの所有者でなければなりません。␞␞  </para>␞
+␝  <para>␟   <command>DROP SUBSCRIPTION</command> cannot be executed inside a
+   transaction block if the subscription is associated with a replication
+   slot.  (You can use <link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION</command></link> to unset the
+   slot.)␟サブスクリプションがレプリケーションスロットに紐付けられている場合、<command>DROP SUBSCRIPTION</command>をトランザクションブロックの内側で実行することはできません。
+（スロットの設定を解除するには<link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION</command></link>を使うことができます。）␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      The name of a subscription to be dropped.␟削除対象のサブスクリプションの名前です。␞␞     </para>␞
+␝     <para>␟      These key words do not have any effect, since there are no dependencies
+      on subscriptions.␟サブスクリプションに依存するものはないので、これらのキーワードは何も効果がありません。␞␞     </para>␞
+␝ <refsect1>␟  <title>Notes</title>␟  <title>注釈</title>␞␞␞
+␝  <para>␟   When dropping a subscription that is associated with a replication slot on
+   the remote host (the normal state), <command>DROP SUBSCRIPTION</command>
+   will connect to the remote host and try to drop the replication slot (and
+   any remaining table synchronization slots) as
+   part of its operation.  This is necessary so that the resources allocated
+   for the subscription on the remote host are released.  If this fails,
+   either because the remote host is not reachable or because the remote
+   replication slot cannot be dropped or does not exist or never existed,
+   the <command>DROP SUBSCRIPTION</command> command will fail.  To proceed
+   in this situation, first disable the subscription by executing
+   <link linkend="sql-altersubscription-params-disable">
+   <literal>ALTER SUBSCRIPTION ... DISABLE</literal></link>, and then disassociate
+   it from the replication slot by executing
+   <link linkend="sql-altersubscription-params-set">
+   <literal>ALTER SUBSCRIPTION ... SET (slot_name = NONE)</literal></link>.
+   After that, <command>DROP SUBSCRIPTION</command> will no longer attempt any
+   actions on a remote host.  Note that if the remote replication slot still
+   exists, it (and any related table synchronization slots) should then be
+   dropped manually; otherwise it/they will continue to
+   reserve WAL and might eventually cause the disk to fill up.  See
+   also <xref linkend="logical-replication-subscription-slot"/>.␟リモートホストのレプリケーションスロットに紐付けられているサブスクリプション（これが通常の状態です）を削除するとき、<command>DROP SUBSCRIPTION</command>はその操作の一部として、リモートホストに接続し、レプリケーションスロット(と残りのテーブル同期スロット)を削除しようとします。
+リモートホスト上でサブスクリプションに割り当てられたリソースを解放するために、これが必要となります。
+リモートホストに到達できない、あるいはリモートのレプリケーションスロットが削除できない、存在しない、存在したことがない、という理由で削除に失敗した場合、<command>DROP SUBSCRIPTION</command>コマンドは失敗します。
+この状況において先へ進むためには、まず<link linkend="sql-altersubscription-params-disable"><literal>ALTER SUBSCRIPTION ... DISABLE</literal></link>を実行してサブスクリプションを無効にし、それから<link linkend="sql-altersubscription-params-set"><literal>ALTER SUBSCRIPTION ... SET (slot_name = NONE)</literal></link>を実行してサブスクリプションとレプリケーションスロットの紐付けを解除してください。
+その後なら<command>DROP SUBSCRIPTION</command>はリモートホスト上で何のアクションも起こそうとしません。
+リモートのレプリケーションスロットがそれでも存在する場合、それ (と関連するテーブル同期スロット) を手作業で削除すべきであることに注意してください。
+そうしなければ、WALを保存し続け、最終的にはディスクを一杯にしてしまうかもしれません。
+<xref linkend="logical-replication-subscription-slot"/>も参照してください。␞␞  </para>␞
+␝  <para>␟   If a subscription is associated with a replication slot, then <command>DROP
+   SUBSCRIPTION</command> cannot be executed inside a transaction block.␟サブスクリプションがレプリケーションスロットと紐付けられている場合、<command>DROP SUBSCRIPTION</command>をトランザクションブロックの内側で実行することはできません。␞␞  </para>␞
+␝ <refsect1>␟  <title>Examples</title>␟  <title>例</title>␞␞␞
+␝  <para>␟   Drop a subscription:␟サブスクリプションを削除します。␞␞<programlisting>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>DROP SUBSCRIPTION</command> is a <productname>PostgreSQL</productname>
+   extension.␟<command>DROP SUBSCRIPTION</command>は<productname>PostgreSQL</productname>の拡張です。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
+␝␟DROP SUBSCRIPTION mysub; </programlisting></para> </programlisting></para>␟no translation␞␞␞

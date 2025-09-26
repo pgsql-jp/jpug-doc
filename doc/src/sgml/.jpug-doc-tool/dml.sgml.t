@@ -1,0 +1,227 @@
+␝<chapter id="dml">␟ <title>Data Manipulation</title>␟ <title>データ操作</title>␞␞␞
+␝ <para>␟  The previous chapter discussed how to create tables and other
+  structures to hold your data.  Now it is time to fill the tables
+  with data.  This chapter covers how to insert, update, and delete
+  table data.  The chapter
+  after this will finally explain how to extract your long-lost data
+  from the database.␟前章では、データを保持するためのテーブルやその他の構造の作成方法について説明しました。
+今度は、テーブルにデータを挿入してみましょう。
+本章では、テーブルのデータの挿入、更新、削除の方法について説明します。
+次章ではいよいよ、ずっと見つけられなかったデータをデータベースから抽出する方法について説明します。␞␞ </para>␞
+␝  <indexterm zone="dml-insert">
+   <primary>inserting</primary>
+  </indexterm>
+␟␟  <indexterm zone="dml-insert">
+   <primary>挿入</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="dml-insert">␟  <title>Inserting Data</title>␟  <title>データの挿入</title>␞␞␞
+␝  <para>␟   When a table is created, it contains no data.  The first thing to
+   do before a database can be of much use is to insert data.  Data is
+   inserted one row at a time.  You can also insert more than one row
+   in a single command, but it is not possible to insert something that
+   is not a complete row.  Even if you know only some column values, a
+   complete row must be created.␟テーブルは、作成時にはデータを含んでいません。
+データベースを利用価値のあるものにするには、まずデータを挿入する必要があります。
+データは一度に1行ずつ挿入されます。
+ユーザは1つのコマンドで複数行を挿入することもできますが、完全な行でないものを挿入することはできません。
+列の値が一部しかわかっていない場合でも、1行全体を作成しなければなりません。␞␞  </para>␞
+␝  <para>␟   To create a new row, use the <xref linkend="sql-insert"/>
+   command.  The command requires the
+   table name and column values.  For
+   example, consider the products table from <xref linkend="ddl"/>:␟新規の行を作成するには、<xref linkend="sql-insert"/>コマンドを使用します。このコマンドは、テーブル名と列の値を必要とします。
+例えば、<xref linkend="ddl"/>のproductsテーブルの例で考えてみましょう。␞␞<programlisting>␞
+␝</programlisting>␟   An example command to insert a row would be:␟行を挿入するためのコマンド例は以下のようになります。␞␞<programlisting>␞
+␝</programlisting>␟   The data values are listed in the order in which the columns appear
+   in the table, separated by commas.  Usually, the data values will
+   be literals (constants), but scalar expressions are also allowed.␟データ値は、テーブル内で列が存在する順序に従ってカンマで区切って列挙されています。
+通常、データ値はリテラル（定数）ですが、スカラ式も使用できます。␞␞  </para>␞
+␝  <para>␟   The above syntax has the drawback that you need to know the order
+   of the columns in the table.  To avoid this you can also list the
+   columns explicitly.  For example, both of the following commands
+   have the same effect as the one above:␟上記の構文には、テーブル内の列の順序を知っていなければならないという欠点があります。
+これを避けるには、列を明示的に列挙する方法があります。
+例えば、以下の2つのどちらのコマンドでも上記のコマンドと同等の効果が得られます。␞␞<programlisting>␞
+␝</programlisting>␟   Many users consider it good practice to always list the column
+   names.␟多くのユーザは常に列名を列挙する方法が優れていると考えています。␞␞  </para>␞
+␝  <para>␟   If you don't have values for all the columns, you can omit some of
+   them.  In that case, the columns will be filled with their default
+   values.  For example:␟値がわからない列については、省略することができます。
+省略した列には、デフォルト値が挿入されます。
+以下に例を示します。␞␞<programlisting>␞
+␝</programlisting>␟   The second form is a <productname>PostgreSQL</productname>
+   extension.  It fills the columns from the left with as many values
+   as are given, and the rest will be defaulted.␟後者は<productname>PostgreSQL</productname>の拡張機能です。
+これによって、列には左から順に指定されただけの値が挿入され、残りにはデフォルト値が挿入されます。␞␞  </para>␞
+␝  <para>␟   For clarity, you can also request default values explicitly, for
+   individual columns or for the entire row:␟明確にするため、列ごと、あるいは行全体についてデフォルト値を明示的に要求することもできます。␞␞<programlisting>␞
+␝  <para>␟   You can insert multiple rows in a single command:␟単一コマンドで複数行を挿入することができます。␞␞<programlisting>␞
+␝  <para>␟   It is also possible to insert the result of a query (which might be no
+   rows, one row, or many rows):␟また、問い合わせの結果（0行か、1行か、複数行かもしれない）を挿入することもできます。␞␞<programlisting>␞
+␝</programlisting>␟   This provides the full power of the SQL query mechanism (<xref
+   linkend="queries"/>) for computing the rows to be inserted.␟これにより、挿入する行を計算するためにSQLの問い合わせ機構（<xref linkend="queries"/>）の全機能が提供されます。␞␞  </para>␞
+␝   <para>␟    When inserting a lot of data at the same time, consider using
+    the <xref linkend="sql-copy"/> command.
+    It is not as flexible as the <xref linkend="sql-insert"/>
+    command, but is more efficient. Refer
+    to <xref linkend="populate"/> for more information on improving
+    bulk loading performance.␟一度に大量のデータを挿入する場合は<xref linkend="sql-copy"/>コマンドの使用を検討してください。
+<xref linkend="sql-insert"/>コマンドほどの柔軟性はありませんが、より効率的です。
+大量のデータをロードする性能を向上することについて、詳細は<xref linkend="populate"/>を参照してください。␞␞   </para>␞
+␝  <indexterm zone="dml-update">
+   <primary>updating</primary>
+  </indexterm>
+␟␟  <indexterm zone="dml-update">
+   <primary>更新</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="dml-update">␟  <title>Updating Data</title>␟  <title>データの更新</title>␞␞␞
+␝  <para>␟   The modification of data that is already in the database is
+   referred to as updating.  You can update individual rows, all the
+   rows in a table, or a subset of all rows.  Each column can be
+   updated separately; the other columns are not affected.␟既にデータベースに入っているデータを変更することを「更新(update)する」と言います。
+個別の行、テーブル内の全ての行、あるいは全ての行のサブセットを更新できます。
+各列は、他の列に影響を及ぼすことなく個別に更新できます。␞␞  </para>␞
+␝  <para>␟   To update existing rows, use the <xref linkend="sql-update"/>
+   command.  This requires
+   three pieces of information:␟既存の行の更新を行うには<xref linkend="sql-update"/>コマンドを使用してください。
+その際には3つの情報が必要となります。␞␞   <orderedlist spacing="compact">␞
+␝    <listitem>␟     <para>The name of the table and column to update</para>␟     <para>更新するテーブルと列の名前</para>␞␞    </listitem>␞
+␝    <listitem>␟     <para>The new value of the column</para>␟     <para>更新後の列の値</para>␞␞    </listitem>␞
+␝    <listitem>␟     <para>Which row(s) to update</para>␟     <para>更新する行</para>␞␞    </listitem>␞
+␝  <para>␟   Recall from <xref linkend="ddl"/> that SQL does not, in general,
+   provide a unique identifier for rows.  Therefore it is not
+   always possible to directly specify which row to update.
+   Instead, you specify which conditions a row must meet in order to
+   be updated.  Only if you have a primary key in the table (independent of
+   whether you declared it or not) can you reliably address individual rows
+   by choosing a condition that matches the primary key.
+   Graphical database access tools rely on this fact to allow you to
+   update rows individually.␟<xref linkend="ddl"/>で説明した、一般にSQLでは行に対して一意のIDを指定しないことを思い出してください。
+従って、どの行を更新するかを直接指定できない場合があります。
+その代わりに、更新される行が満たすべき条件を指定します。
+テーブルに主キーを設定している場合に限り（ユーザが宣言したのかどうかには関係なく）、主キーと一致する条件を選択することで確実に個別の行を指定できます。
+グラフィカルなデータベースアクセスツールは、この方法を使用して行を個別に更新することを可能にしています。␞␞  </para>␞
+␝  <para>␟   For example, this command updates all products that have a price of
+   5 to have a price of 10:␟例えば、値段が5である全ての商品の値段を10に更新するには、以下のコマンドを使用します。␞␞<programlisting>␞
+␝</programlisting>␟    This might cause zero, one, or many rows to be updated.  It is not
+    an error to attempt an update that does not match any rows.␟これによって更新される行の数はゼロであるかもしれませんし、1つ、あるいは多数であるかもしれません。
+一致する行がない条件を指定して更新しようとしてもエラーにはなりません。␞␞  </para>␞
+␝  <para>␟   Let's look at that command in detail. First is the key word
+   <literal>UPDATE</literal> followed by the table name.  As usual,
+   the table name can be schema-qualified, otherwise it is looked up
+   in the path.  Next is the key word <literal>SET</literal> followed
+   by the column name, an equal sign, and the new column value.  The
+   new column value can be any scalar expression, not just a constant.
+   For example, if you want to raise the price of all products by 10%
+   you could use:␟では、上記のコマンドの詳細を見てみましょう。
+最初は<literal>UPDATE</literal>キーワードで、これにテーブル名が続きます。
+いつも通り、テーブル名はスキーマで修飾することもできます。
+修飾しない場合はパス内から検索されます。
+次に<literal>SET</literal>キーワードがあり、これに列名、等号、そして更新後の列値が続きます。
+更新後の列値は、定数だけでなく任意のスカラ式で表すことができます。
+例えば、全ての商品の価格を10%上げるには以下のようにします。␞␞<programlisting>␞
+␝</programlisting>␟   As you see, the expression for the new value can refer to the existing
+   value(s) in the row.  We also left out the <literal>WHERE</literal> clause.
+   If it is omitted, it means that all rows in the table are updated.
+   If it is present, only those rows that match the
+   <literal>WHERE</literal> condition are updated.  Note that the equals
+   sign in the <literal>SET</literal> clause is an assignment while
+   the one in the <literal>WHERE</literal> clause is a comparison, but
+   this does not create any ambiguity.  Of course, the
+   <literal>WHERE</literal> condition does
+   not have to be an equality test.  Many other operators are
+   available (see <xref linkend="functions"/>).  But the expression
+   needs to evaluate to a Boolean result.␟このように、新しい値を表す式で行の中の古い値を参照することもできます。
+ここでは、<literal>WHERE</literal>句を省略しました。
+<literal>WHERE</literal>句を省略すると、テーブル内の全ての行が更新されます。
+省略しない場合は、<literal>WHERE</literal>条件に適合する行のみが更新されます。
+<literal>SET</literal>句内の等号が代入を表すのに対し、<literal>WHERE</literal>句内の等号は比較を表すことに注意してください。
+ただし、これによって曖昧さが生じることはありません。
+もちろん、必ずしも<literal>WHERE</literal>条件が等式でなければならないということはありません。
+その他にも様々な演算子を使用することができます（<xref linkend="functions"/>を参照）。
+ただし、式の評価結果は論理値でなければなりません。␞␞  </para>␞
+␝  <para>␟   You can update more than one column in an
+   <command>UPDATE</command> command by listing more than one
+   assignment in the <literal>SET</literal> clause.  For example:␟<command>UPDATE</command>コマンドの<literal>SET</literal>句に複数の代入式を列挙して、複数の列を更新することもできます。
+例を示します。␞␞<programlisting>␞
+␝  <indexterm zone="dml-delete">
+   <primary>deleting</primary>
+  </indexterm>
+␟␟  <indexterm zone="dml-delete">
+   <primary>削除</primary>
+  </indexterm>␞␞␞
+␝ <sect1 id="dml-delete">␟  <title>Deleting Data</title>␟  <title>データの削除</title>␞␞␞
+␝  <para>␟   So far we have explained how to add data to tables and how to
+   change data.  What remains is to discuss how to remove data that is
+   no longer needed.  Just as adding data is only possible in whole
+   rows, you can only remove entire rows from a table.  In the
+   previous section we explained that SQL does not provide a way to
+   directly address individual rows.  Therefore, removing rows can
+   only be done by specifying conditions that the rows to be removed
+   have to match.  If you have a primary key in the table then you can
+   specify the exact row.  But you can also remove groups of rows
+   matching a condition, or you can remove all rows in the table at
+   once.␟これまで、テーブルにデータを追加する方法と、データを変更する方法について説明してきました。
+残っているのは不要になったデータを削除する方法です。
+データの追加が行単位でしか行えないのと同様、削除の場合も、行全体をテーブルから削除するしかありません。
+前節で、SQLでは個々の行を直接指定する方法がないということを説明しました。
+ですから行の削除の場合も、削除対象となる行の条件を指定することでしかできません。
+テーブルに主キーが設定されている場合は、その行を正確に指定できます。
+しかし、条件を満たす複数の行、あるいは、テーブル内の全ての行を一度に削除することもできます。␞␞  </para>␞
+␝  <para>␟   You use the <xref linkend="sql-delete"/>
+   command to remove rows; the syntax is very similar to the
+   <xref linkend="sql-update"/> command.  For instance, to remove all
+   rows from the products table that have a price of 10, use:␟行を削除するには、<xref linkend="sql-delete"/>コマンドを使用します。
+構文は<xref linkend="sql-update"/>コマンドによく似ています。
+例えば、productsテーブルから価格が10である全ての行を削除するには以下のようにします。␞␞<programlisting>␞
+␝  <para>␟   If you simply write:␟単に次のようにすると、␞␞<programlisting>␞
+␝</programlisting>␟   then all rows in the table will be deleted!  Caveat programmer.␟テーブル内の全ての行が削除されますので注意してください！
+プログラマに対する警告です。␞␞  </para>␞
+␝ <sect1 id="dml-returning">␟  <title>Returning Data from Modified Rows</title>␟  <title>更新された行のデータを返す</title>␞␞␞
+␝  <para>␟   Sometimes it is useful to obtain data from modified rows while they are
+   being manipulated.  The <command>INSERT</command>, <command>UPDATE</command>,
+   <command>DELETE</command>, and <command>MERGE</command> commands all have an
+   optional <literal>RETURNING</literal> clause that supports this.  Use
+   of <literal>RETURNING</literal> avoids performing an extra database query to
+   collect the data, and is especially valuable when it would otherwise be
+   difficult to identify the modified rows reliably.␟行が更新されるときに、その行のデータを取得できると便利なことがあります。
+<command>INSERT</command>、<command>UPDATE</command>、<command>DELETE</command>、<command>MERGE</command>の各コマンドは、いずれもオプションの<literal>RETURNING</literal>句によりそれが可能となっています。
+<literal>RETURNING</literal>を使うことで、行を取得するために余分なデータベースへの問い合わせを行うことを避けられ、それ以外の方法で更新された行を確実に特定するのが難しい場合には、これは特に貴重です。␞␞  </para>␞
+␝  <para>␟   The allowed contents of a <literal>RETURNING</literal> clause are the same as
+   a <command>SELECT</command> command's output list
+   (see <xref linkend="queries-select-lists"/>).  It can contain column
+   names of the command's target table, or value expressions using those
+   columns.  A common shorthand is <literal>RETURNING *</literal>, which selects
+   all columns of the target table in order.␟<literal>RETURNING</literal>句で使用できる項目は<command>SELECT</command>コマンドの出力リスト（<xref linkend="queries-select-lists"/>参照）と同じです。
+コマンドの対象となっているテーブルの列名、あるいはそれらの列を使った値の式を入れることができます。
+よく使われる省略記法は<literal>RETURNING *</literal>で、これは対象テーブルのすべての列を順に返します。␞␞  </para>␞
+␝  <para>␟   In an <command>INSERT</command>, the data available to <literal>RETURNING</literal> is
+   the row as it was inserted.  This is not so useful in trivial inserts,
+   since it would just repeat the data provided by the client.  But it can
+   be very handy when relying on computed default values.  For example,
+   when using a <link linkend="datatype-serial"><type>serial</type></link>
+   column to provide unique identifiers, <literal>RETURNING</literal> can return
+   the ID assigned to a new row:␟<command>INSERT</command>では、<literal>RETURNING</literal>で利用できるデータは、挿入された通りの行です。
+単純な挿入では、クライアントが提供したデータを単に繰り返すだけになりますから、あまり役には立ちません。
+しかし、計算されたデフォルト値に依存しているときは、これは非常に便利なことがあります。
+例えば<link linkend="datatype-serial"><type>serial</type></link>の列を使って一意識別子を提供している場合、以下のように<literal>RETURNING</literal>によって、新しい行に割り当てられたIDを返すことができます。␞␞<programlisting>␞
+␝</programlisting>␟   The <literal>RETURNING</literal> clause is also very useful
+   with <literal>INSERT ... SELECT</literal>.␟また、<literal>RETURNING</literal>句は<literal>INSERT ... SELECT</literal>でも非常に役に立ちます。␞␞  </para>␞
+␝  <para>␟   In an <command>UPDATE</command>, the data available to <literal>RETURNING</literal> is
+   the new content of the modified row.  For example:␟<command>UPDATE</command>では、<literal>RETURNING</literal>で利用できるデータは、更新された行の新しい内容です。
+例を示します。␞␞<programlisting>␞
+␝  <para>␟   In a <command>DELETE</command>, the data available to <literal>RETURNING</literal> is
+   the content of the deleted row.  For example:␟<command>DELETE</command>では、<literal>RETURNING</literal>で利用できるデータは、削除された行の内容です。
+例を示します。␞␞<programlisting>␞
+␝  <para>␟   In a <command>MERGE</command>, the data available to <literal>RETURNING</literal> is
+   the content of the source row plus the content of the inserted, updated, or
+   deleted target row.  Since it is quite common for the source and target to
+   have many of the same columns, specifying <literal>RETURNING *</literal>
+   can lead to a lot of duplicated columns, so it is often more useful to
+   qualify it so as to return just the source or target row.  For example:␟<command>MERGE</command>では、<literal>RETURNING</literal>で利用できるデータは、元となる行の内容と挿入、更新、または削除された対象行の内容です。
+元となるものと対象が多くの同じ列を持つことは非常に一般的であるため、<literal>RETURNING *</literal>を指定すると、多くの重複した列が発生する可能性があります。そのため、元となる行または対象行だけを返すように修飾するのがより有用なことがしばしばあります。
+例を示します。␞␞<programlisting>␞
+␝  <para>␟   If there are triggers (<xref linkend="triggers"/>) on the target table,
+   the data available to <literal>RETURNING</literal> is the row as modified by
+   the triggers.  Thus, inspecting columns computed by triggers is another
+   common use-case for <literal>RETURNING</literal>.␟対象のテーブルにトリガ（<xref linkend="triggers"/>）がある場合、<literal>RETURNING</literal>で利用できるデータは、トリガで更新された行です。
+従って、トリガによって計算された列を検査するのも<literal>RETURNING</literal>の一般的な利用方法の一つです。␞␞  </para>␞

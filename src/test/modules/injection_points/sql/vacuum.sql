@@ -22,6 +22,18 @@ CREATE TABLE vac_tab_off_toast_on(i int, j text) WITH
 -- Multiple relations should use their options in isolation.
 VACUUM vac_tab_on_toast_off, vac_tab_off_toast_on;
 
+-- Check "auto" case of index_cleanup and "truncate" controlled by
+-- its GUC.
+CREATE TABLE vac_tab_auto(i int, j text) WITH
+  (autovacuum_enabled=false,
+   vacuum_index_cleanup=auto, toast.vacuum_index_cleanup=auto);
+SET vacuum_truncate = false;
+VACUUM vac_tab_auto;
+SET vacuum_truncate = true;
+VACUUM vac_tab_auto;
+RESET vacuum_truncate;
+
+DROP TABLE vac_tab_auto;
 DROP TABLE vac_tab_on_toast_off;
 DROP TABLE vac_tab_off_toast_on;
 

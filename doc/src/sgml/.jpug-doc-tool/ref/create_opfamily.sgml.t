@@ -1,0 +1,48 @@
+␝  <manvolnum>7</manvolnum>␟  <refmiscinfo>SQL - Language Statements</refmiscinfo>␟  <refmiscinfo>SQL - 言語</refmiscinfo>␞␞ </refmeta>␞
+␝  <refname>CREATE OPERATOR FAMILY</refname>␟  <refpurpose>define a new operator family</refpurpose>␟  <refpurpose>新しい演算子族を定義する</refpurpose>␞␞ </refnamediv>␞
+␝ <refsect1>␟  <title>Description</title>␟  <title>説明</title>␞␞␞
+␝  <para>␟   <command>CREATE OPERATOR FAMILY</command> creates a new operator family.
+   An operator family defines a collection of related operator classes,
+   and perhaps some additional operators and support functions that are
+   compatible with these operator classes but not essential for the
+   functioning of any individual index.  (Operators and functions that
+   are essential to indexes should be grouped within the relevant operator
+   class, rather than being <quote>loose</quote> in the operator family.
+   Typically, single-data-type operators are bound to operator classes,
+   while cross-data-type operators can be loose in an operator family
+   containing operator classes for both data types.)␟<command>CREATE OPERATOR FAMILY</command>は演算子族を新規に作成します。
+演算子族は、関連する演算子クラスと、場合によっては、これらの演算子クラスと互換性があるが個々のインデックスの機能にとっては重要ではない、追加の演算子と関数の集合を定義します。
+（インデックスにとって重要な演算子と関数は、演算子族内で<quote>自由</quote>とするのではなく、対応する演算子クラスにまとめられなければなりません。
+通常、単一のデータ型に対する演算子は演算子クラスにまとめ、データ型を跨る演算子を両方のデータ型に対する演算子族内で自由とします。）␞␞  </para>␞
+␝  <para>␟   The new operator family is initially empty.  It should be populated
+   by issuing subsequent <command>CREATE OPERATOR CLASS</command> commands
+   to add contained operator classes, and optionally
+   <command>ALTER OPERATOR FAMILY</command> commands to add <quote>loose</quote>
+   operators and their corresponding support functions.␟新しい演算子族の初期状態は空です。
+続いて、含むべき演算子クラスを追加するために<command>CREATE OPERATOR CLASS</command>コマンドを発行してデータを投入します。
+必要なら、<quote>自由</quote>な演算子と対応するサポート関数を追加するために<command>ALTER OPERATOR FAMILY</command>コマンドを発行します。␞␞  </para>␞
+␝  <para>␟   If a schema name is given then the operator family is created in the
+   specified schema.  Otherwise it is created in the current schema.
+   Two operator families in the same schema can have the same name only if they
+   are for different index methods.␟スキーマ名が指定されると、演算子族は指定したスキーマ内に作成されます。
+さもなくば、現在のスキーマ内に作成されます。
+対象とするインデックスメソッドが異なる場合に限り、同一スキーマ内に同じ名前の2つの演算子族を持たせることができます。␞␞  </para>␞
+␝  <para>␟   The user who defines an operator family becomes its owner.  Presently,
+   the creating user must be a superuser.  (This restriction is made because
+   an erroneous operator family definition could confuse or even crash the
+   server.)␟演算子族を定義したユーザがその所有者となります。
+現時点では、作成者はスーパーユーザでなければなりません。
+演算子族を間違って定義すると、サーバが混乱し、クラッシュすることさえありますので、この制限が存在します。␞␞  </para>␞
+␝  <para>␟   Refer to <xref linkend="xindex"/> for further information.␟詳細は<xref linkend="xindex"/>を参照してください。␞␞  </para>␞
+␝ <refsect1>␟  <title>Parameters</title>␟  <title>パラメータ</title>␞␞␞
+␝     <para>␟      The name of the operator family to be created.  The name can be
+      schema-qualified.␟作成する演算子族の名前です。
+この名前はスキーマ修飾可能です。␞␞     </para>␞
+␝     <para>␟      The name of the index method this operator family is for.␟演算子族が対象とするインデックスメソッドの名前です。␞␞     </para>␞
+␝ <refsect1>␟  <title>Compatibility</title>␟  <title>互換性</title>␞␞␞
+␝  <para>␟   <command>CREATE OPERATOR FAMILY</command> is a
+   <productname>PostgreSQL</productname> extension.  There is no
+   <command>CREATE OPERATOR FAMILY</command> statement in the SQL
+   standard.␟<command>CREATE OPERATOR FAMILY</command>は<productname>PostgreSQL</productname>の拡張です。
+標準SQLには<command>CREATE OPERATOR FAMILY</command>文はありません。␞␞  </para>␞
+␝ <refsect1>␟  <title>See Also</title>␟  <title>関連項目</title>␞␞␞
