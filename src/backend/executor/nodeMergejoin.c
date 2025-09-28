@@ -3,7 +3,7 @@
  * nodeMergejoin.c
  *	  routines supporting merge joins
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -175,7 +175,7 @@ static MergeJoinClause
 MJExamineQuals(List *mergeclauses,
 			   Oid *mergefamilies,
 			   Oid *mergecollations,
-			   int *mergestrategies,
+			   bool *mergereversals,
 			   bool *mergenullsfirst,
 			   PlanState *parent)
 {
@@ -193,7 +193,7 @@ MJExamineQuals(List *mergeclauses,
 		MergeJoinClause clause = &clauses[iClause];
 		Oid			opfamily = mergefamilies[iClause];
 		Oid			collation = mergecollations[iClause];
-		StrategyNumber opstrategy = mergestrategies[iClause];
+		bool		reversed = mergereversals[iClause];
 		bool		nulls_first = mergenullsfirst[iClause];
 		int			op_strategy;
 		Oid			op_lefttype;
@@ -212,12 +212,7 @@ MJExamineQuals(List *mergeclauses,
 		/* Set up sort support data */
 		clause->ssup.ssup_cxt = CurrentMemoryContext;
 		clause->ssup.ssup_collation = collation;
-		if (opstrategy == BTLessStrategyNumber)
-			clause->ssup.ssup_reverse = false;
-		else if (opstrategy == BTGreaterStrategyNumber)
-			clause->ssup.ssup_reverse = true;
-		else					/* planner screwed up */
-			elog(ERROR, "unsupported mergejoin strategy %d", opstrategy);
+		clause->ssup.ssup_reverse = reversed;
 		clause->ssup.ssup_nulls_first = nulls_first;
 
 		/* Extract the operator's declared left/right datatypes */
@@ -225,7 +220,7 @@ MJExamineQuals(List *mergeclauses,
 								   &op_strategy,
 								   &op_lefttype,
 								   &op_righttype);
-		if (op_strategy != BTEqualStrategyNumber)	/* should not happen */
+		if (IndexAmTranslateStrategy(op_strategy, get_opfamily_method(opfamily), opfamily, true) != COMPARE_EQ) /* should not happen */
 			elog(ERROR, "cannot merge using non-equality operator %u",
 				 qual->opno);
 
@@ -1608,7 +1603,7 @@ ExecInitMergeJoin(MergeJoin *node, EState *estate, int eflags)
 	mergestate->mj_Clauses = MJExamineQuals(node->mergeclauses,
 											node->mergeFamilies,
 											node->mergeCollations,
-											node->mergeStrategies,
+											node->mergeReversals,
 											node->mergeNullsFirst,
 											(PlanState *) mergestate);
 

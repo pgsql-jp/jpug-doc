@@ -1,7 +1,7 @@
 /*
  * pg_controldata
  *
- * reads the data from $PGDATA/global/pg_control
+ * reads the data from the control file located at $PGDATA/XLOG_CONTROL_FILE.
  *
  * copyright (c) Oliver Elphick <olly@lfix.co.uk>, 2001;
  * license: BSD
@@ -239,8 +239,8 @@ main(int argc, char *argv[])
 		   ControlFile->pg_control_version);
 	printf(_("Catalog version number:               %u\n"),
 		   ControlFile->catalog_version_no);
-	printf(_("Database system identifier:           %llu\n"),
-		   (unsigned long long) ControlFile->system_identifier);
+	printf(_("Database system identifier:           %" PRIu64 "\n"),
+		   ControlFile->system_identifier);
 	printf(_("Database cluster state:               %s\n"),
 		   dbState(ControlFile->state));
 	printf(_("pg_control last modified:             %s\n"),
@@ -336,6 +336,8 @@ main(int argc, char *argv[])
 		   (ControlFile->float8ByVal ? _("by value") : _("by reference")));
 	printf(_("Data page checksum version:           %u\n"),
 		   ControlFile->data_checksum_version);
+	printf(_("Default char data signedness:         %s\n"),
+		   (ControlFile->default_char_signedness ? _("signed") : _("unsigned")));
 	printf(_("Mock authentication nonce:            %s\n"),
 		   mock_auth_nonce_str);
 	return 0;

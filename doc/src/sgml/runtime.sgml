@@ -978,11 +978,15 @@ psql: error: connection to server at "server.joe.com" (123.123.123.123), port 54
      This is the generic <quote>I couldn't find a server to talk
      to</quote> failure. It looks like the above when TCP/IP
      communication is attempted. A common mistake is to forget to
-     configure the server to allow TCP/IP connections.
+     configure <xref linkend="guc-listen-addresses"/> so that the server
+     accepts remote TCP connections.
 -->
-これは一般的な<quote>接続するサーバが見つけられませんでした</quote>という失敗です。
+《マッチ度[71.376812]》これは一般的な<quote>接続するサーバが見つけられませんでした</quote>という失敗です。
 TCP/IP通信を試みた時に上記のように表示されます。
 よくある間違いはサーバにTCP/IPを許可する設定を忘れていることです。
+《機械翻訳》これは一般的<quote>私は話すためのサーバを見つけることができませんでした</quote>の失敗です。
+TCP/IP通信を試みると、上記のようになります。
+一般的なミスは、サーバがリモートのTCP接続を受け入れるように<xref linkend="guc-listen-addresses"/>を設定するのを忘れることです。
     </para>
 
     <para>
@@ -1217,10 +1221,7 @@ System V <acronym>IPC</acronym>機能は、通常システム全体の割り当�
         <entry>Maximum number of semaphore identifiers (i.e., sets)</entry>
 -->
         <entry>セマフォ識別子の最大数（つまりセット）</entry>
-<!--
-        <entry>at least <literal>ceil((max_connections + autovacuum_max_workers + max_wal_senders + max_worker_processes + 7) / 19)</literal> plus room for other applications</entry>
--->
-        <entry>最低<literal>ceil((max_connections + autovacuum_max_workers + max_wal_senders + max_worker_processes + 7) / 19)</literal> + 他のアプリケーション用の空間</entry>
+        <entry>at least <literal>ceil(num_os_semaphores / 16)</literal> plus room for other applications</entry>
        </row>
 
        <row>
@@ -1229,10 +1230,7 @@ System V <acronym>IPC</acronym>機能は、通常システム全体の割り当�
         <entry>Maximum number of semaphores system-wide</entry>
 -->
         <entry>システム全体のセマフォの最大数</entry>
-<!--
-        <entry><literal>ceil((max_connections + autovacuum_max_workers + max_wal_senders + max_worker_processes + 7) / 19) * 20</literal> plus room for other applications</entry>
--->
-        <entry><literal>ceil((max_connections + autovacuum_max_workers + max_wal_senders + max_worker_processes + 7) / 19) * 20</literal> + 他のアプリケーション用の空間</entry>
+        <entry><literal>ceil(num_os_semaphores / 16) * 17</literal> plus room for other applications</entry>
        </row>
 
        <row>
@@ -1241,10 +1239,7 @@ System V <acronym>IPC</acronym>機能は、通常システム全体の割り当�
         <entry>Maximum number of semaphores per set</entry>
 -->
         <entry>セットごとのセマフォの最大数</entry>
-<!--
-        <entry>at least 20</entry>
--->
-        <entry>最低20</entry>
+        <entry>at least 17</entry>
        </row>
 
        <row>
@@ -1312,33 +1307,50 @@ System V <acronym>IPC</acronym>機能は、通常システム全体の割り当�
     When using System V semaphores,
     <productname>PostgreSQL</productname> uses one semaphore per allowed connection
     (<xref linkend="guc-max-connections"/>), allowed autovacuum worker process
-    (<xref linkend="guc-autovacuum-max-workers"/>), allowed WAL sender process
-    (<xref linkend="guc-max-wal-senders"/>), and allowed background
-    process (<xref linkend="guc-max-worker-processes"/>), in sets of 19.
-    Each such set will
-    also contain a 20th semaphore which contains a <quote>magic
+    (<xref linkend="guc-autovacuum-worker-slots"/>), allowed WAL sender process
+    (<xref linkend="guc-max-wal-senders"/>), allowed background
+    process (<xref linkend="guc-max-worker-processes"/>), etc., in sets of 16.
+    The runtime-computed parameter <xref linkend="guc-num-os-semaphores"/>
+    reports the number of semaphores required.  This parameter can be viewed
+    before starting the server with a <command>postgres</command> command like:
+-->
+《マッチ度[54.220779]》POSIXセマフォを使用している場合、System Vと同じ数のセマフォを必要とします。
+つまり、許可した接続（<xref linkend="guc-max-connections"/>）、許可したオートバキュームワーカープロセス（<xref linkend="guc-autovacuum-max-workers"/>）、許可したWAL送信プロセス（<xref linkend="guc-max-wal-senders"/>）、許可したバックエンドプロセス(<xref linkend="guc-max-worker-processes"/>)ごとに1つのセマフォを使用します。
+このオプションが優先されるプラットフォームでは、POSIXセマフォの数に特定のカーネル制限はありません。
+《機械翻訳》システムVセマフォーを使用する場合は、<productname>PostgreSQL</productname>許可されたセマフォ<xref linkend="guc-max-connections"/>、許可されたコネクションワーカープロセス(<xref linkend="guc-autovacuum-worker-slots"/>)、許可されたWAL送信者プロセス(<xref linkend="guc-max-wal-senders"/>)、許可されたバックグラウンドプロセス(<xref linkend="guc-max-worker-processes"/>)ごとに1つのを16のセットで使用します。
+ランタイムで計算されたパラメータ<xref linkend="guc-num-os-semaphores"/>は、必要なセマフォーの数を報告します。
+このパラメータは、サーバを<command>postgres</command>コマンドのようなで開始する前で表示できます。
+オートバキューム
+<programlisting>
+$ <userinput>postgres -D $PGDATA -C num_os_semaphores</userinput>
+</programlisting>
+   </para>
+
+   <para>
+<!--
+    Each set of 16 semaphores will
+    also contain a 17th semaphore which contains a <quote>magic
     number</quote>, to detect collision with semaphore sets used by
     other applications. The maximum number of semaphores in the system
     is set by <varname>SEMMNS</varname>, which consequently must be at least
-    as high as <varname>max_connections</varname> plus
-    <varname>autovacuum_max_workers</varname> plus <varname>max_wal_senders</varname>,
-    plus <varname>max_worker_processes</varname>, plus one extra for each 19
-    allowed connections plus workers (see the formula in <xref
+    as high as <literal>num_os_semaphores</literal> plus one extra for
+    each set of 16 required semaphores (see the formula in <xref
     linkend="sysvipc-parameters"/>).  The parameter <varname>SEMMNI</varname>
     determines the limit on the number of semaphore sets that can
     exist on the system at one time.  Hence this parameter must be at
-    least <literal>ceil((max_connections + autovacuum_max_workers + max_wal_senders + max_worker_processes + 7) / 19)</literal>.
+    least <literal>ceil(num_os_semaphores / 16)</literal>.
     Lowering the number
     of allowed connections is a temporary workaround for failures,
     which are usually confusingly worded <quote>No space
     left on device</quote>, from the function <function>semget</function>.
 -->
-System V セマフォを使用している場合、<productname>PostgreSQL</productname>は、許可した接続（<xref linkend="guc-max-connections"/>）、許可したオートバキュームワーカープロセス（<xref linkend="guc-autovacuum-max-workers"/>）、許可したWAL送信プロセス（<xref linkend="guc-max-wal-senders"/>）、許可したバックエンドプロセス(<xref linkend="guc-max-worker-processes"/>)ごとに1つのセマフォを使用し、19個のセマフォをセットとして扱います。
-それぞれそのようなセットは、他のアプリケーションに使われているセマフォセットとの衝突を検出するための<quote>マジックナンバー</quote>が含まれている20個目のセマフォを持っています。
-システム内のセマフォの最大数は<varname>SEMMNS</varname>によって設定され、その結果としてその値は少なくとも<varname>max_connections</varname>＋<varname>autovacuum_max_workers</varname>＋<varname>max_wal_senders</varname>＋<varname>max_worker_processes</varname>と同じ、ただし、許可された接続とワーカー19個ごとに余分な1個を加えた値以上はなければいけません（<xref linkend="sysvipc-parameters"/>の公式を参照してください）。
-<varname>SEMMNI</varname>パラメータはシステム上に同時に存在できるセマフォ集合の数の上限を決定します。
-ですから、このパラメータは少なくとも<literal>ceil((max_connections + autovacuum_max_workers + max_wal_senders + max_worker_processes + 7) / 19)</literal>以上はなくてはいけません。
-一時的な失敗の回避策としては許可される接続の数を下げることができますが、<quote>No space left on device</quote>という紛らわしい言葉が<function>semget</function>関数から表示されます。
+《機械翻訳》16個のセマフォの各セットには、他のアプリケーションで使用されているセマフォセットとの衝突を検出するために、包含a<quote>マジックナンバー</quote>の17番目のセマフォも含まれます。
+システム内のセマフォの最大数は<varname>SEMMNS</varname>で設定されます。
+したがって、これは少なくとも<literal>num_os_semaphore</literal>プラスと同じ大きさである必要があります。
+16個の必要なセマフォの各セットに1つ追加されます（<xref linkend="sysvipc-parameters"/>の式を参照）。
+パラメータ<varname>SEMMNI</varname>は、システムに一度に存在できるセマフォセットの数の制限を決定します。
+したがって、このパラメータは少なくとも<literal>ceil(num_os_semaphore / 16)</literal>である必要があります。
+許可された接続の数を減らすことは、関数<function>semget</function><quote>デバイスにスペースが残っていない</quote>という紛らわしい言葉で表される障害に対する一時的の回避策です。
    </para>
 
    <para>
@@ -1376,13 +1388,13 @@ System V セマフォを使用している場合、<productname>PostgreSQL</prod
     When using POSIX semaphores, the number of semaphores needed is the
     same as for System V, that is one semaphore per allowed connection
     (<xref linkend="guc-max-connections"/>), allowed autovacuum worker process
-    (<xref linkend="guc-autovacuum-max-workers"/>), allowed WAL sender process
-    (<xref linkend="guc-max-wal-senders"/>), and allowed background
-    process (<xref linkend="guc-max-worker-processes"/>).
+    (<xref linkend="guc-autovacuum-worker-slots"/>), allowed WAL sender process
+    (<xref linkend="guc-max-wal-senders"/>), allowed background
+    process (<xref linkend="guc-max-worker-processes"/>), etc.
     On the platforms where this option is preferred, there is no specific
     kernel limit on the number of POSIX semaphores.
 -->
-POSIXセマフォを使用している場合、System Vと同じ数のセマフォを必要とします。
+《マッチ度[90.996169]》POSIXセマフォを使用している場合、System Vと同じ数のセマフォを必要とします。
 つまり、許可した接続（<xref linkend="guc-max-connections"/>）、許可したオートバキュームワーカープロセス（<xref linkend="guc-autovacuum-max-workers"/>）、許可したWAL送信プロセス（<xref linkend="guc-max-wal-senders"/>）、許可したバックエンドプロセス(<xref linkend="guc-max-worker-processes"/>)ごとに1つのセマフォを使用します。
 このオプションが優先されるプラットフォームでは、POSIXセマフォの数に特定のカーネル制限はありません。
    </para>
@@ -1463,13 +1475,16 @@ FreeBSD jailを実行している場合、<literal>sysvshm</literal>パラメー
 <!--
         The default shared memory settings are usually good enough, unless
         you have set <literal>shared_memory_type</literal> to <literal>sysv</literal>.
-        You will usually want to increase <literal>kern.ipc.semmni</literal>
+        However, you will need to increase <literal>kern.ipc.semmni</literal>
         and <literal>kern.ipc.semmns</literal>,
         as <systemitem class="osname">NetBSD</systemitem>'s default settings
-        for these are uncomfortably small.
+        for these are unworkably small.
 -->
-<literal>shared_memory_type</literal>を<literal>sysv</literal>に設定していない限り、通常はデフォルトの共有メモリ設定で十分です。
+《マッチ度[81.179775]》<literal>shared_memory_type</literal>を<literal>sysv</literal>に設定していない限り、通常はデフォルトの共有メモリ設定で十分です。
 通常は、<literal>kern.ipc.semmni</literal>と<literal>kern.ipc.semmns</literal>を増やす必要があります。これは、<systemitem class="osname">NetBSD</systemitem>のデフォルト設定は不適切に小さいためです。
+《機械翻訳》<literal>shared_memory_type</literal>を<literal>sysv</literal>に設定しない限り、通常はデフォルト共有メモリの設定で十分です。
+しかし、<literal>kern.ipc.semmni</literal>と<literal>kern.ipc.semmns</literal>を増やす必要があります。
+<systemitem class="osname">NetBSD</systemitem>のデフォルトの設定は小さすぎてうまく動作しません。
        </para>
 
        <para>
@@ -1512,14 +1527,17 @@ FreeBSD jailを実行している場合、<literal>sysvshm</literal>パラメー
 <!--
         The default shared memory settings are usually good enough, unless
         you have set <literal>shared_memory_type</literal> to <literal>sysv</literal>.
-        You will usually want to
+        However, you will need to
         increase <literal>kern.seminfo.semmni</literal>
         and <literal>kern.seminfo.semmns</literal>,
         as <systemitem class="osname">OpenBSD</systemitem>'s default settings
-        for these are uncomfortably small.
+        for these are unworkably small.
 -->
-<literal>shared_memory_type</literal>を<literal>sysv</literal>に設定していない限り、通常はデフォルトの共有メモリ設定で十分です。
+《マッチ度[79.452055]》<literal>shared_memory_type</literal>を<literal>sysv</literal>に設定していない限り、通常はデフォルトの共有メモリ設定で十分です。
 通常は、<literal>kern.seminfo.semmni</literal>と<literal>kern.seminfo.semmns</literal>を増やす必要があります。これは、<systemitem class="osname">OpenBSD</systemitem>のデフォルト設定は不適切に小さいためです。
+《機械翻訳》<literal>shared_memory_type</literal>を<literal>sysv</literal>に設定しない限り、通常はデフォルト共有メモリの設定で十分です。
+ただし、<literal>kern.seminfo.semmni</literal>と<literal>kern.seminfo.semmns</literal>を増やす必要があります。
+<systemitem class="osname">OpenBSD</systemitem>のこれらのデフォルト設定は非常に小さいため、うまく動作しません。
        </para>
 
        <para>
@@ -3118,6 +3136,20 @@ TCPクライアントは<literal>gssencmode=require</literal>を使用して接�
 SCRAM又はMD5暗号化がクライアント認証に使用されている場合、平文のパスワードはサーバ上に一時的にも存在することはありません。ネットワーク上に流れる前にクライアントが暗号化を行うからです。
 SCRAMは、インターネット標準で、PostgreSQL特有なMD5認証プロトコルよりセキュアであるため、より望ましいです。
     </para>
+
+    <warning>
+     <para>
+<!--
+      Support for MD5-encrypted passwords is deprecated and will be removed in
+      a future release of <productname>PostgreSQL</productname>.  Refer to
+      <xref linkend="auth-password"/> for details about migrating to another
+      password type.
+-->
+《機械翻訳》MD5で暗号化されたパスワードのサポートは非推奨となり、将来の<productname>PostgreSQL</productname>のリリースで削除されます。
+他のパスワードタイプへの移行の詳細については、<xref linkend="auth-password"/>を参照してください。
+     </para>
+    </warning>
+
    </listitem>
   </varlistentry>
 

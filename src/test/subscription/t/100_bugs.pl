@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021-2024, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Tests for various bugs found over time
 use strict;
@@ -377,8 +377,8 @@ $node_publisher->safe_psql('postgres', "DROP PUBLICATION tap_pub_sch");
 $node_publisher->stop('fast');
 $node_subscriber->stop('fast');
 
-# The bug was that when the REPLICA IDENTITY FULL is used with dropped or
-# generated columns, we fail to apply updates and deletes
+# The bug was that when the REPLICA IDENTITY FULL is used with dropped
+# we fail to apply updates and deletes
 $node_publisher->rotate_logfile();
 $node_publisher->start();
 
@@ -389,18 +389,14 @@ $node_publisher->safe_psql(
 	'postgres', qq(
 	CREATE TABLE dropped_cols (a int, b_drop int, c int);
 	ALTER TABLE dropped_cols REPLICA IDENTITY FULL;
-	CREATE TABLE generated_cols (a int, b_gen int GENERATED ALWAYS AS (5 * a) STORED, c int);
-	ALTER TABLE generated_cols REPLICA IDENTITY FULL;
-	CREATE PUBLICATION pub_dropped_cols FOR TABLE dropped_cols, generated_cols;
+	CREATE PUBLICATION pub_dropped_cols FOR TABLE dropped_cols;
 	-- some initial data
 	INSERT INTO dropped_cols VALUES (1, 1, 1);
-	INSERT INTO generated_cols (a, c) VALUES (1, 1);
 ));
 
 $node_subscriber->safe_psql(
 	'postgres', qq(
 	 CREATE TABLE dropped_cols (a int, b_drop int, c int);
-	 CREATE TABLE generated_cols (a int, b_gen int GENERATED ALWAYS AS (5 * a) STORED, c int);
 ));
 
 $publisher_connstr = $node_publisher->connstr . ' dbname=postgres';
@@ -421,7 +417,6 @@ $node_subscriber->safe_psql(
 $node_publisher->safe_psql(
 	'postgres', qq(
 		UPDATE dropped_cols SET a = 100;
-		UPDATE generated_cols SET a = 100;
 ));
 $node_publisher->wait_for_catchup('sub_dropped_cols');
 
@@ -429,11 +424,6 @@ is( $node_subscriber->safe_psql(
 		'postgres', "SELECT count(*) FROM dropped_cols WHERE a = 100"),
 	qq(1),
 	'replication with RI FULL and dropped columns');
-
-is( $node_subscriber->safe_psql(
-		'postgres', "SELECT count(*) FROM generated_cols WHERE a = 100"),
-	qq(1),
-	'replication with RI FULL and generated columns');
 
 $node_publisher->stop('fast');
 $node_subscriber->stop('fast');
@@ -486,6 +476,24 @@ $result =
   $node_subscriber->safe_psql('postgres', "SELECT a, b FROM tab_default");
 is( $result, qq(2|f
 3|t), 'check replicated update on subscriber');
+
+# Test create and immediate drop of replication slot via replication commands
+# (this exposed a memory-management bug in v18)
+my $publisher_host = $node_publisher->host;
+my $publisher_port = $node_publisher->port;
+my $connstr_db =
+  "host=$publisher_host port=$publisher_port replication=database dbname=postgres";
+
+is( $node_publisher->psql(
+		'postgres',
+		qq[
+		CREATE_REPLICATION_SLOT test_slot LOGICAL pgoutput (SNAPSHOT export);
+		DROP_REPLICATION_SLOT test_slot;
+	],
+		timeout => $PostgreSQL::Test::Utils::timeout_default,
+		extra_params => [ '-d', $connstr_db ]),
+	0,
+	'create and immediate drop of replication slot');
 
 $node_publisher->stop('fast');
 $node_subscriber->stop('fast');
@@ -566,5 +574,35 @@ is($result, 't',
 
 $node_publisher->stop('fast');
 $node_subscriber->stop('fast');
+
+# BUG #18988
+# The bug happened due to a self-deadlock between the DROP SUBSCRIPTION
+# command and the walsender process for accessing pg_subscription. This
+# occurred when DROP SUBSCRIPTION attempted to remove a replication slot by
+# connecting to a newly created database whose caches are not yet
+# initialized.
+#
+# The bug is fixed by reducing the lock-level during DROP SUBSCRIPTION.
+$node_publisher->start();
+
+$publisher_connstr = $node_publisher->connstr . ' dbname=regress_db';
+$node_publisher->safe_psql(
+	'postgres', qq(
+	CREATE DATABASE regress_db;
+	CREATE SUBSCRIPTION regress_sub1 CONNECTION '$publisher_connstr' PUBLICATION regress_pub WITH (connect=false);
+));
+
+my ($ret, $stdout, $stderr) =
+  $node_publisher->psql('postgres', q{DROP SUBSCRIPTION regress_sub1});
+
+isnt($ret, 0, "replication slot does not exist: exit code not 0");
+like(
+	$stderr,
+	qr/ERROR:  could not drop replication slot "regress_sub1" on publisher/,
+	"could not drop replication slot: error message");
+
+$node_publisher->safe_psql('postgres', "DROP DATABASE regress_db");
+
+$node_publisher->stop('fast');
 
 done_testing();

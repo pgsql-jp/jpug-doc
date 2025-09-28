@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, PostgreSQL Global Development Group
+# Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 # Entry point for building PostgreSQL with meson
 #
@@ -8,7 +8,7 @@
 
 project('postgresql',
   ['c'],
-  version: '17.6',
+  version: '18.0',
   license: 'PostgreSQL',
 
   # We want < 0.56 for python 3.5 compatibility on old platforms. EPEL for
@@ -107,6 +107,7 @@ os_deps = []
 backend_both_deps = []
 backend_deps = []
 libpq_deps = []
+libpq_oauth_deps = []
 
 pg_sysroot = ''
 
@@ -261,13 +262,23 @@ elif host_system == 'openbsd'
 elif host_system == 'sunos'
   portname = 'solaris'
   export_fmt = '-Wl,-M@0@'
-  cppflags += '-D_POSIX_PTHREAD_SEMANTICS'
+  # We need these #defines to get POSIX-conforming versions
+  # of many interfaces (sigwait, getpwuid_r, shmdt, ...).
+  cppflags += [
+    '-D_POSIX_C_SOURCE=200112L',
+    '-D__EXTENSIONS__',
+    '-D_POSIX_PTHREAD_SEMANTICS',
+  ]
 
 elif host_system == 'windows'
   portname = 'win32'
   exesuffix = '.exe'
   dlsuffix = '.dll'
   library_path_var = ''
+  if cc.get_id() != 'msvc'
+    # define before including <time.h> for getting localtime_r() etc. on MinGW
+    cppflags += '-D_POSIX_C_SOURCE'
+  endif
 
   export_file_format = 'win'
   export_file_suffix = 'def'
@@ -324,7 +335,7 @@ endif
 # External programs
 perl = find_program(get_option('PERL'), required: true, native: true)
 python = find_program(get_option('PYTHON'), required: true, native: true)
-flex = find_program(get_option('FLEX'), native: true, version: '>= 2.5.35')
+flex = find_program(get_option('FLEX'), native: true)
 bison = find_program(get_option('BISON'), native: true, version: '>= 2.3')
 sed = find_program(get_option('SED'), 'sed', native: true, required: false)
 prove = find_program(get_option('PROVE'), native: true, required: false)
@@ -789,7 +800,7 @@ endif
 llvmopt = get_option('llvm')
 llvm = not_found_dep
 if add_languages('cpp', required: llvmopt, native: false)
-  llvm = dependency('llvm', version: '>=10', method: 'config-tool', required: llvmopt)
+  llvm = dependency('llvm', version: '>=14', method: 'config-tool', required: llvmopt)
 
   if llvm.found()
 
@@ -841,6 +852,150 @@ if not icuopt.disabled()
 else
   icu = not_found_dep
   icu_i18n = not_found_dep
+endif
+
+
+
+###############################################################
+# Library: libcurl
+###############################################################
+
+libcurlopt = get_option('libcurl')
+oauth_flow_supported = false
+
+if not libcurlopt.disabled()
+  # Check for libcurl 7.61.0 or higher (corresponding to RHEL8 and the ability
+  # to explicitly set TLS 1.3 ciphersuites).
+  libcurl = dependency('libcurl', version: '>= 7.61.0', required: libcurlopt)
+  if libcurl.found()
+    # Check to see whether the current platform supports thread-safe Curl
+    # initialization.
+    libcurl_threadsafe_init = false
+
+    if not meson.is_cross_build()
+      r = cc.run('''
+        #include <curl/curl.h>
+
+        int main(void)
+        {
+            curl_version_info_data *info;
+
+            if (curl_global_init(CURL_GLOBAL_ALL))
+                return -1;
+
+            info = curl_version_info(CURLVERSION_NOW);
+        #ifdef CURL_VERSION_THREADSAFE
+            if (info->features & CURL_VERSION_THREADSAFE)
+                return 0;
+        #endif
+
+            return 1;
+        }''',
+        name: 'test for curl_global_init thread safety',
+        dependencies: libcurl,
+      )
+
+      assert(r.compiled())
+      if r.returncode() == 0
+        libcurl_threadsafe_init = true
+        message('curl_global_init is thread-safe')
+      elif r.returncode() == 1
+        message('curl_global_init is not thread-safe')
+      else
+        message('curl_global_init failed; assuming not thread-safe')
+      endif
+    endif
+
+    if libcurl_threadsafe_init
+      cdata.set('HAVE_THREADSAFE_CURL_GLOBAL_INIT', 1)
+    endif
+
+    # Fail if a thread-friendly DNS resolver isn't built.
+    if not meson.is_cross_build()
+      r = cc.run('''
+        #include <curl/curl.h>
+
+        int main(void)
+        {
+            curl_version_info_data *info;
+
+            if (curl_global_init(CURL_GLOBAL_ALL))
+                return -1;
+
+            info = curl_version_info(CURLVERSION_NOW);
+            return (info->features & CURL_VERSION_ASYNCHDNS) ? 0 : 1;
+        }''',
+        name: 'test for curl support for asynchronous DNS',
+        dependencies: libcurl,
+      )
+
+      assert(r.compiled())
+      if r.returncode() != 0
+        error('''
+*** The installed version of libcurl does not support asynchronous DNS
+*** lookups. Rebuild libcurl with the AsynchDNS feature enabled in order
+*** to use it with libpq.''')
+      endif
+    endif
+  endif
+
+  # Check that the current platform supports our builtin flow. This requires
+  # libcurl and one of either epoll or kqueue.
+  oauth_flow_supported = (
+    libcurl.found()
+    and (cc.has_header('sys/event.h',
+                       args: test_c_args, include_directories: postgres_inc)
+         or cc.has_header('sys/epoll.h',
+                          args: test_c_args, include_directories: postgres_inc))
+  )
+
+  if oauth_flow_supported
+    cdata.set('USE_LIBCURL', 1)
+  elif libcurlopt.enabled()
+    error('client-side OAuth is not supported on this platform')
+  endif
+
+else
+  libcurl = not_found_dep
+endif
+
+
+###############################################################
+# Library: libnuma
+###############################################################
+
+libnumaopt = get_option('libnuma')
+if not libnumaopt.disabled()
+  # via pkg-config
+  libnuma = dependency('numa', required: false)
+  if not libnuma.found()
+    libnuma = cc.find_library('numa', required: libnumaopt)
+  endif
+  if not cc.has_header('numa.h', dependencies: libnuma, required: libnumaopt)
+    libnuma = not_found_dep
+  endif
+  if libnuma.found()
+    cdata.set('USE_LIBNUMA', 1)
+  endif
+else
+  libnuma = not_found_dep
+endif
+
+
+###############################################################
+# Library: liburing
+###############################################################
+
+liburingopt = get_option('liburing')
+liburing = dependency('liburing', required: liburingopt)
+if liburing.found()
+  cdata.set('USE_LIBURING', 1)
+
+  if cc.has_function('io_uring_queue_init_mem',
+      dependencies: liburing, args: test_c_args)
+    cdata.set('HAVE_LIBURING_QUEUE_INIT_MEM', 1)
+  endif
+
 endif
 
 
@@ -987,6 +1142,7 @@ endif
 
 perlopt = get_option('plperl')
 perl_dep = not_found_dep
+perlversion = ''
 if not perlopt.disabled()
   perl_may_work = true
 
@@ -1004,7 +1160,7 @@ if not perlopt.disabled()
   # Then inquire perl about its configuration
   if perl_may_work
     perl_conf_cmd = [perl, '-MConfig', '-e', 'print $Config{$ARGV[0]}']
-    perlversion = run_command(perl_conf_cmd, 'api_versionstring', check: true).stdout()
+    perlversion = run_command(perl_conf_cmd, 'version', check: true).stdout()
     archlibexp = run_command(perl_conf_cmd, 'archlibexp', check: true).stdout()
     privlibexp = run_command(perl_conf_cmd, 'privlibexp', check: true).stdout()
     useshrplib = run_command(perl_conf_cmd, 'useshrplib', check: true).stdout()
@@ -1334,37 +1490,14 @@ if sslopt in ['auto', 'openssl']
 
   # via library + headers
   if not ssl.found()
-    is_windows = host_system == 'windows'
-
-    ssl_lib_common_params = {
-      'dirs': test_lib_d,
-      'header_include_directories': postgres_inc,
-      'has_headers': ['openssl/ssl.h', 'openssl/err.h'],
-    }
     ssl_lib = cc.find_library('ssl',
-      kwargs: ssl_lib_common_params,
-      required: openssl_required and not is_windows
-    )
-    # Before OpenSSL 1.1.0, there was a different naming convention for
-    # libraries on Windows, so try the alternative name if ssl wasn't found
-    if not ssl_lib.found() and is_windows
-      ssl_lib = cc.find_library('ssleay32',
-        kwargs: ssl_lib_common_params,
-        required: openssl_required
-      )
-    endif
-
+      dirs: test_lib_d,
+      header_include_directories: postgres_inc,
+      has_headers: ['openssl/ssl.h', 'openssl/err.h'],
+      required: openssl_required)
     crypto_lib = cc.find_library('crypto',
       dirs: test_lib_d,
-      required: openssl_required and not is_windows)
-    # Before OpenSSL 1.1.0, there was a different naming convention for
-    # libraries on Windows, so try the alternatve name if crypto wasn't found
-    if not crypto_lib.found() and is_windows
-      crypto_lib = cc.find_library('libeay32',
-        dirs: test_lib_d,
-        required: openssl_required)
-    endif
-
+      required: openssl_required)
     if ssl_lib.found() and crypto_lib.found()
       ssl_int = [ssl_lib, crypto_lib]
       ssl = declare_dependency(dependencies: ssl_int, include_directories: postgres_inc)
@@ -1381,28 +1514,16 @@ if sslopt in ['auto', 'openssl']
       ['CRYPTO_new_ex_data', {'required': true}],
       ['SSL_new', {'required': true}],
 
+      # Functions introduced in OpenSSL 1.1.1.
+      ['SSL_CTX_set_ciphersuites', {'required': true}],
+
       # Function introduced in OpenSSL 1.0.2, not in LibreSSL.
       ['SSL_CTX_set_cert_cb'],
 
-      # Functions introduced in OpenSSL 1.1.0. We used to check for
-      # OPENSSL_VERSION_NUMBER, but that didn't work with 1.1.0, because LibreSSL
-      # defines OPENSSL_VERSION_NUMBER to claim version 2.0.0, even though it
-      # doesn't have these OpenSSL 1.1.0 functions. So check for individual
-      # functions.
-      ['OPENSSL_init_ssl'],
-      ['BIO_meth_new'],
-      ['ASN1_STRING_get0_data'],
-      ['HMAC_CTX_new'],
-      ['HMAC_CTX_free'],
-
-      # OpenSSL versions before 1.1.0 required setting callback functions, for
-      # thread-safety. In 1.1.0, it's no longer required, and CRYPTO_lock()
-      # function was removed.
-      ['CRYPTO_lock'],
-
-      # Function introduced in OpenSSL 1.1.1
+      # Function introduced in OpenSSL 1.1.1, not in LibreSSL.
       ['X509_get_signature_info'],
       ['SSL_CTX_set_num_tickets'],
+      ['SSL_CTX_set_keylog_callback'],
     ]
 
     are_openssl_funcs_complete = true
@@ -1424,7 +1545,7 @@ if sslopt in ['auto', 'openssl']
     if are_openssl_funcs_complete
       cdata.set('USE_OPENSSL', 1,
                 description: 'Define to 1 to build with OpenSSL support. (-Dssl=openssl)')
-      cdata.set('OPENSSL_API_COMPAT', '0x10002000L',
+      cdata.set('OPENSSL_API_COMPAT', '0x10101000L',
                 description: 'Define to the OpenSSL API version in use. This avoids deprecation warnings from newer OpenSSL versions.')
       ssl_library = 'openssl'
     else
@@ -1621,21 +1742,6 @@ if not cc.compiles(c99_test, name: 'c99', args: test_c_args)
   endif
 endif
 
-sizeof_long = cc.sizeof('long', args: test_c_args)
-cdata.set('SIZEOF_LONG', sizeof_long)
-if sizeof_long == 8
-  cdata.set('HAVE_LONG_INT_64', 1)
-  pg_int64_type = 'long int'
-  cdata.set_quoted('INT64_MODIFIER', 'l')
-elif sizeof_long == 4 and cc.sizeof('long long', args: test_c_args) == 8
-  cdata.set('HAVE_LONG_LONG_INT_64', 1)
-  pg_int64_type = 'long long int'
-  cdata.set_quoted('INT64_MODIFIER', 'll')
-else
-  error('do not know how to get a 64bit int')
-endif
-cdata.set('PG_INT64_TYPE', pg_int64_type)
-
 if host_machine.endian() == 'big'
   cdata.set('WORDS_BIGENDIAN', 1)
 endif
@@ -1659,16 +1765,18 @@ endforeach
 # of MAXIMUM_ALIGNOF to avoid that, but we no longer support any platforms
 # where TYPALIGN_DOUBLE != MAXIMUM_ALIGNOF.
 #
-# We assume without checking that int64's alignment is at least as strong
+# We assume without checking that int64_t's alignment is at least as strong
 # as long, char, short, or int.  Note that we intentionally do not consider
 # any types wider than 64 bits, as allowing MAXIMUM_ALIGNOF to exceed 8
 # would be too much of a penalty for disk and memory space.
 alignof_double = cdata.get('ALIGNOF_DOUBLE')
-if cc.alignment(pg_int64_type, args: test_c_args) > alignof_double
-  error('alignment of int64 is greater than the alignment of double')
+if cc.alignment('int64_t', args: test_c_args, prefix: '#include <stdint.h>') > alignof_double
+  error('alignment of int64_t is greater than the alignment of double')
 endif
 cdata.set('MAXIMUM_ALIGNOF', alignof_double)
 
+cdata.set('SIZEOF_LONG', cc.sizeof('long', args: test_c_args))
+cdata.set('SIZEOF_LONG_LONG', cc.sizeof('long long', args: test_c_args))
 cdata.set('SIZEOF_VOID_P', cc.sizeof('void *', args: test_c_args))
 cdata.set('SIZEOF_SIZE_T', cc.sizeof('size_t', args: test_c_args))
 
@@ -1767,6 +1875,7 @@ if cc.compiles('''
       my_label:
       return 1;
     }''',
+    name: 'computed goto',
     args: test_c_args)
   cdata.set('HAVE_COMPUTED_GOTO', 1)
 endif
@@ -1783,15 +1892,9 @@ if cc.compiles('''
         ({ _Static_assert(1, "foo"); });
     }
     ''',
+    name: '_Static_assert',
     args: test_c_args)
   cdata.set('HAVE__STATIC_ASSERT', 1)
-endif
-
-
-# We use <stdbool.h> if bool has size 1 after including it.  Otherwise, c.h
-# will fall back to declaring bool as unsigned char.
-if cc.sizeof('bool', prefix: '#include <stdbool.h>', args: test_c_args) == 1
-  cdata.set('PG_USE_STDBOOL', 1)
 endif
 
 
@@ -1874,17 +1977,17 @@ endif
 # compile, and store the results in global variables so the compiler doesn't
 # optimize away the call.
 if cc.links('''
-    INT64 a = 1;
-    INT64 b = 1;
-    INT64 result;
+    #include <stdint.h>
+    int64_t a = 1;
+    int64_t b = 1;
+    int64_t result;
 
     int main(void)
     {
         return __builtin_mul_overflow(a, b, &result);
     }''',
     name: '__builtin_mul_overflow',
-    args: test_c_args + ['-DINT64=@0@'.format(cdata.get('PG_INT64_TYPE'))],
-    )
+    args: test_c_args)
   cdata.set('HAVE__BUILTIN_OP_OVERFLOW', 1)
 endif
 
@@ -2006,6 +2109,16 @@ if cc.has_argument('-Wdeclaration-after-statement')
   cflags_no_decl_after_statement += '-Wno-declaration-after-statement'
 endif
 
+# Some code is not clean for -Wmissing-variable-declarations, so we
+# make the "no" option available.  Also, while clang supports this
+# option for C++, gcc does not, so for consistency, leave it off for
+# C++.
+cflags_no_missing_var_decls = []
+if cc.has_argument('-Wmissing-variable-declarations')
+  cflags_warn += '-Wmissing-variable-declarations'
+  cflags_no_missing_var_decls += '-Wno-missing-variable-declarations'
+endif
+
 
 # The following tests want to suppress various unhelpful warnings by adding
 # -Wno-foo switches.  But gcc won't complain about unrecognized -Wno-foo
@@ -2109,101 +2222,84 @@ endif
 # Atomics
 ###############################################################
 
-if not get_option('spinlocks')
-  warning('Not using spinlocks will cause poor performance')
-else
-  cdata.set('HAVE_SPINLOCKS', 1)
-endif
-
-if not get_option('atomics')
-  warning('Not using atomics will cause poor performance')
-else
-  # XXX: perhaps we should require some atomics support in this case these
-  # days?
-  cdata.set('HAVE_ATOMICS', 1)
-
-  atomic_checks = [
-    {'name': 'HAVE_GCC__SYNC_CHAR_TAS',
-     'desc': '__sync_lock_test_and_set(char)',
-     'test': '''
+atomic_checks = [
+  {'name': 'HAVE_GCC__SYNC_CHAR_TAS',
+   'desc': '__sync_lock_test_and_set(char)',
+   'test': '''
 char lock = 0;
 __sync_lock_test_and_set(&lock, 1);
 __sync_lock_release(&lock);'''},
 
-    {'name': 'HAVE_GCC__SYNC_INT32_TAS',
-     'desc': '__sync_lock_test_and_set(int32)',
-     'test': '''
+  {'name': 'HAVE_GCC__SYNC_INT32_TAS',
+   'desc': '__sync_lock_test_and_set(int32)',
+   'test': '''
 int lock = 0;
 __sync_lock_test_and_set(&lock, 1);
 __sync_lock_release(&lock);'''},
 
-    {'name': 'HAVE_GCC__SYNC_INT32_CAS',
-     'desc': '__sync_val_compare_and_swap(int32)',
-     'test': '''
+  {'name': 'HAVE_GCC__SYNC_INT32_CAS',
+   'desc': '__sync_val_compare_and_swap(int32)',
+   'test': '''
 int val = 0;
 __sync_val_compare_and_swap(&val, 0, 37);'''},
 
-    {'name': 'HAVE_GCC__SYNC_INT64_CAS',
-     'desc': '__sync_val_compare_and_swap(int64)',
-     'test': '''
-INT64 val = 0;
+  {'name': 'HAVE_GCC__SYNC_INT64_CAS',
+   'desc': '__sync_val_compare_and_swap(int64)',
+   'test': '''
+int64_t val = 0;
 __sync_val_compare_and_swap(&val, 0, 37);'''},
 
-    {'name': 'HAVE_GCC__ATOMIC_INT32_CAS',
-     'desc': ' __atomic_compare_exchange_n(int32)',
-     'test': '''
+  {'name': 'HAVE_GCC__ATOMIC_INT32_CAS',
+   'desc': ' __atomic_compare_exchange_n(int32)',
+   'test': '''
 int val = 0;
 int expect = 0;
 __atomic_compare_exchange_n(&val, &expect, 37, 0, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);'''},
 
-    {'name': 'HAVE_GCC__ATOMIC_INT64_CAS',
-     'desc': ' __atomic_compare_exchange_n(int64)',
-     'test': '''
-INT64 val = 0;
-INT64 expect = 0;
+  {'name': 'HAVE_GCC__ATOMIC_INT64_CAS',
+   'desc': ' __atomic_compare_exchange_n(int64)',
+   'test': '''
+int64_t val = 0;
+int64_t expect = 0;
 __atomic_compare_exchange_n(&val, &expect, 37, 0, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);'''},
-  ]
+]
 
-  foreach check : atomic_checks
-    test = '''
+foreach check : atomic_checks
+  test = '''
+#include <stdint.h>
 int main(void)
 {
 @0@
 }'''.format(check['test'])
 
-    cdata.set(check['name'],
-      cc.links(test,
-        name: check['desc'],
-        args: test_c_args + ['-DINT64=@0@'.format(cdata.get('PG_INT64_TYPE'))]) ? 1 : false
-    )
-  endforeach
-
-endif
+  cdata.set(check['name'],
+    cc.links(test,
+      name: check['desc'],
+      args: test_c_args) ? 1 : false
+  )
+endforeach
 
 
 ###############################################################
 # Check for the availability of XSAVE intrinsics.
 ###############################################################
 
-cflags_xsave = []
 if host_cpu == 'x86' or host_cpu == 'x86_64'
 
   prog = '''
 #include <immintrin.h>
 
+#if defined(__has_attribute) && __has_attribute (target)
+__attribute__((target("xsave")))
+#endif
 int main(void)
 {
     return _xgetbv(0) & 0xe0;
 }
 '''
 
-  if cc.links(prog, name: 'XSAVE intrinsics without -mxsave',
-        args: test_c_args)
+  if cc.links(prog, name: 'XSAVE intrinsics', args: test_c_args)
     cdata.set('HAVE_XSAVE_INTRINSICS', 1)
-  elif cc.links(prog, name: 'XSAVE intrinsics with -mxsave',
-        args: test_c_args + ['-mxsave'])
-    cdata.set('HAVE_XSAVE_INTRINSICS', 1)
-    cflags_xsave += '-mxsave'
   endif
 
 endif
@@ -2213,19 +2309,22 @@ endif
 # Check for the availability of AVX-512 popcount intrinsics.
 ###############################################################
 
-cflags_popcnt = []
 if host_cpu == 'x86_64'
 
   prog = '''
 #include <immintrin.h>
+#include <stdint.h>
+char buf[sizeof(__m512i)];
 
+#if defined(__has_attribute) && __has_attribute (target)
+__attribute__((target("avx512vpopcntdq,avx512bw")))
+#endif
 int main(void)
 {
-    const char buf[sizeof(__m512i)];
-    INT64 popcnt = 0;
+    int64_t popcnt = 0;
     __m512i accum = _mm512_setzero_si512();
-    const __m512i val = _mm512_maskz_loadu_epi8((__mmask64) 0xf0f0f0f0f0f0f0f0, (const __m512i *) buf);
-    const __m512i cnt = _mm512_popcnt_epi64(val);
+    __m512i val = _mm512_maskz_loadu_epi8((__mmask64) 0xf0f0f0f0f0f0f0f0, (const __m512i *) buf);
+    __m512i cnt = _mm512_popcnt_epi64(val);
     accum = _mm512_add_epi64(accum, cnt);
     popcnt = _mm512_reduce_add_epi64(accum);
     /* return computed value, to prevent the above being optimized away */
@@ -2233,13 +2332,56 @@ int main(void)
 }
 '''
 
-  if cc.links(prog, name: 'AVX-512 popcount without -mavx512vpopcntdq -mavx512bw',
-        args: test_c_args + ['-DINT64=@0@'.format(cdata.get('PG_INT64_TYPE'))])
+  if cc.links(prog, name: 'AVX-512 popcount', args: test_c_args)
     cdata.set('USE_AVX512_POPCNT_WITH_RUNTIME_CHECK', 1)
-  elif cc.links(prog, name: 'AVX-512 popcount with -mavx512vpopcntdq -mavx512bw',
-        args: test_c_args + ['-DINT64=@0@'.format(cdata.get('PG_INT64_TYPE'))] + ['-mavx512vpopcntdq'] + ['-mavx512bw'])
-    cdata.set('USE_AVX512_POPCNT_WITH_RUNTIME_CHECK', 1)
-    cflags_popcnt += ['-mavx512vpopcntdq'] + ['-mavx512bw']
+  endif
+
+endif
+
+
+###############################################################
+# Check for the availability of SVE popcount intrinsics.
+###############################################################
+
+if host_cpu == 'aarch64'
+
+  prog = '''
+#include <arm_sve.h>
+
+char buf[128];
+
+#if defined(__has_attribute) && __has_attribute (target)
+__attribute__((target("arch=armv8-a+sve")))
+#endif
+int main(void)
+{
+	svbool_t	pred = svptrue_b64();
+	svuint8_t	vec8;
+	svuint64_t	accum1 = svdup_u64(0),
+				accum2 = svdup_u64(0),
+				vec64;
+	char	   *p = buf;
+	uint64_t	popcnt,
+				mask = 0x5555555555555555;
+
+	vec64 = svand_n_u64_x(pred, svld1_u64(pred, (const uint64_t *) p), mask);
+	accum1 = svadd_u64_x(pred, accum1, svcnt_u64_x(pred, vec64));
+	p += svcntb();
+
+	vec64 = svand_n_u64_x(pred, svld1_u64(pred, (const uint64_t *) p), mask);
+	accum2 = svadd_u64_x(pred, accum2, svcnt_u64_x(pred, vec64));
+	p += svcntb();
+
+	popcnt = svaddv_u64(pred, svadd_u64_x(pred, accum1, accum2));
+
+	pred = svwhilelt_b8_s32(0, sizeof(buf));
+	vec8 = svand_n_u8_x(pred, svld1_u8(pred, (const uint8_t *) p), 0x55);
+	return (int) (popcnt + svaddv_u8(pred, svcnt_u8_x(pred, vec8)));
+}
+'''
+
+  if cc.links(prog, name: 'SVE popcount', args: test_c_args)
+    cdata.set('USE_SVE_POPCNT_WITH_RUNTIME_CHECK', 1)
   endif
 
 endif
@@ -2248,17 +2390,26 @@ endif
 ###############################################################
 # Select CRC-32C implementation.
 #
-# If we are targeting a processor that has Intel SSE 4.2 instructions, we can
-# use the special CRC instructions for calculating CRC-32C. If we're not
-# targeting such a processor, but we can nevertheless produce code that uses
-# the SSE intrinsics, perhaps with some extra CFLAGS, compile both
-# implementations and select which one to use at runtime, depending on whether
-# SSE 4.2 is supported by the processor we're running on.
+# There are three methods of calculating CRC, in order of increasing
+# performance:
 #
-# Similarly, if we are targeting an ARM processor that has the CRC
-# instructions that are part of the ARMv8 CRC Extension, use them. And if
-# we're not targeting such a processor, but can nevertheless produce code that
-# uses the CRC instructions, compile both, and select at runtime.
+# 1. The fallback using a lookup table, called slicing-by-8
+# 2. CRC-32C instructions (found in e.g. Intel SSE 4.2 and ARMv8 CRC Extension)
+# 3. Algorithms using carryless multiplication instructions
+#    (e.g. Intel PCLMUL and Arm PMULL)
+#
+# If we can produce code (via function attributes or additional compiler
+# flags) that uses #2 (and possibly #3), we compile all implementations
+# and select which one to use at runtime, depending on what is supported
+# by the processor we're running on.
+#
+# If we are targeting a processor that has #2, we can use that without
+# runtime selection.
+#
+# Note that we do not use __attribute__((target("..."))) for the ARM CRC
+# instructions because until clang 16, using the ARM intrinsics still requires
+# special -march flags.  Perhaps we can re-evaluate this decision after some
+# time has passed.
 ###############################################################
 
 have_optimized_crc = false
@@ -2273,10 +2424,13 @@ if host_cpu == 'x86' or host_cpu == 'x86_64'
 
     prog = '''
 #include <nmmintrin.h>
+unsigned int crc;
 
+#if defined(__has_attribute) && __has_attribute (target)
+__attribute__((target("sse4.2")))
+#endif
 int main(void)
 {
-    unsigned int crc = 0;
     crc = _mm_crc32_u8(crc, 0);
     crc = _mm_crc32_u32(crc, 0);
     /* return computed value, to prevent the above being optimized away */
@@ -2284,19 +2438,52 @@ int main(void)
 }
 '''
 
-    if cc.links(prog, name: '_mm_crc32_u8 and _mm_crc32_u32 without -msse4.2',
+    if not cc.links(prog, name: 'SSE 4.2 CRC32C',
           args: test_c_args)
+      # Do not use Intel SSE 4.2
+    elif (cc.get_define('__SSE4_2__') != '')
       # Use Intel SSE 4.2 unconditionally.
       cdata.set('USE_SSE42_CRC32C', 1)
       have_optimized_crc = true
-    elif cc.links(prog, name: '_mm_crc32_u8 and _mm_crc32_u32 with -msse4.2',
-          args: test_c_args + ['-msse4.2'])
+    else
       # Use Intel SSE 4.2, with runtime check. The CPUID instruction is needed for
       # the runtime check.
-      cflags_crc += '-msse4.2'
       cdata.set('USE_SSE42_CRC32C', false)
       cdata.set('USE_SSE42_CRC32C_WITH_RUNTIME_CHECK', 1)
       have_optimized_crc = true
+    endif
+
+    # Check if the compiler supports AVX-512 carryless multiplication
+    # and three-way exclusive-or instructions used for computing CRC.
+    # AVX-512F is assumed to be supported if the above are.
+    prog = '''
+#include <immintrin.h>
+__m512i x;
+__m512i y;
+
+#if defined(__has_attribute) && __has_attribute (target)
+__attribute__((target("vpclmulqdq,avx512vl")))
+#endif
+int main(void)
+{
+     __m128i z;
+
+    x = _mm512_xor_si512(_mm512_zextsi128_si512(_mm_cvtsi32_si128(0)), x);
+    y = _mm512_clmulepi64_epi128(x, y, 0);
+    z = _mm_ternarylogic_epi64(
+            _mm512_castsi512_si128(y),
+            _mm512_extracti32x4_epi32(y, 1),
+            _mm512_extracti32x4_epi32(y, 2),
+            0x96);
+    /* return computed value, to prevent the above being optimized away */
+    return _mm_crc32_u64(0, _mm_extract_epi64(z, 0));
+}
+'''
+
+    if cc.links(prog,
+        name: 'AVX-512 CRC32C',
+        args: test_c_args)
+      cdata.set('USE_AVX512_CRC32C_WITH_RUNTIME_CHECK', 1)
     endif
 
   endif
@@ -2305,10 +2492,10 @@ elif host_cpu == 'arm' or host_cpu == 'aarch64'
 
   prog = '''
 #include <arm_acle.h>
+unsigned int crc;
 
 int main(void)
 {
-    unsigned int crc = 0;
     crc = __crc32cb(crc, 0);
     crc = __crc32ch(crc, 0);
     crc = __crc32cw(crc, 0);
@@ -2343,9 +2530,10 @@ int main(void)
 elif host_cpu == 'loongarch64'
 
   prog = '''
+unsigned int crc;
+
 int main(void)
 {
-    unsigned int crc = 0;
     crc = __builtin_loongarch_crcc_w_b_w(0, crc);
     crc = __builtin_loongarch_crcc_w_h_w(0, crc);
     crc = __builtin_loongarch_crcc_w_w_w(0, crc);
@@ -2405,6 +2593,7 @@ elif host_cpu == 'ppc' or host_cpu == 'ppc64'
       }
       int test_adds(int x) { return addi(3, x) + addi(x, 5); }
       ''',
+      name: '@0@: "i"(x) when __builtin_constant_p(x)'.format(host_cpu),
       args: test_c_args)
       cdata.set('HAVE_I_CONSTRAINT__BUILTIN_CONSTANT_P', 1)
     endif
@@ -2426,7 +2615,6 @@ header_checks = [
   'execinfo.h',
   'getopt.h',
   'ifaddrs.h',
-  'langinfo.h',
   'mbarrier.h',
   'strings.h',
   'sys/epoll.h',
@@ -2438,6 +2626,7 @@ header_checks = [
   'sys/ucred.h',
   'termios.h',
   'ucred.h',
+  'xlocale.h',
 ]
 
 foreach header : header_checks
@@ -2458,6 +2647,8 @@ decl_checks = [
   ['strlcat', 'string.h'],
   ['strlcpy', 'string.h'],
   ['strnlen', 'string.h'],
+  ['strsep',  'string.h'],
+  ['timingsafe_bcmp',  'string.h'],
 ]
 
 # Need to check for function declarations for these functions, because
@@ -2599,18 +2790,9 @@ else
   cdata.set('STRERROR_R_INT', false)
 endif
 
-# Find the right header file for the locale_t type.  macOS needs xlocale.h;
-# standard is locale.h, but glibc <= 2.25 also had an xlocale.h file that
-# we should not use so we check the standard header first.  MSVC has a
-# replacement defined in src/include/port/win32_port.h.
-if not cc.has_type('locale_t', prefix: '#include <locale.h>') and \
-   cc.has_type('locale_t', prefix: '#include <xlocale.h>')
-  cdata.set('LOCALE_T_IN_XLOCALE', 1)
-endif
-
 # Check if the C compiler understands typeof or a variant.  Define
 # HAVE_TYPEOF if so, and define 'typeof' to the actual key word.
-foreach kw : ['typeof', '__typeof__', 'decltype']
+foreach kw : ['typeof', '__typeof__']
   if cc.compiles('''
 int main(void)
 {
@@ -2620,7 +2802,7 @@ int main(void)
     return y;
 }
 '''.format(kw),
-    name: 'typeof()',
+    name: kw,
     args: test_c_args, include_directories: postgres_inc)
 
     cdata.set('HAVE_TYPEOF', 1)
@@ -2631,29 +2813,6 @@ int main(void)
     break
   endif
 endforeach
-
-
-# Try to find a declaration for wcstombs_l().  It might be in stdlib.h
-# (following the POSIX requirement for wcstombs()), or in locale.h, or in
-# xlocale.h.  If it's in the latter, define WCSTOMBS_L_IN_XLOCALE.
-wcstombs_l_test = '''
-#include <stdlib.h>
-#include <locale.h>
-@0@
-
-void main(void)
-{
-#ifndef wcstombs_l
-    (void) wcstombs_l;
-#endif
-}
-'''
-if (not cc.compiles(wcstombs_l_test.format(''),
-      name: 'wcstombs_l') and
-    cc.compiles(wcstombs_l_test.format('#include <xlocale.h>'),
-      name: 'wcstombs_l in xlocale.h'))
-    cdata.set('WCSTOMBS_L_IN_XLOCALE', 1)
-endif
 
 
 # MSVC doesn't cope well with defining restrict to __restrict, the spelling it
@@ -2707,7 +2866,6 @@ endif
 # XXX: Might be worth conditioning some checks on the OS, to avoid doing
 # unnecessary checks over and over, particularly on windows.
 func_checks = [
-  ['_configthreadlocale', {'skip': host_system != 'windows'}],
   ['backtrace_symbols', {'dependencies': [execinfo_dep]}],
   ['clock_gettime', {'dependencies': [rt_dep], 'define': false}],
   ['copyfile'],
@@ -2716,7 +2874,9 @@ func_checks = [
   # when enabling asan the dlopen check doesn't notice that -ldl is actually
   # required. Just checking for dlsym() ought to suffice.
   ['dlsym', {'dependencies': [dl_dep], 'define': false}],
+  ['elf_aux_info'],
   ['explicit_bzero'],
+  ['getauxval'],
   ['getifaddrs'],
   ['getopt', {'dependencies': [getopt_dep, gnugetopt_dep], 'skip': always_replace_getopt}],
   ['getopt_long', {'dependencies': [getopt_dep, gnugetopt_dep], 'skip': always_replace_getopt_long}],
@@ -2725,6 +2885,7 @@ func_checks = [
   ['inet_aton'],
   ['inet_pton'],
   ['kqueue'],
+  ['localeconv_l'],
   ['mbstowcs_l'],
   ['mkdtemp'],
   ['posix_fadvise'],
@@ -2743,9 +2904,11 @@ func_checks = [
   ['strlcat'],
   ['strlcpy'],
   ['strnlen'],
+  ['strsep'],
   ['strsignal'],
   ['sync_file_range'],
   ['syncfs'],
+  ['timingsafe_bcmp'],
   ['uselocale'],
   ['wcstombs_l'],
 ]
@@ -3083,7 +3246,7 @@ frontend_common_code = declare_dependency(
   compile_args: ['-DFRONTEND'],
   include_directories: [postgres_inc],
   sources: generated_headers,
-  dependencies: [os_deps, zlib, zstd],
+  dependencies: [os_deps, zlib, zstd, lz4],
 )
 
 backend_common_code = declare_dependency(
@@ -3136,9 +3299,15 @@ libpq_deps += [
   ssl,
 ]
 
+libpq_oauth_deps += [
+  thread_dep,
+  libcurl,
+]
+
 subdir('src/interfaces/libpq')
-# fe_utils depends on libpq
+# fe_utils and libpq-oauth depends on libpq
 subdir('src/fe_utils')
+subdir('src/interfaces/libpq-oauth')
 
 # for frontend binaries
 frontend_code = declare_dependency(
@@ -3156,6 +3325,8 @@ backend_both_deps += [
   icu_i18n,
   ldap,
   libintl,
+  libnuma,
+  liburing,
   libxml,
   lz4,
   pam,
@@ -3297,6 +3468,13 @@ installed_targets = [
   ecpg_targets,
 ]
 
+if oauth_flow_supported
+  installed_targets += [
+    libpq_oauth_so,
+    libpq_oauth_st,
+  ]
+endif
+
 # all targets that require building code
 all_built = [
   installed_targets,
@@ -3392,11 +3570,6 @@ test_env.set('INITDB_TEMPLATE', test_initdb_template)
 # for Cluster.pm's portlock logic
 test_env.set('top_builddir', meson.build_root())
 
-# Test suites that are not safe by default but can be run if selected
-# by the user via the whitespace-separated list in variable PG_TEST_EXTRA.
-# Export PG_TEST_EXTRA so it can be checked in individual tap tests.
-test_env.set('PG_TEST_EXTRA', get_option('PG_TEST_EXTRA'))
-
 # Add the temporary installation to the library search path on platforms where
 # that works (everything but windows, basically). On windows everything
 # library-like gets installed into bindir, solving that issue.
@@ -3460,6 +3633,11 @@ foreach test_dir : tests
     testwrap,
     '--basedir', meson.build_root(),
     '--srcdir', test_dir['sd'],
+    # Some test suites are not run by default but can be run if selected by the
+    # user via variable PG_TEST_EXTRA. Pass configuration time value of
+    # PG_TEST_EXTRA as an argument to testwrap so that it can be overridden by
+    # run time value, if any.
+    '--pg-test-extra', get_option('PG_TEST_EXTRA'),
   ]
 
   foreach kind, v : test_dir
@@ -3579,6 +3757,8 @@ foreach test_dir : tests
       # also test/ for non-installed test binaries built separately.
       env = test_env
       env.prepend('PATH', temp_install_bindir, test_dir['bd'], test_dir['bd'] / 'test')
+      temp_install_datadir = '@0@@1@'.format(test_install_destdir, dir_prefix / dir_data)
+      env.set('share_contrib_dir', temp_install_datadir / 'contrib')
 
       foreach name, value : t.get('env', {})
         env.set(name, value)
@@ -3808,6 +3988,9 @@ if meson.version().version_compare('>=0.57')
       'gss': gssapi,
       'icu': icu,
       'ldap': ldap,
+      'libcurl': libcurl,
+      'libnuma': libnuma,
+      'liburing': liburing,
       'libxml': libxml,
       'libxslt': libxslt,
       'llvm': llvm,
@@ -3815,7 +3998,7 @@ if meson.version().version_compare('>=0.57')
       'nls': libintl,
       'openssl': ssl,
       'pam': pam,
-      'plperl': perl_dep,
+      'plperl': [perl_dep, perlversion],
       'plpython': python3_dep,
       'pltcl': tcl_dep,
       'readline': readline,
@@ -3826,6 +4009,7 @@ if meson.version().version_compare('>=0.57')
       'zstd': zstd,
     },
     section: 'External libraries',
+    list_sep: ' ',
   )
 
 endif

@@ -27,10 +27,7 @@ $node->start;
 # Check if the extension injection_points is available, as it may be
 # possible that this script is run with installcheck, where the module
 # would not be installed by default.
-$result = $node->safe_psql('postgres',
-	"SELECT count(*) > 0 FROM pg_available_extensions WHERE name = 'injection_points';"
-);
-if ($result eq 'f')
+if (!$node->check_extension('injection_points'))
 {
 	plan skip_all => 'Extension injection_points not installed';
 }
@@ -124,7 +121,7 @@ $node->safe_psql('postgres',
 $node->safe_psql('postgres',
 	q{select pg_logical_emit_message(false, '', repeat('123456789', 1000))});
 
-# Continue the checkpoint.
+# Continue the checkpoint and wait for its completion.
 my $log_offset = -s $node->logfile;
 $node->safe_psql('postgres',
 	q{select injection_points_wakeup('checkpoint-before-old-wal-removal')});
