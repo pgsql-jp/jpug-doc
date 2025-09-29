@@ -1,7 +1,7 @@
 /*
  * psql - the PostgreSQL interactive terminal
  *
- * Copyright (c) 2000-2024, PostgreSQL Global Development Group
+ * Copyright (c) 2000-2025, PostgreSQL Global Development Group
  *
  * src/bin/psql/common.h
  */
@@ -39,9 +39,10 @@ extern bool SendQuery(const char *query);
 extern bool is_superuser(void);
 extern bool standard_strings(void);
 extern const char *session_username(void);
+extern char *get_conninfo_value(const char *keyword);
 
 extern void expand_tilde(char **filename);
-extern void clean_bind_state(void);
+extern void clean_extended_state(void);
 
 extern bool recognized_connection_string(const char *connstr);
 

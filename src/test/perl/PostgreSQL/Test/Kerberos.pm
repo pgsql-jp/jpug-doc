@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021-2024, PostgreSQL Global Development Group
+# Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Sets up a stand-alone KDC for testing PostgreSQL GSSAPI / Kerberos
 # functionality.
@@ -9,6 +9,7 @@ package PostgreSQL::Test::Kerberos;
 use strict;
 use warnings FATAL => 'all';
 use PostgreSQL::Test::Utils;
+use Test::More;
 
 our (
 	$krb5_bin_dir, $krb5_sbin_dir, $krb5_config, $kinit,
@@ -104,7 +105,7 @@ sub new
 	my ($host, $hostaddr, $realm) = @_;
 
 	my ($stdout, $krb5_version);
-	run_log [ $krb5_config, '--version' ], '>', \$stdout
+	run_log [ $krb5_config, '--version' ], '>' => \$stdout
 	  or BAIL_OUT("could not execute krb5-config");
 	BAIL_OUT("Heimdal is not supported") if $stdout =~ m/heimdal/;
 	$stdout =~ m/Kerberos 5 release ([0-9]+\.[0-9]+)/

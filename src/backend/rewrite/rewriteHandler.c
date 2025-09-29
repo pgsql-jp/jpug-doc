@@ -3,7 +3,7 @@
  * rewriteHandler.c
  *		Primary module of query rewriter.
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -96,6 +96,8 @@ static List *matchLocks(CmdType event, Relation relation,
 						int varno, Query *parsetree, bool *hasUpdate);
 static Query *fireRIRrules(Query *parsetree, List *activeRIRs);
 static Bitmapset *adjust_view_column_set(Bitmapset *cols, List *targetlist);
+static Node *expand_generated_columns_internal(Node *node, Relation rel, int rt_index,
+											   RangeTblEntry *rte, int result_relation);
 
 
 /*
@@ -641,6 +643,7 @@ rewriteRuleAction(Query *parsetree,
 									  0,
 									  rt_fetch(new_varno, sub_action->rtable),
 									  parsetree->targetList,
+									  sub_action->resultRelation,
 									  (event == CMD_UPDATE) ?
 									  REPLACEVARS_CHANGE_VARNO :
 									  REPLACEVARS_SUBSTITUTE_NULL,
@@ -674,9 +677,14 @@ rewriteRuleAction(Query *parsetree,
 									  rt_fetch(parsetree->resultRelation,
 											   parsetree->rtable),
 									  rule_action->returningList,
+									  rule_action->resultRelation,
 									  REPLACEVARS_REPORT_ERROR,
 									  0,
 									  &rule_action->hasSubLinks);
+
+		/* use triggering query's aliases for OLD and NEW in RETURNING list */
+		rule_action->returningOldAlias = parsetree->returningOldAlias;
+		rule_action->returningNewAlias = parsetree->returningNewAlias;
 
 		/*
 		 * There could have been some SubLinks in parsetree's returningList,
@@ -980,7 +988,8 @@ rewriteTargetListIU(List *targetList,
 		if (att_tup->attgenerated)
 		{
 			/*
-			 * stored generated column will be fixed in executor
+			 * virtual generated column stores a null value; stored generated
+			 * column will be fixed in executor
 			 */
 			new_tle = NULL;
 		}
@@ -1966,8 +1975,7 @@ fireRIRonSubLink(Node *node, fireRIRonSubLink_context *context)
 	 * Do NOT recurse into Query nodes, because fireRIRrules already processed
 	 * subselects of subselects for us.
 	 */
-	return expression_tree_walker(node, fireRIRonSubLink,
-								  (void *) context);
+	return expression_tree_walker(node, fireRIRonSubLink, context);
 }
 
 
@@ -2167,7 +2175,7 @@ fireRIRrules(Query *parsetree, List *activeRIRs)
 		context.activeRIRs = activeRIRs;
 		context.hasRowSecurity = false;
 
-		query_tree_walker(parsetree, fireRIRonSubLink, (void *) &context,
+		query_tree_walker(parsetree, fireRIRonSubLink, &context,
 						  QTW_IGNORE_RC_SUBQUERIES);
 
 		/*
@@ -2250,10 +2258,10 @@ fireRIRrules(Query *parsetree, List *activeRIRs)
 				fire_context.hasRowSecurity = false;
 
 				expression_tree_walker((Node *) securityQuals,
-									   fireRIRonSubLink, (void *) &fire_context);
+									   fireRIRonSubLink, &fire_context);
 
 				expression_tree_walker((Node *) withCheckOptions,
-									   fireRIRonSubLink, (void *) &fire_context);
+									   fireRIRonSubLink, &fire_context);
 
 				/*
 				 * We can ignore the value of fire_context.hasRowSecurity
@@ -2337,6 +2345,7 @@ CopyAndAddInvertedQual(Query *parsetree,
 											 rt_fetch(rt_index,
 													  parsetree->rtable),
 											 parsetree->targetList,
+											 parsetree->resultRelation,
 											 (event == CMD_UPDATE) ?
 											 REPLACEVARS_CHANGE_VARNO :
 											 REPLACEVARS_SUBSTITUTE_NULL,
@@ -3561,6 +3570,7 @@ rewriteTargetView(Query *parsetree, Relation view)
 								  0,
 								  view_rte,
 								  view_targetlist,
+								  new_rt_index,
 								  REPLACEVARS_REPORT_ERROR,
 								  0,
 								  NULL);
@@ -3712,6 +3722,7 @@ rewriteTargetView(Query *parsetree, Relation view)
 									  0,
 									  view_rte,
 									  tmp_tlist,
+									  new_rt_index,
 									  REPLACEVARS_REPORT_ERROR,
 									  0,
 									  &parsetree->hasSubLinks);
@@ -4399,6 +4410,129 @@ RewriteQuery(Query *parsetree, List *rewrite_events, int orig_rt_length)
 
 
 /*
+ * Expand virtual generated columns
+ *
+ * If the table contains virtual generated columns, build a target list
+ * containing the expanded expressions and use ReplaceVarsFromTargetList() to
+ * do the replacements.
+ *
+ * Vars matching rt_index at the current query level are replaced by the
+ * virtual generated column expressions from rel, if there are any.
+ *
+ * The caller must also provide rte, the RTE describing the target relation,
+ * in order to handle any whole-row Vars referencing the target, and
+ * result_relation, the index of the result relation, if this is part of an
+ * INSERT/UPDATE/DELETE/MERGE query.
+ */
+static Node *
+expand_generated_columns_internal(Node *node, Relation rel, int rt_index,
+								  RangeTblEntry *rte, int result_relation)
+{
+	TupleDesc	tupdesc;
+
+	tupdesc = RelationGetDescr(rel);
+	if (tupdesc->constr && tupdesc->constr->has_generated_virtual)
+	{
+		List	   *tlist = NIL;
+
+		for (int i = 0; i < tupdesc->natts; i++)
+		{
+			Form_pg_attribute attr = TupleDescAttr(tupdesc, i);
+
+			if (attr->attgenerated == ATTRIBUTE_GENERATED_VIRTUAL)
+			{
+				Node	   *defexpr;
+				TargetEntry *te;
+
+				defexpr = build_generation_expression(rel, i + 1);
+				ChangeVarNodes(defexpr, 1, rt_index, 0);
+
+				te = makeTargetEntry((Expr *) defexpr, i + 1, 0, false);
+				tlist = lappend(tlist, te);
+			}
+		}
+
+		Assert(list_length(tlist) > 0);
+
+		node = ReplaceVarsFromTargetList(node, rt_index, 0, rte, tlist,
+										 result_relation,
+										 REPLACEVARS_CHANGE_VARNO, rt_index,
+										 NULL);
+	}
+
+	return node;
+}
+
+/*
+ * Expand virtual generated columns in an expression
+ *
+ * This is for expressions that are not part of a query, such as default
+ * expressions or index predicates.  The rt_index is usually 1.
+ */
+Node *
+expand_generated_columns_in_expr(Node *node, Relation rel, int rt_index)
+{
+	TupleDesc	tupdesc = RelationGetDescr(rel);
+
+	if (tupdesc->constr && tupdesc->constr->has_generated_virtual)
+	{
+		RangeTblEntry *rte;
+
+		rte = makeNode(RangeTblEntry);
+		/* eref needs to be set, but the actual name doesn't matter */
+		rte->eref = makeAlias(RelationGetRelationName(rel), NIL);
+		rte->rtekind = RTE_RELATION;
+		rte->relid = RelationGetRelid(rel);
+
+		node = expand_generated_columns_internal(node, rel, rt_index, rte, 0);
+	}
+
+	return node;
+}
+
+/*
+ * Build the generation expression for the virtual generated column.
+ *
+ * Error out if there is no generation expression found for the given column.
+ */
+Node *
+build_generation_expression(Relation rel, int attrno)
+{
+	TupleDesc	rd_att = RelationGetDescr(rel);
+	Form_pg_attribute att_tup = TupleDescAttr(rd_att, attrno - 1);
+	Node	   *defexpr;
+	Oid			attcollid;
+
+	Assert(rd_att->constr && rd_att->constr->has_generated_virtual);
+	Assert(att_tup->attgenerated == ATTRIBUTE_GENERATED_VIRTUAL);
+
+	defexpr = build_column_default(rel, attrno);
+	if (defexpr == NULL)
+		elog(ERROR, "no generation expression found for column number %d of table \"%s\"",
+			 attrno, RelationGetRelationName(rel));
+
+	/*
+	 * If the column definition has a collation and it is different from the
+	 * collation of the generation expression, put a COLLATE clause around the
+	 * expression.
+	 */
+	attcollid = att_tup->attcollation;
+	if (attcollid && attcollid != exprCollation(defexpr))
+	{
+		CollateExpr *ce = makeNode(CollateExpr);
+
+		ce->arg = (Expr *) defexpr;
+		ce->collOid = attcollid;
+		ce->location = -1;
+
+		defexpr = (Node *) ce;
+	}
+
+	return defexpr;
+}
+
+
+/*
  * QueryRewrite -
  *	  Primary entry point to the query rewriter.
  *	  Rewrite one query via query rewrite system, possibly returning 0
@@ -4410,7 +4544,7 @@ RewriteQuery(Query *parsetree, List *rewrite_events, int orig_rt_length)
 List *
 QueryRewrite(Query *parsetree)
 {
-	uint64		input_query_id = parsetree->queryId;
+	int64		input_query_id = parsetree->queryId;
 	List	   *querylist;
 	List	   *results;
 	ListCell   *l;

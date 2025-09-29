@@ -55,13 +55,76 @@
   argument of type <type>internal</type> and to return the pseudo-type
   <type>table_am_handler</type>.  The argument is a dummy value that simply
   serves to prevent handler functions from being called directly from SQL commands.
+-->
+《機械翻訳》テーブルアクセスメソッドハンドラ関数は、タイプ<type>内部</type>の単一の引数を受け入れ、結果に対して擬似タイプ<type>table_am_handler</type>を宣言する必要があります。
+引数は、ハンドラ関数がSQLコマンドから直接呼び出されないようにするためだけに使用されるダミー値です。
+ </para>
 
+ <para>
+<!--
+  Here is how an extension SQL script file might create a table access
+  method handler:
+-->
+《機械翻訳》次に、extension SQLスクリプトファイルがメソッドハンドラテーブル・アクセスを作成する方法を示します。
+ </para>
+
+<programlisting>
+CREATE OR REPLACE FUNCTION my_tableam_handler(internal)
+  RETURNS table_am_handler AS 'my_extension', 'my_tableam_handler'
+  LANGUAGE C STRICT;
+
+CREATE ACCESS METHOD myam TYPE TABLE HANDLER my_tableam_handler;
+</programlisting>
+
+ <para>
+<!--
   The result of the function must be a pointer to a struct of type
   <structname>TableAmRoutine</structname>, which contains everything that the
   core code needs to know to make use of the table access method. The return
   value needs to be of server lifetime, which is typically achieved by
-  defining it as a <literal>static const</literal> variable in global
-  scope. The <structname>TableAmRoutine</structname> struct, also called the
+  defining it as a <literal>static const</literal> variable in global scope.
+-->
+《機械翻訳》関数の結果は、タイプ構造体<structname>TableAmRoutine</structname>へのポインタである必要があります。
+これは、テーブルアクセスメソッドをmakeが使用するためにコアコードニーズが知っているすべてのものを包含します。
+戻り値のニーズはサーバの寿命になります。
+これは通常、グローバルスコープで<literal>static const</literal>変数として定義することで実現されます。
+ </para>
+
+ <para>
+<!--
+  Here is how a source file with the table access method handler might
+  look like:
+-->
+《機械翻訳》テーブルアクセスメソッドハンドラのあるソースファイルは次のようになります。
+ </para>
+
+<programlisting><![CDATA[
+#include "postgres.h"
+
+#include "access/tableam.h"
+#include "fmgr.h"
+
+PG_MODULE_MAGIC;
+
+static const TableAmRoutine my_tableam_methods = {
+    .type = T_TableAmRoutine,
+
+    /* Methods of TableAmRoutine omitted from example, add them here. */
+};
+
+PG_FUNCTION_INFO_V1(my_tableam_handler);
+
+Datum
+my_tableam_handler(PG_FUNCTION_ARGS)
+{
+    PG_RETURN_POINTER(&my_tableam_methods);
+}
+]]>
+</programlisting>
+
+ <para>
+<!--
+  The <structname>TableAmRoutine</structname> struct, also called the
   access method's <firstterm>API struct</firstterm>, defines the behavior of
   the access method using callbacks. These callbacks are pointers to plain C
   functions and are not visible or callable at the SQL level. All the
@@ -73,15 +136,11 @@
   please refer to the <ulink url="https://git.postgresql.org/gitweb/?p=postgresql.git;a=blob;f=src/include/access/tableam.h;hb=HEAD">
   <filename>src/include/access/tableam.h</filename></ulink> file.
 -->
-テーブルアクセスメソッドのハンドラ関数は<type>internal</type>型の引数を一つ取り、<type>table_am_handler</type>疑似型を返すように宣言されなければなりません。
-この引数はハンドラ関数がSQLコマンドから直接呼び出されるのを防ぐためだけのダミーの値です。
-関数の結果は<structname>TableAmRoutine</structname>型の構造体のポインタでなければならず、そこにはテーブルアクセスメソッドを使用するためにコアコードが知る必要のあるすべてのことが含まれます。
-サーバ生存期間の間、戻り値は必要で、通常これはグローバルスコープで<literal>static const</literal>変数として定義することで達成されます。
-アクセスメソッドの<firstterm>API構造体</firstterm>とも呼ばれる、<structname>TableAmRoutine</structname>構造体はコールバックを使ってアクセスメソッドの振る舞いを定義します。
-これらのコールバックは通常のC関数へのポインタで、SQLレベルでは見ることも呼び出すこともできません。
-全てのコールバックとその振る舞いは、<structname>TableAmRoutine</structname>構造体（とコールバックの必要性を説明する構造体内のコメント）で定義されます。
-たいていのコールバックはラッパー関数を持ちます。これらはテーブルアクセスメソッドの（開発者ではなく）使用者の立場でドキュメント記載されています。
-詳細は、<ulink url="https://git.postgresql.org/gitweb/?p=postgresql.git;a=blob;f=src/include/access/tableam.h;hb=HEAD"><filename>src/include/access/tableam.h</filename></ulink>ファイルを参照してください。
+《機械翻訳》<structname>TableAmRoutine</structname>構造体はアクセス・メソッドの<firstterm>API構造体</firstterm>とも呼ばれ、コールバックを使用してアクセス・メソッドの動作を定義します。
+これらのコールバックはプレーンC関数へのポインタであり、可視ではなく、SQLレベルで呼び出せるものでもありません。
+すべてのコールバックとその動作は<structname>TableAmRoutine</structname>構造体で定義されます（コールバックの要件を定義するコメントが構造体内部にあります）。
+ほとんどのコールバックにはラッパー関数があり、テーブルアクセスメソッドのユーザ（実装者ではなく）のビューポイントからドキュメント化されています。
+詳細は<ulink url="https://git.postgresql.org/gitweb/?p=postgresql.git;a=blob;f=src/include/access/tableam.h;hb=HEAD"><filename>src/include/access/tableam.h</filename></ulink>ファイルを参照してください。
  </para>
 
  <para>

@@ -2517,12 +2517,15 @@ WALアーカイブがプライマリとスタンバイで共有されるケー�
 <!--
     When the <xref linkend="guc-hot-standby"/> parameter is set to true on a
     standby server, it will begin accepting connections once the recovery has
-    brought the system to a consistent state.  All such connections are
+    brought the system to a consistent state and be ready for hot standby.
+    All such connections are
     strictly read-only; not even temporary tables may be written.
 -->
-スタンバイサーバで<xref linkend="guc-hot-standby"/>パラメータが真に設定されている場合、リカバリによりシステムが一貫性を持つようになった後接続を受け付け始めます。
+《マッチ度[85.197368]》スタンバイサーバで<xref linkend="guc-hot-standby"/>パラメータが真に設定されている場合、リカバリによりシステムが一貫性を持つようになった後接続を受け付け始めます。
 こうした接続はすべて読み取り専用に限定されます。
 一時テーブルであっても書き込むことはできません。
+《機械翻訳》スタンバイサーバで<xref linkend="guc-hot-standby"/>パラメータが真に設定されている場合、リカバリがシステムを一貫した状態にしてホットスタンバイの準備ができると、接続の受け付けを開始します。
+このような接続はすべて読み取り専用であり、一時テーブルであっても書き込むことはできません。
    </para>
 
    <para>
@@ -3200,13 +3203,20 @@ LOG:  database system is ready to accept read-only connections
     Consistency information is recorded once per checkpoint on the primary.
     It is not possible to enable hot standby when reading WAL
     written during a period when <varname>wal_level</varname> was not set to
-    <literal>replica</literal> or <literal>logical</literal> on the primary.  Reaching
-    a consistent state can also be delayed in the presence of both of these
-    conditions:
+    <literal>replica</literal> or <literal>logical</literal> on the primary.
+    Even after reaching a consistent state, the recovery snapshot may not
+    be ready for hot standby if both of the following conditions are met,
+    delaying accepting read-only connections.  To enable hot standby,
+    long-lived write transactions with more than 64 subtransactions
+    need to be closed on the primary.
 -->
-一貫性に関する情報はプライマリでチェックポイント毎に一回記録されます。
+《マッチ度[57.612457]》一貫性に関する情報はプライマリでチェックポイント毎に一回記録されます。
 プライマリで<varname>wal_level</varname>が<literal>replica</literal>もしくは<literal>logical</literal>に設定されていなかった期間に書き込まれたWALを読み取っている間は、ホットスタンバイを有効にすることはできません。
 また、一貫性のある状態への到達は、以下の両方が存在する間遅延することがあります。
+《機械翻訳》一貫性情報はプライマリのチェックポイントごとに1回記録されます。
+<varname>wal_level</varname>が<literal>replica</literal>または<literal>logical</literal>プライマリでに設定されていない場合、ピリオド中に書き込まれたWALの読み込み時にホットスタンバイを有効にすることはできません。
+一貫性のある状態に達した後でも、次の両方の条件が満たされている場合、リカバリsnapshotはホットスタンバイの準備ができていない可能性があり、読み取り専用接続の受け入れが遅れます。
+ホットスタンバイを有効にするには、64を超えるサブトランザクションを持つ長期間の書き込みトランザクションをプライマリの閉じたにする必要があります。
 
       <itemizedlist>
        <listitem>

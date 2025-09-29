@@ -3,7 +3,7 @@
  * parse_cte.c
  *	  handle CTEs (common table expressions) in parser
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -799,7 +799,7 @@ makeDependencyGraphWalker(Node *node, CteState *cstate)
 	}
 	return raw_expression_tree_walker(node,
 									  makeDependencyGraphWalker,
-									  (void *) cstate);
+									  cstate);
 }
 
 /*
@@ -829,7 +829,7 @@ WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
 		}
 		(void) raw_expression_tree_walker(stmt,
 										  makeDependencyGraphWalker,
-										  (void *) cstate);
+										  cstate);
 		cstate->innerwiths = list_delete_first(cstate->innerwiths);
 	}
 	else
@@ -851,7 +851,7 @@ WalkInnerWith(Node *stmt, WithClause *withClause, CteState *cstate)
 		}
 		(void) raw_expression_tree_walker(stmt,
 										  makeDependencyGraphWalker,
-										  (void *) cstate);
+										  cstate);
 		cstate->innerwiths = list_delete_first(cstate->innerwiths);
 	}
 }
@@ -1196,7 +1196,7 @@ checkWellFormedRecursionWalker(Node *node, CteState *cstate)
 	}
 	return raw_expression_tree_walker(node,
 									  checkWellFormedRecursionWalker,
-									  (void *) cstate);
+									  cstate);
 }
 
 /*
@@ -1213,7 +1213,7 @@ checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
 		/* just recurse without changing state */
 		raw_expression_tree_walker((Node *) stmt,
 								   checkWellFormedRecursionWalker,
-								   (void *) cstate);
+								   cstate);
 	}
 	else
 	{
@@ -1223,7 +1223,7 @@ checkWellFormedSelectStmt(SelectStmt *stmt, CteState *cstate)
 			case SETOP_UNION:
 				raw_expression_tree_walker((Node *) stmt,
 										   checkWellFormedRecursionWalker,
-										   (void *) cstate);
+										   cstate);
 				break;
 			case SETOP_INTERSECT:
 				if (stmt->all)

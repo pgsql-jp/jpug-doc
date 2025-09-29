@@ -49,7 +49,7 @@
  * by re-setting the page's page_dirty flag.
  *
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/slru.c
@@ -70,7 +70,7 @@
 #include "pgstat.h"
 #include "storage/fd.h"
 #include "storage/shmem.h"
-#include "utils/guc_hooks.h"
+#include "utils/guc.h"
 
 /*
  * Converts segment number to the filename of the segment.
@@ -100,8 +100,7 @@ SlruFileName(SlruCtl ctl, char *path, int64 segno)
 		 * that in the future we can't decrease SLRU_PAGES_PER_SEGMENT easily.
 		 */
 		Assert(segno >= 0 && segno <= INT64CONST(0xFFFFFFFFFFFFFFF));
-		return snprintf(path, MAXPGPATH, "%s/%015llX", ctl->Dir,
-						(long long) segno);
+		return snprintf(path, MAXPGPATH, "%s/%015" PRIX64, ctl->Dir, segno);
 	}
 	else
 	{
@@ -247,6 +246,7 @@ SimpleLruAutotuneBuffers(int divisor, int max)
  * buffer_tranche_id: tranche ID to use for the SLRU's per-buffer LWLocks.
  * bank_tranche_id: tranche ID to use for the bank LWLocks.
  * sync_handler: which set of functions to use to handle sync requests
+ * long_segment_names: use short or long segment names
  */
 void
 SimpleLruInit(SlruCtl ctl, const char *name, int nslots, int nlsns,
@@ -358,7 +358,7 @@ check_slru_buffers(const char *name, int *newval)
 	if (*newval % SLRU_BANK_SIZE == 0)
 		return true;
 
-	GUC_check_errdetail("\"%s\" must be a multiple of %d", name,
+	GUC_check_errdetail("\"%s\" must be a multiple of %d.", name,
 						SLRU_BANK_SIZE);
 	return false;
 }
@@ -401,10 +401,10 @@ SimpleLruZeroPage(SlruCtl ctl, int64 pageno)
 	/*
 	 * Assume this page is now the latest active page.
 	 *
-	 * Note that because both this routine and SlruSelectLRUPage run with
-	 * ControlLock held, it is not possible for this to be zeroing a page that
-	 * SlruSelectLRUPage is going to evict simultaneously.  Therefore, there's
-	 * no memory barrier here.
+	 * Note that because both this routine and SlruSelectLRUPage run with a
+	 * SLRU bank lock held, it is not possible for this to be zeroing a page
+	 * that SlruSelectLRUPage is going to evict simultaneously.  Therefore,
+	 * there's no memory barrier here.
 	 */
 	pg_atomic_write_u64(&shared->latest_page_number, pageno);
 
@@ -620,7 +620,7 @@ SimpleLruReadPage_ReadOnly(SlruCtl ctl, int64 pageno, TransactionId xid)
 			shared->page_number[slotno] == pageno &&
 			shared->page_status[slotno] != SLRU_PAGE_READ_IN_PROGRESS)
 		{
-			/* See comments for SlruRecentlyUsed macro */
+			/* See comments for SlruRecentlyUsed() */
 			SlruRecentlyUsed(shared, slotno);
 
 			/* update the stats counter of pages found in the SLRU */
@@ -716,9 +716,12 @@ SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
 	if (!ok)
 		SlruReportIOError(ctl, pageno, InvalidTransactionId);
 
-	/* If part of a checkpoint, count this as a buffer written. */
+	/* If part of a checkpoint, count this as a SLRU buffer written. */
 	if (fdata)
-		CheckpointStats.ckpt_bufs_written++;
+	{
+		CheckpointStats.ckpt_slru_written++;
+		PendingCheckpointerStats.slru_written++;
+	}
 }
 
 /*

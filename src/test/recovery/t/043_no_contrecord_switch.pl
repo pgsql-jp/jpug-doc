@@ -45,6 +45,7 @@ sub get_int_setting
 			"SELECT setting FROM pg_settings WHERE name = '$name'"));
 }
 
+# Find the start of a WAL page, based on an LSN in bytes.
 sub start_of_page
 {
 	my $lsn = shift;
@@ -98,7 +99,7 @@ my $wal_file = $primary->write_wal($TLI, $start_page, $WAL_SEGMENT_SIZE,
 copy($wal_file, $primary->archive_dir);
 
 # Start standby nodes and make sure they replay the file "hacked" from
-# the archives.
+# the archives of the primary.
 my $standby1 = PostgreSQL::Test::Cluster->new('standby1');
 $standby1->init_from_backup(
 	$primary, 'backup',
@@ -122,9 +123,9 @@ my $segment_name = wal_segment_name($TLI, $segment);
 my $pattern =
   qq(invalid magic number 0000 .* segment $segment_name.* offset $offset);
 
-# We expect both standby nodes to complain about empty page when trying to
-# assemble the record that spans over two pages, so wait for these in their
-# logs.
+# We expect both standby nodes to complain about an empty page when trying to
+# assemble the record that spans over two pages, so wait for such reports in
+# their logs.
 $standby1->wait_for_log($pattern, $log_size1);
 $standby2->wait_for_log($pattern, $log_size2);
 

@@ -3,7 +3,7 @@
  * parse_jsontable.c
  *	  parsing of JSON_TABLE
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -15,9 +15,7 @@
 
 #include "postgres.h"
 
-#include "catalog/pg_collation.h"
 #include "catalog/pg_type.h"
-#include "miscadmin.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
 #include "optimizer/optimizer.h"
@@ -26,7 +24,7 @@
 #include "parser/parse_expr.h"
 #include "parser/parse_relation.h"
 #include "parser/parse_type.h"
-#include "utils/builtins.h"
+#include "utils/fmgrprotos.h"
 #include "utils/json.h"
 #include "utils/lsyscache.h"
 

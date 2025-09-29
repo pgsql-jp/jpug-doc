@@ -337,6 +337,8 @@ LINE 1: SELECT JSON_OBJECT(RETURNING text FORMAT JSON ENCODING UTF8)...
                                           ^
 SELECT JSON_OBJECT(RETURNING text FORMAT JSON ENCODING INVALID_ENCODING);
 ERROR:  unrecognized JSON encoding: invalid_encoding
+LINE 1: ...T JSON_OBJECT(RETURNING text FORMAT JSON ENCODING INVALID_EN...
+                                                             ^
 SELECT JSON_OBJECT(RETURNING bytea);
  json_object 
 -------------
@@ -632,6 +634,8 @@ LINE 1: SELECT JSON_ARRAY(RETURNING text FORMAT JSON ENCODING UTF8);
                                          ^
 SELECT JSON_ARRAY(RETURNING text FORMAT JSON ENCODING INVALID_ENCODING);
 ERROR:  unrecognized JSON encoding: invalid_encoding
+LINE 1: ...CT JSON_ARRAY(RETURNING text FORMAT JSON ENCODING INVALID_EN...
+                                                             ^
 SELECT JSON_ARRAY(RETURNING bytea);
  json_array 
 ------------
@@ -1025,17 +1029,18 @@ FROM generate_series(1,5) i;
 EXPLAIN (VERBOSE, COSTS OFF)
 SELECT JSON_OBJECTAGG(i: ('111' || i)::bytea FORMAT JSON WITH UNIQUE RETURNING text) OVER (PARTITION BY i % 2)
 FROM generate_series(1,5) i;
-                                                            QUERY PLAN                                                             
------------------------------------------------------------------------------------------------------------------------------------
+                                                            QUERY PLAN                                                            
+----------------------------------------------------------------------------------------------------------------------------------
  WindowAgg
-   Output: JSON_OBJECTAGG(i : (('111'::text || (i)::text))::bytea FORMAT JSON WITH UNIQUE KEYS RETURNING text) OVER (?), ((i % 2))
+   Output: JSON_OBJECTAGG(i : (('111'::text || (i)::text))::bytea FORMAT JSON WITH UNIQUE KEYS RETURNING text) OVER w1, ((i % 2))
+   Window: w1 AS (PARTITION BY ((i.i % 2)))
    ->  Sort
          Output: ((i % 2)), i
          Sort Key: ((i.i % 2))
          ->  Function Scan on pg_catalog.generate_series i
                Output: (i % 2), i
                Function Call: generate_series(1, 5)
-(8 rows)
+(9 rows)
 
 CREATE VIEW json_objectagg_view AS
 SELECT JSON_OBJECTAGG(i: ('111' || i)::bytea FORMAT JSON WITH UNIQUE RETURNING text) FILTER (WHERE i > 3)
@@ -1061,17 +1066,18 @@ FROM generate_series(1,5) i;
 EXPLAIN (VERBOSE, COSTS OFF)
 SELECT JSON_ARRAYAGG(('111' || i)::bytea FORMAT JSON NULL ON NULL RETURNING text) OVER (PARTITION BY i % 2)
 FROM generate_series(1,5) i;
-                                                        QUERY PLAN                                                        
---------------------------------------------------------------------------------------------------------------------------
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
  WindowAgg
-   Output: JSON_ARRAYAGG((('111'::text || (i)::text))::bytea FORMAT JSON NULL ON NULL RETURNING text) OVER (?), ((i % 2))
+   Output: JSON_ARRAYAGG((('111'::text || (i)::text))::bytea FORMAT JSON NULL ON NULL RETURNING text) OVER w1, ((i % 2))
+   Window: w1 AS (PARTITION BY ((i.i % 2)))
    ->  Sort
          Output: ((i % 2)), i
          Sort Key: ((i.i % 2))
          ->  Function Scan on pg_catalog.generate_series i
                Output: (i % 2), i
                Function Call: generate_series(1, 5)
-(8 rows)
+(9 rows)
 
 CREATE VIEW json_arrayagg_view AS
 SELECT JSON_ARRAYAGG(('111' || i)::bytea FORMAT JSON NULL ON NULL RETURNING text) FILTER (WHERE i > 3)

@@ -9,11 +9,14 @@
 #include "postgres.h"
 
 #include "access/relation.h"
-#include "funcapi.h"
+#include "fmgr.h"
 #include "storage/freespace.h"
 #include "utils/rel.h"
 
-PG_MODULE_MAGIC;
+PG_MODULE_MAGIC_EXT(
+					.name = "pg_freespacemap",
+					.version = PG_VERSION
+);
 
 /*
  * Returns the amount of free space on a given page, according to the
