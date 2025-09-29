@@ -5,7 +5,7 @@
  * Basically this is stuff that is useful in both pg_dump and pg_dumpall.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/pg_dump/dumputils.h
@@ -63,7 +63,6 @@ extern void makeAlterConfigCommand(PGconn *conn, const char *configitem,
 								   const char *type, const char *name,
 								   const char *type2, const char *name2,
 								   PQExpBuffer buf);
-extern void create_or_open_dir(const char *dirname);
 
 extern char *generate_restrict_key(void);
 extern bool valid_restrict_key(const char *restrict_key);

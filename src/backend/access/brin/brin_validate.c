@@ -3,7 +3,7 @@
  * brin_validate.c
  *	  Opclass validator for BRIN.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -19,9 +19,9 @@
 #include "catalog/pg_amop.h"
 #include "catalog/pg_amproc.h"
 #include "catalog/pg_opclass.h"
+#include "catalog/pg_opfamily.h"
 #include "catalog/pg_type.h"
 #include "utils/builtins.h"
-#include "utils/lsyscache.h"
 #include "utils/regproc.h"
 #include "utils/syscache.h"
 
@@ -42,6 +42,8 @@ brinvalidate(Oid opclassoid)
 	Oid			opfamilyoid;
 	Oid			opcintype;
 	char	   *opclassname;
+	HeapTuple	familytup;
+	Form_pg_opfamily familyform;
 	char	   *opfamilyname;
 	CatCList   *proclist,
 			   *oprlist;
@@ -63,7 +65,12 @@ brinvalidate(Oid opclassoid)
 	opclassname = NameStr(classform->opcname);
 
 	/* Fetch opfamily information */
-	opfamilyname = get_opfamily_name(opfamilyoid, false);
+	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
+	if (!HeapTupleIsValid(familytup))
+		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
+	familyform = (Form_pg_opfamily) GETSTRUCT(familytup);
+
+	opfamilyname = NameStr(familyform->opfname);
 
 	/* Fetch all operators and support functions of the opfamily */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
@@ -267,6 +274,7 @@ brinvalidate(Oid opclassoid)
 
 	ReleaseCatCacheList(proclist);
 	ReleaseCatCacheList(oprlist);
+	ReleaseSysCache(familytup);
 	ReleaseSysCache(classtup);
 
 	return result;

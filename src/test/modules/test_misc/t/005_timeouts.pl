@@ -1,5 +1,5 @@
 
-# Copyright (c) 2024-2025, PostgreSQL Global Development Group
+# Copyright (c) 2024, PostgreSQL Global Development Group
 
 use strict;
 use warnings FATAL => 'all';
@@ -28,7 +28,10 @@ $node->start;
 # Check if the extension injection_points is available, as it may be
 # possible that this script is run with installcheck, where the module
 # would not be installed by default.
-if (!$node->check_extension('injection_points'))
+my $result = $node->safe_psql('postgres',
+	"SELECT count(*) > 0 FROM pg_available_extensions WHERE name = 'injection_points';"
+);
+if ($result eq 'f')
 {
 	plan skip_all => 'Extension injection_points not installed';
 }

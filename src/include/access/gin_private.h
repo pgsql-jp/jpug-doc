@@ -2,7 +2,7 @@
  * gin_private.h
  *	  header file for postgres inverted index access method implementation.
  *
- *	Copyright (c) 2006-2025, PostgreSQL Global Development Group
+ *	Copyright (c) 2006-2024, PostgreSQL Global Development Group
  *
  *	src/include/access/gin_private.h
  *--------------------------------------------------------------------------
@@ -109,7 +109,6 @@ extern Datum *ginExtractEntries(GinState *ginstate, OffsetNumber attnum,
 extern OffsetNumber gintuple_get_attrnum(GinState *ginstate, IndexTuple tuple);
 extern Datum gintuple_get_key(GinState *ginstate, IndexTuple tuple,
 							  GinNullCategory *category);
-extern char *ginbuildphasename(int64 phasenum);
 
 /* gininsert.c */
 extern IndexBuildResult *ginbuild(Relation heap, Relation index,
@@ -353,15 +352,8 @@ typedef struct GinScanEntryData
 
 	/* for a partial-match or full-scan query, we accumulate all TIDs here */
 	TIDBitmap  *matchBitmap;
-	TBMPrivateIterator *matchIterator;
-
-	/*
-	 * If blockno is InvalidBlockNumber, all of the other fields in the
-	 * matchResult are meaningless.
-	 */
-	TBMIterateResult matchResult;
-	OffsetNumber matchOffsets[TBM_MAX_TUPLES_PER_PAGE];
-	int			matchNtuples;
+	TBMIterator *matchIterator;
+	TBMIterateResult *matchResult;
 
 	/* used for Posting list and one page in Posting tree */
 	ItemPointerData *list;

@@ -3,7 +3,7 @@
  * binaryheap.c
  *	  A simple binary heap implementation
  *
- * Portions Copyright (c) 2012-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2012-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/common/binaryheap.c
@@ -323,23 +323,34 @@ sift_down(binaryheap *heap, int node_off)
 	{
 		int			left_off = left_offset(node_off);
 		int			right_off = right_offset(node_off);
-		int			swap_off = left_off;
+		int			swap_off = 0;
 
-		/* Is the right child larger than the left child? */
+		/* Is the left child larger than the parent? */
+		if (left_off < heap->bh_size &&
+			heap->bh_compare(node_val,
+							 heap->bh_nodes[left_off],
+							 heap->bh_arg) < 0)
+			swap_off = left_off;
+
+		/* Is the right child larger than the parent? */
 		if (right_off < heap->bh_size &&
-			heap->bh_compare(heap->bh_nodes[left_off],
+			heap->bh_compare(node_val,
 							 heap->bh_nodes[right_off],
 							 heap->bh_arg) < 0)
-			swap_off = right_off;
+		{
+			/* swap with the larger child */
+			if (!swap_off ||
+				heap->bh_compare(heap->bh_nodes[left_off],
+								 heap->bh_nodes[right_off],
+								 heap->bh_arg) < 0)
+				swap_off = right_off;
+		}
 
 		/*
-		 * If no children or parent is >= the larger child, heap condition is
+		 * If we didn't find anything to swap, the heap condition is
 		 * satisfied, and we're done.
 		 */
-		if (left_off >= heap->bh_size ||
-			heap->bh_compare(node_val,
-							 heap->bh_nodes[swap_off],
-							 heap->bh_arg) >= 0)
+		if (!swap_off)
 			break;
 
 		/*

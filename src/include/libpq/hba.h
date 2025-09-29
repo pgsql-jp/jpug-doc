@@ -11,7 +11,7 @@
 #ifndef HBA_H
 #define HBA_H
 
-#include "libpq/pqcomm.h"		/* needed for NetBSD */
+#include "libpq/pqcomm.h"	/* pgrminclude ignore */	/* needed for NetBSD */
 #include "nodes/pg_list.h"
 #include "regex/regex.h"
 
@@ -39,8 +39,7 @@ typedef enum UserAuth
 	uaCert,
 	uaRADIUS,
 	uaPeer,
-	uaOAuth,
-#define USER_AUTH_LAST uaOAuth	/* Must be last value of this enum */
+#define USER_AUTH_LAST uaPeer	/* Must be last value of this enum */
 } UserAuth;
 
 /*
@@ -136,10 +135,6 @@ typedef struct HbaLine
 	char	   *radiusidentifiers_s;
 	List	   *radiusports;
 	char	   *radiusports_s;
-	char	   *oauth_issuer;
-	char	   *oauth_scope;
-	char	   *oauth_validator;
-	bool		oauth_skip_usermap;
 } HbaLine;
 
 typedef struct IdentLine

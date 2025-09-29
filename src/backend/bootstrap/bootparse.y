@@ -4,7 +4,7 @@
  * bootparse.y
  *	  yacc grammar for the "bootstrap" mode (BKI file format)
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -31,8 +31,6 @@
 #include "miscadmin.h"
 #include "nodes/makefuncs.h"
 #include "utils/memutils.h"
-
-#include "bootparse.h"
 
 
 /*
@@ -77,9 +75,6 @@ static int num_columns_read = 0;
 
 %}
 
-%parse-param {yyscan_t yyscanner}
-%lex-param   {yyscan_t yyscanner}
-%pure-parser
 %expect 0
 %name-prefix="boot_yy"
 
@@ -140,8 +135,6 @@ Boot_OpenStmt:
 					do_start();
 					boot_openrel($2);
 					do_end();
-
-					(void) yynerrs; /* suppress compiler warning */
 				}
 		;
 

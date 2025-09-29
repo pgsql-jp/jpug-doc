@@ -1,5 +1,5 @@
 
-# Copyright (c) 2024-2025, PostgreSQL Global Development Group
+# Copyright (c) 2024, PostgreSQL Global Development Group
 
 use strict;
 use warnings FATAL => 'all';
@@ -18,15 +18,11 @@ my $publisher = PostgreSQL::Test::Cluster->new('publisher');
 # This is only needed on Windows machines that don't use UNIX sockets.
 $publisher->init(
 	allows_streaming => 'logical',
-	auth_extra => [ '--create-role' => 'repl_role' ]);
+	auth_extra => [ '--create-role', 'repl_role' ]);
 # Disable autovacuum to avoid generating xid during stats update as otherwise
 # the new XID could then be replicated to standby at some random point making
 # slots at primary lag behind standby during slot sync.
-$publisher->append_conf(
-	'postgresql.conf', qq{
-autovacuum = off
-max_prepared_transactions = 1
-});
+$publisher->append_conf('postgresql.conf', 'autovacuum = off');
 $publisher->start;
 
 $publisher->safe_psql('postgres',
@@ -37,7 +33,6 @@ my $publisher_connstr = $publisher->connstr . ' dbname=postgres';
 # Create a subscriber node, wait for sync to complete
 my $subscriber1 = PostgreSQL::Test::Cluster->new('subscriber1');
 $subscriber1->init;
-$subscriber1->append_conf('postgresql.conf', 'max_prepared_transactions = 1');
 $subscriber1->start;
 
 # Capture the time before the logical failover slot is created on the
@@ -100,8 +95,7 @@ $subscriber1->safe_psql('postgres',
 # Disable failover for enabled subscription
 my ($result, $stdout, $stderr) = $subscriber1->psql('postgres',
 	"ALTER SUBSCRIPTION regress_mysub1 SET (failover = false)");
-ok( $stderr =~
-	  /ERROR:  cannot set option "failover" for enabled subscription/,
+ok( $stderr =~ /ERROR:  cannot set failover for enabled subscription/,
 	"altering failover is not allowed for enabled subscription");
 
 ##################################################
@@ -286,8 +280,7 @@ $standby1->safe_psql('postgres', "SELECT pg_sync_replication_slots();");
 
 # Confirm that the invalidated slot has been dropped.
 $standby1->wait_for_log(
-	qr/dropped replication slot "lsub1_slot" of database with OID [0-9]+/,
-	$log_offset);
+	qr/dropped replication slot "lsub1_slot" of database with OID [0-9]+/, $log_offset);
 
 # Confirm that the logical slot has been re-created on the standby and is
 # flagged as 'synced'
@@ -836,71 +829,12 @@ $primary->adjust_conf('postgresql.conf', 'synchronized_standby_slots',
 $primary->reload;
 
 ##################################################
-# Test the synchronization of the two_phase setting for a subscription with the
-# standby. Additionally, prepare a transaction before enabling the two_phase
-# option; subsequent tests will verify if it can be correctly replicated to the
-# subscriber after committing it on the promoted standby.
-##################################################
-
-$standby1->start;
-
-# Prepare a transaction
-$primary->safe_psql(
-	'postgres', qq[
-	BEGIN;
-	INSERT INTO tab_int values(0);
-	PREPARE TRANSACTION 'test_twophase_slotsync';
-]);
-
-$primary->wait_for_replay_catchup($standby1);
-$primary->wait_for_catchup('regress_mysub1');
-
-# Disable the subscription to allow changing the two_phase option.
-$subscriber1->safe_psql('postgres',
-	"ALTER SUBSCRIPTION regress_mysub1 DISABLE");
-
-# Wait for the replication slot to become inactive on the publisher
-$primary->poll_query_until(
-	'postgres',
-	"SELECT COUNT(*) FROM pg_catalog.pg_replication_slots WHERE slot_name = 'lsub1_slot' AND active='f'",
-	1);
-
-# Set two_phase to true and enable the subscription
-$subscriber1->safe_psql(
-	'postgres', qq[
-	ALTER SUBSCRIPTION regress_mysub1 SET (two_phase = true);
-	ALTER SUBSCRIPTION regress_mysub1 ENABLE;
-]);
-
-$primary->wait_for_catchup('regress_mysub1');
-
-my $two_phase_at = $primary->safe_psql('postgres',
-	"SELECT two_phase_at from pg_replication_slots WHERE slot_name = 'lsub1_slot';"
-);
-
-# Confirm that two_phase setting of lsub1_slot slot is synced to the standby
-ok( $standby1->poll_query_until(
-		'postgres',
-		"SELECT two_phase AND '$two_phase_at' = two_phase_at from pg_replication_slots WHERE slot_name = 'lsub1_slot' AND synced AND NOT temporary;"
-	),
-	'two_phase setting of slot lsub1_slot synced to standby');
-
-# Confirm that the prepared transaction is not yet replicated to the
-# subscriber.
-$result = $subscriber1->safe_psql('postgres',
-	"SELECT count(*) = 0 FROM pg_prepared_xacts;");
-is($result, 't',
-	"the prepared transaction is not replicated to the subscriber");
-
-##################################################
 # Promote the standby1 to primary. Confirm that:
 # a) the slot 'lsub1_slot' and 'snap_test_slot' are retained on the new primary
 # b) logical replication for regress_mysub1 is resumed successfully after failover
-# c) changes from the transaction prepared 'test_twophase_slotsync' can be
-#    consumed from the synced slot 'snap_test_slot' once committed on the new
-#    primary.
-# d) changes can be consumed from the synced slot 'snap_test_slot'
+# c) changes can be consumed from the synced slot 'snap_test_slot'
 ##################################################
+$standby1->start;
 $primary->wait_for_replay_catchup($standby1);
 
 # Capture the time before the standby is promoted
@@ -940,14 +874,6 @@ is( $standby1->safe_psql(
 	't',
 	'synced slot retained on the new primary');
 
-# Commit the prepared transaction
-$standby1->safe_psql('postgres', "COMMIT PREPARED 'test_twophase_slotsync';");
-$standby1->wait_for_catchup('regress_mysub1');
-
-# Confirm that the prepared transaction is replicated to the subscriber
-is($subscriber1->safe_psql('postgres', q{SELECT count(*) FROM tab_int;}),
-	"11", 'prepared data replicated from the new primary');
-
 # Insert data on the new primary
 $standby1->safe_psql('postgres',
 	"INSERT INTO tab_int SELECT generate_series(11, 20);");
@@ -955,7 +881,7 @@ $standby1->wait_for_catchup('regress_mysub1');
 
 # Confirm that data in tab_int replicated on the subscriber
 is($subscriber1->safe_psql('postgres', q{SELECT count(*) FROM tab_int;}),
-	"21", 'data replicated from the new primary');
+	"20", 'data replicated from the new primary');
 
 # Consume the data from the snap_test_slot. The synced slot should reach a
 # consistent point by restoring the snapshot at the restart_lsn serialized

@@ -15,10 +15,7 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "refint",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 typedef struct
 {
@@ -84,10 +81,6 @@ check_primary_key(PG_FUNCTION_ARGS)
 		/* internal error */
 		elog(ERROR, "check_primary_key: must be fired for row");
 
-	if (!TRIGGER_FIRED_AFTER(trigdata->tg_event))
-		/* internal error */
-		elog(ERROR, "check_primary_key: must be fired by AFTER trigger");
-
 	/* If INSERTion then must check Tuple to being inserted */
 	if (TRIGGER_FIRED_BY_INSERT(trigdata->tg_event))
 		tuple = trigdata->tg_trigtuple;
@@ -115,7 +108,9 @@ check_primary_key(PG_FUNCTION_ARGS)
 	tupdesc = rel->rd_att;
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if ((ret = SPI_connect()) < 0)
+		/* internal error */
+		elog(ERROR, "check_primary_key: SPI_connect returned %d", ret);
 
 	/*
 	 * We use SPI plan preparation feature, so allocate space to place key
@@ -291,10 +286,6 @@ check_foreign_key(PG_FUNCTION_ARGS)
 		/* internal error */
 		elog(ERROR, "check_foreign_key: cannot process INSERT events");
 
-	if (!TRIGGER_FIRED_AFTER(trigdata->tg_event))
-		/* internal error */
-		elog(ERROR, "check_foreign_key: must be fired by AFTER trigger");
-
 	/* Have to check tg_trigtuple - tuple being deleted */
 	trigtuple = trigdata->tg_trigtuple;
 
@@ -337,7 +328,9 @@ check_foreign_key(PG_FUNCTION_ARGS)
 	tupdesc = rel->rd_att;
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if ((ret = SPI_connect()) < 0)
+		/* internal error */
+		elog(ERROR, "check_foreign_key: SPI_connect returned %d", ret);
 
 	/*
 	 * We use SPI plan preparation feature, so allocate space to place key
@@ -346,10 +339,10 @@ check_foreign_key(PG_FUNCTION_ARGS)
 	kvals = (Datum *) palloc(nkeys * sizeof(Datum));
 
 	/*
-	 * Construct ident string as TriggerName $ TriggeredRelationId $
-	 * OperationType and try to find prepared execution plan(s).
+	 * Construct ident string as TriggerName $ TriggeredRelationId and try to
+	 * find prepared execution plan(s).
 	 */
-	snprintf(ident, sizeof(ident), "%s$%u$%c", trigger->tgname, rel->rd_id, is_update ? 'U' : 'D');
+	snprintf(ident, sizeof(ident), "%s$%u", trigger->tgname, rel->rd_id);
 	plan = find_plan(ident, &FPlans, &nFPlans);
 
 	/* if there is no plan(s) then allocate argtypes for preparation */
@@ -581,6 +574,8 @@ check_foreign_key(PG_FUNCTION_ARGS)
 
 		relname = args[0];
 
+		snprintf(ident, sizeof(ident), "%s$%u", trigger->tgname, rel->rd_id);
+		plan = find_plan(ident, &FPlans, &nFPlans);
 		ret = SPI_execp(plan->splan[r], kvals, NULL, tcount);
 		/* we have no NULLs - so we pass   ^^^^  here */
 
@@ -602,15 +597,9 @@ check_foreign_key(PG_FUNCTION_ARGS)
 		else
 		{
 #ifdef REFINT_VERBOSE
-			const char *operation;
-
-			if (action == 'c')
-				operation = is_update ? "updated" : "deleted";
-			else
-				operation = "set to null";
-
 			elog(NOTICE, "%s: " UINT64_FORMAT " tuple(s) of %s are %s",
-				 trigger->tgname, SPI_processed, relname, operation);
+				 trigger->tgname, SPI_processed, relname,
+				 (action == 'c') ? "deleted" : "set to null");
 #endif
 		}
 		args += nkeys + 1;		/* to the next relation */

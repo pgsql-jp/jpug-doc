@@ -22,7 +22,6 @@ OBJS = \
 	interrupt.o \
 	launch_backend.o \
 	pgarch.o \
-	pmchild.o \
 	postmaster.o \
 	startup.o \
 	syslogger.o \

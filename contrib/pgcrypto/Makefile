@@ -11,7 +11,6 @@ OBJS = \
 	crypt-des.o \
 	crypt-gensalt.o \
 	crypt-md5.o \
-	crypt-sha.o \
 	mbuf.o \
 	openssl.o \
 	pgcrypto.o \
@@ -37,14 +36,16 @@ MODULE_big	= pgcrypto
 
 EXTENSION = pgcrypto
 DATA = pgcrypto--1.3.sql pgcrypto--1.2--1.3.sql pgcrypto--1.1--1.2.sql \
-	pgcrypto--1.0--1.1.sql pgcrypto--1.3--1.4.sql
+	pgcrypto--1.0--1.1.sql
 PGFILEDESC = "pgcrypto - cryptographic functions"
 
 REGRESS = init md5 sha1 hmac-md5 hmac-sha1 blowfish rijndael \
 	sha2 des 3des cast5 \
 	crypt-des crypt-md5 crypt-blowfish crypt-xdes \
 	pgp-armor pgp-decrypt pgp-encrypt pgp-encrypt-md5 $(CF_PGP_TESTS) \
-	pgp-pubkey-decrypt pgp-pubkey-encrypt pgp-info crypt-shacrypt
+	pgp-pubkey-decrypt pgp-pubkey-encrypt pgp-info
+
+EXTRA_CLEAN = gen-rtab
 
 ifdef USE_PGXS
 PG_CONFIG = pg_config
@@ -62,6 +63,7 @@ endif
 # matter.)
 SHLIB_LINK += $(filter -lcrypto -lz, $(LIBS))
 ifeq ($(PORTNAME), win32)
+SHLIB_LINK += $(filter -leay32, $(LIBS))
 # those must be at the end
 SHLIB_LINK += -lws2_32
 endif

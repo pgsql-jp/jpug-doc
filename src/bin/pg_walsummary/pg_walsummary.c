@@ -3,7 +3,7 @@
  * pg_walsummary.c
  *		Prints the contents of WAL summary files.
  *
- * Copyright (c) 2017-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2017-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/bin/pg_walsummary/pg_walsummary.c
@@ -20,6 +20,7 @@
 #include "common/logging.h"
 #include "fe_utils/option_utils.h"
 #include "getopt_long.h"
+#include "lib/stringinfo.h"
 
 typedef struct ws_options
 {

@@ -19,13 +19,10 @@ OH, me, I'm Terry Mackintosh <terry@terrym.com>
 #include "catalog/pg_type.h"
 #include "commands/trigger.h"
 #include "executor/spi.h"
-#include "utils/fmgrprotos.h"
+#include "utils/builtins.h"
 #include "utils/rel.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "moddatetime",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(moddatetime);
 

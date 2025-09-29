@@ -72,12 +72,10 @@ enum _dumpPreparedQueries
 	PREPQUERY_DUMPOPR,
 	PREPQUERY_DUMPRANGETYPE,
 	PREPQUERY_DUMPTABLEATTACH,
-	PREPQUERY_GETATTRIBUTESTATS,
 	PREPQUERY_GETCOLUMNACLS,
 	PREPQUERY_GETDOMAINCONSTRAINTS,
+	NUM_PREP_QUERIES			/* must be last */
 };
-
-#define NUM_PREP_QUERIES (PREPQUERY_GETDOMAINCONSTRAINTS + 1)
 
 /* Parameters needed by ConnectDatabase; same for dump and restore */
 typedef struct _connParams
@@ -111,13 +109,14 @@ typedef struct _restoreOptions
 	int			column_inserts;
 	int			if_exists;
 	int			no_comments;	/* Skip comments */
-	int			no_policies;	/* Skip row security policies */
 	int			no_publications;	/* Skip publication entries */
 	int			no_security_labels; /* Skip security label entries */
 	int			no_subscriptions;	/* Skip subscription entries */
 	int			strict_names;
 
 	const char *filename;
+	int			dataOnly;
+	int			schemaOnly;
 	int			dumpSections;
 	int			verbose;
 	int			aclsSkip;
@@ -159,11 +158,6 @@ typedef struct _restoreOptions
 	int			sequence_data;	/* dump sequence data even in schema-only mode */
 	int			binary_upgrade;
 
-	/* flags derived from the user-settable flags */
-	bool		dumpSchema;
-	bool		dumpData;
-	bool		dumpStatistics;
-
 	char	   *restrict_key;
 } RestoreOptions;
 
@@ -174,6 +168,8 @@ typedef struct _dumpOptions
 	int			binary_upgrade;
 
 	/* various user-settable parameters */
+	bool		schemaOnly;
+	bool		dataOnly;
 	int			dumpSections;	/* bitmask of chosen sections */
 	bool		aclsSkip;
 	const char *lockWaitTimeout;
@@ -184,9 +180,8 @@ typedef struct _dumpOptions
 	int			column_inserts;
 	int			if_exists;
 	int			no_comments;
-	int			no_policies;	/* Skip row security policies */
-	int			no_publications;
 	int			no_security_labels;
+	int			no_publications;
 	int			no_subscriptions;
 	int			no_toast_compression;
 	int			no_unlogged_table_data;
@@ -210,11 +205,6 @@ typedef struct _dumpOptions
 
 	int			sequence_data;	/* dump sequence data even in schema-only mode */
 	int			do_nothing;
-
-	/* flags derived from the user-settable flags */
-	bool		dumpSchema;
-	bool		dumpData;
-	bool		dumpStatistics;
 
 	char	   *restrict_key;
 } DumpOptions;
@@ -288,15 +278,18 @@ typedef int DumpId;
 /*
  * Function pointer prototypes for assorted callback methods.
  */
+
+typedef int (*DataDumperPtr) (Archive *AH, const void *userArg);
+
 typedef void (*SetupWorkerPtrType) (Archive *AH);
 
 /*
  * Main archiver interface.
  */
 
-extern void ConnectDatabaseAhx(Archive *AHX,
-							   const ConnParams *cparams,
-							   bool isReconnect);
+extern void ConnectDatabase(Archive *AHX,
+							const ConnParams *cparams,
+							bool isReconnect);
 extern void DisconnectDatabase(Archive *AHX);
 extern PGconn *GetConnection(Archive *AHX);
 

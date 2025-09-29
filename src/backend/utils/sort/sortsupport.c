@@ -4,7 +4,7 @@
  *	  Support routines for accelerated sorting.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -135,30 +135,30 @@ PrepareSortSupportFromOrderingOp(Oid orderingOp, SortSupport ssup)
 {
 	Oid			opfamily;
 	Oid			opcintype;
-	CompareType cmptype;
+	int16		strategy;
 
 	Assert(ssup->comparator == NULL);
 
 	/* Find the operator in pg_amop */
 	if (!get_ordering_op_properties(orderingOp, &opfamily, &opcintype,
-									&cmptype))
+									&strategy))
 		elog(ERROR, "operator %u is not a valid ordering operator",
 			 orderingOp);
-	ssup->ssup_reverse = (cmptype == COMPARE_GT);
+	ssup->ssup_reverse = (strategy == BTGreaterStrategyNumber);
 
 	FinishSortSupportFunction(opfamily, opcintype, ssup);
 }
 
 /*
- * Fill in SortSupport given an index relation and attribute.
+ * Fill in SortSupport given an index relation, attribute, and strategy.
  *
  * Caller must previously have zeroed the SortSupportData structure and then
  * filled in ssup_cxt, ssup_attno, ssup_collation, and ssup_nulls_first.  This
- * will fill in ssup_reverse (based on the supplied argument), as well as the
+ * will fill in ssup_reverse (based on the supplied strategy), as well as the
  * comparator function pointer.
  */
 void
-PrepareSortSupportFromIndexRel(Relation indexRel, bool reverse,
+PrepareSortSupportFromIndexRel(Relation indexRel, int16 strategy,
 							   SortSupport ssup)
 {
 	Oid			opfamily = indexRel->rd_opfamily[ssup->ssup_attno - 1];
@@ -166,9 +166,12 @@ PrepareSortSupportFromIndexRel(Relation indexRel, bool reverse,
 
 	Assert(ssup->comparator == NULL);
 
-	if (!indexRel->rd_indam->amcanorder)
-		elog(ERROR, "unexpected non-amcanorder AM: %u", indexRel->rd_rel->relam);
-	ssup->ssup_reverse = reverse;
+	if (indexRel->rd_rel->relam != BTREE_AM_OID)
+		elog(ERROR, "unexpected non-btree AM: %u", indexRel->rd_rel->relam);
+	if (strategy != BTGreaterStrategyNumber &&
+		strategy != BTLessStrategyNumber)
+		elog(ERROR, "unexpected sort support strategy: %d", strategy);
+	ssup->ssup_reverse = (strategy == BTGreaterStrategyNumber);
 
 	FinishSortSupportFunction(opfamily, opcintype, ssup);
 }

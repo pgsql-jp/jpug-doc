@@ -14,7 +14,7 @@
  * for interrogating recovery state and controlling the recovery process.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/xlogrecovery.c
@@ -60,7 +60,6 @@
 #include "utils/datetime.h"
 #include "utils/fmgrprotos.h"
 #include "utils/guc_hooks.h"
-#include "utils/pgstat_internal.h"
 #include "utils/pg_lsn.h"
 #include "utils/ps_status.h"
 #include "utils/pg_rusage.h"
@@ -291,11 +290,6 @@ static bool backupEndRequired = false;
  * Consistent state means that the system is internally consistent, all
  * the WAL has been replayed up to a certain point, and importantly, there
  * is no trace of later actions on disk.
- *
- * This flag is used only by the startup process and postmaster. When
- * minRecoveryPoint is reached, the startup process sets it to true and
- * sends a PMSIGNAL_RECOVERY_CONSISTENT signal to the postmaster,
- * which then sets it to true upon receiving the signal.
  */
 bool		reachedConsistency = false;
 
@@ -435,9 +429,9 @@ static int	emode_for_corrupt_record(int emode, XLogRecPtr RecPtr);
 static XLogRecord *ReadCheckpointRecord(XLogPrefetcher *xlogprefetcher,
 										XLogRecPtr RecPtr, TimeLineID replayTLI);
 static bool rescanLatestTimeLine(TimeLineID replayTLI, XLogRecPtr replayLSN);
-static int	XLogFileRead(XLogSegNo segno, TimeLineID tli,
+static int	XLogFileRead(XLogSegNo segno, int emode, TimeLineID tli,
 						 XLogSource source, bool notfoundOk);
-static int	XLogFileReadAnyTLI(XLogSegNo segno, XLogSource source);
+static int	XLogFileReadAnyTLI(XLogSegNo segno, int emode, XLogSource source);
 
 static bool CheckForStandbyTrigger(void);
 static void SetPromoteIsTriggered(void);
@@ -682,7 +676,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 				tablespaceinfo *ti = lfirst(lc);
 				char	   *linkloc;
 
-				linkloc = psprintf("%s/%u", PG_TBLSPC_DIR, ti->oid);
+				linkloc = psprintf("pg_tblspc/%u", ti->oid);
 
 				/*
 				 * Remove the existing symlink if any and Create the symlink
@@ -854,9 +848,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 		ereport(FATAL,
 				(errmsg("requested timeline %u is not a child of this server's history",
 						recoveryTargetTLI),
-		/* translator: %s is a backup_label file or a pg_control file */
-				 errdetail("Latest checkpoint in file \"%s\" is at %X/%X on timeline %u, but in the history of the requested timeline, the server forked off from that timeline at %X/%X.",
-						   haveBackupLabel ? "backup_label" : "pg_control",
+				 errdetail("Latest checkpoint is at %X/%X on timeline %u, but in the history of the requested timeline, the server forked off from that timeline at %X/%X.",
 						   LSN_FORMAT_ARGS(CheckPointLoc),
 						   CheckPointTLI,
 						   LSN_FORMAT_ARGS(switchpoint))));
@@ -1779,7 +1771,7 @@ PerformWalRecovery(void)
 #endif
 
 			/* Handle interrupt signals of startup process */
-			ProcessStartupProcInterrupts();
+			HandleStartupProcInterrupts();
 
 			/*
 			 * Pause WAL replay, if requested by a hot-standby session via
@@ -1906,8 +1898,7 @@ PerformWalRecovery(void)
 		recoveryTarget != RECOVERY_TARGET_UNSET &&
 		!reachedRecoveryTarget)
 		ereport(FATAL,
-				(errcode(ERRCODE_CONFIG_FILE_ERROR),
-				 errmsg("recovery ended before configured recovery target was reached")));
+				(errmsg("recovery ended before configured recovery target was reached")));
 }
 
 /*
@@ -1921,7 +1912,7 @@ ApplyWalRecord(XLogReaderState *xlogreader, XLogRecord *record, TimeLineID *repl
 
 	/* Setup error traceback support for ereport() */
 	errcallback.callback = rm_redo_error_callback;
-	errcallback.arg = xlogreader;
+	errcallback.arg = (void *) xlogreader;
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
@@ -2154,24 +2145,23 @@ CheckTablespaceDirectory(void)
 	DIR		   *dir;
 	struct dirent *de;
 
-	dir = AllocateDir(PG_TBLSPC_DIR);
-	while ((de = ReadDir(dir, PG_TBLSPC_DIR)) != NULL)
+	dir = AllocateDir("pg_tblspc");
+	while ((de = ReadDir(dir, "pg_tblspc")) != NULL)
 	{
-		char		path[MAXPGPATH + sizeof(PG_TBLSPC_DIR)];
+		char		path[MAXPGPATH + 10];
 
 		/* Skip entries of non-oid names */
 		if (strspn(de->d_name, "0123456789") != strlen(de->d_name))
 			continue;
 
-		snprintf(path, sizeof(path), "%s/%s", PG_TBLSPC_DIR, de->d_name);
+		snprintf(path, sizeof(path), "pg_tblspc/%s", de->d_name);
 
 		if (get_dirent_type(path, de, false, ERROR) != PGFILETYPE_LNK)
 			ereport(allow_in_place_tablespaces ? WARNING : PANIC,
 					(errcode(ERRCODE_DATA_CORRUPTED),
 					 errmsg("unexpected directory entry \"%s\" found in %s",
-							de->d_name, PG_TBLSPC_DIR),
-					 errdetail("All directory entries in %s/ should be symbolic links.",
-							   PG_TBLSPC_DIR),
+							de->d_name, "pg_tblspc/"),
+					 errdetail("All directory entries in pg_tblspc/ should be symbolic links."),
 					 errhint("Remove those directories, or set \"allow_in_place_tablespaces\" to ON transiently to let recovery complete.")));
 	}
 }
@@ -2253,7 +2243,6 @@ CheckRecoveryConsistency(void)
 		CheckTablespaceDirectory();
 
 		reachedConsistency = true;
-		SendPostmasterSignal(PMSIGNAL_RECOVERY_CONSISTENT);
 		ereport(LOG,
 				(errmsg("consistent recovery state reached at %X/%X",
 						LSN_FORMAT_ARGS(lastReplayedEndRecPtr))));
@@ -2955,7 +2944,7 @@ recoveryPausesHere(bool endOfRecovery)
 	/* loop until recoveryPauseState is set to RECOVERY_NOT_PAUSED */
 	while (GetRecoveryPauseState() != RECOVERY_NOT_PAUSED)
 	{
-		ProcessStartupProcInterrupts();
+		HandleStartupProcInterrupts();
 		if (CheckForStandbyTrigger())
 			return;
 
@@ -3044,7 +3033,7 @@ recoveryApplyDelay(XLogReaderState *record)
 		ResetLatch(&XLogRecoveryCtl->recoveryWakeupLatch);
 
 		/* This might change recovery_min_apply_delay. */
-		ProcessStartupProcInterrupts();
+		HandleStartupProcInterrupts();
 
 		if (CheckForStandbyTrigger())
 			break;
@@ -3315,7 +3304,6 @@ XLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr, int reqLen,
 	uint32		targetPageOff;
 	XLogSegNo	targetSegNo PG_USED_FOR_ASSERTS_ONLY;
 	int			r;
-	instr_time	io_start;
 
 	XLByteToSeg(targetPagePtr, targetSegNo, wal_segment_size);
 	targetPageOff = XLogSegmentOffset(targetPagePtr, wal_segment_size);
@@ -3408,9 +3396,6 @@ retry:
 	/* Read the requested page */
 	readOff = targetPageOff;
 
-	/* Measure I/O timing when reading segment */
-	io_start = pgstat_prepare_io_time(track_wal_io_timing);
-
 	pgstat_report_wait_start(WAIT_EVENT_WAL_READ);
 	r = pg_pread(readFile, readBuf, XLOG_BLCKSZ, (off_t) readOff);
 	if (r != XLOG_BLCKSZ)
@@ -3419,10 +3404,6 @@ retry:
 		int			save_errno = errno;
 
 		pgstat_report_wait_end();
-
-		pgstat_count_io_op_time(IOOBJECT_WAL, IOCONTEXT_NORMAL, IOOP_READ,
-								io_start, 1, r);
-
 		XLogFileName(fname, curFileTLI, readSegNo, wal_segment_size);
 		if (r < 0)
 		{
@@ -3442,9 +3423,6 @@ retry:
 		goto next_record_is_invalid;
 	}
 	pgstat_report_wait_end();
-
-	pgstat_count_io_op_time(IOOBJECT_WAL, IOCONTEXT_NORMAL, IOOP_READ,
-							io_start, 1, r);
 
 	Assert(targetSegNo == readSegNo);
 	Assert(targetPageOff == readOff);
@@ -3733,7 +3711,7 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 						now = GetCurrentTimestamp();
 
 						/* Handle interrupt signals of startup process */
-						ProcessStartupProcInterrupts();
+						HandleStartupProcInterrupts();
 					}
 					last_fail_time = now;
 					currentSource = XLOG_FROM_ARCHIVE;
@@ -3790,7 +3768,7 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 				 * Try to restore the file from archive, or read an existing
 				 * file from pg_wal.
 				 */
-				readFile = XLogFileReadAnyTLI(readSegNo,
+				readFile = XLogFileReadAnyTLI(readSegNo, DEBUG2,
 											  currentSource == XLOG_FROM_ARCHIVE ? XLOG_FROM_ANY :
 											  currentSource);
 				if (readFile >= 0)
@@ -3939,7 +3917,8 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 						{
 							if (!expectedTLEs)
 								expectedTLEs = readTimeLineHistory(recoveryTargetTLI);
-							readFile = XLogFileRead(readSegNo, receiveTLI,
+							readFile = XLogFileRead(readSegNo, PANIC,
+													receiveTLI,
 													XLOG_FROM_STREAM, false);
 							Assert(readFile >= 0);
 						}
@@ -4023,7 +4002,7 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 		 * This possibly-long loop needs to handle interrupts of startup
 		 * process.
 		 */
-		ProcessStartupProcInterrupts();
+		HandleStartupProcInterrupts();
 	}
 
 	return XLREAD_FAIL;			/* not reached */
@@ -4210,7 +4189,7 @@ rescanLatestTimeLine(TimeLineID replayTLI, XLogRecPtr replayLSN)
  * Otherwise, it's assumed to be already available in pg_wal.
  */
 static int
-XLogFileRead(XLogSegNo segno, TimeLineID tli,
+XLogFileRead(XLogSegNo segno, int emode, TimeLineID tli,
 			 XLogSource source, bool notfoundOk)
 {
 	char		xlogfname[MAXFNAMELEN];
@@ -4292,7 +4271,7 @@ XLogFileRead(XLogSegNo segno, TimeLineID tli,
  * This version searches for the segment with any TLI listed in expectedTLEs.
  */
 static int
-XLogFileReadAnyTLI(XLogSegNo segno, XLogSource source)
+XLogFileReadAnyTLI(XLogSegNo segno, int emode, XLogSource source)
 {
 	char		path[MAXPGPATH];
 	ListCell   *cell;
@@ -4356,7 +4335,8 @@ XLogFileReadAnyTLI(XLogSegNo segno, XLogSource source)
 
 		if (source == XLOG_FROM_ANY || source == XLOG_FROM_ARCHIVE)
 		{
-			fd = XLogFileRead(segno, tli, XLOG_FROM_ARCHIVE, true);
+			fd = XLogFileRead(segno, emode, tli,
+							  XLOG_FROM_ARCHIVE, true);
 			if (fd != -1)
 			{
 				elog(DEBUG1, "got WAL segment from archive");
@@ -4368,7 +4348,8 @@ XLogFileReadAnyTLI(XLogSegNo segno, XLogSource source)
 
 		if (source == XLOG_FROM_ANY || source == XLOG_FROM_PG_WAL)
 		{
-			fd = XLogFileRead(segno, tli, XLOG_FROM_PG_WAL, true);
+			fd = XLogFileRead(segno, emode, tli,
+							  XLOG_FROM_PG_WAL, true);
 			if (fd != -1)
 			{
 				if (!expectedTLEs)
@@ -4381,7 +4362,7 @@ XLogFileReadAnyTLI(XLogSegNo segno, XLogSource source)
 	/* Couldn't find it.  For simplicity, complain about front timeline */
 	XLogFilePath(path, recoveryTargetTLI, segno, wal_segment_size);
 	errno = ENOENT;
-	ereport(DEBUG2,
+	ereport(emode,
 			(errcode_for_file_access(),
 			 errmsg("could not open file \"%s\": %m", path)));
 	return -1;
@@ -4701,7 +4682,7 @@ RecoveryRequiresIntParameter(const char *param_name, int currValue, int minValue
 
 			while (GetRecoveryPauseState() != RECOVERY_NOT_PAUSED)
 			{
-				ProcessStartupProcInterrupts();
+				HandleStartupProcInterrupts();
 
 				if (CheckForStandbyTrigger())
 				{
@@ -4784,7 +4765,8 @@ check_primary_slot_name(char **newval, void **extra, GucSource source)
  * that we have odd behaviors such as unexpected GUC ordering dependencies.
  */
 
-pg_noreturn static void
+static void
+pg_attribute_noreturn()
 error_multiple_recovery_targets(void)
 {
 	ereport(ERROR,
@@ -4839,11 +4821,9 @@ check_recovery_target_lsn(char **newval, void **extra, GucSource source)
 		if (have_error)
 			return false;
 
-		myextra = (XLogRecPtr *) guc_malloc(LOG, sizeof(XLogRecPtr));
-		if (!myextra)
-			return false;
+		myextra = (XLogRecPtr *) guc_malloc(ERROR, sizeof(XLogRecPtr));
 		*myextra = lsn;
-		*extra = myextra;
+		*extra = (void *) myextra;
 	}
 	return true;
 }
@@ -4955,7 +4935,7 @@ check_recovery_target_time(char **newval, void **extra, GucSource source)
 
 			if (tm2timestamp(tm, fsec, &tz, &timestamp) != 0)
 			{
-				GUC_check_errdetail("Timestamp out of range: \"%s\".", str);
+				GUC_check_errdetail("timestamp out of range: \"%s\"", str);
 				return false;
 			}
 		}
@@ -5005,11 +4985,9 @@ check_recovery_target_timeline(char **newval, void **extra, GucSource source)
 		}
 	}
 
-	myextra = (RecoveryTargetTimeLineGoal *) guc_malloc(LOG, sizeof(RecoveryTargetTimeLineGoal));
-	if (!myextra)
-		return false;
+	myextra = (RecoveryTargetTimeLineGoal *) guc_malloc(ERROR, sizeof(RecoveryTargetTimeLineGoal));
 	*myextra = rttg;
-	*extra = myextra;
+	*extra = (void *) myextra;
 
 	return true;
 }
@@ -5043,11 +5021,9 @@ check_recovery_target_xid(char **newval, void **extra, GucSource source)
 		if (errno == EINVAL || errno == ERANGE)
 			return false;
 
-		myextra = (TransactionId *) guc_malloc(LOG, sizeof(TransactionId));
-		if (!myextra)
-			return false;
+		myextra = (TransactionId *) guc_malloc(ERROR, sizeof(TransactionId));
 		*myextra = xid;
-		*extra = myextra;
+		*extra = (void *) myextra;
 	}
 	return true;
 }

@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021-2025, PostgreSQL Global Development Group
+# Copyright (c) 2021-2024, PostgreSQL Global Development Group
 
 # Test CREATE INDEX CONCURRENTLY with concurrent prepared-xact modifications
 use strict;
@@ -25,7 +25,7 @@ $node->append_conf('postgresql.conf',
 	'lock_timeout = ' . (1000 * $PostgreSQL::Test::Utils::timeout_default));
 $node->start;
 $node->safe_psql('postgres', q(CREATE EXTENSION amcheck));
-$node->safe_psql('postgres', q(CREATE TABLE tbl(i int, j jsonb)));
+$node->safe_psql('postgres', q(CREATE TABLE tbl(i int)));
 
 
 #
@@ -41,7 +41,7 @@ my $main_h = $node->background_psql('postgres');
 $main_h->query_safe(
 	q(
 BEGIN;
-INSERT INTO tbl VALUES(0, '[[14,2,3]]');
+INSERT INTO tbl VALUES(0);
 ));
 
 my $cic_h = $node->background_psql('postgres');
@@ -50,7 +50,6 @@ $cic_h->query_until(
 	qr/start/, q(
 \echo start
 CREATE INDEX CONCURRENTLY idx ON tbl(i);
-CREATE INDEX CONCURRENTLY ginidx ON tbl USING gin(j);
 ));
 
 $main_h->query_safe(
@@ -61,7 +60,7 @@ PREPARE TRANSACTION 'a';
 $main_h->query_safe(
 	q(
 BEGIN;
-INSERT INTO tbl VALUES(0, '[[14,2,3]]');
+INSERT INTO tbl VALUES(0);
 ));
 
 $node->safe_psql('postgres', q(COMMIT PREPARED 'a';));
@@ -70,7 +69,7 @@ $main_h->query_safe(
 	q(
 PREPARE TRANSACTION 'b';
 BEGIN;
-INSERT INTO tbl VALUES(0, '"mary had a little lamb"');
+INSERT INTO tbl VALUES(0);
 ));
 
 $node->safe_psql('postgres', q(COMMIT PREPARED 'b';));
@@ -87,9 +86,6 @@ $cic_h->quit;
 $result = $node->psql('postgres', q(SELECT bt_index_check('idx',true)));
 is($result, '0', 'bt_index_check after overlapping 2PC');
 
-$result = $node->psql('postgres', q(SELECT gin_index_check('ginidx')));
-is($result, '0', 'gin_index_check after overlapping 2PC');
-
 
 #
 # Server restart shall not change whether prepared xact blocks CIC
@@ -98,7 +94,7 @@ is($result, '0', 'gin_index_check after overlapping 2PC');
 $node->safe_psql(
 	'postgres', q(
 BEGIN;
-INSERT INTO tbl VALUES(0, '{"a":[["b",{"x":1}],["b",{"x":2}]],"c":3}');
+INSERT INTO tbl VALUES(0);
 PREPARE TRANSACTION 'spans_restart';
 BEGIN;
 CREATE TABLE unused ();
@@ -112,16 +108,12 @@ $reindex_h->query_until(
 \echo start
 DROP INDEX CONCURRENTLY idx;
 CREATE INDEX CONCURRENTLY idx ON tbl(i);
-DROP INDEX CONCURRENTLY ginidx;
-CREATE INDEX CONCURRENTLY ginidx ON tbl USING gin(j);
 ));
 
 $node->safe_psql('postgres', "COMMIT PREPARED 'spans_restart'");
 $reindex_h->quit;
 $result = $node->psql('postgres', q(SELECT bt_index_check('idx',true)));
 is($result, '0', 'bt_index_check after 2PC and restart');
-$result = $node->psql('postgres', q(SELECT gin_index_check('ginidx')));
-is($result, '0', 'gin_index_check after 2PC and restart');
 
 
 #
@@ -144,14 +136,14 @@ $node->pgbench(
 	{
 		'003_pgbench_concurrent_2pc' => q(
 			BEGIN;
-			INSERT INTO tbl VALUES(0,'null');
+			INSERT INTO tbl VALUES(0);
 			PREPARE TRANSACTION 'c:client_id';
 			COMMIT PREPARED 'c:client_id';
 		  ),
 		'003_pgbench_concurrent_2pc_savepoint' => q(
 			BEGIN;
 			SAVEPOINT s1;
-			INSERT INTO tbl VALUES(0,'[false, "jnvaba", -76, 7, {"_": [1]}, 9]');
+			INSERT INTO tbl VALUES(0);
 			PREPARE TRANSACTION 'c:client_id';
 			COMMIT PREPARED 'c:client_id';
 		  ),
@@ -171,25 +163,7 @@ $node->pgbench(
 				SELECT bt_index_check('idx',true);
 				SELECT pg_advisory_unlock(42);
 			\endif
-		  ),
-		'005_pgbench_concurrent_cic' => q(
-			SELECT pg_try_advisory_lock(42)::integer AS gotginlock \gset
-			\if :gotginlock
-				DROP INDEX CONCURRENTLY ginidx;
-				CREATE INDEX CONCURRENTLY ginidx ON tbl USING gin(j);
-				SELECT gin_index_check('ginidx');
-				SELECT pg_advisory_unlock(42);
-			\endif
-		  ),
-		'006_pgbench_concurrent_ric' => q(
-			SELECT pg_try_advisory_lock(42)::integer AS gotginlock \gset
-			\if :gotginlock
-				REINDEX INDEX CONCURRENTLY ginidx;
-				SELECT gin_index_check('ginidx');
-				SELECT pg_advisory_unlock(42);
-			\endif
 		  )
-
 	});
 
 $node->stop;

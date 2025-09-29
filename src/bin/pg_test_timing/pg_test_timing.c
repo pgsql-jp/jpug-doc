@@ -20,7 +20,7 @@ static uint64 test_timing(unsigned int duration);
 static void output(uint64 loop_count);
 
 /* record duration in powers of 2 microseconds */
-static long long int histogram[32];
+long long int histogram[32];
 
 int
 main(int argc, char *argv[])

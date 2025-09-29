@@ -3,7 +3,7 @@
  * jsonb_util.c
  *	  converting between Jsonb and JsonbValues, and iterating.
  *
- * Copyright (c) 2014-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2014-2024, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -48,8 +48,8 @@ static void convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *va
 static void convertJsonbScalar(StringInfo buffer, JEntry *header, JsonbValue *scalarVal);
 
 static int	reserveFromBuffer(StringInfo buffer, int len);
-static void appendToBuffer(StringInfo buffer, const void *data, int len);
-static void copyToBuffer(StringInfo buffer, int offset, const void *data, int len);
+static void appendToBuffer(StringInfo buffer, const char *data, int len);
+static void copyToBuffer(StringInfo buffer, int offset, const char *data, int len);
 static short padBufferToInt(StringInfo buffer);
 
 static JsonbIterator *iteratorFromContainer(JsonbContainer *container, JsonbIterator *parent);
@@ -246,13 +246,6 @@ compareJsonbContainers(JsonbContainer *a, JsonbContainer *b)
 						 */
 						if (va.val.array.rawScalar != vb.val.array.rawScalar)
 							res = (va.val.array.rawScalar) ? -1 : 1;
-
-						/*
-						 * There should be an "else" here, to prevent us from
-						 * overriding the above, but we can't change the sort
-						 * order now, so there is a mild anomaly that an empty
-						 * top level array sorts less than null.
-						 */
 						if (va.val.array.nElems != vb.val.array.nElems)
 							res = (va.val.array.nElems > vb.val.array.nElems) ? 1 : -1;
 						break;
@@ -1514,7 +1507,7 @@ reserveFromBuffer(StringInfo buffer, int len)
  * Copy 'len' bytes to a previously reserved area in buffer.
  */
 static void
-copyToBuffer(StringInfo buffer, int offset, const void *data, int len)
+copyToBuffer(StringInfo buffer, int offset, const char *data, int len)
 {
 	memcpy(buffer->data + offset, data, len);
 }
@@ -1523,7 +1516,7 @@ copyToBuffer(StringInfo buffer, int offset, const void *data, int len)
  * A shorthand for reserveFromBuffer + copyToBuffer.
  */
 static void
-appendToBuffer(StringInfo buffer, const void *data, int len)
+appendToBuffer(StringInfo buffer, const char *data, int len)
 {
 	int			offset;
 
@@ -1652,7 +1645,7 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 		containerhead |= JB_FSCALAR;
 	}
 
-	appendToBuffer(buffer, &containerhead, sizeof(uint32));
+	appendToBuffer(buffer, (char *) &containerhead, sizeof(uint32));
 
 	/* Reserve space for the JEntries of the elements. */
 	jentry_offset = reserveFromBuffer(buffer, sizeof(JEntry) * nElems);
@@ -1690,7 +1683,7 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 		if ((i % JB_OFFSET_STRIDE) == 0)
 			meta = (meta & JENTRY_TYPEMASK) | totallen | JENTRY_HAS_OFF;
 
-		copyToBuffer(buffer, jentry_offset, &meta, sizeof(JEntry));
+		copyToBuffer(buffer, jentry_offset, (char *) &meta, sizeof(JEntry));
 		jentry_offset += sizeof(JEntry);
 	}
 
@@ -1729,7 +1722,7 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 	 * variable-length payload.
 	 */
 	containerheader = nPairs | JB_FOBJECT;
-	appendToBuffer(buffer, &containerheader, sizeof(uint32));
+	appendToBuffer(buffer, (char *) &containerheader, sizeof(uint32));
 
 	/* Reserve space for the JEntries of the keys and values. */
 	jentry_offset = reserveFromBuffer(buffer, sizeof(JEntry) * nPairs * 2);
@@ -1771,7 +1764,7 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 		if ((i % JB_OFFSET_STRIDE) == 0)
 			meta = (meta & JENTRY_TYPEMASK) | totallen | JENTRY_HAS_OFF;
 
-		copyToBuffer(buffer, jentry_offset, &meta, sizeof(JEntry));
+		copyToBuffer(buffer, jentry_offset, (char *) &meta, sizeof(JEntry));
 		jentry_offset += sizeof(JEntry);
 	}
 	for (i = 0; i < nPairs; i++)
@@ -1806,7 +1799,7 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 		if (((i + nPairs) % JB_OFFSET_STRIDE) == 0)
 			meta = (meta & JENTRY_TYPEMASK) | totallen | JENTRY_HAS_OFF;
 
-		copyToBuffer(buffer, jentry_offset, &meta, sizeof(JEntry));
+		copyToBuffer(buffer, jentry_offset, (char *) &meta, sizeof(JEntry));
 		jentry_offset += sizeof(JEntry);
 	}
 
@@ -1846,7 +1839,7 @@ convertJsonbScalar(StringInfo buffer, JEntry *header, JsonbValue *scalarVal)
 			numlen = VARSIZE_ANY(scalarVal->val.numeric);
 			padlen = padBufferToInt(buffer);
 
-			appendToBuffer(buffer, scalarVal->val.numeric, numlen);
+			appendToBuffer(buffer, (char *) scalarVal->val.numeric, numlen);
 
 			*header = JENTRY_ISNUMERIC | (padlen + numlen);
 			break;

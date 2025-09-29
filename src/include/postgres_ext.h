@@ -19,12 +19,11 @@
  *
  *-------------------------------------------------------------------------
  */
-/* IWYU pragma: always_keep */
 
 #ifndef POSTGRES_EXT_H
 #define POSTGRES_EXT_H
 
-#include <stdint.h>
+#include "pg_config_ext.h"
 
 /*
  * Object ID is a fundamental type in Postgres.
@@ -44,8 +43,8 @@ typedef unsigned int Oid;
 /* the above needs <stdlib.h> */
 
 
-/* deprecated name for int64_t, formerly used in client API declarations */
-typedef int64_t pg_int64;
+/* Define a signed 64-bit integer type for use in client API declarations. */
+typedef PG_INT64_TYPE pg_int64;
 
 /*
  * Identifiers of error message fields.  Kept here to keep common

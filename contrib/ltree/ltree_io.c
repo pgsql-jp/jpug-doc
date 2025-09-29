@@ -10,6 +10,7 @@
 #include "crc32.h"
 #include "libpq/pqformat.h"
 #include "ltree.h"
+#include "utils/memutils.h"
 #include "varatt.h"
 
 
@@ -411,7 +412,7 @@ parse_lquery(const char *buf, struct Node *escontext)
 			case LQPRS_WAITFNUM:
 				if (t_iseq(ptr, ','))
 					state = LQPRS_WAITSNUM;
-				else if (isdigit((unsigned char) *ptr))
+				else if (t_isdigit(ptr))
 				{
 					int			low = atoi(ptr);
 
@@ -429,7 +430,7 @@ parse_lquery(const char *buf, struct Node *escontext)
 					UNCHAR;
 				break;
 			case LQPRS_WAITSNUM:
-				if (isdigit((unsigned char) *ptr))
+				if (t_isdigit(ptr))
 				{
 					int			high = atoi(ptr);
 
@@ -460,7 +461,7 @@ parse_lquery(const char *buf, struct Node *escontext)
 			case LQPRS_WAITCLOSE:
 				if (t_iseq(ptr, '}'))
 					state = LQPRS_WAITEND;
-				else if (!isdigit((unsigned char) *ptr))
+				else if (!t_isdigit(ptr))
 					UNCHAR;
 				break;
 			case LQPRS_WAITND:
@@ -471,7 +472,7 @@ parse_lquery(const char *buf, struct Node *escontext)
 				}
 				else if (t_iseq(ptr, ','))
 					state = LQPRS_WAITSNUM;
-				else if (!isdigit((unsigned char) *ptr))
+				else if (!t_isdigit(ptr))
 					UNCHAR;
 				break;
 			case LQPRS_WAITEND:

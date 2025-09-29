@@ -3,7 +3,7 @@
  * analyze.c
  *	  the Postgres statistics generator
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -41,6 +41,7 @@
 #include "parser/parse_oper.h"
 #include "parser/parse_relation.h"
 #include "pgstat.h"
+#include "postmaster/autovacuum.h"
 #include "statistics/extended_stats_internal.h"
 #include "statistics/statistics.h"
 #include "storage/bufmgr.h"
@@ -53,6 +54,7 @@
 #include "utils/pg_rusage.h"
 #include "utils/sampling.h"
 #include "utils/sortsupport.h"
+#include "utils/spccache.h"
 #include "utils/syscache.h"
 #include "utils/timestamp.h"
 
@@ -286,9 +288,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 				ind;
 	Relation   *Irel;
 	int			nindexes;
-	bool		verbose,
-				instrument,
-				hasindex;
+	bool		hasindex;
 	VacAttrStats **vacattrstats;
 	AnlIndexData *indexdata;
 	int			targrows,
@@ -303,15 +303,12 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	Oid			save_userid;
 	int			save_sec_context;
 	int			save_nestlevel;
-	WalUsage	startwalusage = pgWalUsage;
-	BufferUsage startbufferusage = pgBufferUsage;
-	BufferUsage bufferusage;
+	int64		AnalyzePageHit = VacuumPageHit;
+	int64		AnalyzePageMiss = VacuumPageMiss;
+	int64		AnalyzePageDirty = VacuumPageDirty;
 	PgStat_Counter startreadtime = 0;
 	PgStat_Counter startwritetime = 0;
 
-	verbose = (params->options & VACOPT_VERBOSE) != 0;
-	instrument = (verbose || (AmAutoVacuumWorkerProcess() &&
-							  params->log_min_duration >= 0));
 	if (inh)
 		ereport(elevel,
 				(errmsg("analyzing \"%s.%s\" inheritance tree",
@@ -343,11 +340,8 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	save_nestlevel = NewGUCNestLevel();
 	RestrictSearchPath();
 
-	/*
-	 * When verbose or autovacuum logging is used, initialize a resource usage
-	 * snapshot and optionally track I/O timing.
-	 */
-	if (instrument)
+	/* measure elapsed time iff autovacuum logging requires it */
+	if (AmAutoVacuumWorkerProcess() && params->log_min_duration >= 0)
 	{
 		if (track_io_timing)
 		{
@@ -356,10 +350,8 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 		}
 
 		pg_rusage_init(&ru0);
+		starttime = GetCurrentTimestamp();
 	}
-
-	/* Used for instrumentation and stats report */
-	starttime = GetCurrentTimestamp();
 
 	/*
 	 * Determine which columns to analyze
@@ -630,11 +622,12 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	 */
 	if (!inh)
 	{
-		BlockNumber relallvisible = 0;
-		BlockNumber relallfrozen = 0;
+		BlockNumber relallvisible;
 
 		if (RELKIND_HAS_STORAGE(onerel->rd_rel->relkind))
-			visibilitymap_count(onerel, &relallvisible, &relallfrozen);
+			visibilitymap_count(onerel, &relallvisible, NULL);
+		else
+			relallvisible = 0;
 
 		/*
 		 * Update pg_class for table relation.  CCI first, in case acquirefunc
@@ -645,7 +638,6 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 							relpages,
 							totalrows,
 							relallvisible,
-							relallfrozen,
 							hasindex,
 							InvalidTransactionId,
 							InvalidMultiXactId,
@@ -662,7 +654,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 			vac_update_relstats(Irel[ind],
 								RelationGetNumberOfBlocks(Irel[ind]),
 								totalindexrows,
-								0, 0,
+								0,
 								false,
 								InvalidTransactionId,
 								InvalidMultiXactId,
@@ -678,7 +670,7 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 		 */
 		CommandCounterIncrement();
 		vac_update_relstats(onerel, -1, totalrows,
-							0, 0, hasindex, InvalidTransactionId,
+							0, hasindex, InvalidTransactionId,
 							InvalidMultiXactId,
 							NULL, NULL,
 							in_outer_xact);
@@ -695,9 +687,9 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	 */
 	if (!inh)
 		pgstat_report_analyze(onerel, totalrows, totaldeadrows,
-							  (va_cols == NIL), starttime);
+							  (va_cols == NIL));
 	else if (onerel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		pgstat_report_analyze(onerel, 0, 0, (va_cols == NIL), starttime);
+		pgstat_report_analyze(onerel, 0, 0, (va_cols == NIL));
 
 	/*
 	 * If this isn't part of VACUUM ANALYZE, let index AMs do cleanup.
@@ -732,35 +724,27 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 	vac_close_indexes(nindexes, Irel, NoLock);
 
 	/* Log the action if appropriate */
-	if (instrument)
+	if (AmAutoVacuumWorkerProcess() && params->log_min_duration >= 0)
 	{
 		TimestampTz endtime = GetCurrentTimestamp();
 
-		if (verbose || params->log_min_duration == 0 ||
+		if (params->log_min_duration == 0 ||
 			TimestampDifferenceExceeds(starttime, endtime,
 									   params->log_min_duration))
 		{
 			long		delay_in_ms;
-			WalUsage	walusage;
 			double		read_rate = 0;
 			double		write_rate = 0;
-			char	   *msgfmt;
 			StringInfoData buf;
-			int64		total_blks_hit;
-			int64		total_blks_read;
-			int64		total_blks_dirtied;
 
-			memset(&bufferusage, 0, sizeof(BufferUsage));
-			BufferUsageAccumDiff(&bufferusage, &pgBufferUsage, &startbufferusage);
-			memset(&walusage, 0, sizeof(WalUsage));
-			WalUsageAccumDiff(&walusage, &pgWalUsage, &startwalusage);
-
-			total_blks_hit = bufferusage.shared_blks_hit +
-				bufferusage.local_blks_hit;
-			total_blks_read = bufferusage.shared_blks_read +
-				bufferusage.local_blks_read;
-			total_blks_dirtied = bufferusage.shared_blks_dirtied +
-				bufferusage.local_blks_dirtied;
+			/*
+			 * Calculate the difference in the Page Hit/Miss/Dirty that
+			 * happened as part of the analyze by subtracting out the
+			 * pre-analyze values which we saved above.
+			 */
+			AnalyzePageHit = VacuumPageHit - AnalyzePageHit;
+			AnalyzePageMiss = VacuumPageMiss - AnalyzePageMiss;
+			AnalyzePageDirty = VacuumPageDirty - AnalyzePageDirty;
 
 			/*
 			 * We do not expect an analyze to take > 25 days and it simplifies
@@ -786,10 +770,10 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 
 			if (delay_in_ms > 0)
 			{
-				read_rate = (double) BLCKSZ * total_blks_read /
-					(1024 * 1024) / (delay_in_ms / 1000.0);
-				write_rate = (double) BLCKSZ * total_blks_dirtied /
-					(1024 * 1024) / (delay_in_ms / 1000.0);
+				read_rate = (double) BLCKSZ * AnalyzePageMiss / (1024 * 1024) /
+					(delay_in_ms / 1000.0);
+				write_rate = (double) BLCKSZ * AnalyzePageDirty / (1024 * 1024) /
+					(delay_in_ms / 1000.0);
 			}
 
 			/*
@@ -798,25 +782,10 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 			 */
 
 			initStringInfo(&buf);
-
-			if (AmAutoVacuumWorkerProcess())
-				msgfmt = _("automatic analyze of table \"%s.%s.%s\"\n");
-			else
-				msgfmt = _("finished analyzing table \"%s.%s.%s\"\n");
-
-			appendStringInfo(&buf, msgfmt,
+			appendStringInfo(&buf, _("automatic analyze of table \"%s.%s.%s\"\n"),
 							 get_database_name(MyDatabaseId),
 							 get_namespace_name(RelationGetNamespace(onerel)),
 							 RelationGetRelationName(onerel));
-			if (track_cost_delay_timing)
-			{
-				/*
-				 * We bypass the changecount mechanism because this value is
-				 * only updated by the calling process.
-				 */
-				appendStringInfo(&buf, _("delay time: %.3f ms\n"),
-								 (double) MyBEEntry->st_progress_param[PROGRESS_ANALYZE_DELAY_TIME] / 1000000.0);
-			}
 			if (track_io_timing)
 			{
 				double		read_ms = (double) (pgStatBlockReadTime - startreadtime) / 1000;
@@ -827,19 +796,13 @@ do_analyze_rel(Relation onerel, VacuumParams *params,
 			}
 			appendStringInfo(&buf, _("avg read rate: %.3f MB/s, avg write rate: %.3f MB/s\n"),
 							 read_rate, write_rate);
-			appendStringInfo(&buf, _("buffer usage: %" PRId64 " hits, %" PRId64 " reads, %" PRId64 " dirtied\n"),
-							 total_blks_hit,
-							 total_blks_read,
-							 total_blks_dirtied);
-			appendStringInfo(&buf,
-							 _("WAL usage: %" PRId64 " records, %" PRId64 " full page images, %" PRIu64 " bytes, %" PRId64 " buffers full\n"),
-							 walusage.wal_records,
-							 walusage.wal_fpi,
-							 walusage.wal_bytes,
-							 walusage.wal_buffers_full);
+			appendStringInfo(&buf, _("buffer usage: %lld hits, %lld misses, %lld dirtied\n"),
+							 (long long) AnalyzePageHit,
+							 (long long) AnalyzePageMiss,
+							 (long long) AnalyzePageDirty);
 			appendStringInfo(&buf, _("system usage: %s"), pg_rusage_show(&ru0));
 
-			ereport(verbose ? INFO : LOG,
+			ereport(LOG,
 					(errmsg_internal("%s", buf.data)));
 
 			pfree(buf.data);
@@ -925,7 +888,7 @@ compute_index_stats(Relation onerel, double totalrows,
 		{
 			HeapTuple	heapTuple = rows[rowno];
 
-			vacuum_delay_point(true);
+			vacuum_delay_point();
 
 			/*
 			 * Reset the per-tuple context each time, to reclaim any cruft
@@ -1047,10 +1010,6 @@ examine_attribute(Relation onerel, int attnum, Node *index_expr)
 
 	/* Never analyze dropped columns */
 	if (attr->attisdropped)
-		return NULL;
-
-	/* Don't analyze virtual generated columns */
-	if (attr->attgenerated == ATTRIBUTE_GENERATED_VIRTUAL)
 		return NULL;
 
 	/*
@@ -1237,12 +1196,7 @@ acquire_sample_rows(Relation onerel, int elevel,
 	scan = table_beginscan_analyze(onerel);
 	slot = table_slot_create(onerel, NULL);
 
-	/*
-	 * It is safe to use batching, as block_sampling_read_stream_next never
-	 * blocks.
-	 */
-	stream = read_stream_begin_relation(READ_STREAM_MAINTENANCE |
-										READ_STREAM_USE_BATCHING,
+	stream = read_stream_begin_relation(READ_STREAM_MAINTENANCE,
 										vac_strategy,
 										scan->rs_rd,
 										MAIN_FORKNUM,
@@ -1253,7 +1207,7 @@ acquire_sample_rows(Relation onerel, int elevel,
 	/* Outer loop over blocks to sample */
 	while (table_scan_analyze_next_block(scan, stream))
 	{
-		vacuum_delay_point(true);
+		vacuum_delay_point();
 
 		while (table_scan_analyze_next_tuple(scan, OldestXmin, &liverows, &deadrows, slot))
 		{
@@ -1985,7 +1939,7 @@ compute_trivial_stats(VacAttrStatsP stats,
 		Datum		value;
 		bool		isnull;
 
-		vacuum_delay_point(true);
+		vacuum_delay_point();
 
 		value = fetchfunc(stats, i, &isnull);
 
@@ -2101,7 +2055,7 @@ compute_distinct_stats(VacAttrStatsP stats,
 		int			firstcount1,
 					j;
 
-		vacuum_delay_point(true);
+		vacuum_delay_point();
 
 		value = fetchfunc(stats, i, &isnull);
 
@@ -2448,7 +2402,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 		Datum		value;
 		bool		isnull;
 
-		vacuum_delay_point(true);
+		vacuum_delay_point();
 
 		value = fetchfunc(stats, i, &isnull);
 

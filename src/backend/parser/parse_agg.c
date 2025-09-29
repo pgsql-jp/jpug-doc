@@ -3,7 +3,7 @@
  * parse_agg.c
  *	  handle aggregates and window functions in parser
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -26,7 +26,6 @@
 #include "parser/parse_clause.h"
 #include "parser/parse_coerce.h"
 #include "parser/parse_expr.h"
-#include "parser/parse_relation.h"
 #include "parser/parsetree.h"
 #include "rewrite/rewriteManip.h"
 #include "utils/builtins.h"
@@ -48,12 +47,11 @@ typedef struct
 	bool		hasJoinRTEs;
 	List	   *groupClauses;
 	List	   *groupClauseCommonVars;
-	List	   *gset_common;
 	bool		have_non_var_grouping;
 	List	  **func_grouped_rels;
 	int			sublevels_up;
 	bool		in_agg_direct_args;
-} substitute_grouped_columns_context;
+} check_ungrouped_columns_context;
 
 static int	check_agg_arguments(ParseState *pstate,
 								List *directargs,
@@ -61,20 +59,17 @@ static int	check_agg_arguments(ParseState *pstate,
 								Expr *filter);
 static bool check_agg_arguments_walker(Node *node,
 									   check_agg_arguments_context *context);
-static Node *substitute_grouped_columns(Node *node, ParseState *pstate, Query *qry,
-										List *groupClauses, List *groupClauseCommonVars,
-										List *gset_common,
-										bool have_non_var_grouping,
-										List **func_grouped_rels);
-static Node *substitute_grouped_columns_mutator(Node *node,
-												substitute_grouped_columns_context *context);
+static void check_ungrouped_columns(Node *node, ParseState *pstate, Query *qry,
+									List *groupClauses, List *groupClauseCommonVars,
+									bool have_non_var_grouping,
+									List **func_grouped_rels);
+static bool check_ungrouped_columns_walker(Node *node,
+										   check_ungrouped_columns_context *context);
 static void finalize_grouping_exprs(Node *node, ParseState *pstate, Query *qry,
 									List *groupClauses, bool hasJoinRTEs,
 									bool have_non_var_grouping);
 static bool finalize_grouping_exprs_walker(Node *node,
-										   substitute_grouped_columns_context *context);
-static Var *buildGroupedVar(int attnum, Index ressortgroupref,
-							substitute_grouped_columns_context *context);
+										   check_ungrouped_columns_context *context);
 static void check_agglevels_and_constraints(ParseState *pstate, Node *expr);
 static List *expand_groupingset_node(GroupingSet *gs);
 static Node *make_agg_arg(Oid argtype, Oid argcollation);
@@ -791,32 +786,6 @@ check_agg_arguments_walker(Node *node,
 					 parser_errposition(context->pstate,
 										((WindowFunc *) node)->location)));
 	}
-
-	if (IsA(node, RangeTblEntry))
-	{
-		/*
-		 * CTE references act similarly to Vars of the CTE's level.  Without
-		 * this we might conclude that the Agg can be evaluated above the CTE,
-		 * leading to trouble.
-		 */
-		RangeTblEntry *rte = (RangeTblEntry *) node;
-
-		if (rte->rtekind == RTE_CTE)
-		{
-			int			ctelevelsup = rte->ctelevelsup;
-
-			/* convert levelsup to frame of reference of original query */
-			ctelevelsup -= context->sublevels_up;
-			/* ignore local CTEs of subqueries */
-			if (ctelevelsup >= 0)
-			{
-				if (context->min_varlevel < 0 ||
-					context->min_varlevel > ctelevelsup)
-					context->min_varlevel = ctelevelsup;
-			}
-		}
-		return false;			/* allow range_table_walker to continue */
-	}
 	if (IsA(node, Query))
 	{
 		/* Recurse into subselects */
@@ -825,15 +794,15 @@ check_agg_arguments_walker(Node *node,
 		context->sublevels_up++;
 		result = query_tree_walker((Query *) node,
 								   check_agg_arguments_walker,
-								   context,
-								   QTW_EXAMINE_RTES_BEFORE);
+								   (void *) context,
+								   0);
 		context->sublevels_up--;
 		return result;
 	}
 
 	return expression_tree_walker(node,
 								  check_agg_arguments_walker,
-								  context);
+								  (void *) context);
 }
 
 /*
@@ -1095,9 +1064,7 @@ transformWindowFuncCall(ParseState *pstate, WindowFunc *wfunc,
 
 /*
  * parseCheckAggregates
- *	Check for aggregates where they shouldn't be and improper grouping, and
- *	replace grouped variables in the targetlist and HAVING clause with Vars
- *	that reference the RTE_GROUP RTE.
+ *	Check for aggregates where they shouldn't be and improper grouping.
  *	This function should be called after the target list and qualifications
  *	are finalized.
  *
@@ -1187,7 +1154,7 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 
 	/*
 	 * Build a list of the acceptable GROUP BY expressions for use by
-	 * substitute_grouped_columns().
+	 * check_ungrouped_columns().
 	 *
 	 * We get the TLE, not just the expr, because GROUPING wants to know the
 	 * sortgroupref.
@@ -1240,24 +1207,7 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 	}
 
 	/*
-	 * If there are any acceptable GROUP BY expressions, build an RTE and
-	 * nsitem for the result of the grouping step.
-	 */
-	if (groupClauses)
-	{
-		pstate->p_grouping_nsitem =
-			addRangeTableEntryForGroup(pstate, groupClauses);
-
-		/* Set qry->rtable again in case it was previously NIL */
-		qry->rtable = pstate->p_rtable;
-		/* Mark the Query as having RTE_GROUP RTE */
-		qry->hasGroupRTE = true;
-	}
-
-	/*
-	 * Replace grouped variables in the targetlist and HAVING clause with Vars
-	 * that reference the RTE_GROUP RTE.  Emit an error message if we find any
-	 * ungrouped variables.
+	 * Check the targetlist and HAVING clause for ungrouped variables.
 	 *
 	 * Note: because we check resjunk tlist elements as well as regular ones,
 	 * this will also find ungrouped variables that came from ORDER BY and
@@ -1273,12 +1223,10 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 							have_non_var_grouping);
 	if (hasJoinRTEs)
 		clause = flatten_join_alias_vars(NULL, qry, clause);
-	qry->targetList = (List *)
-		substitute_grouped_columns(clause, pstate, qry,
-								   groupClauses, groupClauseCommonVars,
-								   gset_common,
-								   have_non_var_grouping,
-								   &func_grouped_rels);
+	check_ungrouped_columns(clause, pstate, qry,
+							groupClauses, groupClauseCommonVars,
+							have_non_var_grouping,
+							&func_grouped_rels);
 
 	clause = (Node *) qry->havingQual;
 	finalize_grouping_exprs(clause, pstate, qry,
@@ -1286,12 +1234,10 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 							have_non_var_grouping);
 	if (hasJoinRTEs)
 		clause = flatten_join_alias_vars(NULL, qry, clause);
-	qry->havingQual =
-		substitute_grouped_columns(clause, pstate, qry,
-								   groupClauses, groupClauseCommonVars,
-								   gset_common,
-								   have_non_var_grouping,
-								   &func_grouped_rels);
+	check_ungrouped_columns(clause, pstate, qry,
+							groupClauses, groupClauseCommonVars,
+							have_non_var_grouping,
+							&func_grouped_rels);
 
 	/*
 	 * Per spec, aggregates can't appear in a recursive term.
@@ -1305,16 +1251,14 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
 }
 
 /*
- * substitute_grouped_columns -
- *	  Scan the given expression tree for grouped variables (variables that
- *	  are listed in the groupClauses list) and replace them with Vars that
- *	  reference the RTE_GROUP RTE.  Emit a suitable error message if any
- *	  ungrouped variables (variables that are not listed in the groupClauses
- *	  list and are not within the arguments of aggregate functions) are
- *	  found.
+ * check_ungrouped_columns -
+ *	  Scan the given expression tree for ungrouped variables (variables
+ *	  that are not listed in the groupClauses list and are not within
+ *	  the arguments of aggregate functions).  Emit a suitable error message
+ *	  if any are found.
  *
  * NOTE: we assume that the given clause has been transformed suitably for
- * parser output.  This means we can use expression_tree_mutator.
+ * parser output.  This means we can use expression_tree_walker.
  *
  * NOTE: we recognize grouping expressions in the main query, but only
  * grouping Vars in subqueries.  For example, this will be rejected,
@@ -1327,36 +1271,37 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
  * This appears to require a whole custom version of equal(), which is
  * way more pain than the feature seems worth.
  */
-static Node *
-substitute_grouped_columns(Node *node, ParseState *pstate, Query *qry,
-						   List *groupClauses, List *groupClauseCommonVars,
-						   List *gset_common,
-						   bool have_non_var_grouping,
-						   List **func_grouped_rels)
+static void
+check_ungrouped_columns(Node *node, ParseState *pstate, Query *qry,
+						List *groupClauses, List *groupClauseCommonVars,
+						bool have_non_var_grouping,
+						List **func_grouped_rels)
 {
-	substitute_grouped_columns_context context;
+	check_ungrouped_columns_context context;
 
 	context.pstate = pstate;
 	context.qry = qry;
 	context.hasJoinRTEs = false;	/* assume caller flattened join Vars */
 	context.groupClauses = groupClauses;
 	context.groupClauseCommonVars = groupClauseCommonVars;
-	context.gset_common = gset_common;
 	context.have_non_var_grouping = have_non_var_grouping;
 	context.func_grouped_rels = func_grouped_rels;
 	context.sublevels_up = 0;
 	context.in_agg_direct_args = false;
-	return substitute_grouped_columns_mutator(node, &context);
+	check_ungrouped_columns_walker(node, &context);
 }
 
-static Node *
-substitute_grouped_columns_mutator(Node *node,
-								   substitute_grouped_columns_context *context)
+static bool
+check_ungrouped_columns_walker(Node *node,
+							   check_ungrouped_columns_context *context)
 {
 	ListCell   *gl;
 
 	if (node == NULL)
-		return NULL;
+		return false;
+	if (IsA(node, Const) ||
+		IsA(node, Param))
+		return false;			/* constants are always acceptable */
 
 	if (IsA(node, Aggref))
 	{
@@ -1367,21 +1312,19 @@ substitute_grouped_columns_mutator(Node *node,
 			/*
 			 * If we find an aggregate call of the original level, do not
 			 * recurse into its normal arguments, ORDER BY arguments, or
-			 * filter; grouped vars there do not need to be replaced and
-			 * ungrouped vars there are not an error.  But we should check
-			 * direct arguments as though they weren't in an aggregate.  We
-			 * set a special flag in the context to help produce a useful
+			 * filter; ungrouped vars there are not an error.  But we should
+			 * check direct arguments as though they weren't in an aggregate.
+			 * We set a special flag in the context to help produce a useful
 			 * error message for ungrouped vars in direct arguments.
 			 */
-			agg = copyObject(agg);
+			bool		result;
 
 			Assert(!context->in_agg_direct_args);
 			context->in_agg_direct_args = true;
-			agg->aggdirectargs = (List *)
-				substitute_grouped_columns_mutator((Node *) agg->aggdirectargs,
-												   context);
+			result = check_ungrouped_columns_walker((Node *) agg->aggdirectargs,
+													context);
 			context->in_agg_direct_args = false;
-			return (Node *) agg;
+			return result;
 		}
 
 		/*
@@ -1391,7 +1334,7 @@ substitute_grouped_columns_mutator(Node *node,
 		 * levels, however.
 		 */
 		if ((int) agg->agglevelsup > context->sublevels_up)
-			return node;
+			return false;
 	}
 
 	if (IsA(node, GroupingFunc))
@@ -1401,7 +1344,7 @@ substitute_grouped_columns_mutator(Node *node,
 		/* handled GroupingFunc separately, no need to recheck at this level */
 
 		if ((int) grp->agglevelsup >= context->sublevels_up)
-			return node;
+			return false;
 	}
 
 	/*
@@ -1413,32 +1356,14 @@ substitute_grouped_columns_mutator(Node *node,
 	 */
 	if (context->have_non_var_grouping && context->sublevels_up == 0)
 	{
-		int			attnum = 0;
-
 		foreach(gl, context->groupClauses)
 		{
-			TargetEntry *tle = (TargetEntry *) lfirst(gl);
+			TargetEntry *tle = lfirst(gl);
 
-			attnum++;
 			if (equal(node, tle->expr))
-			{
-				/* acceptable, replace it with a GROUP Var */
-				return (Node *) buildGroupedVar(attnum,
-												tle->ressortgroupref,
-												context);
-			}
+				return false;	/* acceptable, do not descend more */
 		}
 	}
-
-	/*
-	 * Constants are always acceptable.  We have to do this after we checked
-	 * the subexpression as a whole for a match, because it is possible that
-	 * we have GROUP BY items that are constants, and the constants would
-	 * become not so constant after the grouping step.
-	 */
-	if (IsA(node, Const) ||
-		IsA(node, Param))
-		return node;
 
 	/*
 	 * If we have an ungrouped Var of the original query level, we have a
@@ -1453,31 +1378,22 @@ substitute_grouped_columns_mutator(Node *node,
 		char	   *attname;
 
 		if (var->varlevelsup != context->sublevels_up)
-			return node;		/* it's not local to my query, ignore */
+			return false;		/* it's not local to my query, ignore */
 
 		/*
 		 * Check for a match, if we didn't do it above.
 		 */
 		if (!context->have_non_var_grouping || context->sublevels_up != 0)
 		{
-			int			attnum = 0;
-
 			foreach(gl, context->groupClauses)
 			{
-				TargetEntry *tle = (TargetEntry *) lfirst(gl);
-				Var		   *gvar = (Var *) tle->expr;
+				Var		   *gvar = (Var *) ((TargetEntry *) lfirst(gl))->expr;
 
-				attnum++;
 				if (IsA(gvar, Var) &&
 					gvar->varno == var->varno &&
 					gvar->varattno == var->varattno &&
 					gvar->varlevelsup == 0)
-				{
-					/* acceptable, replace it with a GROUP Var */
-					return (Node *) buildGroupedVar(attnum,
-													tle->ressortgroupref,
-													context);
-				}
+					return false;	/* acceptable, we're okay */
 			}
 		}
 
@@ -1498,7 +1414,7 @@ substitute_grouped_columns_mutator(Node *node,
 		 * the constraintDeps list.
 		 */
 		if (list_member_int(*context->func_grouped_rels, var->varno))
-			return node;		/* previously proven acceptable */
+			return false;		/* previously proven acceptable */
 
 		Assert(var->varno > 0 &&
 			   (int) var->varno <= list_length(context->pstate->p_rtable));
@@ -1513,7 +1429,7 @@ substitute_grouped_columns_mutator(Node *node,
 			{
 				*context->func_grouped_rels =
 					lappend_int(*context->func_grouped_rels, var->varno);
-				return node;	/* acceptable */
+				return false;	/* acceptable */
 			}
 		}
 
@@ -1538,18 +1454,18 @@ substitute_grouped_columns_mutator(Node *node,
 	if (IsA(node, Query))
 	{
 		/* Recurse into subselects */
-		Query	   *newnode;
+		bool		result;
 
 		context->sublevels_up++;
-		newnode = query_tree_mutator((Query *) node,
-									 substitute_grouped_columns_mutator,
-									 context,
-									 0);
+		result = query_tree_walker((Query *) node,
+								   check_ungrouped_columns_walker,
+								   (void *) context,
+								   0);
 		context->sublevels_up--;
-		return (Node *) newnode;
+		return result;
 	}
-	return expression_tree_mutator(node, substitute_grouped_columns_mutator,
-								   context);
+	return expression_tree_walker(node, check_ungrouped_columns_walker,
+								  (void *) context);
 }
 
 /*
@@ -1557,9 +1473,9 @@ substitute_grouped_columns_mutator(Node *node,
  *	  Scan the given expression tree for GROUPING() and related calls,
  *	  and validate and process their arguments.
  *
- * This is split out from substitute_grouped_columns above because it needs
+ * This is split out from check_ungrouped_columns above because it needs
  * to modify the nodes (which it does in-place, not via a mutator) while
- * substitute_grouped_columns may see only a copy of the original thanks to
+ * check_ungrouped_columns may see only a copy of the original thanks to
  * flattening of join alias vars. So here, we flatten each individual
  * GROUPING argument as we see it before comparing it.
  */
@@ -1568,14 +1484,13 @@ finalize_grouping_exprs(Node *node, ParseState *pstate, Query *qry,
 						List *groupClauses, bool hasJoinRTEs,
 						bool have_non_var_grouping)
 {
-	substitute_grouped_columns_context context;
+	check_ungrouped_columns_context context;
 
 	context.pstate = pstate;
 	context.qry = qry;
 	context.hasJoinRTEs = hasJoinRTEs;
 	context.groupClauses = groupClauses;
 	context.groupClauseCommonVars = NIL;
-	context.gset_common = NIL;
 	context.have_non_var_grouping = have_non_var_grouping;
 	context.func_grouped_rels = NULL;
 	context.sublevels_up = 0;
@@ -1585,7 +1500,7 @@ finalize_grouping_exprs(Node *node, ParseState *pstate, Query *qry,
 
 static bool
 finalize_grouping_exprs_walker(Node *node,
-							   substitute_grouped_columns_context *context)
+							   check_ungrouped_columns_context *context)
 {
 	ListCell   *gl;
 
@@ -1717,45 +1632,13 @@ finalize_grouping_exprs_walker(Node *node,
 		context->sublevels_up++;
 		result = query_tree_walker((Query *) node,
 								   finalize_grouping_exprs_walker,
-								   context,
+								   (void *) context,
 								   0);
 		context->sublevels_up--;
 		return result;
 	}
 	return expression_tree_walker(node, finalize_grouping_exprs_walker,
-								  context);
-}
-
-/*
- * buildGroupedVar -
- *	  build a Var node that references the RTE_GROUP RTE
- */
-static Var *
-buildGroupedVar(int attnum, Index ressortgroupref,
-				substitute_grouped_columns_context *context)
-{
-	Var		   *var;
-	ParseNamespaceItem *grouping_nsitem = context->pstate->p_grouping_nsitem;
-	ParseNamespaceColumn *nscol = grouping_nsitem->p_nscolumns + attnum - 1;
-
-	Assert(nscol->p_varno == grouping_nsitem->p_rtindex);
-	Assert(nscol->p_varattno == attnum);
-	var = makeVar(nscol->p_varno,
-				  nscol->p_varattno,
-				  nscol->p_vartype,
-				  nscol->p_vartypmod,
-				  nscol->p_varcollid,
-				  context->sublevels_up);
-	/* makeVar doesn't offer parameters for these, so set by hand: */
-	var->varnosyn = nscol->p_varnosyn;
-	var->varattnosyn = nscol->p_varattnosyn;
-
-	if (context->qry->groupingSets &&
-		!list_member_int(context->gset_common, ressortgroupref))
-		var->varnullingrels =
-			bms_add_member(var->varnullingrels, grouping_nsitem->p_rtindex);
-
-	return var;
+								  (void *) context);
 }
 
 

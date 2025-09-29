@@ -16,7 +16,7 @@
  * for each file.  Finally, it sorts the array to the final order that the
  * actions should be executed in.
  *
- * Copyright (c) 2013-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2013-2024, PostgreSQL Global Development Group
  *
  *-------------------------------------------------------------------------
  */
@@ -26,7 +26,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "access/xlog_internal.h"
 #include "catalog/pg_tablespace_d.h"
 #include "common/file_utils.h"
 #include "common/hashfn_unstable.h"
@@ -127,7 +126,7 @@ static const char *const excludeDirContents[] =
 	 * even if the intention is to restore to another primary. See backup.sgml
 	 * for a more detailed description.
 	 */
-	"pg_replslot",				/* defined as PG_REPLSLOT_DIR */
+	"pg_replslot",
 
 	/* Contents removed on startup, see dsm_cleanup_for_mmap(). */
 	"pg_dynshmem",				/* defined as PG_DYNSHMEM_DIR */
@@ -653,17 +652,18 @@ isRelDataFile(const char *path)
 static char *
 datasegpath(RelFileLocator rlocator, ForkNumber forknum, BlockNumber segno)
 {
-	RelPathStr	path;
+	char	   *path;
 	char	   *segpath;
 
 	path = relpathperm(rlocator, forknum);
 	if (segno > 0)
 	{
-		segpath = psprintf("%s.%u", path.str, segno);
+		segpath = psprintf("%s.%u", path, segno);
+		pfree(path);
 		return segpath;
 	}
 	else
-		return pstrdup(path.str);
+		return path;
 }
 
 /*
@@ -705,7 +705,7 @@ decide_file_action(file_entry_t *entry)
 	 * Don't touch the control file. It is handled specially, after copying
 	 * all the other files.
 	 */
-	if (strcmp(path, XLOG_CONTROL_FILE) == 0)
+	if (strcmp(path, "global/pg_control") == 0)
 		return FILE_ACTION_NONE;
 
 	/* Skip macOS system files */

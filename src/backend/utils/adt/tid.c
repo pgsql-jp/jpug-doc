@@ -3,7 +3,7 @@
  * tid.c
  *	  Functions for the built-in type tuple id
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -312,11 +312,9 @@ currtid_internal(Relation rel, ItemPointer tid)
 		return currtid_for_view(rel, tid);
 
 	if (!RELKIND_HAS_STORAGE(rel->rd_rel->relkind))
-		ereport(ERROR,
-				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				errmsg("cannot look at latest visible tid for relation \"%s.%s\"",
-					   get_namespace_name(RelationGetNamespace(rel)),
-					   RelationGetRelationName(rel)));
+		elog(ERROR, "cannot look at latest visible tid for relation \"%s.%s\"",
+			 get_namespace_name(RelationGetNamespace(rel)),
+			 RelationGetRelationName(rel));
 
 	ItemPointerCopy(tid, result);
 
@@ -351,22 +349,16 @@ currtid_for_view(Relation viewrel, ItemPointer tid)
 		if (strcmp(NameStr(attr->attname), "ctid") == 0)
 		{
 			if (attr->atttypid != TIDOID)
-				ereport(ERROR,
-						errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						errmsg("ctid isn't of type TID"));
+				elog(ERROR, "ctid isn't of type TID");
 			tididx = i;
 			break;
 		}
 	}
 	if (tididx < 0)
-		ereport(ERROR,
-				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				errmsg("currtid cannot handle views with no CTID"));
+		elog(ERROR, "currtid cannot handle views with no CTID");
 	rulelock = viewrel->rd_rules;
 	if (!rulelock)
-		ereport(ERROR,
-				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				errmsg("the view has no rules"));
+		elog(ERROR, "the view has no rules");
 	for (i = 0; i < rulelock->numLocks; i++)
 	{
 		rewrite = rulelock->rules[i];
@@ -376,9 +368,7 @@ currtid_for_view(Relation viewrel, ItemPointer tid)
 			TargetEntry *tle;
 
 			if (list_length(rewrite->actions) != 1)
-				ereport(ERROR,
-						errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						errmsg("only one select rule is allowed in views"));
+				elog(ERROR, "only one select rule is allowed in views");
 			query = (Query *) linitial(rewrite->actions);
 			tle = get_tle_by_resno(query->targetList, tididx + 1);
 			if (tle && tle->expr && IsA(tle->expr, Var))

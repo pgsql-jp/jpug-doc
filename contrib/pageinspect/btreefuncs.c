@@ -206,12 +206,14 @@ check_relation_block_range(Relation rel, int64 blkno)
 	if (blkno < 0 || blkno > MaxBlockNumber)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("invalid block number %" PRId64, blkno)));
+				 errmsg("invalid block number %lld",
+						(long long) blkno)));
 
 	if ((BlockNumber) (blkno) >= RelationGetNumberOfBlocks(rel))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("block number %" PRId64 " is out of range", blkno)));
+				 errmsg("block number %lld is out of range",
+						(long long) blkno)));
 }
 
 /* -----------------------------------------------

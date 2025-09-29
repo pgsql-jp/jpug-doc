@@ -3,7 +3,7 @@
  * gistvalidate.c
  *	  Opclass validator for GiST.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -19,6 +19,7 @@
 #include "catalog/pg_amop.h"
 #include "catalog/pg_amproc.h"
 #include "catalog/pg_opclass.h"
+#include "catalog/pg_opfamily.h"
 #include "catalog/pg_type.h"
 #include "utils/lsyscache.h"
 #include "utils/regproc.h"
@@ -38,6 +39,8 @@ gistvalidate(Oid opclassoid)
 	Oid			opcintype;
 	Oid			opckeytype;
 	char	   *opclassname;
+	HeapTuple	familytup;
+	Form_pg_opfamily familyform;
 	char	   *opfamilyname;
 	CatCList   *proclist,
 			   *oprlist;
@@ -60,7 +63,12 @@ gistvalidate(Oid opclassoid)
 	opclassname = NameStr(classform->opcname);
 
 	/* Fetch opfamily information */
-	opfamilyname = get_opfamily_name(opfamilyoid, false);
+	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
+	if (!HeapTupleIsValid(familytup))
+		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
+	familyform = (Form_pg_opfamily) GETSTRUCT(familytup);
+
+	opfamilyname = NameStr(familyform->opfname);
 
 	/* Fetch all operators and support functions of the opfamily */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
@@ -137,12 +145,6 @@ gistvalidate(Oid opclassoid)
 			case GIST_SORTSUPPORT_PROC:
 				ok = check_amproc_signature(procform->amproc, VOIDOID, true,
 											1, 1, INTERNALOID);
-				break;
-			case GIST_TRANSLATE_CMPTYPE_PROC:
-				ok = check_amproc_signature(procform->amproc, INT2OID, true,
-											1, 1, INT4OID) &&
-					procform->amproclefttype == ANYOID &&
-					procform->amprocrighttype == ANYOID;
 				break;
 			default:
 				ereport(INFO,
@@ -264,8 +266,7 @@ gistvalidate(Oid opclassoid)
 			continue;			/* got it */
 		if (i == GIST_DISTANCE_PROC || i == GIST_FETCH_PROC ||
 			i == GIST_COMPRESS_PROC || i == GIST_DECOMPRESS_PROC ||
-			i == GIST_OPTIONS_PROC || i == GIST_SORTSUPPORT_PROC ||
-			i == GIST_TRANSLATE_CMPTYPE_PROC)
+			i == GIST_OPTIONS_PROC || i == GIST_SORTSUPPORT_PROC)
 			continue;			/* optional methods */
 		ereport(INFO,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
@@ -276,6 +277,7 @@ gistvalidate(Oid opclassoid)
 
 	ReleaseCatCacheList(proclist);
 	ReleaseCatCacheList(oprlist);
+	ReleaseSysCache(familytup);
 	ReleaseSysCache(classtup);
 
 	return result;
@@ -336,7 +338,6 @@ gistadjustmembers(Oid opfamilyoid,
 			case GIST_FETCH_PROC:
 			case GIST_OPTIONS_PROC:
 			case GIST_SORTSUPPORT_PROC:
-			case GIST_TRANSLATE_CMPTYPE_PROC:
 				/* Optional, so force it to be a soft family dependency */
 				op->ref_is_hard = false;
 				op->ref_is_family = true;

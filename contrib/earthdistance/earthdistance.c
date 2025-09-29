@@ -11,10 +11,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-PG_MODULE_MAGIC_EXT(
-					.name = "earthdistance",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* Earth's radius is in statute miles. */
 static const double EARTH_RADIUS = 3958.747716;

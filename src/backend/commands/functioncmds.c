@@ -5,7 +5,7 @@
  *	  Routines for CREATE and DROP FUNCTION commands and CREATE and DROP
  *	  CAST commands.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -15,7 +15,7 @@
  * DESCRIPTION
  *	  These routines take the parse tree and pick out the
  *	  appropriate arguments/flags, and pass the results to the
- *	  corresponding "FooCreate" routines (in src/backend/catalog) that do
+ *	  corresponding "FooDefine" routines (in src/catalog) that do
  *	  the actual catalog-munging.  These routines also verify permission
  *	  of the user to execute the command.
  *
@@ -74,7 +74,7 @@
 
 /*
  *	 Examine the RETURNS clause of the CREATE FUNCTION statement
- *	 and return information about it as *prorettype_p and *returnsSet_p.
+ *	 and return information about it as *prorettype_p and *returnsSet.
  *
  * This is more complex than the average typename lookup because we want to
  * allow a shell type to be used, or even created if the specified return type
@@ -232,7 +232,7 @@ interpret_function_parameter_list(ParseState *pstate,
 		if (fpmode == FUNC_PARAM_DEFAULT)
 			fpmode = FUNC_PARAM_IN;
 
-		typtup = LookupTypeName(pstate, t, NULL, false);
+		typtup = LookupTypeName(NULL, t, NULL, false);
 		if (typtup)
 		{
 			if (!((Form_pg_type) GETSTRUCT(typtup))->typisdefined)
@@ -242,21 +242,18 @@ interpret_function_parameter_list(ParseState *pstate,
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 							 errmsg("SQL function cannot accept shell type %s",
-									TypeNameToString(t)),
-							 parser_errposition(pstate, t->location)));
+									TypeNameToString(t))));
 				/* We don't allow creating aggregates on shell types either */
 				else if (objtype == OBJECT_AGGREGATE)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 							 errmsg("aggregate cannot accept shell type %s",
-									TypeNameToString(t)),
-							 parser_errposition(pstate, t->location)));
+									TypeNameToString(t))));
 				else
 					ereport(NOTICE,
 							(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 							 errmsg("argument type %s is only a shell",
-									TypeNameToString(t)),
-							 parser_errposition(pstate, t->location)));
+									TypeNameToString(t))));
 			}
 			toid = typeTypeId(typtup);
 			ReleaseSysCache(typtup);
@@ -266,8 +263,7 @@ interpret_function_parameter_list(ParseState *pstate,
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
 					 errmsg("type %s does not exist",
-							TypeNameToString(t)),
-					 parser_errposition(pstate, t->location)));
+							TypeNameToString(t))));
 			toid = InvalidOid;	/* keep compiler quiet */
 		}
 
@@ -280,18 +276,15 @@ interpret_function_parameter_list(ParseState *pstate,
 			if (objtype == OBJECT_AGGREGATE)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-						 errmsg("aggregates cannot accept set arguments"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("aggregates cannot accept set arguments")));
 			else if (objtype == OBJECT_PROCEDURE)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-						 errmsg("procedures cannot accept set arguments"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("procedures cannot accept set arguments")));
 			else
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-						 errmsg("functions cannot accept set arguments"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("functions cannot accept set arguments")));
 		}
 
 		/* handle input parameters */
@@ -301,8 +294,7 @@ interpret_function_parameter_list(ParseState *pstate,
 			if (varCount > 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-						 errmsg("VARIADIC parameter must be the last input parameter"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("VARIADIC parameter must be the last input parameter")));
 			inTypes[inCount++] = toid;
 			isinput = true;
 			if (parameterTypes_list)
@@ -322,8 +314,7 @@ interpret_function_parameter_list(ParseState *pstate,
 				if (varCount > 0)
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-							 errmsg("VARIADIC parameter must be the last parameter"),
-							 parser_errposition(pstate, fp->location)));
+							 errmsg("VARIADIC parameter must be the last parameter")));
 				/* Procedures with output parameters always return RECORD */
 				*requiredResultType = RECORDOID;
 			}
@@ -348,8 +339,7 @@ interpret_function_parameter_list(ParseState *pstate,
 					if (!OidIsValid(get_element_type(toid)))
 						ereport(ERROR,
 								(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-								 errmsg("VARIADIC parameter must be an array"),
-								 parser_errposition(pstate, fp->location)));
+								 errmsg("VARIADIC parameter must be an array")));
 					break;
 			}
 		}
@@ -395,8 +385,7 @@ interpret_function_parameter_list(ParseState *pstate,
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
 							 errmsg("parameter name \"%s\" used more than once",
-									fp->name),
-							 parser_errposition(pstate, fp->location)));
+									fp->name)));
 			}
 
 			paramNames[i] = CStringGetTextDatum(fp->name);
@@ -413,8 +402,7 @@ interpret_function_parameter_list(ParseState *pstate,
 			if (!isinput)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-						 errmsg("only input parameters can have default values"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("only input parameters can have default values")));
 
 			def = transformExpr(pstate, fp->defexpr,
 								EXPR_KIND_FUNCTION_DEFAULT);
@@ -429,8 +417,7 @@ interpret_function_parameter_list(ParseState *pstate,
 				contain_var_clause(def))
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-						 errmsg("cannot use table references in parameter default value"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("cannot use table references in parameter default value")));
 
 			/*
 			 * transformExpr() should have already rejected subqueries,
@@ -454,8 +441,7 @@ interpret_function_parameter_list(ParseState *pstate,
 			if (isinput && have_defaults)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-						 errmsg("input parameters after one with a default value must also have defaults"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("input parameters after one with a default value must also have defaults")));
 
 			/*
 			 * For procedures, we also can't allow OUT parameters after one
@@ -465,8 +451,7 @@ interpret_function_parameter_list(ParseState *pstate,
 			if (objtype == OBJECT_PROCEDURE && have_defaults)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
-						 errmsg("procedure OUT parameters cannot appear after one with a default value"),
-						 parser_errposition(pstate, fp->location)));
+						 errmsg("procedure OUT parameters cannot appear after one with a default value")));
 		}
 
 		i++;
@@ -1046,7 +1031,6 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 	List	   *parameterDefaults;
 	Oid			variadicArgType;
 	List	   *trftypes_list = NIL;
-	List	   *trfoids_list = NIL;
 	ArrayType  *trftypes;
 	Oid			requiredResultType;
 	bool		isWindowFunc,
@@ -1158,12 +1142,11 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 			Oid			typeid = typenameTypeId(NULL,
 												lfirst_node(TypeName, lc));
 			Oid			elt = get_base_element_type(typeid);
-			Oid			transformid;
 
 			typeid = elt ? elt : typeid;
-			transformid = get_transform_oid(typeid, languageOid, false);
+
+			get_transform_oid(typeid, languageOid, false);
 			trftypes_list = lappend_oid(trftypes_list, typeid);
-			trfoids_list = lappend_oid(trfoids_list, transformid);
 		}
 	}
 
@@ -1294,7 +1277,6 @@ CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt)
 						   PointerGetDatum(parameterNames),
 						   parameterDefaults,
 						   PointerGetDatum(trftypes),
-						   trfoids_list,
 						   PointerGetDatum(proconfig),
 						   prosupport,
 						   procost,

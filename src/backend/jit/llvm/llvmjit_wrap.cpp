@@ -3,7 +3,7 @@
  * llvmjit_wrap.cpp
  *	  Parts of the LLVM interface not (yet) exposed to C.
  *
- * Copyright (c) 2016-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/lib/llvm/llvmjit_wrap.cpp
@@ -17,6 +17,10 @@ extern "C"
 }
 
 #include <llvm-c/Core.h>
+
+/* Avoid macro clash with LLVM's C++ headers */
+#undef Min
+
 #include <llvm/IR/Function.h>
 
 #include "jit/llvmjit.h"

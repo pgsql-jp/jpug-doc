@@ -1,10 +1,6 @@
 -- enum check
 
-create type rainbow as enum ('r','o','g','b','i','v');
-
--- enum values added later take some different codepaths internally,
--- so make sure we have coverage for those too
-alter type rainbow add value 'y' before 'g';
+create type rainbow as enum ('r','o','y','g','b','i','v');
 
 CREATE TABLE enumtmp (a rainbow);
 

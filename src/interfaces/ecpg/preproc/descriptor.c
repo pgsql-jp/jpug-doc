@@ -18,12 +18,13 @@
 static struct assignment *assignments;
 
 void
-push_assignment(const char *var, enum ECPGdtype value)
+push_assignment(char *var, enum ECPGdtype value)
 {
 	struct assignment *new = (struct assignment *) mm_alloc(sizeof(struct assignment));
 
 	new->next = assignments;
-	new->variable = mm_strdup(var);
+	new->variable = mm_alloc(strlen(var) + 1);
+	strcpy(new->variable, var);
 	new->value = value;
 	assignments = new;
 }
@@ -72,7 +73,7 @@ ECPGnumeric_lvalue(char *name)
 static struct descriptor *descriptors;
 
 void
-add_descriptor(const char *name, const char *connection)
+add_descriptor(char *name, char *connection)
 {
 	struct descriptor *new;
 
@@ -82,16 +83,20 @@ add_descriptor(const char *name, const char *connection)
 	new = (struct descriptor *) mm_alloc(sizeof(struct descriptor));
 
 	new->next = descriptors;
-	new->name = mm_strdup(name);
+	new->name = mm_alloc(strlen(name) + 1);
+	strcpy(new->name, name);
 	if (connection)
-		new->connection = mm_strdup(connection);
+	{
+		new->connection = mm_alloc(strlen(connection) + 1);
+		strcpy(new->connection, connection);
+	}
 	else
-		new->connection = NULL;
+		new->connection = connection;
 	descriptors = new;
 }
 
 void
-drop_descriptor(const char *name, const char *connection)
+drop_descriptor(char *name, char *connection)
 {
 	struct descriptor *i;
 	struct descriptor **lastptr = &descriptors;
@@ -121,8 +126,9 @@ drop_descriptor(const char *name, const char *connection)
 		mmerror(PARSE_ERROR, ET_WARNING, "descriptor %s bound to the default connection does not exist", name);
 }
 
-struct descriptor *
-lookup_descriptor(const char *name, const char *connection)
+struct descriptor
+		   *
+lookup_descriptor(char *name, char *connection)
 {
 	struct descriptor *i;
 
@@ -153,7 +159,7 @@ lookup_descriptor(const char *name, const char *connection)
 }
 
 void
-output_get_descr_header(const char *desc_name)
+output_get_descr_header(char *desc_name)
 {
 	struct assignment *results;
 
@@ -172,7 +178,7 @@ output_get_descr_header(const char *desc_name)
 }
 
 void
-output_get_descr(const char *desc_name, const char *index)
+output_get_descr(char *desc_name, char *index)
 {
 	struct assignment *results;
 
@@ -205,7 +211,7 @@ output_get_descr(const char *desc_name, const char *index)
 }
 
 void
-output_set_descr_header(const char *desc_name)
+output_set_descr_header(char *desc_name)
 {
 	struct assignment *results;
 
@@ -266,7 +272,7 @@ descriptor_item_name(enum ECPGdtype itemcode)
 }
 
 void
-output_set_descr(const char *desc_name, const char *index)
+output_set_descr(char *desc_name, char *index)
 {
 	struct assignment *results;
 
@@ -344,17 +350,11 @@ descriptor_variable(const char *name, int input)
 struct variable *
 sqlda_variable(const char *name)
 {
-	/*
-	 * Presently, sqlda variables are only needed for the duration of the
-	 * current statement.  Rather than add infrastructure to manage them,
-	 * let's just loc_alloc them.
-	 */
-	struct variable *p = (struct variable *) loc_alloc(sizeof(struct variable));
+	struct variable *p = (struct variable *) mm_alloc(sizeof(struct variable));
 
-	p->name = loc_strdup(name);
-	p->type = (struct ECPGtype *) loc_alloc(sizeof(struct ECPGtype));
+	p->name = mm_strdup(name);
+	p->type = (struct ECPGtype *) mm_alloc(sizeof(struct ECPGtype));
 	p->type->type = ECPGt_sqlda;
-	p->type->type_name = NULL;
 	p->type->size = NULL;
 	p->type->struct_sizeof = NULL;
 	p->type->u.element = NULL;

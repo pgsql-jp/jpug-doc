@@ -8,7 +8,7 @@
  * stepping on each others' toes.  Formerly we used table-level locks
  * on pg_database, but that's too coarse-grained.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -288,7 +288,7 @@ ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
 	 * snapshot - or the active snapshot - might not be new enough for that,
 	 * but the return value of GetLatestSnapshot() should work fine.
 	 */
-	snapshot = RegisterSnapshot(GetLatestSnapshot());
+	snapshot = GetLatestSnapshot();
 
 	/* Process the relation block by block. */
 	for (blkno = 0; blkno < nblocks; blkno++)
@@ -313,7 +313,6 @@ ScanSourceDatabasePgClass(Oid tbid, Oid dbid, char *srcpath)
 
 		UnlockReleaseBuffer(buf);
 	}
-	UnregisterSnapshot(snapshot);
 
 	/* Release relation lock. */
 	UnlockRelationId(&relid, AccessShareLock);
@@ -530,7 +529,7 @@ CreateDirAndVersionFile(char *dbpath, Oid dbid, Oid tsid, bool isRedo)
 		xlrec.tablespace_id = tsid;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec,
+		XLogRegisterData((char *) (&xlrec),
 						 sizeof(xl_dbase_create_wal_log_rec));
 
 		(void) XLogInsert(RM_DBASE_ID, XLOG_DBASE_CREATE_WAL_LOG);
@@ -564,14 +563,9 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 	 * happened while we're copying files, a file might be deleted just when
 	 * we're about to copy it, causing the lstat() call in copydir() to fail
 	 * with ENOENT.
-	 *
-	 * In binary upgrade mode, we can skip this checkpoint because pg_upgrade
-	 * is careful to ensure that template0 is fully written to disk prior to
-	 * any CREATE DATABASE commands.
 	 */
-	if (!IsBinaryUpgrade)
-		RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE |
-						  CHECKPOINT_WAIT | CHECKPOINT_FLUSH_ALL);
+	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE |
+					  CHECKPOINT_WAIT | CHECKPOINT_FLUSH_ALL);
 
 	/*
 	 * Iterate through all tablespaces of the template database, and copy each
@@ -626,7 +620,7 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 			xlrec.src_tablespace_id = srctablespace;
 
 			XLogBeginInsert();
-			XLogRegisterData(&xlrec,
+			XLogRegisterData((char *) &xlrec,
 							 sizeof(xl_dbase_create_file_copy_rec));
 
 			(void) XLogInsert(RM_DBASE_ID,
@@ -645,10 +639,9 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 	 * make the XLOG entry for the benefit of PITR operations). This avoids
 	 * two nasty scenarios:
 	 *
-	 * #1: At wal_level=minimal, we don't XLOG the contents of newly created
-	 * relfilenodes; therefore the drop-and-recreate-whole-directory behavior
-	 * of DBASE_CREATE replay would lose such files created in the new
-	 * database between our commit and the next checkpoint.
+	 * #1: When PITR is off, we don't XLOG the contents of newly created
+	 * indexes; therefore the drop-and-recreate-whole-directory behavior of
+	 * DBASE_CREATE replay would lose such indexes.
 	 *
 	 * #2: Since we have to recopy the source database during DBASE_CREATE
 	 * replay, we run the risk of copying changes in it that were committed
@@ -664,17 +657,10 @@ CreateDatabaseUsingFileCopy(Oid src_dboid, Oid dst_dboid, Oid src_tsid,
 	 * seem to be much we can do about that except document it as a
 	 * limitation.
 	 *
-	 * In binary upgrade mode, we can skip this checkpoint because neither of
-	 * these problems applies: we don't ever replay the WAL generated during
-	 * pg_upgrade, and we don't support taking base backups during pg_upgrade
-	 * (not to mention that we don't concurrently modify template0, either).
-	 *
 	 * See CreateDatabaseUsingWalLog() for a less cheesy CREATE DATABASE
 	 * strategy that avoids these problems.
 	 */
-	if (!IsBinaryUpgrade)
-		RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE |
-						  CHECKPOINT_WAIT);
+	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT);
 }
 
 /*
@@ -706,22 +692,22 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	Oid			dboid = InvalidOid;
 	Oid			datdba;
 	ListCell   *option;
-	DefElem    *tablespacenameEl = NULL;
-	DefElem    *ownerEl = NULL;
-	DefElem    *templateEl = NULL;
-	DefElem    *encodingEl = NULL;
-	DefElem    *localeEl = NULL;
-	DefElem    *builtinlocaleEl = NULL;
-	DefElem    *collateEl = NULL;
-	DefElem    *ctypeEl = NULL;
-	DefElem    *iculocaleEl = NULL;
-	DefElem    *icurulesEl = NULL;
-	DefElem    *locproviderEl = NULL;
-	DefElem    *istemplateEl = NULL;
-	DefElem    *allowconnectionsEl = NULL;
-	DefElem    *connlimitEl = NULL;
-	DefElem    *collversionEl = NULL;
-	DefElem    *strategyEl = NULL;
+	DefElem    *dtablespacename = NULL;
+	DefElem    *downer = NULL;
+	DefElem    *dtemplate = NULL;
+	DefElem    *dencoding = NULL;
+	DefElem    *dlocale = NULL;
+	DefElem    *dbuiltinlocale = NULL;
+	DefElem    *dcollate = NULL;
+	DefElem    *dctype = NULL;
+	DefElem    *diculocale = NULL;
+	DefElem    *dicurules = NULL;
+	DefElem    *dlocprovider = NULL;
+	DefElem    *distemplate = NULL;
+	DefElem    *dallowconnections = NULL;
+	DefElem    *dconnlimit = NULL;
+	DefElem    *dcollversion = NULL;
+	DefElem    *dstrategy = NULL;
 	char	   *dbname = stmt->dbname;
 	char	   *dbowner = NULL;
 	const char *dbtemplate = NULL;
@@ -748,93 +734,93 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 
 		if (strcmp(defel->defname, "tablespace") == 0)
 		{
-			if (tablespacenameEl)
+			if (dtablespacename)
 				errorConflictingDefElem(defel, pstate);
-			tablespacenameEl = defel;
+			dtablespacename = defel;
 		}
 		else if (strcmp(defel->defname, "owner") == 0)
 		{
-			if (ownerEl)
+			if (downer)
 				errorConflictingDefElem(defel, pstate);
-			ownerEl = defel;
+			downer = defel;
 		}
 		else if (strcmp(defel->defname, "template") == 0)
 		{
-			if (templateEl)
+			if (dtemplate)
 				errorConflictingDefElem(defel, pstate);
-			templateEl = defel;
+			dtemplate = defel;
 		}
 		else if (strcmp(defel->defname, "encoding") == 0)
 		{
-			if (encodingEl)
+			if (dencoding)
 				errorConflictingDefElem(defel, pstate);
-			encodingEl = defel;
+			dencoding = defel;
 		}
 		else if (strcmp(defel->defname, "locale") == 0)
 		{
-			if (localeEl)
+			if (dlocale)
 				errorConflictingDefElem(defel, pstate);
-			localeEl = defel;
+			dlocale = defel;
 		}
 		else if (strcmp(defel->defname, "builtin_locale") == 0)
 		{
-			if (builtinlocaleEl)
+			if (dbuiltinlocale)
 				errorConflictingDefElem(defel, pstate);
-			builtinlocaleEl = defel;
+			dbuiltinlocale = defel;
 		}
 		else if (strcmp(defel->defname, "lc_collate") == 0)
 		{
-			if (collateEl)
+			if (dcollate)
 				errorConflictingDefElem(defel, pstate);
-			collateEl = defel;
+			dcollate = defel;
 		}
 		else if (strcmp(defel->defname, "lc_ctype") == 0)
 		{
-			if (ctypeEl)
+			if (dctype)
 				errorConflictingDefElem(defel, pstate);
-			ctypeEl = defel;
+			dctype = defel;
 		}
 		else if (strcmp(defel->defname, "icu_locale") == 0)
 		{
-			if (iculocaleEl)
+			if (diculocale)
 				errorConflictingDefElem(defel, pstate);
-			iculocaleEl = defel;
+			diculocale = defel;
 		}
 		else if (strcmp(defel->defname, "icu_rules") == 0)
 		{
-			if (icurulesEl)
+			if (dicurules)
 				errorConflictingDefElem(defel, pstate);
-			icurulesEl = defel;
+			dicurules = defel;
 		}
 		else if (strcmp(defel->defname, "locale_provider") == 0)
 		{
-			if (locproviderEl)
+			if (dlocprovider)
 				errorConflictingDefElem(defel, pstate);
-			locproviderEl = defel;
+			dlocprovider = defel;
 		}
 		else if (strcmp(defel->defname, "is_template") == 0)
 		{
-			if (istemplateEl)
+			if (distemplate)
 				errorConflictingDefElem(defel, pstate);
-			istemplateEl = defel;
+			distemplate = defel;
 		}
 		else if (strcmp(defel->defname, "allow_connections") == 0)
 		{
-			if (allowconnectionsEl)
+			if (dallowconnections)
 				errorConflictingDefElem(defel, pstate);
-			allowconnectionsEl = defel;
+			dallowconnections = defel;
 		}
 		else if (strcmp(defel->defname, "connection_limit") == 0)
 		{
-			if (connlimitEl)
+			if (dconnlimit)
 				errorConflictingDefElem(defel, pstate);
-			connlimitEl = defel;
+			dconnlimit = defel;
 		}
 		else if (strcmp(defel->defname, "collation_version") == 0)
 		{
-			if (collversionEl)
+			if (dcollversion)
 				errorConflictingDefElem(defel, pstate);
-			collversionEl = defel;
+			dcollversion = defel;
 		}
 		else if (strcmp(defel->defname, "location") == 0)
 		{
@@ -870,9 +856,9 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 		}
 		else if (strcmp(defel->defname, "strategy") == 0)
 		{
-			if (strategyEl)
+			if (dstrategy)
 				errorConflictingDefElem(defel, pstate);
-			strategyEl = defel;
+			dstrategy = defel;
 		}
 		else
 			ereport(ERROR,
@@ -881,17 +867,17 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 parser_errposition(pstate, defel->location)));
 	}
 
-	if (ownerEl && ownerEl->arg)
-		dbowner = defGetString(ownerEl);
-	if (templateEl && templateEl->arg)
-		dbtemplate = defGetString(templateEl);
-	if (encodingEl && encodingEl->arg)
+	if (downer && downer->arg)
+		dbowner = defGetString(downer);
+	if (dtemplate && dtemplate->arg)
+		dbtemplate = defGetString(dtemplate);
+	if (dencoding && dencoding->arg)
 	{
 		const char *encoding_name;
 
-		if (IsA(encodingEl->arg, Integer))
+		if (IsA(dencoding->arg, Integer))
 		{
-			encoding = defGetInt32(encodingEl);
+			encoding = defGetInt32(dencoding);
 			encoding_name = pg_encoding_to_char(encoding);
 			if (strcmp(encoding_name, "") == 0 ||
 				pg_valid_server_encoding(encoding_name) < 0)
@@ -899,39 +885,39 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 						(errcode(ERRCODE_UNDEFINED_OBJECT),
 						 errmsg("%d is not a valid encoding code",
 								encoding),
-						 parser_errposition(pstate, encodingEl->location)));
+						 parser_errposition(pstate, dencoding->location)));
 		}
 		else
 		{
-			encoding_name = defGetString(encodingEl);
+			encoding_name = defGetString(dencoding);
 			encoding = pg_valid_server_encoding(encoding_name);
 			if (encoding < 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_UNDEFINED_OBJECT),
 						 errmsg("%s is not a valid encoding name",
 								encoding_name),
-						 parser_errposition(pstate, encodingEl->location)));
+						 parser_errposition(pstate, dencoding->location)));
 		}
 	}
-	if (localeEl && localeEl->arg)
+	if (dlocale && dlocale->arg)
 	{
-		dbcollate = defGetString(localeEl);
-		dbctype = defGetString(localeEl);
-		dblocale = defGetString(localeEl);
+		dbcollate = defGetString(dlocale);
+		dbctype = defGetString(dlocale);
+		dblocale = defGetString(dlocale);
 	}
-	if (builtinlocaleEl && builtinlocaleEl->arg)
-		dblocale = defGetString(builtinlocaleEl);
-	if (collateEl && collateEl->arg)
-		dbcollate = defGetString(collateEl);
-	if (ctypeEl && ctypeEl->arg)
-		dbctype = defGetString(ctypeEl);
-	if (iculocaleEl && iculocaleEl->arg)
-		dblocale = defGetString(iculocaleEl);
-	if (icurulesEl && icurulesEl->arg)
-		dbicurules = defGetString(icurulesEl);
-	if (locproviderEl && locproviderEl->arg)
+	if (dbuiltinlocale && dbuiltinlocale->arg)
+		dblocale = defGetString(dbuiltinlocale);
+	if (dcollate && dcollate->arg)
+		dbcollate = defGetString(dcollate);
+	if (dctype && dctype->arg)
+		dbctype = defGetString(dctype);
+	if (diculocale && diculocale->arg)
+		dblocale = defGetString(diculocale);
+	if (dicurules && dicurules->arg)
+		dbicurules = defGetString(dicurules);
+	if (dlocprovider && dlocprovider->arg)
 	{
-		char	   *locproviderstr = defGetString(locproviderEl);
+		char	   *locproviderstr = defGetString(dlocprovider);
 
 		if (pg_strcasecmp(locproviderstr, "builtin") == 0)
 			dblocprovider = COLLPROVIDER_BUILTIN;
@@ -945,20 +931,20 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 					 errmsg("unrecognized locale provider: %s",
 							locproviderstr)));
 	}
-	if (istemplateEl && istemplateEl->arg)
-		dbistemplate = defGetBoolean(istemplateEl);
-	if (allowconnectionsEl && allowconnectionsEl->arg)
-		dballowconnections = defGetBoolean(allowconnectionsEl);
-	if (connlimitEl && connlimitEl->arg)
+	if (distemplate && distemplate->arg)
+		dbistemplate = defGetBoolean(distemplate);
+	if (dallowconnections && dallowconnections->arg)
+		dballowconnections = defGetBoolean(dallowconnections);
+	if (dconnlimit && dconnlimit->arg)
 	{
-		dbconnlimit = defGetInt32(connlimitEl);
+		dbconnlimit = defGetInt32(dconnlimit);
 		if (dbconnlimit < DATCONNLIMIT_UNLIMITED)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("invalid connection limit: %d", dbconnlimit)));
 	}
-	if (collversionEl)
-		dbcollversion = defGetString(collversionEl);
+	if (dcollversion)
+		dbcollversion = defGetString(dcollversion);
 
 	/* obtain OID of proposed owner */
 	if (dbowner)
@@ -1027,11 +1013,11 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 
 	/* Validate the database creation strategy. */
-	if (strategyEl && strategyEl->arg)
+	if (dstrategy && dstrategy->arg)
 	{
 		char	   *strategy;
 
-		strategy = defGetString(strategyEl);
+		strategy = defGetString(dstrategy);
 		if (pg_strcasecmp(strategy, "wal_log") == 0)
 			dbstrategy = CREATEDB_WAL_LOG;
 		else if (pg_strcasecmp(strategy, "file_copy") == 0)
@@ -1052,7 +1038,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 		dbctype = src_ctype;
 	if (dblocprovider == '\0')
 		dblocprovider = src_locprovider;
-	if (dblocale == NULL && dblocprovider == src_locprovider)
+	if (dblocale == NULL)
 		dblocale = src_locale;
 	if (dbicurules == NULL)
 		dbicurules = src_icurules;
@@ -1065,41 +1051,16 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 
 	/* Check that the chosen locales are valid, and get canonical spellings */
 	if (!check_locale(LC_COLLATE, dbcollate, &canonname))
-	{
-		if (dblocprovider == COLLPROVIDER_BUILTIN)
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("invalid LC_COLLATE locale name: \"%s\"", dbcollate),
-					 errhint("If the locale name is specific to the builtin provider, use BUILTIN_LOCALE.")));
-		else if (dblocprovider == COLLPROVIDER_ICU)
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("invalid LC_COLLATE locale name: \"%s\"", dbcollate),
-					 errhint("If the locale name is specific to the ICU provider, use ICU_LOCALE.")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("invalid LC_COLLATE locale name: \"%s\"", dbcollate)));
-	}
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+				 errmsg("invalid LC_COLLATE locale name: \"%s\"", dbcollate),
+				 errhint("If the locale name is specific to ICU, use ICU_LOCALE.")));
 	dbcollate = canonname;
 	if (!check_locale(LC_CTYPE, dbctype, &canonname))
-	{
-		if (dblocprovider == COLLPROVIDER_BUILTIN)
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("invalid LC_CTYPE locale name: \"%s\"", dbctype),
-					 errhint("If the locale name is specific to the builtin provider, use BUILTIN_LOCALE.")));
-		else if (dblocprovider == COLLPROVIDER_ICU)
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("invalid LC_CTYPE locale name: \"%s\"", dbctype),
-					 errhint("If the locale name is specific to the ICU provider, use ICU_LOCALE.")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-					 errmsg("invalid LC_CTYPE locale name: \"%s\"", dbctype)));
-	}
-
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+				 errmsg("invalid LC_CTYPE locale name: \"%s\"", dbctype),
+				 errhint("If the locale name is specific to ICU, use ICU_LOCALE.")));
 	dbctype = canonname;
 
 	check_encoding_locale_matches(encoding, dbcollate, dbctype);
@@ -1107,7 +1068,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	/* validate provider-specific parameters */
 	if (dblocprovider != COLLPROVIDER_BUILTIN)
 	{
-		if (builtinlocaleEl)
+		if (dbuiltinlocale)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 					 errmsg("BUILTIN_LOCALE cannot be specified unless locale provider is builtin")));
@@ -1115,7 +1076,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 
 	if (dblocprovider != COLLPROVIDER_ICU)
 	{
-		if (iculocaleEl)
+		if (diculocale)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 					 errmsg("ICU locale cannot be specified unless locale provider is ICU")));
@@ -1266,7 +1227,7 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	 * template0, for which we stipulate that it does not contain
 	 * collation-using objects.)
 	 */
-	if (src_collversion && !collversionEl)
+	if (src_collversion && !dcollversion)
 	{
 		char	   *actual_versionstr;
 		const char *locale;
@@ -1316,12 +1277,12 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
 	}
 
 	/* Resolve default tablespace for new database */
-	if (tablespacenameEl && tablespacenameEl->arg)
+	if (dtablespacename && dtablespacename->arg)
 	{
 		char	   *tablespacename;
 		AclResult	aclresult;
 
-		tablespacename = defGetString(tablespacenameEl);
+		tablespacename = defGetString(dtablespacename);
 		dst_deftablespace = get_tablespace_oid(tablespacename, false);
 		/* check permissions */
 		aclresult = object_aclcheck(TableSpaceRelationId, dst_deftablespace, GetUserId(),
@@ -2209,7 +2170,7 @@ movedb(const char *dbname, const char *tblspcname)
 			xlrec.src_tablespace_id = src_tblspcoid;
 
 			XLogBeginInsert();
-			XLogRegisterData(&xlrec,
+			XLogRegisterData((char *) &xlrec,
 							 sizeof(xl_dbase_create_file_copy_rec));
 
 			(void) XLogInsert(RM_DBASE_ID,
@@ -2305,8 +2266,8 @@ movedb(const char *dbname, const char *tblspcname)
 		xlrec.ntablespaces = 1;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, sizeof(xl_dbase_drop_rec));
-		XLogRegisterData(&src_tblspcoid, sizeof(Oid));
+		XLogRegisterData((char *) &xlrec, sizeof(xl_dbase_drop_rec));
+		XLogRegisterData((char *) &src_tblspcoid, sizeof(Oid));
 
 		(void) XLogInsert(RM_DBASE_ID,
 						  XLOG_DBASE_DROP | XLR_SPECIAL_REL_UPDATE);
@@ -3063,8 +3024,8 @@ remove_dbtablespaces(Oid db_id)
 		xlrec.ntablespaces = ntblspc;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, MinSizeOfDbaseDropRec);
-		XLogRegisterData(tablespace_ids, ntblspc * sizeof(Oid));
+		XLogRegisterData((char *) &xlrec, MinSizeOfDbaseDropRec);
+		XLogRegisterData((char *) tablespace_ids, ntblspc * sizeof(Oid));
 
 		(void) XLogInsert(RM_DBASE_ID,
 						  XLOG_DBASE_DROP | XLR_SPECIAL_REL_UPDATE);
@@ -3286,7 +3247,7 @@ recovery_create_dbdir(char *path, bool only_tblspc)
 	if (stat(path, &st) == 0)
 		return;
 
-	if (only_tblspc && strstr(path, PG_TBLSPC_DIR_SLASH) == NULL)
+	if (only_tblspc && strstr(path, "pg_tblspc/") == NULL)
 		elog(PANIC, "requested to created invalid directory: %s", path);
 
 	if (reachedConsistency && !allow_in_place_tablespaces)

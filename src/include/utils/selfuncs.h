@@ -5,7 +5,7 @@
  *	  infrastructure for selectivity and cost estimation.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/selfuncs.h
@@ -94,8 +94,7 @@ typedef struct VariableStatData
 	Oid			vartype;		/* exposed type of expression */
 	Oid			atttype;		/* actual type (after stripping relabel) */
 	int32		atttypmod;		/* actual typmod (after stripping relabel) */
-	bool		isunique;		/* matches unique index, DISTINCT or GROUP-BY
-								 * clause */
+	bool		isunique;		/* matches unique index or DISTINCT clause */
 	bool		acl_ok;			/* true if user has SELECT privilege on all
 								 * rows from the table or column */
 } VariableStatData;
@@ -212,7 +211,7 @@ extern Selectivity rowcomparesel(PlannerInfo *root,
 								 int varRelid, JoinType jointype, SpecialJoinInfo *sjinfo);
 
 extern void mergejoinscansel(PlannerInfo *root, Node *clause,
-							 Oid opfamily, CompareType cmptype, bool nulls_first,
+							 Oid opfamily, int strategy, bool nulls_first,
 							 Selectivity *leftstart, Selectivity *leftend,
 							 Selectivity *rightstart, Selectivity *rightend);
 
@@ -220,10 +219,6 @@ extern double estimate_num_groups(PlannerInfo *root, List *groupExprs,
 								  double input_rows, List **pgset,
 								  EstimationInfo *estinfo);
 
-extern List *estimate_multivariate_bucketsize(PlannerInfo *root,
-											  RelOptInfo *inner,
-											  List *hashclauses,
-											  Selectivity *innerbucketsize);
 extern void estimate_hash_bucket_stats(PlannerInfo *root,
 									   Node *hashkey, double nbuckets,
 									   Selectivity *mcv_freq,

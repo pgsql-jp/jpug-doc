@@ -3,7 +3,7 @@
  * varchar.c
  *	  Functions for the built-in types char(n) and varchar(n).
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -748,16 +748,20 @@ bpchareq(PG_FUNCTION_ARGS)
 				len2;
 	bool		result;
 	Oid			collid = PG_GET_COLLATION();
-	pg_locale_t mylocale;
+	bool		locale_is_c = false;
+	pg_locale_t mylocale = 0;
 
 	check_collation_set(collid);
 
 	len1 = bcTruelen(arg1);
 	len2 = bcTruelen(arg2);
 
-	mylocale = pg_newlocale_from_collation(collid);
+	if (lc_collate_is_c(collid))
+		locale_is_c = true;
+	else
+		mylocale = pg_newlocale_from_collation(collid);
 
-	if (mylocale->deterministic)
+	if (locale_is_c || pg_locale_deterministic(mylocale))
 	{
 		/*
 		 * Since we only care about equality or not-equality, we can avoid all
@@ -789,16 +793,20 @@ bpcharne(PG_FUNCTION_ARGS)
 				len2;
 	bool		result;
 	Oid			collid = PG_GET_COLLATION();
-	pg_locale_t mylocale;
+	bool		locale_is_c = false;
+	pg_locale_t mylocale = 0;
 
 	check_collation_set(collid);
 
 	len1 = bcTruelen(arg1);
 	len2 = bcTruelen(arg2);
 
-	mylocale = pg_newlocale_from_collation(collid);
+	if (lc_collate_is_c(collid))
+		locale_is_c = true;
+	else
+		mylocale = pg_newlocale_from_collation(collid);
 
-	if (mylocale->deterministic)
+	if (locale_is_c || pg_locale_deterministic(mylocale))
 	{
 		/*
 		 * Since we only care about equality or not-equality, we can avoid all
@@ -991,7 +999,7 @@ hashbpchar(PG_FUNCTION_ARGS)
 	Oid			collid = PG_GET_COLLATION();
 	char	   *keydata;
 	int			keylen;
-	pg_locale_t mylocale;
+	pg_locale_t mylocale = 0;
 	Datum		result;
 
 	if (!collid)
@@ -1003,9 +1011,10 @@ hashbpchar(PG_FUNCTION_ARGS)
 	keydata = VARDATA_ANY(key);
 	keylen = bcTruelen(key);
 
-	mylocale = pg_newlocale_from_collation(collid);
+	if (!lc_collate_is_c(collid))
+		mylocale = pg_newlocale_from_collation(collid);
 
-	if (mylocale->deterministic)
+	if (pg_locale_deterministic(mylocale))
 	{
 		result = hash_any((unsigned char *) keydata, keylen);
 	}
@@ -1047,7 +1056,7 @@ hashbpcharextended(PG_FUNCTION_ARGS)
 	Oid			collid = PG_GET_COLLATION();
 	char	   *keydata;
 	int			keylen;
-	pg_locale_t mylocale;
+	pg_locale_t mylocale = 0;
 	Datum		result;
 
 	if (!collid)
@@ -1059,9 +1068,10 @@ hashbpcharextended(PG_FUNCTION_ARGS)
 	keydata = VARDATA_ANY(key);
 	keylen = bcTruelen(key);
 
-	mylocale = pg_newlocale_from_collation(collid);
+	if (!lc_collate_is_c(collid))
+		mylocale = pg_newlocale_from_collation(collid);
 
-	if (mylocale->deterministic)
+	if (pg_locale_deterministic(mylocale))
 	{
 		result = hash_any_extended((unsigned char *) keydata, keylen,
 								   PG_GETARG_INT64(1));

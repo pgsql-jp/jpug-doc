@@ -15,7 +15,7 @@
  * to users.  The txid_XXX variants should eventually be dropped.
  *
  *
- *	Copyright (c) 2003-2025, PostgreSQL Global Development Group
+ *	Copyright (c) 2003-2024, PostgreSQL Global Development Group
  *	Author: Jan Wieck, Afilias USA INC.
  *	64-bit txids: Marko Kreen, Skype Technologies
  *
@@ -32,9 +32,9 @@
 #include "lib/qunique.h"
 #include "libpq/pqformat.h"
 #include "miscadmin.h"
+#include "postmaster/postmaster.h"
 #include "storage/lwlock.h"
 #include "storage/procarray.h"
-#include "storage/procnumber.h"
 #include "utils/builtins.h"
 #include "utils/memutils.h"
 #include "utils/snapmgr.h"
@@ -117,8 +117,8 @@ TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
 	if (!FullTransactionIdPrecedes(fxid, now_fullxid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("transaction ID %" PRIu64 " is in the future",
-						U64FromFullTransactionId(fxid))));
+				 errmsg("transaction ID %llu is in the future",
+						(unsigned long long) U64FromFullTransactionId(fxid))));
 
 	/*
 	 * TransamVariables->oldestClogXid is protected by XactTruncationLock, but

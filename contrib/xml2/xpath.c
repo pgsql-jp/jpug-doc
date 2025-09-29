@@ -11,6 +11,7 @@
 #include "fmgr.h"
 #include "funcapi.h"
 #include "lib/stringinfo.h"
+#include "miscadmin.h"
 #include "utils/builtins.h"
 #include "utils/xml.h"
 
@@ -22,10 +23,7 @@
 #include <libxml/xmlerror.h>
 #include <libxml/parserInternals.h>
 
-PG_MODULE_MAGIC_EXT(
-					.name = "xml2",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* exported for use by xslt_proc.c */
 
@@ -281,8 +279,8 @@ xpath_string(PG_FUNCTION_ARGS)
 	/* We could try casting to string using the libxml function? */
 
 	xpath = (xmlChar *) palloc(pathsize + 9);
-	memcpy(xpath, "string(", 7);
-	memcpy(xpath + 7, VARDATA_ANY(xpathsupp), pathsize);
+	memcpy((char *) xpath, "string(", 7);
+	memcpy((char *) (xpath + 7), VARDATA_ANY(xpathsupp), pathsize);
 	xpath[pathsize + 7] = ')';
 	xpath[pathsize + 8] = '\0';
 
@@ -390,7 +388,7 @@ pgxml_xpath(text *document, xmlChar *xpath, xpath_workspace *workspace)
 			/* compile the path */
 			comppath = xmlXPathCtxtCompile(workspace->ctxt, xpath);
 			if (comppath == NULL)
-				xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
+				xml_ereport(xmlerrcxt, ERROR, ERRCODE_EXTERNAL_ROUTINE_EXCEPTION,
 							"XPath Syntax Error");
 
 			/* Now evaluate the path expression. */
@@ -562,7 +560,8 @@ xpath_table(PG_FUNCTION_ARGS)
 					 relname,
 					 condition);
 
-	SPI_connect();
+	if ((ret = SPI_connect()) < 0)
+		elog(ERROR, "xpath_table: SPI_connect returned %d", ret);
 
 	if ((ret = SPI_exec(query_buf.data, 0)) != SPI_OK_SELECT)
 		elog(ERROR, "xpath_table: SPI execution failed for query %s",
@@ -654,7 +653,7 @@ xpath_table(PG_FUNCTION_ARGS)
 						comppath = xmlXPathCtxtCompile(ctxt, xpaths[j]);
 						if (comppath == NULL)
 							xml_ereport(xmlerrcxt, ERROR,
-										ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
+										ERRCODE_EXTERNAL_ROUTINE_EXCEPTION,
 										"XPath Syntax Error");
 
 						/* Now evaluate the path expression. */

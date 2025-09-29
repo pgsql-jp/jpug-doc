@@ -59,7 +59,7 @@
  * counter does not fall within the wraparound horizon considering the global
  * minimum value.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/multixact.c
@@ -89,7 +89,6 @@
 #include "storage/procarray.h"
 #include "utils/fmgrprotos.h"
 #include "utils/guc_hooks.h"
-#include "utils/injection_point.h"
 #include "utils/memutils.h"
 
 
@@ -855,9 +854,6 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 		}
 	}
 
-	/* Load the injection point before entering the critical section */
-	INJECTION_POINT_LOAD("multixact-create-from-members");
-
 	/*
 	 * Assign the MXID and offsets range to use, and make sure there is space
 	 * in the OFFSETs and MEMBERs files.  NB: this routine does
@@ -872,8 +868,6 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 	 */
 	multi = GetNewMultiXactId(nmembers, &offset);
 
-	INJECTION_POINT_CACHED("multixact-create-from-members", NULL);
-
 	/* Make an XLOG entry describing the new MXID. */
 	xlrec.mid = multi;
 	xlrec.moff = offset;
@@ -886,8 +880,8 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 	 * Not clear that it's worth the trouble though.
 	 */
 	XLogBeginInsert();
-	XLogRegisterData(&xlrec, SizeOfMultiXactCreate);
-	XLogRegisterData(members, nmembers * sizeof(MultiXactMember));
+	XLogRegisterData((char *) (&xlrec), SizeOfMultiXactCreate);
+	XLogRegisterData((char *) members, nmembers * sizeof(MultiXactMember));
 
 	(void) XLogInsert(RM_MULTIXACT_ID, XLOG_MULTIXACT_CREATE_ID);
 
@@ -1287,7 +1281,7 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
  * range, in which case an error would be raised.
  *
  * In all other cases, the passed multixact must be within the known valid
- * range, that is, greater than or equal to oldestMultiXactId, and less than
+ * range, that is, greater to or equal than oldestMultiXactId, and less than
  * nextMXact.  Otherwise, an error is raised.
  *
  * isLockOnly must be set to true if caller is certain that the given multi
@@ -1485,8 +1479,6 @@ retry:
 			/* Corner case 2: next multixact is still being filled in */
 			LWLockRelease(lock);
 			CHECK_FOR_INTERRUPTS();
-
-			INJECTION_POINT("multixact-get-members-cv-sleep", NULL);
 
 			ConditionVariableSleep(&MultiXactState->nextoff_cv,
 								   WAIT_EVENT_MULTIXACT_CREATION);
@@ -2017,7 +2009,7 @@ check_multixact_offset_buffers(int *newval, void **extra, GucSource source)
 }
 
 /*
- * GUC check_hook for multixact_member_buffers
+ * GUC check_hook for multixact_member_buffer
  */
 bool
 check_multixact_member_buffers(int *newval, void **extra, GucSource source)
@@ -3058,8 +3050,8 @@ PerformMembersTruncation(MultiXactOffset oldestOffset, MultiXactOffset newOldest
 	 */
 	while (segment != endsegment)
 	{
-		elog(DEBUG2, "truncating multixact members segment %" PRIx64,
-			 segment);
+		elog(DEBUG2, "truncating multixact members segment %llx",
+			 (unsigned long long) segment);
 		SlruDeleteSegment(MultiXactMemberCtl, segment);
 
 		/* move to next segment, handling wraparound correctly */
@@ -3210,14 +3202,14 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 	}
 
 	elog(DEBUG1, "performing multixact truncation: "
-		 "offsets [%u, %u), offsets segments [%" PRIx64 ", %" PRIx64 "), "
-		 "members [%u, %u), members segments [%" PRIx64 ", %" PRIx64 ")",
+		 "offsets [%u, %u), offsets segments [%llx, %llx), "
+		 "members [%u, %u), members segments [%llx, %llx)",
 		 oldestMulti, newOldestMulti,
-		 MultiXactIdToOffsetSegment(oldestMulti),
-		 MultiXactIdToOffsetSegment(newOldestMulti),
+		 (unsigned long long) MultiXactIdToOffsetSegment(oldestMulti),
+		 (unsigned long long) MultiXactIdToOffsetSegment(newOldestMulti),
 		 oldestOffset, newOldestOffset,
-		 MXOffsetToMemberSegment(oldestOffset),
-		 MXOffsetToMemberSegment(newOldestOffset));
+		 (unsigned long long) MXOffsetToMemberSegment(oldestOffset),
+		 (unsigned long long) MXOffsetToMemberSegment(newOldestOffset));
 
 	/*
 	 * Do truncation, and the WAL logging of the truncation, in a critical
@@ -3355,7 +3347,7 @@ static void
 WriteMZeroPageXlogRec(int64 pageno, uint8 info)
 {
 	XLogBeginInsert();
-	XLogRegisterData(&pageno, sizeof(pageno));
+	XLogRegisterData((char *) (&pageno), sizeof(pageno));
 	(void) XLogInsert(RM_MULTIXACT_ID, info);
 }
 
@@ -3382,7 +3374,7 @@ WriteMTruncateXlogRec(Oid oldestMultiDB,
 	xlrec.endTruncMemb = endTruncMemb;
 
 	XLogBeginInsert();
-	XLogRegisterData(&xlrec, SizeOfMultiXactTruncate);
+	XLogRegisterData((char *) (&xlrec), SizeOfMultiXactTruncate);
 	recptr = XLogInsert(RM_MULTIXACT_ID, XLOG_MULTIXACT_TRUNCATE_ID);
 	XLogFlush(recptr);
 }
@@ -3470,14 +3462,14 @@ multixact_redo(XLogReaderState *record)
 			   SizeOfMultiXactTruncate);
 
 		elog(DEBUG1, "replaying multixact truncation: "
-			 "offsets [%u, %u), offsets segments [%" PRIx64 ", %" PRIx64 "), "
-			 "members [%u, %u), members segments [%" PRIx64 ", %" PRIx64 ")",
+			 "offsets [%u, %u), offsets segments [%llx, %llx), "
+			 "members [%u, %u), members segments [%llx, %llx)",
 			 xlrec.startTruncOff, xlrec.endTruncOff,
-			 MultiXactIdToOffsetSegment(xlrec.startTruncOff),
-			 MultiXactIdToOffsetSegment(xlrec.endTruncOff),
+			 (unsigned long long) MultiXactIdToOffsetSegment(xlrec.startTruncOff),
+			 (unsigned long long) MultiXactIdToOffsetSegment(xlrec.endTruncOff),
 			 xlrec.startTruncMemb, xlrec.endTruncMemb,
-			 MXOffsetToMemberSegment(xlrec.startTruncMemb),
-			 MXOffsetToMemberSegment(xlrec.endTruncMemb));
+			 (unsigned long long) MXOffsetToMemberSegment(xlrec.startTruncMemb),
+			 (unsigned long long) MXOffsetToMemberSegment(xlrec.endTruncMemb));
 
 		/* should not be required, but more than cheap enough */
 		LWLockAcquire(MultiXactTruncationLock, LW_EXCLUSIVE);

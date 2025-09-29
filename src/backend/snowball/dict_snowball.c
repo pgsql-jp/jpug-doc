@@ -3,7 +3,7 @@
  * dict_snowball.c
  *		Snowball dictionary
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/snowball/dict_snowball.c
@@ -12,11 +12,9 @@
  */
 #include "postgres.h"
 
-#include "catalog/pg_collation_d.h"
 #include "commands/defrem.h"
-#include "mb/pg_wchar.h"
+#include "tsearch/ts_locale.h"
 #include "tsearch/ts_public.h"
-#include "utils/formatting.h"
 
 /* Some platforms define MAXINT and/or MININT, causing conflicts */
 #ifdef MAXINT
@@ -45,6 +43,7 @@
 #include "snowball/libstemmer/stem_ISO_8859_1_spanish.h"
 #include "snowball/libstemmer/stem_ISO_8859_1_swedish.h"
 #include "snowball/libstemmer/stem_ISO_8859_2_hungarian.h"
+#include "snowball/libstemmer/stem_ISO_8859_2_romanian.h"
 #include "snowball/libstemmer/stem_KOI8_R_russian.h"
 #include "snowball/libstemmer/stem_UTF_8_arabic.h"
 #include "snowball/libstemmer/stem_UTF_8_armenian.h"
@@ -53,7 +52,6 @@
 #include "snowball/libstemmer/stem_UTF_8_danish.h"
 #include "snowball/libstemmer/stem_UTF_8_dutch.h"
 #include "snowball/libstemmer/stem_UTF_8_english.h"
-#include "snowball/libstemmer/stem_UTF_8_estonian.h"
 #include "snowball/libstemmer/stem_UTF_8_finnish.h"
 #include "snowball/libstemmer/stem_UTF_8_french.h"
 #include "snowball/libstemmer/stem_UTF_8_german.h"
@@ -77,10 +75,7 @@
 #include "snowball/libstemmer/stem_UTF_8_turkish.h"
 #include "snowball/libstemmer/stem_UTF_8_yiddish.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "dict_snowball",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(dsnowball_init);
 
@@ -122,6 +117,7 @@ static const stemmer_module stemmer_modules[] =
 	STEMMER_MODULE(spanish, PG_LATIN1, ISO_8859_1),
 	STEMMER_MODULE(swedish, PG_LATIN1, ISO_8859_1),
 	STEMMER_MODULE(hungarian, PG_LATIN2, ISO_8859_2),
+	STEMMER_MODULE(romanian, PG_LATIN2, ISO_8859_2),
 	STEMMER_MODULE(russian, PG_KOI8R, KOI8_R),
 	STEMMER_MODULE(arabic, PG_UTF8, UTF_8),
 	STEMMER_MODULE(armenian, PG_UTF8, UTF_8),
@@ -130,7 +126,6 @@ static const stemmer_module stemmer_modules[] =
 	STEMMER_MODULE(danish, PG_UTF8, UTF_8),
 	STEMMER_MODULE(dutch, PG_UTF8, UTF_8),
 	STEMMER_MODULE(english, PG_UTF8, UTF_8),
-	STEMMER_MODULE(estonian, PG_UTF8, UTF_8),
 	STEMMER_MODULE(finnish, PG_UTF8, UTF_8),
 	STEMMER_MODULE(french, PG_UTF8, UTF_8),
 	STEMMER_MODULE(german, PG_UTF8, UTF_8),
@@ -241,7 +236,7 @@ dsnowball_init(PG_FUNCTION_ARGS)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("multiple StopWords parameters")));
-			readstoplist(defGetString(defel), &d->stoplist, str_tolower);
+			readstoplist(defGetString(defel), &d->stoplist, lowerstr);
 			stoploaded = true;
 		}
 		else if (strcmp(defel->defname, "language") == 0)
@@ -277,7 +272,7 @@ dsnowball_lexize(PG_FUNCTION_ARGS)
 	DictSnowball *d = (DictSnowball *) PG_GETARG_POINTER(0);
 	char	   *in = (char *) PG_GETARG_POINTER(1);
 	int32		len = PG_GETARG_INT32(2);
-	char	   *txt = str_tolower(in, len, DEFAULT_COLLATION_OID);
+	char	   *txt = lowerstr_with_len(in, len);
 	TSLexeme   *res = palloc0(sizeof(TSLexeme) * 2);
 
 	/*

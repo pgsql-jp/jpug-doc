@@ -52,7 +52,7 @@
  *   dynahash has better performance for large entries.
  * - Guarantees stable pointers to entries.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -272,7 +272,7 @@ static HASHBUCKET get_hash_entry(HTAB *hashp, int freelist_idx);
 static void hdefault(HTAB *hashp);
 static int	choose_nelem_alloc(Size entrysize);
 static bool init_htab(HTAB *hashp, long nelem);
-pg_noreturn static void hash_corrupted(HTAB *hashp);
+static void hash_corrupted(HTAB *hashp) pg_attribute_noreturn();
 static uint32 hash_initial_lookup(HTAB *hashp, uint32 hashvalue,
 								  HASHBUCKET **bucketptr);
 static long next_pow2_long(long num);
@@ -760,7 +760,7 @@ init_htab(HTAB *hashp, long nelem)
 	hctl->nelem_alloc = choose_nelem_alloc(hctl->entrysize);
 
 #ifdef HASH_DEBUG
-	fprintf(stderr, "init_htab:\n%s%p\n%s%ld\n%s%ld\n%s%d\n%s%u\n%s%x\n%s%x\n%s%ld\n",
+	fprintf(stderr, "init_htab:\n%s%p\n%s%ld\n%s%ld\n%s%d\n%s%ld\n%s%u\n%s%x\n%s%x\n%s%ld\n",
 			"TABLE POINTER   ", hashp,
 			"DIRECTORY SIZE  ", hctl->dsize,
 			"SEGMENT SIZE    ", hctl->ssize,
@@ -1039,7 +1039,7 @@ hash_search_with_hash_value(HTAB *hashp,
 	{
 		case HASH_FIND:
 			if (currBucket != NULL)
-				return ELEMENTKEY(currBucket);
+				return (void *) ELEMENTKEY(currBucket);
 			return NULL;
 
 		case HASH_REMOVE:
@@ -1068,7 +1068,7 @@ hash_search_with_hash_value(HTAB *hashp,
 				 * element, because someone else is going to reuse it the next
 				 * time something is added to the table
 				 */
-				return ELEMENTKEY(currBucket);
+				return (void *) ELEMENTKEY(currBucket);
 			}
 			return NULL;
 
@@ -1076,7 +1076,7 @@ hash_search_with_hash_value(HTAB *hashp,
 		case HASH_ENTER_NULL:
 			/* Return existing element if found, else create one */
 			if (currBucket != NULL)
-				return ELEMENTKEY(currBucket);
+				return (void *) ELEMENTKEY(currBucket);
 
 			/* disallow inserts if frozen */
 			if (hashp->frozen)
@@ -1115,7 +1115,7 @@ hash_search_with_hash_value(HTAB *hashp,
 			 * caller's data structure.
 			 */
 
-			return ELEMENTKEY(currBucket);
+			return (void *) ELEMENTKEY(currBucket);
 	}
 
 	elog(ERROR, "unrecognized hash action code: %d", (int) action);
@@ -1158,8 +1158,6 @@ hash_update_hash_key(HTAB *hashp,
 	HashCompareFunc match;
 
 #ifdef HASH_STATISTICS
-	HASHHDR    *hctl = hashp->hctl;
-
 	hash_accesses++;
 	hctl->accesses++;
 #endif
@@ -1390,33 +1388,8 @@ hash_seq_init(HASH_SEQ_STATUS *status, HTAB *hashp)
 	status->hashp = hashp;
 	status->curBucket = 0;
 	status->curEntry = NULL;
-	status->hasHashvalue = false;
 	if (!hashp->frozen)
 		register_seq_scan(hashp);
-}
-
-/*
- * Same as above but scan by the given hash value.
- * See also hash_seq_search().
- *
- * NOTE: the default hash function doesn't match syscache hash function.
- * Thus, if you're going to use this function in syscache callback, make sure
- * you're using custom hash function.  See relatt_cache_syshash()
- * for example.
- */
-void
-hash_seq_init_with_hash_value(HASH_SEQ_STATUS *status, HTAB *hashp,
-							  uint32 hashvalue)
-{
-	HASHBUCKET *bucketPtr;
-
-	hash_seq_init(status, hashp);
-
-	status->hasHashvalue = true;
-	status->hashvalue = hashvalue;
-
-	status->curBucket = hash_initial_lookup(hashp, hashvalue, &bucketPtr);
-	status->curEntry = *bucketPtr;
 }
 
 void *
@@ -1432,31 +1405,13 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 	uint32		curBucket;
 	HASHELEMENT *curElem;
 
-	if (status->hasHashvalue)
-	{
-		/*
-		 * Scan entries only in the current bucket because only this bucket
-		 * can contain entries with the given hash value.
-		 */
-		while ((curElem = status->curEntry) != NULL)
-		{
-			status->curEntry = curElem->link;
-			if (status->hashvalue != curElem->hashvalue)
-				continue;
-			return (void *) ELEMENTKEY(curElem);
-		}
-
-		hash_seq_term(status);
-		return NULL;
-	}
-
 	if ((curElem = status->curEntry) != NULL)
 	{
 		/* Continuing scan of curBucket... */
 		status->curEntry = curElem->link;
 		if (status->curEntry == NULL)	/* end of this bucket */
 			++status->curBucket;
-		return ELEMENTKEY(curElem);
+		return (void *) ELEMENTKEY(curElem);
 	}
 
 	/*
@@ -1510,7 +1465,7 @@ hash_seq_search(HASH_SEQ_STATUS *status)
 	if (status->curEntry == NULL)	/* end of this bucket */
 		++curBucket;
 	status->curBucket = curBucket;
-	return ELEMENTKEY(curElem);
+	return (void *) ELEMENTKEY(curElem);
 }
 
 void

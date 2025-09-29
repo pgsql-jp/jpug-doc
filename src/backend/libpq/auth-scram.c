@@ -80,7 +80,7 @@
  * general, after logging in, but let's do what we can here.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/libpq/auth-scram.c
@@ -101,7 +101,6 @@
 #include "libpq/crypt.h"
 #include "libpq/sasl.h"
 #include "libpq/scram.h"
-#include "miscadmin.h"
 
 static void scram_get_mechanisms(Port *port, StringInfo buf);
 static void *scram_init(Port *port, const char *selected_mech,
@@ -114,9 +113,7 @@ static int	scram_exchange(void *opaq, const char *input, int inputlen,
 const pg_be_sasl_mech pg_be_scram_mech = {
 	scram_get_mechanisms,
 	scram_init,
-	scram_exchange,
-
-	PG_MAX_SASL_MESSAGE_LENGTH
+	scram_exchange
 };
 
 /*
@@ -145,7 +142,6 @@ typedef struct
 
 	int			iterations;
 	char	   *salt;			/* base64-encoded */
-	uint8		ClientKey[SCRAM_MAX_KEY_LEN];
 	uint8		StoredKey[SCRAM_MAX_KEY_LEN];
 	uint8		ServerKey[SCRAM_MAX_KEY_LEN];
 
@@ -158,7 +154,7 @@ typedef struct
 	/* Fields from the last message from client */
 	char	   *client_final_message_without_proof;
 	char	   *client_final_nonce;
-	uint8		ClientProof[SCRAM_MAX_KEY_LEN];
+	char		ClientProof[SCRAM_MAX_KEY_LEN];
 
 	/* Fields generated in the server */
 	char	   *server_first_message;
@@ -186,9 +182,9 @@ static void mock_scram_secret(const char *username, pg_cryptohash_type *hash_typ
 static bool is_scram_printable(char *p);
 static char *sanitize_char(char c);
 static char *sanitize_str(const char *s);
-static uint8 *scram_mock_salt(const char *username,
-							  pg_cryptohash_type hash_type,
-							  int key_length);
+static char *scram_mock_salt(const char *username,
+							 pg_cryptohash_type hash_type,
+							 int key_length);
 
 /*
  * The number of iterations to use when generating new secrets.
@@ -464,13 +460,6 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 	if (*output)
 		*outputlen = strlen(*output);
 
-	if (result == PG_SASL_EXCHANGE_SUCCESS && state->state == SCRAM_AUTH_FINISHED)
-	{
-		memcpy(MyProcPort->scram_ClientKey, state->ClientKey, sizeof(MyProcPort->scram_ClientKey));
-		memcpy(MyProcPort->scram_ServerKey, state->ServerKey, sizeof(MyProcPort->scram_ServerKey));
-		MyProcPort->has_scram_keys = true;
-	}
-
 	return result;
 }
 
@@ -484,7 +473,7 @@ pg_be_scram_build_secret(const char *password)
 {
 	char	   *prep_password;
 	pg_saslprep_rc rc;
-	uint8		saltbuf[SCRAM_DEFAULT_SALT_LEN];
+	char		saltbuf[SCRAM_DEFAULT_SALT_LEN];
 	char	   *result;
 	const char *errstr = NULL;
 
@@ -524,7 +513,7 @@ scram_verify_plain_password(const char *username, const char *password,
 							const char *secret)
 {
 	char	   *encoded_salt;
-	uint8	   *salt;
+	char	   *salt;
 	int			saltlen;
 	int			iterations;
 	int			key_length = 0;
@@ -609,9 +598,9 @@ parse_scram_secret(const char *secret, int *iterations,
 	char	   *storedkey_str;
 	char	   *serverkey_str;
 	int			decoded_len;
-	uint8	   *decoded_salt_buf;
-	uint8	   *decoded_stored_buf;
-	uint8	   *decoded_server_buf;
+	char	   *decoded_salt_buf;
+	char	   *decoded_stored_buf;
+	char	   *decoded_server_buf;
 
 	/*
 	 * The secret is of form:
@@ -619,19 +608,16 @@ parse_scram_secret(const char *secret, int *iterations,
 	 * SCRAM-SHA-256$<iterations>:<salt>$<storedkey>:<serverkey>
 	 */
 	v = pstrdup(secret);
-	scheme_str = strsep(&v, "$");
-	if (v == NULL)
+	if ((scheme_str = strtok(v, "$")) == NULL)
 		goto invalid_secret;
-	iterations_str = strsep(&v, ":");
-	if (v == NULL)
+	if ((iterations_str = strtok(NULL, ":")) == NULL)
 		goto invalid_secret;
-	salt_str = strsep(&v, "$");
-	if (v == NULL)
+	if ((salt_str = strtok(NULL, "$")) == NULL)
 		goto invalid_secret;
-	storedkey_str = strsep(&v, ":");
-	if (v == NULL)
+	if ((storedkey_str = strtok(NULL, ":")) == NULL)
 		goto invalid_secret;
-	serverkey_str = v;
+	if ((serverkey_str = strtok(NULL, "")) == NULL)
+		goto invalid_secret;
 
 	/* Parse the fields */
 	if (strcmp(scheme_str, "SCRAM-SHA-256") != 0)
@@ -698,7 +684,7 @@ mock_scram_secret(const char *username, pg_cryptohash_type *hash_type,
 				  int *iterations, int *key_length, char **salt,
 				  uint8 *stored_key, uint8 *server_key)
 {
-	uint8	   *raw_salt;
+	char	   *raw_salt;
 	char	   *encoded_salt;
 	int			encoded_len;
 
@@ -1149,6 +1135,7 @@ static bool
 verify_client_proof(scram_state *state)
 {
 	uint8		ClientSignature[SCRAM_MAX_KEY_LEN];
+	uint8		ClientKey[SCRAM_MAX_KEY_LEN];
 	uint8		client_StoredKey[SCRAM_MAX_KEY_LEN];
 	pg_hmac_ctx *ctx = pg_hmac_create(state->hash_type);
 	int			i;
@@ -1181,10 +1168,10 @@ verify_client_proof(scram_state *state)
 
 	/* Extract the ClientKey that the client calculated from the proof */
 	for (i = 0; i < state->key_length; i++)
-		state->ClientKey[i] = state->ClientProof[i] ^ ClientSignature[i];
+		ClientKey[i] = state->ClientProof[i] ^ ClientSignature[i];
 
 	/* Hash it one more time, and compare with StoredKey */
-	if (scram_H(state->ClientKey, state->hash_type, state->key_length,
+	if (scram_H(ClientKey, state->hash_type, state->key_length,
 				client_StoredKey, &errstr) < 0)
 		elog(ERROR, "could not hash stored key: %s", errstr);
 
@@ -1231,7 +1218,7 @@ build_server_first_message(scram_state *state)
 	 * For convenience, however, we don't use the whole range available,
 	 * rather, we generate some random bytes, and base64 encode them.
 	 */
-	uint8		raw_nonce[SCRAM_RAW_NONCE_LEN];
+	char		raw_nonce[SCRAM_RAW_NONCE_LEN];
 	int			encoded_len;
 
 	if (!pg_strong_random(raw_nonce, SCRAM_RAW_NONCE_LEN))
@@ -1271,7 +1258,7 @@ read_client_final_message(scram_state *state, const char *input)
 	char	   *begin,
 			   *proof;
 	char	   *p;
-	uint8	   *client_proof;
+	char	   *client_proof;
 	int			client_proof_len;
 
 	begin = p = pstrdup(input);
@@ -1340,7 +1327,7 @@ read_client_final_message(scram_state *state, const char *input)
 		b64_message_len = pg_b64_enc_len(cbind_input_len);
 		/* don't forget the zero-terminator */
 		b64_message = palloc(b64_message_len + 1);
-		b64_message_len = pg_b64_encode((uint8 *) cbind_input, cbind_input_len,
+		b64_message_len = pg_b64_encode(cbind_input, cbind_input_len,
 										b64_message, b64_message_len);
 		if (b64_message_len < 0)
 			elog(ERROR, "could not encode channel binding data");
@@ -1440,7 +1427,7 @@ build_server_final_message(scram_state *state)
 	siglen = pg_b64_enc_len(state->key_length);
 	/* don't forget the zero-terminator */
 	server_signature_base64 = palloc(siglen + 1);
-	siglen = pg_b64_encode(ServerSignature,
+	siglen = pg_b64_encode((const char *) ServerSignature,
 						   state->key_length, server_signature_base64,
 						   siglen);
 	if (siglen < 0)
@@ -1467,7 +1454,7 @@ build_server_final_message(scram_state *state)
  * hash based on the username and a cluster-level secret key.  Returns a
  * pointer to a static buffer of size SCRAM_DEFAULT_SALT_LEN, or NULL.
  */
-static uint8 *
+static char *
 scram_mock_salt(const char *username, pg_cryptohash_type hash_type,
 				int key_length)
 {
@@ -1501,5 +1488,5 @@ scram_mock_salt(const char *username, pg_cryptohash_type hash_type,
 	}
 	pg_cryptohash_free(ctx);
 
-	return sha_digest;
+	return (char *) sha_digest;
 }

@@ -3,7 +3,7 @@
  * hashvalidate.c
  *	  Opclass validator for hash.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -21,11 +21,18 @@
 #include "catalog/pg_amop.h"
 #include "catalog/pg_amproc.h"
 #include "catalog/pg_opclass.h"
+#include "catalog/pg_opfamily.h"
+#include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
+#include "parser/parse_coerce.h"
 #include "utils/builtins.h"
+#include "utils/fmgroids.h"
 #include "utils/lsyscache.h"
 #include "utils/regproc.h"
 #include "utils/syscache.h"
+
+
+static bool check_hash_func_signature(Oid funcid, int16 amprocnum, Oid argtype);
 
 
 /*
@@ -45,6 +52,8 @@ hashvalidate(Oid opclassoid)
 	Oid			opfamilyoid;
 	Oid			opcintype;
 	char	   *opclassname;
+	HeapTuple	familytup;
+	Form_pg_opfamily familyform;
 	char	   *opfamilyname;
 	CatCList   *proclist,
 			   *oprlist;
@@ -65,7 +74,12 @@ hashvalidate(Oid opclassoid)
 	opclassname = NameStr(classform->opcname);
 
 	/* Fetch opfamily information */
-	opfamilyname = get_opfamily_name(opfamilyoid, false);
+	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
+	if (!HeapTupleIsValid(familytup))
+		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
+	familyform = (Form_pg_opfamily) GETSTRUCT(familytup);
+
+	opfamilyname = NameStr(familyform->opfname);
 
 	/* Fetch all operators and support functions of the opfamily */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
@@ -76,7 +90,6 @@ hashvalidate(Oid opclassoid)
 	{
 		HeapTuple	proctup = &proclist->members[i]->tuple;
 		Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
-		bool		ok;
 
 		/*
 		 * All hash functions should be registered with matching left/right
@@ -96,15 +109,29 @@ hashvalidate(Oid opclassoid)
 		switch (procform->amprocnum)
 		{
 			case HASHSTANDARD_PROC:
-				ok = check_amproc_signature(procform->amproc, INT4OID, true,
-											1, 1, procform->amproclefttype);
-				break;
 			case HASHEXTENDED_PROC:
-				ok = check_amproc_signature(procform->amproc, INT8OID, true,
-											2, 2, procform->amproclefttype, INT8OID);
+				if (!check_hash_func_signature(procform->amproc, procform->amprocnum,
+											   procform->amproclefttype))
+				{
+					ereport(INFO,
+							(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+							 errmsg("operator family \"%s\" of access method %s contains function %s with wrong signature for support number %d",
+									opfamilyname, "hash",
+									format_procedure(procform->amproc),
+									procform->amprocnum)));
+					result = false;
+				}
+				else
+				{
+					/* Remember which types we can hash */
+					hashabletypes =
+						list_append_unique_oid(hashabletypes,
+											   procform->amproclefttype);
+				}
 				break;
 			case HASHOPTIONS_PROC:
-				ok = check_amoptsproc_signature(procform->amproc);
+				if (!check_amoptsproc_signature(procform->amproc))
+					result = false;
 				break;
 			default:
 				ereport(INFO,
@@ -114,24 +141,7 @@ hashvalidate(Oid opclassoid)
 								format_procedure(procform->amproc),
 								procform->amprocnum)));
 				result = false;
-				continue;		/* don't want additional message */
-		}
-
-		if (!ok)
-		{
-			ereport(INFO,
-					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-					 errmsg("operator family \"%s\" of access method %s contains function %s with wrong signature for support number %d",
-							opfamilyname, "hash",
-							format_procedure(procform->amproc),
-							procform->amprocnum)));
-			result = false;
-		}
-
-		/* Remember which types we can hash */
-		if (ok && (procform->amprocnum == HASHSTANDARD_PROC || procform->amprocnum == HASHEXTENDED_PROC))
-		{
-			hashabletypes = list_append_unique_oid(hashabletypes, procform->amproclefttype);
+				break;
 		}
 	}
 
@@ -250,11 +260,90 @@ hashvalidate(Oid opclassoid)
 
 	ReleaseCatCacheList(proclist);
 	ReleaseCatCacheList(oprlist);
+	ReleaseSysCache(familytup);
 	ReleaseSysCache(classtup);
 
 	return result;
 }
 
+
+/*
+ * We need a custom version of check_amproc_signature because of assorted
+ * hacks in the core hash opclass definitions.
+ */
+static bool
+check_hash_func_signature(Oid funcid, int16 amprocnum, Oid argtype)
+{
+	bool		result = true;
+	Oid			restype;
+	int16		nargs;
+	HeapTuple	tp;
+	Form_pg_proc procform;
+
+	switch (amprocnum)
+	{
+		case HASHSTANDARD_PROC:
+			restype = INT4OID;
+			nargs = 1;
+			break;
+
+		case HASHEXTENDED_PROC:
+			restype = INT8OID;
+			nargs = 2;
+			break;
+
+		default:
+			elog(ERROR, "invalid amprocnum");
+	}
+
+	tp = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcid));
+	if (!HeapTupleIsValid(tp))
+		elog(ERROR, "cache lookup failed for function %u", funcid);
+	procform = (Form_pg_proc) GETSTRUCT(tp);
+
+	if (procform->prorettype != restype || procform->proretset ||
+		procform->pronargs != nargs)
+		result = false;
+
+	if (!IsBinaryCoercible(argtype, procform->proargtypes.values[0]))
+	{
+		/*
+		 * Some of the built-in hash opclasses cheat by using hash functions
+		 * that are different from but physically compatible with the opclass
+		 * datatype.  In some of these cases, even a "binary coercible" check
+		 * fails because there's no relevant cast.  For the moment, fix it by
+		 * having a list of allowed cases.  Test the specific function
+		 * identity, not just its input type, because hashvarlena() takes
+		 * INTERNAL and allowing any such function seems too scary.
+		 */
+		if ((funcid == F_HASHINT4 || funcid == F_HASHINT4EXTENDED) &&
+			(argtype == DATEOID ||
+			 argtype == XIDOID || argtype == CIDOID))
+			 /* okay, allowed use of hashint4() */ ;
+		else if ((funcid == F_HASHINT8 || funcid == F_HASHINT8EXTENDED) &&
+				 (argtype == XID8OID))
+			 /* okay, allowed use of hashint8() */ ;
+		else if ((funcid == F_TIMESTAMP_HASH ||
+				  funcid == F_TIMESTAMP_HASH_EXTENDED) &&
+				 argtype == TIMESTAMPTZOID)
+			 /* okay, allowed use of timestamp_hash() */ ;
+		else if ((funcid == F_HASHCHAR || funcid == F_HASHCHAREXTENDED) &&
+				 argtype == BOOLOID)
+			 /* okay, allowed use of hashchar() */ ;
+		else if ((funcid == F_HASHVARLENA || funcid == F_HASHVARLENAEXTENDED) &&
+				 argtype == BYTEAOID)
+			 /* okay, allowed use of hashvarlena() */ ;
+		else
+			result = false;
+	}
+
+	/* If function takes a second argument, it must be for a 64-bit salt. */
+	if (nargs == 2 && procform->proargtypes.values[1] != INT8OID)
+		result = false;
+
+	ReleaseSysCache(tp);
+	return result;
+}
 
 /*
  * Prechecking function for adding operators/functions to a hash opfamily.

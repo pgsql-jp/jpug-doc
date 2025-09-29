@@ -3,7 +3,7 @@
  * slotfuncs.c
  *	   Support functions for replication slots
  *
- * Copyright (c) 2012-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2012-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/slotfuncs.c
@@ -17,12 +17,16 @@
 #include "access/xlogrecovery.h"
 #include "access/xlogutils.h"
 #include "funcapi.h"
+#include "miscadmin.h"
+#include "replication/decode.h"
 #include "replication/logical.h"
 #include "replication/slot.h"
 #include "replication/slotsync.h"
 #include "utils/builtins.h"
 #include "utils/guc.h"
+#include "utils/inval.h"
 #include "utils/pg_lsn.h"
+#include "utils/resowner.h"
 
 /*
  * Helper function for creating a new physical replication slot with
@@ -235,7 +239,7 @@ pg_drop_replication_slot(PG_FUNCTION_ARGS)
 Datum
 pg_get_replication_slots(PG_FUNCTION_ARGS)
 {
-#define PG_GET_REPLICATION_SLOTS_COLS 20
+#define PG_GET_REPLICATION_SLOTS_COLS 19
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 	XLogRecPtr	currlsn;
 	int			slotno;
@@ -406,12 +410,6 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 
 		values[i++] = BoolGetDatum(slot_contents.data.two_phase);
 
-		if (slot_contents.data.two_phase &&
-			!XLogRecPtrIsInvalid(slot_contents.data.two_phase_at))
-			values[i++] = LSNGetDatum(slot_contents.data.two_phase_at);
-		else
-			nulls[i++] = true;
-
 		if (slot_contents.inactive_since > 0)
 			values[i++] = TimestampTzGetDatum(slot_contents.inactive_since);
 		else
@@ -437,7 +435,7 @@ pg_get_replication_slots(PG_FUNCTION_ARGS)
 		if (cause == RS_INVAL_NONE)
 			nulls[i++] = true;
 		else
-			values[i++] = CStringGetTextDatum(GetSlotInvalidationCauseName(cause));
+			values[i++] = CStringGetTextDatum(SlotInvalidationCauses[cause]);
 
 		values[i++] = BoolGetDatum(slot_contents.data.failover);
 
@@ -525,8 +523,7 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 
 	if (XLogRecPtrIsInvalid(moveto))
 		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("invalid target WAL LSN")));
+				(errmsg("invalid target WAL LSN")));
 
 	/* Build a tuple descriptor for our result type */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
@@ -542,7 +539,7 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 		moveto = Min(moveto, GetXLogReplayRecPtr(NULL));
 
 	/* Acquire the slot so we "own" it */
-	ReplicationSlotAcquire(NameStr(*slotname), true, true);
+	ReplicationSlotAcquire(NameStr(*slotname), true);
 
 	/* A slot whose restart_lsn has never been reserved cannot be advanced */
 	if (XLogRecPtrIsInvalid(MyReplicationSlot->data.restart_lsn))
@@ -921,14 +918,12 @@ pg_sync_replication_slots(PG_FUNCTION_ARGS)
 	/* Connect to the primary server. */
 	wrconn = walrcv_connect(PrimaryConnInfo, false, false, false,
 							app_name.data, &err);
+	pfree(app_name.data);
 
 	if (!wrconn)
 		ereport(ERROR,
 				errcode(ERRCODE_CONNECTION_FAILURE),
-				errmsg("synchronization worker \"%s\" could not connect to the primary server: %s",
-					   app_name.data, err));
-
-	pfree(app_name.data);
+				errmsg("could not connect to the primary server: %s", err));
 
 	SyncReplicationSlots(wrconn);
 

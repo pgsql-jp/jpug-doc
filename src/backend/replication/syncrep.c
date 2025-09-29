@@ -63,7 +63,7 @@
  * the standbys which are considered as synchronous at that moment
  * will release waiters from the queue.
  *
- * Portions Copyright (c) 2010-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2010-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/syncrep.c
@@ -1059,18 +1059,17 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 {
 	if (*newval != NULL && (*newval)[0] != '\0')
 	{
-		yyscan_t	scanner;
 		int			parse_rc;
 		SyncRepConfigData *pconf;
 
-		/* Result of parsing is returned in one of these two variables */
-		SyncRepConfigData *syncrep_parse_result = NULL;
-		char	   *syncrep_parse_error_msg = NULL;
+		/* Reset communication variables to ensure a fresh start */
+		syncrep_parse_result = NULL;
+		syncrep_parse_error_msg = NULL;
 
 		/* Parse the synchronous_standby_names string */
-		syncrep_scanner_init(*newval, &scanner);
-		parse_rc = syncrep_yyparse(&syncrep_parse_result, &syncrep_parse_error_msg, scanner);
-		syncrep_scanner_finish(scanner);
+		syncrep_scanner_init(*newval);
+		parse_rc = syncrep_yyparse();
+		syncrep_scanner_finish();
 
 		if (parse_rc != 0 || syncrep_parse_result == NULL)
 		{
@@ -1078,8 +1077,7 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 			if (syncrep_parse_error_msg)
 				GUC_check_errdetail("%s", syncrep_parse_error_msg);
 			else
-				GUC_check_errdetail("\"%s\" parser failed.",
-									"synchronous_standby_names");
+				GUC_check_errdetail("\"synchronous_standby_names\" parser failed");
 			return false;
 		}
 
@@ -1097,7 +1095,7 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 			return false;
 		memcpy(pconf, syncrep_parse_result, syncrep_parse_result->config_size);
 
-		*extra = pconf;
+		*extra = (void *) pconf;
 
 		/*
 		 * We need not explicitly clean up syncrep_parse_result.  It, and any

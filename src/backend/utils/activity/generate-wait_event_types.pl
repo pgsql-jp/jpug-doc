@@ -7,7 +7,7 @@
 # - wait_event_funcs_data.c (if --code is passed)
 # - wait_event_types.sgml (if --docs is passed)
 #
-# Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+# Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
 # Portions Copyright (c) 1994, Regents of the University of California
 #
 # src/backend/utils/activity/generate-wait_event_types.pl
@@ -42,6 +42,8 @@ my @abi_compatibility_lines;
 my @lines;
 my $abi_compatibility = 0;
 my $section_name;
+my $note;
+my $note_name;
 
 # Remove comments and empty lines and add waitclassname based on the section
 while (<$wait_event_names>)
@@ -151,7 +153,7 @@ if ($gen_code)
  * %s
  *    Generated wait events infrastructure code
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * NOTES
@@ -169,7 +171,7 @@ if ($gen_code)
 	printf $h $header_comment, 'wait_event_types.h';
 	printf $h "#ifndef WAIT_EVENT_TYPES_H\n";
 	printf $h "#define WAIT_EVENT_TYPES_H\n\n";
-	printf $h "#include \"utils/wait_classes.h\"\n\n";
+	printf $h "#include \"utils/wait_event.h\"\n\n";
 
 	printf $c $header_comment, 'pgstat_wait_event.c';
 

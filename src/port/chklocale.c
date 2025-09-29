@@ -4,7 +4,7 @@
  *		Functions for handling locale-related info
  *
  *
- * Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -19,7 +19,7 @@
 #include "postgres_fe.h"
 #endif
 
-#ifndef WIN32
+#ifdef HAVE_LANGINFO_H
 #include <langinfo.h>
 #endif
 
@@ -189,7 +189,7 @@ static const struct encoding_match encoding_match_list[] = {
 
 #ifdef WIN32
 /*
- * On Windows, use CP<code page number> instead of CODESET.
+ * On Windows, use CP<code page number> instead of the nl_langinfo() result
  *
  * This routine uses GetLocaleInfoEx() to parse short locale names like
  * "de-DE", "fr-FR", etc.  If those cannot be parsed correctly process falls
@@ -199,10 +199,12 @@ static const struct encoding_match encoding_match_list[] = {
  * Returns a malloc()'d string for the caller to free.
  */
 static char *
-win32_get_codeset(const char *ctype)
+win32_langinfo(const char *ctype)
 {
 	char	   *r = NULL;
 	char	   *codepage;
+
+#if defined(_MSC_VER)
 	uint32		cp;
 	WCHAR		wctype[LOCALE_NAME_MAX_LENGTH];
 
@@ -227,6 +229,7 @@ win32_get_codeset(const char *ctype)
 		}
 	}
 	else
+#endif
 	{
 		/*
 		 * Locale format on Win32 is <Language>_<Country>.<CodePage>.  For
@@ -284,6 +287,8 @@ pg_codepage_to_encoding(UINT cp)
 #endif
 #endif							/* WIN32 */
 
+#if (defined(HAVE_LANGINFO_H) && defined(CODESET)) || defined(WIN32)
+
 /*
  * Given a setting for LC_CTYPE, return the Postgres ID of the associated
  * encoding, if we can determine it.  Return -1 if we can't determine it.
@@ -303,34 +308,63 @@ pg_get_encoding_from_locale(const char *ctype, bool write_message)
 	char	   *sys;
 	int			i;
 
-#ifndef WIN32
-	locale_t	loc;
-#endif
-
 	/* Get the CODESET property, and also LC_CTYPE if not passed in */
-	if (!ctype)
-		ctype = setlocale(LC_CTYPE, NULL);
+	if (ctype)
+	{
+		char	   *save;
+		char	   *name;
 
+		/* If locale is C or POSIX, we can allow all encodings */
+		if (pg_strcasecmp(ctype, "C") == 0 ||
+			pg_strcasecmp(ctype, "POSIX") == 0)
+			return PG_SQL_ASCII;
 
-	/* If locale is C or POSIX, we can allow all encodings */
-	if (pg_strcasecmp(ctype, "C") == 0 ||
-		pg_strcasecmp(ctype, "POSIX") == 0)
-		return PG_SQL_ASCII;
+		save = setlocale(LC_CTYPE, NULL);
+		if (!save)
+			return -1;			/* setlocale() broken? */
+		/* must copy result, or it might change after setlocale */
+		save = strdup(save);
+		if (!save)
+			return -1;			/* out of memory; unlikely */
 
+		name = setlocale(LC_CTYPE, ctype);
+		if (!name)
+		{
+			free(save);
+			return -1;			/* bogus ctype passed in? */
+		}
 
 #ifndef WIN32
-	loc = newlocale(LC_CTYPE_MASK, ctype, (locale_t) 0);
-	if (loc == (locale_t) 0)
-		return -1;				/* bogus ctype passed in? */
-
-	sys = nl_langinfo_l(CODESET, loc);
-	if (sys)
-		sys = strdup(sys);
-
-	freelocale(loc);
+		sys = nl_langinfo(CODESET);
+		if (sys)
+			sys = strdup(sys);
 #else
-	sys = win32_get_codeset(ctype);
+		sys = win32_langinfo(name);
 #endif
+
+		setlocale(LC_CTYPE, save);
+		free(save);
+	}
+	else
+	{
+		/* much easier... */
+		ctype = setlocale(LC_CTYPE, NULL);
+		if (!ctype)
+			return -1;			/* setlocale() broken? */
+
+		/* If locale is C or POSIX, we can allow all encodings */
+		if (pg_strcasecmp(ctype, "C") == 0 ||
+			pg_strcasecmp(ctype, "POSIX") == 0)
+			return PG_SQL_ASCII;
+
+#ifndef WIN32
+		sys = nl_langinfo(CODESET);
+		if (sys)
+			sys = strdup(sys);
+#else
+		sys = win32_langinfo(ctype);
+#endif
+	}
 
 	if (!sys)
 		return -1;				/* out of memory; unlikely */
@@ -381,3 +415,19 @@ pg_get_encoding_from_locale(const char *ctype, bool write_message)
 	free(sys);
 	return -1;
 }
+#else							/* (HAVE_LANGINFO_H && CODESET) || WIN32 */
+
+/*
+ * stub if no multi-language platform support
+ *
+ * Note: we could return -1 here, but that would have the effect of
+ * forcing users to specify an encoding to initdb on such platforms.
+ * It seems better to silently default to SQL_ASCII.
+ */
+int
+pg_get_encoding_from_locale(const char *ctype, bool write_message)
+{
+	return PG_SQL_ASCII;
+}
+
+#endif							/* (HAVE_LANGINFO_H && CODESET) || WIN32 */

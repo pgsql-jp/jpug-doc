@@ -949,10 +949,9 @@ int
 GetEpochTime(struct tm *tm)
 {
 	struct tm  *t0;
-	struct tm	tmbuf;
 	time_t		epoch = 0;
 
-	t0 = gmtime_r(&epoch, &tmbuf);
+	t0 = gmtime(&epoch);
 
 	if (t0)
 	{
@@ -974,13 +973,12 @@ abstime2tm(AbsoluteTime _time, int *tzp, struct tm *tm, char **tzn)
 {
 	time_t		time = (time_t) _time;
 	struct tm  *tx;
-	struct tm	tmbuf;
 
 	errno = 0;
 	if (tzp != NULL)
-		tx = localtime_r(&time, &tmbuf);
+		tx = localtime((time_t *) &time);
 	else
-		tx = gmtime_r(&time, &tmbuf);
+		tx = gmtime((time_t *) &time);
 
 	if (!tx)
 	{
@@ -2812,10 +2810,9 @@ PGTYPEStimestamp_defmt_scan(char **str, char *fmt, timestamp * d,
 				/* number of seconds in scan_val.luint_val */
 				{
 					struct tm  *tms;
-					struct tm	tmbuf;
 					time_t		et = (time_t) scan_val.luint_val;
 
-					tms = gmtime_r(&et, &tmbuf);
+					tms = gmtime(&et);
 
 					if (tms)
 					{

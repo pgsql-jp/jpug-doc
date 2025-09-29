@@ -6,8 +6,3 @@
 #define HAVE_FSYNC_WRITETHROUGH
 
 #endif
-
-/*
- * macOS has a platform-specific implementation of prefetching.
- */
-#define USE_PREFETCH
