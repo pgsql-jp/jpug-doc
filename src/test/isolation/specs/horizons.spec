@@ -40,6 +40,7 @@ session pruner
 setup
 {
     SET enable_seqscan = false;
+    SET enable_indexscan = false;
     SET enable_bitmapscan = false;
 }
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, PostgreSQL Global Development Group
+# Copyright (c) 2022-2024, PostgreSQL Global Development Group
 
 pg_upgrade_sources = files(
   'check.c',
@@ -14,7 +14,6 @@ pg_upgrade_sources = files(
   'relfilenumber.c',
   'server.c',
   'tablespace.c',
-  'task.c',
   'util.c',
   'version.c',
 )
@@ -45,8 +44,6 @@ tests += {
       't/002_pg_upgrade.pl',
       't/003_logical_slots.pl',
       't/004_subscription.pl',
-      't/005_char_signedness.pl',
-      't/006_transfer_modes.pl',
     ],
     'test_kwargs': {'priority': 40}, # pg_upgrade tests are slow
   },

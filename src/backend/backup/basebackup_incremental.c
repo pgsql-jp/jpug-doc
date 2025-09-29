@@ -10,7 +10,7 @@
  * backup manifest supplied by the user taking the incremental backup
  * and extract the required information from it.
  *
- * Portions Copyright (c) 2010-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2010-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/backup/basebackup_incremental.c
@@ -27,7 +27,9 @@
 #include "common/hashfn.h"
 #include "common/int.h"
 #include "common/parse_manifest.h"
+#include "datatype/timestamp.h"
 #include "postmaster/walsummarizer.h"
+#include "utils/timestamp.h"
 
 #define	BLOCKS_PER_READ			512
 
@@ -56,7 +58,7 @@ typedef struct
 {
 	uint32		status;
 	const char *path;
-	uint64		size;
+	size_t		size;
 } backup_file_entry;
 
 static uint32 hash_string_pointer(const char *s);
@@ -131,7 +133,7 @@ static void manifest_process_system_identifier(JsonManifestParseContext *context
 											   uint64 manifest_system_identifier);
 static void manifest_process_file(JsonManifestParseContext *context,
 								  const char *pathname,
-								  uint64 size,
+								  size_t size,
 								  pg_checksum_type checksum_type,
 								  int checksum_length,
 								  uint8 *checksum_payload);
@@ -139,9 +141,9 @@ static void manifest_process_wal_range(JsonManifestParseContext *context,
 									   TimeLineID tli,
 									   XLogRecPtr start_lsn,
 									   XLogRecPtr end_lsn);
-pg_noreturn static void manifest_report_error(JsonManifestParseContext *context,
-											  const char *fmt,...)
-			pg_attribute_printf(2, 3);
+static void manifest_report_error(JsonManifestParseContext *context,
+								  const char *fmt,...)
+			pg_attribute_printf(2, 3) pg_attribute_noreturn();
 static int	compare_block_numbers(const void *a, const void *b);
 
 /*
@@ -625,21 +627,23 @@ char *
 GetIncrementalFilePath(Oid dboid, Oid spcoid, RelFileNumber relfilenumber,
 					   ForkNumber forknum, unsigned segno)
 {
-	RelPathStr	path;
+	char	   *path;
 	char	   *lastslash;
 	char	   *ipath;
 
 	path = GetRelationPath(dboid, spcoid, relfilenumber, INVALID_PROC_NUMBER,
 						   forknum);
 
-	lastslash = strrchr(path.str, '/');
+	lastslash = strrchr(path, '/');
 	Assert(lastslash != NULL);
 	*lastslash = '\0';
 
 	if (segno > 0)
-		ipath = psprintf("%s/INCREMENTAL.%s.%u", path.str, lastslash + 1, segno);
+		ipath = psprintf("%s/INCREMENTAL.%s.%u", path, lastslash + 1, segno);
 	else
-		ipath = psprintf("%s/INCREMENTAL.%s", path.str, lastslash + 1);
+		ipath = psprintf("%s/INCREMENTAL.%s", path, lastslash + 1);
+
+	pfree(path);
 
 	return ipath;
 }
@@ -863,7 +867,7 @@ GetFileBackupMethod(IncrementalBackupInfo *ib, const char *path,
  * number of blocks. The header is rounded to a multiple of BLCKSZ, but
  * only if the file will store some block data.
  */
-size_t
+extern size_t
 GetIncrementalHeaderSize(unsigned num_blocks_required)
 {
 	size_t		result;
@@ -891,7 +895,7 @@ GetIncrementalHeaderSize(unsigned num_blocks_required)
 /*
  * Compute the size for an incremental file containing a given number of blocks.
  */
-size_t
+extern size_t
 GetIncrementalFileSize(unsigned num_blocks_required)
 {
 	size_t		result;
@@ -949,9 +953,9 @@ manifest_process_system_identifier(JsonManifestParseContext *context,
 
 	if (manifest_system_identifier != system_identifier)
 		context->error_cb(context,
-						  "system identifier in backup manifest is %" PRIu64 ", but database system identifier is %" PRIu64,
-						  manifest_system_identifier,
-						  system_identifier);
+						  "system identifier in backup manifest is %llu, but database system identifier is %llu",
+						  (unsigned long long) manifest_system_identifier,
+						  (unsigned long long) system_identifier);
 }
 
 /*
@@ -962,7 +966,7 @@ manifest_process_system_identifier(JsonManifestParseContext *context,
  */
 static void
 manifest_process_file(JsonManifestParseContext *context,
-					  const char *pathname, uint64 size,
+					  const char *pathname, size_t size,
 					  pg_checksum_type checksum_type,
 					  int checksum_length,
 					  uint8 *checksum_payload)

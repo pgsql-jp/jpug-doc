@@ -3,7 +3,7 @@
  * auto_explain.c
  *
  *
- * Copyright (c) 2008-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2008-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  contrib/auto_explain/auto_explain.c
@@ -16,16 +16,13 @@
 
 #include "access/parallel.h"
 #include "commands/explain.h"
-#include "commands/explain_format.h"
-#include "commands/explain_state.h"
 #include "common/pg_prng.h"
 #include "executor/instrument.h"
+#include "jit/jit.h"
+#include "nodes/params.h"
 #include "utils/guc.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "auto_explain",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* GUC variables */
 static int	auto_explain_log_min_duration = -1; /* msec or -1 */
@@ -75,7 +72,7 @@ static bool current_query_sampled = false;
 	 (nesting_level == 0 || auto_explain_log_nested_statements) && \
 	 current_query_sampled)
 
-/* Saved hook values */
+/* Saved hook values in case of unload */
 static ExecutorStart_hook_type prev_ExecutorStart = NULL;
 static ExecutorRun_hook_type prev_ExecutorRun = NULL;
 static ExecutorFinish_hook_type prev_ExecutorFinish = NULL;
@@ -84,7 +81,7 @@ static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
 static void explain_ExecutorStart(QueryDesc *queryDesc, int eflags);
 static void explain_ExecutorRun(QueryDesc *queryDesc,
 								ScanDirection direction,
-								uint64 count);
+								uint64 count, bool execute_once);
 static void explain_ExecutorFinish(QueryDesc *queryDesc);
 static void explain_ExecutorEnd(QueryDesc *queryDesc);
 
@@ -98,7 +95,7 @@ _PG_init(void)
 	/* Define custom GUC variables. */
 	DefineCustomIntVariable("auto_explain.log_min_duration",
 							"Sets the minimum execution time above which plans will be logged.",
-							"-1 disables logging plans. 0 means log all plans.",
+							"Zero prints all plans. -1 turns this feature off.",
 							&auto_explain_log_min_duration,
 							-1,
 							-1, INT_MAX,
@@ -109,8 +106,8 @@ _PG_init(void)
 							NULL);
 
 	DefineCustomIntVariable("auto_explain.log_parameter_max_length",
-							"Sets the maximum length of query parameter values to log.",
-							"-1 means log values in full.",
+							"Sets the maximum length of query parameters to log.",
+							"Zero logs no query parameters, -1 logs them in full.",
 							&auto_explain_log_parameter_max_length,
 							-1,
 							-1, INT_MAX,
@@ -326,15 +323,15 @@ explain_ExecutorStart(QueryDesc *queryDesc, int eflags)
  */
 static void
 explain_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
-					uint64 count)
+					uint64 count, bool execute_once)
 {
 	nesting_level++;
 	PG_TRY();
 	{
 		if (prev_ExecutorRun)
-			prev_ExecutorRun(queryDesc, direction, count);
+			prev_ExecutorRun(queryDesc, direction, count, execute_once);
 		else
-			standard_ExecutorRun(queryDesc, direction, count);
+			standard_ExecutorRun(queryDesc, direction, count, execute_once);
 	}
 	PG_FINALLY();
 	{

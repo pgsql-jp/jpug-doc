@@ -131,12 +131,11 @@ sqlda_dynamic_type(Oid type, enum COMPAT_MODE compat)
 		case INTERVALOID:
 			return ECPGt_interval;
 		case INT8OID:
-#if SIZEOF_LONG == 8
-			return ECPGt_long;
-#elif SIZEOF_LONG_LONG == 8
+#ifdef HAVE_LONG_LONG_INT_64
 			return ECPGt_long_long;
-#else
-#error "cannot find integer type of the same size as INT8OID"
+#endif
+#ifdef HAVE_LONG_INT_64
+			return ECPGt_long;
 #endif
 			/* Unhandled types always return a string */
 		default:

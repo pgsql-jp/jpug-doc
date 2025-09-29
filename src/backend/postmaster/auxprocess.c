@@ -3,7 +3,7 @@
  *	  functions related to auxiliary processes.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -18,6 +18,11 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "postmaster/auxprocess.h"
+#include "postmaster/bgwriter.h"
+#include "postmaster/startup.h"
+#include "postmaster/walsummarizer.h"
+#include "postmaster/walwriter.h"
+#include "replication/walreceiver.h"
 #include "storage/condition_variable.h"
 #include "storage/ipc.h"
 #include "storage/proc.h"
@@ -49,8 +54,7 @@ AuxiliaryProcessMainCommon(void)
 
 	init_ps_display(NULL);
 
-	Assert(GetProcessingMode() == InitProcessing);
-
+	SetProcessingMode(BootstrapProcessing);
 	IgnoreSystemIndexes = true;
 
 	/*
@@ -66,7 +70,7 @@ AuxiliaryProcessMainCommon(void)
 
 	BaseInit();
 
-	ProcSignalInit(NULL, 0);
+	ProcSignalInit();
 
 	/*
 	 * Auxiliary processes don't run transactions, but they may need a
@@ -78,8 +82,7 @@ AuxiliaryProcessMainCommon(void)
 
 	/* Initialize backend status information */
 	pgstat_beinit();
-	pgstat_bestart_initial();
-	pgstat_bestart_final();
+	pgstat_bestart();
 
 	/* register a before-shutdown callback for LWLock cleanup */
 	before_shmem_exit(ShutdownAuxiliaryProcess, 0);

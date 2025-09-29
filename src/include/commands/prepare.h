@@ -4,7 +4,7 @@
  *	  PREPARE, EXECUTE and DEALLOCATE commands, and prepared-stmt storage
  *
  *
- * Copyright (c) 2002-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2002-2024, PostgreSQL Global Development Group
  *
  * src/include/commands/prepare.h
  *
@@ -13,9 +13,8 @@
 #ifndef PREPARE_H
 #define PREPARE_H
 
-#include "commands/explain_state.h"
+#include "commands/explain.h"
 #include "datatype/timestamp.h"
-#include "tcop/dest.h"
 #include "utils/plancache.h"
 
 /*
@@ -44,8 +43,8 @@ extern void ExecuteQuery(ParseState *pstate,
 						 DestReceiver *dest, QueryCompletion *qc);
 extern void DeallocateQuery(DeallocateStmt *stmt);
 extern void ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into,
-								ExplainState *es, ParseState *pstate,
-								ParamListInfo params);
+								ExplainState *es, const char *queryString,
+								ParamListInfo params, QueryEnvironment *queryEnv);
 
 /* Low-level access to stored prepared statements */
 extern void StorePreparedStatement(const char *stmt_name,

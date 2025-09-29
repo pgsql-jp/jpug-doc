@@ -3,7 +3,7 @@
  *
  * syncrep_gram.y				- Parser for synchronous_standby_names
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -17,7 +17,9 @@
 #include "nodes/pg_list.h"
 #include "replication/syncrep.h"
 
-#include "syncrep_gram.h"
+/* Result of parsing is returned in one of these two variables */
+SyncRepConfigData *syncrep_parse_result;
+char	   *syncrep_parse_error_msg;
 
 static SyncRepConfigData *create_syncrep_config(const char *num_sync,
 					List *members, uint8 syncrep_method);
@@ -32,12 +34,6 @@ static SyncRepConfigData *create_syncrep_config(const char *num_sync,
 
 %}
 
-%parse-param {SyncRepConfigData **syncrep_parse_result_p}
-%parse-param {char **syncrep_parse_error_msg_p}
-%parse-param {yyscan_t yyscanner}
-%lex-param   {char **syncrep_parse_error_msg_p}
-%lex-param   {yyscan_t yyscanner}
-%pure-parser
 %expect 0
 %name-prefix="syncrep_yy"
 
@@ -58,10 +54,7 @@ static SyncRepConfigData *create_syncrep_config(const char *num_sync,
 
 %%
 result:
-		standby_config				{
-										*syncrep_parse_result_p = $1;
-										(void) yynerrs; /* suppress compiler warning */
-									}
+		standby_config				{ syncrep_parse_result = $1; }
 	;
 
 standby_config:

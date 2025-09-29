@@ -16,7 +16,7 @@
  *		relevant database in turn.  The former keeps running after the
  *		initial prewarm is complete to update the dump file periodically.
  *
- *	Copyright (c) 2016-2025, PostgreSQL Global Development Group
+ *	Copyright (c) 2016-2024, PostgreSQL Global Development Group
  *
  *	IDENTIFICATION
  *		contrib/pg_prewarm/autoprewarm.c
@@ -30,6 +30,8 @@
 
 #include "access/relation.h"
 #include "access/xact.h"
+#include "catalog/pg_class.h"
+#include "catalog/pg_type.h"
 #include "pgstat.h"
 #include "postmaster/bgworker.h"
 #include "postmaster/interrupt.h"
@@ -40,14 +42,18 @@
 #include "storage/ipc.h"
 #include "storage/latch.h"
 #include "storage/lwlock.h"
+#include "storage/proc.h"
 #include "storage/procsignal.h"
-#include "storage/read_stream.h"
+#include "storage/shmem.h"
 #include "storage/smgr.h"
 #include "tcop/tcopprot.h"
+#include "utils/acl.h"
+#include "utils/datetime.h"
 #include "utils/guc.h"
+#include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/relfilenumbermap.h"
-#include "utils/timestamp.h"
+#include "utils/resowner.h"
 
 #define AUTOPREWARM_FILE "autoprewarm.blocks"
 
@@ -75,28 +81,6 @@ typedef struct AutoPrewarmSharedState
 	int			prewarm_stop_idx;
 	int			prewarmed_blocks;
 } AutoPrewarmSharedState;
-
-/*
- * Private data passed through the read stream API for our use in the
- * callback.
- */
-typedef struct AutoPrewarmReadStreamData
-{
-	/* The array of records containing the blocks we should prewarm. */
-	BlockInfoRecord *block_info;
-
-	/*
-	 * pos is the read stream callback's index into block_info. Because the
-	 * read stream may read ahead, pos is likely to be ahead of the index in
-	 * the main loop in autoprewarm_database_main().
-	 */
-	int			pos;
-	Oid			tablespace;
-	RelFileNumber filenumber;
-	ForkNumber	forknum;
-	BlockNumber nblocks;
-} AutoPrewarmReadStreamData;
-
 
 PGDLLEXPORT void autoprewarm_main(Datum main_arg);
 PGDLLEXPORT void autoprewarm_database_main(Datum main_arg);
@@ -446,63 +430,17 @@ apw_load_buffers(void)
 }
 
 /*
- * Return the next block number of a specific relation and fork to read
- * according to the array of BlockInfoRecord.
- */
-static BlockNumber
-apw_read_stream_next_block(ReadStream *stream,
-						   void *callback_private_data,
-						   void *per_buffer_data)
-{
-	AutoPrewarmReadStreamData *p = callback_private_data;
-
-	CHECK_FOR_INTERRUPTS();
-
-	while (p->pos < apw_state->prewarm_stop_idx)
-	{
-		BlockInfoRecord blk = p->block_info[p->pos];
-
-		if (!have_free_buffer())
-		{
-			p->pos = apw_state->prewarm_stop_idx;
-			return InvalidBlockNumber;
-		}
-
-		if (blk.tablespace != p->tablespace)
-			return InvalidBlockNumber;
-
-		if (blk.filenumber != p->filenumber)
-			return InvalidBlockNumber;
-
-		if (blk.forknum != p->forknum)
-			return InvalidBlockNumber;
-
-		p->pos++;
-
-		/*
-		 * Check whether blocknum is valid and within fork file size.
-		 * Fast-forward through any invalid blocks. We want p->pos to reflect
-		 * the location of the next relation or fork before ending the stream.
-		 */
-		if (blk.blocknum >= p->nblocks)
-			continue;
-
-		return blk.blocknum;
-	}
-
-	return InvalidBlockNumber;
-}
-
-/*
  * Prewarm all blocks for one database (and possibly also global objects, if
  * those got grouped with this database).
  */
 void
 autoprewarm_database_main(Datum main_arg)
 {
+	int			pos;
 	BlockInfoRecord *block_info;
-	int			i;
-	BlockInfoRecord blk;
+	Relation	rel = NULL;
+	BlockNumber nblocks = 0;
+	BlockInfoRecord *old_blk = NULL;
 	dsm_segment *seg;
 
 	/* Establish signal handlers; once that's done, unblock signals. */
@@ -518,142 +456,108 @@ autoprewarm_database_main(Datum main_arg)
 				 errmsg("could not map dynamic shared memory segment")));
 	BackgroundWorkerInitializeConnectionByOid(apw_state->database, InvalidOid, 0);
 	block_info = (BlockInfoRecord *) dsm_segment_address(seg);
-
-	i = apw_state->prewarm_start_idx;
-	blk = block_info[i];
+	pos = apw_state->prewarm_start_idx;
 
 	/*
 	 * Loop until we run out of blocks to prewarm or until we run out of free
 	 * buffers.
 	 */
-	while (i < apw_state->prewarm_stop_idx && have_free_buffer())
+	while (pos < apw_state->prewarm_stop_idx && have_free_buffer())
 	{
-		Oid			tablespace = blk.tablespace;
-		RelFileNumber filenumber = blk.filenumber;
-		Oid			reloid;
-		Relation	rel;
+		BlockInfoRecord *blk = &block_info[pos++];
+		Buffer		buf;
+
+		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * All blocks between prewarm_start_idx and prewarm_stop_idx should
-		 * belong either to global objects or the same database.
+		 * Quit if we've reached records for another database. If previous
+		 * blocks are of some global objects, then continue pre-warming.
 		 */
-		Assert(blk.database == apw_state->database || blk.database == 0);
+		if (old_blk != NULL && old_blk->database != blk->database &&
+			old_blk->database != 0)
+			break;
 
-		StartTransactionCommand();
-
-		reloid = RelidByRelfilenumber(blk.tablespace, blk.filenumber);
-		if (!OidIsValid(reloid) ||
-			(rel = try_relation_open(reloid, AccessShareLock)) == NULL)
+		/*
+		 * As soon as we encounter a block of a new relation, close the old
+		 * relation. Note that rel will be NULL if try_relation_open failed
+		 * previously; in that case, there is nothing to close.
+		 */
+		if (old_blk != NULL && old_blk->filenumber != blk->filenumber &&
+			rel != NULL)
 		{
-			/* We failed to open the relation, so there is nothing to close. */
+			relation_close(rel, AccessShareLock);
+			rel = NULL;
 			CommitTransactionCommand();
-
-			/*
-			 * Fast-forward to the next relation. We want to skip all of the
-			 * other records referencing this relation since we know we can't
-			 * open it. That way, we avoid repeatedly trying and failing to
-			 * open the same relation.
-			 */
-			for (; i < apw_state->prewarm_stop_idx; i++)
-			{
-				blk = block_info[i];
-				if (blk.tablespace != tablespace ||
-					blk.filenumber != filenumber)
-					break;
-			}
-
-			/* Time to try and open our newfound relation */
-			continue;
 		}
 
 		/*
-		 * We have a relation; now let's loop until we find a valid fork of
-		 * the relation or we run out of free buffers. Once we've read from
-		 * all valid forks or run out of options, we'll close the relation and
-		 * move on.
+		 * Try to open each new relation, but only once, when we first
+		 * encounter it. If it's been dropped, skip the associated blocks.
 		 */
-		while (i < apw_state->prewarm_stop_idx &&
-			   blk.tablespace == tablespace &&
-			   blk.filenumber == filenumber &&
-			   have_free_buffer())
+		if (old_blk == NULL || old_blk->filenumber != blk->filenumber)
 		{
-			ForkNumber	forknum = blk.forknum;
-			BlockNumber nblocks;
-			struct AutoPrewarmReadStreamData p;
-			ReadStream *stream;
-			Buffer		buf;
+			Oid			reloid;
 
+			Assert(rel == NULL);
+			StartTransactionCommand();
+			reloid = RelidByRelfilenumber(blk->tablespace, blk->filenumber);
+			if (OidIsValid(reloid))
+				rel = try_relation_open(reloid, AccessShareLock);
+
+			if (!rel)
+				CommitTransactionCommand();
+		}
+		if (!rel)
+		{
+			old_blk = blk;
+			continue;
+		}
+
+		/* Once per fork, check for fork existence and size. */
+		if (old_blk == NULL ||
+			old_blk->filenumber != blk->filenumber ||
+			old_blk->forknum != blk->forknum)
+		{
 			/*
 			 * smgrexists is not safe for illegal forknum, hence check whether
 			 * the passed forknum is valid before using it in smgrexists.
 			 */
-			if (blk.forknum <= InvalidForkNumber ||
-				blk.forknum > MAX_FORKNUM ||
-				!smgrexists(RelationGetSmgr(rel), blk.forknum))
-			{
-				/*
-				 * Fast-forward to the next fork. We want to skip all of the
-				 * other records referencing this fork since we already know
-				 * it's not valid.
-				 */
-				for (; i < apw_state->prewarm_stop_idx; i++)
-				{
-					blk = block_info[i];
-					if (blk.tablespace != tablespace ||
-						blk.filenumber != filenumber ||
-						blk.forknum != forknum)
-						break;
-				}
-
-				/* Time to check if this newfound fork is valid */
-				continue;
-			}
-
-			nblocks = RelationGetNumberOfBlocksInFork(rel, blk.forknum);
-
-			p = (struct AutoPrewarmReadStreamData)
-			{
-				.block_info = block_info,
-					.pos = i,
-					.tablespace = tablespace,
-					.filenumber = filenumber,
-					.forknum = forknum,
-					.nblocks = nblocks,
-			};
-
-			stream = read_stream_begin_relation(READ_STREAM_MAINTENANCE |
-												READ_STREAM_DEFAULT |
-												READ_STREAM_USE_BATCHING,
-												NULL,
-												rel,
-												p.forknum,
-												apw_read_stream_next_block,
-												&p,
-												0);
-
-			/*
-			 * Loop until we've prewarmed all the blocks from this fork. The
-			 * read stream callback will check that we still have free buffers
-			 * before requesting each block from the read stream API.
-			 */
-			while ((buf = read_stream_next_buffer(stream, NULL)) != InvalidBuffer)
-			{
-				apw_state->prewarmed_blocks++;
-				ReleaseBuffer(buf);
-			}
-
-			read_stream_end(stream);
-
-			/* Advance i past all the blocks just prewarmed. */
-			i = p.pos;
-			blk = block_info[i];
+			if (blk->forknum > InvalidForkNumber &&
+				blk->forknum <= MAX_FORKNUM &&
+				smgrexists(RelationGetSmgr(rel), blk->forknum))
+				nblocks = RelationGetNumberOfBlocksInFork(rel, blk->forknum);
+			else
+				nblocks = 0;
 		}
 
-		relation_close(rel, AccessShareLock);
-		CommitTransactionCommand();
+		/* Check whether blocknum is valid and within fork file size. */
+		if (blk->blocknum >= nblocks)
+		{
+			/* Move to next forknum. */
+			old_blk = blk;
+			continue;
+		}
+
+		/* Prewarm buffer. */
+		buf = ReadBufferExtended(rel, blk->forknum, blk->blocknum, RBM_NORMAL,
+								 NULL);
+		if (BufferIsValid(buf))
+		{
+			apw_state->prewarmed_blocks++;
+			ReleaseBuffer(buf);
+		}
+
+		old_blk = blk;
 	}
 
 	dsm_detach(seg);
+
+	/* Release lock on previous relation. */
+	if (rel)
+	{
+		relation_close(rel, AccessShareLock);
+		CommitTransactionCommand();
+	}
 }
 
 /*
@@ -908,11 +812,12 @@ apw_detach_shmem(int code, Datum arg)
 static void
 apw_start_leader_worker(void)
 {
-	BackgroundWorker worker = {0};
+	BackgroundWorker worker;
 	BackgroundWorkerHandle *handle;
 	BgwHandleStatus status;
 	pid_t		pid;
 
+	MemSet(&worker, 0, sizeof(BackgroundWorker));
 	worker.bgw_flags = BGWORKER_SHMEM_ACCESS;
 	worker.bgw_start_time = BgWorkerStart_ConsistentState;
 	strcpy(worker.bgw_library_name, "pg_prewarm");
@@ -949,9 +854,10 @@ apw_start_leader_worker(void)
 static void
 apw_start_database_worker(void)
 {
-	BackgroundWorker worker = {0};
+	BackgroundWorker worker;
 	BackgroundWorkerHandle *handle;
 
+	MemSet(&worker, 0, sizeof(BackgroundWorker));
 	worker.bgw_flags =
 		BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION;
 	worker.bgw_start_time = BgWorkerStart_ConsistentState;

@@ -2,7 +2,7 @@
  *
  * walmethods.c - implementations of different ways to write received wal
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/walmethods.c
@@ -11,7 +11,6 @@
 
 #include "postgres_fe.h"
 
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -27,7 +26,8 @@
 #include "common/file_utils.h"
 #include "common/logging.h"
 #include "pgtar.h"
-#include "walmethods.h"
+#include "receivelog.h"
+#include "streamutil.h"
 
 /* Size of zlib buffer for .tar.gz */
 #define ZLIB_OUT_SIZE 4096
@@ -55,7 +55,7 @@ static int	dir_sync(Walfile *f);
 static bool dir_finish(WalWriteMethod *wwmethod);
 static void dir_free(WalWriteMethod *wwmethod);
 
-static const WalWriteMethodOps WalDirectoryMethodOps = {
+const WalWriteMethodOps WalDirectoryMethodOps = {
 	.open_for_write = dir_open_for_write,
 	.close = dir_close,
 	.existsfile = dir_existsfile,
@@ -676,7 +676,7 @@ static int	tar_sync(Walfile *f);
 static bool tar_finish(WalWriteMethod *wwmethod);
 static void tar_free(WalWriteMethod *wwmethod);
 
-static const WalWriteMethodOps WalTarMethodOps = {
+const WalWriteMethodOps WalTarMethodOps = {
 	.open_for_write = tar_open_for_write,
 	.close = tar_close,
 	.existsfile = tar_existsfile,

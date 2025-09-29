@@ -2,7 +2,7 @@
  * bgworker.c
  *		POSTGRES pluggable background workers implementation
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/postmaster/bgworker.c
@@ -37,7 +37,7 @@
 /*
  * The postmaster's list of registered background workers, in private memory.
  */
-dlist_head	BackgroundWorkerList = DLIST_STATIC_INIT(BackgroundWorkerList);
+slist_head	BackgroundWorkerList = SLIST_STATIC_INIT(BackgroundWorkerList);
 
 /*
  * BackgroundWorkerSlots exist in shared memory and can be accessed (via
@@ -168,7 +168,7 @@ BackgroundWorkerShmemInit(void)
 										   &found);
 	if (!IsUnderPostmaster)
 	{
-		dlist_iter	iter;
+		slist_iter	siter;
 		int			slotno = 0;
 
 		BackgroundWorkerData->total_slots = max_worker_processes;
@@ -181,12 +181,12 @@ BackgroundWorkerShmemInit(void)
 		 * correspondence between the postmaster's private list and the array
 		 * in shared memory.
 		 */
-		dlist_foreach(iter, &BackgroundWorkerList)
+		slist_foreach(siter, &BackgroundWorkerList)
 		{
 			BackgroundWorkerSlot *slot = &BackgroundWorkerData->slot[slotno];
 			RegisteredBgWorker *rw;
 
-			rw = dlist_container(RegisteredBgWorker, rw_lnode, iter.cur);
+			rw = slist_container(RegisteredBgWorker, rw_lnode, siter.cur);
 			Assert(slotno < max_worker_processes);
 			slot->in_use = true;
 			slot->terminate = false;
@@ -220,13 +220,13 @@ BackgroundWorkerShmemInit(void)
 static RegisteredBgWorker *
 FindRegisteredWorkerBySlotNumber(int slotno)
 {
-	dlist_iter	iter;
+	slist_iter	siter;
 
-	dlist_foreach(iter, &BackgroundWorkerList)
+	slist_foreach(siter, &BackgroundWorkerList)
 	{
 		RegisteredBgWorker *rw;
 
-		rw = dlist_container(RegisteredBgWorker, rw_lnode, iter.cur);
+		rw = slist_container(RegisteredBgWorker, rw_lnode, siter.cur);
 		if (rw->rw_shmem_slot == slotno)
 			return rw;
 	}
@@ -257,7 +257,7 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 	if (max_worker_processes != BackgroundWorkerData->total_slots)
 	{
 		ereport(LOG,
-				(errmsg("inconsistent background worker state (\"max_worker_processes\"=%d, total slots=%d)",
+				(errmsg("inconsistent background worker state (max_worker_processes=%d, total_slots=%d)",
 						max_worker_processes,
 						BackgroundWorkerData->total_slots)));
 		return;
@@ -401,7 +401,9 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 		}
 
 		/* Initialize postmaster bookkeeping. */
+		rw->rw_backend = NULL;
 		rw->rw_pid = 0;
+		rw->rw_child_slot = 0;
 		rw->rw_crashed_at = 0;
 		rw->rw_shmem_slot = slotno;
 		rw->rw_terminate = false;
@@ -411,24 +413,28 @@ BackgroundWorkerStateChange(bool allow_new_workers)
 				(errmsg_internal("registering background worker \"%s\"",
 								 rw->rw_worker.bgw_name)));
 
-		dlist_push_head(&BackgroundWorkerList, &rw->rw_lnode);
+		slist_push_head(&BackgroundWorkerList, &rw->rw_lnode);
 	}
 }
 
 /*
  * Forget about a background worker that's no longer needed.
  *
- * NOTE: The entry is unlinked from BackgroundWorkerList.  If the caller is
- * iterating through it, better use a mutable iterator!
+ * The worker must be identified by passing an slist_mutable_iter that
+ * points to it.  This convention allows deletion of workers during
+ * searches of the worker list, and saves having to search the list again.
  *
  * Caller is responsible for notifying bgw_notify_pid, if appropriate.
  *
  * This function must be invoked only in the postmaster.
  */
 void
-ForgetBackgroundWorker(RegisteredBgWorker *rw)
+ForgetBackgroundWorker(slist_mutable_iter *cur)
 {
+	RegisteredBgWorker *rw;
 	BackgroundWorkerSlot *slot;
+
+	rw = slist_container(RegisteredBgWorker, rw_lnode, cur->cur);
 
 	Assert(rw->rw_shmem_slot < max_worker_processes);
 	slot = &BackgroundWorkerData->slot[rw->rw_shmem_slot];
@@ -448,7 +454,7 @@ ForgetBackgroundWorker(RegisteredBgWorker *rw)
 			(errmsg_internal("unregistering background worker \"%s\"",
 							 rw->rw_worker.bgw_name)));
 
-	dlist_delete(&rw->rw_lnode);
+	slist_delete_current(cur);
 	pfree(rw);
 }
 
@@ -474,16 +480,16 @@ ReportBackgroundWorkerPID(RegisteredBgWorker *rw)
  * Report that the PID of a background worker is now zero because a
  * previously-running background worker has exited.
  *
- * NOTE: The entry may be unlinked from BackgroundWorkerList.  If the caller
- * is iterating through it, better use a mutable iterator!
- *
  * This function should only be called from the postmaster.
  */
 void
-ReportBackgroundWorkerExit(RegisteredBgWorker *rw)
+ReportBackgroundWorkerExit(slist_mutable_iter *cur)
 {
+	RegisteredBgWorker *rw;
 	BackgroundWorkerSlot *slot;
 	int			notify_pid;
+
+	rw = slist_container(RegisteredBgWorker, rw_lnode, cur->cur);
 
 	Assert(rw->rw_shmem_slot < max_worker_processes);
 	slot = &BackgroundWorkerData->slot[rw->rw_shmem_slot];
@@ -499,7 +505,7 @@ ReportBackgroundWorkerExit(RegisteredBgWorker *rw)
 	 */
 	if (rw->rw_terminate ||
 		rw->rw_worker.bgw_restart_time == BGW_NEVER_RESTART)
-		ForgetBackgroundWorker(rw);
+		ForgetBackgroundWorker(cur);
 
 	if (notify_pid != 0)
 		kill(notify_pid, SIGUSR1);
@@ -513,13 +519,13 @@ ReportBackgroundWorkerExit(RegisteredBgWorker *rw)
 void
 BackgroundWorkerStopNotifications(pid_t pid)
 {
-	dlist_iter	iter;
+	slist_iter	siter;
 
-	dlist_foreach(iter, &BackgroundWorkerList)
+	slist_foreach(siter, &BackgroundWorkerList)
 	{
 		RegisteredBgWorker *rw;
 
-		rw = dlist_container(RegisteredBgWorker, rw_lnode, iter.cur);
+		rw = slist_container(RegisteredBgWorker, rw_lnode, siter.cur);
 		if (rw->rw_worker.bgw_notify_pid == pid)
 			rw->rw_worker.bgw_notify_pid = 0;
 	}
@@ -540,14 +546,14 @@ BackgroundWorkerStopNotifications(pid_t pid)
 void
 ForgetUnstartedBackgroundWorkers(void)
 {
-	dlist_mutable_iter iter;
+	slist_mutable_iter iter;
 
-	dlist_foreach_modify(iter, &BackgroundWorkerList)
+	slist_foreach_modify(iter, &BackgroundWorkerList)
 	{
 		RegisteredBgWorker *rw;
 		BackgroundWorkerSlot *slot;
 
-		rw = dlist_container(RegisteredBgWorker, rw_lnode, iter.cur);
+		rw = slist_container(RegisteredBgWorker, rw_lnode, iter.cur);
 		Assert(rw->rw_shmem_slot < max_worker_processes);
 		slot = &BackgroundWorkerData->slot[rw->rw_shmem_slot];
 
@@ -558,7 +564,7 @@ ForgetUnstartedBackgroundWorkers(void)
 			/* ... then zap it, and notify the waiter */
 			int			notify_pid = rw->rw_worker.bgw_notify_pid;
 
-			ForgetBackgroundWorker(rw);
+			ForgetBackgroundWorker(&iter);
 			if (notify_pid != 0)
 				kill(notify_pid, SIGUSR1);
 		}
@@ -578,13 +584,13 @@ ForgetUnstartedBackgroundWorkers(void)
 void
 ResetBackgroundWorkerCrashTimes(void)
 {
-	dlist_mutable_iter iter;
+	slist_mutable_iter iter;
 
-	dlist_foreach_modify(iter, &BackgroundWorkerList)
+	slist_foreach_modify(iter, &BackgroundWorkerList)
 	{
 		RegisteredBgWorker *rw;
 
-		rw = dlist_container(RegisteredBgWorker, rw_lnode, iter.cur);
+		rw = slist_container(RegisteredBgWorker, rw_lnode, iter.cur);
 
 		if (rw->rw_worker.bgw_restart_time == BGW_NEVER_RESTART)
 		{
@@ -595,7 +601,7 @@ ResetBackgroundWorkerCrashTimes(void)
 			 * parallel_terminate_count will get incremented after we've
 			 * already zeroed parallel_register_count, which would be bad.)
 			 */
-			ForgetBackgroundWorker(rw);
+			ForgetBackgroundWorker(&iter);
 		}
 		else
 		{
@@ -613,7 +619,6 @@ ResetBackgroundWorkerCrashTimes(void)
 			 * resetting.
 			 */
 			rw->rw_crashed_at = 0;
-			rw->rw_pid = 0;
 
 			/*
 			 * If there was anyone waiting for it, they're history.
@@ -715,7 +720,7 @@ bgworker_die(SIGNAL_ARGS)
  * Main entry point for background worker processes.
  */
 void
-BackgroundWorkerMain(const void *startup_data, size_t startup_data_len)
+BackgroundWorkerMain(char *startup_data, size_t startup_data_len)
 {
 	sigjmp_buf	local_sigjmp_buf;
 	BackgroundWorker *worker;
@@ -741,7 +746,7 @@ BackgroundWorkerMain(const void *startup_data, size_t startup_data_len)
 	MyBackendType = B_BG_WORKER;
 	init_ps_display(worker->bgw_name);
 
-	Assert(GetProcessingMode() == InitProcessing);
+	SetProcessingMode(InitProcessing);
 
 	/* Apply PostAuthDelay */
 	if (PostAuthDelay > 0)
@@ -847,89 +852,6 @@ BackgroundWorkerMain(const void *startup_data, size_t startup_data_len)
 }
 
 /*
- * Connect background worker to a database.
- */
-void
-BackgroundWorkerInitializeConnection(const char *dbname, const char *username, uint32 flags)
-{
-	BackgroundWorker *worker = MyBgworkerEntry;
-	bits32		init_flags = 0; /* never honor session_preload_libraries */
-
-	/* ignore datallowconn and ACL_CONNECT? */
-	if (flags & BGWORKER_BYPASS_ALLOWCONN)
-		init_flags |= INIT_PG_OVERRIDE_ALLOW_CONNS;
-	/* ignore rolcanlogin? */
-	if (flags & BGWORKER_BYPASS_ROLELOGINCHECK)
-		init_flags |= INIT_PG_OVERRIDE_ROLE_LOGIN;
-
-	/* XXX is this the right errcode? */
-	if (!(worker->bgw_flags & BGWORKER_BACKEND_DATABASE_CONNECTION))
-		ereport(FATAL,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("database connection requirement not indicated during registration")));
-
-	InitPostgres(dbname, InvalidOid,	/* database to connect to */
-				 username, InvalidOid,	/* role to connect as */
-				 init_flags,
-				 NULL);			/* no out_dbname */
-
-	/* it had better not gotten out of "init" mode yet */
-	if (!IsInitProcessingMode())
-		ereport(ERROR,
-				(errmsg("invalid processing mode in background worker")));
-	SetProcessingMode(NormalProcessing);
-}
-
-/*
- * Connect background worker to a database using OIDs.
- */
-void
-BackgroundWorkerInitializeConnectionByOid(Oid dboid, Oid useroid, uint32 flags)
-{
-	BackgroundWorker *worker = MyBgworkerEntry;
-	bits32		init_flags = 0; /* never honor session_preload_libraries */
-
-	/* ignore datallowconn and ACL_CONNECT? */
-	if (flags & BGWORKER_BYPASS_ALLOWCONN)
-		init_flags |= INIT_PG_OVERRIDE_ALLOW_CONNS;
-	/* ignore rolcanlogin? */
-	if (flags & BGWORKER_BYPASS_ROLELOGINCHECK)
-		init_flags |= INIT_PG_OVERRIDE_ROLE_LOGIN;
-
-	/* XXX is this the right errcode? */
-	if (!(worker->bgw_flags & BGWORKER_BACKEND_DATABASE_CONNECTION))
-		ereport(FATAL,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("database connection requirement not indicated during registration")));
-
-	InitPostgres(NULL, dboid,	/* database to connect to */
-				 NULL, useroid, /* role to connect as */
-				 init_flags,
-				 NULL);			/* no out_dbname */
-
-	/* it had better not gotten out of "init" mode yet */
-	if (!IsInitProcessingMode())
-		ereport(ERROR,
-				(errmsg("invalid processing mode in background worker")));
-	SetProcessingMode(NormalProcessing);
-}
-
-/*
- * Block/unblock signals in a background worker
- */
-void
-BackgroundWorkerBlockSignals(void)
-{
-	sigprocmask(SIG_SETMASK, &BlockSig, NULL);
-}
-
-void
-BackgroundWorkerUnblockSignals(void)
-{
-	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
-}
-
-/*
  * Register a new static background worker.
  *
  * This can only be called directly from postmaster or in the _PG_init
@@ -1025,11 +947,13 @@ RegisterBackgroundWorker(BackgroundWorker *worker)
 	}
 
 	rw->rw_worker = *worker;
+	rw->rw_backend = NULL;
 	rw->rw_pid = 0;
+	rw->rw_child_slot = 0;
 	rw->rw_crashed_at = 0;
 	rw->rw_terminate = false;
 
-	dlist_push_head(&BackgroundWorkerList, &rw->rw_lnode);
+	slist_push_head(&BackgroundWorkerList, &rw->rw_lnode);
 }
 
 /*

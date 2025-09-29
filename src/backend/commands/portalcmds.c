@@ -9,7 +9,7 @@
  * storage management for portals (but doesn't run any queries in them).
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -28,8 +28,6 @@
 #include "executor/executor.h"
 #include "executor/tstoreReceiver.h"
 #include "miscadmin.h"
-#include "nodes/queryjumble.h"
-#include "parser/analyze.h"
 #include "rewrite/rewriteHandler.h"
 #include "tcop/pquery.h"
 #include "tcop/tcopprot.h"
@@ -46,7 +44,6 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 				  bool isTopLevel)
 {
 	Query	   *query = castNode(Query, cstmt->query);
-	JumbleState *jstate = NULL;
 	List	   *rewritten;
 	PlannedStmt *plan;
 	Portal		portal;
@@ -73,13 +70,6 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("cannot create a cursor WITH HOLD within security-restricted operation")));
-
-	/* Query contained by DeclareCursor needs to be jumbled if requested */
-	if (IsQueryIdEnabled())
-		jstate = JumbleQuery(query);
-
-	if (post_parse_analyze_hook)
-		(*post_parse_analyze_hook) (pstate, query, jstate);
 
 	/*
 	 * Parse analysis was done already, but we still have to run the rule
@@ -427,7 +417,7 @@ PersistHoldablePortal(Portal portal)
 										NULL);
 
 		/* Fetch the result set into the tuplestore */
-		ExecutorRun(queryDesc, direction, 0);
+		ExecutorRun(queryDesc, direction, 0, false);
 
 		queryDesc->dest->rDestroy(queryDesc->dest);
 		queryDesc->dest = NULL;

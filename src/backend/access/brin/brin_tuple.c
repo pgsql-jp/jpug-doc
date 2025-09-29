@@ -23,7 +23,7 @@
  * Note the size of the null bitmask may not be the same as that of the
  * datum array.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -699,19 +699,17 @@ brin_deconstruct_tuple(BrinDesc *brdesc,
 			 datumno < brdesc->bd_info[attnum]->oi_nstored;
 			 datumno++)
 		{
-			CompactAttribute *thisatt = TupleDescCompactAttr(diskdsc, stored);
+			Form_pg_attribute thisatt = TupleDescAttr(diskdsc, stored);
 
 			if (thisatt->attlen == -1)
 			{
-				off = att_pointer_alignby(off,
-										  thisatt->attalignby,
-										  -1,
-										  tp + off);
+				off = att_align_pointer(off, thisatt->attalign, -1,
+										tp + off);
 			}
 			else
 			{
-				/* not varlena, so safe to use att_nominal_alignby */
-				off = att_nominal_alignby(off, thisatt->attalignby);
+				/* not varlena, so safe to use att_align_nominal */
+				off = att_align_nominal(off, thisatt->attalign);
 			}
 
 			values[stored++] = fetchatt(thisatt, tp + off);

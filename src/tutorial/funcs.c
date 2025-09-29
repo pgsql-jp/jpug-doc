@@ -11,7 +11,6 @@
 #include "postgres.h"			/* general Postgres declarations */
 
 #include "executor/executor.h"	/* for GetAttributeByName() */
-#include "utils/fmgrprotos.h"	/* for text_starts_with() */
 #include "utils/geo_decls.h"	/* for point type */
 
 PG_MODULE_MAGIC;
@@ -101,25 +100,6 @@ concat_text(PG_FUNCTION_ARGS)
 	memcpy(VARDATA(new_text), VARDATA_ANY(arg1), arg1_size);
 	memcpy(VARDATA(new_text) + arg1_size, VARDATA_ANY(arg2), arg2_size);
 	PG_RETURN_TEXT_P(new_text);
-}
-
-/* A wrapper around starts_with(text, text) */
-
-PG_FUNCTION_INFO_V1(t_starts_with);
-
-Datum
-t_starts_with(PG_FUNCTION_ARGS)
-{
-	text	   *t1 = PG_GETARG_TEXT_PP(0);
-	text	   *t2 = PG_GETARG_TEXT_PP(1);
-	Oid			collid = PG_GET_COLLATION();
-	bool		result;
-
-	result = DatumGetBool(DirectFunctionCall2Coll(text_starts_with,
-												  collid,
-												  PointerGetDatum(t1),
-												  PointerGetDatum(t2)));
-	PG_RETURN_BOOL(result);
 }
 
 /* Composite types */

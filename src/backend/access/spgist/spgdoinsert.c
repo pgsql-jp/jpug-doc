@@ -4,7 +4,7 @@
  *	  implementation of insert algorithm
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -295,8 +295,8 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 		int			flags;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, sizeof(xlrec));
-		XLogRegisterData(leafTuple, leafTuple->size);
+		XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+		XLogRegisterData((char *) leafTuple, leafTuple->size);
 
 		flags = REGBUF_STANDARD;
 		if (xlrec.newPage)
@@ -532,12 +532,12 @@ moveLeafs(Relation index, SpGistState *state,
 		xlrec.nodeI = parent->node;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, SizeOfSpgxlogMoveLeafs);
-		XLogRegisterData(toDelete,
+		XLogRegisterData((char *) &xlrec, SizeOfSpgxlogMoveLeafs);
+		XLogRegisterData((char *) toDelete,
 						 sizeof(OffsetNumber) * nDelete);
-		XLogRegisterData(toInsert,
+		XLogRegisterData((char *) toInsert,
 						 sizeof(OffsetNumber) * nInsert);
-		XLogRegisterData(leafdata, leafptr - leafdata);
+		XLogRegisterData((char *) leafdata, leafptr - leafdata);
 
 		XLogRegisterBuffer(0, current->buffer, REGBUF_STANDARD);
 		XLogRegisterBuffer(1, nbuf, REGBUF_STANDARD | (xlrec.newPage ? REGBUF_WILL_INIT : 0));
@@ -1365,15 +1365,15 @@ doPickSplit(Relation index, SpGistState *state,
 		XLogBeginInsert();
 
 		xlrec.nInsert = nToInsert;
-		XLogRegisterData(&xlrec, SizeOfSpgxlogPickSplit);
+		XLogRegisterData((char *) &xlrec, SizeOfSpgxlogPickSplit);
 
-		XLogRegisterData(toDelete,
+		XLogRegisterData((char *) toDelete,
 						 sizeof(OffsetNumber) * xlrec.nDelete);
-		XLogRegisterData(toInsert,
+		XLogRegisterData((char *) toInsert,
 						 sizeof(OffsetNumber) * xlrec.nInsert);
-		XLogRegisterData(leafPageSelect,
+		XLogRegisterData((char *) leafPageSelect,
 						 sizeof(uint8) * xlrec.nInsert);
-		XLogRegisterData(innerTuple, innerTuple->size);
+		XLogRegisterData((char *) innerTuple, innerTuple->size);
 		XLogRegisterData(leafdata, leafptr - leafdata);
 
 		/* Old leaf page */
@@ -1559,8 +1559,8 @@ spgAddNodeAction(Relation index, SpGistState *state,
 			XLogRecPtr	recptr;
 
 			XLogBeginInsert();
-			XLogRegisterData(&xlrec, sizeof(xlrec));
-			XLogRegisterData(newInnerTuple, newInnerTuple->size);
+			XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+			XLogRegisterData((char *) newInnerTuple, newInnerTuple->size);
 
 			XLogRegisterBuffer(0, current->buffer, REGBUF_STANDARD);
 
@@ -1685,8 +1685,8 @@ spgAddNodeAction(Relation index, SpGistState *state,
 			if (xlrec.parentBlk == 2)
 				XLogRegisterBuffer(2, parent->buffer, REGBUF_STANDARD);
 
-			XLogRegisterData(&xlrec, sizeof(xlrec));
-			XLogRegisterData(newInnerTuple, newInnerTuple->size);
+			XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+			XLogRegisterData((char *) newInnerTuple, newInnerTuple->size);
 
 			recptr = XLogInsert(RM_SPGIST_ID, XLOG_SPGIST_ADD_NODE);
 
@@ -1868,9 +1868,9 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 		XLogRecPtr	recptr;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, sizeof(xlrec));
-		XLogRegisterData(prefixTuple, prefixTuple->size);
-		XLogRegisterData(postfixTuple, postfixTuple->size);
+		XLogRegisterData((char *) &xlrec, sizeof(xlrec));
+		XLogRegisterData((char *) prefixTuple, prefixTuple->size);
+		XLogRegisterData((char *) postfixTuple, postfixTuple->size);
 
 		XLogRegisterBuffer(0, current->buffer, REGBUF_STANDARD);
 		if (newBuffer != InvalidBuffer)
@@ -1974,7 +1974,7 @@ spgdoinsert(Relation index, SpGistState *state,
 	{
 		if (!isnulls[i])
 		{
-			if (TupleDescCompactAttr(leafDescriptor, i)->attlen == -1)
+			if (TupleDescAttr(leafDescriptor, i)->attlen == -1)
 				leafDatums[i] = PointerGetDatum(PG_DETOAST_DATUM(datums[i]));
 			else
 				leafDatums[i] = datums[i];

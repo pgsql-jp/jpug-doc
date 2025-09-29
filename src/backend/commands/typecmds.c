@@ -3,7 +3,7 @@
  * typecmds.c
  *	  Routines for SQL commands that manipulate types (and domains).
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -13,7 +13,7 @@
  * DESCRIPTION
  *	  The "DefineFoo" routines take the parse tree and pick out the
  *	  appropriate arguments/flags, passing the results to the
- *	  corresponding "FooCreate" routines (in src/backend/catalog) that do
+ *	  corresponding "FooDefine" routines (in src/catalog) that do
  *	  the actual catalog-munging.  These routines also verify permission
  *	  of the user to execute the command.
  *
@@ -348,7 +348,7 @@ DefineType(ParseState *pstate, List *names, List *parameters)
 		Type		likeType;
 		Form_pg_type likeForm;
 
-		likeType = typenameType(pstate, defGetTypeName(likeTypeEl), NULL);
+		likeType = typenameType(NULL, defGetTypeName(likeTypeEl), NULL);
 		likeForm = (Form_pg_type) GETSTRUCT(likeType);
 		internalLength = likeForm->typlen;
 		byValue = likeForm->typbyval;
@@ -694,7 +694,7 @@ RemoveTypeById(Oid typeOid)
  *		Registers a new domain.
  */
 ObjectAddress
-DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
+DefineDomain(CreateDomainStmt *stmt)
 {
 	char	   *domainName;
 	char	   *domainArrayName;
@@ -761,7 +761,7 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 	/*
 	 * Look up the base type.
 	 */
-	typeTup = typenameType(pstate, stmt->typeName, &basetypeMod);
+	typeTup = typenameType(NULL, stmt->typeName, &basetypeMod);
 	baseType = (Form_pg_type) GETSTRUCT(typeTup);
 	basetypeoid = baseType->oid;
 
@@ -783,8 +783,7 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 				 errmsg("\"%s\" is not a valid base type for a domain",
-						TypeNameToString(stmt->typeName)),
-				 parser_errposition(pstate, stmt->typeName->location)));
+						TypeNameToString(stmt->typeName))));
 
 	aclresult = object_aclcheck(TypeRelationId, basetypeoid, GetUserId(), ACL_USAGE);
 	if (aclresult != ACLCHECK_OK)
@@ -810,8 +809,7 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 				 errmsg("collations are not supported by type %s",
-						format_type_be(basetypeoid)),
-				 parser_errposition(pstate, stmt->typeName->location)));
+						format_type_be(basetypeoid))));
 
 	/* passed by value */
 	byValue = baseType->typbyval;
@@ -881,14 +879,17 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 				 */
 				if (saw_default)
 					ereport(ERROR,
-							errcode(ERRCODE_SYNTAX_ERROR),
-							errmsg("multiple default expressions"),
-							parser_errposition(pstate, constr->location));
+							(errcode(ERRCODE_SYNTAX_ERROR),
+							 errmsg("multiple default expressions")));
 				saw_default = true;
 
 				if (constr->raw_expr)
 				{
+					ParseState *pstate;
 					Node	   *defaultExpr;
+
+					/* Create a dummy ParseState for transformExpr */
+					pstate = make_parsestate(NULL);
 
 					/*
 					 * Cook the constr->raw_expr into an expression. Note:
@@ -939,24 +940,10 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 				break;
 
 			case CONSTR_NOTNULL:
-				if (nullDefined)
-				{
-					if (!typNotNull)
-						ereport(ERROR,
-								errcode(ERRCODE_SYNTAX_ERROR),
-								errmsg("conflicting NULL/NOT NULL constraints"),
-								parser_errposition(pstate, constr->location));
-
+				if (nullDefined && !typNotNull)
 					ereport(ERROR,
-							errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-							errmsg("redundant NOT NULL constraint definition"),
-							parser_errposition(pstate, constr->location));
-				}
-				if (constr->is_no_inherit)
-					ereport(ERROR,
-							errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-							errmsg("not-null constraints for domains cannot be marked NO INHERIT"),
-							parser_errposition(pstate, constr->location));
+							(errcode(ERRCODE_SYNTAX_ERROR),
+							 errmsg("conflicting NULL/NOT NULL constraints")));
 				typNotNull = true;
 				nullDefined = true;
 				break;
@@ -964,9 +951,8 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 			case CONSTR_NULL:
 				if (nullDefined && typNotNull)
 					ereport(ERROR,
-							errcode(ERRCODE_SYNTAX_ERROR),
-							errmsg("conflicting NULL/NOT NULL constraints"),
-							parser_errposition(pstate, constr->location));
+							(errcode(ERRCODE_SYNTAX_ERROR),
+							 errmsg("conflicting NULL/NOT NULL constraints")));
 				typNotNull = false;
 				nullDefined = true;
 				break;
@@ -981,10 +967,8 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 				 */
 				if (constr->is_no_inherit)
 					ereport(ERROR,
-							errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-							errmsg("check constraints for domains cannot be marked NO INHERIT"),
-							parser_errposition(pstate, constr->location));
-
+							(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+							 errmsg("check constraints for domains cannot be marked NO INHERIT")));
 				break;
 
 				/*
@@ -992,30 +976,26 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 				 */
 			case CONSTR_UNIQUE:
 				ereport(ERROR,
-						errcode(ERRCODE_SYNTAX_ERROR),
-						errmsg("unique constraints not possible for domains"),
-						parser_errposition(pstate, constr->location));
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("unique constraints not possible for domains")));
 				break;
 
 			case CONSTR_PRIMARY:
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("primary key constraints not possible for domains"),
-						 parser_errposition(pstate, constr->location)));
+						 errmsg("primary key constraints not possible for domains")));
 				break;
 
 			case CONSTR_EXCLUSION:
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("exclusion constraints not possible for domains"),
-						 parser_errposition(pstate, constr->location)));
+						 errmsg("exclusion constraints not possible for domains")));
 				break;
 
 			case CONSTR_FOREIGN:
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("foreign key constraints not possible for domains"),
-						 parser_errposition(pstate, constr->location)));
+						 errmsg("foreign key constraints not possible for domains")));
 				break;
 
 			case CONSTR_ATTR_DEFERRABLE:
@@ -1024,27 +1004,13 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
 			case CONSTR_ATTR_IMMEDIATE:
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						 errmsg("specifying constraint deferrability not supported for domains"),
-						 parser_errposition(pstate, constr->location)));
+						 errmsg("specifying constraint deferrability not supported for domains")));
 				break;
 
-			case CONSTR_GENERATED:
-			case CONSTR_IDENTITY:
-				ereport(ERROR,
-						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						 errmsg("specifying GENERATED not supported for domains"),
-						 parser_errposition(pstate, constr->location)));
+			default:
+				elog(ERROR, "unrecognized constraint subtype: %d",
+					 (int) constr->contype);
 				break;
-
-			case CONSTR_ATTR_ENFORCED:
-			case CONSTR_ATTR_NOT_ENFORCED:
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-						 errmsg("specifying constraint enforceability not supported for domains"),
-						 parser_errposition(pstate, constr->location)));
-				break;
-
-				/* no default, to let compiler warn about missing case */
 		}
 	}
 
@@ -1818,7 +1784,6 @@ makeRangeConstructors(const char *name, Oid namespace,
 								 PointerGetDatum(NULL), /* parameterNames */
 								 NIL,	/* parameterDefaults */
 								 PointerGetDatum(NULL), /* trftypes */
-								 NIL,	/* trfoids */
 								 PointerGetDatum(NULL), /* proconfig */
 								 InvalidOid,	/* prosupport */
 								 1.0,	/* procost */
@@ -1884,7 +1849,6 @@ makeMultirangeConstructors(const char *name, Oid namespace,
 							 PointerGetDatum(NULL), /* parameterNames */
 							 NIL,	/* parameterDefaults */
 							 PointerGetDatum(NULL), /* trftypes */
-							 NIL,	/* trfoids */
 							 PointerGetDatum(NULL), /* proconfig */
 							 InvalidOid,	/* prosupport */
 							 1.0,	/* procost */
@@ -1929,7 +1893,6 @@ makeMultirangeConstructors(const char *name, Oid namespace,
 							 PointerGetDatum(NULL), /* parameterNames */
 							 NIL,	/* parameterDefaults */
 							 PointerGetDatum(NULL), /* trftypes */
-							 NIL,	/* trfoids */
 							 PointerGetDatum(NULL), /* proconfig */
 							 InvalidOid,	/* prosupport */
 							 1.0,	/* procost */
@@ -1968,7 +1931,6 @@ makeMultirangeConstructors(const char *name, Oid namespace,
 							 PointerGetDatum(NULL), /* parameterNames */
 							 NIL,	/* parameterDefaults */
 							 PointerGetDatum(NULL), /* trftypes */
-							 NIL,	/* trfoids */
 							 PointerGetDatum(NULL), /* proconfig */
 							 InvalidOid,	/* prosupport */
 							 1.0,	/* procost */
@@ -2965,8 +2927,51 @@ AlterDomainAddConstraint(List *names, Node *newConstraint,
 
 	constr = (Constraint *) newConstraint;
 
-	/* enforced by parser */
-	Assert(constr->contype == CONSTR_CHECK || constr->contype == CONSTR_NOTNULL);
+	switch (constr->contype)
+	{
+		case CONSTR_CHECK:
+		case CONSTR_NOTNULL:
+			/* processed below */
+			break;
+
+		case CONSTR_UNIQUE:
+			ereport(ERROR,
+					(errcode(ERRCODE_SYNTAX_ERROR),
+					 errmsg("unique constraints not possible for domains")));
+			break;
+
+		case CONSTR_PRIMARY:
+			ereport(ERROR,
+					(errcode(ERRCODE_SYNTAX_ERROR),
+					 errmsg("primary key constraints not possible for domains")));
+			break;
+
+		case CONSTR_EXCLUSION:
+			ereport(ERROR,
+					(errcode(ERRCODE_SYNTAX_ERROR),
+					 errmsg("exclusion constraints not possible for domains")));
+			break;
+
+		case CONSTR_FOREIGN:
+			ereport(ERROR,
+					(errcode(ERRCODE_SYNTAX_ERROR),
+					 errmsg("foreign key constraints not possible for domains")));
+			break;
+
+		case CONSTR_ATTR_DEFERRABLE:
+		case CONSTR_ATTR_NOT_DEFERRABLE:
+		case CONSTR_ATTR_DEFERRED:
+		case CONSTR_ATTR_IMMEDIATE:
+			ereport(ERROR,
+					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+					 errmsg("specifying constraint deferrability not supported for domains")));
+			break;
+
+		default:
+			elog(ERROR, "unrecognized constraint subtype: %d",
+				 (int) constr->contype);
+			break;
+	}
 
 	if (constr->contype == CONSTR_CHECK)
 	{
@@ -3553,7 +3558,7 @@ domainAddCheckConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 	domVal->location = -1;		/* will be set when/if used */
 
 	pstate->p_pre_columnref_hook = replace_domain_constraint_value;
-	pstate->p_ref_hook_state = domVal;
+	pstate->p_ref_hook_state = (void *) domVal;
 
 	expr = transformExpr(pstate, constr->raw_expr, EXPR_KIND_DOMAIN_CHECK);
 
@@ -3591,7 +3596,6 @@ domainAddCheckConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 							  CONSTRAINT_CHECK, /* Constraint Type */
 							  false,	/* Is Deferrable */
 							  false,	/* Is Deferred */
-							  true, /* Is Enforced */
 							  !constr->skip_validation, /* Is Validated */
 							  InvalidOid,	/* no parent constraint */
 							  InvalidOid,	/* not a relation constraint */
@@ -3617,7 +3621,6 @@ domainAddCheckConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 							  true, /* is local */
 							  0,	/* inhcount */
 							  false,	/* connoinherit */
-							  false,	/* conperiod */
 							  false);	/* is_internal */
 	if (constrAddr)
 		ObjectAddressSet(*constrAddr, ConstraintRelationId, ccoid);
@@ -3699,7 +3702,6 @@ domainAddNotNullConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 							  CONSTRAINT_NOTNULL,	/* Constraint Type */
 							  false,	/* Is Deferrable */
 							  false,	/* Is Deferred */
-							  true, /* Is Enforced */
 							  !constr->skip_validation, /* Is Validated */
 							  InvalidOid,	/* no parent constraint */
 							  InvalidOid,	/* not a relation constraint */
@@ -3725,7 +3727,6 @@ domainAddNotNullConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 							  true, /* is local */
 							  0,	/* inhcount */
 							  false,	/* connoinherit */
-							  false,	/* conperiod */
 							  false);	/* is_internal */
 
 	if (constrAddr)

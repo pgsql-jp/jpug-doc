@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021-2025, PostgreSQL Global Development Group
+# Copyright (c) 2021-2024, PostgreSQL Global Development Group
 
 use strict;
 use warnings FATAL => 'all';
@@ -25,43 +25,28 @@ mkdir($stream_dir);
 $primary->command_fails(['pg_receivewal'],
 	'pg_receivewal needs target directory specified');
 $primary->command_fails(
-	[
-		'pg_receivewal',
-		'--directory' => $stream_dir,
-		'--create-slot',
-		'--drop-slot',
-	],
+	[ 'pg_receivewal', '-D', $stream_dir, '--create-slot', '--drop-slot' ],
 	'failure if both --create-slot and --drop-slot specified');
 $primary->command_fails(
-	[ 'pg_receivewal', '--directory' => $stream_dir, '--create-slot' ],
+	[ 'pg_receivewal', '-D', $stream_dir, '--create-slot' ],
 	'failure if --create-slot specified without --slot');
 $primary->command_fails(
-	[
-		'pg_receivewal',
-		'--directory' => $stream_dir,
-		'--synchronous',
-		'--no-sync',
-	],
+	[ 'pg_receivewal', '-D', $stream_dir, '--synchronous', '--no-sync' ],
 	'failure if --synchronous specified with --no-sync');
 $primary->command_fails_like(
-	[
-		'pg_receivewal',
-		'--directory' => $stream_dir,
-		'--compress' => 'none:1',
-	],
+	[ 'pg_receivewal', '-D', $stream_dir, '--compress', 'none:1', ],
 	qr/\Qpg_receivewal: error: invalid compression specification: compression algorithm "none" does not accept a compression level/,
 	'failure if --compress none:N (where N > 0)');
 
 # Slot creation and drop
 my $slot_name = 'test';
 $primary->command_ok(
-	[ 'pg_receivewal', '--slot' => $slot_name, '--create-slot' ],
+	[ 'pg_receivewal', '--slot', $slot_name, '--create-slot' ],
 	'creating a replication slot');
 my $slot = $primary->slot($slot_name);
 is($slot->{'slot_type'}, 'physical', 'physical replication slot was created');
 is($slot->{'restart_lsn'}, '', 'restart LSN of new slot is null');
-$primary->command_ok(
-	[ 'pg_receivewal', '--slot' => $slot_name, '--drop-slot' ],
+$primary->command_ok([ 'pg_receivewal', '--slot', $slot_name, '--drop-slot' ],
 	'dropping a replication slot');
 is($primary->slot($slot_name)->{'slot_type'},
 	'', 'replication slot was removed');
@@ -81,12 +66,8 @@ $primary->psql('postgres', 'INSERT INTO test_table VALUES (1);');
 # compression involved.
 $primary->command_ok(
 	[
-		'pg_receivewal',
-		'--directory' => $stream_dir,
-		'--verbose',
-		'--endpos' => $nextlsn,
-		'--synchronous',
-		'--no-loop',
+		'pg_receivewal', '-D', $stream_dir, '--verbose',
+		'--endpos', $nextlsn, '--synchronous', '--no-loop'
 	],
 	'streaming some WAL with --synchronous');
 
@@ -111,11 +92,8 @@ SKIP:
 
 	$primary->command_ok(
 		[
-			'pg_receivewal',
-			'--directory' => $stream_dir,
-			'--verbose',
-			'--endpos' => $nextlsn,
-			'--compress' => 'gzip:1',
+			'pg_receivewal', '-D', $stream_dir, '--verbose',
+			'--endpos', $nextlsn, '--compress', 'gzip:1',
 			'--no-loop'
 		],
 		"streaming some WAL using ZLIB compression");
@@ -167,12 +145,9 @@ SKIP:
 	# Stream up to the given position.
 	$primary->command_ok(
 		[
-			'pg_receivewal',
-			'--directory' => $stream_dir,
-			'--verbose',
-			'--endpos' => $nextlsn,
-			'--no-loop',
-			'--compress' => 'lz4'
+			'pg_receivewal', '-D', $stream_dir, '--verbose',
+			'--endpos', $nextlsn, '--no-loop', '--compress',
+			'lz4'
 		],
 		'streaming some WAL using --compress=lz4');
 
@@ -216,11 +191,8 @@ chomp($nextlsn);
 $primary->psql('postgres', 'INSERT INTO test_table VALUES (4);');
 $primary->command_ok(
 	[
-		'pg_receivewal',
-		'--directory' => $stream_dir,
-		'--verbose',
-		'--endpos' => $nextlsn,
-		'--no-loop'
+		'pg_receivewal', '-D', $stream_dir, '--verbose',
+		'--endpos', $nextlsn, '--no-loop'
 	],
 	"streaming some WAL");
 
@@ -275,25 +247,17 @@ $primary->psql('postgres', 'INSERT INTO test_table VALUES (6);');
 # Check case where the slot does not exist.
 $primary->command_fails_like(
 	[
-		'pg_receivewal',
-		'--directory' => $slot_dir,
-		'--slot' => 'nonexistentslot',
-		'--no-loop',
-		'--no-sync',
-		'--verbose',
-		'--endpos' => $nextlsn
+		'pg_receivewal', '-D', $slot_dir, '--slot',
+		'nonexistentslot', '-n', '--no-sync', '--verbose',
+		'--endpos', $nextlsn
 	],
 	qr/pg_receivewal: error: replication slot "nonexistentslot" does not exist/,
 	'pg_receivewal fails with non-existing slot');
 $primary->command_ok(
 	[
-		'pg_receivewal',
-		'--directory' => $slot_dir,
-		'--slot' => $slot_name,
-		'--no-loop',
-		'--no-sync',
-		'--verbose',
-		'--endpos' => $nextlsn
+		'pg_receivewal', '-D', $slot_dir, '--slot',
+		$slot_name, '-n', '--no-sync', '--verbose',
+		'--endpos', $nextlsn
 	],
 	"WAL streamed from the slot's restart_lsn");
 ok(-e "$slot_dir/$walfile_streamed",
@@ -347,13 +311,9 @@ mkdir($timeline_dir);
 
 $standby->command_ok(
 	[
-		'pg_receivewal',
-		'--directory' => $timeline_dir,
-		'--verbose',
-		'--endpos' => $nextlsn,
-		'--slot' => $archive_slot,
-		'--no-sync',
-		'--no-loop'
+		'pg_receivewal', '-D', $timeline_dir, '--verbose',
+		'--endpos', $nextlsn, '--slot', $archive_slot,
+		'--no-sync', '-n'
 	],
 	"Stream some wal after promoting, resuming from the slot's position");
 ok(-e "$timeline_dir/$walfile_before_promotion",

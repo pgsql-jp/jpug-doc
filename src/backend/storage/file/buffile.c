@@ -3,7 +3,7 @@
  * buffile.c
  *	  Management of large buffered temporary files.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -97,7 +97,7 @@ struct BufFile
 	int			nbytes;			/* total # of valid bytes in buffer */
 
 	/*
-	 * XXX Should ideally use PGIOAlignedBlock, but might need a way to avoid
+	 * XXX Should ideally us PGIOAlignedBlock, but might need a way to avoid
 	 * wasting per-file alignment padding when some users create many files.
 	 */
 	PGAlignedBlock buffer;
@@ -857,15 +857,17 @@ BufFileSeekBlock(BufFile *file, int64 blknum)
 }
 
 /*
- * Returns the amount of data in the given BufFile, in bytes.
+ * Return the current fileset based BufFile size.
  *
- * Returned value includes the size of any holes left behind by BufFileAppend.
+ * Counts any holes left behind by BufFileAppend as part of the size.
  * ereport()s on failure.
  */
 int64
 BufFileSize(BufFile *file)
 {
 	int64		lastFileSize;
+
+	Assert(file->fileset != NULL);
 
 	/* Get the size of the last physical file. */
 	lastFileSize = FileSize(file->files[file->numFiles - 1]);
@@ -881,7 +883,8 @@ BufFileSize(BufFile *file)
 }
 
 /*
- * Append the contents of the source file to the end of the target file.
+ * Append the contents of source file (managed within fileset) to
+ * end of target file (managed within same fileset).
  *
  * Note that operation subsumes ownership of underlying resources from
  * "source".  Caller should never call BufFileClose against source having
@@ -905,8 +908,10 @@ BufFileAppend(BufFile *target, BufFile *source)
 	int			newNumFiles = target->numFiles + source->numFiles;
 	int			i;
 
+	Assert(target->fileset != NULL);
 	Assert(source->readOnly);
 	Assert(!source->dirty);
+	Assert(source->fileset != NULL);
 
 	if (target->resowner != source->resowner)
 		elog(ERROR, "could not append BufFile with non-matching resource owner");

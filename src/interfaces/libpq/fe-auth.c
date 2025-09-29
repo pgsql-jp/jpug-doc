@@ -3,7 +3,7 @@
  * fe-auth.c
  *	   The front-end (client) authorization routines
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <pwd.h>
 #include <sys/param.h>			/* for MAXHOSTNAMELEN on most */
 #include <sys/socket.h>
 #ifdef HAVE_SYS_UCRED_H
@@ -40,11 +39,9 @@
 #endif
 
 #include "common/md5.h"
-#include "common/oauth-common.h"
 #include "common/scram-common.h"
 #include "fe-auth.h"
 #include "fe-auth-sasl.h"
-#include "fe-auth-oauth.h"
 #include "libpq-fe.h"
 
 #ifdef ENABLE_GSS
@@ -97,10 +94,6 @@ pg_GSS_continue(PGconn *conn, int payloadlen)
 		ginbuf.value = NULL;
 	}
 
-	/* finished parsing, trace server-to-client message */
-	if (conn->Pfdebug)
-		pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
-
 	/* Only try to acquire credentials if GSS delegation isn't disabled. */
 	if (!pg_GSS_have_cred_cache(&conn->gcred))
 		conn->gcred = GSS_C_NO_CREDENTIAL;
@@ -131,7 +124,6 @@ pg_GSS_continue(PGconn *conn, int payloadlen)
 		 * first or subsequent packet, just send the same kind of password
 		 * packet.
 		 */
-		conn->current_auth_response = AUTH_RESPONSE_GSS;
 		if (pqPacketSend(conn, PqMsg_GSSResponse,
 						 goutbuf.value, goutbuf.length) != STATUS_OK)
 		{
@@ -265,10 +257,6 @@ pg_SSPI_continue(PGconn *conn, int payloadlen)
 		InBuffers[0].BufferType = SECBUFFER_TOKEN;
 	}
 
-	/* finished parsing, trace server-to-client message */
-	if (conn->Pfdebug)
-		pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
-
 	OutBuffers[0].pvBuffer = NULL;
 	OutBuffers[0].BufferType = SECBUFFER_TOKEN;
 	OutBuffers[0].cbBuffer = 0;
@@ -336,7 +324,6 @@ pg_SSPI_continue(PGconn *conn, int payloadlen)
 		 */
 		if (outbuf.pBuffers[0].cbBuffer > 0)
 		{
-			conn->current_auth_response = AUTH_RESPONSE_GSS;
 			if (pqPacketSend(conn, PqMsg_GSSResponse,
 							 outbuf.pBuffers[0].pvBuffer, outbuf.pBuffers[0].cbBuffer))
 			{
@@ -432,7 +419,7 @@ pg_SSPI_startup(PGconn *conn, int use_negotiate, int payloadlen)
  * Initialize SASL authentication exchange.
  */
 static int
-pg_SASL_init(PGconn *conn, int payloadlen, bool *async)
+pg_SASL_init(PGconn *conn, int payloadlen)
 {
 	char	   *initialresponse = NULL;
 	int			initialresponselen;
@@ -450,7 +437,7 @@ pg_SASL_init(PGconn *conn, int payloadlen, bool *async)
 		goto error;
 	}
 
-	if (conn->sasl_state && !conn->async_auth)
+	if (conn->sasl_state)
 	{
 		libpq_append_conn_error(conn, "duplicate SASL authentication request");
 		goto error;
@@ -537,41 +524,12 @@ pg_SASL_init(PGconn *conn, int payloadlen, bool *async)
 			conn->sasl = &pg_scram_mech;
 			conn->password_needed = true;
 		}
-		else if (strcmp(mechanism_buf.data, OAUTHBEARER_NAME) == 0 &&
-				 !selected_mechanism)
-		{
-			selected_mechanism = OAUTHBEARER_NAME;
-			conn->sasl = &pg_oauth_mech;
-			conn->password_needed = false;
-		}
 	}
 
 	if (!selected_mechanism)
 	{
 		libpq_append_conn_error(conn, "none of the server's SASL authentication mechanisms are supported");
 		goto error;
-	}
-
-	/* Make sure require_auth is satisfied. */
-	if (conn->require_auth)
-	{
-		bool		allowed = false;
-
-		for (int i = 0; i < lengthof(conn->allowed_sasl_mechs); i++)
-		{
-			if (conn->sasl == conn->allowed_sasl_mechs[i])
-			{
-				allowed = true;
-				break;
-			}
-		}
-
-		if (!allowed)
-		{
-			libpq_append_conn_error(conn, "authentication method requirement \"%s\" failed: server requested %s authentication",
-									conn->require_auth, selected_mechanism);
-			goto error;
-		}
 	}
 
 	if (conn->channel_binding[0] == 'r' &&	/* require */
@@ -590,7 +548,7 @@ pg_SASL_init(PGconn *conn, int payloadlen, bool *async)
 	 * First, select the password to use for the exchange, complaining if
 	 * there isn't one and the selected SASL mechanism needs it.
 	 */
-	if (conn->password_needed && !conn->scram_client_key_binary)
+	if (conn->password_needed)
 	{
 		password = conn->connhost[conn->whichhost].password;
 		if (password == NULL)
@@ -603,59 +561,27 @@ pg_SASL_init(PGconn *conn, int payloadlen, bool *async)
 		}
 	}
 
-	/* finished parsing, trace server-to-client message */
-	if (conn->Pfdebug)
-		pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
-
 	Assert(conn->sasl);
 
+	/*
+	 * Initialize the SASL state information with all the information gathered
+	 * during the initial exchange.
+	 *
+	 * Note: Only tls-unique is supported for the moment.
+	 */
+	conn->sasl_state = conn->sasl->init(conn,
+										password,
+										selected_mechanism);
 	if (!conn->sasl_state)
-	{
-		/*
-		 * Initialize the SASL state information with all the information
-		 * gathered during the initial exchange.
-		 *
-		 * Note: Only tls-unique is supported for the moment.
-		 */
-		conn->sasl_state = conn->sasl->init(conn,
-											password,
-											selected_mechanism);
-		if (!conn->sasl_state)
-			goto oom_error;
-	}
-	else
-	{
-		/*
-		 * This is only possible if we're returning from an async loop.
-		 * Disconnect it now.
-		 */
-		Assert(conn->async_auth);
-		conn->async_auth = NULL;
-	}
+		goto oom_error;
 
 	/* Get the mechanism-specific Initial Client Response, if any */
-	status = conn->sasl->exchange(conn->sasl_state, false,
+	status = conn->sasl->exchange(conn->sasl_state,
 								  NULL, -1,
 								  &initialresponse, &initialresponselen);
 
 	if (status == SASL_FAILED)
 		goto error;
-
-	if (status == SASL_ASYNC)
-	{
-		/*
-		 * The mechanism should have set up the necessary callbacks; all we
-		 * need to do is signal the caller.
-		 *
-		 * In non-assertion builds, this postcondition is enforced at time of
-		 * use in PQconnectPoll().
-		 */
-		Assert(conn->async_auth);
-		Assert(conn->cleanup_async_auth);
-
-		*async = true;
-		return STATUS_OK;
-	}
 
 	/*
 	 * Build a SASLInitialResponse message, and send it.
@@ -671,10 +597,8 @@ pg_SASL_init(PGconn *conn, int payloadlen, bool *async)
 		if (pqPutnchar(initialresponse, initialresponselen, conn))
 			goto error;
 	}
-	conn->current_auth_response = AUTH_RESPONSE_SASL_INITIAL;
 	if (pqPutMsgEnd(conn))
 		goto error;
-
 	if (pqFlush(conn))
 		goto error;
 
@@ -701,7 +625,7 @@ oom_error:
  * the protocol.
  */
 static int
-pg_SASL_continue(PGconn *conn, int payloadlen, bool final, bool *async)
+pg_SASL_continue(PGconn *conn, int payloadlen, bool final)
 {
 	char	   *output;
 	int			outputlen;
@@ -723,32 +647,13 @@ pg_SASL_continue(PGconn *conn, int payloadlen, bool final, bool *async)
 		free(challenge);
 		return STATUS_ERROR;
 	}
-
-	/* finished parsing, trace server-to-client message */
-	if (conn->Pfdebug)
-		pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
-
 	/* For safety and convenience, ensure the buffer is NULL-terminated. */
 	challenge[payloadlen] = '\0';
 
-	status = conn->sasl->exchange(conn->sasl_state, final,
+	status = conn->sasl->exchange(conn->sasl_state,
 								  challenge, payloadlen,
 								  &output, &outputlen);
 	free(challenge);			/* don't need the input anymore */
-
-	if (status == SASL_ASYNC)
-	{
-		/*
-		 * The mechanism should have set up the necessary callbacks; all we
-		 * need to do is signal the caller.
-		 */
-		*async = true;
-
-		/*
-		 * The mechanism may optionally generate some output to send before
-		 * switching over to async auth, so continue onwards.
-		 */
-	}
 
 	if (final && status == SASL_CONTINUE)
 	{
@@ -778,7 +683,6 @@ pg_SASL_continue(PGconn *conn, int payloadlen, bool final, bool *async)
 		/*
 		 * Send the SASL response to the server.
 		 */
-		conn->current_auth_response = AUTH_RESPONSE_SASL;
 		res = pqPacketSend(conn, PqMsg_SASLResponse, output, outputlen);
 		free(output);
 
@@ -798,7 +702,7 @@ pg_password_sendauth(PGconn *conn, const char *password, AuthRequest areq)
 	int			ret;
 	char	   *crypt_pwd = NULL;
 	const char *pwd_to_send;
-	uint8		md5Salt[4];
+	char		md5Salt[4];
 
 	/* Read the salt from the AuthenticationMD5Password message. */
 	if (areq == AUTH_REQ_MD5)
@@ -806,10 +710,6 @@ pg_password_sendauth(PGconn *conn, const char *password, AuthRequest areq)
 		if (pqGetnchar(md5Salt, 4, conn))
 			return STATUS_ERROR;	/* shouldn't happen */
 	}
-
-	/* finished parsing, trace server-to-client message */
-	if (conn->Pfdebug)
-		pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
 
 	/* Encrypt the password if needed. */
 
@@ -829,7 +729,7 @@ pg_password_sendauth(PGconn *conn, const char *password, AuthRequest areq)
 				}
 
 				crypt_pwd2 = crypt_pwd + MD5_PASSWD_LEN + 1;
-				if (!pg_md5_encrypt(password, (uint8 *) conn->pguser,
+				if (!pg_md5_encrypt(password, conn->pguser,
 									strlen(conn->pguser), crypt_pwd2,
 									&errstr))
 				{
@@ -854,7 +754,6 @@ pg_password_sendauth(PGconn *conn, const char *password, AuthRequest areq)
 		default:
 			return STATUS_ERROR;
 	}
-	conn->current_auth_response = AUTH_RESPONSE_PASSWORD;
 	ret = pqPacketSend(conn, PqMsg_PasswordMessage,
 					   pwd_to_send, strlen(pwd_to_send) + 1);
 	free(crypt_pwd);
@@ -1057,17 +956,11 @@ check_expected_areq(AuthRequest areq, PGconn *conn)
  * it. We are responsible for reading any remaining extra data, specific
  * to the authentication method. 'payloadlen' is the remaining length in
  * the message.
- *
- * If *async is set to true on return, the client doesn't yet have enough
- * information to respond, and the caller must temporarily switch to
- * conn->async_auth() to continue driving the exchange.
  */
 int
-pg_fe_sendauth(AuthRequest areq, int payloadlen, PGconn *conn, bool *async)
+pg_fe_sendauth(AuthRequest areq, int payloadlen, PGconn *conn)
 {
 	int			oldmsglen;
-
-	*async = false;
 
 	if (!check_expected_areq(areq, conn))
 		return STATUS_ERROR;
@@ -1226,7 +1119,7 @@ pg_fe_sendauth(AuthRequest areq, int payloadlen, PGconn *conn, bool *async)
 			 * The request contains the name (as assigned by IANA) of the
 			 * authentication mechanism.
 			 */
-			if (pg_SASL_init(conn, payloadlen, async) != STATUS_OK)
+			if (pg_SASL_init(conn, payloadlen) != STATUS_OK)
 			{
 				/* pg_SASL_init already set the error message */
 				return STATUS_ERROR;
@@ -1235,33 +1128,23 @@ pg_fe_sendauth(AuthRequest areq, int payloadlen, PGconn *conn, bool *async)
 
 		case AUTH_REQ_SASL_CONT:
 		case AUTH_REQ_SASL_FIN:
+			if (conn->sasl_state == NULL)
 			{
-				bool		final = false;
-
-				if (conn->sasl_state == NULL)
-				{
-					appendPQExpBufferStr(&conn->errorMessage,
-										 "fe_sendauth: invalid authentication request from server: AUTH_REQ_SASL_CONT without AUTH_REQ_SASL\n");
-					return STATUS_ERROR;
-				}
-				oldmsglen = conn->errorMessage.len;
-
-				if (areq == AUTH_REQ_SASL_FIN)
-					final = true;
-
-				if (pg_SASL_continue(conn, payloadlen, final, async) != STATUS_OK)
-				{
-					/*
-					 * Append a generic error message unless pg_SASL_continue
-					 * did set a more specific one already.
-					 */
-					if (conn->errorMessage.len == oldmsglen)
-						appendPQExpBufferStr(&conn->errorMessage,
-											 "fe_sendauth: error in SASL authentication\n");
-					return STATUS_ERROR;
-				}
-				break;
+				appendPQExpBufferStr(&conn->errorMessage,
+									 "fe_sendauth: invalid authentication request from server: AUTH_REQ_SASL_CONT without AUTH_REQ_SASL\n");
+				return STATUS_ERROR;
 			}
+			oldmsglen = conn->errorMessage.len;
+			if (pg_SASL_continue(conn, payloadlen,
+								 (areq == AUTH_REQ_SASL_FIN)) != STATUS_OK)
+			{
+				/* Use this message if pg_SASL_continue didn't supply one */
+				if (conn->errorMessage.len == oldmsglen)
+					appendPQExpBufferStr(&conn->errorMessage,
+										 "fe_sendauth: error in SASL authentication\n");
+				return STATUS_ERROR;
+			}
+			break;
 
 		default:
 			libpq_append_conn_error(conn, "authentication method %u not supported", areq);
@@ -1293,10 +1176,7 @@ pg_fe_getusername(uid_t user_id, PQExpBuffer errorMessage)
 	char		username[256 + 1];
 	DWORD		namesize = sizeof(username);
 #else
-	struct passwd pwbuf;
-	struct passwd *pw = NULL;
-	char		buf[1024];
-	int			rc;
+	char		pwdbuf[BUFSIZ];
 #endif
 
 #ifdef WIN32
@@ -1307,20 +1187,10 @@ pg_fe_getusername(uid_t user_id, PQExpBuffer errorMessage)
 						   "user name lookup failure: error code %lu",
 						   GetLastError());
 #else
-	rc = getpwuid_r(user_id, &pwbuf, buf, sizeof buf, &pw);
-	if (rc != 0)
-	{
-		errno = rc;
-		if (errorMessage)
-			libpq_append_error(errorMessage, "could not look up local user ID %ld: %m", (long) user_id);
-	}
-	else if (!pw)
-	{
-		if (errorMessage)
-			libpq_append_error(errorMessage, "local user with ID %ld does not exist", (long) user_id);
-	}
-	else
-		name = pw->pw_name;
+	if (pg_get_user_name(user_id, pwdbuf, sizeof(pwdbuf)))
+		name = pwdbuf;
+	else if (errorMessage)
+		appendPQExpBuffer(errorMessage, "%s\n", pwdbuf);
 #endif
 
 	if (name)
@@ -1369,7 +1239,7 @@ PQencryptPassword(const char *passwd, const char *user)
 	if (!crypt_pwd)
 		return NULL;
 
-	if (!pg_md5_encrypt(passwd, (uint8 *) user, strlen(user), crypt_pwd, &errstr))
+	if (!pg_md5_encrypt(passwd, user, strlen(user), crypt_pwd, &errstr))
 	{
 		free(crypt_pwd);
 		return NULL;
@@ -1482,7 +1352,7 @@ PQencryptPasswordConn(PGconn *conn, const char *passwd, const char *user,
 		{
 			const char *errstr = NULL;
 
-			if (!pg_md5_encrypt(passwd, (uint8 *) user, strlen(user), crypt_pwd, &errstr))
+			if (!pg_md5_encrypt(passwd, user, strlen(user), crypt_pwd, &errstr))
 			{
 				libpq_append_conn_error(conn, "could not encrypt password: %s", errstr);
 				free(crypt_pwd);
@@ -1581,24 +1451,4 @@ PQchangePassword(PGconn *conn, const char *user, const char *passwd)
 			}
 		}
 	}
-}
-
-PQauthDataHook_type PQauthDataHook = PQdefaultAuthDataHook;
-
-PQauthDataHook_type
-PQgetAuthDataHook(void)
-{
-	return PQauthDataHook;
-}
-
-void
-PQsetAuthDataHook(PQauthDataHook_type hook)
-{
-	PQauthDataHook = hook ? hook : PQdefaultAuthDataHook;
-}
-
-int
-PQdefaultAuthDataHook(PGauthData type, PGconn *conn, void *data)
-{
-	return 0;					/* handle nothing */
 }

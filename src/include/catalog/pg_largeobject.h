@@ -4,7 +4,7 @@
  *	  definition of the "large object" system catalog (pg_largeobject)
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_largeobject.h
@@ -19,8 +19,7 @@
 #define PG_LARGEOBJECT_H
 
 #include "catalog/genbki.h"
-#include "catalog/pg_largeobject_d.h"	/* IWYU pragma: export */
-#include "utils/snapshot.h"
+#include "catalog/pg_largeobject_d.h"
 
 /* ----------------
  *		pg_largeobject definition.  cpp turns this into
@@ -50,6 +49,5 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_largeobject_loid_pn_index, 2683, LargeObjectLOidPNI
 extern Oid	LargeObjectCreate(Oid loid);
 extern void LargeObjectDrop(Oid loid);
 extern bool LargeObjectExists(Oid loid);
-extern bool LargeObjectExistsWithSnapshot(Oid loid, Snapshot snapshot);
 
 #endif							/* PG_LARGEOBJECT_H */

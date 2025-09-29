@@ -31,8 +31,7 @@ PostgreSQL documentation
 MERGE INTO [ ONLY ] <replaceable class="parameter">target_table_name</replaceable> [ * ] [ [ AS ] <replaceable class="parameter">target_alias</replaceable> ]
     USING <replaceable class="parameter">data_source</replaceable> ON <replaceable class="parameter">join_condition</replaceable>
     <replaceable class="parameter">when_clause</replaceable> [...]
-    [ RETURNING [ WITH ( { OLD | NEW } AS <replaceable class="parameter">output_alias</replaceable> [, ...] ) ]
-                { * | <replaceable class="parameter">output_expression</replaceable> [ [ AS ] <replaceable class="parameter">output_name</replaceable> ] } [, ...] ]
+    [ RETURNING { * | <replaceable class="parameter">output_expression</replaceable> [ [ AS ] <replaceable class="parameter">output_name</replaceable> ] } [, ...] ]
 
 <phrase>where <replaceable class="parameter">data_source</replaceable> is:</phrase>
 
@@ -136,24 +135,18 @@ MERGE INTO [ ONLY ] <replaceable class="parameter">target_table_name</replaceabl
    to compute and return value(s) based on each row inserted, updated, or
    deleted.  Any expression using the source or target table's columns, or
    the <link linkend="merge-action"><function>merge_action()</function></link>
-   function can be computed.  By default, when an <command>INSERT</command> or
+   function can be computed.  When an <command>INSERT</command> or
    <command>UPDATE</command> action is performed, the new values of the target
-   table's columns are used, and when a <command>DELETE</command> is performed,
-   the old values of the target table's columns are used, but it is also
-   possible to explicitly request old and new values.  The syntax of the
+   table's columns are used.  When a <command>DELETE</command> is performed,
+   the old values of the target table's columns are used.  The syntax of the
    <literal>RETURNING</literal> list is identical to that of the output list
    of <command>SELECT</command>.
 -->
-《マッチ度[85.175553]》オプションの<literal>RETURNING</literal>句は、挿入、更新、削除された各行に基づいて値を計算し、返すように<command>MERGE</command>を設定します。
+オプションの<literal>RETURNING</literal>句は、挿入、更新、削除された各行に基づいて値を計算し、返すように<command>MERGE</command>を設定します。
 元となるテーブルまたは対象テーブルの列、あるいは<link linkend="merge-action"><function>merge_action()</function></link>関数を使用する式が計算可能です。
 <command>INSERT</command>または<command>UPDATE</command>アクションが実行されると、対象テーブルの列の新しい値が使用されます。
 <command>DELETE</command>が実行されると、対象テーブルの列の古い値が使用されます。
 <literal>RETURNING</literal>リストの構文は、<command>SELECT</command>の出力リストと同じです。
-《機械翻訳》オプショナル<literal>RETURNING</literal>句では、挿入、更新、または削除された行ごとに<command>MERGE</command>1つ以上の値を計算して返します。
-式またはターゲットテーブルの列を使用するソース、または<link linkend="merge-action"><function>merge_action()</function>関数を計算できます。
-デフォルトでは、<command>INSERT</command>または<command>UPDATE</command>アクションが実行されると、ターゲットテーブルの列の新しい値が使用され、<command>DELETE</command>が実行されると、ターゲットテーブルの列の古い値が使用されますが、古い値と新しい値を明示的にリクエストすることもできます。
-<literal>RETURNING</literal>リストの構文は<command>SELECT</command>のと同じです。
-リスト</link>
   </para>
 
   <para>
@@ -697,34 +690,6 @@ MERGE INTO [ ONLY ] <replaceable class="parameter">target_table_name</replaceabl
    </varlistentry>
 
    <varlistentry>
-    <term><replaceable class="parameter">output_alias</replaceable></term>
-    <listitem>
-     <para>
-<!--
-      An optional substitute name for <literal>OLD</literal> or
-      <literal>NEW</literal> rows in the <literal>RETURNING</literal> list.
--->
-《機械翻訳》オプショナルは、<literal>RETURNING</literal>リストの中のまたは<literal>NEW</literal>行を名前に置き換えます。
-<literal>OLD</literal>
-     </para>
-     <para>
-<!--
-      By default, old values from the target table can be returned by writing
-      <literal>OLD.<replaceable class="parameter">column_name</replaceable></literal>
-      or <literal>OLD.*</literal>, and new values can be returned by writing
-      <literal>NEW.<replaceable class="parameter">column_name</replaceable></literal>
-      or <literal>NEW.*</literal>.  When an alias is provided, these names are
-      hidden and the old or new rows must be referred to using the alias.
-      For example <literal>RETURNING WITH (OLD AS o, NEW AS n) o.*, n.*</literal>.
--->
-《機械翻訳》デフォルトでは、ターゲットテーブルの古い値は、<literal>OLD.<replaceable class="parameter">column_name</replaceable></literal>または<literal>OLD.*</literal>を記述することで、新しい値は<literal>NEW.<replaceable class="parameter">column_name</replaceable></literal>または<literal>NEW.*</literal>を記述することで返すことができます。
-別名が提供されている場合、これらの名前は隠され、新旧の行は別名を使用して参照する必要があります。
-例<literal>RETURNING WITH (OLD AS o, NEW AS n) o.*, n.*</literal>の場合。
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry>
     <term><replaceable class="parameter">output_expression</replaceable></term>
     <listitem>
      <para>
@@ -750,22 +715,6 @@ MERGE INTO [ ONLY ] <replaceable class="parameter">target_table_name</replaceabl
 <literal>*</literal>を指定すると、元となるテーブルのすべての列が返され、その後に対象テーブルのすべての列が返されます。
 多くの場合、元となるテーブルと対象テーブルは同じ列を多く持つため、この方法では重複が多くなります。
 この問題を回避するには、元となるテーブルまたは対象テーブルの名前または別名で<literal>*</literal>を修飾します。
-     </para>
-     <para>
-<!--
-      A column name or <literal>*</literal> may also be qualified using
-      <literal>OLD</literal> or <literal>NEW</literal>, or the corresponding
-      <replaceable class="parameter">output_alias</replaceable> for
-      <literal>OLD</literal> or <literal>NEW</literal>, to cause old or new
-      values from the target table to be returned.  An unqualified column
-      name from the target table, or a column name or <literal>*</literal>
-      qualified using the target table name or alias will return new values
-      for <literal>INSERT</literal> and <literal>UPDATE</literal> actions, and
-      old values for <literal>DELETE</literal> actions.
--->
-《機械翻訳》カラム名前or <literal>*</literal>または<literal>NEW</literal>または対応する<replaceable class="parameter">output_別名</replaceable>for <literal>OLD</literal>または<literal>NEW</literal>を使用して修飾して、ターゲットテーブルの古い値または新しい値を戻すこともできます。
-ターゲットテーブルの修飾されていないカラム名前、またはターゲットテーブル名前または別名を使用して修飾されたカラム名前または<literal>*</literal>は、<literal>INSERT</literal>および<literal>UPDATE</literal>アクションの新しい値、<literal>DELETE</literal>アクションの古い値を結果にします。
-<literal>OLD</literal>
      </para>
     </listitem>
    </varlistentry>
@@ -1052,6 +1001,26 @@ WHEN NOT MATCHED THEN
 
   <para>
 <!--
+   Notice that this would be exactly equivalent to the following
+   statement because the <literal>MATCHED</literal> result does not change
+   during execution.
+-->
+<literal>MATCHED</literal>の結果は実行中に変更されないため、これは次の文とまったく同じになることに注意してください。
+
+<programlisting>
+MERGE INTO customer_account ca
+USING (SELECT customer_id, transaction_value FROM recent_transactions) AS t
+ON t.customer_id = ca.customer_id
+WHEN MATCHED THEN
+  UPDATE SET balance = balance + transaction_value
+WHEN NOT MATCHED THEN
+  INSERT (customer_id, balance)
+  VALUES (t.customer_id, t.transaction_value);
+</programlisting>
+  </para>
+
+  <para>
+<!--
    Attempt to insert a new stock item along with the quantity of stock. If
    the item already exists, instead update the stock count of the existing
    item. Don't allow entries that have zero stock. Return details of all
@@ -1071,7 +1040,7 @@ WHEN MATCHED AND w.stock + s.stock_delta > 0 THEN
   UPDATE SET stock = w.stock + s.stock_delta
 WHEN MATCHED THEN
   DELETE
-RETURNING merge_action(), w.winename, old.stock AS old_stock, new.stock AS new_stock;
+RETURNING merge_action(), w.*;
 </programlisting>
 
 <!--

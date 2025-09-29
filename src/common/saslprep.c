@@ -12,7 +12,7 @@
  *	  http://www.ietf.org/rfc/rfc4013.txt
  *
  *
- * Portions Copyright (c) 2017-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2017-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/common/saslprep.c
@@ -24,6 +24,10 @@
 #include "utils/memutils.h"
 #else
 #include "postgres_fe.h"
+
+/* It's possible we could use a different value for this in frontend code */
+#define MaxAllocSize	((Size) 0x3fffffff) /* 1 gigabyte - 1 */
+
 #endif
 
 #include "common/saslprep.h"
@@ -1005,17 +1009,15 @@ pg_utf8_string_len(const char *source)
 	const unsigned char *p = (const unsigned char *) source;
 	int			l;
 	int			num_chars = 0;
-	size_t		len = strlen(source);
 
-	while (len)
+	while (*p)
 	{
 		l = pg_utf_mblen(p);
 
-		if (len < l || !pg_utf8_islegal(p, l))
+		if (!pg_utf8_islegal(p, l))
 			return -1;
 
 		p += l;
-		len -= l;
 		num_chars++;
 	}
 

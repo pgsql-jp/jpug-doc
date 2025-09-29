@@ -3,7 +3,7 @@
  * syscache.c
  *	  System cache management routines
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -356,7 +356,8 @@ SearchSysCacheLocked1(int cacheId,
 
 		/*
 		 * If an inplace update just finished, ensure we process the syscache
-		 * inval.
+		 * inval.  XXX this is insufficient: the inplace updater may not yet
+		 * have reached AtEOXact_Inval().  See test at inplace-inval.spec.
 		 *
 		 * If a heap_update() call just released its LOCKTAG_TUPLE, we'll
 		 * probably find the old tuple and reach "tuple concurrently updated".
@@ -396,7 +397,7 @@ SearchSysCacheCopy(int cacheId,
 /*
  * SearchSysCacheLockedCopy1
  *
- * Meld SearchSysCacheLocked1 with SearchSysCacheCopy().  After the
+ * Meld SearchSysCacheLockedCopy1 with SearchSysCacheCopy().  After the
  * caller's heap_update(), it should UnlockTuple(InplaceUpdateTupleLock) and
  * heap_freetuple().
  */

@@ -1,14 +1,4 @@
-# Copyright (c) 2022-2025, PostgreSQL Global Development Group
-
-# Some code in numeric.c benefits from auto-vectorization
-numeric_backend_lib = static_library('numeric_backend_lib',
-  'numeric.c',
-  dependencies: backend_build_deps,
-  kwargs: internal_lib_args,
-  c_args: vectorize_cflags,
-)
-
-backend_link_with += numeric_backend_lib
+# Copyright (c) 2022-2024, PostgreSQL Global Development Group
 
 backend_sources += files(
   'acl.c',
@@ -69,15 +59,13 @@ backend_sources += files(
   'network_gist.c',
   'network_selfuncs.c',
   'network_spgist.c',
+  'numeric.c',
   'numutils.c',
   'oid.c',
   'oracle_compat.c',
   'orderedsetaggs.c',
   'partitionfuncs.c',
   'pg_locale.c',
-  'pg_locale_builtin.c',
-  'pg_locale_icu.c',
-  'pg_locale_libc.c',
   'pg_lsn.c',
   'pg_upgrade_support.c',
   'pgstatfuncs.c',
@@ -95,7 +83,6 @@ backend_sources += files(
   'rowtypes.c',
   'ruleutils.c',
   'selfuncs.c',
-  'skipsupport.c',
   'tid.c',
   'timestamp.c',
   'trigfuncs.c',

@@ -3,7 +3,7 @@
  * slru.h
  *		Simple LRU buffering for transaction status logfiles
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/access/slru.h
@@ -55,7 +55,7 @@ typedef enum
 /*
  * Shared-memory state
  *
- * SLRU bank locks are used to protect access to the other fields, except
+ * ControlLock is used to protect access to the other fields, except
  * latest_page_number, which uses atomics; see comment in slru.c.
  */
 typedef struct SlruSharedData

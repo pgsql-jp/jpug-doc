@@ -2,12 +2,9 @@
 
 #include "fmgr.h"
 #include "ltree/ltree.h"
-#include "plpy_util.h"
+#include "plpython.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "ltree_plpython",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* Linkage to functions in plpython module */
 typedef PyObject *(*PLyUnicode_FromStringAndSize_t) (const char *s, Py_ssize_t size);

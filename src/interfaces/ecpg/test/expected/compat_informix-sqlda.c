@@ -97,14 +97,12 @@ typedef struct sqlda_struct sqlda_t;
 #define SQLINTERVAL		ECPGt_interval
 #define SQLNCHAR	ECPGt_char
 #define SQLNVCHAR	ECPGt_char
-#if SIZEOF_LONG == 8
-#define SQLINT8		ECPGt_long
-#define SQLSERIAL8	ECPGt_long
-#elif SIZEOF_LONG_LONG == 8
+#ifdef HAVE_LONG_LONG_INT_64
 #define SQLINT8		ECPGt_long_long
 #define SQLSERIAL8	ECPGt_long_long
 #else
-#error "cannot find integer type of the same size as SQLINT8"
+#define SQLINT8		ECPGt_long
+#define SQLSERIAL8	ECPGt_long
 #endif
 
 #endif							/* ndef ECPG_SQLTYPES_H */

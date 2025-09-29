@@ -3,7 +3,7 @@
  * fe-lobj.c
  *	  Front-end large object interface
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -43,8 +43,8 @@
 
 static int	lo_initialize(PGconn *conn);
 static Oid	lo_import_internal(PGconn *conn, const char *filename, Oid oid);
-static int64_t lo_hton64(int64_t host64);
-static int64_t lo_ntoh64(int64_t net64);
+static pg_int64 lo_hton64(pg_int64 host64);
+static pg_int64 lo_ntoh64(pg_int64 net64);
 
 /*
  * lo_open
@@ -192,7 +192,7 @@ lo_truncate(PGconn *conn, int fd, size_t len)
  * returns -1 upon failure
  */
 int
-lo_truncate64(PGconn *conn, int fd, int64_t len)
+lo_truncate64(PGconn *conn, int fd, pg_int64 len)
 {
 	PQArgBlock	argv[2];
 	PGresult   *res;
@@ -381,12 +381,12 @@ lo_lseek(PGconn *conn, int fd, int offset, int whence)
  * lo_lseek64
  *	  change the current read or write location on a large object
  */
-int64_t
-lo_lseek64(PGconn *conn, int fd, int64_t offset, int whence)
+pg_int64
+lo_lseek64(PGconn *conn, int fd, pg_int64 offset, int whence)
 {
 	PQArgBlock	argv[3];
 	PGresult   *res;
-	int64		retval;
+	pg_int64	retval;
 	int			result_len;
 
 	if (lo_initialize(conn) < 0)
@@ -544,10 +544,10 @@ lo_tell(PGconn *conn, int fd)
  * lo_tell64
  *	  returns the current seek location of the large object
  */
-int64_t
+pg_int64
 lo_tell64(PGconn *conn, int fd)
 {
-	int64		retval;
+	pg_int64	retval;
 	PQArgBlock	argv[1];
 	PGresult   *res;
 	int			result_len;
@@ -870,7 +870,7 @@ lo_initialize(PGconn *conn)
 		libpq_append_conn_error(conn, "out of memory");
 		return -1;
 	}
-	MemSet(lobjfuncs, 0, sizeof(PGlobjfuncs));
+	MemSet((char *) lobjfuncs, 0, sizeof(PGlobjfuncs));
 
 	/*
 	 * Execute the query to get all the functions at once.  (Not all of them
@@ -1019,12 +1019,12 @@ lo_initialize(PGconn *conn)
  * lo_hton64
  *	  converts a 64-bit integer from host byte order to network byte order
  */
-static int64_t
-lo_hton64(int64_t host64)
+static pg_int64
+lo_hton64(pg_int64 host64)
 {
 	union
 	{
-		int64		i64;
+		pg_int64	i64;
 		uint32		i32[2];
 	}			swap;
 	uint32		t;
@@ -1044,15 +1044,15 @@ lo_hton64(int64_t host64)
  * lo_ntoh64
  *	  converts a 64-bit integer from network byte order to host byte order
  */
-static int64_t
-lo_ntoh64(int64_t net64)
+static pg_int64
+lo_ntoh64(pg_int64 net64)
 {
 	union
 	{
-		int64		i64;
+		pg_int64	i64;
 		uint32		i32[2];
 	}			swap;
-	int64		result;
+	pg_int64	result;
 
 	swap.i64 = net64;
 

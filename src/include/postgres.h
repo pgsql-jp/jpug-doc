@@ -7,14 +7,13 @@
  * Client-side code should include postgres_fe.h instead.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1995, Regents of the University of California
  *
  * src/include/postgres.h
  *
  *-------------------------------------------------------------------------
  */
-/* IWYU pragma: always_keep */
 /*
  *----------------------------------------------------------------
  *	 TABLE OF CONTENTS
@@ -43,13 +42,9 @@
 #ifndef POSTGRES_H
 #define POSTGRES_H
 
-/* IWYU pragma: begin_exports */
-
 #include "c.h"
 #include "utils/elog.h"
 #include "utils/palloc.h"
-
-/* IWYU pragma: end_exports */
 
 /* ----------------------------------------------------------------
  *				Section 1:	Datum type + support functions

@@ -2,7 +2,7 @@
  *
  * pg_dumpall.c
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * pg_dumpall forces all pg_dump output to be text, since it also outputs
@@ -20,16 +20,15 @@
 
 #include "catalog/pg_authid_d.h"
 #include "common/connect.h"
-#include "common/file_perm.h"
 #include "common/file_utils.h"
 #include "common/hashfn_unstable.h"
 #include "common/logging.h"
 #include "common/string.h"
-#include "connectdb.h"
 #include "dumputils.h"
 #include "fe_utils/string_utils.h"
 #include "filter.h"
 #include "getopt_long.h"
+#include "pg_backup.h"
 
 /* version string we expect back from pg_dump */
 #define PGDUMP_VERSIONSTR "pg_dump (PostgreSQL) " PG_VERSION "\n"
@@ -72,14 +71,21 @@ static void buildShSecLabels(PGconn *conn,
 							 const char *catalog_name, Oid objectId,
 							 const char *objtype, const char *objname,
 							 PQExpBuffer buffer);
+static PGconn *connectDatabase(const char *dbname,
+							   const char *connection_string, const char *pghost,
+							   const char *pgport, const char *pguser,
+							   trivalue prompt_password, bool fail_on_error);
+static char *constructConnStr(const char **keywords, const char **values);
+static PGresult *executeQuery(PGconn *conn, const char *query);
 static void executeCommand(PGconn *conn, const char *query);
 static void expand_dbname_patterns(PGconn *conn, SimpleStringList *patterns,
 								   SimpleStringList *names);
 static void read_dumpall_filters(const char *filename, SimpleStringList *pattern);
 
 static char pg_dump_bin[MAXPGPATH];
+static const char *progname;
 static PQExpBuffer pgdumpopts;
-static const char *connstr = "";
+static char *connstr = "";
 static bool output_clean = false;
 static bool skip_acls = false;
 static bool verbose = false;
@@ -95,22 +101,15 @@ static int	no_table_access_method = 0;
 static int	no_tablespaces = 0;
 static int	use_setsessauth = 0;
 static int	no_comments = 0;
-static int	no_policies = 0;
 static int	no_publications = 0;
 static int	no_security_labels = 0;
-static int	no_data = 0;
-static int	no_schema = 0;
-static int	no_statistics = 0;
 static int	no_subscriptions = 0;
 static int	no_toast_compression = 0;
 static int	no_unlogged_table_data = 0;
 static int	no_role_passwords = 0;
-static int	with_statistics = 0;
 static int	server_version;
 static int	load_via_partition_root = 0;
 static int	on_conflict_do_nothing = 0;
-static int	statistics_only = 0;
-static int	sequence_data = 0;
 
 static char role_catalog[10];
 #define PG_AUTHID "pg_authid"
@@ -123,6 +122,8 @@ static SimpleStringList database_exclude_patterns = {NULL, NULL};
 static SimpleStringList database_exclude_names = {NULL, NULL};
 
 static char *restrict_key;
+
+#define exit_nicely(code) exit(code)
 
 int
 main(int argc, char *argv[])
@@ -169,23 +170,16 @@ main(int argc, char *argv[])
 		{"role", required_argument, NULL, 3},
 		{"use-set-session-authorization", no_argument, &use_setsessauth, 1},
 		{"no-comments", no_argument, &no_comments, 1},
-		{"no-data", no_argument, &no_data, 1},
-		{"no-policies", no_argument, &no_policies, 1},
 		{"no-publications", no_argument, &no_publications, 1},
 		{"no-role-passwords", no_argument, &no_role_passwords, 1},
-		{"no-schema", no_argument, &no_schema, 1},
 		{"no-security-labels", no_argument, &no_security_labels, 1},
 		{"no-subscriptions", no_argument, &no_subscriptions, 1},
-		{"no-statistics", no_argument, &no_statistics, 1},
 		{"no-sync", no_argument, NULL, 4},
 		{"no-toast-compression", no_argument, &no_toast_compression, 1},
 		{"no-unlogged-table-data", no_argument, &no_unlogged_table_data, 1},
 		{"on-conflict-do-nothing", no_argument, &on_conflict_do_nothing, 1},
 		{"rows-per-insert", required_argument, NULL, 7},
-		{"statistics", no_argument, &with_statistics, 1},
-		{"statistics-only", no_argument, &statistics_only, 1},
 		{"filter", required_argument, NULL, 8},
-		{"sequence-data", no_argument, &sequence_data, 1},
 		{"restrict-key", required_argument, NULL, 9},
 
 		{NULL, 0, NULL, 0}
@@ -462,32 +456,18 @@ main(int argc, char *argv[])
 		appendPQExpBufferStr(pgdumpopts, " --use-set-session-authorization");
 	if (no_comments)
 		appendPQExpBufferStr(pgdumpopts, " --no-comments");
-	if (no_data)
-		appendPQExpBufferStr(pgdumpopts, " --no-data");
-	if (no_policies)
-		appendPQExpBufferStr(pgdumpopts, " --no-policies");
 	if (no_publications)
 		appendPQExpBufferStr(pgdumpopts, " --no-publications");
 	if (no_security_labels)
 		appendPQExpBufferStr(pgdumpopts, " --no-security-labels");
-	if (no_schema)
-		appendPQExpBufferStr(pgdumpopts, " --no-schema");
-	if (no_statistics)
-		appendPQExpBufferStr(pgdumpopts, " --no-statistics");
 	if (no_subscriptions)
 		appendPQExpBufferStr(pgdumpopts, " --no-subscriptions");
 	if (no_toast_compression)
 		appendPQExpBufferStr(pgdumpopts, " --no-toast-compression");
 	if (no_unlogged_table_data)
 		appendPQExpBufferStr(pgdumpopts, " --no-unlogged-table-data");
-	if (with_statistics)
-		appendPQExpBufferStr(pgdumpopts, " --statistics");
 	if (on_conflict_do_nothing)
 		appendPQExpBufferStr(pgdumpopts, " --on-conflict-do-nothing");
-	if (statistics_only)
-		appendPQExpBufferStr(pgdumpopts, " --statistics-only");
-	if (sequence_data)
-		appendPQExpBufferStr(pgdumpopts, " --sequence-data");
 
 	/*
 	 * If you don't provide a restrict key, one will be appointed for you.
@@ -506,22 +486,19 @@ main(int argc, char *argv[])
 	 */
 	if (pgdb)
 	{
-		conn = ConnectDatabase(pgdb, connstr, pghost, pgport, pguser,
-							   prompt_password, false,
-							   progname, &connstr, &server_version, NULL, NULL);
+		conn = connectDatabase(pgdb, connstr, pghost, pgport, pguser,
+							   prompt_password, false);
 
 		if (!conn)
 			pg_fatal("could not connect to database \"%s\"", pgdb);
 	}
 	else
 	{
-		conn = ConnectDatabase("postgres", connstr, pghost, pgport, pguser,
-							   prompt_password, false,
-							   progname, &connstr, &server_version, NULL, NULL);
+		conn = connectDatabase("postgres", connstr, pghost, pgport, pguser,
+							   prompt_password, false);
 		if (!conn)
-			conn = ConnectDatabase("template1", connstr, pghost, pgport, pguser,
-								   prompt_password, true,
-								   progname, &connstr, &server_version, NULL, NULL);
+			conn = connectDatabase("template1", connstr, pghost, pgport, pguser,
+								   prompt_password, true);
 
 		if (!conn)
 		{
@@ -617,7 +594,7 @@ main(int argc, char *argv[])
 		fprintf(OPF, "SET escape_string_warning = off;\n");
 	fprintf(OPF, "\n");
 
-	if (!data_only && !statistics_only && !no_schema)
+	if (!data_only)
 	{
 		/*
 		 * If asked to --clean, do that first.  We can avoid detailed
@@ -690,7 +667,7 @@ main(int argc, char *argv[])
 static void
 help(void)
 {
-	printf(_("%s exports a PostgreSQL database cluster as an SQL script.\n\n"), progname);
+	printf(_("%s extracts a PostgreSQL database cluster into an SQL script file.\n\n"), progname);
 	printf(_("Usage:\n"));
 	printf(_("  %s [OPTION]...\n"), progname);
 
@@ -701,13 +678,13 @@ help(void)
 	printf(_("  --lock-wait-timeout=TIMEOUT  fail after waiting TIMEOUT for a table lock\n"));
 	printf(_("  -?, --help                   show this help, then exit\n"));
 	printf(_("\nOptions controlling the output content:\n"));
-	printf(_("  -a, --data-only              dump only the data, not the schema or statistics\n"));
+	printf(_("  -a, --data-only              dump only the data, not the schema\n"));
 	printf(_("  -c, --clean                  clean (drop) databases before recreating\n"));
 	printf(_("  -E, --encoding=ENCODING      dump the data in encoding ENCODING\n"));
 	printf(_("  -g, --globals-only           dump only global objects, no databases\n"));
 	printf(_("  -O, --no-owner               skip restoration of object ownership\n"));
 	printf(_("  -r, --roles-only             dump only roles, no databases or tablespaces\n"));
-	printf(_("  -s, --schema-only            dump only the schema, no data or statistics\n"));
+	printf(_("  -s, --schema-only            dump only the schema, no data\n"));
 	printf(_("  -S, --superuser=NAME         superuser user name to use in the dump\n"));
 	printf(_("  -t, --tablespaces-only       dump only tablespaces, no databases or roles\n"));
 	printf(_("  -x, --no-privileges          do not dump privileges (grant/revoke)\n"));
@@ -721,14 +698,10 @@ help(void)
 	printf(_("  --if-exists                  use IF EXISTS when dropping objects\n"));
 	printf(_("  --inserts                    dump data as INSERT commands, rather than COPY\n"));
 	printf(_("  --load-via-partition-root    load partitions via the root table\n"));
-	printf(_("  --no-comments                do not dump comment commands\n"));
-	printf(_("  --no-data                    do not dump data\n"));
-	printf(_("  --no-policies                do not dump row security policies\n"));
+	printf(_("  --no-comments                do not dump comments\n"));
 	printf(_("  --no-publications            do not dump publications\n"));
 	printf(_("  --no-role-passwords          do not dump passwords for roles\n"));
-	printf(_("  --no-schema                  do not dump schema\n"));
 	printf(_("  --no-security-labels         do not dump security label assignments\n"));
-	printf(_("  --no-statistics              do not dump statistics\n"));
 	printf(_("  --no-subscriptions           do not dump subscriptions\n"));
 	printf(_("  --no-sync                    do not wait for changes to be written safely to disk\n"));
 	printf(_("  --no-table-access-method     do not dump table access methods\n"));
@@ -739,9 +712,6 @@ help(void)
 	printf(_("  --quote-all-identifiers      quote all identifiers, even if not key words\n"));
 	printf(_("  --restrict-key=RESTRICT_KEY  use provided string as psql \\restrict key\n"));
 	printf(_("  --rows-per-insert=NROWS      number of rows per INSERT; implies --inserts\n"));
-	printf(_("  --sequence-data              include sequence data in dump\n"));
-	printf(_("  --statistics                 dump the statistics\n"));
-	printf(_("  --statistics-only            dump only the statistics, not schema or data\n"));
 	printf(_("  --use-set-session-authorization\n"
 			 "                               use SET SESSION AUTHORIZATION commands instead of\n"
 			 "                               ALTER OWNER commands to set ownership\n"));
@@ -1242,7 +1212,7 @@ dumpRoleMembership(PGconn *conn)
 				{
 					if (optbuf->data[0] != '\0')
 						appendPQExpBufferStr(optbuf, ", ");
-					appendPQExpBufferStr(optbuf, "SET FALSE");
+					appendPQExpBuffer(optbuf, "SET FALSE");
 				}
 				if (optbuf->data[0] != '\0')
 					fprintf(OPF, " WITH %s", optbuf->data);
@@ -1771,6 +1741,256 @@ buildShSecLabels(PGconn *conn, const char *catalog_name, Oid objectId,
 
 	PQclear(res);
 	destroyPQExpBuffer(sql);
+}
+
+/*
+ * Make a database connection with the given parameters.  An
+ * interactive password prompt is automatically issued if required.
+ *
+ * If fail_on_error is false, we return NULL without printing any message
+ * on failure, but preserve any prompted password for the next try.
+ *
+ * On success, the global variable 'connstr' is set to a connection string
+ * containing the options used.
+ */
+static PGconn *
+connectDatabase(const char *dbname, const char *connection_string,
+				const char *pghost, const char *pgport, const char *pguser,
+				trivalue prompt_password, bool fail_on_error)
+{
+	PGconn	   *conn;
+	bool		new_pass;
+	const char *remoteversion_str;
+	int			my_version;
+	const char **keywords = NULL;
+	const char **values = NULL;
+	PQconninfoOption *conn_opts = NULL;
+	static char *password = NULL;
+
+	if (prompt_password == TRI_YES && !password)
+		password = simple_prompt("Password: ", false);
+
+	/*
+	 * Start the connection.  Loop until we have a password if requested by
+	 * backend.
+	 */
+	do
+	{
+		int			argcount = 6;
+		PQconninfoOption *conn_opt;
+		char	   *err_msg = NULL;
+		int			i = 0;
+
+		free(keywords);
+		free(values);
+		PQconninfoFree(conn_opts);
+
+		/*
+		 * Merge the connection info inputs given in form of connection string
+		 * and other options.  Explicitly discard any dbname value in the
+		 * connection string; otherwise, PQconnectdbParams() would interpret
+		 * that value as being itself a connection string.
+		 */
+		if (connection_string)
+		{
+			conn_opts = PQconninfoParse(connection_string, &err_msg);
+			if (conn_opts == NULL)
+				pg_fatal("%s", err_msg);
+
+			for (conn_opt = conn_opts; conn_opt->keyword != NULL; conn_opt++)
+			{
+				if (conn_opt->val != NULL && conn_opt->val[0] != '\0' &&
+					strcmp(conn_opt->keyword, "dbname") != 0)
+					argcount++;
+			}
+
+			keywords = pg_malloc0((argcount + 1) * sizeof(*keywords));
+			values = pg_malloc0((argcount + 1) * sizeof(*values));
+
+			for (conn_opt = conn_opts; conn_opt->keyword != NULL; conn_opt++)
+			{
+				if (conn_opt->val != NULL && conn_opt->val[0] != '\0' &&
+					strcmp(conn_opt->keyword, "dbname") != 0)
+				{
+					keywords[i] = conn_opt->keyword;
+					values[i] = conn_opt->val;
+					i++;
+				}
+			}
+		}
+		else
+		{
+			keywords = pg_malloc0((argcount + 1) * sizeof(*keywords));
+			values = pg_malloc0((argcount + 1) * sizeof(*values));
+		}
+
+		if (pghost)
+		{
+			keywords[i] = "host";
+			values[i] = pghost;
+			i++;
+		}
+		if (pgport)
+		{
+			keywords[i] = "port";
+			values[i] = pgport;
+			i++;
+		}
+		if (pguser)
+		{
+			keywords[i] = "user";
+			values[i] = pguser;
+			i++;
+		}
+		if (password)
+		{
+			keywords[i] = "password";
+			values[i] = password;
+			i++;
+		}
+		if (dbname)
+		{
+			keywords[i] = "dbname";
+			values[i] = dbname;
+			i++;
+		}
+		keywords[i] = "fallback_application_name";
+		values[i] = progname;
+		i++;
+
+		new_pass = false;
+		conn = PQconnectdbParams(keywords, values, true);
+
+		if (!conn)
+			pg_fatal("could not connect to database \"%s\"", dbname);
+
+		if (PQstatus(conn) == CONNECTION_BAD &&
+			PQconnectionNeedsPassword(conn) &&
+			!password &&
+			prompt_password != TRI_NO)
+		{
+			PQfinish(conn);
+			password = simple_prompt("Password: ", false);
+			new_pass = true;
+		}
+	} while (new_pass);
+
+	/* check to see that the backend connection was successfully made */
+	if (PQstatus(conn) == CONNECTION_BAD)
+	{
+		if (fail_on_error)
+			pg_fatal("%s", PQerrorMessage(conn));
+		else
+		{
+			PQfinish(conn);
+
+			free(keywords);
+			free(values);
+			PQconninfoFree(conn_opts);
+
+			return NULL;
+		}
+	}
+
+	/*
+	 * Ok, connected successfully. Remember the options used, in the form of a
+	 * connection string.
+	 */
+	connstr = constructConnStr(keywords, values);
+
+	free(keywords);
+	free(values);
+	PQconninfoFree(conn_opts);
+
+	/* Check version */
+	remoteversion_str = PQparameterStatus(conn, "server_version");
+	if (!remoteversion_str)
+		pg_fatal("could not get server version");
+	server_version = PQserverVersion(conn);
+	if (server_version == 0)
+		pg_fatal("could not parse server version \"%s\"",
+				 remoteversion_str);
+
+	my_version = PG_VERSION_NUM;
+
+	/*
+	 * We allow the server to be back to 9.2, and up to any minor release of
+	 * our own major version.  (See also version check in pg_dump.c.)
+	 */
+	if (my_version != server_version
+		&& (server_version < 90200 ||
+			(server_version / 100) > (my_version / 100)))
+	{
+		pg_log_error("aborting because of server version mismatch");
+		pg_log_error_detail("server version: %s; %s version: %s",
+							remoteversion_str, progname, PG_VERSION);
+		exit_nicely(1);
+	}
+
+	PQclear(executeQuery(conn, ALWAYS_SECURE_SEARCH_PATH_SQL));
+
+	return conn;
+}
+
+/* ----------
+ * Construct a connection string from the given keyword/value pairs. It is
+ * used to pass the connection options to the pg_dump subprocess.
+ *
+ * The following parameters are excluded:
+ *	dbname		- varies in each pg_dump invocation
+ *	password	- it's not secure to pass a password on the command line
+ *	fallback_application_name - we'll let pg_dump set it
+ * ----------
+ */
+static char *
+constructConnStr(const char **keywords, const char **values)
+{
+	PQExpBuffer buf = createPQExpBuffer();
+	char	   *connstr;
+	int			i;
+	bool		firstkeyword = true;
+
+	/* Construct a new connection string in key='value' format. */
+	for (i = 0; keywords[i] != NULL; i++)
+	{
+		if (strcmp(keywords[i], "dbname") == 0 ||
+			strcmp(keywords[i], "password") == 0 ||
+			strcmp(keywords[i], "fallback_application_name") == 0)
+			continue;
+
+		if (!firstkeyword)
+			appendPQExpBufferChar(buf, ' ');
+		firstkeyword = false;
+		appendPQExpBuffer(buf, "%s=", keywords[i]);
+		appendConnStrVal(buf, values[i]);
+	}
+
+	connstr = pg_strdup(buf->data);
+	destroyPQExpBuffer(buf);
+	return connstr;
+}
+
+/*
+ * Run a query, return the results, exit program on failure.
+ */
+static PGresult *
+executeQuery(PGconn *conn, const char *query)
+{
+	PGresult   *res;
+
+	pg_log_info("executing %s", query);
+
+	res = PQexec(conn, query);
+	if (!res ||
+		PQresultStatus(res) != PGRES_TUPLES_OK)
+	{
+		pg_log_error("query failed: %s", PQerrorMessage(conn));
+		pg_log_error_detail("Query was: %s", query);
+		PQfinish(conn);
+		exit_nicely(1);
+	}
+
+	return res;
 }
 
 /*

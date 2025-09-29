@@ -9,6 +9,7 @@
 
 #include "access/gist.h"
 #include "btree_gist.h"
+#include "utils/rel.h"
 
 typedef char GBT_NUMKEY;
 

@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021-2025, PostgreSQL Global Development Group
+# Copyright (c) 2021-2024, PostgreSQL Global Development Group
 
 use strict;
 use warnings FATAL => 'all';
@@ -18,23 +18,23 @@ $node->safe_psql('postgres',
 $node->safe_psql('template1',
 	'CREATE TABLE test1 (a int); CREATE INDEX test1x ON test1 (a);');
 $node->issues_sql_like(
-	[ 'reindexdb', '--all' ],
+	[ 'reindexdb', '-a' ],
 	qr/statement: REINDEX.*statement: REINDEX/s,
 	'reindex all databases');
 $node->issues_sql_like(
-	[ 'reindexdb', '--all', '--system' ],
+	[ 'reindexdb', '-a', '-s' ],
 	qr/statement: REINDEX SYSTEM postgres/s,
 	'reindex system catalogs in all databases');
 $node->issues_sql_like(
-	[ 'reindexdb', '--all', '--schema' => 'public' ],
+	[ 'reindexdb', '-a', '-S', 'public' ],
 	qr/statement: REINDEX SCHEMA public/s,
 	'reindex schema in all databases');
 $node->issues_sql_like(
-	[ 'reindexdb', '--all', '--index' => 'test1x' ],
+	[ 'reindexdb', '-a', '-i', 'test1x' ],
 	qr/statement: REINDEX INDEX public\.test1x/s,
 	'reindex index in all databases');
 $node->issues_sql_like(
-	[ 'reindexdb', '--all', '--table' => 'test1' ],
+	[ 'reindexdb', '-a', '-t', 'test1' ],
 	qr/statement: REINDEX TABLE public\.test1/s,
 	'reindex table in all databases');
 
@@ -43,13 +43,13 @@ $node->safe_psql(
 	CREATE DATABASE regression_invalid;
 	UPDATE pg_database SET datconnlimit = -2 WHERE datname = 'regression_invalid';
 ));
-$node->command_ok([ 'reindexdb', '--all' ],
-	'invalid database not targeted by reindexdb --all');
+$node->command_ok([ 'reindexdb', '-a' ],
+	'invalid database not targeted by reindexdb -a');
 
 # Doesn't quite belong here, but don't want to waste time by creating an
 # invalid database in 090_reindexdb.pl as well.
 $node->command_fails_like(
-	[ 'reindexdb', '--dbname' => 'regression_invalid' ],
+	[ 'reindexdb', '-d', 'regression_invalid' ],
 	qr/FATAL:  cannot connect to invalid database "regression_invalid"/,
 	'reindexdb cannot target invalid database');
 

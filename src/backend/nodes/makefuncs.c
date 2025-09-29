@@ -4,7 +4,7 @@
  *	  creator functions for various nodes. The functions here are for the
  *	  most frequently created nodes.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -51,7 +51,7 @@ makeSimpleA_Expr(A_Expr_Kind kind, char *name,
 	A_Expr	   *a = makeNode(A_Expr);
 
 	a->kind = kind;
-	a->name = list_make1(makeString(name));
+	a->name = list_make1(makeString((char *) name));
 	a->lexpr = lexpr;
 	a->rexpr = rexpr;
 	a->location = location;
@@ -80,14 +80,12 @@ makeVar(int varno,
 	var->varlevelsup = varlevelsup;
 
 	/*
-	 * Only a few callers need to make Var nodes with varreturningtype
-	 * different from VAR_RETURNING_DEFAULT, non-null varnullingrels, or with
-	 * varnosyn/varattnosyn different from varno/varattno.  We don't provide
-	 * separate arguments for them, but just initialize them to sensible
-	 * default values.  This reduces code clutter and chance of error for most
-	 * callers.
+	 * Only a few callers need to make Var nodes with non-null varnullingrels,
+	 * or with varnosyn/varattnosyn different from varno/varattno.  We don't
+	 * provide separate arguments for them, but just initialize them to NULL
+	 * and the given varno/varattno.  This reduces code clutter and chance of
+	 * error for most callers.
 	 */
-	var->varreturningtype = VAR_RETURNING_DEFAULT;
 	var->varnullingrels = NULL;
 	var->varnosyn = (Index) varno;
 	var->varattnosyn = varattno;
@@ -486,30 +484,6 @@ makeRangeVar(char *schemaname, char *relname, int location)
 }
 
 /*
- * makeNotNullConstraint -
- *		creates a Constraint node for NOT NULL constraints
- */
-Constraint *
-makeNotNullConstraint(String *colname)
-{
-	Constraint *notnull;
-
-	notnull = makeNode(Constraint);
-	notnull->contype = CONSTR_NOTNULL;
-	notnull->conname = NULL;
-	notnull->is_no_inherit = false;
-	notnull->deferrable = false;
-	notnull->initdeferred = false;
-	notnull->location = -1;
-	notnull->keys = list_make1(colname);
-	notnull->is_enforced = true;
-	notnull->skip_validation = false;
-	notnull->initially_valid = true;
-
-	return notnull;
-}
-
-/*
  * makeTypeName -
  *	build a TypeName node for an unqualified name.
  *
@@ -833,8 +807,7 @@ make_ands_implicit(Expr *clause)
 IndexInfo *
 makeIndexInfo(int numattrs, int numkeyattrs, Oid amoid, List *expressions,
 			  List *predicates, bool unique, bool nulls_not_distinct,
-			  bool isready, bool concurrent, bool summarizing,
-			  bool withoutoverlaps)
+			  bool isready, bool concurrent, bool summarizing)
 {
 	IndexInfo  *n = makeNode(IndexInfo);
 
@@ -849,7 +822,6 @@ makeIndexInfo(int numattrs, int numkeyattrs, Oid amoid, List *expressions,
 	n->ii_IndexUnchanged = false;
 	n->ii_Concurrent = concurrent;
 	n->ii_Summarizing = summarizing;
-	n->ii_WithoutOverlaps = withoutoverlaps;
 
 	/* summarizing indexes cannot contain non-key attributes */
 	Assert(!summarizing || (numkeyattrs == numattrs));

@@ -3,7 +3,7 @@
  * dict_ispell.c
  *		Ispell dictionary interface
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -13,12 +13,11 @@
  */
 #include "postgres.h"
 
-#include "catalog/pg_collation_d.h"
 #include "commands/defrem.h"
 #include "tsearch/dicts/spell.h"
+#include "tsearch/ts_locale.h"
 #include "tsearch/ts_public.h"
 #include "utils/fmgrprotos.h"
-#include "utils/formatting.h"
 
 
 typedef struct
@@ -73,7 +72,7 @@ dispell_init(PG_FUNCTION_ARGS)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("multiple StopWords parameters")));
-			readstoplist(defGetString(defel), &(d->stoplist), str_tolower);
+			readstoplist(defGetString(defel), &(d->stoplist), lowerstr);
 			stoploaded = true;
 		}
 		else
@@ -122,7 +121,7 @@ dispell_lexize(PG_FUNCTION_ARGS)
 	if (len <= 0)
 		PG_RETURN_POINTER(NULL);
 
-	txt = str_tolower(in, len, DEFAULT_COLLATION_OID);
+	txt = lowerstr_with_len(in, len);
 	res = NINormalizeWord(&(d->obj), txt);
 
 	if (res == NULL)

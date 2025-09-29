@@ -3,7 +3,7 @@
  * catcache.c
  *	  System catalog cache for tuples matching a key.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -1055,40 +1055,11 @@ RehashCatCacheLists(CatCache *cp)
 }
 
 /*
- *		ConditionalCatalogCacheInitializeCache
- *
- * Call CatalogCacheInitializeCache() if not yet done.
- */
-pg_attribute_always_inline
-static void
-ConditionalCatalogCacheInitializeCache(CatCache *cache)
-{
-#ifdef USE_ASSERT_CHECKING
-	/*
-	 * TypeCacheRelCallback() runs outside transactions and relies on TYPEOID
-	 * for hashing.  This isn't ideal.  Since lookup_type_cache() both
-	 * registers the callback and searches TYPEOID, reaching trouble likely
-	 * requires OOM at an unlucky moment.
-	 *
-	 * InvalidateAttoptCacheCallback() runs outside transactions and likewise
-	 * relies on ATTNUM.  InitPostgres() initializes ATTNUM, so it's reliable.
-	 */
-	if (!(cache->id == TYPEOID || cache->id == ATTNUM) ||
-		IsTransactionState())
-		AssertCouldGetRelation();
-	else
-		Assert(cache->cc_tupdesc != NULL);
-#endif
-
-	if (unlikely(cache->cc_tupdesc == NULL))
-		CatalogCacheInitializeCache(cache);
-}
-
-/*
  *		CatalogCacheInitializeCache
  *
  * This function does final initialization of a catcache: obtain the tuple
- * descriptor and set up the hash and equality function links.
+ * descriptor and set up the hash and equality function links.  We assume
+ * that the relcache entry can be opened at this point!
  */
 #ifdef CACHEDEBUG
 #define CatalogCacheInitializeCache_DEBUG1 \
@@ -1223,7 +1194,8 @@ CatalogCacheInitializeCache(CatCache *cache)
 void
 InitCatCachePhase2(CatCache *cache, bool touch_index)
 {
-	ConditionalCatalogCacheInitializeCache(cache);
+	if (cache->cc_tupdesc == NULL)
+		CatalogCacheInitializeCache(cache);
 
 	if (touch_index &&
 		cache->id != AMOID &&
@@ -1272,7 +1244,7 @@ InitCatCachePhase2(CatCache *cache, bool touch_index)
  *		catalogs' indexes.
  */
 static bool
-IndexScanOK(CatCache *cache)
+IndexScanOK(CatCache *cache, ScanKey cur_skey)
 {
 	switch (cache->id)
 	{
@@ -1402,12 +1374,16 @@ SearchCatCacheInternal(CatCache *cache,
 	dlist_head *bucket;
 	CatCTup    *ct;
 
+	/* Make sure we're in an xact, even if this ends up being a cache hit */
+	Assert(IsTransactionState());
+
 	Assert(cache->cc_nkeys == nkeys);
 
 	/*
 	 * one-time startup overhead for each cache
 	 */
-	ConditionalCatalogCacheInitializeCache(cache);
+	if (unlikely(cache->cc_tupdesc == NULL))
+		CatalogCacheInitializeCache(cache);
 
 #ifdef CATCACHE_STATS
 	cache->cc_searches++;
@@ -1542,21 +1518,22 @@ SearchCatCacheMiss(CatCache *cache,
 	 */
 	relation = table_open(cache->cc_reloid, AccessShareLock);
 
-	/*
-	 * Ok, need to make a lookup in the relation, copy the scankey and fill
-	 * out any per-call fields.
-	 */
-	memcpy(cur_skey, cache->cc_skey, sizeof(ScanKeyData) * nkeys);
-	cur_skey[0].sk_argument = v1;
-	cur_skey[1].sk_argument = v2;
-	cur_skey[2].sk_argument = v3;
-	cur_skey[3].sk_argument = v4;
-
 	do
 	{
+		/*
+		 * Ok, need to make a lookup in the relation, copy the scankey and
+		 * fill out any per-call fields.  (We must re-do this when retrying,
+		 * because systable_beginscan scribbles on the scankey.)
+		 */
+		memcpy(cur_skey, cache->cc_skey, sizeof(ScanKeyData) * nkeys);
+		cur_skey[0].sk_argument = v1;
+		cur_skey[1].sk_argument = v2;
+		cur_skey[2].sk_argument = v3;
+		cur_skey[3].sk_argument = v4;
+
 		scandesc = systable_beginscan(relation,
 									  cache->cc_indexoid,
-									  IndexScanOK(cache),
+									  IndexScanOK(cache, cur_skey),
 									  NULL,
 									  nkeys,
 									  cur_skey);
@@ -1692,7 +1669,8 @@ GetCatCacheHashValue(CatCache *cache,
 	/*
 	 * one-time startup overhead for each cache
 	 */
-	ConditionalCatalogCacheInitializeCache(cache);
+	if (cache->cc_tupdesc == NULL)
+		CatalogCacheInitializeCache(cache);
 
 	/*
 	 * calculate the hash value
@@ -1743,7 +1721,8 @@ SearchCatCacheList(CatCache *cache,
 	/*
 	 * one-time startup overhead for each cache
 	 */
-	ConditionalCatalogCacheInitializeCache(cache);
+	if (unlikely(cache->cc_tupdesc == NULL))
+		CatalogCacheInitializeCache(cache);
 
 	Assert(nkeys > 0 && nkeys < cache->cc_nkeys);
 
@@ -1878,16 +1857,6 @@ SearchCatCacheList(CatCache *cache,
 		relation = table_open(cache->cc_reloid, AccessShareLock);
 
 		/*
-		 * Ok, need to make a lookup in the relation, copy the scankey and
-		 * fill out any per-call fields.
-		 */
-		memcpy(cur_skey, cache->cc_skey, sizeof(ScanKeyData) * cache->cc_nkeys);
-		cur_skey[0].sk_argument = v1;
-		cur_skey[1].sk_argument = v2;
-		cur_skey[2].sk_argument = v3;
-		cur_skey[3].sk_argument = v4;
-
-		/*
 		 * Scan the table for matching entries.  If an invalidation arrives
 		 * mid-build, we will loop back here to retry.
 		 */
@@ -1913,9 +1882,20 @@ SearchCatCacheList(CatCache *cache,
 			ctlist = NIL;
 			in_progress_ent.dead = false;
 
+			/*
+			 * Copy the scankey and fill out any per-call fields.  (We must
+			 * re-do this when retrying, because systable_beginscan scribbles
+			 * on the scankey.)
+			 */
+			memcpy(cur_skey, cache->cc_skey, sizeof(ScanKeyData) * cache->cc_nkeys);
+			cur_skey[0].sk_argument = v1;
+			cur_skey[1].sk_argument = v2;
+			cur_skey[2].sk_argument = v3;
+			cur_skey[3].sk_argument = v4;
+
 			scandesc = systable_beginscan(relation,
 										  cache->cc_indexoid,
-										  IndexScanOK(cache),
+										  IndexScanOK(cache, cur_skey),
 										  NULL,
 										  nkeys,
 										  cur_skey);
@@ -1926,7 +1906,7 @@ SearchCatCacheList(CatCache *cache,
 			/* Injection point to help testing the recursive invalidation case */
 			if (first_iter)
 			{
-				INJECTION_POINT("catcache-list-miss-systable-scan-started", NULL);
+				INJECTION_POINT("catcache-list-miss-systable-scan-started");
 				first_iter = false;
 			}
 
@@ -2376,8 +2356,7 @@ void
 PrepareToInvalidateCacheTuple(Relation relation,
 							  HeapTuple tuple,
 							  HeapTuple newtuple,
-							  void (*function) (int, uint32, Oid, void *),
-							  void *context)
+							  void (*function) (int, uint32, Oid))
 {
 	slist_iter	iter;
 	Oid			reloid;
@@ -2412,12 +2391,13 @@ PrepareToInvalidateCacheTuple(Relation relation,
 			continue;
 
 		/* Just in case cache hasn't finished initialization yet... */
-		ConditionalCatalogCacheInitializeCache(ccp);
+		if (ccp->cc_tupdesc == NULL)
+			CatalogCacheInitializeCache(ccp);
 
 		hashvalue = CatalogCacheComputeTupleHashValue(ccp, ccp->cc_nkeys, tuple);
 		dbid = ccp->cc_relisshared ? (Oid) 0 : MyDatabaseId;
 
-		(*function) (ccp->id, hashvalue, dbid, context);
+		(*function) (ccp->id, hashvalue, dbid);
 
 		if (newtuple)
 		{
@@ -2426,7 +2406,7 @@ PrepareToInvalidateCacheTuple(Relation relation,
 			newhashvalue = CatalogCacheComputeTupleHashValue(ccp, ccp->cc_nkeys, newtuple);
 
 			if (newhashvalue != hashvalue)
-				(*function) (ccp->id, newhashvalue, dbid, context);
+				(*function) (ccp->id, newhashvalue, dbid);
 		}
 	}
 }

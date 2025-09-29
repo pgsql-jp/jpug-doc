@@ -2,7 +2,7 @@
  * brin_pageops.c
  *		Page-handling routines for BRIN indexes
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -190,10 +190,10 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 			xlrec.offnum = oldoff;
 
 			XLogBeginInsert();
-			XLogRegisterData(&xlrec, SizeOfBrinSamepageUpdate);
+			XLogRegisterData((char *) &xlrec, SizeOfBrinSamepageUpdate);
 
 			XLogRegisterBuffer(0, oldbuf, REGBUF_STANDARD);
-			XLogRegisterBufData(0, newtup, newsz);
+			XLogRegisterBufData(0, (char *) unconstify(BrinTuple *, newtup), newsz);
 
 			recptr = XLogInsert(RM_BRIN_ID, info);
 
@@ -282,10 +282,10 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 			XLogBeginInsert();
 
 			/* new page */
-			XLogRegisterData(&xlrec, SizeOfBrinUpdate);
+			XLogRegisterData((char *) &xlrec, SizeOfBrinUpdate);
 
 			XLogRegisterBuffer(0, newbuf, REGBUF_STANDARD | (extended ? REGBUF_WILL_INIT : 0));
-			XLogRegisterBufData(0, newtup, newsz);
+			XLogRegisterBufData(0, (char *) unconstify(BrinTuple *, newtup), newsz);
 
 			/* revmap page */
 			XLogRegisterBuffer(1, revmapbuf, 0);
@@ -435,10 +435,10 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 		xlrec.offnum = off;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, SizeOfBrinInsert);
+		XLogRegisterData((char *) &xlrec, SizeOfBrinInsert);
 
 		XLogRegisterBuffer(0, *buffer, REGBUF_STANDARD | (extended ? REGBUF_WILL_INIT : 0));
-		XLogRegisterBufData(0, tup, itemsz);
+		XLogRegisterBufData(0, (char *) tup, itemsz);
 
 		XLogRegisterBuffer(1, revmapbuf, 0);
 

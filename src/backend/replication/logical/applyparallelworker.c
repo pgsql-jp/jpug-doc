@@ -2,7 +2,7 @@
  * applyparallelworker.c
  *	   Support routines for applying xact by parallel apply worker
  *
- * Copyright (c) 2023-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2023-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/logical/applyparallelworker.c
@@ -983,7 +983,7 @@ ParallelApplyWorkerMain(Datum main_arg)
  *
  * Note: this is called within a signal handler! All we can do is set a flag
  * that will cause the next CHECK_FOR_INTERRUPTS() to invoke
- * ProcessParallelApplyMessages().
+ * HandleParallelApplyMessages().
  */
 void
 HandleParallelApplyMessageInterrupt(void)
@@ -994,11 +994,11 @@ HandleParallelApplyMessageInterrupt(void)
 }
 
 /*
- * Process a single protocol message received from a single parallel apply
+ * Handle a single protocol message received from a single parallel apply
  * worker.
  */
 static void
-ProcessParallelApplyMessage(StringInfo msg)
+HandleParallelApplyMessage(StringInfo msg)
 {
 	char		msgtype;
 
@@ -1060,7 +1060,7 @@ ProcessParallelApplyMessage(StringInfo msg)
  * Handle any queued protocol messages received from parallel apply workers.
  */
 void
-ProcessParallelApplyMessages(void)
+HandleParallelApplyMessages(void)
 {
 	ListCell   *lc;
 	MemoryContext oldcontext;
@@ -1083,7 +1083,7 @@ ProcessParallelApplyMessages(void)
 	 */
 	if (!hpam_context)			/* first time through? */
 		hpam_context = AllocSetContextCreate(TopMemoryContext,
-											 "ProcessParallelApplyMessages",
+											 "HandleParallelApplyMessages",
 											 ALLOCSET_DEFAULT_SIZES);
 	else
 		MemoryContextReset(hpam_context);
@@ -1118,7 +1118,7 @@ ProcessParallelApplyMessages(void)
 
 			initStringInfo(&msg);
 			appendBinaryStringInfo(&msg, data, nbytes);
-			ProcessParallelApplyMessage(&msg);
+			HandleParallelApplyMessage(&msg);
 			pfree(msg.data);
 		}
 		else

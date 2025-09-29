@@ -3,16 +3,14 @@
  *
  *	controldata functions
  *
- *	Copyright (c) 2010-2025, PostgreSQL Global Development Group
+ *	Copyright (c) 2010-2024, PostgreSQL Global Development Group
  *	src/bin/pg_upgrade/controldata.c
  */
 
 #include "postgres_fe.h"
 
 #include <ctype.h>
-#include <limits.h>				/* for CHAR_MIN */
 
-#include "access/xlog_internal.h"
 #include "common/string.h"
 #include "pg_upgrade.h"
 
@@ -35,7 +33,7 @@
  * return valid xid data for a running server.
  */
 void
-get_control_data(ClusterInfo *cluster)
+get_control_data(ClusterInfo *cluster, bool live_check)
 {
 	char		cmd[MAXPGPATH];
 	char		bufin[MAX_STRING];
@@ -64,7 +62,6 @@ get_control_data(ClusterInfo *cluster)
 	bool		got_date_is_int = false;
 	bool		got_data_checksum_version = false;
 	bool		got_cluster_state = false;
-	bool		got_default_char_signedness = false;
 	char	   *lc_collate = NULL;
 	char	   *lc_ctype = NULL;
 	char	   *lc_monetary = NULL;
@@ -79,7 +76,6 @@ get_control_data(ClusterInfo *cluster)
 	uint32		segno = 0;
 	char	   *resetwal_bin;
 	int			rc;
-	bool		live_check = (cluster == &old_cluster && user_opts.live_check);
 
 	/*
 	 * Because we test the pg_resetwal output as strings, it has to be in
@@ -504,25 +500,6 @@ get_control_data(ClusterInfo *cluster)
 			cluster->controldata.data_checksum_version = str2uint(p);
 			got_data_checksum_version = true;
 		}
-		else if ((p = strstr(bufin, "Default char data signedness:")) != NULL)
-		{
-			p = strchr(p, ':');
-
-			if (p == NULL || strlen(p) <= 1)
-				pg_fatal("%d: controldata retrieval problem", __LINE__);
-
-			/* Skip the colon and any whitespace after it */
-			p++;
-			while (isspace((unsigned char) *p))
-				p++;
-
-			/* The value should be either 'signed' or 'unsigned' */
-			if (strcmp(p, "signed") != 0 && strcmp(p, "unsigned") != 0)
-				pg_fatal("%d: controldata retrieval problem", __LINE__);
-
-			cluster->controldata.default_char_signedness = strcmp(p, "signed") == 0;
-			got_default_char_signedness = true;
-		}
 	}
 
 	rc = pclose(output);
@@ -583,21 +560,6 @@ get_control_data(ClusterInfo *cluster)
 		}
 	}
 
-	/*
-	 * Pre-v18 database clusters don't have the default char signedness
-	 * information. We use the char signedness of the platform where
-	 * pg_upgrade was built.
-	 */
-	if (cluster->controldata.cat_ver < DEFAULT_CHAR_SIGNEDNESS_CAT_VER)
-	{
-		Assert(!got_default_char_signedness);
-#if CHAR_MIN != 0
-		cluster->controldata.default_char_signedness = true;
-#else
-		cluster->controldata.default_char_signedness = false;
-#endif
-	}
-
 	/* verify that we got all the mandatory pg_control data */
 	if (!got_xid || !got_oid ||
 		!got_multi || !got_oldestxid ||
@@ -609,9 +571,7 @@ get_control_data(ClusterInfo *cluster)
 		!got_index || !got_toast ||
 		(!got_large_object &&
 		 cluster->controldata.ctrl_ver >= LARGE_OBJECT_SIZE_PG_CONTROL_VER) ||
-		!got_date_is_int || !got_data_checksum_version ||
-		(!got_default_char_signedness &&
-		 cluster->controldata.cat_ver >= DEFAULT_CHAR_SIGNEDNESS_CAT_VER))
+		!got_date_is_int || !got_data_checksum_version)
 	{
 		if (cluster == &old_cluster)
 			pg_log(PG_REPORT,
@@ -679,10 +639,6 @@ get_control_data(ClusterInfo *cluster)
 		/* value added in Postgres 9.3 */
 		if (!got_data_checksum_version)
 			pg_log(PG_REPORT, "  data checksum version");
-
-		/* value added in Postgres 18 */
-		if (!got_default_char_signedness)
-			pg_log(PG_REPORT, "  default char signedness");
 
 		pg_fatal("Cannot continue without required control information, terminating");
 	}
@@ -752,34 +708,25 @@ check_control_data(ControlData *oldctrl,
 
 
 void
-disable_old_cluster(transferMode transfer_mode)
+disable_old_cluster(void)
 {
 	char		old_path[MAXPGPATH],
 				new_path[MAXPGPATH];
 
 	/* rename pg_control so old server cannot be accidentally started */
-	/* translator: %s is the file path of the control file */
-	prep_status("Adding \".old\" suffix to old \"%s\"", XLOG_CONTROL_FILE);
+	prep_status("Adding \".old\" suffix to old global/pg_control");
 
-	snprintf(old_path, sizeof(old_path), "%s/%s", old_cluster.pgdata, XLOG_CONTROL_FILE);
-	snprintf(new_path, sizeof(new_path), "%s/%s.old", old_cluster.pgdata, XLOG_CONTROL_FILE);
+	snprintf(old_path, sizeof(old_path), "%s/global/pg_control", old_cluster.pgdata);
+	snprintf(new_path, sizeof(new_path), "%s/global/pg_control.old", old_cluster.pgdata);
 	if (pg_mv_file(old_path, new_path) != 0)
 		pg_fatal("could not rename file \"%s\" to \"%s\": %m",
 				 old_path, new_path);
 	check_ok();
 
-	if (transfer_mode == TRANSFER_MODE_LINK)
-		/* translator: %s/%s is the file path of the control file */
-		pg_log(PG_REPORT, "\n"
-			   "If you want to start the old cluster, you will need to remove\n"
-			   "the \".old\" suffix from \"%s/%s.old\".\n"
-			   "Because \"link\" mode was used, the old cluster cannot be safely\n"
-			   "started once the new cluster has been started.",
-			   old_cluster.pgdata, XLOG_CONTROL_FILE);
-	else if (transfer_mode == TRANSFER_MODE_SWAP)
-		pg_log(PG_REPORT, "\n"
-			   "Because \"swap\" mode was used, the old cluster can no longer be\n"
-			   "safely started.");
-	else
-		pg_fatal("unrecognized transfer mode");
+	pg_log(PG_REPORT, "\n"
+		   "If you want to start the old cluster, you will need to remove\n"
+		   "the \".old\" suffix from %s/global/pg_control.old.\n"
+		   "Because \"link\" mode was used, the old cluster cannot be safely\n"
+		   "started once the new cluster has been started.",
+		   old_cluster.pgdata);
 }

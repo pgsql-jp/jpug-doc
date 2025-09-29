@@ -3,7 +3,7 @@
  * auth.c
  *	  Routines to handle network authentication
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -29,7 +29,6 @@
 #include "libpq/auth.h"
 #include "libpq/crypt.h"
 #include "libpq/libpq.h"
-#include "libpq/oauth.h"
 #include "libpq/pqformat.h"
 #include "libpq/sasl.h"
 #include "libpq/scram.h"
@@ -38,7 +37,6 @@
 #include "postmaster/postmaster.h"
 #include "replication/walsender.h"
 #include "storage/ipc.h"
-#include "tcop/backend_startup.h"
 #include "utils/memutils.h"
 
 /*----------------------------------------------------------------
@@ -47,6 +45,7 @@
  */
 static void auth_failed(Port *port, int status, const char *logdetail);
 static char *recv_password_packet(Port *port);
+static void set_authn_id(Port *port, const char *id);
 
 
 /*----------------------------------------------------------------
@@ -210,6 +209,22 @@ static int	CheckRADIUSAuth(Port *port);
 static int	PerformRadiusTransaction(const char *server, const char *secret, const char *portstr, const char *identifier, const char *user_name, const char *passwd);
 
 
+/*
+ * Maximum accepted size of GSS and SSPI authentication tokens.
+ * We also use this as a limit on ordinary password packet lengths.
+ *
+ * Kerberos tickets are usually quite small, but the TGTs issued by Windows
+ * domain controllers include an authorization field known as the Privilege
+ * Attribute Certificate (PAC), which contains the user's Windows permissions
+ * (group memberships etc.). The PAC is copied into all tickets obtained on
+ * the basis of this TGT (even those issued by Unix realms which the Windows
+ * realm trusts), and can be several kB in size. The maximum token size
+ * accepted by Windows systems is determined by the MaxAuthToken Windows
+ * registry setting. Microsoft recommends that it is not set higher than
+ * 65535 bytes, so that seems like a reasonable limit for us as well.
+ */
+#define PG_MAX_AUTH_TOKEN_LENGTH	65535
+
 /*----------------------------------------------------------------
  * Global authentication functions
  *----------------------------------------------------------------
@@ -298,9 +313,6 @@ auth_failed(Port *port, int status, const char *logdetail)
 		case uaRADIUS:
 			errstr = gettext_noop("RADIUS authentication failed for user \"%s\"");
 			break;
-		case uaOAuth:
-			errstr = gettext_noop("OAuth bearer authentication failed for user \"%s\"");
-			break;
 		default:
 			errstr = gettext_noop("authentication failed for user \"%s\": invalid authentication method");
 			break;
@@ -326,8 +338,7 @@ auth_failed(Port *port, int status, const char *logdetail)
 /*
  * Sets the authenticated identity for the current user.  The provided string
  * will be stored into MyClientConnectionInfo, alongside the current HBA
- * method in use.  The ID will be logged if log_connections has the
- * 'authentication' option specified.
+ * method in use.  The ID will be logged if log_connections is enabled.
  *
  * Auth methods should call this routine exactly once, as soon as the user is
  * successfully authenticated, even if they have reasons to know that
@@ -337,7 +348,7 @@ auth_failed(Port *port, int status, const char *logdetail)
  * lifetime of MyClientConnectionInfo, so it is safe to pass a string that is
  * managed by an external library.
  */
-void
+static void
 set_authn_id(Port *port, const char *id)
 {
 	Assert(id);
@@ -359,7 +370,7 @@ set_authn_id(Port *port, const char *id)
 	MyClientConnectionInfo.authn_id = MemoryContextStrdup(TopMemoryContext, id);
 	MyClientConnectionInfo.auth_method = port->hba->auth_method;
 
-	if (log_connections & LOG_CONNECTION_AUTHENTICATION)
+	if (Log_connections)
 	{
 		ereport(LOG,
 				errmsg("connection authenticated: identity=\"%s\" method=%s "
@@ -624,9 +635,6 @@ ClientAuthentication(Port *port)
 		case uaTrust:
 			status = STATUS_OK;
 			break;
-		case uaOAuth:
-			status = CheckSASLAuth(&pg_be_oauth_mech, port, NULL, NULL);
-			break;
 	}
 
 	if ((status == STATUS_OK && port->hba->clientcert == clientCertFull)
@@ -643,8 +651,7 @@ ClientAuthentication(Port *port)
 #endif
 	}
 
-	if ((log_connections & LOG_CONNECTION_AUTHENTICATION) &&
-		status == STATUS_OK &&
+	if (Log_connections && status == STATUS_OK &&
 		!MyClientConnectionInfo.authn_id)
 	{
 		/*
@@ -674,7 +681,7 @@ ClientAuthentication(Port *port)
  * Send an authentication request packet to the frontend.
  */
 void
-sendAuthRequest(Port *port, AuthRequest areq, const void *extradata, int extralen)
+sendAuthRequest(Port *port, AuthRequest areq, const char *extradata, int extralen)
 {
 	StringInfoData buf;
 
@@ -882,7 +889,7 @@ CheckPWChallengeAuth(Port *port, const char **logdetail)
 static int
 CheckMD5Auth(Port *port, char *shadow_pass, const char **logdetail)
 {
-	uint8		md5Salt[4];		/* Password salt */
+	char		md5Salt[4];		/* Password salt */
 	char	   *passwd;
 	int			result;
 
@@ -1858,10 +1865,7 @@ auth_peer(hbaPort *port)
 	uid_t		uid;
 	gid_t		gid;
 #ifndef WIN32
-	struct passwd pwbuf;
 	struct passwd *pw;
-	char		buf[1024];
-	int			rc;
 	int			ret;
 #endif
 
@@ -1880,18 +1884,16 @@ auth_peer(hbaPort *port)
 	}
 
 #ifndef WIN32
-	rc = getpwuid_r(uid, &pwbuf, buf, sizeof buf, &pw);
-	if (rc != 0)
+	errno = 0;					/* clear errno before call */
+	pw = getpwuid(uid);
+	if (!pw)
 	{
-		errno = rc;
+		int			save_errno = errno;
+
 		ereport(LOG,
-				errmsg("could not look up local user ID %ld: %m", (long) uid));
-		return STATUS_ERROR;
-	}
-	else if (!pw)
-	{
-		ereport(LOG,
-				errmsg("local user with ID %ld does not exist", (long) uid));
+				(errmsg("could not look up local user ID %ld: %s",
+						(long) uid,
+						save_errno ? strerror(save_errno) : _("user does not exist"))));
 		return STATUS_ERROR;
 	}
 
@@ -2943,8 +2945,8 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 	radius_packet radius_recv_pack;
 	radius_packet *packet = &radius_send_pack;
 	radius_packet *receivepacket = &radius_recv_pack;
-	void	   *radius_buffer = &radius_send_pack;
-	void	   *receive_buffer = &radius_recv_pack;
+	char	   *radius_buffer = (char *) &radius_send_pack;
+	char	   *receive_buffer = (char *) &radius_recv_pack;
 	int32		service = pg_hton32(RADIUS_AUTHENTICATE_ONLY);
 	uint8	   *cryptvector;
 	int			encryptedpasswordlen;
@@ -3215,9 +3217,7 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 																		 * original packet */
 		if (packetlength > RADIUS_HEADER_LENGTH)	/* there may be no
 													 * attributes at all */
-			memcpy(cryptvector + RADIUS_HEADER_LENGTH,
-				   (char *) receive_buffer + RADIUS_HEADER_LENGTH,
-				   packetlength - RADIUS_HEADER_LENGTH);
+			memcpy(cryptvector + RADIUS_HEADER_LENGTH, receive_buffer + RADIUS_HEADER_LENGTH, packetlength - RADIUS_HEADER_LENGTH);
 		memcpy(cryptvector + packetlength, secret, strlen(secret));
 
 		if (!pg_md5_binary(cryptvector,

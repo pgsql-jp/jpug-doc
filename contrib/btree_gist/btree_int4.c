@@ -2,10 +2,10 @@
  * contrib/btree_gist/btree_int4.c
  */
 #include "postgres.h"
+
 #include "btree_gist.h"
 #include "btree_utils_num.h"
 #include "common/int.h"
-#include "utils/sortsupport.h"
 
 typedef struct int32key
 {
@@ -13,7 +13,9 @@ typedef struct int32key
 	int32		upper;
 } int32KEY;
 
-/* GiST support functions */
+/*
+** int32 ops
+*/
 PG_FUNCTION_INFO_V1(gbt_int4_compress);
 PG_FUNCTION_INFO_V1(gbt_int4_fetch);
 PG_FUNCTION_INFO_V1(gbt_int4_union);
@@ -22,7 +24,7 @@ PG_FUNCTION_INFO_V1(gbt_int4_consistent);
 PG_FUNCTION_INFO_V1(gbt_int4_distance);
 PG_FUNCTION_INFO_V1(gbt_int4_penalty);
 PG_FUNCTION_INFO_V1(gbt_int4_same);
-PG_FUNCTION_INFO_V1(gbt_int4_sortsupport);
+
 
 static bool
 gbt_int4gt(const void *a, const void *b, FmgrInfo *flinfo)
@@ -111,8 +113,9 @@ int4_dist(PG_FUNCTION_ARGS)
 
 
 /**************************************************
- * GiST support functions
+ * int32 ops
  **************************************************/
+
 
 Datum
 gbt_int4_compress(PG_FUNCTION_ARGS)
@@ -148,9 +151,10 @@ gbt_int4_consistent(PG_FUNCTION_ARGS)
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
 	key.upper = (GBT_NUMKEY *) &kkk->upper;
 
-	PG_RETURN_BOOL(gbt_num_consistent(&key, &query, &strategy,
+	PG_RETURN_BOOL(gbt_num_consistent(&key, (void *) &query, &strategy,
 									  GIST_LEAF(entry), &tinfo, fcinfo->flinfo));
 }
+
 
 Datum
 gbt_int4_distance(PG_FUNCTION_ARGS)
@@ -165,9 +169,10 @@ gbt_int4_distance(PG_FUNCTION_ARGS)
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
 	key.upper = (GBT_NUMKEY *) &kkk->upper;
 
-	PG_RETURN_FLOAT8(gbt_num_distance(&key, &query, GIST_LEAF(entry),
+	PG_RETURN_FLOAT8(gbt_num_distance(&key, (void *) &query, GIST_LEAF(entry),
 									  &tinfo, fcinfo->flinfo));
 }
+
 
 Datum
 gbt_int4_union(PG_FUNCTION_ARGS)
@@ -176,8 +181,9 @@ gbt_int4_union(PG_FUNCTION_ARGS)
 	void	   *out = palloc(sizeof(int32KEY));
 
 	*(int *) PG_GETARG_POINTER(1) = sizeof(int32KEY);
-	PG_RETURN_POINTER(gbt_num_union(out, entryvec, &tinfo, fcinfo->flinfo));
+	PG_RETURN_POINTER(gbt_num_union((void *) out, entryvec, &tinfo, fcinfo->flinfo));
 }
+
 
 Datum
 gbt_int4_penalty(PG_FUNCTION_ARGS)
@@ -208,28 +214,4 @@ gbt_int4_same(PG_FUNCTION_ARGS)
 
 	*result = gbt_num_same((void *) b1, (void *) b2, &tinfo, fcinfo->flinfo);
 	PG_RETURN_POINTER(result);
-}
-
-static int
-gbt_int4_ssup_cmp(Datum a, Datum b, SortSupport ssup)
-{
-	int32KEY   *ia = (int32KEY *) DatumGetPointer(a);
-	int32KEY   *ib = (int32KEY *) DatumGetPointer(b);
-
-	/* for leaf items we expect lower == upper, so only compare lower */
-	if (ia->lower < ib->lower)
-		return -1;
-	else if (ia->lower > ib->lower)
-		return 1;
-	else
-		return 0;
-}
-
-Datum
-gbt_int4_sortsupport(PG_FUNCTION_ARGS)
-{
-	SortSupport ssup = (SortSupport) PG_GETARG_POINTER(0);
-
-	ssup->comparator = gbt_int4_ssup_cmp;
-	PG_RETURN_VOID();
 }

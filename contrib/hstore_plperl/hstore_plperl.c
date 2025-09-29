@@ -4,10 +4,7 @@
 #include "hstore/hstore.h"
 #include "plperl.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "hstore_plperl",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* Linkage to functions in hstore module */
 typedef HStore *(*hstoreUpgrade_t) (Datum orig);

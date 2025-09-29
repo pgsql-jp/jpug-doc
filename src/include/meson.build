@@ -1,4 +1,13 @@
-# Copyright (c) 2022-2025, PostgreSQL Global Development Group
+# Copyright (c) 2022-2024, PostgreSQL Global Development Group
+
+pg_config_ext = configure_file(
+  input: 'pg_config_ext.h.meson',
+  output: 'pg_config_ext.h',
+  configuration: cdata,
+  install: true,
+  install_dir: dir_include,
+)
+configure_files += pg_config_ext
 
 pg_config_os = configure_file(
   output: 'pg_config_os.h',
@@ -107,6 +116,7 @@ install_headers(
   'postgres_fe.h',
   'varatt.h',
   'windowapi.h',
+  pg_config_ext,
   pg_config_os,
   pg_config,
   install_dir: dir_include_server,
@@ -176,4 +186,4 @@ install_subdir('catalog',
 )
 
 # autoconf generates the file there, ensure we get a conflict
-generated_sources_ac += {'src/include': ['stamp-h']}
+generated_sources_ac += {'src/include': ['stamp-h', 'stamp-ext-h']}

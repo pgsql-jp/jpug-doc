@@ -5,7 +5,7 @@
  *
  * Author: Magnus Hagander <magnus@hagander.net>
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *		  src/bin/pg_basebackup/receivelog.c
@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include "access/xlog_internal.h"
+#include "common/file_utils.h"
 #include "common/logging.h"
 #include "libpq-fe.h"
 #include "receivelog.h"
@@ -803,10 +804,6 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 		sleeptime = CalculateCopyStreamSleeptime(now, stream->standby_message_timeout,
 												 last_status);
 
-		/* Done with any prior message */
-		PQfreemem(copybuf);
-		copybuf = NULL;
-
 		r = CopyStreamReceive(conn, sleeptime, stream->stop_socket, &copybuf);
 		while (r != 0)
 		{
@@ -818,8 +815,8 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 
 				if (res == NULL)
 					goto error;
-				PQfreemem(copybuf);
-				return res;
+				else
+					return res;
 			}
 
 			/* Check the message type. */
@@ -847,10 +844,6 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 							 copybuf[0]);
 				goto error;
 			}
-
-			/* Done with that message */
-			PQfreemem(copybuf);
-			copybuf = NULL;
 
 			/*
 			 * Process the received data, and any subsequent data we can read
@@ -928,8 +921,8 @@ CopyStreamPoll(PGconn *conn, long timeout_ms, pgsocket stop_socket)
  * maximum of 'timeout' ms.
  *
  * If data was received, returns the length of the data. *buffer is set to
- * point to a buffer holding the received message. The caller must eventually
- * free the buffer with PQfreemem().
+ * point to a buffer holding the received message. The buffer is only valid
+ * until the next CopyStreamReceive call.
  *
  * Returns 0 if no data was available within timeout, or if wait was
  * interrupted by signal or stop_socket input.
@@ -942,8 +935,8 @@ CopyStreamReceive(PGconn *conn, long timeout, pgsocket stop_socket,
 	char	   *copybuf = NULL;
 	int			rawlen;
 
-	/* Caller should have cleared any prior buffer */
-	Assert(*buffer == NULL);
+	PQfreemem(*buffer);
+	*buffer = NULL;
 
 	/* Try to receive a CopyData message */
 	rawlen = PQgetCopyData(conn, &copybuf, 1);
@@ -1206,6 +1199,7 @@ HandleEndOfCopyStream(PGconn *conn, StreamCtl *stream, char *copybuf,
 		}
 		still_sending = false;
 	}
+	PQfreemem(copybuf);
 	*stoppos = blockpos;
 	return res;
 }

@@ -3,7 +3,7 @@
  * objectaccess.c
  *		functions for object_access_hook on various events
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * -------------------------------------------------------------------------
@@ -42,7 +42,7 @@ RunObjectPostCreateHook(Oid classId, Oid objectId, int subId,
 
 	(*object_access_hook) (OAT_POST_CREATE,
 						   classId, objectId, subId,
-						   &pc_arg);
+						   (void *) &pc_arg);
 }
 
 /*
@@ -64,7 +64,7 @@ RunObjectDropHook(Oid classId, Oid objectId, int subId,
 
 	(*object_access_hook) (OAT_DROP,
 						   classId, objectId, subId,
-						   &drop_arg);
+						   (void *) &drop_arg);
 }
 
 /*
@@ -103,7 +103,7 @@ RunObjectPostAlterHook(Oid classId, Oid objectId, int subId,
 
 	(*object_access_hook) (OAT_POST_ALTER,
 						   classId, objectId, subId,
-						   &pa_arg);
+						   (void *) &pa_arg);
 }
 
 /*
@@ -125,7 +125,7 @@ RunNamespaceSearchHook(Oid objectId, bool ereport_on_violation)
 
 	(*object_access_hook) (OAT_NAMESPACE_SEARCH,
 						   NamespaceRelationId, objectId, 0,
-						   &ns_arg);
+						   (void *) &ns_arg);
 
 	return ns_arg.result;
 }
@@ -168,7 +168,7 @@ RunObjectPostCreateHookStr(Oid classId, const char *objectName, int subId,
 
 	(*object_access_hook_str) (OAT_POST_CREATE,
 							   classId, objectName, subId,
-							   &pc_arg);
+							   (void *) &pc_arg);
 }
 
 /*
@@ -190,7 +190,7 @@ RunObjectDropHookStr(Oid classId, const char *objectName, int subId,
 
 	(*object_access_hook_str) (OAT_DROP,
 							   classId, objectName, subId,
-							   &drop_arg);
+							   (void *) &drop_arg);
 }
 
 /*
@@ -229,7 +229,7 @@ RunObjectPostAlterHookStr(Oid classId, const char *objectName, int subId,
 
 	(*object_access_hook_str) (OAT_POST_ALTER,
 							   classId, objectName, subId,
-							   &pa_arg);
+							   (void *) &pa_arg);
 }
 
 /*
@@ -251,7 +251,7 @@ RunNamespaceSearchHookStr(const char *objectName, bool ereport_on_violation)
 
 	(*object_access_hook_str) (OAT_NAMESPACE_SEARCH,
 							   NamespaceRelationId, objectName, 0,
-							   &ns_arg);
+							   (void *) &ns_arg);
 
 	return ns_arg.result;
 }

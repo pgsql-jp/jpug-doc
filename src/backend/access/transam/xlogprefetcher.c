@@ -3,7 +3,7 @@
  * xlogprefetcher.c
  *		Prefetching support for recovery.
  *
- * Portions Copyright (c) 2022-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2022-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -362,15 +362,17 @@ XLogPrefetcher *
 XLogPrefetcherAllocate(XLogReaderState *reader)
 {
 	XLogPrefetcher *prefetcher;
-	HASHCTL		ctl;
+	static HASHCTL hash_table_ctl = {
+		.keysize = sizeof(RelFileLocator),
+		.entrysize = sizeof(XLogPrefetcherFilter)
+	};
 
 	prefetcher = palloc0(sizeof(XLogPrefetcher));
-	prefetcher->reader = reader;
 
-	ctl.keysize = sizeof(RelFileLocator);
-	ctl.entrysize = sizeof(XLogPrefetcherFilter);
+	prefetcher->reader = reader;
 	prefetcher->filter_table = hash_create("XLogPrefetcherFilterTable", 1024,
-										   &ctl, HASH_ELEM | HASH_BLOBS);
+										   &hash_table_ctl,
+										   HASH_ELEM | HASH_BLOBS);
 	dlist_init(&prefetcher->filter_queue);
 
 	SharedStats->wal_distance = 0;
@@ -1083,7 +1085,7 @@ check_recovery_prefetch(int *new_value, void **extra, GucSource source)
 #ifndef USE_PREFETCH
 	if (*new_value == RECOVERY_PREFETCH_ON)
 	{
-		GUC_check_errdetail("\"recovery_prefetch\" is not supported on platforms that lack support for issuing read-ahead advice.");
+		GUC_check_errdetail("\"recovery_prefetch\" is not supported on platforms that lack posix_fadvise().");
 		return false;
 	}
 #endif

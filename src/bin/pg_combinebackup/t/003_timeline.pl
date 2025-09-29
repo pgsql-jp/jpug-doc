@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025, PostgreSQL Global Development Group
+# Copyright (c) 2021-2024, PostgreSQL Global Development Group
 #
 # This test aims to validate that restoring an incremental backup works
 # properly even when the reference backup is on a different timeline.
@@ -30,12 +30,7 @@ EOM
 # Take a full backup.
 my $backup1path = $node1->backup_dir . '/backup1';
 $node1->command_ok(
-	[
-		'pg_basebackup',
-		'--pgdata' => $backup1path,
-		'--no-sync',
-		'--checkpoint' => 'fast'
-	],
+	[ 'pg_basebackup', '-D', $backup1path, '--no-sync', '-cfast' ],
 	"full backup from node1");
 
 # Insert a second row on the original node.
@@ -47,11 +42,8 @@ EOM
 my $backup2path = $node1->backup_dir . '/backup2';
 $node1->command_ok(
 	[
-		'pg_basebackup',
-		'--pgdata' => $backup2path,
-		'--no-sync',
-		'--checkpoint' => 'fast',
-		'--incremental' => $backup1path . '/backup_manifest'
+		'pg_basebackup', '-D', $backup2path, '--no-sync', '-cfast',
+		'--incremental', $backup1path . '/backup_manifest'
 	],
 	"incremental backup from node1");
 
@@ -73,11 +65,8 @@ EOM
 my $backup3path = $node1->backup_dir . '/backup3';
 $node2->command_ok(
 	[
-		'pg_basebackup',
-		'--pgdata' => $backup3path,
-		'--no-sync',
-		'--checkpoint' => 'fast',
-		'--incremental' => $backup2path . '/backup_manifest'
+		'pg_basebackup', '-D', $backup3path, '--no-sync', '-cfast',
+		'--incremental', $backup2path . '/backup_manifest'
 	],
 	"incremental backup from node2");
 

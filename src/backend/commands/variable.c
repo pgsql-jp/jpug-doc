@@ -4,7 +4,7 @@
  *		Routines for handling specialized SET variables.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -182,7 +182,7 @@ check_datestyle(char **newval, void **extra, GucSource source)
 
 	if (!ok)
 	{
-		GUC_check_errdetail("Conflicting \"DateStyle\" specifications.");
+		GUC_check_errdetail("Conflicting \"datestyle\" specifications.");
 		return false;
 	}
 
@@ -232,7 +232,7 @@ check_datestyle(char **newval, void **extra, GucSource source)
 		return false;
 	myextra[0] = newDateStyle;
 	myextra[1] = newDateOrder;
-	*extra = myextra;
+	*extra = (void *) myextra;
 
 	return true;
 }
@@ -381,8 +381,6 @@ void
 assign_timezone(const char *newval, void *extra)
 {
 	session_timezone = *((pg_tz **) extra);
-	/* datetime.c's cache of timezone abbrevs may now be obsolete */
-	ClearTimeZoneAbbrevCache();
 }
 
 /*
@@ -579,16 +577,14 @@ check_transaction_read_only(bool *newval, void **extra, GucSource source)
  * We allow idempotent changes at any time, but otherwise this can only be
  * changed in a toplevel transaction that has not yet taken a snapshot.
  *
- * As in check_transaction_read_only, allow it if not inside a transaction,
- * or if restoring state in a parallel worker.
+ * As in check_transaction_read_only, allow it if not inside a transaction.
  */
 bool
 check_transaction_isolation(int *newval, void **extra, GucSource source)
 {
 	int			newXactIsoLevel = *newval;
 
-	if (newXactIsoLevel != XactIsoLevel &&
-		IsTransactionState() && !InitializingParallelWorker)
+	if (newXactIsoLevel != XactIsoLevel && IsTransactionState())
 	{
 		if (FirstSnapshotSet)
 		{
@@ -623,10 +619,6 @@ check_transaction_isolation(int *newval, void **extra, GucSource source)
 bool
 check_transaction_deferrable(bool *newval, void **extra, GucSource source)
 {
-	/* Just accept the value when restoring state in a parallel worker */
-	if (InitializingParallelWorker)
-		return true;
-
 	if (IsSubTransaction())
 	{
 		GUC_check_errcode(ERRCODE_ACTIVE_SQL_TRANSACTION);
@@ -699,24 +691,6 @@ check_client_encoding(char **newval, void **extra, GucSource source)
 	canonical_name = pg_encoding_to_char(encoding);
 
 	/*
-	 * Parallel workers send data to the leader, not the client.  They always
-	 * send data using the database encoding; therefore, we should never
-	 * actually change the client encoding in a parallel worker.  However,
-	 * during parallel worker startup, we want to accept the leader's
-	 * client_encoding setting so that anyone who looks at the value in the
-	 * worker sees the same value that they would see in the leader.  A change
-	 * other than during startup, for example due to a SET clause attached to
-	 * a function definition, should be rejected, as there is nothing we can
-	 * do inside the worker to make it take effect.
-	 */
-	if (IsParallelWorker() && !InitializingParallelWorker)
-	{
-		GUC_check_errcode(ERRCODE_INVALID_TRANSACTION_STATE);
-		GUC_check_errdetail("Cannot change \"client_encoding\" during a parallel operation.");
-		return false;
-	}
-
-	/*
 	 * If we are not within a transaction then PrepareClientEncoding will not
 	 * be able to look up the necessary conversion procs.  If we are still
 	 * starting up, it will return "OK" anyway, and InitializeClientEncoding
@@ -726,15 +700,11 @@ check_client_encoding(char **newval, void **extra, GucSource source)
 	 * It seems like a bad idea for client_encoding to change that way anyhow,
 	 * so we don't go out of our way to support it.
 	 *
-	 * In a parallel worker, we might as well skip PrepareClientEncoding since
-	 * we're not going to use its results.
-	 *
 	 * Note: in the postmaster, or any other process that never calls
 	 * InitializeClientEncoding, PrepareClientEncoding will always succeed,
 	 * and so will SetClientEncoding; but they won't do anything, which is OK.
 	 */
-	if (!IsParallelWorker() &&
-		PrepareClientEncoding(encoding) < 0)
+	if (PrepareClientEncoding(encoding) < 0)
 	{
 		if (IsTransactionState())
 		{
@@ -788,11 +758,28 @@ assign_client_encoding(const char *newval, void *extra)
 	int			encoding = *((int *) extra);
 
 	/*
-	 * In a parallel worker, we never override the client encoding that was
-	 * set by ParallelWorkerMain().
+	 * Parallel workers send data to the leader, not the client.  They always
+	 * send data using the database encoding.
 	 */
 	if (IsParallelWorker())
-		return;
+	{
+		/*
+		 * During parallel worker startup, we want to accept the leader's
+		 * client_encoding setting so that anyone who looks at the value in
+		 * the worker sees the same value that they would see in the leader.
+		 */
+		if (InitializingParallelWorker)
+			return;
+
+		/*
+		 * A change other than during startup, for example due to a SET clause
+		 * attached to a function definition, should be rejected, as there is
+		 * nothing we can do inside the worker to make it take effect.
+		 */
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TRANSACTION_STATE),
+				 errmsg("cannot change \"client_encoding\" during a parallel operation")));
+	}
 
 	/* We do not expect an error if PrepareClientEncoding succeeded */
 	if (SetClientEncoding(encoding) < 0)
@@ -903,7 +890,7 @@ check_session_authorization(char **newval, void **extra, GucSource source)
 		return false;
 	myextra->roleid = roleid;
 	myextra->is_superuser = is_superuser;
-	*extra = myextra;
+	*extra = (void *) myextra;
 
 	return true;
 }
@@ -928,6 +915,7 @@ assign_session_authorization(const char *newval, void *extra)
  * a translation of "none" to InvalidOid.  Otherwise this is much like
  * SET SESSION AUTHORIZATION.
  */
+extern char *role_string;		/* in guc_tables.c */
 
 bool
 check_role(char **newval, void **extra, GucSource source)
@@ -1017,7 +1005,7 @@ check_role(char **newval, void **extra, GucSource source)
 		return false;
 	myextra->roleid = roleid;
 	myextra->is_superuser = is_superuser;
-	*extra = myextra;
+	*extra = (void *) myextra;
 
 	return true;
 }
@@ -1087,7 +1075,7 @@ check_application_name(char **newval, void **extra, GucSource source)
 	if (!clean)
 		return false;
 
-	ret = guc_strdup(LOG, clean);
+	ret = guc_strdup(WARNING, clean);
 	if (!ret)
 	{
 		pfree(clean);
@@ -1125,7 +1113,7 @@ check_cluster_name(char **newval, void **extra, GucSource source)
 	if (!clean)
 		return false;
 
-	ret = guc_strdup(LOG, clean);
+	ret = guc_strdup(WARNING, clean);
 	if (!ret)
 	{
 		pfree(clean);
@@ -1145,6 +1133,7 @@ check_cluster_name(char **newval, void **extra, GucSource source)
 void
 assign_maintenance_io_concurrency(int newval, void *extra)
 {
+#ifdef USE_PREFETCH
 	/*
 	 * Reconfigure recovery prefetching, because a setting it depends on
 	 * changed.
@@ -1152,24 +1141,9 @@ assign_maintenance_io_concurrency(int newval, void *extra)
 	maintenance_io_concurrency = newval;
 	if (AmStartupProcess())
 		XLogPrefetchReconfigure();
+#endif
 }
 
-/*
- * GUC assign hooks that recompute io_combine_limit whenever
- * io_combine_limit_guc and io_max_combine_limit are changed.  These are needed
- * because the GUC subsystem doesn't support dependencies between GUCs, and
- * they may be assigned in either order.
- */
-void
-assign_io_max_combine_limit(int newval, void *extra)
-{
-	io_combine_limit = Min(newval, io_combine_limit_guc);
-}
-void
-assign_io_combine_limit(int newval, void *extra)
-{
-	io_combine_limit = Min(io_max_combine_limit, newval);
-}
 
 /*
  * These show hooks just exist because we want to show the values in octal.
@@ -1242,6 +1216,32 @@ check_default_with_oids(bool *newval, void **extra, GucSource source)
 		return false;
 	}
 
+	return true;
+}
+
+bool
+check_effective_io_concurrency(int *newval, void **extra, GucSource source)
+{
+#ifndef USE_PREFETCH
+	if (*newval != 0)
+	{
+		GUC_check_errdetail("\"effective_io_concurrency\" must be set to 0 on platforms that lack posix_fadvise().");
+		return false;
+	}
+#endif							/* USE_PREFETCH */
+	return true;
+}
+
+bool
+check_maintenance_io_concurrency(int *newval, void **extra, GucSource source)
+{
+#ifndef USE_PREFETCH
+	if (*newval != 0)
+	{
+		GUC_check_errdetail("\"maintenance_io_concurrency\" must be set to 0 on platforms that lack posix_fadvise().");
+		return false;
+	}
+#endif							/* USE_PREFETCH */
 	return true;
 }
 

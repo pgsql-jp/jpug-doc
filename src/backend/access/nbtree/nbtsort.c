@@ -29,7 +29,7 @@
  * This code isn't concerned about the FSM at all. The caller is responsible
  * for initializing that.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -45,13 +45,14 @@
 #include "access/relscan.h"
 #include "access/table.h"
 #include "access/xact.h"
+#include "access/xloginsert.h"
 #include "catalog/index.h"
 #include "commands/progress.h"
 #include "executor/instrument.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bulk_write.h"
-#include "tcop/tcopprot.h"
+#include "tcop/tcopprot.h"		/* pgrminclude ignore */
 #include "utils/rel.h"
 #include "utils/sortsupport.h"
 #include "utils/tuplesort.h"
@@ -103,9 +104,6 @@ typedef struct BTShared
 	bool		nulls_not_distinct;
 	bool		isconcurrent;
 	int			scantuplesortstates;
-
-	/* Query ID, for report in worker processes */
-	int64		queryid;
 
 	/*
 	 * workersdonecv is used to monitor the progress of workers.  All parallel
@@ -475,7 +473,7 @@ _bt_spools_heapscan(Relation heap, Relation index, BTBuildState *buildstate,
 	/* Fill spool using either serial or parallel heap scan */
 	if (!buildstate->btleader)
 		reltuples = table_index_build_scan(heap, index, indexInfo, true, true,
-										   _bt_build_callback, buildstate,
+										   _bt_build_callback, (void *) buildstate,
 										   NULL);
 	else
 		reltuples = _bt_parallel_heapscan(buildstate,
@@ -829,7 +827,7 @@ _bt_buildadd(BTWriteState *wstate, BTPageState *state, IndexTuple itup,
 	 * make use of the reserved space.  This should never fail on internal
 	 * pages.
 	 */
-	if (unlikely(itupsz > BTMaxItemSize))
+	if (unlikely(itupsz > BTMaxItemSize(npage)))
 		_bt_check_third_page(wstate->index, wstate->heap, isleaf, npage,
 							 itup);
 
@@ -1171,7 +1169,7 @@ _bt_load(BTWriteState *wstate, BTSpool *btspool, BTSpool *btspool2)
 		{
 			SortSupport sortKey = sortKeys + i;
 			ScanKey		scanKey = wstate->inskey->scankeys + i;
-			bool		reverse;
+			int16		strategy;
 
 			sortKey->ssup_cxt = CurrentMemoryContext;
 			sortKey->ssup_collation = scanKey->sk_collation;
@@ -1183,9 +1181,10 @@ _bt_load(BTWriteState *wstate, BTSpool *btspool, BTSpool *btspool2)
 
 			Assert(sortKey->ssup_attno != 0);
 
-			reverse = (scanKey->sk_flags & SK_BT_DESC) != 0;
+			strategy = (scanKey->sk_flags & SK_BT_DESC) != 0 ?
+				BTGreaterStrategyNumber : BTLessStrategyNumber;
 
-			PrepareSortSupportFromIndexRel(wstate->index, reverse, sortKey);
+			PrepareSortSupportFromIndexRel(wstate->index, strategy, sortKey);
 		}
 
 		for (;;)
@@ -1304,7 +1303,7 @@ _bt_load(BTWriteState *wstate, BTSpool *btspool, BTSpool *btspool2)
 				 */
 				dstate->maxpostingsize = MAXALIGN_DOWN((BLCKSZ * 10 / 100)) -
 					sizeof(ItemIdData);
-				Assert(dstate->maxpostingsize <= BTMaxItemSize &&
+				Assert(dstate->maxpostingsize <= BTMaxItemSize((Page) state->btps_buf) &&
 					   dstate->maxpostingsize <= INDEX_SIZE_MASK);
 				dstate->htids = palloc(dstate->maxpostingsize);
 
@@ -1506,7 +1505,6 @@ _bt_begin_parallel(BTBuildState *buildstate, bool isconcurrent, int request)
 	btshared->nulls_not_distinct = btspool->nulls_not_distinct;
 	btshared->isconcurrent = isconcurrent;
 	btshared->scantuplesortstates = scantuplesortstates;
-	btshared->queryid = pgstat_get_my_query_id();
 	ConditionVariableInit(&btshared->workersdonecv);
 	SpinLockInit(&btshared->mutex);
 	/* Initialize mutable state */
@@ -1789,9 +1787,6 @@ _bt_parallel_build_main(dsm_segment *seg, shm_toc *toc)
 		indexLockmode = RowExclusiveLock;
 	}
 
-	/* Track query ID */
-	pgstat_report_query_id(btshared->queryid, false);
-
 	/* Open relations within worker */
 	heapRel = table_open(btshared->heaprelid, heapLockmode);
 	indexRel = index_open(btshared->indexrelid, indexLockmode);
@@ -1929,7 +1924,7 @@ _bt_parallel_scan_and_sort(BTSpool *btspool, BTSpool *btspool2,
 									ParallelTableScanFromBTShared(btshared));
 	reltuples = table_index_build_scan(btspool->heap, btspool->index, indexInfo,
 									   true, progress, _bt_build_callback,
-									   &buildstate, scan);
+									   (void *) &buildstate, scan);
 
 	/* Execute this worker's part of the sort */
 	if (progress)

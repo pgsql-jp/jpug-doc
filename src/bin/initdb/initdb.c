@@ -38,7 +38,7 @@
  *
  * This code is released under the terms of the PostgreSQL License.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/initdb/initdb.c
@@ -61,14 +61,14 @@
 #include <time.h>
 
 #ifdef HAVE_SHM_OPEN
-#include <sys/mman.h>
+#include "sys/mman.h"
 #endif
 
 #include "access/xlog_internal.h"
 #include "catalog/pg_authid_d.h"
-#include "catalog/pg_class_d.h"
+#include "catalog/pg_class_d.h" /* pgrminclude ignore */
 #include "catalog/pg_collation_d.h"
-#include "catalog/pg_database_d.h"
+#include "catalog/pg_database_d.h"	/* pgrminclude ignore */
 #include "common/file_perm.h"
 #include "common/file_utils.h"
 #include "common/logging.h"
@@ -164,11 +164,10 @@ static bool noinstructions = false;
 static bool do_sync = true;
 static bool sync_only = false;
 static bool show_setting = false;
-static bool data_checksums = true;
+static bool data_checksums = false;
 static char *xlog_dir = NULL;
 static int	wal_segment_size_mb = (DEFAULT_XLOG_SEG_SIZE) / (1024 * 1024);
 static DataDirSyncMethod sync_method = DATA_DIR_SYNC_METHOD_FSYNC;
-static bool sync_data_files = true;
 
 
 /* internal vars */
@@ -197,7 +196,6 @@ static char *pgdata_native;
 
 /* defaults */
 static int	n_connections = 10;
-static int	n_av_slots = 16;
 static int	n_buffers = 50;
 static const char *dynamic_shared_memory_type = NULL;
 static const char *default_timezone = NULL;
@@ -275,8 +273,7 @@ static void check_input(char *path);
 static void write_version_file(const char *extrapath);
 static void set_null_conf(void);
 static void test_config_settings(void);
-static bool test_specific_config_settings(int test_conns, int test_av_slots,
-										  int test_buffs);
+static bool test_specific_config_settings(int test_conns, int test_buffs);
 static void setup_config(void);
 static void bootstrap_template1(void);
 static void setup_auth(FILE *cmdfd);
@@ -884,8 +881,6 @@ static const struct tsearch_config_match tsearch_config_languages[] =
 	{"english", "POSIX"},
 	{"english", "en"},
 	{"english", "English"},
-	{"estonian", "et"},
-	{"estonian", "Estonian"},
 	{"finnish", "fi"},
 	{"finnish", "Finnish"},
 	{"french", "fr"},
@@ -1123,19 +1118,8 @@ test_config_settings(void)
 	 */
 #define MIN_BUFS_FOR_CONNS(nconns)	((nconns) * 10)
 
-	/*
-	 * This macro defines the default value of autovacuum_worker_slots we want
-	 * for a given max_connections value.  Note that it has been carefully
-	 * crafted to provide specific values for the associated values in
-	 * trial_conns.  We want it to return autovacuum_worker_slots's initial
-	 * default value (16) for the maximum value in trial_conns[] (100), while
-	 * it mustn't return less than the default value of autovacuum_max_workers
-	 * (3) for the minimum value in trial_conns[].
-	 */
-#define AV_SLOTS_FOR_CONNS(nconns)	((nconns) / 6)
-
 	static const int trial_conns[] = {
-		100, 50, 40, 30, 20
+		100, 50, 40, 30, 25
 	};
 	static const int trial_bufs[] = {
 		16384, 8192, 4096, 3584, 3072, 2560, 2048, 1536,
@@ -1161,8 +1145,7 @@ test_config_settings(void)
 
 	/*
 	 * Probe for max_connections before shared_buffers, since it is subject to
-	 * more constraints than shared_buffers.  We also choose the default
-	 * autovacuum_worker_slots here.
+	 * more constraints than shared_buffers.
 	 */
 	printf(_("selecting default \"max_connections\" ... "));
 	fflush(stdout);
@@ -1170,10 +1153,9 @@ test_config_settings(void)
 	for (i = 0; i < connslen; i++)
 	{
 		test_conns = trial_conns[i];
-		n_av_slots = AV_SLOTS_FOR_CONNS(test_conns);
 		test_buffs = MIN_BUFS_FOR_CONNS(test_conns);
 
-		if (test_specific_config_settings(test_conns, n_av_slots, test_buffs))
+		if (test_specific_config_settings(test_conns, test_buffs))
 		{
 			ok_buffers = test_buffs;
 			break;
@@ -1198,7 +1180,7 @@ test_config_settings(void)
 			break;
 		}
 
-		if (test_specific_config_settings(n_connections, n_av_slots, test_buffs))
+		if (test_specific_config_settings(n_connections, test_buffs))
 			break;
 	}
 	n_buffers = test_buffs;
@@ -1218,7 +1200,7 @@ test_config_settings(void)
  * Test a specific combination of configuration settings.
  */
 static bool
-test_specific_config_settings(int test_conns, int test_av_slots, int test_buffs)
+test_specific_config_settings(int test_conns, int test_buffs)
 {
 	PQExpBufferData cmd;
 	_stringlist *gnames,
@@ -1231,11 +1213,10 @@ test_specific_config_settings(int test_conns, int test_av_slots, int test_buffs)
 	printfPQExpBuffer(&cmd,
 					  "\"%s\" --check %s %s "
 					  "-c max_connections=%d "
-					  "-c autovacuum_worker_slots=%d "
 					  "-c shared_buffers=%d "
 					  "-c dynamic_shared_memory_type=%s",
 					  backend_exec, boot_options, extra_options,
-					  test_conns, test_av_slots, test_buffs,
+					  test_conns, test_buffs,
 					  dynamic_shared_memory_type);
 
 	/* Add any user-given setting overrides */
@@ -1297,10 +1278,6 @@ setup_config(void)
 
 	snprintf(repltok, sizeof(repltok), "%d", n_connections);
 	conflines = replace_guc_value(conflines, "max_connections",
-								  repltok, false);
-
-	snprintf(repltok, sizeof(repltok), "%d", n_av_slots);
-	conflines = replace_guc_value(conflines, "autovacuum_worker_slots",
 								  repltok, false);
 
 	if ((n_buffers * (BLCKSZ / 1024)) % 1024 == 0)
@@ -1392,6 +1369,11 @@ setup_config(void)
 			 DEFAULT_CHECKPOINT_FLUSH_AFTER * (BLCKSZ / 1024));
 	conflines = replace_guc_value(conflines, "checkpoint_flush_after",
 								  repltok, true);
+#endif
+
+#ifndef USE_PREFETCH
+	conflines = replace_guc_value(conflines, "effective_io_concurrency",
+								  "0", true);
 #endif
 
 #ifdef WIN32
@@ -1612,9 +1594,9 @@ bootstrap_template1(void)
 	printfPQExpBuffer(&cmd, "\"%s\" --boot %s %s", backend_exec, boot_options, extra_options);
 	appendPQExpBuffer(&cmd, " -X %d", wal_segment_size_mb * (1024 * 1024));
 	if (data_checksums)
-		appendPQExpBufferStr(&cmd, " -k");
+		appendPQExpBuffer(&cmd, " -k");
 	if (debug)
-		appendPQExpBufferStr(&cmd, " -d 5");
+		appendPQExpBuffer(&cmd, " -d 5");
 
 
 	PG_CMD_OPEN(cmd.data);
@@ -2479,8 +2461,6 @@ setlocales(void)
 		else if (strcmp(datlocale, "C.UTF-8") == 0 ||
 				 strcmp(datlocale, "C.UTF8") == 0)
 			canonname = "C.UTF-8";
-		else if (strcmp(datlocale, "PG_UNICODE_FAST") == 0)
-			canonname = "PG_UNICODE_FAST";
 		else
 			pg_fatal("invalid locale name \"%s\" for builtin provider",
 					 datlocale);
@@ -2539,7 +2519,6 @@ usage(const char *progname)
 			 "                            set builtin locale name for new databases\n"));
 	printf(_("      --locale-provider={builtin|libc|icu}\n"
 			 "                            set default locale provider for new databases\n"));
-	printf(_("      --no-data-checksums   do not use data page checksums\n"));
 	printf(_("      --pwfile=FILE         read password for the new superuser from file\n"));
 	printf(_("  -T, --text-search-config=CFG\n"
 			 "                            default text search configuration\n"));
@@ -2554,7 +2533,6 @@ usage(const char *progname)
 	printf(_("  -L DIRECTORY              where to find the input files\n"));
 	printf(_("  -n, --no-clean            do not clean up after errors\n"));
 	printf(_("  -N, --no-sync             do not wait for changes to be written safely to disk\n"));
-	printf(_("      --no-sync-data-files  do not sync files within database directories\n"));
 	printf(_("      --no-instructions     do not print instructions for next steps\n"));
 	printf(_("  -s, --show                show internal settings, then exit\n"));
 	printf(_("      --sync-method=METHOD  set method for syncing files to disk\n"));
@@ -2775,9 +2753,7 @@ setup_locale_encoding(void)
 
 	if (locale_provider == COLLPROVIDER_BUILTIN)
 	{
-		if ((strcmp(datlocale, "C.UTF-8") == 0 ||
-			 strcmp(datlocale, "PG_UNICODE_FAST") == 0) &&
-			encodingid != PG_UTF8)
+		if (strcmp(datlocale, "C.UTF-8") == 0 && encodingid != PG_UTF8)
 			pg_fatal("builtin provider locale \"%s\" requires encoding \"%s\"",
 					 datlocale, "UTF-8");
 	}
@@ -2869,18 +2845,27 @@ setup_text_search(void)
 void
 setup_signals(void)
 {
-	pqsignal(SIGINT, trapsig);
-	pqsignal(SIGTERM, trapsig);
-
-	/* the following are not valid on Windows */
-#ifndef WIN32
+	/* some of these are not valid on Windows */
+#ifdef SIGHUP
 	pqsignal(SIGHUP, trapsig);
+#endif
+#ifdef SIGINT
+	pqsignal(SIGINT, trapsig);
+#endif
+#ifdef SIGQUIT
 	pqsignal(SIGQUIT, trapsig);
+#endif
+#ifdef SIGTERM
+	pqsignal(SIGTERM, trapsig);
+#endif
 
 	/* Ignore SIGPIPE when writing to backend, so we can clean up */
+#ifdef SIGPIPE
 	pqsignal(SIGPIPE, SIG_IGN);
+#endif
 
 	/* Prevent SIGSYS so we can probe for kernel calls that might not work */
+#ifdef SIGSYS
 	pqsignal(SIGSYS, SIG_IGN);
 #endif
 }
@@ -3196,8 +3181,6 @@ main(int argc, char *argv[])
 		{"icu-locale", required_argument, NULL, 17},
 		{"icu-rules", required_argument, NULL, 18},
 		{"sync-method", required_argument, NULL, 19},
-		{"no-data-checksums", no_argument, NULL, 20},
-		{"no-sync-data-files", no_argument, NULL, 21},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -3389,12 +3372,6 @@ main(int argc, char *argv[])
 				if (!parse_sync_method(optarg, &sync_method))
 					exit(1);
 				break;
-			case 20:
-				data_checksums = false;
-				break;
-			case 21:
-				sync_data_files = false;
-				break;
 			default:
 				/* getopt_long already emitted a complaint */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
@@ -3446,7 +3423,7 @@ main(int argc, char *argv[])
 
 		fputs(_("syncing data to disk ... "), stdout);
 		fflush(stdout);
-		sync_pgdata(pg_data, PG_VERSION_NUM, sync_method, sync_data_files);
+		sync_pgdata(pg_data, PG_VERSION_NUM, sync_method);
 		check_ok();
 		return 0;
 	}
@@ -3509,7 +3486,7 @@ main(int argc, char *argv[])
 	{
 		fputs(_("syncing data to disk ... "), stdout);
 		fflush(stdout);
-		sync_pgdata(pg_data, PG_VERSION_NUM, sync_method, sync_data_files);
+		sync_pgdata(pg_data, PG_VERSION_NUM, sync_method);
 		check_ok();
 	}
 	else

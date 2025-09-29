@@ -4,7 +4,7 @@
  *	  header file for integrated autovacuum daemon
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/postmaster/autovacuum.h
@@ -28,12 +28,10 @@ typedef enum
 
 /* GUC variables */
 extern PGDLLIMPORT bool autovacuum_start_daemon;
-extern PGDLLIMPORT int autovacuum_worker_slots;
 extern PGDLLIMPORT int autovacuum_max_workers;
 extern PGDLLIMPORT int autovacuum_work_mem;
 extern PGDLLIMPORT int autovacuum_naptime;
 extern PGDLLIMPORT int autovacuum_vac_thresh;
-extern PGDLLIMPORT int autovacuum_vac_max_thresh;
 extern PGDLLIMPORT double autovacuum_vac_scale;
 extern PGDLLIMPORT int autovacuum_vac_ins_thresh;
 extern PGDLLIMPORT double autovacuum_vac_ins_scale;
@@ -58,8 +56,8 @@ extern void autovac_init(void);
 /* called from postmaster when a worker could not be forked */
 extern void AutoVacWorkerFailed(void);
 
-pg_noreturn extern void AutoVacLauncherMain(const void *startup_data, size_t startup_data_len);
-pg_noreturn extern void AutoVacWorkerMain(const void *startup_data, size_t startup_data_len);
+extern void AutoVacLauncherMain(char *startup_data, size_t startup_data_len) pg_attribute_noreturn();
+extern void AutoVacWorkerMain(char *startup_data, size_t startup_data_len) pg_attribute_noreturn();
 
 extern bool AutoVacuumRequestWork(AutoVacuumWorkItemType type,
 								  Oid relationId, BlockNumber blkno);

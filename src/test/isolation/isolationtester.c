@@ -178,7 +178,7 @@ main(int argc, char **argv)
 		if (i != 0)
 			PQsetNoticeProcessor(conns[i].conn,
 								 isotesterNoticeProcessor,
-								 &conns[i]);
+								 (void *) &conns[i]);
 		else
 			PQsetNoticeProcessor(conns[i].conn,
 								 blackholeNoticeProcessor,

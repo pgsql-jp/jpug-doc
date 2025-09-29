@@ -19,7 +19,8 @@
 
 #include "common/connect.h"
 #include "common/string.h"
-#include "connectdb.h"
+#include "dumputils.h"
+#include "fe_utils/string_utils.h"
 #include "parallel.h"
 #include "pg_backup_archiver.h"
 #include "pg_backup_db.h"
@@ -38,7 +39,7 @@ _check_database_version(ArchiveHandle *AH)
 	remoteversion_str = PQparameterStatus(AH->connection, "server_version");
 	remoteversion = PQserverVersion(AH->connection);
 	if (remoteversion == 0 || !remoteversion_str)
-		pg_fatal("could not get \"server_version\" from libpq");
+		pg_fatal("could not get server_version from libpq");
 
 	AH->public.remoteVersionStr = pg_strdup(remoteversion_str);
 	AH->public.remoteVersion = remoteversion;
@@ -87,9 +88,9 @@ ReconnectToServer(ArchiveHandle *AH, const char *dbname)
 	 * ArchiveHandle's connCancel, before closing old connection.  Otherwise
 	 * an ill-timed SIGINT could try to access a dead connection.
 	 */
-	AH->connection = NULL;		/* dodge error check in ConnectDatabaseAhx */
+	AH->connection = NULL;		/* dodge error check in ConnectDatabase */
 
-	ConnectDatabaseAhx((Archive *) AH, &ropt->cparams, true);
+	ConnectDatabase((Archive *) AH, &ropt->cparams, true);
 
 	PQfinish(oldConn);
 }
@@ -106,13 +107,14 @@ ReconnectToServer(ArchiveHandle *AH, const char *dbname)
  * username never does change, so one savedPassword is sufficient.
  */
 void
-ConnectDatabaseAhx(Archive *AHX,
-				   const ConnParams *cparams,
-				   bool isReconnect)
+ConnectDatabase(Archive *AHX,
+				const ConnParams *cparams,
+				bool isReconnect)
 {
 	ArchiveHandle *AH = (ArchiveHandle *) AHX;
 	trivalue	prompt_password;
 	char	   *password;
+	bool		new_pass;
 
 	if (AH->connection)
 		pg_fatal("already connected to a database");
@@ -125,10 +127,69 @@ ConnectDatabaseAhx(Archive *AHX,
 	if (prompt_password == TRI_YES && password == NULL)
 		password = simple_prompt("Password: ", false);
 
-	AH->connection = ConnectDatabase(cparams->dbname, NULL, cparams->pghost,
-									 cparams->pgport, cparams->username,
-									 prompt_password, true,
-									 progname, NULL, NULL, password, cparams->override_dbname);
+	/*
+	 * Start the connection.  Loop until we have a password if requested by
+	 * backend.
+	 */
+	do
+	{
+		const char *keywords[8];
+		const char *values[8];
+		int			i = 0;
+
+		/*
+		 * If dbname is a connstring, its entries can override the other
+		 * values obtained from cparams; but in turn, override_dbname can
+		 * override the dbname component of it.
+		 */
+		keywords[i] = "host";
+		values[i++] = cparams->pghost;
+		keywords[i] = "port";
+		values[i++] = cparams->pgport;
+		keywords[i] = "user";
+		values[i++] = cparams->username;
+		keywords[i] = "password";
+		values[i++] = password;
+		keywords[i] = "dbname";
+		values[i++] = cparams->dbname;
+		if (cparams->override_dbname)
+		{
+			keywords[i] = "dbname";
+			values[i++] = cparams->override_dbname;
+		}
+		keywords[i] = "fallback_application_name";
+		values[i++] = progname;
+		keywords[i] = NULL;
+		values[i++] = NULL;
+		Assert(i <= lengthof(keywords));
+
+		new_pass = false;
+		AH->connection = PQconnectdbParams(keywords, values, true);
+
+		if (!AH->connection)
+			pg_fatal("could not connect to database");
+
+		if (PQstatus(AH->connection) == CONNECTION_BAD &&
+			PQconnectionNeedsPassword(AH->connection) &&
+			password == NULL &&
+			prompt_password != TRI_NO)
+		{
+			PQfinish(AH->connection);
+			password = simple_prompt("Password: ", false);
+			new_pass = true;
+		}
+	} while (new_pass);
+
+	/* check to see that the backend connection was successfully made */
+	if (PQstatus(AH->connection) == CONNECTION_BAD)
+	{
+		if (isReconnect)
+			pg_fatal("reconnection failed: %s",
+					 PQerrorMessage(AH->connection));
+		else
+			pg_fatal("%s",
+					 PQerrorMessage(AH->connection));
+	}
 
 	/* Start strict; later phases may override this. */
 	PQclear(ExecuteSqlQueryForSingleRow((Archive *) AH,

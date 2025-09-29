@@ -3,7 +3,7 @@
  * compress_gzip.c
  *	 Routines for archivers to read or write a gzip compressed data stream.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -18,7 +18,7 @@
 #include "pg_backup_utils.h"
 
 #ifdef HAVE_LIBZ
-#include <zlib.h>
+#include "zlib.h"
 
 /*----------------------
  * Compressor API
@@ -129,7 +129,7 @@ DeflateCompressorCommon(ArchiveHandle *AH, CompressorState *cs, bool flush)
 				 */
 				size_t		len = gzipcs->outsize - zp->avail_out;
 
-				cs->writeF(AH, out, len);
+				cs->writeF(AH, (char *) out, len);
 			}
 			zp->next_out = out;
 			zp->avail_out = gzipcs->outsize;
@@ -251,49 +251,34 @@ InitCompressorGzip(CompressorState *cs,
  *----------------------
  */
 
-static size_t
-Gzip_read(void *ptr, size_t size, CompressFileHandle *CFH)
+static bool
+Gzip_read(void *ptr, size_t size, size_t *rsize, CompressFileHandle *CFH)
 {
 	gzFile		gzfp = (gzFile) CFH->private_data;
 	int			gzret;
 
 	gzret = gzread(gzfp, ptr, size);
-
-	/*
-	 * gzread returns zero on EOF as well as some error conditions, and less
-	 * than zero on other error conditions, so we need to inspect for EOF on
-	 * zero.
-	 */
-	if (gzret <= 0)
+	if (gzret <= 0 && !gzeof(gzfp))
 	{
 		int			errnum;
-		const char *errmsg;
-
-		if (gzret == 0 && gzeof(gzfp))
-			return 0;
-
-		errmsg = gzerror(gzfp, &errnum);
+		const char *errmsg = gzerror(gzfp, &errnum);
 
 		pg_fatal("could not read from input file: %s",
 				 errnum == Z_ERRNO ? strerror(errno) : errmsg);
 	}
 
-	return (size_t) gzret;
+	if (rsize)
+		*rsize = (size_t) gzret;
+
+	return true;
 }
 
-static void
+static bool
 Gzip_write(const void *ptr, size_t size, CompressFileHandle *CFH)
 {
 	gzFile		gzfp = (gzFile) CFH->private_data;
-	int			errnum;
-	const char *errmsg;
 
-	if (gzwrite(gzfp, ptr, size) != size)
-	{
-		errmsg = gzerror(gzfp, &errnum);
-		pg_fatal("could not write to file: %s",
-				 errnum == Z_ERRNO ? strerror(errno) : errmsg);
-	}
+	return gzwrite(gzfp, ptr, size) > 0;
 }
 
 static int

@@ -3,7 +3,7 @@
  * parse_coerce.c
  *		handle type coercions/conversions for parser
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -414,12 +414,6 @@ coerce_type(ParseState *pstate, Node *node,
 									 &funcId);
 	if (pathtype != COERCION_PATH_NONE)
 	{
-		Oid			baseTypeId;
-		int32		baseTypeMod;
-
-		baseTypeMod = targetTypeMod;
-		baseTypeId = getBaseTypeAndTypmod(targetTypeId, &baseTypeMod);
-
 		if (pathtype != COERCION_PATH_RELABELTYPE)
 		{
 			/*
@@ -429,6 +423,12 @@ coerce_type(ParseState *pstate, Node *node,
 			 * and we need to extract the correct typmod to use from the
 			 * domain's typtypmod.
 			 */
+			Oid			baseTypeId;
+			int32		baseTypeMod;
+
+			baseTypeMod = targetTypeMod;
+			baseTypeId = getBaseTypeAndTypmod(targetTypeId, &baseTypeMod);
+
 			result = build_coercion_expression(node, pathtype, funcId,
 											   baseTypeId, baseTypeMod,
 											   ccontext, cformat, location);
@@ -454,8 +454,7 @@ coerce_type(ParseState *pstate, Node *node,
 			 * that must be accounted for.  If the destination is a domain
 			 * then we won't need a RelabelType node.
 			 */
-			result = coerce_to_domain(node, baseTypeId, baseTypeMod,
-									  targetTypeId,
+			result = coerce_to_domain(node, InvalidOid, -1, targetTypeId,
 									  ccontext, cformat, location,
 									  false);
 			if (result == node)
@@ -661,8 +660,10 @@ can_coerce_type(int nargs, const Oid *input_typeids, const Oid *target_typeids,
  * Create an expression tree to represent coercion to a domain type.
  *
  * 'arg': input expression
- * 'baseTypeId': base type of domain
- * 'baseTypeMod': base type typmod of domain
+ * 'baseTypeId': base type of domain, if known (pass InvalidOid if caller
+ *		has not bothered to look this up)
+ * 'baseTypeMod': base type typmod of domain, if known (pass -1 if caller
+ *		has not bothered to look this up)
  * 'typeId': target type to coerce to
  * 'ccontext': context indicator to control coercions
  * 'cformat': coercion display format
@@ -678,8 +679,9 @@ coerce_to_domain(Node *arg, Oid baseTypeId, int32 baseTypeMod, Oid typeId,
 {
 	CoerceToDomain *result;
 
-	/* We now require the caller to supply correct baseTypeId/baseTypeMod */
-	Assert(OidIsValid(baseTypeId));
+	/* Get the base type if it hasn't been supplied */
+	if (baseTypeId == InvalidOid)
+		baseTypeId = getBaseTypeAndTypmod(typeId, &baseTypeMod);
 
 	/* If it isn't a domain, return the node as it was passed in */
 	if (baseTypeId == typeId)

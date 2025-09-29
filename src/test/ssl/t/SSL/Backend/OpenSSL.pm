@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021-2025, PostgreSQL Global Development Group
+# Copyright (c) 2021-2024, PostgreSQL Global Development Group
 
 =pod
 
@@ -219,6 +219,8 @@ sub library_is_libressl
 	my ($self) = @_;
 
 	# The HAVE_SSL_CTX_SET_CERT_CB macro isn't defined for LibreSSL.
+	# (Nor for OpenSSL 1.0.1, but that's old enough that accommodating it
+	# isn't worth the cost.)
 	# We may eventually need a less-bogus heuristic.
 	return not check_pg_config("#define HAVE_SSL_CTX_SET_CERT_CB 1");
 }

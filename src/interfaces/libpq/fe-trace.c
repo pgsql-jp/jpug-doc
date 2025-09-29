@@ -3,7 +3,7 @@
  *	fe-trace.c
  *	  functions for libpq protocol tracing
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -81,7 +81,6 @@ pqTraceFormatTimestamp(char *timestr, size_t ts_len)
 {
 	struct timeval tval;
 	time_t		now;
-	struct tm	tmbuf;
 
 	gettimeofday(&tval, NULL);
 
@@ -94,7 +93,7 @@ pqTraceFormatTimestamp(char *timestr, size_t ts_len)
 	now = tval.tv_sec;
 	strftime(timestr, ts_len,
 			 "%Y-%m-%d %H:%M:%S",
-			 localtime_r(&now, &tmbuf));
+			 localtime(&now));
 	/* append microseconds */
 	snprintf(timestr + strlen(timestr), ts_len - strlen(timestr),
 			 ".%06u", (unsigned int) (tval.tv_usec));
@@ -113,7 +112,7 @@ pqTraceOutputByte1(FILE *pfdebug, const char *data, int *cursor)
 	 * that completes ErrorResponse and NoticeResponse messages.
 	 */
 	if (!isprint((unsigned char) *v))
-		fprintf(pfdebug, " \\x%02x", (unsigned char) *v);
+		fprintf(pfdebug, " \\x%02x", *v);
 	else
 		fprintf(pfdebug, " %c", *v);
 	*cursor += 1;
@@ -159,8 +158,6 @@ pqTraceOutputInt32(FILE *pfdebug, const char *data, int *cursor, bool suppress)
 
 /*
  *   pqTraceOutputString: output a string message to the log
- *
- * If 'suppress' is true, print a literal "SSSS" instead of the actual string.
  */
 static void
 pqTraceOutputString(FILE *pfdebug, const char *data, int *cursor, bool suppress)
@@ -186,22 +183,13 @@ pqTraceOutputString(FILE *pfdebug, const char *data, int *cursor, bool suppress)
 
 /*
  * pqTraceOutputNchar: output a string of exactly len bytes message to the log
- *
- * If 'suppress' is true, print a literal 'BBBB' instead of the actual bytes.
  */
 static void
-pqTraceOutputNchar(FILE *pfdebug, int len, const char *data, int *cursor, bool suppress)
+pqTraceOutputNchar(FILE *pfdebug, int len, const char *data, int *cursor)
 {
 	int			i,
 				next;			/* first char not yet printed */
 	const char *v = data + *cursor;
-
-	if (suppress)
-	{
-		fprintf(pfdebug, " 'BBBB'");
-		*cursor += len;
-		return;
-	}
 
 	fprintf(pfdebug, " \'");
 
@@ -212,7 +200,7 @@ pqTraceOutputNchar(FILE *pfdebug, int len, const char *data, int *cursor, bool s
 		else
 		{
 			fwrite(v + next, 1, i - next, pfdebug);
-			fprintf(pfdebug, "\\x%02x", (unsigned char) v[i]);
+			fprintf(pfdebug, "\\x%02x", v[i]);
 			next = i + 1;
 		}
 	}
@@ -258,7 +246,7 @@ pqTraceOutput_Bind(FILE *f, const char *message, int *cursor)
 		nbytes = pqTraceOutputInt32(f, message, cursor, false);
 		if (nbytes == -1)
 			continue;
-		pqTraceOutputNchar(f, nbytes, message, cursor, false);
+		pqTraceOutputNchar(f, nbytes, message, cursor);
 	}
 
 	nparams = pqTraceOutputInt16(f, message, cursor);
@@ -282,14 +270,6 @@ pqTraceOutput_CommandComplete(FILE *f, const char *message, int *cursor)
 }
 
 static void
-pqTraceOutput_CopyData(FILE *f, const char *message, int *cursor, int length,
-					   bool suppress)
-{
-	fprintf(f, "CopyData\t");
-	pqTraceOutputNchar(f, length - *cursor + 1, message, cursor, suppress);
-}
-
-static void
 pqTraceOutput_DataRow(FILE *f, const char *message, int *cursor)
 {
 	int			nfields;
@@ -303,7 +283,7 @@ pqTraceOutput_DataRow(FILE *f, const char *message, int *cursor)
 		len = pqTraceOutputInt32(f, message, cursor, false);
 		if (len == -1)
 			continue;
-		pqTraceOutputNchar(f, len, message, cursor, false);
+		pqTraceOutputNchar(f, len, message, cursor);
 	}
 }
 
@@ -364,42 +344,6 @@ pqTraceOutput_CopyFail(FILE *f, const char *message, int *cursor)
 }
 
 static void
-pqTraceOutput_GSSResponse(FILE *f, const char *message, int *cursor,
-						  int length, bool regress)
-{
-	fprintf(f, "GSSResponse\t");
-	pqTraceOutputNchar(f, length - *cursor + 1, message, cursor, regress);
-}
-
-static void
-pqTraceOutput_PasswordMessage(FILE *f, const char *message, int *cursor)
-{
-	fprintf(f, "PasswordMessage\t");
-	pqTraceOutputString(f, message, cursor, false);
-}
-
-static void
-pqTraceOutput_SASLInitialResponse(FILE *f, const char *message, int *cursor,
-								  bool regress)
-{
-	int			initialResponse;
-
-	fprintf(f, "SASLInitialResponse\t");
-	pqTraceOutputString(f, message, cursor, false);
-	initialResponse = pqTraceOutputInt32(f, message, cursor, false);
-	if (initialResponse != -1)
-		pqTraceOutputNchar(f, initialResponse, message, cursor, regress);
-}
-
-static void
-pqTraceOutput_SASLResponse(FILE *f, const char *message, int *cursor,
-						   int length, bool regress)
-{
-	fprintf(f, "SASLResponse\t");
-	pqTraceOutputNchar(f, length - *cursor + 1, message, cursor, regress);
-}
-
-static void
 pqTraceOutput_FunctionCall(FILE *f, const char *message, int *cursor, bool regress)
 {
 	int			nfields;
@@ -419,7 +363,7 @@ pqTraceOutput_FunctionCall(FILE *f, const char *message, int *cursor, bool regre
 		nbytes = pqTraceOutputInt32(f, message, cursor, false);
 		if (nbytes == -1)
 			continue;
-		pqTraceOutputNchar(f, nbytes, message, cursor, false);
+		pqTraceOutputNchar(f, nbytes, message, cursor);
 	}
 
 	pqTraceOutputInt16(f, message, cursor);
@@ -481,58 +425,10 @@ pqTraceOutput_Query(FILE *f, const char *message, int *cursor)
 }
 
 static void
-pqTraceOutput_Authentication(FILE *f, const char *message, int *cursor,
-							 int length, bool suppress)
+pqTraceOutput_Authentication(FILE *f, const char *message, int *cursor)
 {
-	int			authType = 0;
-
-	memcpy(&authType, message + *cursor, 4);
-	authType = (int) pg_ntoh32(authType);
-	*cursor += 4;
-	switch (authType)
-	{
-		case AUTH_REQ_OK:
-			fprintf(f, "AuthenticationOk");
-			break;
-			/* AUTH_REQ_KRB4 not supported */
-			/* AUTH_REQ_KRB5 not supported */
-		case AUTH_REQ_PASSWORD:
-			fprintf(f, "AuthenticationCleartextPassword");
-			break;
-			/* AUTH_REQ_CRYPT not supported */
-		case AUTH_REQ_MD5:
-			fprintf(f, "AuthenticationMD5Password");
-			break;
-		case AUTH_REQ_GSS:
-			fprintf(f, "AuthenticationGSS");
-			break;
-		case AUTH_REQ_GSS_CONT:
-			fprintf(f, "AuthenticationGSSContinue\t");
-			pqTraceOutputNchar(f, length - *cursor + 1, message, cursor,
-							   suppress);
-			break;
-		case AUTH_REQ_SSPI:
-			fprintf(f, "AuthenticationSSPI");
-			break;
-		case AUTH_REQ_SASL:
-			fprintf(f, "AuthenticationSASL\t");
-			while (message[*cursor] != '\0')
-				pqTraceOutputString(f, message, cursor, false);
-			pqTraceOutputString(f, message, cursor, false);
-			break;
-		case AUTH_REQ_SASL_CONT:
-			fprintf(f, "AuthenticationSASLContinue\t");
-			pqTraceOutputNchar(f, length - *cursor + 1, message, cursor,
-							   suppress);
-			break;
-		case AUTH_REQ_SASL_FIN:
-			fprintf(f, "AuthenticationSASLFinal\t");
-			pqTraceOutputNchar(f, length - *cursor + 1, message, cursor,
-							   suppress);
-			break;
-		default:
-			fprintf(f, "Unknown authentication message %d", authType);
-	}
+	fprintf(f, "Authentication\t");
+	pqTraceOutputInt32(f, message, cursor, false);
 }
 
 static void
@@ -578,15 +474,9 @@ pqTraceOutput_RowDescription(FILE *f, const char *message, int *cursor, bool reg
 static void
 pqTraceOutput_NegotiateProtocolVersion(FILE *f, const char *message, int *cursor)
 {
-	int			nparams;
-
 	fprintf(f, "NegotiateProtocolVersion\t");
 	pqTraceOutputInt32(f, message, cursor, false);
-	nparams = pqTraceOutputInt32(f, message, cursor, false);
-	for (int i = 0; i < nparams; i++)
-	{
-		pqTraceOutputString(f, message, cursor, false);
-	}
+	pqTraceOutputInt32(f, message, cursor, false);
 }
 
 static void
@@ -597,7 +487,7 @@ pqTraceOutput_FunctionCallResponse(FILE *f, const char *message, int *cursor)
 	fprintf(f, "FunctionCallResponse\t");
 	len = pqTraceOutputInt32(f, message, cursor, false);
 	if (len != -1)
-		pqTraceOutputNchar(f, len, message, cursor, false);
+		pqTraceOutputNchar(f, len, message, cursor);
 }
 
 static void
@@ -688,8 +578,7 @@ pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
 				pqTraceOutput_CommandComplete(conn->Pfdebug, message, &logCursor);
 			break;
 		case PqMsg_CopyData:
-			pqTraceOutput_CopyData(conn->Pfdebug, message, &logCursor,
-								   length, regress);
+			/* Drop COPY data to reduce the overhead of logging. */
 			break;
 		case PqMsg_Describe:
 			/* Describe(F) and DataRow(B) use the same identifier. */
@@ -709,39 +598,6 @@ pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
 			break;
 		case PqMsg_CopyFail:
 			pqTraceOutput_CopyFail(conn->Pfdebug, message, &logCursor);
-			break;
-		case PqMsg_GSSResponse:
-			Assert(PqMsg_GSSResponse == PqMsg_PasswordMessage);
-			Assert(PqMsg_GSSResponse == PqMsg_SASLInitialResponse);
-			Assert(PqMsg_GSSResponse == PqMsg_SASLResponse);
-
-			/*
-			 * These messages share a common type byte, so we discriminate by
-			 * having the code store the auth type separately.
-			 */
-			switch (conn->current_auth_response)
-			{
-				case AUTH_RESPONSE_GSS:
-					pqTraceOutput_GSSResponse(conn->Pfdebug, message,
-											  &logCursor, length, regress);
-					break;
-				case AUTH_RESPONSE_PASSWORD:
-					pqTraceOutput_PasswordMessage(conn->Pfdebug, message,
-												  &logCursor);
-					break;
-				case AUTH_RESPONSE_SASL_INITIAL:
-					pqTraceOutput_SASLInitialResponse(conn->Pfdebug, message,
-													  &logCursor, regress);
-					break;
-				case AUTH_RESPONSE_SASL:
-					pqTraceOutput_SASLResponse(conn->Pfdebug, message,
-											   &logCursor, length, regress);
-					break;
-				default:
-					fprintf(conn->Pfdebug, "UnknownAuthenticationResponse");
-					break;
-			}
-			conn->current_auth_response = '\0';
 			break;
 		case PqMsg_FunctionCall:
 			pqTraceOutput_FunctionCall(conn->Pfdebug, message, &logCursor, regress);
@@ -778,8 +634,7 @@ pqTraceOutputMessage(PGconn *conn, const char *message, bool toServer)
 			pqTraceOutput_Query(conn->Pfdebug, message, &logCursor);
 			break;
 		case PqMsg_AuthenticationRequest:
-			pqTraceOutput_Authentication(conn->Pfdebug, message, &logCursor,
-										 length, regress);
+			pqTraceOutput_Authentication(conn->Pfdebug, message, &logCursor);
 			break;
 		case PqMsg_PortalSuspended:
 			fprintf(conn->Pfdebug, "PortalSuspended");
@@ -841,11 +696,7 @@ void
 pqTraceOutputNoTypeByteMessage(PGconn *conn, const char *message)
 {
 	int			length;
-	int			version;
-	bool		regress;
 	int			logCursor = 0;
-
-	regress = (conn->traceFlags & PQTRACE_REGRESS_MODE) != 0;
 
 	if ((conn->traceFlags & PQTRACE_SUPPRESS_TIMESTAMPS) == 0)
 	{
@@ -861,67 +712,20 @@ pqTraceOutputNoTypeByteMessage(PGconn *conn, const char *message)
 
 	fprintf(conn->Pfdebug, "F\t%d\t", length);
 
-	if (length < 8)
+	switch (length)
 	{
-		fprintf(conn->Pfdebug, "Unknown message\n");
-		return;
-	}
-
-	memcpy(&version, message + logCursor, 4);
-	version = (int) pg_ntoh32(version);
-
-	if (version == CANCEL_REQUEST_CODE && length >= 16)
-	{
-		fprintf(conn->Pfdebug, "CancelRequest\t");
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-		pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, regress);
-		pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, regress);
-	}
-	else if (version == NEGOTIATE_SSL_CODE)
-	{
-		fprintf(conn->Pfdebug, "SSLRequest\t");
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-	}
-	else if (version == NEGOTIATE_GSS_CODE)
-	{
-		fprintf(conn->Pfdebug, "GSSENCRequest\t");
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-	}
-	else
-	{
-		fprintf(conn->Pfdebug, "StartupMessage\t");
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-		pqTraceOutputInt16(conn->Pfdebug, message, &logCursor);
-		while (message[logCursor] != '\0')
-		{
-			/* XXX should we suppress anything in regress mode? */
-			pqTraceOutputString(conn->Pfdebug, message, &logCursor, false);
-			pqTraceOutputString(conn->Pfdebug, message, &logCursor, false);
-		}
+		case 16:				/* CancelRequest */
+			fprintf(conn->Pfdebug, "CancelRequest\t");
+			pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, false);
+			pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, false);
+			pqTraceOutputInt32(conn->Pfdebug, message, &logCursor, false);
+			break;
+		case 8:					/* GSSENCRequest or SSLRequest */
+			/* These messages do not reach here. */
+		default:
+			fprintf(conn->Pfdebug, "Unknown message: length is %d", length);
+			break;
 	}
 
 	fputc('\n', conn->Pfdebug);
-}
-
-/*
- * Trace a single-byte backend response received for a known request
- * type the frontend previously sent.  Only useful for the simplest of
- * FE/BE interaction workflows such as SSL/GSS encryption requests.
- */
-void
-pqTraceOutputCharResponse(PGconn *conn, const char *responseType,
-						  char response)
-{
-	if ((conn->traceFlags & PQTRACE_SUPPRESS_TIMESTAMPS) == 0)
-	{
-		char		timestr[128];
-
-		pqTraceFormatTimestamp(timestr, sizeof(timestr));
-		fprintf(conn->Pfdebug, "%s\t", timestr);
-	}
-
-	fprintf(conn->Pfdebug, "B\t1\t%s\t %c\n", responseType, response);
 }

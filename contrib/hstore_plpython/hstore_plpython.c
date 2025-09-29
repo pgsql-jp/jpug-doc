@@ -3,12 +3,9 @@
 #include "fmgr.h"
 #include "hstore/hstore.h"
 #include "plpy_typeio.h"
-#include "plpy_util.h"
+#include "plpython.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "hstore_plpython",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* Linkage to functions in plpython module */
 typedef char *(*PLyObject_AsString_t) (PyObject *plrv);

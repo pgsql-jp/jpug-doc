@@ -3,7 +3,7 @@
  * hbafuncs.c
  *	  Support functions for SQL views of authentication files.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -150,25 +150,6 @@ get_hba_options(HbaLine *hba)
 		if (hba->radiusports_s)
 			options[noptions++] =
 				CStringGetTextDatum(psprintf("radiusports=%s", hba->radiusports_s));
-	}
-
-	if (hba->auth_method == uaOAuth)
-	{
-		if (hba->oauth_issuer)
-			options[noptions++] =
-				CStringGetTextDatum(psprintf("issuer=%s", hba->oauth_issuer));
-
-		if (hba->oauth_scope)
-			options[noptions++] =
-				CStringGetTextDatum(psprintf("scope=%s", hba->oauth_scope));
-
-		if (hba->oauth_validator)
-			options[noptions++] =
-				CStringGetTextDatum(psprintf("validator=%s", hba->oauth_validator));
-
-		if (hba->oauth_skip_usermap)
-			options[noptions++] =
-				CStringGetTextDatum(psprintf("delegate_ident_mapping=true"));
 	}
 
 	/* If you add more options, consider increasing MAX_HBA_OPTIONS. */

@@ -1,5 +1,5 @@
 
-# Copyright (c) 2024-2025, PostgreSQL Global Development Group
+# Copyright (c) 2024, PostgreSQL Global Development Group
 
 use strict;
 use warnings FATAL => 'all';
@@ -14,7 +14,7 @@ $node_primary->init(allows_streaming => 1);
 $node_primary->append_conf(
 	'postgresql.conf', q[
 allow_in_place_tablespaces = true
-log_connections=receipt
+log_connections=on
 # to avoid "repairing" corruption
 full_page_writes=off
 log_min_messages=debug2
@@ -36,26 +36,24 @@ my $psql_timeout = IPC::Run::timer($PostgreSQL::Test::Utils::timeout_default);
 
 my %psql_primary = (stdin => '', stdout => '', stderr => '');
 $psql_primary{run} = IPC::Run::start(
-	[
-		'psql', '--no-psqlrc', '--no-align',
-		'--file' => '-',
-		'--dbname' => $node_primary->connstr('postgres')
-	],
-	'<' => \$psql_primary{stdin},
-	'>' => \$psql_primary{stdout},
-	'2>' => \$psql_primary{stderr},
+	[ 'psql', '-XA', '-f', '-', '-d', $node_primary->connstr('postgres') ],
+	'<',
+	\$psql_primary{stdin},
+	'>',
+	\$psql_primary{stdout},
+	'2>',
+	\$psql_primary{stderr},
 	$psql_timeout);
 
 my %psql_standby = ('stdin' => '', 'stdout' => '', 'stderr' => '');
 $psql_standby{run} = IPC::Run::start(
-	[
-		'psql', '--no-psqlrc', '--no-align',
-		'--file' => '-',
-		'--dbname' => $node_standby->connstr('postgres')
-	],
-	'<' => \$psql_standby{stdin},
-	'>' => \$psql_standby{stdout},
-	'2>' => \$psql_standby{stderr},
+	[ 'psql', '-XA', '-f', '-', '-d', $node_standby->connstr('postgres') ],
+	'<',
+	\$psql_standby{stdin},
+	'>',
+	\$psql_standby{stdout},
+	'2>',
+	\$psql_standby{stderr},
 	$psql_timeout);
 
 
@@ -207,6 +205,7 @@ sub cause_eviction
 sub send_query_and_wait
 {
 	my ($psql, $query, $untl) = @_;
+	my $ret;
 
 	# For each query we run, we'll restart the timeout.  Otherwise the timeout
 	# would apply to the whole test script, and would need to be set very high

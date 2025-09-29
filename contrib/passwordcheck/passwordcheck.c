@@ -3,7 +3,7 @@
  * passwordcheck.c
  *
  *
- * Copyright (c) 2009-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2009-2024, PostgreSQL Global Development Group
  *
  * Author: Laurenz Albe <laurenz.albe@wien.gv.at>
  *
@@ -15,7 +15,6 @@
 #include "postgres.h"
 
 #include <ctype.h>
-#include <limits.h>
 
 #ifdef USE_CRACKLIB
 #include <crack.h>
@@ -25,16 +24,13 @@
 #include "fmgr.h"
 #include "libpq/crypt.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "passwordcheck",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
-/* Saved hook value */
+/* Saved hook value in case of unload */
 static check_password_hook_type prev_check_password_hook = NULL;
 
-/* GUC variables */
-static int	min_password_length = 8;
+/* passwords shorter than this will be rejected */
+#define MIN_PWD_LENGTH 8
 
 /*
  * check_password
@@ -97,12 +93,10 @@ check_password(const char *username,
 #endif
 
 		/* enforce minimum length */
-		if (pwdlen < min_password_length)
+		if (pwdlen < MIN_PWD_LENGTH)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("password is too short"),
-					 errdetail("password must be at least \"passwordcheck.min_password_length\" (%d) bytes long",
-							   min_password_length)));
+					 errmsg("password is too short")));
 
 		/* check if the password contains the username */
 		if (strstr(password, username))
@@ -148,19 +142,6 @@ check_password(const char *username,
 void
 _PG_init(void)
 {
-	/* Define custom GUC variables. */
-	DefineCustomIntVariable("passwordcheck.min_password_length",
-							"Minimum allowed password length.",
-							NULL,
-							&min_password_length,
-							8,
-							0, INT_MAX,
-							PGC_SUSET,
-							GUC_UNIT_BYTE,
-							NULL, NULL, NULL);
-
-	MarkGUCPrefixReserved("passwordcheck");
-
 	/* activate password checks when the module is loaded */
 	prev_check_password_hook = check_password_hook;
 	check_password_hook = check_password;

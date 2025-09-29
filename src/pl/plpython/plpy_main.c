@@ -18,7 +18,7 @@
 #include "plpy_plpymodule.h"
 #include "plpy_procedure.h"
 #include "plpy_subxactobject.h"
-#include "plpy_util.h"
+#include "plpython.h"
 #include "utils/guc.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
@@ -28,10 +28,7 @@
  * exported functions
  */
 
-PG_MODULE_MAGIC_EXT(
-					.name = "plpython",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(plpython3_validator);
 PG_FUNCTION_INFO_V1(plpython3_call_handler);
@@ -205,7 +202,8 @@ plpython3_call_handler(PG_FUNCTION_ARGS)
 		!castNode(CallContext, fcinfo->context)->atomic;
 
 	/* Note: SPI_finish() happens in plpy_exec.c, which is dubious design */
-	SPI_connect_ext(nonatomic ? SPI_OPT_NONATOMIC : 0);
+	if (SPI_connect_ext(nonatomic ? SPI_OPT_NONATOMIC : 0) != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed");
 
 	/*
 	 * Push execution context onto stack.  It is important that this get
@@ -274,7 +272,8 @@ plpython3_inline_handler(PG_FUNCTION_ARGS)
 	PLy_initialize();
 
 	/* Note: SPI_finish() happens in plpy_exec.c, which is dubious design */
-	SPI_connect_ext(codeblock->atomic ? 0 : SPI_OPT_NONATOMIC);
+	if (SPI_connect_ext(codeblock->atomic ? 0 : SPI_OPT_NONATOMIC) != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed");
 
 	MemSet(fcinfo, 0, SizeForFunctionCallInfo(0));
 	MemSet(&flinfo, 0, sizeof(flinfo));

@@ -10,7 +10,7 @@
  * therefore, even when built for backend, it cannot rely on backend
  * infrastructure such as elog() or palloc().
  *
- * Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/port/pg_strong_random.c
@@ -31,9 +31,7 @@
  * cryptographically secure, suitable for use e.g. in authentication.
  *
  * Before pg_strong_random is called in any process, the generator must first
- * be initialized by calling pg_strong_random_init().  Initialization is a no-
- * op for all supported randomness sources, it is kept to maintain backwards
- * compatibility with extensions.
+ * be initialized by calling pg_strong_random_init().
  *
  * We rely on system facilities for actually generating the numbers.
  * We support a number of sources:
@@ -57,7 +55,12 @@
 void
 pg_strong_random_init(void)
 {
-	/* No initialization needed */
+	/*
+	 * Make sure processes do not share OpenSSL randomness state.  This is no
+	 * longer required in OpenSSL 1.1.1 and later versions, but until we drop
+	 * support for version < 1.1.1 we need to do this.
+	 */
+	RAND_poll();
 }
 
 bool

@@ -10,7 +10,7 @@
  * And contributors:
  * Nabil Sayegh <postgresql@e-trolley.de>
  *
- * Copyright (c) 2002-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2002-2024, PostgreSQL Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose, without fee, and without a written agreement
@@ -38,16 +38,13 @@
 #include "catalog/pg_type.h"
 #include "common/pg_prng.h"
 #include "executor/spi.h"
-#include "fmgr.h"
 #include "funcapi.h"
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
+#include "tablefunc.h"
 #include "utils/builtins.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "tablefunc",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 static HTAB *load_categories_hash(char *cats_sql, MemoryContext per_query_ctx);
 static Tuplestorestate *get_crosstab_tuplestore(char *sql,
@@ -388,7 +385,9 @@ crosstab(PG_FUNCTION_ARGS)
 	per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if ((ret = SPI_connect()) < 0)
+		/* internal error */
+		elog(ERROR, "crosstab: SPI_connect returned %d", ret);
 
 	/* Retrieve the desired rows */
 	ret = SPI_execute(sql, true, 0);
@@ -725,7 +724,9 @@ load_categories_hash(char *cats_sql, MemoryContext per_query_ctx)
 								HASH_ELEM | HASH_STRINGS | HASH_CONTEXT);
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if ((ret = SPI_connect()) < 0)
+		/* internal error */
+		elog(ERROR, "load_categories_hash: SPI_connect returned %d", ret);
 
 	/* Retrieve the category name rows */
 	ret = SPI_execute(cats_sql, true, 0);
@@ -805,7 +806,9 @@ get_crosstab_tuplestore(char *sql,
 	tupstore = tuplestore_begin_heap(randomAccess, false, work_mem);
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if ((ret = SPI_connect()) < 0)
+		/* internal error */
+		elog(ERROR, "get_crosstab_tuplestore: SPI_connect returned %d", ret);
 
 	/* Now retrieve the crosstab source rows */
 	ret = SPI_execute(sql, true, 0);
@@ -1148,11 +1151,15 @@ connectby(char *relname,
 		  AttInMetadata *attinmeta)
 {
 	Tuplestorestate *tupstore = NULL;
+	int			ret;
 	MemoryContext oldcontext;
+
 	int			serial = 1;
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if ((ret = SPI_connect()) < 0)
+		/* internal error */
+		elog(ERROR, "connectby: SPI_connect returned %d", ret);
 
 	/* switch to longer term context to create the tuple store */
 	oldcontext = MemoryContextSwitchTo(per_query_ctx);

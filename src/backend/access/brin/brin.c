@@ -4,7 +4,7 @@
  *
  * See src/backend/access/brin/README for details.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -33,7 +33,7 @@
 #include "postmaster/autovacuum.h"
 #include "storage/bufmgr.h"
 #include "storage/freespace.h"
-#include "tcop/tcopprot.h"
+#include "tcop/tcopprot.h"		/* pgrminclude ignore */
 #include "utils/acl.h"
 #include "utils/datum.h"
 #include "utils/fmgrprotos.h"
@@ -66,9 +66,6 @@ typedef struct BrinShared
 	bool		isconcurrent;
 	BlockNumber pagesPerRange;
 	int			scantuplesortstates;
-
-	/* Query ID, for report in worker processes */
-	int64		queryid;
 
 	/*
 	 * workersdonecv is used to monitor the progress of workers.  All parallel
@@ -256,9 +253,6 @@ brinhandler(PG_FUNCTION_ARGS)
 	amroutine->amoptsprocnum = BRIN_PROCNUM_OPTIONS;
 	amroutine->amcanorder = false;
 	amroutine->amcanorderbyop = false;
-	amroutine->amcanhash = false;
-	amroutine->amconsistentequality = false;
-	amroutine->amconsistentordering = false;
 	amroutine->amcanbackward = false;
 	amroutine->amcanunique = false;
 	amroutine->amcanmulticol = true;
@@ -285,7 +279,6 @@ brinhandler(PG_FUNCTION_ARGS)
 	amroutine->amvacuumcleanup = brinvacuumcleanup;
 	amroutine->amcanreturn = NULL;
 	amroutine->amcostestimate = brincostestimate;
-	amroutine->amgettreeheight = NULL;
 	amroutine->amoptions = brinoptions;
 	amroutine->amproperty = NULL;
 	amroutine->ambuildphasename = NULL;
@@ -301,8 +294,6 @@ brinhandler(PG_FUNCTION_ARGS)
 	amroutine->amestimateparallelscan = NULL;
 	amroutine->aminitparallelscan = NULL;
 	amroutine->amparallelrescan = NULL;
-	amroutine->amtranslatestrategy = NULL;
-	amroutine->amtranslatecmptype = NULL;
 
 	PG_RETURN_POINTER(amroutine);
 }
@@ -592,8 +583,6 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	opaque = (BrinOpaque *) scan->opaque;
 	bdesc = opaque->bo_bdesc;
 	pgstat_count_index_scan(idxRel);
-	if (scan->instrument)
-		scan->instrument->nsearches++;
 
 	/*
 	 * We need to know the size of the table so that we know how long to
@@ -968,7 +957,8 @@ brinrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 	 */
 
 	if (scankey && scan->numberOfKeys > 0)
-		memcpy(scan->keyData, scankey, scan->numberOfKeys * sizeof(ScanKeyData));
+		memmove(scan->keyData, scankey,
+				scan->numberOfKeys * sizeof(ScanKeyData));
 }
 
 /*
@@ -1142,7 +1132,7 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 		xlrec.pagesPerRange = BrinGetPagesPerRange(index);
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, SizeOfBrinCreateIdx);
+		XLogRegisterData((char *) &xlrec, SizeOfBrinCreateIdx);
 		XLogRegisterBuffer(0, meta, REGBUF_WILL_INIT | REGBUF_STANDARD);
 
 		recptr = XLogInsert(RM_BRIN_ID, XLOG_BRIN_CREATE_INDEX);
@@ -1231,7 +1221,7 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 		 * generate summary for the same range twice).
 		 */
 		reltuples = table_index_build_scan(heap, index, indexInfo, false, true,
-										   brinbuildCallback, state, NULL);
+										   brinbuildCallback, (void *) state, NULL);
 
 		/*
 		 * process the final batch
@@ -1400,7 +1390,8 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 	if (heapBlk64 > BRIN_ALL_BLOCKRANGES || heapBlk64 < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-				 errmsg("block number out of range: %" PRId64, heapBlk64)));
+				 errmsg("block number out of range: %lld",
+						(long long) heapBlk64)));
 	heapBlk = (BlockNumber) heapBlk64;
 
 	/*
@@ -1507,8 +1498,8 @@ brin_desummarize_range(PG_FUNCTION_ARGS)
 	if (heapBlk64 > MaxBlockNumber || heapBlk64 < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-				 errmsg("block number out of range: %" PRId64,
-						heapBlk64)));
+				 errmsg("block number out of range: %lld",
+						(long long) heapBlk64)));
 	heapBlk = (BlockNumber) heapBlk64;
 
 	/*
@@ -1816,7 +1807,7 @@ summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
 	state->bs_currRangeStart = heapBlk;
 	table_index_build_range_scan(heapRel, state->bs_irel, indexInfo, false, true, false,
 								 heapBlk, scanNumBlks,
-								 brinbuildCallback, state, NULL);
+								 brinbuildCallback, (void *) state, NULL);
 
 	/*
 	 * Now we update the values obtained by the scan with the placeholder
@@ -2459,7 +2450,6 @@ _brin_begin_parallel(BrinBuildState *buildstate, Relation heap, Relation index,
 	brinshared->isconcurrent = isconcurrent;
 	brinshared->scantuplesortstates = scantuplesortstates;
 	brinshared->pagesPerRange = buildstate->bs_pagesPerRange;
-	brinshared->queryid = pgstat_get_my_query_id();
 	ConditionVariableInit(&brinshared->workersdonecv);
 	SpinLockInit(&brinshared->mutex);
 
@@ -2902,9 +2892,6 @@ _brin_parallel_build_main(dsm_segment *seg, shm_toc *toc)
 		heapLockmode = ShareUpdateExclusiveLock;
 		indexLockmode = RowExclusiveLock;
 	}
-
-	/* Track query ID */
-	pgstat_report_query_id(brinshared->queryid, false);
 
 	/* Open relations within worker */
 	heapRel = table_open(brinshared->heaprelid, heapLockmode);

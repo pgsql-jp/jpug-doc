@@ -5,7 +5,7 @@
  * Originally written by Tatsuo Ishii and enhanced by many contributors.
  *
  * src/bin/pgbench/pgbench.c
- * Copyright (c) 2000-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2000-2024, PostgreSQL Global Development Group
  * ALL RIGHTS RESERVED;
  *
  * Permission to use, copy, modify, and distribute this software and its
@@ -53,7 +53,6 @@
 #include <sys/select.h>
 #endif
 
-#include "catalog/pg_class_d.h"
 #include "common/int.h"
 #include "common/logging.h"
 #include "common/pg_prng.h"
@@ -171,37 +170,37 @@ typedef struct socket_set
 #define MIN_ZIPFIAN_PARAM		1.001	/* minimum parameter for zipfian */
 #define MAX_ZIPFIAN_PARAM		1000.0	/* maximum parameter for zipfian */
 
-static int	nxacts = 0;			/* number of transactions per client */
-static int	duration = 0;		/* duration in seconds */
-static int64 end_time = 0;		/* when to stop in micro seconds, under -T */
+int			nxacts = 0;			/* number of transactions per client */
+int			duration = 0;		/* duration in seconds */
+int64		end_time = 0;		/* when to stop in micro seconds, under -T */
 
 /*
  * scaling factor. for example, scale = 10 will make 1000000 tuples in
  * pgbench_accounts table.
  */
-static int	scale = 1;
+int			scale = 1;
 
 /*
  * fillfactor. for example, fillfactor = 90 will use only 90 percent
  * space during inserts and leave 10 percent free.
  */
-static int	fillfactor = 100;
+int			fillfactor = 100;
 
 /*
  * use unlogged tables?
  */
-static bool unlogged_tables = false;
+bool		unlogged_tables = false;
 
 /*
  * log sampling rate (1.0 = log everything, 0.0 = option not given)
  */
-static double sample_rate = 0.0;
+double		sample_rate = 0.0;
 
 /*
  * When threads are throttled to a given rate limit, this is the target delay
  * to reach that rate in usec.  0 is the default and means no throttling.
  */
-static double throttle_delay = 0;
+double		throttle_delay = 0;
 
 /*
  * Transactions which take longer than this limit (in usec) are counted as
@@ -209,13 +208,13 @@ static double throttle_delay = 0;
  * throttling is enabled, execution time slots that are more than this late
  * are skipped altogether, and counted separately.
  */
-static int64 latency_limit = 0;
+int64		latency_limit = 0;
 
 /*
  * tablespace selection
  */
-static char *tablespace = NULL;
-static char *index_tablespace = NULL;
+char	   *tablespace = NULL;
+char	   *index_tablespace = NULL;
 
 /*
  * Number of "pgbench_accounts" partitions.  0 is the default and means no
@@ -235,7 +234,7 @@ static partition_method_t partition_method = PART_NONE;
 static const char *const PARTITION_METHOD[] = {"none", "range", "hash"};
 
 /* random seed used to initialize base_random_sequence */
-static int64 random_seed = -1;
+int64		random_seed = -1;
 
 /*
  * end of configurable parameters
@@ -255,20 +254,20 @@ static int64 random_seed = -1;
  */
 #define SCALE_32BIT_THRESHOLD 20000
 
-static bool use_log;			/* log transaction latencies to a file */
-static bool use_quiet;			/* quiet logging onto stderr */
-static int	agg_interval;		/* log aggregates instead of individual
+bool		use_log;			/* log transaction latencies to a file */
+bool		use_quiet;			/* quiet logging onto stderr */
+int			agg_interval;		/* log aggregates instead of individual
 								 * transactions */
-static bool per_script_stats = false;	/* whether to collect stats per script */
-static int	progress = 0;		/* thread progress report every this seconds */
-static bool progress_timestamp = false; /* progress report with Unix time */
-static int	nclients = 1;		/* number of clients */
-static int	nthreads = 1;		/* number of threads */
-static bool is_connect;			/* establish connection for each transaction */
-static bool report_per_command = false; /* report per-command latencies,
+bool		per_script_stats = false;	/* whether to collect stats per script */
+int			progress = 0;		/* thread progress report every this seconds */
+bool		progress_timestamp = false; /* progress report with Unix time */
+int			nclients = 1;		/* number of clients */
+int			nthreads = 1;		/* number of threads */
+bool		is_connect;			/* establish connection for each transaction */
+bool		report_per_command = false; /* report per-command latencies,
 										 * retries after errors and failures
 										 * (errors without retrying) */
-static int	main_pid;			/* main process id used in log filename */
+int			main_pid;			/* main process id used in log filename */
 
 /*
  * There are different types of restrictions for deciding that the current
@@ -288,22 +287,21 @@ static int	main_pid;			/* main process id used in log filename */
  * We cannot retry a transaction after the serialization/deadlock error if its
  * number of tries reaches this maximum; if its value is zero, it is not used.
  */
-static uint32 max_tries = 1;
+uint32		max_tries = 1;
 
-static bool failures_detailed = false;	/* whether to group failures in
+bool		failures_detailed = false;	/* whether to group failures in
 										 * reports or logs by basic types */
 
-static const char *pghost = NULL;
-static const char *pgport = NULL;
-static const char *username = NULL;
-static const char *dbName = NULL;
-static char *logfile_prefix = NULL;
-static const char *progname;
+const char *pghost = NULL;
+const char *pgport = NULL;
+const char *username = NULL;
+const char *dbName = NULL;
+char	   *logfile_prefix = NULL;
+const char *progname;
 
 #define WSEP '@'				/* weight separator */
 
-static volatile sig_atomic_t timer_exceeded = false;	/* flag from signal
-														 * handler */
+volatile sig_atomic_t timer_exceeded = false;	/* flag from signal handler */
 
 /*
  * We don't want to allocate variables one by one; for efficiency, add a
@@ -448,7 +446,7 @@ typedef struct StatsData
  * For displaying Unix epoch timestamps, as some time functions may have
  * another reference.
  */
-static pg_time_usec_t epoch_shift;
+pg_time_usec_t epoch_shift;
 
 /*
  * Error status for errors during script execution.
@@ -848,31 +846,6 @@ typedef void (*initRowMethod) (PQExpBufferData *sql, int64 curr);
 static const PsqlScanCallbacks pgbench_callbacks = {
 	NULL,						/* don't need get_variable functionality */
 };
-
-static char
-get_table_relkind(PGconn *con, const char *table)
-{
-	PGresult   *res;
-	char	   *val;
-	char		relkind;
-	const char *params[1] = {table};
-	const char *sql =
-		"SELECT relkind FROM pg_catalog.pg_class WHERE oid=$1::pg_catalog.regclass";
-
-	res = PQexecParams(con, sql, 1, NULL, params, NULL, NULL, 0);
-	if (PQresultStatus(res) != PGRES_TUPLES_OK)
-	{
-		pg_log_error("query failed: %s", PQerrorMessage(con));
-		pg_log_error_detail("Query was: %s", sql);
-		exit(1);
-	}
-	val = PQgetvalue(res, 0, 0);
-	Assert(strlen(val) == 1);
-	relkind = val[0];
-	PQclear(res);
-
-	return relkind;
-}
 
 static inline pg_time_usec_t
 pg_time_now(void)
@@ -2279,9 +2252,14 @@ evalStandardFunc(CState *st,
 {
 	/* evaluate all function arguments */
 	int			nargs = 0;
-	PgBenchValue vargs[MAX_FARGS] = {0};
 	PgBenchExprLink *l = args;
 	bool		has_null = false;
+
+	/*
+	 * This value is double braced to workaround GCC bug 53119, which seems to
+	 * exist at least on gcc (Debian 4.7.2-5) 4.7.2, 32-bit.
+	 */
+	PgBenchValue vargs[MAX_FARGS] = {{0}};
 
 	for (nargs = 0; nargs < MAX_FARGS && l != NULL; nargs++, l = l->next)
 	{
@@ -4901,7 +4879,7 @@ initCreateTables(PGconn *con)
 
 		/* Construct new create table statement. */
 		printfPQExpBuffer(&query, "create%s table %s(%s)",
-						  (unlogged_tables && partition_method == PART_NONE) ? " unlogged" : "",
+						  unlogged_tables ? " unlogged" : "",
 						  ddl->table,
 						  (scale >= SCALE_32BIT_THRESHOLD) ? ddl->bigcols : ddl->smcols);
 
@@ -4996,11 +4974,16 @@ initPopulateTable(PGconn *con, const char *table, int64 base,
 
 	initPQExpBuffer(&sql);
 
-	/* Use COPY with FREEZE on v14 and later for all ordinary tables */
-	if ((PQserverVersion(con) >= 140000) &&
-		get_table_relkind(con, table) == RELKIND_RELATION)
-		copy_statement_fmt = "copy %s from stdin with (freeze on)";
-
+	/*
+	 * Use COPY with FREEZE on v14 and later for all the tables except
+	 * pgbench_accounts when it is partitioned.
+	 */
+	if (PQserverVersion(con) >= 140000)
+	{
+		if (strcmp(table, "pgbench_accounts") != 0 ||
+			partitions == 0)
+			copy_statement_fmt = "copy %s from stdin with (freeze on)";
+	}
 
 	n = pg_snprintf(copy_statement, sizeof(copy_statement), copy_statement_fmt, table);
 	if (n >= sizeof(copy_statement))
@@ -5685,16 +5668,21 @@ postprocess_sql_command(Command *my_command)
  * At call, we have scanned only the initial backslash.
  */
 static Command *
-process_backslash_command(PsqlScanState sstate, const char *source,
-						  int lineno, int start_offset)
+process_backslash_command(PsqlScanState sstate, const char *source)
 {
 	Command    *my_command;
 	PQExpBufferData word_buf;
 	int			word_offset;
 	int			offsets[MAX_ARGS];	/* offsets of argument words */
+	int			start_offset;
+	int			lineno;
 	int			j;
 
 	initPQExpBuffer(&word_buf);
+
+	/* Remember location of the backslash */
+	start_offset = expr_scanner_offset(sstate) - 1;
+	lineno = expr_scanner_get_lineno(sstate, start_offset);
 
 	/* Collect first word of command */
 	if (!expr_lex_one_word(sstate, &word_buf, &word_offset))
@@ -5740,16 +5728,19 @@ process_backslash_command(PsqlScanState sstate, const char *source,
 		yyscanner = expr_scanner_init(sstate, source, lineno, start_offset,
 									  my_command->argv[0]);
 
-		if (expr_yyparse(&my_command->expr, yyscanner) != 0)
+		if (expr_yyparse(yyscanner) != 0)
 		{
 			/* dead code: exit done from syntax_error called by yyerror */
 			exit(1);
 		}
 
+		my_command->expr = expr_parse_result;
+
 		/* Save line, trimming any trailing newline */
 		my_command->first_line =
 			expr_scanner_get_substring(sstate,
 									   start_offset,
+									   expr_scanner_offset(sstate),
 									   true);
 
 		expr_scanner_finish(yyscanner);
@@ -5779,6 +5770,7 @@ process_backslash_command(PsqlScanState sstate, const char *source,
 	my_command->first_line =
 		expr_scanner_get_substring(sstate,
 								   start_offset,
+								   expr_scanner_offset(sstate),
 								   true);
 
 	if (my_command->meta == META_SLEEP)
@@ -5953,6 +5945,8 @@ ParseScript(const char *script, const char *desc, int weight)
 	PQExpBufferData line_buf;
 	int			alloc_num;
 	int			index;
+	int			lineno;
+	int			start_offset;
 
 #define COMMANDS_ALLOC_NUM 128
 	alloc_num = COMMANDS_ALLOC_NUM;
@@ -5976,6 +5970,7 @@ ParseScript(const char *script, const char *desc, int weight)
 	 * stdstrings should be true, which is a bit riskier.
 	 */
 	psql_scan_setup(sstate, script, strlen(script), 0, true);
+	start_offset = expr_scanner_offset(sstate) - 1;
 
 	initPQExpBuffer(&line_buf);
 
@@ -5988,6 +5983,7 @@ ParseScript(const char *script, const char *desc, int weight)
 		Command    *command = NULL;
 
 		resetPQExpBuffer(&line_buf);
+		lineno = expr_scanner_get_lineno(sstate, start_offset);
 
 		sr = psql_scan(sstate, &line_buf, &prompt);
 
@@ -6001,15 +5997,7 @@ ParseScript(const char *script, const char *desc, int weight)
 		/* If we reached a backslash, process that */
 		if (sr == PSCAN_BACKSLASH)
 		{
-			int			lineno;
-			int			start_offset;
-
-			/* Capture location of the backslash */
-			psql_scan_get_location(sstate, &lineno, &start_offset);
-			start_offset--;
-
-			command = process_backslash_command(sstate, desc,
-												lineno, start_offset);
+			command = process_backslash_command(sstate, desc);
 
 			if (command)
 			{
@@ -6438,13 +6426,6 @@ printResults(StatsData *total,
 			   total->cnt);
 	}
 
-	/*
-	 * Remaining stats are nonsensical if we failed to execute any xacts due
-	 * to others than serialization or deadlock errors
-	 */
-	if (total_cnt <= 0)
-		return;
-
 	printf("number of failed transactions: " INT64_FORMAT " (%.3f%%)\n",
 		   failures, 100.0 * failures / total_cnt);
 
@@ -6465,6 +6446,10 @@ printResults(StatsData *total,
 			   total->retried, 100.0 * total->retried / total_cnt);
 		printf("total number of retries: " INT64_FORMAT "\n", total->retries);
 	}
+
+	/* Remaining stats are nonsensical if we failed to execute any xacts */
+	if (total->cnt + total->skipped <= 0)
+		return;
 
 	if (throttle_delay && latency_limit)
 		printf("number of transactions skipped: " INT64_FORMAT " (%.3f%%)\n",
@@ -6533,53 +6518,45 @@ printResults(StatsData *total,
 
 				printf("SQL script %d: %s\n"
 					   " - weight: %d (targets %.1f%% of total)\n"
-					   " - " INT64_FORMAT " transactions (%.1f%% of total)\n",
+					   " - " INT64_FORMAT " transactions (%.1f%% of total, tps = %f)\n",
 					   i + 1, sql_script[i].desc,
 					   sql_script[i].weight,
 					   100.0 * sql_script[i].weight / total_weight,
-					   script_total_cnt,
-					   100.0 * script_total_cnt / total_cnt);
+					   sstats->cnt,
+					   100.0 * sstats->cnt / total->cnt,
+					   sstats->cnt / bench_duration);
 
-				if (script_total_cnt > 0)
+				printf(" - number of failed transactions: " INT64_FORMAT " (%.3f%%)\n",
+					   script_failures,
+					   100.0 * script_failures / script_total_cnt);
+
+				if (failures_detailed)
 				{
-					printf(" - number of transactions actually processed: " INT64_FORMAT " (tps = %f)\n",
-						   sstats->cnt, sstats->cnt / bench_duration);
-
-					printf(" - number of failed transactions: " INT64_FORMAT " (%.3f%%)\n",
-						   script_failures,
-						   100.0 * script_failures / script_total_cnt);
-
-					if (failures_detailed)
-					{
-						printf(" - number of serialization failures: " INT64_FORMAT " (%.3f%%)\n",
-							   sstats->serialization_failures,
-							   (100.0 * sstats->serialization_failures /
-								script_total_cnt));
-						printf(" - number of deadlock failures: " INT64_FORMAT " (%.3f%%)\n",
-							   sstats->deadlock_failures,
-							   (100.0 * sstats->deadlock_failures /
-								script_total_cnt));
-					}
-
-					/*
-					 * it can be non-zero only if max_tries is not equal to
-					 * one
-					 */
-					if (max_tries != 1)
-					{
-						printf(" - number of transactions retried: " INT64_FORMAT " (%.3f%%)\n",
-							   sstats->retried,
-							   100.0 * sstats->retried / script_total_cnt);
-						printf(" - total number of retries: " INT64_FORMAT "\n",
-							   sstats->retries);
-					}
-
-					if (throttle_delay && latency_limit)
-						printf(" - number of transactions skipped: " INT64_FORMAT " (%.3f%%)\n",
-							   sstats->skipped,
-							   100.0 * sstats->skipped / script_total_cnt);
-
+					printf(" - number of serialization failures: " INT64_FORMAT " (%.3f%%)\n",
+						   sstats->serialization_failures,
+						   (100.0 * sstats->serialization_failures /
+							script_total_cnt));
+					printf(" - number of deadlock failures: " INT64_FORMAT " (%.3f%%)\n",
+						   sstats->deadlock_failures,
+						   (100.0 * sstats->deadlock_failures /
+							script_total_cnt));
 				}
+
+				/* it can be non-zero only if max_tries is not equal to one */
+				if (max_tries != 1)
+				{
+					printf(" - number of transactions retried: " INT64_FORMAT " (%.3f%%)\n",
+						   sstats->retried,
+						   100.0 * sstats->retried / script_total_cnt);
+					printf(" - total number of retries: " INT64_FORMAT "\n",
+						   sstats->retries);
+				}
+
+				if (throttle_delay && latency_limit && script_total_cnt > 0)
+					printf(" - number of transactions skipped: " INT64_FORMAT " (%.3f%%)\n",
+						   sstats->skipped,
+						   100.0 * sstats->skipped / script_total_cnt);
+
 				printSimpleStats(" - latency", &sstats->latency);
 			}
 
@@ -6604,13 +6581,13 @@ printResults(StatsData *total,
 					SimpleStats *cstats = &(*commands)->stats;
 
 					if (max_tries == 1)
-						printf("   %11.3f  %10" PRId64 " %s\n",
+						printf("   %11.3f  %10" INT64_MODIFIER "d  %s\n",
 							   (cstats->count > 0) ?
 							   1000.0 * cstats->sum / cstats->count : 0.0,
 							   (*commands)->failures,
 							   (*commands)->first_line);
 					else
-						printf("   %11.3f  %10" PRId64 " %10" PRId64 " %s\n",
+						printf("   %11.3f  %10" INT64_MODIFIER "d  %10" INT64_MODIFIER "d  %s\n",
 							   (cstats->count > 0) ?
 							   1000.0 * cstats->sum / cstats->count : 0.0,
 							   (*commands)->failures,
@@ -6647,23 +6624,27 @@ set_random_seed(const char *seed)
 	}
 	else
 	{
+		/* parse unsigned-int seed value */
+		unsigned long ulseed;
 		char		garbage;
 
-		if (sscanf(seed, "%" SCNu64 "%c", &iseed, &garbage) != 1)
+		/* Don't try to use UINT64_FORMAT here; it might not work for sscanf */
+		if (sscanf(seed, "%lu%c", &ulseed, &garbage) != 1)
 		{
 			pg_log_error("unrecognized random seed option \"%s\"", seed);
 			pg_log_error_detail("Expecting an unsigned integer, \"time\" or \"rand\".");
 			return false;
 		}
+		iseed = (uint64) ulseed;
 	}
 
 	if (seed != NULL)
-		pg_log_info("setting random seed to %" PRIu64, iseed);
+		pg_log_info("setting random seed to %llu", (unsigned long long) iseed);
 
 	random_seed = iseed;
 
 	/* Initialize base_random_sequence using seed */
-	pg_prng_seed(&base_random_sequence, iseed);
+	pg_prng_seed(&base_random_sequence, (uint64) iseed);
 
 	return true;
 }
@@ -6816,25 +6797,12 @@ main(int argc, char **argv)
 #ifdef HAVE_GETRLIMIT
 				if (getrlimit(RLIMIT_NOFILE, &rlim) == -1)
 					pg_fatal("getrlimit failed: %m");
-
-				if (rlim.rlim_max < nclients + 3)
-				{
-					pg_log_error("need at least %d open files, but system limit is %ld",
-								 nclients + 3, (long) rlim.rlim_max);
-					pg_log_error_hint("Reduce number of clients, or use limit/ulimit to increase the system limit.");
-					exit(1);
-				}
-
 				if (rlim.rlim_cur < nclients + 3)
 				{
-					rlim.rlim_cur = nclients + 3;
-					if (setrlimit(RLIMIT_NOFILE, &rlim) == -1)
-					{
-						pg_log_error("need at least %d open files, but couldn't raise the limit: %m",
-									 nclients + 3);
-						pg_log_error_hint("Reduce number of clients, or use limit/ulimit to increase the system limit.");
-						exit(1);
-					}
+					pg_log_error("need at least %d open files, but system limit is %ld",
+								 nclients + 3, (long) rlim.rlim_cur);
+					pg_log_error_hint("Reduce number of clients, or use limit/ulimit to increase the system limit.");
+					exit(1);
 				}
 #endif							/* HAVE_GETRLIMIT */
 				break;

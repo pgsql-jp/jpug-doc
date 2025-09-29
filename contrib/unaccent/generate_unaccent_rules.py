@@ -104,11 +104,10 @@ def is_letter_with_marks(codepoint, table):
     """Returns true for letters combined with one or more marks."""
     # See https://www.unicode.org/reports/tr44/tr44-14.html#General_Category_Values
 
-    # Some codepoints redirect directly to another, instead of doing any
-    # "combining"...  but sometimes they redirect to a codepoint that doesn't
-    # exist, so ignore those.
-    if len(codepoint.combining_ids) == 1 and codepoint.combining_ids[0] in table:
-        return is_letter_with_marks(table[codepoint.combining_ids[0]], table)
+    # Letter may have no combining characters, in which case it has
+    # no marks.
+    if len(codepoint.combining_ids) == 1:
+        return False
 
     # A letter without diacritical marks has none of them.
     if any(is_mark(table[i]) for i in codepoint.combining_ids[1:]) is False:
@@ -149,7 +148,8 @@ def get_plain_letter(codepoint, table):
 
 def is_ligature(codepoint, table):
     """Return true for letters combined with letters."""
-    return all(i in table and is_letter(table[i], table) for i in codepoint.combining_ids)
+    return all(is_letter(table[i], table) for i in codepoint.combining_ids)
+
 
 def get_plain_letters(codepoint, table):
     """Return a list of plain letters from a ligature."""
@@ -200,11 +200,6 @@ def parse_cldr_latin_ascii_transliterator(latinAsciiFilePath):
             # the parser of unaccent only accepts non-whitespace characters
             # for "src" and "trg" (see unaccent.c)
             if not src.isspace() and not trg.isspace():
-                if src == "\u210c":
-                    # This mapping seems to be in error, and causes a collision
-                    # by disagreeing with the main Unicode database file:
-                    # https://unicode-org.atlassian.net/browse/CLDR-17656
-                    continue
                 charactersSet.add((ord(src), trg))
 
     return charactersSet
@@ -256,7 +251,7 @@ def main(args):
     # walk through all the codepoints looking for interesting mappings
     for codepoint in all:
         if codepoint.general_category.startswith('L') and \
-           len(codepoint.combining_ids) > 0:
+           len(codepoint.combining_ids) > 1:
             if is_letter_with_marks(codepoint, table):
                 charactersSet.add((codepoint.id,
                                    chr(get_plain_letter(codepoint, table).id)))

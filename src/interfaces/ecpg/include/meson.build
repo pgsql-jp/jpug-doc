@@ -1,10 +1,12 @@
-# Copyright (c) 2022-2025, PostgreSQL Global Development Group
+# Copyright (c) 2022-2024, PostgreSQL Global Development Group
 
 ecpg_inc = include_directories('.')
 
 ecpg_conf_keys = [
-  'SIZEOF_LONG',
-  'SIZEOF_LONG_LONG',
+  'HAVE_INT64',
+  'HAVE_LONG_INT_64',
+  'HAVE_LONG_LONG_INT_64',
+  'PG_USE_STDBOOL',
 ]
 
 ecpg_conf_data = configuration_data()
