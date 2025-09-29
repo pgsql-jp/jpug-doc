@@ -9,7 +9,8 @@
 
 #include "btree_gist.h"
 #include "btree_utils_var.h"
-#include "mb/pg_wchar.h"
+#include "utils/builtins.h"
+#include "utils/pg_locale.h"
 #include "utils/rel.h"
 
 /* used for key sorting */

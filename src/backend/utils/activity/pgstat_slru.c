@@ -8,7 +8,7 @@
  * storage implementation and the details about individual types of
  * statistics.
  *
- * Copyright (c) 2001-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2001-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/utils/activity/pgstat_slru.c
@@ -32,7 +32,7 @@ static void pgstat_reset_slru_counter_internal(int index, TimestampTz ts);
  * in order to avoid memory allocation.
  */
 static PgStat_SLRUStats pending_SLRUStats[SLRU_NUM_ELEMENTS];
-static bool have_slrustats = false;
+bool		have_slrustats = false;
 
 
 /*
@@ -153,7 +153,7 @@ pgstat_get_slru_index(const char *name)
  * acquired. Otherwise return false.
  */
 bool
-pgstat_slru_flush_cb(bool nowait)
+pgstat_slru_flush(bool nowait)
 {
 	PgStatShared_SLRU *stats_shmem = &pgStatLocal.shmem->slru;
 	int			i;
@@ -190,14 +190,6 @@ pgstat_slru_flush_cb(bool nowait)
 	have_slrustats = false;
 
 	return false;
-}
-
-void
-pgstat_slru_init_shmem_cb(void *stats)
-{
-	PgStatShared_SLRU *stats_shmem = (PgStatShared_SLRU *) stats;
-
-	LWLockInitialize(&stats_shmem->lock, LWTRANCHE_PGSTATS_DATA);
 }
 
 void
@@ -238,7 +230,6 @@ get_slru_entry(int slru_idx)
 	Assert((slru_idx >= 0) && (slru_idx < SLRU_NUM_ELEMENTS));
 
 	have_slrustats = true;
-	pgstat_report_fixed = true;
 
 	return &pending_SLRUStats[slru_idx];
 }

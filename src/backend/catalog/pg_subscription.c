@@ -3,7 +3,7 @@
  * pg_subscription.c
  *		replication subscriptions
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -33,37 +33,6 @@
 #include "utils/syscache.h"
 
 static List *textarray_to_stringlist(ArrayType *textarray);
-
-/*
- * Add a comma-separated list of publication names to the 'dest' string.
- */
-void
-GetPublicationsStr(List *publications, StringInfo dest, bool quote_literal)
-{
-	ListCell   *lc;
-	bool		first = true;
-
-	Assert(publications != NIL);
-
-	foreach(lc, publications)
-	{
-		char	   *pubname = strVal(lfirst(lc));
-
-		if (first)
-			first = false;
-		else
-			appendStringInfoString(dest, ", ");
-
-		if (quote_literal)
-			appendStringInfoString(dest, quote_literal_cstr(pubname));
-		else
-		{
-			appendStringInfoChar(dest, '"');
-			appendStringInfoString(dest, pubname);
-			appendStringInfoChar(dest, '"');
-		}
-	}
-}
 
 /*
  * Fetch the subscription from the syscache.
@@ -318,8 +287,8 @@ AddSubscriptionRelState(Oid subid, Oid relid, char state,
  * Update the state of a subscription table.
  */
 void
-UpdateSubscriptionRelState(Oid subid, Oid relid, char state,
-						   XLogRecPtr sublsn, bool already_locked)
+UpdateSubscriptionRelStateEx(Oid subid, Oid relid, char state,
+							 XLogRecPtr sublsn, bool already_locked)
 {
 	Relation	rel;
 	HeapTuple	tup;
@@ -376,6 +345,16 @@ UpdateSubscriptionRelState(Oid subid, Oid relid, char state,
 
 	/* Cleanup. */
 	table_close(rel, NoLock);
+}
+
+/*
+ * Update the state of a subscription table.
+ */
+void
+UpdateSubscriptionRelState(Oid subid, Oid relid, char state,
+						   XLogRecPtr sublsn)
+{
+	UpdateSubscriptionRelStateEx(subid, relid, state, sublsn, false);
 }
 
 /*

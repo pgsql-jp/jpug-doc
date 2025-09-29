@@ -3,7 +3,7 @@
  * pl_handler.c		- Handler for the PL/pgSQL
  *			  procedural language
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -31,10 +31,7 @@ static bool plpgsql_extra_checks_check_hook(char **newvalue, void **extra, GucSo
 static void plpgsql_extra_warnings_assign_hook(const char *newvalue, void *extra);
 static void plpgsql_extra_errors_assign_hook(const char *newvalue, void *extra);
 
-PG_MODULE_MAGIC_EXT(
-					.name = "plpgsql",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* Custom GUC variable */
 static const struct config_enum_entry variable_conflict_options[] = {
@@ -50,8 +47,8 @@ bool		plpgsql_print_strict_params = false;
 
 bool		plpgsql_check_asserts = true;
 
-static char *plpgsql_extra_warnings_string = NULL;
-static char *plpgsql_extra_errors_string = NULL;
+char	   *plpgsql_extra_warnings_string = NULL;
+char	   *plpgsql_extra_errors_string = NULL;
 int			plpgsql_extra_warnings;
 int			plpgsql_extra_errors;
 
@@ -121,7 +118,7 @@ plpgsql_extra_checks_check_hook(char **newvalue, void **extra, GucSource source)
 	if (!myextra)
 		return false;
 	*myextra = extrachecks;
-	*extra = myextra;
+	*extra = (void *) myextra;
 
 	return true;
 }
@@ -202,6 +199,7 @@ _PG_init(void)
 
 	MarkGUCPrefixReserved("plpgsql");
 
+	plpgsql_HashTableInit();
 	RegisterXactCallback(plpgsql_xact_cb, NULL);
 	RegisterSubXactCallback(plpgsql_subxact_cb, NULL);
 
@@ -237,7 +235,8 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 	/*
 	 * Connect to SPI manager
 	 */
-	SPI_connect_ext(nonatomic ? SPI_OPT_NONATOMIC : 0);
+	if ((rc = SPI_connect_ext(nonatomic ? SPI_OPT_NONATOMIC : 0)) != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed: %s", SPI_result_code_string(rc));
 
 	/* Find or compile the function */
 	func = plpgsql_compile(fcinfo, false);
@@ -246,7 +245,7 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 	save_cur_estate = func->cur_estate;
 
 	/* Mark the function as busy, so it can't be deleted from under us */
-	func->cfunc.use_count++;
+	func->use_count++;
 
 	/*
 	 * If we'll need a procedure-lifespan resowner to execute any CALL or DO
@@ -283,7 +282,7 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 	PG_FINALLY();
 	{
 		/* Decrement use-count, restore cur_estate */
-		func->cfunc.use_count--;
+		func->use_count--;
 		func->cur_estate = save_cur_estate;
 
 		/* Be sure to release the procedure resowner if any */
@@ -327,13 +326,14 @@ plpgsql_inline_handler(PG_FUNCTION_ARGS)
 	/*
 	 * Connect to SPI manager
 	 */
-	SPI_connect_ext(codeblock->atomic ? 0 : SPI_OPT_NONATOMIC);
+	if ((rc = SPI_connect_ext(codeblock->atomic ? 0 : SPI_OPT_NONATOMIC)) != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed: %s", SPI_result_code_string(rc));
 
 	/* Compile the anonymous code block */
 	func = plpgsql_compile_inline(codeblock->source_text);
 
 	/* Mark the function as busy, just pro forma */
-	func->cfunc.use_count++;
+	func->use_count++;
 
 	/*
 	 * Set up a fake fcinfo with just enough info to satisfy
@@ -397,8 +397,8 @@ plpgsql_inline_handler(PG_FUNCTION_ARGS)
 		ResourceOwnerDelete(simple_eval_resowner);
 
 		/* Function should now have no remaining use-counts ... */
-		func->cfunc.use_count--;
-		Assert(func->cfunc.use_count == 0);
+		func->use_count--;
+		Assert(func->use_count == 0);
 
 		/* ... so we can free subsidiary storage */
 		plpgsql_free_function_memory(func);
@@ -414,8 +414,8 @@ plpgsql_inline_handler(PG_FUNCTION_ARGS)
 	ResourceOwnerDelete(simple_eval_resowner);
 
 	/* Function should now have no remaining use-counts ... */
-	func->cfunc.use_count--;
-	Assert(func->cfunc.use_count == 0);
+	func->use_count--;
+	Assert(func->use_count == 0);
 
 	/* ... so we can free subsidiary storage */
 	plpgsql_free_function_memory(func);
@@ -510,7 +510,8 @@ plpgsql_validator(PG_FUNCTION_ARGS)
 		/*
 		 * Connect to SPI manager (is this needed for compilation?)
 		 */
-		SPI_connect();
+		if ((rc = SPI_connect()) != SPI_OK_CONNECT)
+			elog(ERROR, "SPI_connect failed: %s", SPI_result_code_string(rc));
 
 		/*
 		 * Set up a fake fcinfo with just enough info to satisfy

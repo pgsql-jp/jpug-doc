@@ -15,7 +15,7 @@
  * there's hardly any use case for using these without superuser-rights
  * anyway.
  *
- * Copyright (c) 2007-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2007-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  contrib/pageinspect/heapfuncs.c
@@ -32,6 +32,7 @@
 #include "funcapi.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
+#include "pageinspect.h"
 #include "port/pg_bitutils.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
@@ -42,14 +43,13 @@
  * was used to upgrade from an older version, tuples might still have an
  * oid. Seems worthwhile to display that.
  */
-static inline Oid
-HeapTupleHeaderGetOidOld(const HeapTupleHeaderData *tup)
-{
-	if (tup->t_infomask & HEAP_HASOID_OLD)
-		return *((Oid *) ((char *) (tup) + (tup)->t_hoff - sizeof(Oid)));
-	else
-		return InvalidOid;
-}
+#define HeapTupleHeaderGetOidOld(tup) \
+( \
+	((tup)->t_infomask & HEAP_HASOID_OLD) ? \
+	   *((Oid *) ((char *)(tup) + (tup)->t_hoff - sizeof(Oid))) \
+	: \
+		InvalidOid \
+)
 
 
 /*
@@ -344,11 +344,11 @@ tuple_data_split_internal(Oid relid, char *tupdata,
 
 	for (i = 0; i < nattrs; i++)
 	{
-		CompactAttribute *attr;
+		Form_pg_attribute attr;
 		bool		is_null;
 		bytea	   *attr_data = NULL;
 
-		attr = TupleDescCompactAttr(tupdesc, i);
+		attr = TupleDescAttr(tupdesc, i);
 
 		/*
 		 * Tuple header can specify fewer attributes than tuple descriptor as
@@ -367,8 +367,8 @@ tuple_data_split_internal(Oid relid, char *tupdata,
 
 			if (attr->attlen == -1)
 			{
-				off = att_pointer_alignby(off, attr->attalignby, -1,
-										  tupdata + off);
+				off = att_align_pointer(off, attr->attalign, -1,
+										tupdata + off);
 
 				/*
 				 * As VARSIZE_ANY throws an exception if it can't properly
@@ -386,7 +386,7 @@ tuple_data_split_internal(Oid relid, char *tupdata,
 			}
 			else
 			{
-				off = att_nominal_alignby(off, attr->attalignby);
+				off = att_align_nominal(off, attr->attalign);
 				len = attr->attlen;
 			}
 

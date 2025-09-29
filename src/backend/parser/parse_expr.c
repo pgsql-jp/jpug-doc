@@ -3,7 +3,7 @@
  * parse_expr.c
  *	  handle expressions in parser
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -16,6 +16,7 @@
 #include "postgres.h"
 
 #include "catalog/pg_aggregate.h"
+#include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
 #include "commands/dbcommands.h"
 #include "miscadmin.h"
@@ -36,6 +37,7 @@
 #include "utils/builtins.h"
 #include "utils/date.h"
 #include "utils/fmgroids.h"
+#include "utils/jsonb.h"
 #include "utils/lsyscache.h"
 #include "utils/timestamp.h"
 #include "utils/xml.h"
@@ -1223,8 +1225,6 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
 			newa->element_typeid = scalar_type;
 			newa->elements = aexprs;
 			newa->multidims = false;
-			newa->list_start = a->rexpr_list_start;
-			newa->list_end = a->rexpr_list_end;
 			newa->location = -1;
 
 			result = (Node *) make_scalar_array_op(pstate,
@@ -2167,8 +2167,6 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
 	/* array_collid will be set by parse_collate.c */
 	newa->element_typeid = element_type;
 	newa->elements = newcoercedelems;
-	newa->list_start = a->list_start;
-	newa->list_end = a->list_end;
 	newa->location = a->location;
 
 	return (Node *) newa;
@@ -2631,13 +2629,6 @@ transformWholeRowRef(ParseState *pstate, ParseNamespaceItem *nsitem,
 	 * point, there seems no harm in expanding it now rather than during
 	 * planning.
 	 *
-	 * Note that if the nsitem is an OLD/NEW alias for the target RTE (as can
-	 * appear in a RETURNING list), its alias won't match the target RTE's
-	 * alias, but we still want to make a whole-row Var here rather than a
-	 * RowExpr, for consistency with direct references to the target RTE, and
-	 * so that any dropped columns are handled correctly.  Thus we also check
-	 * p_returning_type here.
-	 *
 	 * Note that if the RTE is a function returning scalar, we create just a
 	 * plain reference to the function value, not a composite containing a
 	 * single column.  This is pretty inconsistent at first sight, but it's
@@ -2645,16 +2636,12 @@ transformWholeRowRef(ParseState *pstate, ParseNamespaceItem *nsitem,
 	 * "rel.*" mean the same thing for composite relations, so why not for
 	 * scalar functions...
 	 */
-	if (nsitem->p_names == nsitem->p_rte->eref ||
-		nsitem->p_returning_type != VAR_RETURNING_DEFAULT)
+	if (nsitem->p_names == nsitem->p_rte->eref)
 	{
 		Var		   *result;
 
 		result = makeWholeRowVar(nsitem->p_rte, nsitem->p_rtindex,
 								 sublevels_up, true);
-
-		/* mark Var for RETURNING OLD/NEW, as necessary */
-		result->varreturningtype = nsitem->p_returning_type;
 
 		/* location is not filled in by makeWholeRowVar */
 		result->location = location;
@@ -2678,8 +2665,9 @@ transformWholeRowRef(ParseState *pstate, ParseNamespaceItem *nsitem,
 		 * are in the RTE.  We needn't worry about marking the RTE for SELECT
 		 * access, as the common columns are surely so marked already.
 		 */
-		expandRTE(nsitem->p_rte, nsitem->p_rtindex, sublevels_up,
-				  nsitem->p_returning_type, location, false, NULL, &fields);
+		expandRTE(nsitem->p_rte, nsitem->p_rtindex,
+				  sublevels_up, location, false,
+				  NULL, &fields);
 		rowexpr = makeNode(RowExpr);
 		rowexpr->args = list_truncate(fields,
 									  list_length(nsitem->p_names->colnames));
@@ -2829,14 +2817,14 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 					   List *largs, List *rargs, int location)
 {
 	RowCompareExpr *rcexpr;
-	CompareType cmptype;
+	RowCompareType rctype;
 	List	   *opexprs;
 	List	   *opnos;
 	List	   *opfamilies;
 	ListCell   *l,
 			   *r;
 	List	  **opinfo_lists;
-	Bitmapset  *cmptypes;
+	Bitmapset  *strats;
 	int			nopers;
 	int			i;
 
@@ -2901,45 +2889,45 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 
 	/*
 	 * Now we must determine which row comparison semantics (= <> < <= > >=)
-	 * apply to this set of operators.  We look for opfamilies containing the
-	 * operators, and see which interpretations (cmptypes) exist for each
-	 * operator.
+	 * apply to this set of operators.  We look for btree opfamilies
+	 * containing the operators, and see which interpretations (strategy
+	 * numbers) exist for each operator.
 	 */
 	opinfo_lists = (List **) palloc(nopers * sizeof(List *));
-	cmptypes = NULL;
+	strats = NULL;
 	i = 0;
 	foreach(l, opexprs)
 	{
 		Oid			opno = ((OpExpr *) lfirst(l))->opno;
-		Bitmapset  *this_cmptypes;
+		Bitmapset  *this_strats;
 		ListCell   *j;
 
-		opinfo_lists[i] = get_op_index_interpretation(opno);
+		opinfo_lists[i] = get_op_btree_interpretation(opno);
 
 		/*
-		 * convert comparison types into a Bitmapset to make the intersection
+		 * convert strategy numbers into a Bitmapset to make the intersection
 		 * calculation easy.
 		 */
-		this_cmptypes = NULL;
+		this_strats = NULL;
 		foreach(j, opinfo_lists[i])
 		{
-			OpIndexInterpretation *opinfo = lfirst(j);
+			OpBtreeInterpretation *opinfo = lfirst(j);
 
-			this_cmptypes = bms_add_member(this_cmptypes, opinfo->cmptype);
+			this_strats = bms_add_member(this_strats, opinfo->strategy);
 		}
 		if (i == 0)
-			cmptypes = this_cmptypes;
+			strats = this_strats;
 		else
-			cmptypes = bms_int_members(cmptypes, this_cmptypes);
+			strats = bms_int_members(strats, this_strats);
 		i++;
 	}
 
 	/*
 	 * If there are multiple common interpretations, we may use any one of
-	 * them ... this coding arbitrarily picks the lowest comparison type
+	 * them ... this coding arbitrarily picks the lowest btree strategy
 	 * number.
 	 */
-	i = bms_next_member(cmptypes, -1);
+	i = bms_next_member(strats, -1);
 	if (i < 0)
 	{
 		/* No common interpretation, so fail */
@@ -2950,15 +2938,15 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 				 errhint("Row comparison operators must be associated with btree operator families."),
 				 parser_errposition(pstate, location)));
 	}
-	cmptype = (CompareType) i;
+	rctype = (RowCompareType) i;
 
 	/*
 	 * For = and <> cases, we just combine the pairwise operators with AND or
 	 * OR respectively.
 	 */
-	if (cmptype == COMPARE_EQ)
+	if (rctype == ROWCOMPARE_EQ)
 		return (Node *) makeBoolExpr(AND_EXPR, opexprs, location);
-	if (cmptype == COMPARE_NE)
+	if (rctype == ROWCOMPARE_NE)
 		return (Node *) makeBoolExpr(OR_EXPR, opexprs, location);
 
 	/*
@@ -2973,9 +2961,9 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 
 		foreach(j, opinfo_lists[i])
 		{
-			OpIndexInterpretation *opinfo = lfirst(j);
+			OpBtreeInterpretation *opinfo = lfirst(j);
 
-			if (opinfo->cmptype == cmptype)
+			if (opinfo->strategy == rctype)
 			{
 				opfamily = opinfo->opfamily_id;
 				break;
@@ -3011,7 +2999,7 @@ make_row_comparison_op(ParseState *pstate, List *opname,
 	}
 
 	rcexpr = makeNode(RowCompareExpr);
-	rcexpr->cmptype = cmptype;
+	rcexpr->rctype = rctype;
 	rcexpr->opnos = opnos;
 	rcexpr->opfamilies = opfamilies;
 	rcexpr->inputcollids = NIL; /* assign_expr_collations will fix this */

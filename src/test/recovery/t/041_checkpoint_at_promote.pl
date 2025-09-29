@@ -1,5 +1,5 @@
 
-# Copyright (c) 2024-2025, PostgreSQL Global Development Group
+# Copyright (c) 2024, PostgreSQL Global Development Group
 
 use strict;
 use warnings FATAL => 'all';
@@ -38,7 +38,10 @@ $node_primary->start;
 # Check if the extension injection_points is available, as it may be
 # possible that this script is run with installcheck, where the module
 # would not be installed by default.
-if (!$node_primary->check_extension('injection_points'))
+my $result = $node_primary->safe_psql('postgres',
+	"SELECT count(*) > 0 FROM pg_available_extensions WHERE name = 'injection_points';"
+);
+if ($result eq 'f')
 {
 	plan skip_all => 'Extension injection_points not installed';
 }
@@ -124,14 +127,15 @@ my $psql_timeout = IPC::Run::timer(3600);
 my ($killme_stdin, $killme_stdout, $killme_stderr) = ('', '', '');
 my $killme = IPC::Run::start(
 	[
-		'psql', '--no-psqlrc', '--no-align', '--tuples-only', '--quiet',
-		'--set' => 'ON_ERROR_STOP=1',
-		'--file' => '-',
-		'--dbname' => $node_standby->connstr('postgres')
+		'psql', '-XAtq', '-v', 'ON_ERROR_STOP=1', '-f', '-', '-d',
+		$node_standby->connstr('postgres')
 	],
-	'<' => \$killme_stdin,
-	'>' => \$killme_stdout,
-	'2>' => \$killme_stderr,
+	'<',
+	\$killme_stdin,
+	'>',
+	\$killme_stdout,
+	'2>',
+	\$killme_stderr,
 	$psql_timeout);
 $killme_stdin .= q[
 SELECT pg_backend_pid();

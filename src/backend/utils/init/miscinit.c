@@ -3,7 +3,7 @@
  * miscinit.c
  *	  miscellaneous initialization support stuff
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -106,6 +106,13 @@ InitPostmasterChild(void)
 	pgwin32_signal_initialize();
 #endif
 
+	/*
+	 * Set reference point for stack-depth checking.  This might seem
+	 * redundant in !EXEC_BACKEND builds, but it's better to keep the depth
+	 * logic the same with and without that build option.
+	 */
+	(void) set_stack_base();
+
 	InitProcessGlobals();
 
 	/*
@@ -127,7 +134,7 @@ InitPostmasterChild(void)
 #endif
 
 	/* Initialize process-local latch support */
-	InitializeWaitEventSupport();
+	InitializeLatchSupport();
 	InitProcessLocalLatch();
 	InitializeLatchWaitSet();
 
@@ -188,7 +195,7 @@ InitStandaloneProcess(const char *argv0)
 	InitProcessGlobals();
 
 	/* Initialize process-local latch support */
-	InitializeWaitEventSupport();
+	InitializeLatchSupport();
 	InitProcessLocalLatch();
 	InitializeLatchWaitSet();
 
@@ -253,72 +260,60 @@ SwitchBackToLocalLatch(void)
 	SetLatch(MyLatch);
 }
 
-/*
- * Return a human-readable string representation of a BackendType.
- *
- * The string is not localized here, but we mark the strings for translation
- * so that callers can invoke _() on the result.
- */
 const char *
 GetBackendTypeDesc(BackendType backendType)
 {
-	const char *backendDesc = gettext_noop("unknown process type");
+	const char *backendDesc = "unknown process type";
 
 	switch (backendType)
 	{
 		case B_INVALID:
-			backendDesc = gettext_noop("not initialized");
+			backendDesc = "not initialized";
 			break;
 		case B_ARCHIVER:
-			backendDesc = gettext_noop("archiver");
+			backendDesc = "archiver";
 			break;
 		case B_AUTOVAC_LAUNCHER:
-			backendDesc = gettext_noop("autovacuum launcher");
+			backendDesc = "autovacuum launcher";
 			break;
 		case B_AUTOVAC_WORKER:
-			backendDesc = gettext_noop("autovacuum worker");
+			backendDesc = "autovacuum worker";
 			break;
 		case B_BACKEND:
-			backendDesc = gettext_noop("client backend");
-			break;
-		case B_DEAD_END_BACKEND:
-			backendDesc = gettext_noop("dead-end client backend");
+			backendDesc = "client backend";
 			break;
 		case B_BG_WORKER:
-			backendDesc = gettext_noop("background worker");
+			backendDesc = "background worker";
 			break;
 		case B_BG_WRITER:
-			backendDesc = gettext_noop("background writer");
+			backendDesc = "background writer";
 			break;
 		case B_CHECKPOINTER:
-			backendDesc = gettext_noop("checkpointer");
-			break;
-		case B_IO_WORKER:
-			backendDesc = gettext_noop("io worker");
+			backendDesc = "checkpointer";
 			break;
 		case B_LOGGER:
-			backendDesc = gettext_noop("logger");
+			backendDesc = "logger";
 			break;
 		case B_SLOTSYNC_WORKER:
-			backendDesc = gettext_noop("slotsync worker");
+			backendDesc = "slotsync worker";
 			break;
 		case B_STANDALONE_BACKEND:
-			backendDesc = gettext_noop("standalone backend");
+			backendDesc = "standalone backend";
 			break;
 		case B_STARTUP:
-			backendDesc = gettext_noop("startup");
+			backendDesc = "startup";
 			break;
 		case B_WAL_RECEIVER:
-			backendDesc = gettext_noop("walreceiver");
+			backendDesc = "walreceiver";
 			break;
 		case B_WAL_SENDER:
-			backendDesc = gettext_noop("walsender");
+			backendDesc = "walsender";
 			break;
 		case B_WAL_SUMMARIZER:
-			backendDesc = gettext_noop("walsummarizer");
+			backendDesc = "walsummarizer";
 			break;
 		case B_WAL_WRITER:
-			backendDesc = gettext_noop("walwriter");
+			backendDesc = "walwriter";
 			break;
 	}
 
@@ -1099,8 +1094,7 @@ EstimateClientConnectionInfoSpace(void)
  * Serialize MyClientConnectionInfo for use by parallel workers.
  */
 void
-SerializeClientConnectionInfo(Size maxsize PG_USED_FOR_ASSERTS_ONLY,
-							  char *start_address)
+SerializeClientConnectionInfo(Size maxsize, char *start_address)
 {
 	SerializedClientConnectionInfo serialized = {0};
 

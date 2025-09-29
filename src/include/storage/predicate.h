@@ -4,7 +4,7 @@
  *	  POSTGRES public predicate locking definitions.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/storage/predicate.h
@@ -14,7 +14,6 @@
 #ifndef PREDICATE_H
 #define PREDICATE_H
 
-#include "storage/itemptr.h"
 #include "storage/lock.h"
 #include "utils/relcache.h"
 #include "utils/snapshot.h"
@@ -38,7 +37,7 @@ typedef void *SerializableXactHandle;
  */
 
 /* housekeeping for shared memory predicate lock structures */
-extern void PredicateLockShmemInit(void);
+extern void InitPredicateLocks(void);
 extern Size PredicateLockShmemSize(void);
 
 extern void CheckPointPredicate(void);

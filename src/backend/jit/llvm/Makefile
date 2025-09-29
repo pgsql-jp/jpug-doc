@@ -37,7 +37,7 @@ SHLIB_LINK += $(LLVM_LIBS)
 # Because this module includes C++ files, we need to use a C++
 # compiler for linking. Makefile.shlib uses $(COMPILER) to build
 # loadable modules.
-override COMPILER = $(CXX) $(CXXFLAGS)
+override COMPILER = $(CXX) $(CFLAGS)
 
 OBJS = \
 	$(WIN32RES)

@@ -140,7 +140,7 @@
  *	SLRU per-bank locks
  *		- Protects SerialSlruCtl
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -153,7 +153,7 @@
  * INTERFACE ROUTINES
  *
  * housekeeping for setting up shared memory predicate lock structures
- *		PredicateLockShmemInit(void)
+ *		InitPredicateLocks(void)
  *		PredicateLockShmemSize(void)
  *
  * predicate lock reporting
@@ -1132,7 +1132,7 @@ CheckPointPredicate(void)
 /*------------------------------------------------------------------------*/
 
 /*
- * PredicateLockShmemInit -- Initialize the predicate locking data structures.
+ * InitPredicateLocks -- Initialize the predicate locking data structures.
  *
  * This is called from CreateSharedMemoryAndSemaphores(), which see for
  * more comments.  In the normal postmaster case, the shared hash tables
@@ -1142,7 +1142,7 @@ CheckPointPredicate(void)
  * shared hash tables.
  */
 void
-PredicateLockShmemInit(void)
+InitPredicateLocks(void)
 {
 	HASHCTL		info;
 	long		max_table_size;
@@ -1226,20 +1226,13 @@ PredicateLockShmemInit(void)
 	 */
 	max_table_size *= 10;
 
-	requestSize = add_size(PredXactListDataSize,
-						   (mul_size((Size) max_table_size,
-									 sizeof(SERIALIZABLEXACT))));
-
 	PredXact = ShmemInitStruct("PredXactList",
-							   requestSize,
+							   PredXactListDataSize,
 							   &found);
 	Assert(found == IsUnderPostmaster);
 	if (!found)
 	{
 		int			i;
-
-		/* clean everything, both the header and the element */
-		memset(PredXact, 0, requestSize);
 
 		dlist_init(&PredXact->availableList);
 		dlist_init(&PredXact->activeList);
@@ -1249,9 +1242,11 @@ PredicateLockShmemInit(void)
 		PredXact->LastSxactCommitSeqNo = FirstNormalSerCommitSeqNo - 1;
 		PredXact->CanPartialClearThrough = 0;
 		PredXact->HavePartialClearedThrough = 0;
-		PredXact->element
-			= (SERIALIZABLEXACT *) ((char *) PredXact + PredXactListDataSize);
+		requestSize = mul_size((Size) max_table_size,
+							   sizeof(SERIALIZABLEXACT));
+		PredXact->element = ShmemAlloc(requestSize);
 		/* Add all elements to available list, clean. */
+		memset(PredXact->element, 0, requestSize);
 		for (i = 0; i < max_table_size; i++)
 		{
 			LWLockInitialize(&PredXact->element[i].perXactPredicateListLock,
@@ -1305,25 +1300,20 @@ PredicateLockShmemInit(void)
 	 */
 	max_table_size *= 5;
 
-	requestSize = RWConflictPoolHeaderDataSize +
-		mul_size((Size) max_table_size,
-				 RWConflictDataSize);
-
 	RWConflictPool = ShmemInitStruct("RWConflictPool",
-									 requestSize,
+									 RWConflictPoolHeaderDataSize,
 									 &found);
 	Assert(found == IsUnderPostmaster);
 	if (!found)
 	{
 		int			i;
 
-		/* clean everything, including the elements */
-		memset(RWConflictPool, 0, requestSize);
-
 		dlist_init(&RWConflictPool->availableList);
-		RWConflictPool->element = (RWConflict) ((char *) RWConflictPool +
-												RWConflictPoolHeaderDataSize);
+		requestSize = mul_size((Size) max_table_size,
+							   RWConflictDataSize);
+		RWConflictPool->element = ShmemAlloc(requestSize);
 		/* Add all elements to available list, clean. */
+		memset(RWConflictPool->element, 0, requestSize);
 		for (i = 0; i < max_table_size; i++)
 		{
 			dlist_push_tail(&RWConflictPool->availableList,

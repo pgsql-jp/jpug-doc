@@ -1,7 +1,12 @@
-# Copyright (c) 2022-2025, PostgreSQL Global Development Group
+# Copyright (c) 2022-2024, PostgreSQL Global Development Group
 
 common_sources = files(
-  'astreamer_inject.c',
+  'bbstreamer_file.c',
+  'bbstreamer_gzip.c',
+  'bbstreamer_inject.c',
+  'bbstreamer_lz4.c',
+  'bbstreamer_tar.c',
+  'bbstreamer_zstd.c',
   'receivelog.c',
   'streamutil.c',
   'walmethods.c',

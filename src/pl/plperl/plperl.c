@@ -24,6 +24,7 @@
 #include "executor/spi.h"
 #include "funcapi.h"
 #include "miscadmin.h"
+#include "nodes/makefuncs.h"
 #include "parser/parse_type.h"
 #include "storage/ipc.h"
 #include "tcop/tcopprot.h"
@@ -52,10 +53,7 @@ EXTERN_C void boot_DynaLoader(pTHX_ CV *cv);
 EXTERN_C void boot_PostgreSQL__InServer__Util(pTHX_ CV *cv);
 EXTERN_C void boot_PostgreSQL__InServer__SPI(pTHX_ CV *cv);
 
-PG_MODULE_MAGIC_EXT(
-					.name = "plperl",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /**********************************************************************
  * Information associated with a Perl interpreter.  We have one interpreter
@@ -1949,7 +1947,8 @@ plperl_inline_handler(PG_FUNCTION_ARGS)
 
 		current_call_data = &this_call_data;
 
-		SPI_connect_ext(codeblock->atomic ? 0 : SPI_OPT_NONATOMIC);
+		if (SPI_connect_ext(codeblock->atomic ? 0 : SPI_OPT_NONATOMIC) != SPI_OK_CONNECT)
+			elog(ERROR, "could not connect to SPI manager");
 
 		select_perl_context(desc.lanpltrusted);
 
@@ -2413,7 +2412,8 @@ plperl_func_handler(PG_FUNCTION_ARGS)
 		IsA(fcinfo->context, CallContext) &&
 		!castNode(CallContext, fcinfo->context)->atomic;
 
-	SPI_connect_ext(nonatomic ? SPI_OPT_NONATOMIC : 0);
+	if (SPI_connect_ext(nonatomic ? SPI_OPT_NONATOMIC : 0) != SPI_OK_CONNECT)
+		elog(ERROR, "could not connect to SPI manager");
 
 	prodesc = compile_plperl_function(fcinfo->flinfo->fn_oid, false, false);
 	current_call_data->prodesc = prodesc;
@@ -2530,7 +2530,8 @@ plperl_trigger_handler(PG_FUNCTION_ARGS)
 	int			rc PG_USED_FOR_ASSERTS_ONLY;
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if (SPI_connect() != SPI_OK_CONNECT)
+		elog(ERROR, "could not connect to SPI manager");
 
 	/* Make transition tables visible to this SPI connection */
 	tdata = (TriggerData *) fcinfo->context;
@@ -2637,7 +2638,8 @@ plperl_event_trigger_handler(PG_FUNCTION_ARGS)
 	ErrorContextCallback pl_error_context;
 
 	/* Connect to SPI manager */
-	SPI_connect();
+	if (SPI_connect() != SPI_OK_CONNECT)
+		elog(ERROR, "could not connect to SPI manager");
 
 	/* Find or compile the function */
 	prodesc = compile_plperl_function(fcinfo->flinfo->fn_oid, false, true);
@@ -3049,9 +3051,6 @@ plperl_hash_from_tuple(HeapTuple tuple, TupleDesc tupdesc, bool include_generate
 		{
 			/* don't include unless requested */
 			if (!include_generated)
-				continue;
-			/* never include virtual columns */
-			if (att->attgenerated == ATTRIBUTE_GENERATED_VIRTUAL)
 				continue;
 		}
 

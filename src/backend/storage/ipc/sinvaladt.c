@@ -3,7 +3,7 @@
  * sinvaladt.c
  *	  POSTGRES shared cache invalidation data manager.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "access/transam.h"
 #include "miscadmin.h"
 #include "storage/ipc.h"
 #include "storage/proc.h"
@@ -198,8 +199,7 @@ typedef struct SISeg
 /*
  * We reserve a slot for each possible ProcNumber, plus one for each
  * possible auxiliary process type.  (This scheme assumes there is not
- * more than one of any auxiliary process type at a time, except for
- * IO workers.)
+ * more than one of any auxiliary process type at a time.)
  */
 #define NumProcStateSlots	(MaxBackends + NUM_AUXILIARY_PROCS)
 
@@ -212,10 +212,10 @@ static void CleanupInvalidationState(int status, Datum arg);
 
 
 /*
- * SharedInvalShmemSize --- return shared-memory space needed
+ * SInvalShmemSize --- return shared-memory space needed
  */
 Size
-SharedInvalShmemSize(void)
+SInvalShmemSize(void)
 {
 	Size		size;
 
@@ -227,18 +227,18 @@ SharedInvalShmemSize(void)
 }
 
 /*
- * SharedInvalShmemInit
+ * CreateSharedInvalidationState
  *		Create and initialize the SI message buffer
  */
 void
-SharedInvalShmemInit(void)
+CreateSharedInvalidationState(void)
 {
 	int			i;
 	bool		found;
 
 	/* Allocate space in shared memory */
 	shmInvalBuffer = (SISeg *)
-		ShmemInitStruct("shmInvalBuffer", SharedInvalShmemSize(), &found);
+		ShmemInitStruct("shmInvalBuffer", SInvalShmemSize(), &found);
 	if (found)
 		return;
 
@@ -681,6 +681,48 @@ SICleanupQueue(bool callerHasWriteLock, int minFree)
 		if (!callerHasWriteLock)
 			LWLockRelease(SInvalWriteLock);
 	}
+}
+
+/*
+ * SIResetAll
+ *		Mark all active backends as "reset"
+ *
+ * Use this when we don't know what needs to be invalidated.  It's a
+ * cluster-wide InvalidateSystemCaches().  This was a back-branch-only remedy
+ * to avoid a WAL format change.
+ *
+ * The implementation is like SICleanupQueue(false, MAXNUMMESSAGES + 1), with
+ * one addition.  SICleanupQueue() assumes minFree << MAXNUMMESSAGES, so it
+ * assumes hasMessages==true for any backend it resets.  We're resetting even
+ * fully-caught-up backends, so we set hasMessages.
+ */
+void
+SIResetAll(void)
+{
+	SISeg	   *segP = shmInvalBuffer;
+	int			i;
+
+	LWLockAcquire(SInvalWriteLock, LW_EXCLUSIVE);
+	LWLockAcquire(SInvalReadLock, LW_EXCLUSIVE);
+
+	for (i = 0; i < segP->numProcs; i++)
+	{
+		ProcState  *stateP = &segP->procState[segP->pgprocnos[i]];
+
+		Assert(stateP->procPid != 0);
+		if (stateP->sendOnly)
+			continue;
+
+		/* Consuming the reset will update "nextMsgNum" and "signaled". */
+		stateP->resetState = true;
+		stateP->hasMessages = true;
+	}
+
+	segP->minMsgNum = segP->maxMsgNum;
+	segP->nextThreshold = CLEANUP_MIN;
+
+	LWLockRelease(SInvalReadLock);
+	LWLockRelease(SInvalWriteLock);
 }
 
 

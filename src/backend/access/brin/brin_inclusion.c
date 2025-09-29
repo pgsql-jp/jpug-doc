@@ -16,7 +16,7 @@
  * writing is the INET type, where IPv6 values cannot be merged with IPv4
  * values.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -146,12 +146,12 @@ brin_inclusion_add_value(PG_FUNCTION_ARGS)
 	Datum		result;
 	bool		new = false;
 	AttrNumber	attno;
-	CompactAttribute *attr;
+	Form_pg_attribute attr;
 
 	Assert(!isnull);
 
 	attno = column->bv_attno;
-	attr = TupleDescCompactAttr(bdesc->bd_tupdesc, attno - 1);
+	attr = TupleDescAttr(bdesc->bd_tupdesc, attno - 1);
 
 	/*
 	 * If the recorded value is null, copy the new value (which we know to be
@@ -478,7 +478,7 @@ brin_inclusion_union(PG_FUNCTION_ARGS)
 	BrinValues *col_b = (BrinValues *) PG_GETARG_POINTER(2);
 	Oid			colloid = PG_GET_COLLATION();
 	AttrNumber	attno;
-	CompactAttribute *attr;
+	Form_pg_attribute attr;
 	FmgrInfo   *finfo;
 	Datum		result;
 
@@ -486,7 +486,7 @@ brin_inclusion_union(PG_FUNCTION_ARGS)
 	Assert(!col_a->bv_allnulls && !col_b->bv_allnulls);
 
 	attno = col_a->bv_attno;
-	attr = TupleDescCompactAttr(bdesc->bd_tupdesc, attno - 1);
+	attr = TupleDescAttr(bdesc->bd_tupdesc, attno - 1);
 
 	/* If B includes empty elements, mark A similarly, if needed. */
 	if (!DatumGetBool(col_a->bv_values[INCLUSION_CONTAINS_EMPTY]) &&

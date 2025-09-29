@@ -3,7 +3,7 @@
  * lsyscache.c
  *	  Convenience routines for common queries in the system catalog cache.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -30,7 +30,6 @@
 #include "catalog/pg_language.h"
 #include "catalog/pg_namespace.h"
 #include "catalog/pg_opclass.h"
-#include "catalog/pg_opfamily.h"
 #include "catalog/pg_operator.h"
 #include "catalog/pg_proc.h"
 #include "catalog/pg_publication.h"
@@ -185,67 +184,10 @@ get_opfamily_member(Oid opfamily, Oid lefttype, Oid righttype,
 }
 
 /*
- * get_opfamily_member_for_cmptype
- *		Get the OID of the operator that implements the specified comparison
- *		type with the specified datatypes for the specified opfamily.
- *
- * Returns InvalidOid if there is no mapping for the comparison type or no
- * pg_amop entry for the given keys.
- */
-Oid
-get_opfamily_member_for_cmptype(Oid opfamily, Oid lefttype, Oid righttype,
-								CompareType cmptype)
-{
-	Oid			opmethod;
-	StrategyNumber strategy;
-
-	opmethod = get_opfamily_method(opfamily);
-	strategy = IndexAmTranslateCompareType(cmptype, opmethod, opfamily, true);
-	if (!strategy)
-		return InvalidOid;
-	return get_opfamily_member(opfamily, lefttype, righttype, strategy);
-}
-
-/*
- * get_opmethod_canorder
- *		Return amcanorder field for given index AM.
- *
- * To speed things up in the common cases, we're hardcoding the results from
- * the built-in index types.  Note that we also need to hardcode the negative
- * results from the built-in non-btree index types, since you'll usually get a
- * few hits for those as well.  It would be nice to organize and cache this a
- * bit differently to avoid the hardcoding.
- */
-static bool
-get_opmethod_canorder(Oid amoid)
-{
-	switch (amoid)
-	{
-		case BTREE_AM_OID:
-			return true;
-		case HASH_AM_OID:
-		case GIST_AM_OID:
-		case GIN_AM_OID:
-		case SPGIST_AM_OID:
-		case BRIN_AM_OID:
-			return false;
-		default:
-			{
-				bool		result;
-				IndexAmRoutine *amroutine = GetIndexAmRoutineByAmId(amoid, false);
-
-				result = amroutine->amcanorder;
-				pfree(amroutine);
-				return result;
-			}
-	}
-}
-
-/*
  * get_ordering_op_properties
- *		Given the OID of an ordering operator (a "<" or ">" operator),
+ *		Given the OID of an ordering operator (a btree "<" or ">" operator),
  *		determine its opfamily, its declared input datatype, and its
- *		comparison type.
+ *		strategy number (BTLessStrategyNumber or BTGreaterStrategyNumber).
  *
  * Returns true if successful, false if no matching pg_amop entry exists.
  * (This indicates that the operator is not a valid ordering operator.)
@@ -263,7 +205,7 @@ get_opmethod_canorder(Oid amoid)
  */
 bool
 get_ordering_op_properties(Oid opno,
-						   Oid *opfamily, Oid *opcintype, CompareType *cmptype)
+						   Oid *opfamily, Oid *opcintype, int16 *strategy)
 {
 	bool		result = false;
 	CatCList   *catlist;
@@ -272,7 +214,7 @@ get_ordering_op_properties(Oid opno,
 	/* ensure outputs are initialized on failure */
 	*opfamily = InvalidOid;
 	*opcintype = InvalidOid;
-	*cmptype = COMPARE_INVALID;
+	*strategy = 0;
 
 	/*
 	 * Search pg_amop to see if the target operator is registered as the "<"
@@ -284,18 +226,13 @@ get_ordering_op_properties(Oid opno,
 	{
 		HeapTuple	tuple = &catlist->members[i]->tuple;
 		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
-		CompareType am_cmptype;
 
-		/* must be ordering index */
-		if (!get_opmethod_canorder(aform->amopmethod))
+		/* must be btree */
+		if (aform->amopmethod != BTREE_AM_OID)
 			continue;
 
-		am_cmptype = IndexAmTranslateStrategy(aform->amopstrategy,
-											  aform->amopmethod,
-											  aform->amopfamily,
-											  true);
-
-		if (am_cmptype == COMPARE_LT || am_cmptype == COMPARE_GT)
+		if (aform->amopstrategy == BTLessStrategyNumber ||
+			aform->amopstrategy == BTGreaterStrategyNumber)
 		{
 			/* Found it ... should have consistent input types */
 			if (aform->amoplefttype == aform->amoprighttype)
@@ -303,7 +240,7 @@ get_ordering_op_properties(Oid opno,
 				/* Found a suitable opfamily, return info */
 				*opfamily = aform->amopfamily;
 				*opcintype = aform->amoplefttype;
-				*cmptype = am_cmptype;
+				*strategy = aform->amopstrategy;
 				result = true;
 				break;
 			}
@@ -317,7 +254,7 @@ get_ordering_op_properties(Oid opno,
 
 /*
  * get_equality_op_for_ordering_op
- *		Get the OID of the datatype-specific equality operator
+ *		Get the OID of the datatype-specific btree equality operator
  *		associated with an ordering operator (a "<" or ">" operator).
  *
  * If "reverse" isn't NULL, also set *reverse to false if the operator is "<",
@@ -332,19 +269,19 @@ get_equality_op_for_ordering_op(Oid opno, bool *reverse)
 	Oid			result = InvalidOid;
 	Oid			opfamily;
 	Oid			opcintype;
-	CompareType cmptype;
+	int16		strategy;
 
 	/* Find the operator in pg_amop */
 	if (get_ordering_op_properties(opno,
-								   &opfamily, &opcintype, &cmptype))
+								   &opfamily, &opcintype, &strategy))
 	{
 		/* Found a suitable opfamily, get matching equality operator */
-		result = get_opfamily_member_for_cmptype(opfamily,
-												 opcintype,
-												 opcintype,
-												 COMPARE_EQ);
+		result = get_opfamily_member(opfamily,
+									 opcintype,
+									 opcintype,
+									 BTEqualStrategyNumber);
 		if (reverse)
-			*reverse = (cmptype == COMPARE_GT);
+			*reverse = (strategy == BTGreaterStrategyNumber);
 	}
 
 	return result;
@@ -352,7 +289,7 @@ get_equality_op_for_ordering_op(Oid opno, bool *reverse)
 
 /*
  * get_ordering_op_for_equality_op
- *		Get the OID of a datatype-specific "less than" ordering operator
+ *		Get the OID of a datatype-specific btree ordering operator
  *		associated with an equality operator.  (If there are multiple
  *		possibilities, assume any one will do.)
  *
@@ -381,25 +318,20 @@ get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type)
 	{
 		HeapTuple	tuple = &catlist->members[i]->tuple;
 		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
-		CompareType cmptype;
 
-		/* must be ordering index */
-		if (!get_opmethod_canorder(aform->amopmethod))
+		/* must be btree */
+		if (aform->amopmethod != BTREE_AM_OID)
 			continue;
 
-		cmptype = IndexAmTranslateStrategy(aform->amopstrategy,
-										   aform->amopmethod,
-										   aform->amopfamily,
-										   true);
-		if (cmptype == COMPARE_EQ)
+		if (aform->amopstrategy == BTEqualStrategyNumber)
 		{
 			/* Found a suitable opfamily, get matching ordering operator */
 			Oid			typid;
 
 			typid = use_lhs_type ? aform->amoplefttype : aform->amoprighttype;
-			result = get_opfamily_member_for_cmptype(aform->amopfamily,
-													 typid, typid,
-													 COMPARE_LT);
+			result = get_opfamily_member(aform->amopfamily,
+										 typid, typid,
+										 BTLessStrategyNumber);
 			if (OidIsValid(result))
 				break;
 			/* failure probably shouldn't happen, but keep looking if so */
@@ -414,7 +346,7 @@ get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type)
 /*
  * get_mergejoin_opfamilies
  *		Given a putatively mergejoinable operator, return a list of the OIDs
- *		of the amcanorder opfamilies in which it represents equality.
+ *		of the btree opfamilies in which it represents equality.
  *
  * It is possible (though at present unusual) for an operator to be equality
  * in more than one opfamily, hence the result is a list.  This also lets us
@@ -439,7 +371,7 @@ get_mergejoin_opfamilies(Oid opno)
 
 	/*
 	 * Search pg_amop to see if the target operator is registered as the "="
-	 * operator of any opfamily of an ordering index type.
+	 * operator of any btree opfamily.
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
 
@@ -448,12 +380,9 @@ get_mergejoin_opfamilies(Oid opno)
 		HeapTuple	tuple = &catlist->members[i]->tuple;
 		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
 
-		/* must be ordering index equality */
-		if (get_opmethod_canorder(aform->amopmethod) &&
-			IndexAmTranslateStrategy(aform->amopstrategy,
-									 aform->amopmethod,
-									 aform->amopfamily,
-									 true) == COMPARE_EQ)
+		/* must be btree equality */
+		if (aform->amopmethod == BTREE_AM_OID &&
+			aform->amopstrategy == BTEqualStrategyNumber)
 			result = lappend_oid(result, aform->amopfamily);
 	}
 
@@ -659,20 +588,20 @@ get_op_hash_functions(Oid opno,
 }
 
 /*
- * get_op_index_interpretation
- *		Given an operator's OID, find out which amcanorder opfamilies it belongs to,
+ * get_op_btree_interpretation
+ *		Given an operator's OID, find out which btree opfamilies it belongs to,
  *		and what properties it has within each one.  The results are returned
- *		as a palloc'd list of OpIndexInterpretation structs.
+ *		as a palloc'd list of OpBtreeInterpretation structs.
  *
  * In addition to the normal btree operators, we consider a <> operator to be
  * a "member" of an opfamily if its negator is an equality operator of the
- * opfamily.  COMPARE_NE is returned as the strategy number for this case.
+ * opfamily.  ROWCOMPARE_NE is returned as the strategy number for this case.
  */
 List *
-get_op_index_interpretation(Oid opno)
+get_op_btree_interpretation(Oid opno)
 {
 	List	   *result = NIL;
-	OpIndexInterpretation *thisresult;
+	OpBtreeInterpretation *thisresult;
 	CatCList   *catlist;
 	int			i;
 
@@ -685,26 +614,20 @@ get_op_index_interpretation(Oid opno)
 	{
 		HeapTuple	op_tuple = &catlist->members[i]->tuple;
 		Form_pg_amop op_form = (Form_pg_amop) GETSTRUCT(op_tuple);
-		CompareType cmptype;
+		StrategyNumber op_strategy;
 
-		/* must be ordering index */
-		if (!get_opmethod_canorder(op_form->amopmethod))
+		/* must be btree */
+		if (op_form->amopmethod != BTREE_AM_OID)
 			continue;
 
-		/* Get the operator's comparision type */
-		cmptype = IndexAmTranslateStrategy(op_form->amopstrategy,
-										   op_form->amopmethod,
-										   op_form->amopfamily,
-										   true);
+		/* Get the operator's btree strategy number */
+		op_strategy = (StrategyNumber) op_form->amopstrategy;
+		Assert(op_strategy >= 1 && op_strategy <= 5);
 
-		/* should not happen */
-		if (cmptype == COMPARE_INVALID)
-			continue;
-
-		thisresult = (OpIndexInterpretation *)
-			palloc(sizeof(OpIndexInterpretation));
+		thisresult = (OpBtreeInterpretation *)
+			palloc(sizeof(OpBtreeInterpretation));
 		thisresult->opfamily_id = op_form->amopfamily;
-		thisresult->cmptype = cmptype;
+		thisresult->strategy = op_strategy;
 		thisresult->oplefttype = op_form->amoplefttype;
 		thisresult->oprighttype = op_form->amoprighttype;
 		result = lappend(result, thisresult);
@@ -729,28 +652,25 @@ get_op_index_interpretation(Oid opno)
 			{
 				HeapTuple	op_tuple = &catlist->members[i]->tuple;
 				Form_pg_amop op_form = (Form_pg_amop) GETSTRUCT(op_tuple);
-				IndexAmRoutine *amroutine = GetIndexAmRoutineByAmId(op_form->amopmethod, false);
-				CompareType cmptype;
+				StrategyNumber op_strategy;
 
-				/* must be ordering index */
-				if (!amroutine->amcanorder)
+				/* must be btree */
+				if (op_form->amopmethod != BTREE_AM_OID)
 					continue;
 
-				/* Get the operator's comparision type */
-				cmptype = IndexAmTranslateStrategy(op_form->amopstrategy,
-												   op_form->amopmethod,
-												   op_form->amopfamily,
-												   true);
+				/* Get the operator's btree strategy number */
+				op_strategy = (StrategyNumber) op_form->amopstrategy;
+				Assert(op_strategy >= 1 && op_strategy <= 5);
 
 				/* Only consider negators that are = */
-				if (cmptype != COMPARE_EQ)
+				if (op_strategy != BTEqualStrategyNumber)
 					continue;
 
-				/* OK, report it as COMPARE_NE */
-				thisresult = (OpIndexInterpretation *)
-					palloc(sizeof(OpIndexInterpretation));
+				/* OK, report it with "strategy" ROWCOMPARE_NE */
+				thisresult = (OpBtreeInterpretation *)
+					palloc(sizeof(OpBtreeInterpretation));
 				thisresult->opfamily_id = op_form->amopfamily;
-				thisresult->cmptype = COMPARE_NE;
+				thisresult->strategy = ROWCOMPARE_NE;
 				thisresult->oplefttype = op_form->amoplefttype;
 				thisresult->oprighttype = op_form->amoprighttype;
 				result = lappend(result, thisresult);
@@ -769,11 +689,10 @@ get_op_index_interpretation(Oid opno)
  *		semantics.
  *
  * This is trivially true if they are the same operator.  Otherwise,
- * Otherwise, we look to see if they both belong to an opfamily that
- * guarantees compatible semantics for equality.  Either finding allows us to
- * assume that they have compatible notions of equality.  (The reason we need
- * to do these pushups is that one might be a cross-type operator; for
- * instance int24eq vs int4eq.)
+ * we look to see if they can be found in the same btree or hash opfamily.
+ * Either finding allows us to assume that they have compatible notions
+ * of equality.  (The reason we need to do these pushups is that one might
+ * be a cross-type operator; for instance int24eq vs int4eq.)
  */
 bool
 equality_ops_are_compatible(Oid opno1, Oid opno2)
@@ -797,15 +716,11 @@ equality_ops_are_compatible(Oid opno1, Oid opno2)
 		HeapTuple	op_tuple = &catlist->members[i]->tuple;
 		Form_pg_amop op_form = (Form_pg_amop) GETSTRUCT(op_tuple);
 
-		/*
-		 * op_in_opfamily() is cheaper than GetIndexAmRoutineByAmId(), so
-		 * check it first
-		 */
-		if (op_in_opfamily(opno2, op_form->amopfamily))
+		/* must be btree or hash */
+		if (op_form->amopmethod == BTREE_AM_OID ||
+			op_form->amopmethod == HASH_AM_OID)
 		{
-			IndexAmRoutine *amroutine = GetIndexAmRoutineByAmId(op_form->amopmethod, false);
-
-			if (amroutine->amconsistentequality)
+			if (op_in_opfamily(opno2, op_form->amopfamily))
 			{
 				result = true;
 				break;
@@ -823,13 +738,12 @@ equality_ops_are_compatible(Oid opno1, Oid opno2)
  *		Return true if the two given comparison operators have compatible
  *		semantics.
  *
- * This is trivially true if they are the same operator.  Otherwise, we look
- * to see if they both belong to an opfamily that guarantees compatible
- * semantics for ordering.  (For example, for btree, '<' and '>=' ops match if
- * they belong to the same family.)
+ * This is trivially true if they are the same operator.  Otherwise,
+ * we look to see if they can be found in the same btree opfamily.
+ * For example, '<' and '>=' ops match if they belong to the same family.
  *
- * (This is identical to equality_ops_are_compatible(), except that we check
- * amconsistentordering instead of amconsistentequality.)
+ * (This is identical to equality_ops_are_compatible(), except that we
+ * don't bother to examine hash opclasses.)
  */
 bool
 comparison_ops_are_compatible(Oid opno1, Oid opno2)
@@ -853,15 +767,9 @@ comparison_ops_are_compatible(Oid opno1, Oid opno2)
 		HeapTuple	op_tuple = &catlist->members[i]->tuple;
 		Form_pg_amop op_form = (Form_pg_amop) GETSTRUCT(op_tuple);
 
-		/*
-		 * op_in_opfamily() is cheaper than GetIndexAmRoutineByAmId(), so
-		 * check it first
-		 */
-		if (op_in_opfamily(opno2, op_form->amopfamily))
+		if (op_form->amopmethod == BTREE_AM_OID)
 		{
-			IndexAmRoutine *amroutine = GetIndexAmRoutineByAmId(op_form->amopmethod, false);
-
-			if (amroutine->amconsistentordering)
+			if (op_in_opfamily(opno2, op_form->amopfamily))
 			{
 				result = true;
 				break;
@@ -1363,54 +1271,6 @@ get_opclass_method(Oid opclass)
 	result = cla_tup->opcmethod;
 	ReleaseSysCache(tp);
 	return result;
-}
-
-/*				---------- OPFAMILY CACHE ----------					 */
-
-/*
- * get_opfamily_method
- *
- *		Returns the OID of the index access method the opfamily is for.
- */
-Oid
-get_opfamily_method(Oid opfid)
-{
-	HeapTuple	tp;
-	Form_pg_opfamily opfform;
-	Oid			result;
-
-	tp = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfid));
-	if (!HeapTupleIsValid(tp))
-		elog(ERROR, "cache lookup failed for operator family %u", opfid);
-	opfform = (Form_pg_opfamily) GETSTRUCT(tp);
-
-	result = opfform->opfmethod;
-	ReleaseSysCache(tp);
-	return result;
-}
-
-char *
-get_opfamily_name(Oid opfid, bool missing_ok)
-{
-	HeapTuple	tup;
-	char	   *opfname;
-	Form_pg_opfamily opfform;
-
-	tup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfid));
-
-	if (!HeapTupleIsValid(tup))
-	{
-		if (!missing_ok)
-			elog(ERROR, "cache lookup failed for operator family %u", opfid);
-		return NULL;
-	}
-
-	opfform = (Form_pg_opfamily) GETSTRUCT(tup);
-	opfname = pstrdup(NameStr(opfform->opfname));
-
-	ReleaseSysCache(tup);
-
-	return opfname;
 }
 
 /*				---------- OPERATOR CACHE ----------					 */

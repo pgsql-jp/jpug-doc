@@ -4,7 +4,7 @@
  *	  definition of the "text search template" system catalog (pg_ts_template)
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/catalog/pg_ts_template.h
@@ -19,7 +19,7 @@
 #define PG_TS_TEMPLATE_H
 
 #include "catalog/genbki.h"
-#include "catalog/pg_ts_template_d.h"	/* IWYU pragma: export */
+#include "catalog/pg_ts_template_d.h"
 
 /* ----------------
  *		pg_ts_template definition.  cpp turns this into

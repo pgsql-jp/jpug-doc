@@ -5,7 +5,7 @@
  *
  * Access-method specific inspection functions are in separate files.
  *
- * Copyright (c) 2007-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2007-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  contrib/pageinspect/rawpage.c
@@ -29,10 +29,7 @@
 #include "utils/rel.h"
 #include "utils/varlena.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "pageinspect",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 static bytea *get_raw_page_internal(text *relname, ForkNumber forknum,
 									BlockNumber blkno);
@@ -360,7 +357,7 @@ page_checksum_internal(PG_FUNCTION_ARGS, enum pageinspect_version ext_version)
 	if (PageIsNew(page))
 		PG_RETURN_NULL();
 
-	PG_RETURN_INT16(pg_checksum_page(page, blkno));
+	PG_RETURN_INT16(pg_checksum_page((char *) page, blkno));
 }
 
 Datum

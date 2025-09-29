@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021-2025, PostgreSQL Global Development Group
+# Copyright (c) 2021-2024, PostgreSQL Global Development Group
 
 use strict;
 use warnings FATAL => 'all';
@@ -34,13 +34,11 @@ sub psql_fails_like
 {
 	local $Test::Builder::Level = $Test::Builder::Level + 1;
 
-	my ($node, $sql, $expected_stderr, $test_name, $replication) = @_;
+	my ($node, $sql, $expected_stderr, $test_name) = @_;
 
-	# Use the context of a WAL sender, if requested by the caller.
-	$replication = '' unless defined($replication);
-
+	# Use the context of a WAL sender, some of the tests rely on that.
 	my ($ret, $stdout, $stderr) =
-	  $node->psql('postgres', $sql, replication => $replication);
+	  $node->psql('postgres', $sql, replication => 'database');
 
 	isnt($ret, 0, "$test_name: exit code not 0");
 	like($stderr, $expected_stderr, "$test_name: matches");
@@ -54,9 +52,8 @@ foreach my $arg (qw(commands variables))
 	my ($stdout, $stderr);
 	my $result;
 
-	$result = IPC::Run::run [ 'psql', "--help=$arg" ],
-	  '>' => \$stdout,
-	  '2>' => \$stderr;
+	$result = IPC::Run::run [ 'psql', "--help=$arg" ], '>', \$stdout, '2>',
+	  \$stderr;
 	ok($result, "psql --help=$arg exit code 0");
 	isnt($stdout, '', "psql --help=$arg goes to stdout");
 	is($stderr, '', "psql --help=$arg nothing to stderr");
@@ -81,7 +78,7 @@ psql_fails_like(
 	$node,
 	'START_REPLICATION 0/0',
 	qr/unexpected PQresultStatus: 8$/,
-	'handling of unexpected PQresultStatus', 'database');
+	'handling of unexpected PQresultStatus');
 
 # test \timing
 psql_like(
@@ -219,12 +216,11 @@ $node->safe_psql('postgres', "CREATE TABLE tab_psql_single (a int);");
 # Tests with ON_ERROR_STOP.
 $node->command_ok(
 	[
-		'psql',
-		'--no-psqlrc',
-		'--single-transaction',
-		'--set' => 'ON_ERROR_STOP=1',
-		'--command' => 'INSERT INTO tab_psql_single VALUES (1)',
-		'--command' => 'INSERT INTO tab_psql_single VALUES (2)',
+		'psql', '-X',
+		'--single-transaction', '-v',
+		'ON_ERROR_STOP=1', '-c',
+		'INSERT INTO tab_psql_single VALUES (1)', '-c',
+		'INSERT INTO tab_psql_single VALUES (2)'
 	],
 	'ON_ERROR_STOP, --single-transaction and multiple -c switches');
 my $row_count =
@@ -235,12 +231,11 @@ is($row_count, '2',
 
 $node->command_fails(
 	[
-		'psql',
-		'--no-psqlrc',
-		'--single-transaction',
-		'--set' => 'ON_ERROR_STOP=1',
-		'--command' => 'INSERT INTO tab_psql_single VALUES (3)',
-		'--command' => "\\copy tab_psql_single FROM '$tempdir/nonexistent'"
+		'psql', '-X',
+		'--single-transaction', '-v',
+		'ON_ERROR_STOP=1', '-c',
+		'INSERT INTO tab_psql_single VALUES (3)', '-c',
+		"\\copy tab_psql_single FROM '$tempdir/nonexistent'"
 	],
 	'ON_ERROR_STOP, --single-transaction and multiple -c switches, error');
 $row_count =
@@ -257,12 +252,9 @@ append_to_file($copy_sql_file,
 append_to_file($insert_sql_file, 'INSERT INTO tab_psql_single VALUES (4);');
 $node->command_ok(
 	[
-		'psql',
-		'--no-psqlrc',
-		'--single-transaction',
-		'--set' => 'ON_ERROR_STOP=1',
-		'--file' => $insert_sql_file,
-		'--file' => $insert_sql_file
+		'psql', '-X', '--single-transaction', '-v',
+		'ON_ERROR_STOP=1', '-f', $insert_sql_file, '-f',
+		$insert_sql_file
 	],
 	'ON_ERROR_STOP, --single-transaction and multiple -f switches');
 $row_count =
@@ -273,12 +265,9 @@ is($row_count, '4',
 
 $node->command_fails(
 	[
-		'psql',
-		'--no-psqlrc',
-		'--single-transaction',
-		'--set' => 'ON_ERROR_STOP=1',
-		'--file' => $insert_sql_file,
-		'--file' => $copy_sql_file
+		'psql', '-X', '--single-transaction', '-v',
+		'ON_ERROR_STOP=1', '-f', $insert_sql_file, '-f',
+		$copy_sql_file
 	],
 	'ON_ERROR_STOP, --single-transaction and multiple -f switches, error');
 $row_count =
@@ -292,12 +281,11 @@ is($row_count, '4',
 # transaction commits.
 $node->command_fails(
 	[
-		'psql',
-		'--no-psqlrc',
-		'--single-transaction',
-		'--file' => $insert_sql_file,
-		'--file' => $insert_sql_file,
-		'--command' => "\\copy tab_psql_single FROM '$tempdir/nonexistent'"
+		'psql', '-X',
+		'--single-transaction', '-f',
+		$insert_sql_file, '-f',
+		$insert_sql_file, '-c',
+		"\\copy tab_psql_single FROM '$tempdir/nonexistent'"
 	],
 	'no ON_ERROR_STOP, --single-transaction and multiple -f/-c switches');
 $row_count =
@@ -310,12 +298,9 @@ is($row_count, '6',
 # returns a success and the transaction commits.
 $node->command_ok(
 	[
-		'psql',
-		'--no-psqlrc',
-		'--single-transaction',
-		'--file' => $insert_sql_file,
-		'--file' => $insert_sql_file,
-		'--file' => $copy_sql_file
+		'psql', '-X', '--single-transaction', '-f',
+		$insert_sql_file, '-f', $insert_sql_file, '-f',
+		$copy_sql_file
 	],
 	'no ON_ERROR_STOP, --single-transaction and multiple -f switches');
 $row_count =
@@ -328,12 +313,11 @@ is($row_count, '8',
 # the transaction commit even if there is a failure in-between.
 $node->command_ok(
 	[
-		'psql',
-		'--no-psqlrc',
-		'--single-transaction',
-		'--command' => 'INSERT INTO tab_psql_single VALUES (5)',
-		'--file' => $copy_sql_file,
-		'--command' => 'INSERT INTO tab_psql_single VALUES (6)'
+		'psql', '-X',
+		'--single-transaction', '-c',
+		'INSERT INTO tab_psql_single VALUES (5)', '-f',
+		$copy_sql_file, '-c',
+		'INSERT INTO tab_psql_single VALUES (6)'
 	],
 	'no ON_ERROR_STOP, --single-transaction and multiple -c switches');
 $row_count =
@@ -376,12 +360,6 @@ psql_like(
 psql_like(
 	$node, sprintf('SELECT 1 \watch c=3 i=%g', 0.0001),
 	qr/1\n1\n1/, '\watch with 3 iterations, interval of 0.0001');
-
-# Test zero interval
-psql_like(
-	$node, '\set WATCH_INTERVAL 0
-SELECT 1 \watch c=3',
-	qr/1\n1\n1/, '\watch with 3 iterations, interval of 0');
 
 # Check \watch minimum row count
 psql_fails_like(
@@ -434,24 +412,6 @@ psql_fails_like(
 	qr/iteration count is specified more than once/,
 	'\watch, iteration count is specified more than once');
 
-# Check WATCH_INTERVAL
-psql_like(
-	$node,
-	'\echo :WATCH_INTERVAL
-\set WATCH_INTERVAL 10
-\echo :WATCH_INTERVAL
-\unset WATCH_INTERVAL
-\echo :WATCH_INTERVAL',
-	qr/^2$
-^10$
-^2$/m,
-	'WATCH_INTERVAL variable is set and updated');
-psql_fails_like(
-	$node,
-	'\set WATCH_INTERVAL 1e500',
-	qr/is out of range/,
-	'WATCH_INTERVAL variable is out of range');
-
 # Test \g output piped into a program.
 # The program is perl -pe '' to simply copy the input to the output.
 my $g_file = "$tempdir/g_file_1.out";
@@ -482,53 +442,6 @@ psql_like($node, "copy (values ('foo'),('bar')) to stdout \\g | $pipe_cmd",
 	qr//, "copy output passed to \\g pipe");
 my $c4 = slurp_file($g_file);
 like($c4, qr/foo.*bar/s);
-
-# Test COPY within pipelines.  These abort the connection from
-# the frontend so they cannot be tested via SQL.
-$node->safe_psql('postgres', 'CREATE TABLE psql_pipeline()');
-my $log_location = -s $node->logfile;
-psql_fails_like(
-	$node,
-	qq{\\startpipeline
-COPY psql_pipeline FROM STDIN;
-SELECT 'val1';
-\\syncpipeline
-\\endpipeline},
-	qr/COPY in a pipeline is not supported, aborting connection/,
-	'COPY FROM in pipeline: fails');
-$node->wait_for_log(
-	qr/FATAL: .*terminating connection because protocol synchronization was lost/,
-	$log_location);
-
-# Remove \syncpipeline here.
-psql_fails_like(
-	$node,
-	qq{\\startpipeline
-COPY psql_pipeline TO STDOUT;
-SELECT 'val1';
-\\endpipeline},
-	qr/COPY in a pipeline is not supported, aborting connection/,
-	'COPY TO in pipeline: fails');
-
-psql_fails_like(
-	$node,
-	qq{\\startpipeline
-\\copy psql_pipeline from stdin;
-SELECT 'val1';
-\\syncpipeline
-\\endpipeline},
-	qr/COPY in a pipeline is not supported, aborting connection/,
-	'\copy from in pipeline: fails');
-
-# Sync attempt after a COPY TO/FROM.
-psql_fails_like(
-	$node,
-	qq{\\startpipeline
-\\copy psql_pipeline to stdout;
-\\syncpipeline
-\\endpipeline},
-	qr/COPY in a pipeline is not supported, aborting connection/,
-	'\copy to in pipeline: fails');
 
 psql_fails_like(
 	$node,

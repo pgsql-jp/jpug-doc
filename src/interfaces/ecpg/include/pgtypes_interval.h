@@ -3,17 +3,25 @@
 #ifndef PGTYPES_INTERVAL
 #define PGTYPES_INTERVAL
 
-#include <stdint.h>
-
 #include <ecpg_config.h>
 #include <pgtypes.h>
 
 #ifndef C_H
 
-typedef int64_t int64;
+#ifdef HAVE_LONG_INT_64
+#ifndef HAVE_INT64
+typedef long int int64;
+#endif
+#elif defined(HAVE_LONG_LONG_INT_64)
+#ifndef HAVE_INT64
+typedef long long int int64;
+#endif
+#else
+/* neither HAVE_LONG_INT_64 nor HAVE_LONG_LONG_INT_64 */
+#error must have a working 64-bit integer datatype
+#endif
 
 #define HAVE_INT64_TIMESTAMP
-
 #endif							/* C_H */
 
 typedef struct

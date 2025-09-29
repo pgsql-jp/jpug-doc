@@ -3,7 +3,7 @@
  * blvalidate.c
  *	  Opclass validator for bloom.
  *
- * Copyright (c) 2016-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  contrib/bloom/blvalidate.c
@@ -18,7 +18,9 @@
 #include "catalog/pg_amop.h"
 #include "catalog/pg_amproc.h"
 #include "catalog/pg_opclass.h"
+#include "catalog/pg_opfamily.h"
 #include "catalog/pg_type.h"
+#include "utils/builtins.h"
 #include "utils/lsyscache.h"
 #include "utils/regproc.h"
 #include "utils/syscache.h"
@@ -36,6 +38,8 @@ blvalidate(Oid opclassoid)
 	Oid			opcintype;
 	Oid			opckeytype;
 	char	   *opclassname;
+	HeapTuple	familytup;
+	Form_pg_opfamily familyform;
 	char	   *opfamilyname;
 	CatCList   *proclist,
 			   *oprlist;
@@ -58,7 +62,12 @@ blvalidate(Oid opclassoid)
 	opclassname = NameStr(classform->opcname);
 
 	/* Fetch opfamily information */
-	opfamilyname = get_opfamily_name(opfamilyoid, false);
+	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
+	if (!HeapTupleIsValid(familytup))
+		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
+	familyform = (Form_pg_opfamily) GETSTRUCT(familytup);
+
+	opfamilyname = NameStr(familyform->opfname);
 
 	/* Fetch all operators and support functions of the opfamily */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
@@ -117,7 +126,7 @@ blvalidate(Oid opclassoid)
 		{
 			ereport(INFO,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
-					 errmsg("bloom opfamily %s contains function %s with wrong signature for support number %d",
+					 errmsg("gist opfamily %s contains function %s with wrong signature for support number %d",
 							opfamilyname,
 							format_procedure(procform->amproc),
 							procform->amprocnum)));
@@ -209,6 +218,7 @@ blvalidate(Oid opclassoid)
 
 	ReleaseCatCacheList(proclist);
 	ReleaseCatCacheList(oprlist);
+	ReleaseSysCache(familytup);
 	ReleaseSysCache(classtup);
 
 	return result;

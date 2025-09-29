@@ -28,10 +28,7 @@
 #define GIST_QUERY_DEBUG
 */
 
-PG_MODULE_MAGIC_EXT(
-					.name = "seg",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /*
  * Auxiliary data structure for picksplit method.
@@ -108,14 +105,13 @@ seg_in(PG_FUNCTION_ARGS)
 {
 	char	   *str = PG_GETARG_CSTRING(0);
 	SEG		   *result = palloc(sizeof(SEG));
-	yyscan_t	scanner;
 
-	seg_scanner_init(str, &scanner);
+	seg_scanner_init(str);
 
-	if (seg_yyparse(result, fcinfo->context, scanner) != 0)
-		seg_yyerror(result, fcinfo->context, scanner, "bogus input");
+	if (seg_yyparse(result, fcinfo->context) != 0)
+		seg_yyerror(result, fcinfo->context, "bogus input");
 
-	seg_scanner_finish(scanner);
+	seg_scanner_finish();
 
 	PG_RETURN_POINTER(result);
 }

@@ -3,7 +3,7 @@
  * relfilenumbermap.c
  *	  relfilenumber to oid mapping cache.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -130,11 +130,6 @@ InitializeRelfilenumberMap(void)
  * Map a relation's (tablespace, relfilenumber) to a relation's oid and cache
  * the result.
  *
- * A temporary relation may share its relfilenumber with a permanent relation
- * or temporary relations created in other backends.  Being able to uniquely
- * identify a temporary relation would require a backend's proc number, which
- * we do not know about.  Hence, this function ignores this case.
- *
  * Returns InvalidOid if no relation matching the criteria could be found.
  */
 Oid
@@ -146,6 +141,7 @@ RelidByRelfilenumber(Oid reltablespace, RelFileNumber relfilenumber)
 	SysScanDesc scandesc;
 	Relation	relation;
 	HeapTuple	ntp;
+	ScanKeyData skey[2];
 	Oid			relid;
 
 	if (RelfilenumberMapHash == NULL)
@@ -185,8 +181,6 @@ RelidByRelfilenumber(Oid reltablespace, RelFileNumber relfilenumber)
 	}
 	else
 	{
-		ScanKeyData skey[2];
-
 		/*
 		 * Not a shared table, could either be a plain relation or a
 		 * non-shared, nailed one, like e.g. pg_class.
@@ -195,8 +189,10 @@ RelidByRelfilenumber(Oid reltablespace, RelFileNumber relfilenumber)
 		/* check for plain relations by looking in pg_class */
 		relation = table_open(RelationRelationId, AccessShareLock);
 
-		/* copy scankey to local copy and set scan arguments */
+		/* copy scankey to local copy, it will be modified during the scan */
 		memcpy(skey, relfilenumber_skey, sizeof(skey));
+
+		/* set scan arguments */
 		skey[0].sk_argument = ObjectIdGetDatum(reltablespace);
 		skey[1].sk_argument = ObjectIdGetDatum(relfilenumber);
 
@@ -212,9 +208,6 @@ RelidByRelfilenumber(Oid reltablespace, RelFileNumber relfilenumber)
 		while (HeapTupleIsValid(ntp = systable_getnext(scandesc)))
 		{
 			Form_pg_class classform = (Form_pg_class) GETSTRUCT(ntp);
-
-			if (classform->relpersistence == RELPERSISTENCE_TEMP)
-				continue;
 
 			if (found)
 				elog(ERROR,

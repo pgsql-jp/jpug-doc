@@ -29,7 +29,6 @@ OBJS = \
 	queryenvironment.o \
 	rls.o \
 	sampling.o \
-	stack_depth.o \
 	superuser.o \
 	timeout.o \
 	tzparser.o

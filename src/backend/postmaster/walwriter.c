@@ -31,7 +31,7 @@
  * should be killed by SIGQUIT and then a recovery cycle started.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  *
  * IDENTIFICATION
@@ -51,14 +51,15 @@
 #include "postmaster/auxprocess.h"
 #include "postmaster/interrupt.h"
 #include "postmaster/walwriter.h"
-#include "storage/aio_subsys.h"
 #include "storage/bufmgr.h"
 #include "storage/condition_variable.h"
 #include "storage/fd.h"
+#include "storage/ipc.h"
 #include "storage/lwlock.h"
 #include "storage/proc.h"
 #include "storage/procsignal.h"
 #include "storage/smgr.h"
+#include "utils/guc.h"
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
 #include "utils/resowner.h"
@@ -85,7 +86,7 @@ int			WalWriterFlushAfter = DEFAULT_WAL_WRITER_FLUSH_AFTER;
  * basic execution environment, but not enabled signals yet.
  */
 void
-WalWriterMain(const void *startup_data, size_t startup_data_len)
+WalWriterMain(char *startup_data, size_t startup_data_len)
 {
 	sigjmp_buf	local_sigjmp_buf;
 	MemoryContext walwriter_context;
@@ -165,7 +166,6 @@ WalWriterMain(const void *startup_data, size_t startup_data_len)
 		LWLockReleaseAll();
 		ConditionVariableCancelSleep();
 		pgstat_report_wait_end();
-		pgaio_error_cleanup();
 		UnlockBuffers();
 		ReleaseAuxProcessResources(false);
 		AtEOXact_Buffers(false);
@@ -210,10 +210,10 @@ WalWriterMain(const void *startup_data, size_t startup_data_len)
 	SetWalWriterSleeping(false);
 
 	/*
-	 * Advertise our proc number that backends can use to wake us up while
-	 * we're sleeping.
+	 * Advertise our latch that backends can use to wake us up while we're
+	 * sleeping.
 	 */
-	ProcGlobal->walwriterProc = MyProcNumber;
+	ProcGlobal->walwriterLatch = &MyProc->procLatch;
 
 	/*
 	 * Loop forever
@@ -241,7 +241,7 @@ WalWriterMain(const void *startup_data, size_t startup_data_len)
 		ResetLatch(MyLatch);
 
 		/* Process any signals received recently */
-		ProcessMainLoopInterrupts();
+		HandleMainLoopInterrupts();
 
 		/*
 		 * Do what we're here for; then, if XLogBackgroundFlush() found useful

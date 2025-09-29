@@ -46,7 +46,7 @@
  * exported rather than being "static" in this file.)
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -168,12 +168,6 @@ static Datum ExecJustScanVarVirt(ExprState *state, ExprContext *econtext, bool *
 static Datum ExecJustAssignInnerVarVirt(ExprState *state, ExprContext *econtext, bool *isnull);
 static Datum ExecJustAssignOuterVarVirt(ExprState *state, ExprContext *econtext, bool *isnull);
 static Datum ExecJustAssignScanVarVirt(ExprState *state, ExprContext *econtext, bool *isnull);
-static Datum ExecJustHashInnerVarWithIV(ExprState *state, ExprContext *econtext, bool *isnull);
-static Datum ExecJustHashOuterVar(ExprState *state, ExprContext *econtext, bool *isnull);
-static Datum ExecJustHashInnerVar(ExprState *state, ExprContext *econtext, bool *isnull);
-static Datum ExecJustHashOuterVarVirt(ExprState *state, ExprContext *econtext, bool *isnull);
-static Datum ExecJustHashInnerVarVirt(ExprState *state, ExprContext *econtext, bool *isnull);
-static Datum ExecJustHashOuterVarStrict(ExprState *state, ExprContext *econtext, bool *isnull);
 
 /* execution helper functions */
 static pg_attribute_always_inline void ExecAggPlainTransByVal(AggState *aggstate,
@@ -246,8 +240,7 @@ ExecReadyInterpretedExpr(ExprState *state)
 
 	/* Simple validity checks on expression */
 	Assert(state->steps_len >= 1);
-	Assert(state->steps[state->steps_len - 1].opcode == EEOP_DONE_RETURN ||
-		   state->steps[state->steps_len - 1].opcode == EEOP_DONE_NO_RETURN);
+	Assert(state->steps[state->steps_len - 1].opcode == EEOP_DONE);
 
 	/*
 	 * Don't perform redundant initialization. This is unreachable in current
@@ -280,51 +273,7 @@ ExecReadyInterpretedExpr(ExprState *state)
 	 * the full interpreter is a measurable overhead for these, and these
 	 * patterns occur often enough to be worth optimizing.
 	 */
-	if (state->steps_len == 5)
-	{
-		ExprEvalOp	step0 = state->steps[0].opcode;
-		ExprEvalOp	step1 = state->steps[1].opcode;
-		ExprEvalOp	step2 = state->steps[2].opcode;
-		ExprEvalOp	step3 = state->steps[3].opcode;
-
-		if (step0 == EEOP_INNER_FETCHSOME &&
-			step1 == EEOP_HASHDATUM_SET_INITVAL &&
-			step2 == EEOP_INNER_VAR &&
-			step3 == EEOP_HASHDATUM_NEXT32)
-		{
-			state->evalfunc_private = (void *) ExecJustHashInnerVarWithIV;
-			return;
-		}
-	}
-	else if (state->steps_len == 4)
-	{
-		ExprEvalOp	step0 = state->steps[0].opcode;
-		ExprEvalOp	step1 = state->steps[1].opcode;
-		ExprEvalOp	step2 = state->steps[2].opcode;
-
-		if (step0 == EEOP_OUTER_FETCHSOME &&
-			step1 == EEOP_OUTER_VAR &&
-			step2 == EEOP_HASHDATUM_FIRST)
-		{
-			state->evalfunc_private = (void *) ExecJustHashOuterVar;
-			return;
-		}
-		else if (step0 == EEOP_INNER_FETCHSOME &&
-				 step1 == EEOP_INNER_VAR &&
-				 step2 == EEOP_HASHDATUM_FIRST)
-		{
-			state->evalfunc_private = (void *) ExecJustHashInnerVar;
-			return;
-		}
-		else if (step0 == EEOP_OUTER_FETCHSOME &&
-				 step1 == EEOP_OUTER_VAR &&
-				 step2 == EEOP_HASHDATUM_FIRST_STRICT)
-		{
-			state->evalfunc_private = (void *) ExecJustHashOuterVarStrict;
-			return;
-		}
-	}
-	else if (state->steps_len == 3)
+	if (state->steps_len == 3)
 	{
 		ExprEvalOp	step0 = state->steps[0].opcode;
 		ExprEvalOp	step1 = state->steps[1].opcode;
@@ -332,57 +281,44 @@ ExecReadyInterpretedExpr(ExprState *state)
 		if (step0 == EEOP_INNER_FETCHSOME &&
 			step1 == EEOP_INNER_VAR)
 		{
-			state->evalfunc_private = ExecJustInnerVar;
+			state->evalfunc_private = (void *) ExecJustInnerVar;
 			return;
 		}
 		else if (step0 == EEOP_OUTER_FETCHSOME &&
 				 step1 == EEOP_OUTER_VAR)
 		{
-			state->evalfunc_private = ExecJustOuterVar;
+			state->evalfunc_private = (void *) ExecJustOuterVar;
 			return;
 		}
 		else if (step0 == EEOP_SCAN_FETCHSOME &&
 				 step1 == EEOP_SCAN_VAR)
 		{
-			state->evalfunc_private = ExecJustScanVar;
+			state->evalfunc_private = (void *) ExecJustScanVar;
 			return;
 		}
 		else if (step0 == EEOP_INNER_FETCHSOME &&
 				 step1 == EEOP_ASSIGN_INNER_VAR)
 		{
-			state->evalfunc_private = ExecJustAssignInnerVar;
+			state->evalfunc_private = (void *) ExecJustAssignInnerVar;
 			return;
 		}
 		else if (step0 == EEOP_OUTER_FETCHSOME &&
 				 step1 == EEOP_ASSIGN_OUTER_VAR)
 		{
-			state->evalfunc_private = ExecJustAssignOuterVar;
+			state->evalfunc_private = (void *) ExecJustAssignOuterVar;
 			return;
 		}
 		else if (step0 == EEOP_SCAN_FETCHSOME &&
 				 step1 == EEOP_ASSIGN_SCAN_VAR)
 		{
-			state->evalfunc_private = ExecJustAssignScanVar;
+			state->evalfunc_private = (void *) ExecJustAssignScanVar;
 			return;
 		}
 		else if (step0 == EEOP_CASE_TESTVAL &&
-				 (step1 == EEOP_FUNCEXPR_STRICT ||
-				  step1 == EEOP_FUNCEXPR_STRICT_1 ||
-				  step1 == EEOP_FUNCEXPR_STRICT_2))
+				 step1 == EEOP_FUNCEXPR_STRICT &&
+				 state->steps[0].d.casetest.value)
 		{
-			state->evalfunc_private = ExecJustApplyFuncToCase;
-			return;
-		}
-		else if (step0 == EEOP_INNER_VAR &&
-				 step1 == EEOP_HASHDATUM_FIRST)
-		{
-			state->evalfunc_private = (void *) ExecJustHashInnerVarVirt;
-			return;
-		}
-		else if (step0 == EEOP_OUTER_VAR &&
-				 step1 == EEOP_HASHDATUM_FIRST)
-		{
-			state->evalfunc_private = (void *) ExecJustHashOuterVarVirt;
+			state->evalfunc_private = (void *) ExecJustApplyFuncToCase;
 			return;
 		}
 	}
@@ -392,37 +328,37 @@ ExecReadyInterpretedExpr(ExprState *state)
 
 		if (step0 == EEOP_CONST)
 		{
-			state->evalfunc_private = ExecJustConst;
+			state->evalfunc_private = (void *) ExecJustConst;
 			return;
 		}
 		else if (step0 == EEOP_INNER_VAR)
 		{
-			state->evalfunc_private = ExecJustInnerVarVirt;
+			state->evalfunc_private = (void *) ExecJustInnerVarVirt;
 			return;
 		}
 		else if (step0 == EEOP_OUTER_VAR)
 		{
-			state->evalfunc_private = ExecJustOuterVarVirt;
+			state->evalfunc_private = (void *) ExecJustOuterVarVirt;
 			return;
 		}
 		else if (step0 == EEOP_SCAN_VAR)
 		{
-			state->evalfunc_private = ExecJustScanVarVirt;
+			state->evalfunc_private = (void *) ExecJustScanVarVirt;
 			return;
 		}
 		else if (step0 == EEOP_ASSIGN_INNER_VAR)
 		{
-			state->evalfunc_private = ExecJustAssignInnerVarVirt;
+			state->evalfunc_private = (void *) ExecJustAssignInnerVarVirt;
 			return;
 		}
 		else if (step0 == EEOP_ASSIGN_OUTER_VAR)
 		{
-			state->evalfunc_private = ExecJustAssignOuterVarVirt;
+			state->evalfunc_private = (void *) ExecJustAssignOuterVarVirt;
 			return;
 		}
 		else if (step0 == EEOP_ASSIGN_SCAN_VAR)
 		{
-			state->evalfunc_private = ExecJustAssignScanVarVirt;
+			state->evalfunc_private = (void *) ExecJustAssignScanVarVirt;
 			return;
 		}
 	}
@@ -443,7 +379,7 @@ ExecReadyInterpretedExpr(ExprState *state)
 	state->flags |= EEO_FLAG_DIRECT_THREADED;
 #endif							/* EEO_USE_COMPUTED_GOTO */
 
-	state->evalfunc_private = ExecInterpExpr;
+	state->evalfunc_private = (void *) ExecInterpExpr;
 }
 
 
@@ -464,44 +400,31 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 	TupleTableSlot *innerslot;
 	TupleTableSlot *outerslot;
 	TupleTableSlot *scanslot;
-	TupleTableSlot *oldslot;
-	TupleTableSlot *newslot;
 
 	/*
 	 * This array has to be in the same order as enum ExprEvalOp.
 	 */
 #if defined(EEO_USE_COMPUTED_GOTO)
 	static const void *const dispatch_table[] = {
-		&&CASE_EEOP_DONE_RETURN,
-		&&CASE_EEOP_DONE_NO_RETURN,
+		&&CASE_EEOP_DONE,
 		&&CASE_EEOP_INNER_FETCHSOME,
 		&&CASE_EEOP_OUTER_FETCHSOME,
 		&&CASE_EEOP_SCAN_FETCHSOME,
-		&&CASE_EEOP_OLD_FETCHSOME,
-		&&CASE_EEOP_NEW_FETCHSOME,
 		&&CASE_EEOP_INNER_VAR,
 		&&CASE_EEOP_OUTER_VAR,
 		&&CASE_EEOP_SCAN_VAR,
-		&&CASE_EEOP_OLD_VAR,
-		&&CASE_EEOP_NEW_VAR,
 		&&CASE_EEOP_INNER_SYSVAR,
 		&&CASE_EEOP_OUTER_SYSVAR,
 		&&CASE_EEOP_SCAN_SYSVAR,
-		&&CASE_EEOP_OLD_SYSVAR,
-		&&CASE_EEOP_NEW_SYSVAR,
 		&&CASE_EEOP_WHOLEROW,
 		&&CASE_EEOP_ASSIGN_INNER_VAR,
 		&&CASE_EEOP_ASSIGN_OUTER_VAR,
 		&&CASE_EEOP_ASSIGN_SCAN_VAR,
-		&&CASE_EEOP_ASSIGN_OLD_VAR,
-		&&CASE_EEOP_ASSIGN_NEW_VAR,
 		&&CASE_EEOP_ASSIGN_TMP,
 		&&CASE_EEOP_ASSIGN_TMP_MAKE_RO,
 		&&CASE_EEOP_CONST,
 		&&CASE_EEOP_FUNCEXPR,
 		&&CASE_EEOP_FUNCEXPR_STRICT,
-		&&CASE_EEOP_FUNCEXPR_STRICT_1,
-		&&CASE_EEOP_FUNCEXPR_STRICT_2,
 		&&CASE_EEOP_FUNCEXPR_FUSAGE,
 		&&CASE_EEOP_FUNCEXPR_STRICT_FUSAGE,
 		&&CASE_EEOP_BOOL_AND_STEP_FIRST,
@@ -527,9 +450,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		&&CASE_EEOP_PARAM_EXEC,
 		&&CASE_EEOP_PARAM_EXTERN,
 		&&CASE_EEOP_PARAM_CALLBACK,
-		&&CASE_EEOP_PARAM_SET,
 		&&CASE_EEOP_CASE_TESTVAL,
-		&&CASE_EEOP_CASE_TESTVAL_EXT,
 		&&CASE_EEOP_MAKE_READONLY,
 		&&CASE_EEOP_IOCOERCE,
 		&&CASE_EEOP_IOCOERCE_SAFE,
@@ -539,7 +460,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		&&CASE_EEOP_SQLVALUEFUNCTION,
 		&&CASE_EEOP_CURRENTOFEXPR,
 		&&CASE_EEOP_NEXTVALUEEXPR,
-		&&CASE_EEOP_RETURNINGEXPR,
 		&&CASE_EEOP_ARRAYEXPR,
 		&&CASE_EEOP_ARRAYCOERCE,
 		&&CASE_EEOP_ROW,
@@ -554,14 +474,8 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		&&CASE_EEOP_SBSREF_ASSIGN,
 		&&CASE_EEOP_SBSREF_FETCH,
 		&&CASE_EEOP_DOMAIN_TESTVAL,
-		&&CASE_EEOP_DOMAIN_TESTVAL_EXT,
 		&&CASE_EEOP_DOMAIN_NOTNULL,
 		&&CASE_EEOP_DOMAIN_CHECK,
-		&&CASE_EEOP_HASHDATUM_SET_INITVAL,
-		&&CASE_EEOP_HASHDATUM_FIRST,
-		&&CASE_EEOP_HASHDATUM_FIRST_STRICT,
-		&&CASE_EEOP_HASHDATUM_NEXT32,
-		&&CASE_EEOP_HASHDATUM_NEXT32_STRICT,
 		&&CASE_EEOP_CONVERT_ROWTYPE,
 		&&CASE_EEOP_SCALARARRAYOP,
 		&&CASE_EEOP_HASHED_SCALARARRAYOP,
@@ -579,7 +493,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		&&CASE_EEOP_AGG_STRICT_DESERIALIZE,
 		&&CASE_EEOP_AGG_DESERIALIZE,
 		&&CASE_EEOP_AGG_STRICT_INPUT_CHECK_ARGS,
-		&&CASE_EEOP_AGG_STRICT_INPUT_CHECK_ARGS_1,
 		&&CASE_EEOP_AGG_STRICT_INPUT_CHECK_NULLS,
 		&&CASE_EEOP_AGG_PLAIN_PERGROUP_NULLCHECK,
 		&&CASE_EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYVAL,
@@ -610,8 +523,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 	innerslot = econtext->ecxt_innertuple;
 	outerslot = econtext->ecxt_outertuple;
 	scanslot = econtext->ecxt_scantuple;
-	oldslot = econtext->ecxt_oldtuple;
-	newslot = econtext->ecxt_newtuple;
 
 #if defined(EEO_USE_COMPUTED_GOTO)
 	EEO_DISPATCH();
@@ -619,16 +530,9 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 	EEO_SWITCH()
 	{
-		EEO_CASE(EEOP_DONE_RETURN)
+		EEO_CASE(EEOP_DONE)
 		{
-			*isnull = state->resnull;
-			return state->resvalue;
-		}
-
-		EEO_CASE(EEOP_DONE_NO_RETURN)
-		{
-			Assert(isnull == NULL);
-			return (Datum) 0;
+			goto out;
 		}
 
 		EEO_CASE(EEOP_INNER_FETCHSOME)
@@ -654,24 +558,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			CheckOpSlotCompatibility(op, scanslot);
 
 			slot_getsomeattrs(scanslot, op->d.fetch.last_var);
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_OLD_FETCHSOME)
-		{
-			CheckOpSlotCompatibility(op, oldslot);
-
-			slot_getsomeattrs(oldslot, op->d.fetch.last_var);
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_NEW_FETCHSOME)
-		{
-			CheckOpSlotCompatibility(op, newslot);
-
-			slot_getsomeattrs(newslot, op->d.fetch.last_var);
 
 			EEO_NEXT();
 		}
@@ -719,32 +605,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		EEO_CASE(EEOP_OLD_VAR)
-		{
-			int			attnum = op->d.var.attnum;
-
-			/* See EEOP_INNER_VAR comments */
-
-			Assert(attnum >= 0 && attnum < oldslot->tts_nvalid);
-			*op->resvalue = oldslot->tts_values[attnum];
-			*op->resnull = oldslot->tts_isnull[attnum];
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_NEW_VAR)
-		{
-			int			attnum = op->d.var.attnum;
-
-			/* See EEOP_INNER_VAR comments */
-
-			Assert(attnum >= 0 && attnum < newslot->tts_nvalid);
-			*op->resvalue = newslot->tts_values[attnum];
-			*op->resnull = newslot->tts_isnull[attnum];
-
-			EEO_NEXT();
-		}
-
 		EEO_CASE(EEOP_INNER_SYSVAR)
 		{
 			ExecEvalSysVar(state, op, econtext, innerslot);
@@ -760,18 +620,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_SCAN_SYSVAR)
 		{
 			ExecEvalSysVar(state, op, econtext, scanslot);
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_OLD_SYSVAR)
-		{
-			ExecEvalSysVar(state, op, econtext, oldslot);
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_NEW_SYSVAR)
-		{
-			ExecEvalSysVar(state, op, econtext, newslot);
 			EEO_NEXT();
 		}
 
@@ -830,40 +678,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			Assert(resultnum >= 0 && resultnum < resultslot->tts_tupleDescriptor->natts);
 			resultslot->tts_values[resultnum] = scanslot->tts_values[attnum];
 			resultslot->tts_isnull[resultnum] = scanslot->tts_isnull[attnum];
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_ASSIGN_OLD_VAR)
-		{
-			int			resultnum = op->d.assign_var.resultnum;
-			int			attnum = op->d.assign_var.attnum;
-
-			/*
-			 * We do not need CheckVarSlotCompatibility here; that was taken
-			 * care of at compilation time.  But see EEOP_INNER_VAR comments.
-			 */
-			Assert(attnum >= 0 && attnum < oldslot->tts_nvalid);
-			Assert(resultnum >= 0 && resultnum < resultslot->tts_tupleDescriptor->natts);
-			resultslot->tts_values[resultnum] = oldslot->tts_values[attnum];
-			resultslot->tts_isnull[resultnum] = oldslot->tts_isnull[attnum];
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_ASSIGN_NEW_VAR)
-		{
-			int			resultnum = op->d.assign_var.resultnum;
-			int			attnum = op->d.assign_var.attnum;
-
-			/*
-			 * We do not need CheckVarSlotCompatibility here; that was taken
-			 * care of at compilation time.  But see EEOP_INNER_VAR comments.
-			 */
-			Assert(attnum >= 0 && attnum < newslot->tts_nvalid);
-			Assert(resultnum >= 0 && resultnum < resultslot->tts_tupleDescriptor->natts);
-			resultslot->tts_values[resultnum] = newslot->tts_values[attnum];
-			resultslot->tts_isnull[resultnum] = newslot->tts_isnull[attnum];
 
 			EEO_NEXT();
 		}
@@ -930,15 +744,12 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		/* strict function call with more than two arguments */
 		EEO_CASE(EEOP_FUNCEXPR_STRICT)
 		{
 			FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
 			NullableDatum *args = fcinfo->args;
 			int			nargs = op->d.func.nargs;
 			Datum		d;
-
-			Assert(nargs > 2);
 
 			/* strict function, so check for NULL args */
 			for (int argno = 0; argno < nargs; argno++)
@@ -955,54 +766,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			*op->resnull = fcinfo->isnull;
 
 	strictfail:
-			EEO_NEXT();
-		}
-
-		/* strict function call with one argument */
-		EEO_CASE(EEOP_FUNCEXPR_STRICT_1)
-		{
-			FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
-			NullableDatum *args = fcinfo->args;
-
-			Assert(op->d.func.nargs == 1);
-
-			/* strict function, so check for NULL args */
-			if (args[0].isnull)
-				*op->resnull = true;
-			else
-			{
-				Datum		d;
-
-				fcinfo->isnull = false;
-				d = op->d.func.fn_addr(fcinfo);
-				*op->resvalue = d;
-				*op->resnull = fcinfo->isnull;
-			}
-
-			EEO_NEXT();
-		}
-
-		/* strict function call with two arguments */
-		EEO_CASE(EEOP_FUNCEXPR_STRICT_2)
-		{
-			FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
-			NullableDatum *args = fcinfo->args;
-
-			Assert(op->d.func.nargs == 2);
-
-			/* strict function, so check for NULL args */
-			if (args[0].isnull || args[1].isnull)
-				*op->resnull = true;
-			else
-			{
-				Datum		d;
-
-				fcinfo->isnull = false;
-				d = op->d.func.fn_addr(fcinfo);
-				*op->resvalue = d;
-				*op->resnull = fcinfo->isnull;
-			}
-
 			EEO_NEXT();
 		}
 
@@ -1330,25 +1093,46 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		EEO_CASE(EEOP_PARAM_SET)
-		{
-			/* out of line, unlikely to matter performance-wise */
-			ExecEvalParamSet(state, op, econtext);
-			EEO_NEXT();
-		}
-
 		EEO_CASE(EEOP_CASE_TESTVAL)
 		{
-			*op->resvalue = *op->d.casetest.value;
-			*op->resnull = *op->d.casetest.isnull;
+			/*
+			 * Normally upper parts of the expression tree have setup the
+			 * values to be returned here, but some parts of the system
+			 * currently misuse {caseValue,domainValue}_{datum,isNull} to set
+			 * run-time data.  So if no values have been set-up, use
+			 * ExprContext's.  This isn't pretty, but also not *that* ugly,
+			 * and this is unlikely to be performance sensitive enough to
+			 * worry about an extra branch.
+			 */
+			if (op->d.casetest.value)
+			{
+				*op->resvalue = *op->d.casetest.value;
+				*op->resnull = *op->d.casetest.isnull;
+			}
+			else
+			{
+				*op->resvalue = econtext->caseValue_datum;
+				*op->resnull = econtext->caseValue_isNull;
+			}
 
 			EEO_NEXT();
 		}
 
-		EEO_CASE(EEOP_CASE_TESTVAL_EXT)
+		EEO_CASE(EEOP_DOMAIN_TESTVAL)
 		{
-			*op->resvalue = econtext->caseValue_datum;
-			*op->resnull = econtext->caseValue_isNull;
+			/*
+			 * See EEOP_CASE_TESTVAL comment.
+			 */
+			if (op->d.casetest.value)
+			{
+				*op->resvalue = *op->d.casetest.value;
+				*op->resnull = *op->d.casetest.isnull;
+			}
+			else
+			{
+				*op->resvalue = econtext->domainValue_datum;
+				*op->resnull = econtext->domainValue_isNull;
+			}
 
 			EEO_NEXT();
 		}
@@ -1579,23 +1363,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		EEO_CASE(EEOP_RETURNINGEXPR)
-		{
-			/*
-			 * The next op actually evaluates the expression.  If the OLD/NEW
-			 * row doesn't exist, skip that and return NULL.
-			 */
-			if (state->flags & op->d.returningexpr.nullflag)
-			{
-				*op->resvalue = (Datum) 0;
-				*op->resnull = true;
-
-				EEO_JUMP(op->d.returningexpr.jumpdone);
-			}
-
-			EEO_NEXT();
-		}
-
 		EEO_CASE(EEOP_ARRAYEXPR)
 		{
 			/* too complex for an inline implementation */
@@ -1658,22 +1425,22 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		EEO_CASE(EEOP_ROWCOMPARE_FINAL)
 		{
 			int32		cmpresult = DatumGetInt32(*op->resvalue);
-			CompareType cmptype = op->d.rowcompare_final.cmptype;
+			RowCompareType rctype = op->d.rowcompare_final.rctype;
 
 			*op->resnull = false;
-			switch (cmptype)
+			switch (rctype)
 			{
 					/* EQ and NE cases aren't allowed here */
-				case COMPARE_LT:
+				case ROWCOMPARE_LT:
 					*op->resvalue = BoolGetDatum(cmpresult < 0);
 					break;
-				case COMPARE_LE:
+				case ROWCOMPARE_LE:
 					*op->resvalue = BoolGetDatum(cmpresult <= 0);
 					break;
-				case COMPARE_GE:
+				case ROWCOMPARE_GE:
 					*op->resvalue = BoolGetDatum(cmpresult >= 0);
 					break;
-				case COMPARE_GT:
+				case ROWCOMPARE_GT:
 					*op->resvalue = BoolGetDatum(cmpresult > 0);
 					break;
 				default:
@@ -1764,22 +1531,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			EEO_NEXT();
 		}
 
-		EEO_CASE(EEOP_DOMAIN_TESTVAL)
-		{
-			*op->resvalue = *op->d.casetest.value;
-			*op->resnull = *op->d.casetest.isnull;
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_DOMAIN_TESTVAL_EXT)
-		{
-			*op->resvalue = econtext->domainValue_datum;
-			*op->resnull = econtext->domainValue_isNull;
-
-			EEO_NEXT();
-		}
-
 		EEO_CASE(EEOP_DOMAIN_NOTNULL)
 		{
 			/* too complex for an inline implementation */
@@ -1792,113 +1543,6 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		{
 			/* too complex for an inline implementation */
 			ExecEvalConstraintCheck(state, op);
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_HASHDATUM_SET_INITVAL)
-		{
-			*op->resvalue = op->d.hashdatum_initvalue.init_value;
-			*op->resnull = false;
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_HASHDATUM_FIRST)
-		{
-			FunctionCallInfo fcinfo = op->d.hashdatum.fcinfo_data;
-
-			/*
-			 * Save the Datum on non-null inputs, otherwise store 0 so that
-			 * subsequent NEXT32 operations combine with an initialized value.
-			 */
-			if (!fcinfo->args[0].isnull)
-				*op->resvalue = op->d.hashdatum.fn_addr(fcinfo);
-			else
-				*op->resvalue = (Datum) 0;
-
-			*op->resnull = false;
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_HASHDATUM_FIRST_STRICT)
-		{
-			FunctionCallInfo fcinfo = op->d.hashdatum.fcinfo_data;
-
-			if (fcinfo->args[0].isnull)
-			{
-				/*
-				 * With strict we have the expression return NULL instead of
-				 * ignoring NULL input values.  We've nothing more to do after
-				 * finding a NULL.
-				 */
-				*op->resnull = true;
-				*op->resvalue = (Datum) 0;
-				EEO_JUMP(op->d.hashdatum.jumpdone);
-			}
-
-			/* execute the hash function and save the resulting value */
-			*op->resvalue = op->d.hashdatum.fn_addr(fcinfo);
-			*op->resnull = false;
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_HASHDATUM_NEXT32)
-		{
-			FunctionCallInfo fcinfo = op->d.hashdatum.fcinfo_data;
-			uint32		existinghash;
-
-			existinghash = DatumGetUInt32(op->d.hashdatum.iresult->value);
-			/* combine successive hash values by rotating */
-			existinghash = pg_rotate_left32(existinghash, 1);
-
-			/* leave the hash value alone on NULL inputs */
-			if (!fcinfo->args[0].isnull)
-			{
-				uint32		hashvalue;
-
-				/* execute hash func and combine with previous hash value */
-				hashvalue = DatumGetUInt32(op->d.hashdatum.fn_addr(fcinfo));
-				existinghash = existinghash ^ hashvalue;
-			}
-
-			*op->resvalue = UInt32GetDatum(existinghash);
-			*op->resnull = false;
-
-			EEO_NEXT();
-		}
-
-		EEO_CASE(EEOP_HASHDATUM_NEXT32_STRICT)
-		{
-			FunctionCallInfo fcinfo = op->d.hashdatum.fcinfo_data;
-
-			if (fcinfo->args[0].isnull)
-			{
-				/*
-				 * With strict we have the expression return NULL instead of
-				 * ignoring NULL input values.  We've nothing more to do after
-				 * finding a NULL.
-				 */
-				*op->resnull = true;
-				*op->resvalue = (Datum) 0;
-				EEO_JUMP(op->d.hashdatum.jumpdone);
-			}
-			else
-			{
-				uint32		existinghash;
-				uint32		hashvalue;
-
-				existinghash = DatumGetUInt32(op->d.hashdatum.iresult->value);
-				/* combine successive hash values by rotating */
-				existinghash = pg_rotate_left32(existinghash, 1);
-
-				/* execute hash func and combine with previous hash value */
-				hashvalue = DatumGetUInt32(op->d.hashdatum.fn_addr(fcinfo));
-				*op->resvalue = UInt32GetDatum(existinghash ^ hashvalue);
-				*op->resnull = false;
-			}
 
 			EEO_NEXT();
 		}
@@ -2038,32 +1682,16 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		 * input is not NULL.
 		 */
 
-		/* when checking more than one argument */
 		EEO_CASE(EEOP_AGG_STRICT_INPUT_CHECK_ARGS)
 		{
 			NullableDatum *args = op->d.agg_strict_input_check.args;
 			int			nargs = op->d.agg_strict_input_check.nargs;
-
-			Assert(nargs > 1);
 
 			for (int argno = 0; argno < nargs; argno++)
 			{
 				if (args[argno].isnull)
 					EEO_JUMP(op->d.agg_strict_input_check.jumpnull);
 			}
-			EEO_NEXT();
-		}
-
-		/* special case for just one argument */
-		EEO_CASE(EEOP_AGG_STRICT_INPUT_CHECK_ARGS_1)
-		{
-			NullableDatum *args = op->d.agg_strict_input_check.args;
-			PG_USED_FOR_ASSERTS_ONLY int nargs = op->d.agg_strict_input_check.nargs;
-
-			Assert(nargs == 1);
-
-			if (args[0].isnull)
-				EEO_JUMP(op->d.agg_strict_input_check.jumpnull);
 			EEO_NEXT();
 		}
 
@@ -2269,13 +1897,13 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 		{
 			/* unreachable */
 			Assert(false);
-			goto out_error;
+			goto out;
 		}
 	}
 
-out_error:
-	pg_unreachable();
-	return (Datum) 0;
+out:
+	*isnull = state->resnull;
+	return state->resvalue;
 }
 
 /*
@@ -2309,14 +1937,10 @@ CheckExprStillValid(ExprState *state, ExprContext *econtext)
 	TupleTableSlot *innerslot;
 	TupleTableSlot *outerslot;
 	TupleTableSlot *scanslot;
-	TupleTableSlot *oldslot;
-	TupleTableSlot *newslot;
 
 	innerslot = econtext->ecxt_innertuple;
 	outerslot = econtext->ecxt_outertuple;
 	scanslot = econtext->ecxt_scantuple;
-	oldslot = econtext->ecxt_oldtuple;
-	newslot = econtext->ecxt_newtuple;
 
 	for (int i = 0; i < state->steps_len; i++)
 	{
@@ -2345,22 +1969,6 @@ CheckExprStillValid(ExprState *state, ExprContext *econtext)
 					int			attnum = op->d.var.attnum;
 
 					CheckVarSlotCompatibility(scanslot, attnum + 1, op->d.var.vartype);
-					break;
-				}
-
-			case EEOP_OLD_VAR:
-				{
-					int			attnum = op->d.var.attnum;
-
-					CheckVarSlotCompatibility(oldslot, attnum + 1, op->d.var.vartype);
-					break;
-				}
-
-			case EEOP_NEW_VAR:
-				{
-					int			attnum = op->d.var.attnum;
-
-					CheckVarSlotCompatibility(newslot, attnum + 1, op->d.var.vartype);
 					break;
 				}
 			default:
@@ -2404,10 +2012,6 @@ CheckVarSlotCompatibility(TupleTableSlot *slot, int attnum, Oid vartype)
 				 attnum, slot_tupdesc->natts);
 
 		attr = TupleDescAttr(slot_tupdesc, attnum - 1);
-
-		/* Internal error: somebody forgot to expand it. */
-		if (attr->attgenerated == ATTRIBUTE_GENERATED_VIRTUAL)
-			elog(ERROR, "unexpected virtual generated column reference");
 
 		if (attr->attisdropped)
 			ereport(ERROR,
@@ -2502,7 +2106,7 @@ get_cached_rowtype(Oid type_id, int32 typmod,
 						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 						 errmsg("type %s is not composite",
 								format_type_be(type_id))));
-			rowcache->cacheptr = typentry;
+			rowcache->cacheptr = (void *) typentry;
 			rowcache->tupdesc_id = typentry->tupDesc_identifier;
 			if (changed)
 				*changed = true;
@@ -2527,7 +2131,7 @@ get_cached_rowtype(Oid type_id, int32 typmod,
 			tupDesc = lookup_rowtype_tupdesc(type_id, typmod);
 			/* Drop pin acquired by lookup_rowtype_tupdesc */
 			ReleaseTupleDesc(tupDesc);
-			rowcache->cacheptr = tupDesc;
+			rowcache->cacheptr = (void *) tupDesc;
 			rowcache->tupdesc_id = 0;	/* not a valid value for non-RECORD */
 			if (changed)
 				*changed = true;
@@ -2760,148 +2364,6 @@ ExecJustAssignScanVarVirt(ExprState *state, ExprContext *econtext, bool *isnull)
 	return ExecJustAssignVarVirtImpl(state, econtext->ecxt_scantuple, isnull);
 }
 
-/*
- * implementation for hashing an inner Var, seeding with an initial value.
- */
-static Datum
-ExecJustHashInnerVarWithIV(ExprState *state, ExprContext *econtext,
-						   bool *isnull)
-{
-	ExprEvalStep *fetchop = &state->steps[0];
-	ExprEvalStep *setivop = &state->steps[1];
-	ExprEvalStep *innervar = &state->steps[2];
-	ExprEvalStep *hashop = &state->steps[3];
-	FunctionCallInfo fcinfo = hashop->d.hashdatum.fcinfo_data;
-	int			attnum = innervar->d.var.attnum;
-	uint32		hashkey;
-
-	CheckOpSlotCompatibility(fetchop, econtext->ecxt_innertuple);
-	slot_getsomeattrs(econtext->ecxt_innertuple, fetchop->d.fetch.last_var);
-
-	fcinfo->args[0].value = econtext->ecxt_innertuple->tts_values[attnum];
-	fcinfo->args[0].isnull = econtext->ecxt_innertuple->tts_isnull[attnum];
-
-	hashkey = DatumGetUInt32(setivop->d.hashdatum_initvalue.init_value);
-	hashkey = pg_rotate_left32(hashkey, 1);
-
-	if (!fcinfo->args[0].isnull)
-	{
-		uint32		hashvalue;
-
-		hashvalue = DatumGetUInt32(hashop->d.hashdatum.fn_addr(fcinfo));
-		hashkey = hashkey ^ hashvalue;
-	}
-
-	*isnull = false;
-	return UInt32GetDatum(hashkey);
-}
-
-/* implementation of ExecJustHash(Inner|Outer)Var */
-static pg_attribute_always_inline Datum
-ExecJustHashVarImpl(ExprState *state, TupleTableSlot *slot, bool *isnull)
-{
-	ExprEvalStep *fetchop = &state->steps[0];
-	ExprEvalStep *var = &state->steps[1];
-	ExprEvalStep *hashop = &state->steps[2];
-	FunctionCallInfo fcinfo = hashop->d.hashdatum.fcinfo_data;
-	int			attnum = var->d.var.attnum;
-
-	CheckOpSlotCompatibility(fetchop, slot);
-	slot_getsomeattrs(slot, fetchop->d.fetch.last_var);
-
-	fcinfo->args[0].value = slot->tts_values[attnum];
-	fcinfo->args[0].isnull = slot->tts_isnull[attnum];
-
-	*isnull = false;
-
-	if (!fcinfo->args[0].isnull)
-		return DatumGetUInt32(hashop->d.hashdatum.fn_addr(fcinfo));
-	else
-		return (Datum) 0;
-}
-
-/* implementation for hashing an outer Var */
-static Datum
-ExecJustHashOuterVar(ExprState *state, ExprContext *econtext, bool *isnull)
-{
-	return ExecJustHashVarImpl(state, econtext->ecxt_outertuple, isnull);
-}
-
-/* implementation for hashing an inner Var */
-static Datum
-ExecJustHashInnerVar(ExprState *state, ExprContext *econtext, bool *isnull)
-{
-	return ExecJustHashVarImpl(state, econtext->ecxt_innertuple, isnull);
-}
-
-/* implementation of ExecJustHash(Inner|Outer)VarVirt */
-static pg_attribute_always_inline Datum
-ExecJustHashVarVirtImpl(ExprState *state, TupleTableSlot *slot, bool *isnull)
-{
-	ExprEvalStep *var = &state->steps[0];
-	ExprEvalStep *hashop = &state->steps[1];
-	FunctionCallInfo fcinfo = hashop->d.hashdatum.fcinfo_data;
-	int			attnum = var->d.var.attnum;
-
-	fcinfo->args[0].value = slot->tts_values[attnum];
-	fcinfo->args[0].isnull = slot->tts_isnull[attnum];
-
-	*isnull = false;
-
-	if (!fcinfo->args[0].isnull)
-		return DatumGetUInt32(hashop->d.hashdatum.fn_addr(fcinfo));
-	else
-		return (Datum) 0;
-}
-
-/* Like ExecJustHashInnerVar, optimized for virtual slots */
-static Datum
-ExecJustHashInnerVarVirt(ExprState *state, ExprContext *econtext,
-						 bool *isnull)
-{
-	return ExecJustHashVarVirtImpl(state, econtext->ecxt_innertuple, isnull);
-}
-
-/* Like ExecJustHashOuterVar, optimized for virtual slots */
-static Datum
-ExecJustHashOuterVarVirt(ExprState *state, ExprContext *econtext,
-						 bool *isnull)
-{
-	return ExecJustHashVarVirtImpl(state, econtext->ecxt_outertuple, isnull);
-}
-
-/*
- * implementation for hashing an outer Var.  Returns NULL on NULL input.
- */
-static Datum
-ExecJustHashOuterVarStrict(ExprState *state, ExprContext *econtext,
-						   bool *isnull)
-{
-	ExprEvalStep *fetchop = &state->steps[0];
-	ExprEvalStep *var = &state->steps[1];
-	ExprEvalStep *hashop = &state->steps[2];
-	FunctionCallInfo fcinfo = hashop->d.hashdatum.fcinfo_data;
-	int			attnum = var->d.var.attnum;
-
-	CheckOpSlotCompatibility(fetchop, econtext->ecxt_outertuple);
-	slot_getsomeattrs(econtext->ecxt_outertuple, fetchop->d.fetch.last_var);
-
-	fcinfo->args[0].value = econtext->ecxt_outertuple->tts_values[attnum];
-	fcinfo->args[0].isnull = econtext->ecxt_outertuple->tts_isnull[attnum];
-
-	if (!fcinfo->args[0].isnull)
-	{
-		*isnull = false;
-		return DatumGetUInt32(hashop->d.hashdatum.fn_addr(fcinfo));
-	}
-	else
-	{
-		/* return NULL on NULL input */
-		*isnull = true;
-		return (Datum) 0;
-	}
-}
-
 #if defined(EEO_USE_COMPUTED_GOTO)
 /*
  * Comparator used when building address->opcode lookup table for
@@ -3103,24 +2565,6 @@ ExecEvalParamExtern(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	ereport(ERROR,
 			(errcode(ERRCODE_UNDEFINED_OBJECT),
 			 errmsg("no value found for parameter %d", paramId)));
-}
-
-/*
- * Set value of a param (currently always PARAM_EXEC) from
- * state->res{value,null}.
- */
-void
-ExecEvalParamSet(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
-{
-	ParamExecData *prm;
-
-	prm = &(econtext->ecxt_param_exec_vals[op->d.param.paramid]);
-
-	/* Shouldn't have a pending evaluation anymore */
-	Assert(prm->execPlan == NULL);
-
-	prm->value = state->resvalue;
-	prm->isnull = state->resnull;
 }
 
 /*
@@ -3366,7 +2810,7 @@ ExecEvalRowNullInt(ExprState *state, ExprEvalStep *op,
 	for (int att = 1; att <= tupDesc->natts; att++)
 	{
 		/* ignore dropped columns */
-		if (TupleDescCompactAttr(tupDesc, att - 1)->attisdropped)
+		if (TupleDescAttr(tupDesc, att - 1)->attisdropped)
 			continue;
 		if (heap_attisnull(&tmptup, att, tupDesc))
 		{
@@ -5116,9 +4560,9 @@ ExecEvalJsonCoercion(ExprState *state, ExprEvalStep *op,
 
 	/*
 	 * Prepare to call json_populate_type() to coerce the boolean result of
-	 * JSON_EXISTS_OP to the target type.  If the target type is integer or a
-	 * domain over integer, call the boolean-to-integer cast function instead,
-	 * because the integer's input function (which is what
+	 * JSON_EXISTS_OP to the target type.  If the the target type is integer
+	 * or a domain over integer, call the boolean-to-integer cast function
+	 * instead, because the integer's input function (which is what
 	 * json_populate_type() calls to coerce to scalar target types) doesn't
 	 * accept boolean literals as valid input.  We only have a special case
 	 * for integer and domains thereof as it seems common to use those types
@@ -5196,7 +4640,7 @@ ExecEvalJsonCoercionFinish(ExprState *state, ExprEvalStep *op)
 	if (SOFT_ERROR_OCCURRED(&jsestate->escontext))
 	{
 		/*
-		 * jsestate->error or jsestate->empty being set means that the error
+		 * jsestate->error or jsetate->empty being set means that the error
 		 * occurred when coercing the JsonBehavior value.  Throw the error in
 		 * that case with the actual coercion error message shown in the
 		 * DETAIL part.
@@ -5326,7 +4770,7 @@ void
 ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 {
 	Var		   *variable = op->d.wholerow.var;
-	TupleTableSlot *slot = NULL;
+	TupleTableSlot *slot;
 	TupleDesc	output_tupdesc;
 	MemoryContext oldcontext;
 	HeapTupleHeader dtuple;
@@ -5351,40 +4795,8 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			/* INDEX_VAR is handled by default case */
 
 		default:
-
-			/*
-			 * Get the tuple from the relation being scanned.
-			 *
-			 * By default, this uses the "scan" tuple slot, but a wholerow Var
-			 * in the RETURNING list may explicitly refer to OLD/NEW.  If the
-			 * OLD/NEW row doesn't exist, we just return NULL.
-			 */
-			switch (variable->varreturningtype)
-			{
-				case VAR_RETURNING_DEFAULT:
-					slot = econtext->ecxt_scantuple;
-					break;
-
-				case VAR_RETURNING_OLD:
-					if (state->flags & EEO_FLAG_OLD_IS_NULL)
-					{
-						*op->resvalue = (Datum) 0;
-						*op->resnull = true;
-						return;
-					}
-					slot = econtext->ecxt_oldtuple;
-					break;
-
-				case VAR_RETURNING_NEW:
-					if (state->flags & EEO_FLAG_NEW_IS_NULL)
-					{
-						*op->resvalue = (Datum) 0;
-						*op->resnull = true;
-						return;
-					}
-					slot = econtext->ecxt_newtuple;
-					break;
-			}
+			/* get the tuple from the relation being scanned */
+			slot = econtext->ecxt_scantuple;
 			break;
 	}
 
@@ -5541,15 +4953,15 @@ ExecEvalWholeRowVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 
 		for (int i = 0; i < var_tupdesc->natts; i++)
 		{
-			CompactAttribute *vattr = TupleDescCompactAttr(var_tupdesc, i);
-			CompactAttribute *sattr = TupleDescCompactAttr(tupleDesc, i);
+			Form_pg_attribute vattr = TupleDescAttr(var_tupdesc, i);
+			Form_pg_attribute sattr = TupleDescAttr(tupleDesc, i);
 
 			if (!vattr->attisdropped)
 				continue;		/* already checked non-dropped cols */
 			if (slot->tts_isnull[i])
 				continue;		/* null is always okay */
 			if (vattr->attlen != sattr->attlen ||
-				vattr->attalignby != sattr->attalignby)
+				vattr->attalign != sattr->attalign)
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
 						 errmsg("table row type and query-specified row type do not match"),
@@ -5586,17 +4998,6 @@ ExecEvalSysVar(ExprState *state, ExprEvalStep *op, ExprContext *econtext,
 			   TupleTableSlot *slot)
 {
 	Datum		d;
-
-	/* OLD/NEW system attribute is NULL if OLD/NEW row is NULL */
-	if ((op->d.var.varreturningtype == VAR_RETURNING_OLD &&
-		 state->flags & EEO_FLAG_OLD_IS_NULL) ||
-		(op->d.var.varreturningtype == VAR_RETURNING_NEW &&
-		 state->flags & EEO_FLAG_NEW_IS_NULL))
-	{
-		*op->resvalue = (Datum) 0;
-		*op->resnull = true;
-		return;
-	}
 
 	/* slot_getsysattr has sufficient defenses against bad attnums */
 	d = slot_getsysattr(slot,

@@ -27,6 +27,7 @@
 
 #include "common/file_utils.h"
 #include "compress_io.h"
+#include "parallel.h"
 #include "pg_backup_utils.h"
 
 /*--------
@@ -137,7 +138,7 @@ InitArchiveFmt_Custom(ArchiveHandle *AH)
 
 	/* Set up a private area. */
 	ctx = (lclContext *) pg_malloc0(sizeof(lclContext));
-	AH->formatData = ctx;
+	AH->formatData = (void *) ctx;
 
 	/*
 	 * Now open the file
@@ -205,7 +206,7 @@ _ArchiveEntry(ArchiveHandle *AH, TocEntry *te)
 	else
 		ctx->dataState = K_OFFSET_NO_DATA;
 
-	te->formatData = ctx;
+	te->formatData = (void *) ctx;
 }
 
 /*
@@ -241,7 +242,7 @@ _ReadExtraToc(ArchiveHandle *AH, TocEntry *te)
 	if (ctx == NULL)
 	{
 		ctx = (lclTocEntry *) pg_malloc0(sizeof(lclTocEntry));
-		te->formatData = ctx;
+		te->formatData = (void *) ctx;
 	}
 
 	ctx->dataState = ReadOffset(AH, &(ctx->dataPos));
@@ -755,11 +756,9 @@ _CloseArchive(ArchiveHandle *AH)
 		 * If possible, re-write the TOC in order to update the data offset
 		 * information.  This is not essential, as pg_restore can cope in most
 		 * cases without it; but it can make pg_restore significantly faster
-		 * in some situations (especially parallel restore).  We can skip this
-		 * step if we're not dumping any data; there are no offsets to update
-		 * in that case.
+		 * in some situations (especially parallel restore).
 		 */
-		if (ctx->hasSeek && AH->public.dopt->dumpData &&
+		if (ctx->hasSeek &&
 			fseeko(AH->FH, tpos, SEEK_SET) == 0)
 			WriteToc(AH);
 	}

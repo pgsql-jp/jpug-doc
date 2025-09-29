@@ -1294,10 +1294,7 @@ MERGE INTO rule_merge1 t USING (SELECT 1 AS a) s
 CREATE TABLE sf_target(id int, data text, filling int[]);
 
 CREATE FUNCTION merge_sf_test()
- RETURNS TABLE(action text, a int, b text,
-               id int, data text, filling int[],
-               old_id int, old_data text, old_filling int[],
-               new_id int, new_data text, new_filling int[])
+ RETURNS TABLE(action text, a int, b text, id int, data text, filling int[])
  LANGUAGE sql
 BEGIN ATOMIC
  MERGE INTO sf_target t
@@ -1336,8 +1333,7 @@ WHEN NOT MATCHED
    THEN INSERT (filling[1], id)
    VALUES (s.a, s.a)
 RETURNING
-   WITH (OLD AS o, NEW AS n)
-   merge_action() AS action, *, o.*, n.*;
+   merge_action() AS action, *;
 END;
 
 \sf merge_sf_test

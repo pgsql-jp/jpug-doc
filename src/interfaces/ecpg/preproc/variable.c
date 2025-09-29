@@ -22,7 +22,7 @@ new_variable(const char *name, struct ECPGtype *type, int brace_level)
 }
 
 static struct variable *
-find_struct_member(const char *name, char *str, struct ECPGstruct_member *members, int brace_level)
+find_struct_member(char *name, char *str, struct ECPGstruct_member *members, int brace_level)
 {
 	char	   *next = strpbrk(++str, ".-["),
 			   *end,
@@ -60,7 +60,7 @@ find_struct_member(const char *name, char *str, struct ECPGstruct_member *member
 					int			count;
 
 					/*
-					 * We don't care about what's inside the array brackets so
+					 * We don't care about what's inside the array braces so
 					 * just eat up the character
 					 */
 					for (count = 1, end = next + 1; count; end++)
@@ -123,7 +123,7 @@ find_struct_member(const char *name, char *str, struct ECPGstruct_member *member
 }
 
 static struct variable *
-find_struct(const char *name, char *next, char *end)
+find_struct(char *name, char *next, char *end)
 {
 	struct variable *p;
 	char		c = *next;
@@ -174,7 +174,7 @@ find_struct(const char *name, char *next, char *end)
 }
 
 static struct variable *
-find_simple(const char *name)
+find_simple(char *name)
 {
 	struct variable *p;
 
@@ -190,7 +190,7 @@ find_simple(const char *name)
 /* Note that this function will end the program in case of an unknown */
 /* variable */
 struct variable *
-find_variable(const char *name)
+find_variable(char *name)
 {
 	char	   *next,
 			   *end;
@@ -203,8 +203,8 @@ find_variable(const char *name)
 		if (*next == '[')
 		{
 			/*
-			 * We don't care about what's inside the array brackets so just
-			 * eat up the characters
+			 * We don't care about what's inside the array braces so just eat
+			 * up the characters
 			 */
 			for (count = 1, end = next + 1; count; end++)
 			{
@@ -215,9 +215,6 @@ find_variable(const char *name)
 						break;
 					case ']':
 						count--;
-						break;
-					case '\0':
-						mmfatal(PARSE_ERROR, "unmatched bracket in variable \"%s\"", name);
 						break;
 					default:
 						break;
@@ -233,8 +230,7 @@ find_variable(const char *name)
 				p = find_simple(name);
 				if (p == NULL)
 					mmfatal(PARSE_ERROR, "variable \"%s\" is not declared", name);
-				if (p->type->type != ECPGt_array)
-					mmfatal(PARSE_ERROR, "variable \"%s\" is not a pointer", name);
+
 				*next = c;
 				switch (p->type->u.element->type)
 				{
@@ -279,12 +275,7 @@ remove_typedefs(int brace_level)
 				types = next;
 
 			if (p->type->type_enum == ECPGt_struct || p->type->type_enum == ECPGt_union)
-				ECPGfree_struct_member(p->struct_member_list);
-			free(p->type->type_storage);
-			free(p->type->type_str);
-			free(p->type->type_dimension);
-			free(p->type->type_index);
-			free(p->type->type_sizeof);
+				free(p->struct_member_list);
 			free(p->type);
 			free(p->name);
 			free(p);
@@ -326,7 +317,6 @@ remove_variables(int brace_level)
 							prevvar->next = nextvar;
 						else
 							ptr->argsinsert = nextvar;
-						free(varptr);
 					}
 					else
 						prevvar = varptr;
@@ -342,7 +332,6 @@ remove_variables(int brace_level)
 							prevvar->next = nextvar;
 						else
 							ptr->argsresult = nextvar;
-						free(varptr);
 					}
 					else
 						prevvar = varptr;
@@ -377,20 +366,7 @@ struct arguments *argsresult = NULL;
 void
 reset_variables(void)
 {
-	struct arguments *p,
-			   *next;
-
-	for (p = argsinsert; p; p = next)
-	{
-		next = p->next;
-		free(p);
-	}
 	argsinsert = NULL;
-	for (p = argsresult; p; p = next)
-	{
-		next = p->next;
-		free(p);
-	}
 	argsresult = NULL;
 }
 
@@ -449,7 +425,6 @@ remove_variable_from_list(struct arguments **list, struct variable *var)
 			prev->next = p->next;
 		else
 			*list = p->next;
-		free(p);
 	}
 }
 
@@ -537,10 +512,7 @@ get_typedef(const char *name, bool noerror)
 }
 
 void
-adjust_array(enum ECPGttype type_enum,
-			 const char **dimension, const char **length,
-			 const char *type_dimension, const char *type_index,
-			 int pointer_len, bool type_definition)
+adjust_array(enum ECPGttype type_enum, char **dimension, char **length, char *type_dimension, char *type_index, int pointer_len, bool type_definition)
 {
 	if (atoi(type_index) >= 0)
 	{
@@ -583,7 +555,7 @@ adjust_array(enum ECPGttype type_enum,
 			if (pointer_len)
 			{
 				*length = *dimension;
-				*dimension = "0";
+				*dimension = mm_strdup("0");
 			}
 
 			if (atoi(*length) >= 0)
@@ -594,13 +566,13 @@ adjust_array(enum ECPGttype type_enum,
 		case ECPGt_bytea:
 			/* pointer has to get dimension 0 */
 			if (pointer_len)
-				*dimension = "0";
+				*dimension = mm_strdup("0");
 
 			/* one index is the string length */
 			if (atoi(*length) < 0)
 			{
 				*length = *dimension;
-				*dimension = "-1";
+				*dimension = mm_strdup("-1");
 			}
 
 			break;
@@ -610,13 +582,13 @@ adjust_array(enum ECPGttype type_enum,
 			/* char ** */
 			if (pointer_len == 2)
 			{
-				*length = *dimension = "0";
+				*length = *dimension = mm_strdup("0");
 				break;
 			}
 
 			/* pointer has to get length 0 */
 			if (pointer_len == 1)
-				*length = "0";
+				*length = mm_strdup("0");
 
 			/* one index is the string length */
 			if (atoi(*length) < 0)
@@ -631,13 +603,13 @@ adjust_array(enum ECPGttype type_enum,
 					 * do not change this for typedefs since it will be
 					 * changed later on when the variable is defined
 					 */
-					*length = "1";
+					*length = mm_strdup("1");
 				else if (strcmp(*dimension, "0") == 0)
-					*length = "-1";
+					*length = mm_strdup("-1");
 				else
 					*length = *dimension;
 
-				*dimension = "-1";
+				*dimension = mm_strdup("-1");
 			}
 			break;
 		default:
@@ -645,7 +617,7 @@ adjust_array(enum ECPGttype type_enum,
 			if (pointer_len)
 			{
 				*length = *dimension;
-				*dimension = "0";
+				*dimension = mm_strdup("0");
 			}
 
 			if (atoi(*length) >= 0)

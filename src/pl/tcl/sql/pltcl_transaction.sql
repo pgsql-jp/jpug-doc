@@ -1,3 +1,6 @@
+-- suppress CONTEXT so that function OIDs aren't in output
+\set VERBOSITY terse
+
 CREATE TABLE test1 (a int, b text);
 
 

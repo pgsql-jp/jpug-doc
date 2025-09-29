@@ -3,7 +3,7 @@
  * dict_xsyn.c
  *	  Extended synonym dictionary
  *
- * Copyright (c) 2007-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2007-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  contrib/dict_xsyn/dict_xsyn.c
@@ -14,16 +14,11 @@
 
 #include <ctype.h>
 
-#include "catalog/pg_collation_d.h"
 #include "commands/defrem.h"
 #include "tsearch/ts_locale.h"
-#include "tsearch/ts_public.h"
-#include "utils/formatting.h"
+#include "tsearch/ts_utils.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "dict_xsyn",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 typedef struct
 {
@@ -53,14 +48,14 @@ find_word(char *in, char **end)
 	char	   *start;
 
 	*end = NULL;
-	while (*in && isspace((unsigned char) *in))
+	while (*in && t_isspace(in))
 		in += pg_mblen(in);
 
 	if (!*in || *in == '#')
 		return NULL;
 	start = in;
 
-	while (*in && !isspace((unsigned char) *in))
+	while (*in && !t_isspace(in))
 		in += pg_mblen(in);
 
 	*end = in;
@@ -98,7 +93,7 @@ read_dictionary(DictSyn *d, const char *filename)
 		if (*line == '\0')
 			continue;
 
-		value = str_tolower(line, strlen(line), DEFAULT_COLLATION_OID);
+		value = lowerstr(line);
 		pfree(line);
 
 		pos = value;
@@ -215,7 +210,7 @@ dxsyn_lexize(PG_FUNCTION_ARGS)
 	{
 		char	   *temp = pnstrdup(in, length);
 
-		word.key = str_tolower(temp, length, DEFAULT_COLLATION_OID);
+		word.key = lowerstr(temp);
 		pfree(temp);
 		word.value = NULL;
 	}

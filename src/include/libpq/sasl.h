@@ -7,7 +7,7 @@
  *
  * See src/interfaces/libpq/fe-auth-sasl.h for the frontend counterpart.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/libpq/sasl.h
@@ -27,15 +27,7 @@
 #define PG_SASL_EXCHANGE_FAILURE		2
 
 /*
- * Maximum accepted size of SASL messages.
- *
- * The messages that the server or libpq generate are much smaller than this,
- * but have some headroom.
- */
-#define PG_MAX_SASL_MESSAGE_LENGTH	1024
-
-/*
- * Backend SASL mechanism callbacks and metadata.
+ * Backend SASL mechanism callbacks.
  *
  * To implement a backend mechanism, declare a pg_be_sasl_mech struct with
  * appropriate callback implementations.  Then pass the mechanism to
@@ -135,9 +127,6 @@ typedef struct pg_be_sasl_mech
 							 const char *input, int inputlen,
 							 char **output, int *outputlen,
 							 const char **logdetail);
-
-	/* The maximum size allowed for client SASLResponses. */
-	int			max_message_length;
 } pg_be_sasl_mech;
 
 /* Common implementation for auth.c */

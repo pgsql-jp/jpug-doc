@@ -11,7 +11,7 @@
  * PG_TRY if necessary.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -97,7 +97,6 @@ validateTzEntry(tzEntry *tzentry)
 static bool
 splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 {
-	char	   *brkl;
 	char	   *abbrev;
 	char	   *offset;
 	char	   *offset_endptr;
@@ -107,7 +106,7 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 	tzentry->lineno = lineno;
 	tzentry->filename = filename;
 
-	abbrev = strtok_r(line, WHITESPACE, &brkl);
+	abbrev = strtok(line, WHITESPACE);
 	if (!abbrev)
 	{
 		GUC_check_errmsg("missing time zone abbreviation in time zone file \"%s\", line %d",
@@ -116,7 +115,7 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 	}
 	tzentry->abbrev = pstrdup(abbrev);
 
-	offset = strtok_r(NULL, WHITESPACE, &brkl);
+	offset = strtok(NULL, WHITESPACE);
 	if (!offset)
 	{
 		GUC_check_errmsg("missing time zone offset in time zone file \"%s\", line %d",
@@ -136,11 +135,11 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 			return false;
 		}
 
-		is_dst = strtok_r(NULL, WHITESPACE, &brkl);
+		is_dst = strtok(NULL, WHITESPACE);
 		if (is_dst && pg_strcasecmp(is_dst, "D") == 0)
 		{
 			tzentry->is_dst = true;
-			remain = strtok_r(NULL, WHITESPACE, &brkl);
+			remain = strtok(NULL, WHITESPACE);
 		}
 		else
 		{
@@ -159,7 +158,7 @@ splitTzLine(const char *filename, int lineno, char *line, tzEntry *tzentry)
 		tzentry->zone = pstrdup(offset);
 		tzentry->offset = 0 * SECS_PER_HOUR;
 		tzentry->is_dst = false;
-		remain = strtok_r(NULL, WHITESPACE, &brkl);
+		remain = strtok(NULL, WHITESPACE);
 	}
 
 	if (!remain)				/* no more non-whitespace chars */
@@ -395,9 +394,8 @@ ParseTzFile(const char *filename, int depth,
 		{
 			/* pstrdup so we can use filename in result data structure */
 			char	   *includeFile = pstrdup(line + strlen("@INCLUDE"));
-			char	   *brki;
 
-			includeFile = strtok_r(includeFile, WHITESPACE, &brki);
+			includeFile = strtok(includeFile, WHITESPACE);
 			if (!includeFile || !*includeFile)
 			{
 				GUC_check_errmsg("@INCLUDE without file name in time zone file \"%s\", line %d",

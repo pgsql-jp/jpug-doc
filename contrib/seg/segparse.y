@@ -12,7 +12,6 @@
 #include "utils/float.h"
 
 #include "segdata.h"
-#include "segparse.h"
 
 /*
  * Bison doesn't allocate anything that needs to live across parser calls,
@@ -26,14 +25,19 @@ static bool seg_atof(char *value, float *result, struct Node *escontext);
 
 static int sig_digits(const char *value);
 
+static char strbuf[25] = {
+	'0', '0', '0', '0', '0',
+	'0', '0', '0', '0', '0',
+	'0', '0', '0', '0', '0',
+	'0', '0', '0', '0', '0',
+	'0', '0', '0', '0', '\0'
+};
+
 %}
 
 /* BISON Declarations */
 %parse-param {SEG *result}
 %parse-param {struct Node *escontext}
-%parse-param {yyscan_t yyscanner}
-%lex-param   {yyscan_t yyscanner}
-%pure-parser
 %expect 0
 %name-prefix="seg_yy"
 
@@ -61,18 +65,14 @@ static int sig_digits(const char *value);
 
 range: boundary PLUMIN deviation
 	{
-		char		strbuf[25];
-
 		result->lower = $1.val - $3.val;
 		result->upper = $1.val + $3.val;
-		snprintf(strbuf, sizeof(strbuf), "%g", result->lower);
+		sprintf(strbuf, "%g", result->lower);
 		result->l_sigd = Max(sig_digits(strbuf), Max($1.sigd, $3.sigd));
-		snprintf(strbuf, sizeof(strbuf), "%g", result->upper);
+		sprintf(strbuf, "%g", result->upper);
 		result->u_sigd = Max(sig_digits(strbuf), Max($1.sigd, $3.sigd));
 		result->l_ext = '\0';
 		result->u_ext = '\0';
-
-		(void) yynerrs; /* suppress compiler warning */
 	}
 
 	| boundary RANGE boundary

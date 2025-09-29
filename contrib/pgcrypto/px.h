@@ -89,20 +89,12 @@
 #define PXE_PGP_UNSUPPORTED_PUBALGO -122
 #define PXE_PGP_MULTIPLE_SUBKEYS	-123
 
-typedef enum BuiltinCryptoOptions
-{
-	BC_ON,
-	BC_OFF,
-	BC_FIPS,
-}			BuiltinCryptoOptions;
 
 typedef struct px_digest PX_MD;
 typedef struct px_alias PX_Alias;
 typedef struct px_hmac PX_HMAC;
 typedef struct px_cipher PX_Cipher;
 typedef struct px_combo PX_Combo;
-
-extern int	builtin_crypto_enabled;
 
 struct px_digest
 {
@@ -181,7 +173,7 @@ int			px_find_hmac(const char *name, PX_HMAC **res);
 int			px_find_cipher(const char *name, PX_Cipher **res);
 int			px_find_combo(const char *name, PX_Combo **res);
 
-pg_noreturn void px_THROW_ERROR(int err);
+void		px_THROW_ERROR(int err) pg_attribute_noreturn();
 const char *px_strerror(int err);
 
 const char *px_resolve_alias(const PX_Alias *list, const char *name);
@@ -189,9 +181,6 @@ const char *px_resolve_alias(const PX_Alias *list, const char *name);
 void		px_set_debug_handler(void (*handler) (const char *));
 
 void		px_memset(void *ptr, int c, size_t len);
-
-bool		CheckFIPSMode(void);
-void		CheckBuiltinCryptoMode(void);
 
 #ifdef PX_DEBUG
 void		px_debug(const char *fmt,...) pg_attribute_printf(1, 2);

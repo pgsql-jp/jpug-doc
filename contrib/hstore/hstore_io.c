@@ -21,10 +21,7 @@
 #include "utils/memutils.h"
 #include "utils/typcache.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "hstore",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 /* old names for C functions */
 HSTORE_POLLUTE(hstore_from_text, tconvert);
@@ -1346,20 +1343,23 @@ hstore_to_json_loose(PG_FUNCTION_ARGS)
 	int			count = HS_COUNT(in);
 	char	   *base = STRPTR(in);
 	HEntry	   *entries = ARRPTR(in);
-	StringInfoData dst;
+	StringInfoData tmp,
+				dst;
 
 	if (count == 0)
 		PG_RETURN_TEXT_P(cstring_to_text_with_len("{}", 2));
 
+	initStringInfo(&tmp);
 	initStringInfo(&dst);
 
 	appendStringInfoChar(&dst, '{');
 
 	for (i = 0; i < count; i++)
 	{
-		escape_json_with_len(&dst,
-							 HSTORE_KEY(entries, base, i),
-							 HSTORE_KEYLEN(entries, i));
+		resetStringInfo(&tmp);
+		appendBinaryStringInfo(&tmp, HSTORE_KEY(entries, base, i),
+							   HSTORE_KEYLEN(entries, i));
+		escape_json(&dst, tmp.data);
 		appendStringInfoString(&dst, ": ");
 		if (HSTORE_VALISNULL(entries, i))
 			appendStringInfoString(&dst, "null");
@@ -1372,13 +1372,13 @@ hstore_to_json_loose(PG_FUNCTION_ARGS)
 			appendStringInfoString(&dst, "false");
 		else
 		{
-			char	   *str = HSTORE_VAL(entries, base, i);
-			int			len = HSTORE_VALLEN(entries, i);
-
-			if (IsValidJsonNumber(str, len))
-				appendBinaryStringInfo(&dst, str, len);
+			resetStringInfo(&tmp);
+			appendBinaryStringInfo(&tmp, HSTORE_VAL(entries, base, i),
+								   HSTORE_VALLEN(entries, i));
+			if (IsValidJsonNumber(tmp.data, tmp.len))
+				appendBinaryStringInfo(&dst, tmp.data, tmp.len);
 			else
-				escape_json_with_len(&dst, str, len);
+				escape_json(&dst, tmp.data);
 		}
 
 		if (i + 1 != count)
@@ -1398,28 +1398,32 @@ hstore_to_json(PG_FUNCTION_ARGS)
 	int			count = HS_COUNT(in);
 	char	   *base = STRPTR(in);
 	HEntry	   *entries = ARRPTR(in);
-	StringInfoData dst;
+	StringInfoData tmp,
+				dst;
 
 	if (count == 0)
 		PG_RETURN_TEXT_P(cstring_to_text_with_len("{}", 2));
 
+	initStringInfo(&tmp);
 	initStringInfo(&dst);
 
 	appendStringInfoChar(&dst, '{');
 
 	for (i = 0; i < count; i++)
 	{
-		escape_json_with_len(&dst,
-							 HSTORE_KEY(entries, base, i),
-							 HSTORE_KEYLEN(entries, i));
+		resetStringInfo(&tmp);
+		appendBinaryStringInfo(&tmp, HSTORE_KEY(entries, base, i),
+							   HSTORE_KEYLEN(entries, i));
+		escape_json(&dst, tmp.data);
 		appendStringInfoString(&dst, ": ");
 		if (HSTORE_VALISNULL(entries, i))
 			appendStringInfoString(&dst, "null");
 		else
 		{
-			escape_json_with_len(&dst,
-								 HSTORE_VAL(entries, base, i),
-								 HSTORE_VALLEN(entries, i));
+			resetStringInfo(&tmp);
+			appendBinaryStringInfo(&tmp, HSTORE_VAL(entries, base, i),
+								   HSTORE_VALLEN(entries, i));
+			escape_json(&dst, tmp.data);
 		}
 
 		if (i + 1 != count)

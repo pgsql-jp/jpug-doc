@@ -37,7 +37,7 @@
  * record, wait for it to be replicated to the standby, and then exit.
  *
  *
- * Portions Copyright (c) 2010-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2010-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  src/backend/replication/walsender.c
@@ -79,7 +79,6 @@
 #include "replication/walsender.h"
 #include "replication/walsender_private.h"
 #include "storage/condition_variable.h"
-#include "storage/aio_subsys.h"
 #include "storage/fd.h"
 #include "storage/ipc.h"
 #include "storage/pmsignal.h"
@@ -242,7 +241,7 @@ typedef void (*WalSndSendDataCallback) (void);
 static void WalSndLoop(WalSndSendDataCallback send_data);
 static void InitWalSenderSlot(void);
 static void WalSndKill(int code, Datum arg);
-pg_noreturn static void WalSndShutdown(void);
+static void WalSndShutdown(void) pg_attribute_noreturn();
 static void XLogSendPhysical(void);
 static void XLogSendLogical(void);
 static void WalSndDone(WalSndSendDataCallback send_data);
@@ -287,8 +286,10 @@ InitWalSender(void)
 	/* Create a per-walsender data structure in shared memory */
 	InitWalSenderSlot();
 
-	/* need resource owner for e.g. basebackups */
-	CreateAuxProcessResourceOwner();
+	/*
+	 * We don't currently need any ResourceOwner in a walsender process, but
+	 * if we did, we could call CreateAuxProcessResourceOwner here.
+	 */
 
 	/*
 	 * Let postmaster know that we're a WAL sender. Once we've declared us as
@@ -332,7 +333,6 @@ WalSndErrorCleanup(void)
 	LWLockReleaseAll();
 	ConditionVariableCancelSleep();
 	pgstat_report_wait_end();
-	pgaio_error_cleanup();
 
 	if (xlogreader != NULL && xlogreader->seg.ws_file >= 0)
 		wal_segment_close(xlogreader);
@@ -350,13 +350,41 @@ WalSndErrorCleanup(void)
 	 * without a transaction, we've got to clean that up now.
 	 */
 	if (!IsTransactionOrTransactionBlock())
-		ReleaseAuxProcessResources(false);
+		WalSndResourceCleanup(false);
 
 	if (got_STOPPING || got_SIGUSR2)
 		proc_exit(0);
 
 	/* Revert back to startup state */
 	WalSndSetState(WALSNDSTATE_STARTUP);
+}
+
+/*
+ * Clean up any ResourceOwner we created.
+ */
+void
+WalSndResourceCleanup(bool isCommit)
+{
+	ResourceOwner resowner;
+
+	if (CurrentResourceOwner == NULL)
+		return;
+
+	/*
+	 * Deleting CurrentResourceOwner is not allowed, so we must save a pointer
+	 * in a local variable and clear it first.
+	 */
+	resowner = CurrentResourceOwner;
+	CurrentResourceOwner = NULL;
+
+	/* Now we can release resources and delete it. */
+	ResourceOwnerRelease(resowner,
+						 RESOURCE_RELEASE_BEFORE_LOCKS, isCommit, true);
+	ResourceOwnerRelease(resowner,
+						 RESOURCE_RELEASE_LOCKS, isCommit, true);
+	ResourceOwnerRelease(resowner,
+						 RESOURCE_RELEASE_AFTER_LOCKS, isCommit, true);
+	ResourceOwnerDelete(resowner);
 }
 
 /*
@@ -416,10 +444,12 @@ IdentifySystem(void)
 
 		/* syscache access needs a transaction env. */
 		StartTransactionCommand();
+		/* make dbname live outside TX context */
+		MemoryContextSwitchTo(cur);
 		dbname = get_database_name(MyDatabaseId);
-		/* copy dbname out of TX context */
-		dbname = MemoryContextStrdup(cur, dbname);
 		CommitTransactionCommand();
+		/* CommitTransactionCommand switches to TopMemoryContext */
+		MemoryContextSwitchTo(cur);
 	}
 
 	dest = CreateDestReceiver(DestRemoteSimple);
@@ -661,10 +691,8 @@ UploadManifest(void)
 	 * parsing the manifest will use the cryptohash stuff, which requires a
 	 * resource owner
 	 */
-	Assert(AuxProcessResourceOwner != NULL);
-	Assert(CurrentResourceOwner == AuxProcessResourceOwner ||
-		   CurrentResourceOwner == NULL);
-	CurrentResourceOwner = AuxProcessResourceOwner;
+	Assert(CurrentResourceOwner == NULL);
+	CurrentResourceOwner = ResourceOwnerCreate(NULL, "base backup");
 
 	/* Prepare to read manifest data into a temporary context. */
 	mcxt = AllocSetContextCreate(CurrentMemoryContext,
@@ -701,7 +729,7 @@ UploadManifest(void)
 	uploaded_manifest_mcxt = mcxt;
 
 	/* clean up the resource owner we created */
-	ReleaseAuxProcessResources(true);
+	WalSndResourceCleanup(true);
 }
 
 /*
@@ -822,7 +850,7 @@ StartReplication(StartReplicationCmd *cmd)
 
 	if (cmd->slotname)
 	{
-		ReplicationSlotAcquire(cmd->slotname, true, true);
+		ReplicationSlotAcquire(cmd->slotname, true);
 		if (SlotIsLogical(MyReplicationSlot))
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -1035,21 +1063,16 @@ logical_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr, int req
 
 	/*
 	 * Make sure we have enough WAL available before retrieving the current
-	 * timeline.
+	 * timeline. This is needed to determine am_cascading_walsender accurately
+	 * which is needed to determine the current timeline.
 	 */
 	flushptr = WalSndWaitForWal(targetPagePtr + reqLen);
-
-	/* Fail if not enough (implies we are going to shut down) */
-	if (flushptr < targetPagePtr + reqLen)
-		return -1;
 
 	/*
 	 * Since logical decoding is also permitted on a standby server, we need
 	 * to check if the server is in recovery to decide how to get the current
-	 * timeline ID (so that it also covers the promotion or timeline change
-	 * cases). We must determine am_cascading_walsender after waiting for the
-	 * required WAL so that it is correct when the walsender wakes up after a
-	 * promotion.
+	 * timeline ID (so that it also cover the promotion or timeline change
+	 * cases).
 	 */
 	am_cascading_walsender = RecoveryInProgress();
 
@@ -1063,6 +1086,10 @@ logical_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr, int req
 	sendTimeLine = state->currTLI;
 	sendTimeLineValidUpto = state->currTLIValidUntil;
 	sendTimeLineNextTLI = state->nextTLI;
+
+	/* fail if not (implies we are going to shut down) */
+	if (flushptr < targetPagePtr + reqLen)
+		return -1;
 
 	if (targetPagePtr + XLOG_BLCKSZ <= flushptr)
 		count = XLOG_BLCKSZ;	/* more than one block available */
@@ -1385,15 +1412,12 @@ DropReplicationSlot(DropReplicationSlotCmd *cmd)
 }
 
 /*
- * Change the definition of a replication slot.
+ * Process extra options given to ALTER_REPLICATION_SLOT.
  */
 static void
-AlterReplicationSlot(AlterReplicationSlotCmd *cmd)
+ParseAlterReplSlotOptions(AlterReplicationSlotCmd *cmd, bool *failover)
 {
 	bool		failover_given = false;
-	bool		two_phase_given = false;
-	bool		failover;
-	bool		two_phase;
 
 	/* Parse options */
 	foreach_ptr(DefElem, defel, cmd->options)
@@ -1405,24 +1429,23 @@ AlterReplicationSlot(AlterReplicationSlotCmd *cmd)
 						(errcode(ERRCODE_SYNTAX_ERROR),
 						 errmsg("conflicting or redundant options")));
 			failover_given = true;
-			failover = defGetBoolean(defel);
-		}
-		else if (strcmp(defel->defname, "two_phase") == 0)
-		{
-			if (two_phase_given)
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("conflicting or redundant options")));
-			two_phase_given = true;
-			two_phase = defGetBoolean(defel);
+			*failover = defGetBoolean(defel);
 		}
 		else
 			elog(ERROR, "unrecognized option: %s", defel->defname);
 	}
+}
 
-	ReplicationSlotAlter(cmd->slotname,
-						 failover_given ? &failover : NULL,
-						 two_phase_given ? &two_phase : NULL);
+/*
+ * Change the definition of a replication slot.
+ */
+static void
+AlterReplicationSlot(AlterReplicationSlotCmd *cmd)
+{
+	bool		failover = false;
+
+	ParseAlterReplSlotOptions(cmd, &failover);
+	ReplicationSlotAlter(cmd->slotname, failover);
 }
 
 /*
@@ -1440,7 +1463,7 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 
 	Assert(!MyReplicationSlot);
 
-	ReplicationSlotAcquire(cmd->slotname, true, true);
+	ReplicationSlotAcquire(cmd->slotname, true);
 
 	/*
 	 * Force a disconnect, so that the decoding code doesn't need to care
@@ -1948,7 +1971,6 @@ WalSndWaitForWal(XLogRecPtr loc)
 									   WALSENDER_STATS_FLUSH_INTERVAL))
 		{
 			pgstat_flush_io(false);
-			(void) pgstat_flush_backend(false, PGSTAT_BACKEND_FLUSH_IO);
 			last_flush = now;
 		}
 
@@ -1969,14 +1991,11 @@ WalSndWaitForWal(XLogRecPtr loc)
 bool
 exec_replication_command(const char *cmd_string)
 {
-	yyscan_t	scanner;
 	int			parse_rc;
 	Node	   *cmd_node;
 	const char *cmdtag;
-	MemoryContext old_context = CurrentMemoryContext;
-
-	/* We save and re-use the cmd_context across calls */
-	static MemoryContext cmd_context = NULL;
+	MemoryContext cmd_context;
+	MemoryContext old_context;
 
 	/*
 	 * If WAL sender has been told that shutdown is getting close, switch its
@@ -2005,43 +2024,24 @@ exec_replication_command(const char *cmd_string)
 
 	/*
 	 * Prepare to parse and execute the command.
-	 *
-	 * Because replication command execution can involve beginning or ending
-	 * transactions, we need a working context that will survive that, so we
-	 * make it a child of TopMemoryContext.  That in turn creates a hazard of
-	 * long-lived memory leaks if we lose track of the working context.  We
-	 * deal with that by creating it only once per walsender, and resetting it
-	 * for each new command.  (Normally this reset is a no-op, but if the
-	 * prior exec_replication_command call failed with an error, it won't be.)
-	 *
-	 * This is subtler than it looks.  The transactions we manage can extend
-	 * across replication commands, indeed SnapBuildClearExportedSnapshot
-	 * might have just ended one.  Because transaction exit will revert to the
-	 * memory context that was current at transaction start, we need to be
-	 * sure that that context is still valid.  That motivates re-using the
-	 * same cmd_context rather than making a new one each time.
 	 */
-	if (cmd_context == NULL)
-		cmd_context = AllocSetContextCreate(TopMemoryContext,
-											"Replication command context",
-											ALLOCSET_DEFAULT_SIZES);
-	else
-		MemoryContextReset(cmd_context);
+	cmd_context = AllocSetContextCreate(CurrentMemoryContext,
+										"Replication command context",
+										ALLOCSET_DEFAULT_SIZES);
+	old_context = MemoryContextSwitchTo(cmd_context);
 
-	MemoryContextSwitchTo(cmd_context);
-
-	replication_scanner_init(cmd_string, &scanner);
+	replication_scanner_init(cmd_string);
 
 	/*
 	 * Is it a WalSender command?
 	 */
-	if (!replication_scanner_is_replication_command(scanner))
+	if (!replication_scanner_is_replication_command())
 	{
 		/* Nope; clean up and get out. */
-		replication_scanner_finish(scanner);
+		replication_scanner_finish();
 
 		MemoryContextSwitchTo(old_context);
-		MemoryContextReset(cmd_context);
+		MemoryContextDelete(cmd_context);
 
 		/* XXX this is a pretty random place to make this check */
 		if (MyDatabaseId == InvalidOid)
@@ -2056,13 +2056,15 @@ exec_replication_command(const char *cmd_string)
 	/*
 	 * Looks like a WalSender command, so parse it.
 	 */
-	parse_rc = replication_yyparse(&cmd_node, scanner);
+	parse_rc = replication_yyparse();
 	if (parse_rc != 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg_internal("replication command parser returned %d",
 								 parse_rc)));
-	replication_scanner_finish(scanner);
+	replication_scanner_finish();
+
+	cmd_node = replication_parse_result;
 
 	/*
 	 * Report query to various monitoring facilities.  For this purpose, we
@@ -2201,12 +2203,9 @@ exec_replication_command(const char *cmd_string)
 				 cmd_node->type);
 	}
 
-	/*
-	 * Done.  Revert to caller's memory context, and clean out the cmd_context
-	 * to recover memory right away.
-	 */
+	/* done */
 	MemoryContextSwitchTo(old_context);
-	MemoryContextReset(cmd_context);
+	MemoryContextDelete(cmd_context);
 
 	/*
 	 * We need not update ps display or pg_stat_activity, because PostgresMain
@@ -2393,6 +2392,10 @@ PhysicalConfirmReceivedLocation(XLogRecPtr lsn)
 	 * be energy wasted - the worst thing lost information could cause here is
 	 * to give wrong information in a statistics view - we'll just potentially
 	 * be more conservative in removing files.
+	 *
+	 * Checkpointer makes special efforts to keep the WAL segments required by
+	 * the restart_lsn written to the disk. See CreateCheckPoint() and
+	 * CreateRestartPoint() for details.
 	 */
 }
 
@@ -2910,7 +2913,6 @@ WalSndLoop(WalSndSendDataCallback send_data)
 										   WALSENDER_STATS_FLUSH_INTERVAL))
 			{
 				pgstat_flush_io(false);
-				(void) pgstat_flush_backend(false, PGSTAT_BACKEND_FLUSH_IO);
 				last_flush = now;
 			}
 
@@ -2964,6 +2966,7 @@ InitWalSenderSlot(void)
 			walsnd->flushLag = -1;
 			walsnd->applyLag = -1;
 			walsnd->sync_standby_priority = 0;
+			walsnd->latch = &MyProc->procLatch;
 			walsnd->replyTime = 0;
 
 			/*
@@ -3007,6 +3010,8 @@ WalSndKill(int code, Datum arg)
 	MyWalSnd = NULL;
 
 	SpinLockAcquire(&walsnd->mutex);
+	/* clear latch while holding the spinlock, so it can safely be read */
+	walsnd->latch = NULL;
 	/* Mark WalSnd struct as no longer being in use. */
 	walsnd->pid = 0;
 	SpinLockRelease(&walsnd->mutex);

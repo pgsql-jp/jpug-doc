@@ -3,7 +3,7 @@
  * compress_io.h
  *	 Interface to compress_io.c routines
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -123,22 +123,21 @@ struct CompressFileHandle
 									CompressFileHandle *CFH);
 
 	/*
-	 * Read up to 'size' bytes of data from the file and store them into
-	 * 'ptr'.
+	 * Read 'size' bytes of data from the file and store them into 'ptr'.
+	 * Optionally it will store the number of bytes read in 'rsize'.
 	 *
-	 * Returns number of bytes read (this might be less than 'size' if EOF was
-	 * reached).  Exits via pg_fatal for all error conditions.
+	 * Returns true on success and throws an internal error otherwise.
 	 */
-	size_t		(*read_func) (void *ptr, size_t size,
+	bool		(*read_func) (void *ptr, size_t size, size_t *rsize,
 							  CompressFileHandle *CFH);
 
 	/*
 	 * Write 'size' bytes of data into the file from 'ptr'.
 	 *
-	 * Returns nothing, exits via pg_fatal for all error conditions.
+	 * Returns true on success and false on error.
 	 */
-	void		(*write_func) (const void *ptr, size_t size,
-							   CompressFileHandle *CFH);
+	bool		(*write_func) (const void *ptr, size_t size,
+							   struct CompressFileHandle *CFH);
 
 	/*
 	 * Read at most size - 1 characters from the compress file handle into

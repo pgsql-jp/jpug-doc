@@ -8,24 +8,26 @@
 
 #include <limits.h>
 
+#include "access/xact.h"
 #include "catalog/pg_type.h"
 #include "mb/pg_wchar.h"
 #include "plpy_cursorobject.h"
 #include "plpy_elog.h"
 #include "plpy_main.h"
 #include "plpy_planobject.h"
+#include "plpy_procedure.h"
 #include "plpy_resultobject.h"
 #include "plpy_spi.h"
-#include "plpy_util.h"
+#include "plpython.h"
 #include "utils/memutils.h"
 
 static PyObject *PLy_cursor_query(const char *query);
-static void PLy_cursor_dealloc(PLyCursorObject *self);
+static void PLy_cursor_dealloc(PyObject *arg);
 static PyObject *PLy_cursor_iternext(PyObject *self);
 static PyObject *PLy_cursor_fetch(PyObject *self, PyObject *args);
 static PyObject *PLy_cursor_close(PyObject *self, PyObject *unused);
 
-static const char PLy_cursor_doc[] = "Wrapper around a PostgreSQL cursor";
+static char PLy_cursor_doc[] = "Wrapper around a PostgreSQL cursor";
 
 static PyMethodDef PLy_cursor_methods[] = {
 	{"fetch", PLy_cursor_fetch, METH_VARARGS, NULL},
@@ -33,43 +35,22 @@ static PyMethodDef PLy_cursor_methods[] = {
 	{NULL, NULL, 0, NULL}
 };
 
-static PyType_Slot PLyCursor_slots[] =
-{
-	{
-		Py_tp_dealloc, PLy_cursor_dealloc
-	},
-	{
-		Py_tp_doc, (char *) PLy_cursor_doc
-	},
-	{
-		Py_tp_iter, PyObject_SelfIter
-	},
-	{
-		Py_tp_iternext, PLy_cursor_iternext
-	},
-	{
-		Py_tp_methods, PLy_cursor_methods
-	},
-	{
-		0, NULL
-	}
+static PyTypeObject PLy_CursorType = {
+	PyVarObject_HEAD_INIT(NULL, 0)
+	.tp_name = "PLyCursor",
+	.tp_basicsize = sizeof(PLyCursorObject),
+	.tp_dealloc = PLy_cursor_dealloc,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+	.tp_doc = PLy_cursor_doc,
+	.tp_iter = PyObject_SelfIter,
+	.tp_iternext = PLy_cursor_iternext,
+	.tp_methods = PLy_cursor_methods,
 };
-
-static PyType_Spec PLyCursor_spec =
-{
-	.name = "PLyCursor",
-	.basicsize = sizeof(PLyCursorObject),
-	.flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-	.slots = PLyCursor_slots,
-};
-
-static PyTypeObject *PLy_CursorType;
 
 void
 PLy_cursor_init_type(void)
 {
-	PLy_CursorType = (PyTypeObject *) PyType_FromSpec(&PLyCursor_spec);
-	if (!PLy_CursorType)
+	if (PyType_Ready(&PLy_CursorType) < 0)
 		elog(ERROR, "could not initialize PLy_CursorType");
 }
 
@@ -101,12 +82,8 @@ PLy_cursor_query(const char *query)
 	volatile MemoryContext oldcontext;
 	volatile ResourceOwner oldowner;
 
-	if ((cursor = PyObject_New(PLyCursorObject, PLy_CursorType)) == NULL)
+	if ((cursor = PyObject_New(PLyCursorObject, &PLy_CursorType)) == NULL)
 		return NULL;
-#if PY_VERSION_HEX < 0x03080000
-	/* Workaround for Python issue 35810; no longer necessary in Python 3.8 */
-	Py_INCREF(PLy_CursorType);
-#endif
 	cursor->portalname = NULL;
 	cursor->closed = false;
 	cursor->mcxt = AllocSetContextCreate(TopMemoryContext,
@@ -202,12 +179,8 @@ PLy_cursor_plan(PyObject *ob, PyObject *args)
 		return NULL;
 	}
 
-	if ((cursor = PyObject_New(PLyCursorObject, PLy_CursorType)) == NULL)
+	if ((cursor = PyObject_New(PLyCursorObject, &PLy_CursorType)) == NULL)
 		return NULL;
-#if PY_VERSION_HEX < 0x03080000
-	/* Workaround for Python issue 35810; no longer necessary in Python 3.8 */
-	Py_INCREF(PLy_CursorType);
-#endif
 	cursor->portalname = NULL;
 	cursor->closed = false;
 	cursor->mcxt = AllocSetContextCreate(TopMemoryContext,
@@ -301,35 +274,30 @@ PLy_cursor_plan(PyObject *ob, PyObject *args)
 }
 
 static void
-PLy_cursor_dealloc(PLyCursorObject *self)
+PLy_cursor_dealloc(PyObject *arg)
 {
-#if PY_VERSION_HEX >= 0x03080000
-	PyTypeObject *tp = Py_TYPE(self);
-#endif
+	PLyCursorObject *cursor;
 	Portal		portal;
 
-	if (!self->closed)
+	cursor = (PLyCursorObject *) arg;
+
+	if (!cursor->closed)
 	{
-		portal = GetPortalByName(self->portalname);
+		portal = GetPortalByName(cursor->portalname);
 
 		if (PortalIsValid(portal))
 		{
 			UnpinPortal(portal);
 			SPI_cursor_close(portal);
 		}
-		self->closed = true;
+		cursor->closed = true;
 	}
-	if (self->mcxt)
+	if (cursor->mcxt)
 	{
-		MemoryContextDelete(self->mcxt);
-		self->mcxt = NULL;
+		MemoryContextDelete(cursor->mcxt);
+		cursor->mcxt = NULL;
 	}
-
-	PyObject_Free(self);
-#if PY_VERSION_HEX >= 0x03080000
-	/* This was not needed before Python 3.8 (Python issue 35810) */
-	Py_DECREF(tp);
-#endif
+	arg->ob_type->tp_free(arg);
 }
 
 static PyObject *

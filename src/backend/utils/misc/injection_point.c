@@ -6,7 +6,7 @@
  * Injection points can be used to run arbitrary code by attaching callbacks
  * that would be executed in place of the named injection point.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -17,10 +17,6 @@
  */
 #include "postgres.h"
 
-#include "utils/injection_point.h"
-
-#ifdef USE_INJECTION_POINTS
-
 #include <sys/stat.h>
 
 #include "fmgr.h"
@@ -29,7 +25,10 @@
 #include "storage/lwlock.h"
 #include "storage/shmem.h"
 #include "utils/hsearch.h"
+#include "utils/injection_point.h"
 #include "utils/memutils.h"
+
+#ifdef USE_INJECTION_POINTS
 
 /* Field sizes */
 #define INJ_NAME_MAXLEN		64
@@ -521,66 +520,18 @@ InjectionPointCacheRefresh(const char *name)
 #endif
 
 /*
- * Load an injection point into the local cache.
- *
- * This is useful to be able to load an injection point before running it,
- * especially if the injection point is called in a code path where memory
- * allocations cannot happen, like critical sections.
- */
-void
-InjectionPointLoad(const char *name)
-{
-#ifdef USE_INJECTION_POINTS
-	InjectionPointCacheRefresh(name);
-#else
-	elog(ERROR, "Injection points are not supported by this build");
-#endif
-}
-
-/*
  * Execute an injection point, if defined.
  */
 void
-InjectionPointRun(const char *name, void *arg)
+InjectionPointRun(const char *name)
 {
 #ifdef USE_INJECTION_POINTS
 	InjectionPointCacheEntry *cache_entry;
 
 	cache_entry = InjectionPointCacheRefresh(name);
 	if (cache_entry)
-		cache_entry->callback(name, cache_entry->private_data, arg);
+		cache_entry->callback(name, cache_entry->private_data);
 #else
 	elog(ERROR, "Injection points are not supported by this build");
-#endif
-}
-
-/*
- * Execute an injection point directly from the cache, if defined.
- */
-void
-InjectionPointCached(const char *name, void *arg)
-{
-#ifdef USE_INJECTION_POINTS
-	InjectionPointCacheEntry *cache_entry;
-
-	cache_entry = injection_point_cache_get(name);
-	if (cache_entry)
-		cache_entry->callback(name, cache_entry->private_data, arg);
-#else
-	elog(ERROR, "Injection points are not supported by this build");
-#endif
-}
-
-/*
- * Test if an injection point is defined.
- */
-bool
-IsInjectionPointAttached(const char *name)
-{
-#ifdef USE_INJECTION_POINTS
-	return InjectionPointCacheRefresh(name) != NULL;
-#else
-	elog(ERROR, "Injection points are not supported by this build");
-	return false;				/* silence compiler */
 #endif
 }

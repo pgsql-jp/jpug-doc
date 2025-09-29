@@ -3,7 +3,7 @@
  * blcost.c
  *		Cost estimate function for bloom indexes.
  *
- * Copyright (c) 2016-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2024, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
  *	  contrib/bloom/blcost.c
@@ -13,6 +13,7 @@
 #include "postgres.h"
 
 #include "bloom.h"
+#include "fmgr.h"
 #include "utils/selfuncs.h"
 
 /*

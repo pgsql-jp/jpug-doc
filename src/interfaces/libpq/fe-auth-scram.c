@@ -3,7 +3,7 @@
  * fe-auth-scram.c
  *	   The front-end (client) implementation of SCRAM authentication.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -24,8 +24,7 @@
 /* The exported SCRAM callback mechanism. */
 static void *scram_init(PGconn *conn, const char *password,
 						const char *sasl_mechanism);
-static SASLStatus scram_exchange(void *opaq, bool final,
-								 char *input, int inputlen,
+static SASLStatus scram_exchange(void *opaq, char *input, int inputlen,
 								 char **output, int *outputlen);
 static bool scram_channel_bound(void *opaq);
 static void scram_free(void *opaq);
@@ -70,14 +69,14 @@ typedef struct
 
 	/* These come from the server-first message */
 	char	   *server_first_message;
-	uint8	   *salt;
+	char	   *salt;
 	int			saltlen;
 	int			iterations;
 	char	   *nonce;
 
 	/* These come from the server-final message */
 	char	   *server_final_message;
-	uint8		ServerSignature[SCRAM_MAX_KEY_LEN];
+	char		ServerSignature[SCRAM_MAX_KEY_LEN];
 } fe_scram_state;
 
 static bool read_server_first_message(fe_scram_state *state, char *input);
@@ -120,28 +119,25 @@ scram_init(PGconn *conn,
 		return NULL;
 	}
 
-	if (password)
+	/* Normalize the password with SASLprep, if possible */
+	rc = pg_saslprep(password, &prep_password);
+	if (rc == SASLPREP_OOM)
 	{
-		/* Normalize the password with SASLprep, if possible */
-		rc = pg_saslprep(password, &prep_password);
-		if (rc == SASLPREP_OOM)
+		free(state->sasl_mechanism);
+		free(state);
+		return NULL;
+	}
+	if (rc != SASLPREP_SUCCESS)
+	{
+		prep_password = strdup(password);
+		if (!prep_password)
 		{
 			free(state->sasl_mechanism);
 			free(state);
 			return NULL;
 		}
-		if (rc != SASLPREP_SUCCESS)
-		{
-			prep_password = strdup(password);
-			if (!prep_password)
-			{
-				free(state->sasl_mechanism);
-				free(state);
-				return NULL;
-			}
-		}
-		state->password = prep_password;
 	}
+	state->password = prep_password;
 
 	return state;
 }
@@ -206,8 +202,7 @@ scram_free(void *opaq)
  * Exchange a SCRAM message with backend.
  */
 static SASLStatus
-scram_exchange(void *opaq, bool final,
-			   char *input, int inputlen,
+scram_exchange(void *opaq, char *input, int inputlen,
 			   char **output, int *outputlen)
 {
 	fe_scram_state *state = (fe_scram_state *) opaq;
@@ -350,7 +345,7 @@ static char *
 build_client_first_message(fe_scram_state *state)
 {
 	PGconn	   *conn = state->conn;
-	uint8		raw_nonce[SCRAM_RAW_NONCE_LEN + 1];
+	char		raw_nonce[SCRAM_RAW_NONCE_LEN + 1];
 	char	   *result;
 	int			channel_info_len;
 	int			encoded_len;
@@ -513,7 +508,7 @@ build_client_final_message(fe_scram_state *state)
 			free(cbind_input);
 			goto oom_error;
 		}
-		encoded_cbind_len = pg_b64_encode((uint8 *) cbind_input, cbind_input_len,
+		encoded_cbind_len = pg_b64_encode(cbind_input, cbind_input_len,
 										  buf.data + buf.len,
 										  encoded_cbind_len);
 		if (encoded_cbind_len < 0)
@@ -574,7 +569,7 @@ build_client_final_message(fe_scram_state *state)
 	encoded_len = pg_b64_enc_len(state->key_length);
 	if (!enlargePQExpBuffer(&buf, encoded_len))
 		goto oom_error;
-	encoded_len = pg_b64_encode(client_proof,
+	encoded_len = pg_b64_encode((char *) client_proof,
 								state->key_length,
 								buf.data + buf.len,
 								encoded_len);
@@ -694,7 +689,7 @@ read_server_final_message(fe_scram_state *state, char *input)
 {
 	PGconn	   *conn = state->conn;
 	char	   *encoded_server_signature;
-	uint8	   *decoded_server_signature;
+	char	   *decoded_server_signature;
 	int			server_signature_len;
 
 	state->server_final_message = strdup(input);
@@ -780,31 +775,20 @@ calculate_client_proof(fe_scram_state *state,
 		return false;
 	}
 
-	if (state->conn->scram_client_key_binary)
+	/*
+	 * Calculate SaltedPassword, and store it in 'state' so that we can reuse
+	 * it later in verify_server_signature.
+	 */
+	if (scram_SaltedPassword(state->password, state->hash_type,
+							 state->key_length, state->salt, state->saltlen,
+							 state->iterations, state->SaltedPassword,
+							 errstr) < 0 ||
+		scram_ClientKey(state->SaltedPassword, state->hash_type,
+						state->key_length, ClientKey, errstr) < 0 ||
+		scram_H(ClientKey, state->hash_type, state->key_length,
+				StoredKey, errstr) < 0)
 	{
-		memcpy(ClientKey, state->conn->scram_client_key_binary, SCRAM_MAX_KEY_LEN);
-	}
-	else
-	{
-		/*
-		 * Calculate SaltedPassword, and store it in 'state' so that we can
-		 * reuse it later in verify_server_signature.
-		 */
-		if (scram_SaltedPassword(state->password, state->hash_type,
-								 state->key_length, state->salt, state->saltlen,
-								 state->iterations, state->SaltedPassword,
-								 errstr) < 0 ||
-			scram_ClientKey(state->SaltedPassword, state->hash_type,
-							state->key_length, ClientKey, errstr) < 0)
-		{
-			/* errstr is already filled here */
-			pg_hmac_free(ctx);
-			return false;
-		}
-	}
-
-	if (scram_H(ClientKey, state->hash_type, state->key_length, StoredKey, errstr) < 0)
-	{
+		/* errstr is already filled here */
 		pg_hmac_free(ctx);
 		return false;
 	}
@@ -857,19 +841,12 @@ verify_server_signature(fe_scram_state *state, bool *match,
 		return false;
 	}
 
-	if (state->conn->scram_server_key_binary)
+	if (scram_ServerKey(state->SaltedPassword, state->hash_type,
+						state->key_length, ServerKey, errstr) < 0)
 	{
-		memcpy(ServerKey, state->conn->scram_server_key_binary, SCRAM_MAX_KEY_LEN);
-	}
-	else
-	{
-		if (scram_ServerKey(state->SaltedPassword, state->hash_type,
-							state->key_length, ServerKey, errstr) < 0)
-		{
-			/* errstr is filled already */
-			pg_hmac_free(ctx);
-			return false;
-		}
+		/* errstr is filled already */
+		pg_hmac_free(ctx);
+		return false;
 	}
 
 	/* calculate ServerSignature */
@@ -916,7 +893,7 @@ pg_fe_scram_build_secret(const char *password, int iterations, const char **errs
 {
 	char	   *prep_password;
 	pg_saslprep_rc rc;
-	uint8		saltbuf[SCRAM_DEFAULT_SALT_LEN];
+	char		saltbuf[SCRAM_DEFAULT_SALT_LEN];
 	char	   *result;
 
 	/*

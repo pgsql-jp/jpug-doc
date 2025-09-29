@@ -10,8 +10,7 @@ CREATE TABLE trigger_test (
 
 CREATE TABLE trigger_test_generated (
     i int,
-    j int GENERATED ALWAYS AS (i * 2) STORED,
-    k int GENERATED ALWAYS AS (i * 3) VIRTUAL
+    j int GENERATED ALWAYS AS (i * 2) STORED
 );
 
 CREATE OR REPLACE FUNCTION trigger_data() RETURNS trigger LANGUAGE plperl AS $$

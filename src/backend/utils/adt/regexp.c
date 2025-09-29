@@ -3,7 +3,7 @@
  * regexp.c
  *	  Postgres' interface to the regular expression package.
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -774,8 +774,10 @@ similar_escape_internal(text *pat_text, text *esc_text)
 				elen;
 	bool		afterescape = false;
 	int			nquotes = 0;
-	int			bracket_depth = 0;	/* square bracket nesting level */
-	int			charclass_pos = 0;	/* position inside a character class */
+	int			charclass_depth = 0;	/* Nesting level of character classes,
+										 * encompassed by square brackets */
+	int			charclass_start = 0;	/* State of the character class start,
+										 * for carets */
 
 	p = VARDATA_ANY(pat_text);
 	plen = VARSIZE_ANY_EXHDR(pat_text);
@@ -834,17 +836,6 @@ similar_escape_internal(text *pat_text, text *esc_text)
 	 * the relevant part separators in the above expansion.  If the result
 	 * of this function is used in a plain regexp match (SIMILAR TO), the
 	 * escape-double-quotes have no effect on the match behavior.
-	 *
-	 * While we don't fully validate character classes (bracket expressions),
-	 * we do need to parse them well enough to know where they end.
-	 * "charclass_pos" tracks where we are in a character class.
-	 * Its value is uninteresting when bracket_depth is 0.
-	 * But when bracket_depth > 0, it will be
-	 *   1: right after the opening '[' (a following '^' will negate
-	 *      the class, while ']' is a literal character)
-	 *   2: right after a '^' after the opening '[' (']' is still a literal
-	 *      character)
-	 *   3 or more: further inside the character class (']' ends the class)
 	 *----------
 	 */
 
@@ -916,7 +907,7 @@ similar_escape_internal(text *pat_text, text *esc_text)
 		/* fast path */
 		if (afterescape)
 		{
-			if (pchar == '"' && bracket_depth < 1)	/* escape-double-quote? */
+			if (pchar == '"' && charclass_depth < 1)	/* escape-double-quote? */
 			{
 				/* emit appropriate part separator, per notes above */
 				if (nquotes == 0)
@@ -957,12 +948,6 @@ similar_escape_internal(text *pat_text, text *esc_text)
 				 */
 				*r++ = '\\';
 				*r++ = pchar;
-
-				/*
-				 * If we encounter an escaped character in a character class,
-				 * we are no longer at the beginning.
-				 */
-				charclass_pos = 3;
 			}
 			afterescape = false;
 		}
@@ -971,69 +956,41 @@ similar_escape_internal(text *pat_text, text *esc_text)
 			/* SQL escape character; do not send to output */
 			afterescape = true;
 		}
-		else if (bracket_depth > 0)
+		else if (charclass_depth > 0)
 		{
-			/* inside a character class */
 			if (pchar == '\\')
-			{
-				/*
-				 * If we're here, backslash is not the SQL escape character,
-				 * so treat it as a literal class element, which requires
-				 * doubling it.  (This matches our behavior for backslashes
-				 * outside character classes.)
-				 */
 				*r++ = '\\';
-			}
 			*r++ = pchar;
 
-			/* parse the character class well enough to identify ending ']' */
-			if (pchar == ']' && charclass_pos > 2)
-			{
-				/* found the real end of a bracket pair */
-				bracket_depth--;
-				/* don't reset charclass_pos, this may be an inner bracket */
-			}
+			/*
+			 * Ignore a closing bracket at the start of a character class.
+			 * Such a bracket is taken literally rather than closing the
+			 * class.  "charclass_start" is 1 right at the beginning of a
+			 * class and 2 after an initial caret.
+			 */
+			if (pchar == ']' && charclass_start > 2)
+				charclass_depth--;
 			else if (pchar == '[')
-			{
-				/* start of a nested bracket pair */
-				bracket_depth++;
+				charclass_depth++;
 
-				/*
-				 * We are no longer at the beginning of a character class.
-				 * (The nested bracket pair is a collating element, not a
-				 * character class in its own right.)
-				 */
-				charclass_pos = 3;
-			}
-			else if (pchar == '^')
-			{
-				/*
-				 * A caret right after the opening bracket negates the
-				 * character class.  In that case, the following will
-				 * increment charclass_pos from 1 to 2, so that a following
-				 * ']' is still a literal character and does not end the
-				 * character class.  If we are further inside a character
-				 * class, charclass_pos might get incremented past 3, which is
-				 * fine.
-				 */
-				charclass_pos++;
-			}
+			/*
+			 * If there is a caret right after the opening bracket, it negates
+			 * the character class, but a following closing bracket should
+			 * still be treated as a normal character.  That holds only for
+			 * the first caret, so only the values 1 and 2 mean that closing
+			 * brackets should be taken literally.
+			 */
+			if (pchar == '^')
+				charclass_start++;
 			else
-			{
-				/*
-				 * Anything else (including a backslash or leading ']') is an
-				 * element of the character class, so we are no longer at the
-				 * beginning of the class.
-				 */
-				charclass_pos = 3;
-			}
+				charclass_start = 3;	/* definitely past the start */
 		}
 		else if (pchar == '[')
 		{
 			/* start of a character class */
 			*r++ = pchar;
-			bracket_depth = 1;
-			charclass_pos = 1;
+			charclass_depth++;
+			charclass_start = 1;
 		}
 		else if (pchar == '%')
 		{
@@ -1436,7 +1393,7 @@ regexp_matches(PG_FUNCTION_ARGS)
 		matchctx->nulls = (bool *) palloc(sizeof(bool) * matchctx->npatterns);
 
 		MemoryContextSwitchTo(oldcontext);
-		funcctx->user_fctx = matchctx;
+		funcctx->user_fctx = (void *) matchctx;
 	}
 
 	funcctx = SRF_PERCALL_SETUP();
@@ -1776,7 +1733,7 @@ regexp_split_to_table(PG_FUNCTION_ARGS)
 										false, true, true);
 
 		MemoryContextSwitchTo(oldcontext);
-		funcctx->user_fctx = splitctx;
+		funcctx->user_fctx = (void *) splitctx;
 	}
 
 	funcctx = SRF_PERCALL_SETUP();

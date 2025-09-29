@@ -3,7 +3,7 @@
  * pg_visibility.c
  *	  display visibility map information and page-level visibility bits
  *
- * Copyright (c) 2016-2025, PostgreSQL Global Development Group
+ * Copyright (c) 2016-2024, PostgreSQL Global Development Group
  *
  *	  contrib/pg_visibility/pg_visibility.c
  *-------------------------------------------------------------------------
@@ -21,14 +21,11 @@
 #include "storage/bufmgr.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
-#include "storage/read_stream.h"
 #include "storage/smgr.h"
 #include "utils/rel.h"
+#include "utils/snapmgr.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "pg_visibility",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 typedef struct vbits
 {
@@ -43,17 +40,6 @@ typedef struct corrupt_items
 	BlockNumber count;
 	ItemPointer tids;
 } corrupt_items;
-
-/* for collect_corrupt_items_read_stream_next_block */
-struct collect_corrupt_items_read_stream_private
-{
-	bool		all_frozen;
-	bool		all_visible;
-	BlockNumber current_blocknum;
-	BlockNumber last_exclusive;
-	Relation	rel;
-	Buffer		vmbuffer;
-};
 
 PG_FUNCTION_INFO_V1(pg_visibility_map);
 PG_FUNCTION_INFO_V1(pg_visibility_map_rel);
@@ -427,7 +413,7 @@ pg_truncate_visibility_map(PG_FUNCTION_ARGS)
 		xlrec.flags = SMGR_TRUNCATE_VM;
 
 		XLogBeginInsert();
-		XLogRegisterData(&xlrec, sizeof(xlrec));
+		XLogRegisterData((char *) &xlrec, sizeof(xlrec));
 
 		lsn = XLogInsert(RM_SMGR_ID,
 						 XLOG_SMGR_TRUNCATE | XLR_SPECIAL_REL_UPDATE);
@@ -435,7 +421,7 @@ pg_truncate_visibility_map(PG_FUNCTION_ARGS)
 	}
 
 	if (BlockNumberIsValid(block))
-		smgrtruncate(RelationGetSmgr(rel), &fork, 1, &old_block, &block);
+		smgrtruncate2(RelationGetSmgr(rel), &fork, 1, &old_block, &block);
 
 	END_CRIT_SECTION();
 	MyProc->delayChkptFlags &= ~(DELAY_CHKPT_START | DELAY_CHKPT_COMPLETE);
@@ -508,8 +494,6 @@ collect_visibility_data(Oid relid, bool include_pd)
 	BlockNumber blkno;
 	Buffer		vmbuffer = InvalidBuffer;
 	BufferAccessStrategy bstrategy = GetAccessStrategy(BAS_BULKREAD);
-	BlockRangeReadStreamPrivate p;
-	ReadStream *stream = NULL;
 
 	rel = relation_open(relid, AccessShareLock);
 
@@ -520,26 +504,6 @@ collect_visibility_data(Oid relid, bool include_pd)
 	info = palloc0(offsetof(vbits, bits) + nblocks);
 	info->next = 0;
 	info->count = nblocks;
-
-	/* Create a stream if reading main fork. */
-	if (include_pd)
-	{
-		p.current_blocknum = 0;
-		p.last_exclusive = nblocks;
-
-		/*
-		 * It is safe to use batchmode as block_range_read_stream_cb takes no
-		 * locks.
-		 */
-		stream = read_stream_begin_relation(READ_STREAM_FULL |
-											READ_STREAM_USE_BATCHING,
-											bstrategy,
-											rel,
-											MAIN_FORKNUM,
-											block_range_read_stream_cb,
-											&p,
-											0);
-	}
 
 	for (blkno = 0; blkno < nblocks; ++blkno)
 	{
@@ -565,7 +529,8 @@ collect_visibility_data(Oid relid, bool include_pd)
 			Buffer		buffer;
 			Page		page;
 
-			buffer = read_stream_next_buffer(stream, NULL);
+			buffer = ReadBufferExtended(rel, MAIN_FORKNUM, blkno, RBM_NORMAL,
+										bstrategy);
 			LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
 			page = BufferGetPage(buffer);
@@ -574,12 +539,6 @@ collect_visibility_data(Oid relid, bool include_pd)
 
 			UnlockReleaseBuffer(buffer);
 		}
-	}
-
-	if (include_pd)
-	{
-		Assert(read_stream_next_buffer(stream, NULL) == InvalidBuffer);
-		read_stream_end(stream);
 	}
 
 	/* Clean up. */
@@ -603,20 +562,10 @@ collect_visibility_data(Oid relid, bool include_pd)
  *
  * 1. Ignore processes xmin's, because they consider connection to other
  *    databases that were ignored before.
- * 2. Ignore KnownAssignedXids, as they are not database-aware. Although we
- *    now perform minimal checking on a standby by always using nextXid, this
- *    approach is better than nothing and will at least catch extremely broken
- *    cases where a xid is in the future.
+ * 2. Ignore KnownAssignedXids, because they are not database-aware. At the
+ *    same time, the primary could compute its horizons database-aware.
  * 3. Ignore walsender xmin, because it could go backward if some replication
  *    connections don't use replication slots.
- *
- * While it might seem like we could use KnownAssignedXids for shared
- * catalogs, since shared catalogs rely on a global horizon rather than a
- * database-specific one - there are potential edge cases.  For example, a
- * transaction may crash on the primary without writing a commit/abort record.
- * This would lead to a situation where it appears to still be running on the
- * standby, even though it has already ended on the primary.  For this reason,
- * it's safer to ignore KnownAssignedXids, even for shared catalogs.
  *
  * As a result, we're using only currently running xids to compute the horizon.
  * Surely these would significantly sacrifice accuracy.  But we have to do so
@@ -627,17 +576,7 @@ GetStrictOldestNonRemovableTransactionId(Relation rel)
 {
 	RunningTransactions runningTransactions;
 
-	if (RecoveryInProgress())
-	{
-		TransactionId result;
-
-		/* As we ignore KnownAssignedXids on standby, just pick nextXid */
-		LWLockAcquire(XidGenLock, LW_SHARED);
-		result = XidFromFullTransactionId(TransamVariables->nextXid);
-		LWLockRelease(XidGenLock);
-		return result;
-	}
-	else if (rel == NULL || rel->rd_rel->relisshared)
+	if (rel == NULL || rel->rd_rel->relisshared || RecoveryInProgress())
 	{
 		/* Shared relation: take into account all running xids */
 		runningTransactions = GetRunningTransactionData();
@@ -668,38 +607,6 @@ GetStrictOldestNonRemovableTransactionId(Relation rel)
 }
 
 /*
- * Callback function to get next block for read stream object used in
- * collect_corrupt_items() function.
- */
-static BlockNumber
-collect_corrupt_items_read_stream_next_block(ReadStream *stream,
-											 void *callback_private_data,
-											 void *per_buffer_data)
-{
-	struct collect_corrupt_items_read_stream_private *p = callback_private_data;
-
-	for (; p->current_blocknum < p->last_exclusive; p->current_blocknum++)
-	{
-		bool		check_frozen = false;
-		bool		check_visible = false;
-
-		/* Make sure we are interruptible. */
-		CHECK_FOR_INTERRUPTS();
-
-		if (p->all_frozen && VM_ALL_FROZEN(p->rel, p->current_blocknum, &p->vmbuffer))
-			check_frozen = true;
-		if (p->all_visible && VM_ALL_VISIBLE(p->rel, p->current_blocknum, &p->vmbuffer))
-			check_visible = true;
-		if (!check_visible && !check_frozen)
-			continue;
-
-		return p->current_blocknum++;
-	}
-
-	return InvalidBlockNumber;
-}
-
-/*
  * Returns a list of items whose visibility map information does not match
  * the status of the tuples on the page.
  *
@@ -717,13 +624,12 @@ static corrupt_items *
 collect_corrupt_items(Oid relid, bool all_visible, bool all_frozen)
 {
 	Relation	rel;
+	BlockNumber nblocks;
 	corrupt_items *items;
+	BlockNumber blkno;
 	Buffer		vmbuffer = InvalidBuffer;
 	BufferAccessStrategy bstrategy = GetAccessStrategy(BAS_BULKREAD);
 	TransactionId OldestXmin = InvalidTransactionId;
-	struct collect_corrupt_items_read_stream_private p;
-	ReadStream *stream;
-	Buffer		buffer;
 
 	rel = relation_open(relid, AccessShareLock);
 
@@ -732,6 +638,8 @@ collect_corrupt_items(Oid relid, bool all_visible, bool all_frozen)
 
 	if (all_visible)
 		OldestXmin = GetStrictOldestNonRemovableTransactionId(rel);
+
+	nblocks = RelationGetNumberOfBlocks(rel);
 
 	/*
 	 * Guess an initial array size. We don't expect many corrupted tuples, so
@@ -746,38 +654,34 @@ collect_corrupt_items(Oid relid, bool all_visible, bool all_frozen)
 	items->count = 64;
 	items->tids = palloc(items->count * sizeof(ItemPointerData));
 
-	p.current_blocknum = 0;
-	p.last_exclusive = RelationGetNumberOfBlocks(rel);
-	p.rel = rel;
-	p.vmbuffer = InvalidBuffer;
-	p.all_frozen = all_frozen;
-	p.all_visible = all_visible;
-	stream = read_stream_begin_relation(READ_STREAM_FULL,
-										bstrategy,
-										rel,
-										MAIN_FORKNUM,
-										collect_corrupt_items_read_stream_next_block,
-										&p,
-										0);
-
 	/* Loop over every block in the relation. */
-	while ((buffer = read_stream_next_buffer(stream, NULL)) != InvalidBuffer)
+	for (blkno = 0; blkno < nblocks; ++blkno)
 	{
-		bool		check_frozen = all_frozen;
-		bool		check_visible = all_visible;
+		bool		check_frozen = false;
+		bool		check_visible = false;
+		Buffer		buffer;
 		Page		page;
 		OffsetNumber offnum,
 					maxoff;
-		BlockNumber blkno;
 
 		/* Make sure we are interruptible. */
 		CHECK_FOR_INTERRUPTS();
 
+		/* Use the visibility map to decide whether to check this page. */
+		if (all_frozen && VM_ALL_FROZEN(rel, blkno, &vmbuffer))
+			check_frozen = true;
+		if (all_visible && VM_ALL_VISIBLE(rel, blkno, &vmbuffer))
+			check_visible = true;
+		if (!check_visible && !check_frozen)
+			continue;
+
+		/* Read and lock the page. */
+		buffer = ReadBufferExtended(rel, MAIN_FORKNUM, blkno, RBM_NORMAL,
+									bstrategy);
 		LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
 		page = BufferGetPage(buffer);
 		maxoff = PageGetMaxOffsetNumber(page);
-		blkno = BufferGetBlockNumber(buffer);
 
 		/*
 		 * The visibility map bits might have changed while we were acquiring
@@ -870,13 +774,10 @@ collect_corrupt_items(Oid relid, bool all_visible, bool all_frozen)
 
 		UnlockReleaseBuffer(buffer);
 	}
-	read_stream_end(stream);
 
 	/* Clean up. */
 	if (vmbuffer != InvalidBuffer)
 		ReleaseBuffer(vmbuffer);
-	if (p.vmbuffer != InvalidBuffer)
-		ReleaseBuffer(p.vmbuffer);
 	relation_close(rel, AccessShareLock);
 
 	/*

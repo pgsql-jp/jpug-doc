@@ -5,10 +5,7 @@
 
 #include "_int.h"
 
-PG_MODULE_MAGIC_EXT(
-					.name = "intarray",
-					.version = PG_VERSION
-);
+PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(_int_different);
 PG_FUNCTION_INFO_V1(_int_same);

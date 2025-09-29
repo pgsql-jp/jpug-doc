@@ -17,7 +17,7 @@
  * scan all the rows anyway.
  *
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -48,8 +48,7 @@
 
 static bool can_minmax_aggs(PlannerInfo *root, List **context);
 static bool build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
-							  Oid eqop, Oid sortop, bool reverse_sort,
-							  bool nulls_first);
+							  Oid eqop, Oid sortop, bool nulls_first);
 static void minmax_qp_callback(PlannerInfo *root, void *extra);
 static Oid	fetch_agg_sort_op(Oid aggfnoid);
 
@@ -173,9 +172,9 @@ preprocess_minmax_aggregates(PlannerInfo *root)
 		 * FIRST is more likely to be available if the operator is a
 		 * reverse-sort operator, so try that first if reverse.
 		 */
-		if (build_minmax_path(root, mminfo, eqop, mminfo->aggsortop, reverse, reverse))
+		if (build_minmax_path(root, mminfo, eqop, mminfo->aggsortop, reverse))
 			continue;
-		if (build_minmax_path(root, mminfo, eqop, mminfo->aggsortop, reverse, !reverse))
+		if (build_minmax_path(root, mminfo, eqop, mminfo->aggsortop, !reverse))
 			continue;
 
 		/* No indexable path for this aggregate, so fail */
@@ -315,7 +314,7 @@ can_minmax_aggs(PlannerInfo *root, List **context)
  */
 static bool
 build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
-				  Oid eqop, Oid sortop, bool reverse_sort, bool nulls_first)
+				  Oid eqop, Oid sortop, bool nulls_first)
 {
 	PlannerInfo *subroot;
 	Query	   *parse;
@@ -400,7 +399,6 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 	sortcl->tleSortGroupRef = assignSortGroupRef(tle, subroot->processed_tlist);
 	sortcl->eqop = eqop;
 	sortcl->sortop = sortop;
-	sortcl->reverse_sort = reverse_sort;
 	sortcl->nulls_first = nulls_first;
 	sortcl->hashable = false;	/* no need to make this accurate */
 	parse->sortClause = list_make1(sortcl);

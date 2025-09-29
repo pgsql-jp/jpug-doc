@@ -7,7 +7,10 @@
  */
 #include "postgres.h"
 
+#include "executor/spi.h"
 #include "fmgr.h"
+#include "funcapi.h"
+#include "miscadmin.h"
 #include "utils/builtins.h"
 #include "utils/xml.h"
 
@@ -87,7 +90,7 @@ xslt_process(PG_FUNCTION_ARGS)
 								XML_PARSE_NOENT);
 
 		if (doctree == NULL)
-			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_XML_DOCUMENT,
+			xml_ereport(xmlerrcxt, ERROR, ERRCODE_EXTERNAL_ROUTINE_EXCEPTION,
 						"error parsing XML document");
 
 		/* Same for stylesheet */
@@ -96,14 +99,14 @@ xslt_process(PG_FUNCTION_ARGS)
 							  XML_PARSE_NOENT);
 
 		if (ssdoc == NULL)
-			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_XML_DOCUMENT,
+			xml_ereport(xmlerrcxt, ERROR, ERRCODE_EXTERNAL_ROUTINE_EXCEPTION,
 						"error parsing stylesheet as XML document");
 
 		/* After this call we need not free ssdoc separately */
 		stylesheet = xsltParseStylesheetDoc(ssdoc);
 
 		if (stylesheet == NULL)
-			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
+			xml_ereport(xmlerrcxt, ERROR, ERRCODE_EXTERNAL_ROUTINE_EXCEPTION,
 						"failed to parse stylesheet");
 
 		xslt_ctxt = xsltNewTransformContext(stylesheet, doctree);
@@ -138,7 +141,7 @@ xslt_process(PG_FUNCTION_ARGS)
 										  NULL, NULL, xslt_ctxt);
 
 		if (restree == NULL)
-			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_ARGUMENT_FOR_XQUERY,
+			xml_ereport(xmlerrcxt, ERROR, ERRCODE_EXTERNAL_ROUTINE_EXCEPTION,
 						"failed to apply stylesheet");
 
 		resstat = xsltSaveResultToString(&resstr, &reslen, restree, stylesheet);

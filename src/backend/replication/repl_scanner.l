@@ -4,7 +4,7 @@
  * repl_scanner.l
  *	  a lexical scanner for the replication commands
  *
- * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -38,38 +38,32 @@ fprintf_to_ereport(const char *fmt, const char *msg)
 	ereport(ERROR, (errmsg_internal("%s", msg)));
 }
 
-struct replication_yy_extra_type
-{
-	/* Pushed-back token (we only handle one) */
-	int			repl_pushed_back_token;
+/* Handle to the buffer that the lexer uses internally */
+static YY_BUFFER_STATE scanbufhandle;
 
-	/* Work area for collecting literals */
-	StringInfoData litbuf;
-};
+/* Pushed-back token (we only handle one) */
+static int	repl_pushed_back_token;
 
-static void startlit(yyscan_t yyscanner);
-static char *litbufdup(yyscan_t yyscanner);
-static void addlit(char *ytext, int yleng, yyscan_t yyscanner);
-static void addlitchar(unsigned char ychar, yyscan_t yyscanner);
+/* Work area for collecting literals */
+static StringInfoData litbuf;
+
+static void startlit(void);
+static char *litbufdup(void);
+static void addlit(char *ytext, int yleng);
+static void addlitchar(unsigned char ychar);
 
 /* LCOV_EXCL_START */
 
 %}
 
-%option reentrant
-%option bison-bridge
 %option 8bit
 %option never-interactive
 %option nodefault
 %option noinput
 %option nounput
 %option noyywrap
-%option noyyalloc
-%option noyyrealloc
-%option noyyfree
 %option warn
 %option prefix="replication_yy"
-%option extra-type="struct replication_yy_extra_type *"
 
 /*
  * Exclusive states:
@@ -114,11 +108,11 @@ identifier		{ident_start}{ident_cont}*
 	/* This code is inserted at the start of replication_yylex() */
 
 	/* If we have a pushed-back token, return that. */
-	if (yyextra->repl_pushed_back_token)
+	if (repl_pushed_back_token)
 	{
-		int			result = yyextra->repl_pushed_back_token;
+		int			result = repl_pushed_back_token;
 
-		yyextra->repl_pushed_back_token = 0;
+		repl_pushed_back_token = 0;
 		return result;
 	}
 %}
@@ -148,7 +142,7 @@ UPLOAD_MANIFEST		{ return K_UPLOAD_MANIFEST; }
 {space}+		{ /* do nothing */ }
 
 {digit}+		{
-					yylval->uintval = strtoul(yytext, NULL, 10);
+					replication_yylval.uintval = strtoul(yytext, NULL, 10);
 					return UCONST;
 				}
 
@@ -156,34 +150,34 @@ UPLOAD_MANIFEST		{ return K_UPLOAD_MANIFEST; }
 					uint32	hi,
 							lo;
 					if (sscanf(yytext, "%X/%X", &hi, &lo) != 2)
-						replication_yyerror(NULL, yyscanner, "invalid streaming start location");
-					yylval->recptr = ((uint64) hi) << 32 | lo;
+						replication_yyerror("invalid streaming start location");
+					replication_yylval.recptr = ((uint64) hi) << 32 | lo;
 					return RECPTR;
 				}
 
 {xqstart}		{
 					BEGIN(xq);
-					startlit(yyscanner);
+					startlit();
 				}
 
 <xq>{quotestop}	{
 					yyless(1);
 					BEGIN(INITIAL);
-					yylval->str = litbufdup(yyscanner);
+					replication_yylval.str = litbufdup();
 					return SCONST;
 				}
 
 <xq>{xqdouble}	{
-					addlitchar('\'', yyscanner);
+					addlitchar('\'');
 				}
 
 <xq>{xqinside}  {
-					addlit(yytext, yyleng, yyscanner);
+					addlit(yytext, yyleng);
 				}
 
 {xdstart}		{
 					BEGIN(xd);
-					startlit(yyscanner);
+					startlit();
 				}
 
 <xd>{xdstop}	{
@@ -191,20 +185,20 @@ UPLOAD_MANIFEST		{ return K_UPLOAD_MANIFEST; }
 
 					yyless(1);
 					BEGIN(INITIAL);
-					yylval->str = litbufdup(yyscanner);
-					len = strlen(yylval->str);
-					truncate_identifier(yylval->str, len, true);
+					replication_yylval.str = litbufdup();
+					len = strlen(replication_yylval.str);
+					truncate_identifier(replication_yylval.str, len, true);
 					return IDENT;
 				}
 
 <xd>{xdinside}  {
-					addlit(yytext, yyleng, yyscanner);
+					addlit(yytext, yyleng);
 				}
 
 {identifier}	{
 					int			len = strlen(yytext);
 
-					yylval->str = downcase_truncate_identifier(yytext, len, true);
+					replication_yylval.str = downcase_truncate_identifier(yytext, len, true);
 					return IDENT;
 				}
 
@@ -213,7 +207,7 @@ UPLOAD_MANIFEST		{ return K_UPLOAD_MANIFEST; }
 					return yytext[0];
 				}
 
-<xq,xd><<EOF>>	{ replication_yyerror(NULL, yyscanner, "unterminated quoted string"); }
+<xq,xd><<EOF>>	{ replication_yyerror("unterminated quoted string"); }
 
 
 <<EOF>>			{
@@ -224,67 +218,69 @@ UPLOAD_MANIFEST		{ return K_UPLOAD_MANIFEST; }
 
 /* LCOV_EXCL_STOP */
 
-/* see scan.l */
-#undef yyextra
-#define yyextra (((struct yyguts_t *) yyscanner)->yyextra_r)
-
 static void
-startlit(yyscan_t yyscanner)
+startlit(void)
 {
-	initStringInfo(&yyextra->litbuf);
+	initStringInfo(&litbuf);
 }
 
 static char *
-litbufdup(yyscan_t yyscanner)
+litbufdup(void)
 {
-	return yyextra->litbuf.data;
+	return litbuf.data;
 }
 
 static void
-addlit(char *ytext, int yleng, yyscan_t yyscanner)
+addlit(char *ytext, int yleng)
 {
-	appendBinaryStringInfo(&yyextra->litbuf, ytext, yleng);
+	appendBinaryStringInfo(&litbuf, ytext, yleng);
 }
 
 static void
-addlitchar(unsigned char ychar, yyscan_t yyscanner)
+addlitchar(unsigned char ychar)
 {
-	appendStringInfoChar(&yyextra->litbuf, ychar);
+	appendStringInfoChar(&litbuf, ychar);
 }
 
-/*
-  * (The first argument is enforced by Bison to match the first argument of
-  * yyparse(), but it is not used here.)
-  */
 void
-replication_yyerror(Node **replication_parse_result_p, yyscan_t yyscanner, const char *message)
+replication_yyerror(const char *message)
 {
 	ereport(ERROR,
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg_internal("%s", message)));
 }
 
+
 void
-replication_scanner_init(const char *str, yyscan_t *yyscannerp)
+replication_scanner_init(const char *str)
 {
-	yyscan_t	yyscanner;
-	struct replication_yy_extra_type *yyext = palloc0_object(struct replication_yy_extra_type);
+	Size		slen = strlen(str);
+	char	   *scanbuf;
 
-	if (yylex_init(yyscannerp) != 0)
-		elog(ERROR, "yylex_init() failed: %m");
+	/*
+	 * Might be left over after ereport()
+	 */
+	if (YY_CURRENT_BUFFER)
+		yy_delete_buffer(YY_CURRENT_BUFFER);
 
-	yyscanner = *yyscannerp;
+	/*
+	 * Make a scan buffer with special termination needed by flex.
+	 */
+	scanbuf = (char *) palloc(slen + 2);
+	memcpy(scanbuf, str, slen);
+	scanbuf[slen] = scanbuf[slen + 1] = YY_END_OF_BUFFER_CHAR;
+	scanbufhandle = yy_scan_buffer(scanbuf, slen + 2);
 
-	yyset_extra(yyext, yyscanner);
-
-	yy_scan_string(str, yyscanner);
+	/* Make sure we start in proper state */
+	BEGIN(INITIAL);
+	repl_pushed_back_token = 0;
 }
 
 void
-replication_scanner_finish(yyscan_t yyscanner)
+replication_scanner_finish(void)
 {
-	pfree(yyextra);
-	yylex_destroy(yyscanner);
+	yy_delete_buffer(scanbufhandle);
+	scanbufhandle = NULL;
 }
 
 /*
@@ -296,10 +292,9 @@ replication_scanner_finish(yyscan_t yyscanner)
  * IDENT token here, although some other cases are possible.
  */
 bool
-replication_scanner_is_replication_command(yyscan_t yyscanner)
+replication_scanner_is_replication_command(void)
 {
-	YYSTYPE		dummy;
-	int			first_token = replication_yylex(&dummy, yyscanner);
+	int			first_token = replication_yylex();
 
 	switch (first_token)
 	{
@@ -314,37 +309,10 @@ replication_scanner_is_replication_command(yyscan_t yyscanner)
 		case K_UPLOAD_MANIFEST:
 		case K_SHOW:
 			/* Yes; push back the first token so we can parse later. */
-			yyextra->repl_pushed_back_token = first_token;
+			repl_pushed_back_token = first_token;
 			return true;
 		default:
 			/* Nope; we don't bother to push back the token. */
 			return false;
 	}
-}
-
-/*
- * Interface functions to make flex use palloc() instead of malloc().
- * It'd be better to make these static, but flex insists otherwise.
- */
-
-void *
-yyalloc(yy_size_t size, yyscan_t yyscanner)
-{
-	return palloc(size);
-}
-
-void *
-yyrealloc(void *ptr, yy_size_t size, yyscan_t yyscanner)
-{
-	if (ptr)
-		return repalloc(ptr, size);
-	else
-		return palloc(size);
-}
-
-void
-yyfree(void *ptr, yyscan_t yyscanner)
-{
-	if (ptr)
-		pfree(ptr);
 }
