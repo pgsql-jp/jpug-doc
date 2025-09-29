@@ -130,16 +130,21 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
      <para>
 <!--
       When a column list is specified, only the named columns are replicated.
-      If no column list is specified, all columns of the table are replicated
-      through this publication, including any columns added later. It has no
+      The column list can contain stored generated columns as well. If the
+      column list is omitted, the publication will replicate all non-generated
+      columns (including any added in the future) by default. Stored generated
+      columns can also be replicated if <literal>publish_generated_columns</literal>
+      is set to <literal>stored</literal>. Specifying a column list has no
       effect on <literal>TRUNCATE</literal> commands. See
       <xref linkend="logical-replication-col-lists"/> for details about column
       lists.
 -->
-列リストを指定すると、指定した列のみが複製されます。
-列リストが指定されていない場合は、後で追加される列も含めて、テーブルのすべての列がこのパブリケーションを介して複製されます。
-<literal>TRUNCATE</literal>コマンドには影響しません。
-列リストの詳細は<xref linkend="logical-replication-col-lists"/>を参照してください。
+《機械翻訳》カラムのリストを指定すると、記名的の列のみが複製されます。
+カラムのリストには、保管された生成列も含めることができます。
+カラムのリストを省略すると、パブリケーションは、デフォルトごとにすべての生成されていない列（将来追加される列を含む）を複製します。
+保管された生成列も、<literal>publish_generated_columns</literal>が<literal>stored</literal>に設定されている場合複製できます。
+カラムのリストを指定しても、<literal>TRUNCATE</literal>コマンドには影響しません。
+カラムリストの詳細は、<xref linkend="logical-replication-col-lists"/>を参照してください。
      </para>
 
      <para>
@@ -272,6 +277,59 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
 -->
 このパラメータはDML操作にのみ影響します。
 特に、論理レプリケーションの初期データ同期化(<xref linkend="logical-replication-snapshot"/>を参照)では、既存のテーブルデータをコピーするときにこのパラメータは考慮されません。
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry id="sql-createpublication-params-with-publish-generated-columns">
+        <term><literal>publish_generated_columns</literal> (<type>enum</type>)</term>
+        <listitem>
+         <para>
+<!--
+          Specifies whether the generated columns present in the tables
+          associated with the publication should be replicated. Possible values
+          are <literal>none</literal> and <literal>stored</literal>.
+-->
+《機械翻訳》パブリケーションに関連付けられた表に存在する生成列をレプリケートするかどうかを指定します。
+使用可能な値は<literal>none</literal>および<literal>stored</literal>です。
+         </para>
+
+         <para>
+<!--
+          The default is <literal>none</literal> meaning the generated
+          columns present in the tables associated with publication will not be
+          replicated.
+-->
+《機械翻訳》デフォルトはです<literal>none</literal>つまり、パブリケーションに関連付けられたテーブルに存在する生成列は複製されません。
+         </para>
+
+         <para>
+<!--
+          If set to <literal>stored</literal>, the stored generated columns
+          present in the tables associated with publication will be replicated.
+-->
+《機械翻訳》<literal>stored</literal>に設定した場合、パブリケーションに関連付けられたテーブル内に存在する、格納された生成列が複製されます。
+         </para>
+
+         <note>
+          <para>
+<!--
+           If the subscriber is from a release prior to 18, then initial table
+           synchronization won't copy generated columns even if parameter
+           <literal>publish_generated_columns</literal> is <literal>stored</literal>
+           in the publisher.
+-->
+《機械翻訳》サブスクライバーが18より前のリリースからのものである場合、最初のテーブル同期では、コピーが<literal>stored</literal>パブリッシャー内にあるであってもパラメータ生成カラムは生成されません。
+<literal>publish_generated_columns</literal>
+          </para>
+         </note>
+
+         <para>
+<!--
+          See <xref linkend="logical-replication-gencols"/> for more details about
+          logical replication of generated columns.
+-->
+《機械翻訳》生成列の論理レプリケーションの詳細については<xref linkend="logical-replication-gencols"/>を参照してください。
          </para>
         </listitem>
        </varlistentry>
@@ -426,6 +484,17 @@ CREATE PUBLICATION <replaceable class="parameter">name</replaceable>
 行フィルタ式(すなわち、<literal>WHERE</literal>句)には、<command>UPDATE</command>および<command>DELETE</command>操作をパブリッシュするために、<literal>REPLICA IDENTITY</literal>でカバーされる列のみを含めることが必要です。
 <command>INSERT</command>操作のパブリッシュでは、<literal>WHERE</literal>式で任意の列を使用できます。
 行フィルタでは、ユーザ定義関数、ユーザ定義演算子、ユーザ定義型、ユーザ定義照合順序、不変でない組み込み関数、またはシステム列への参照を持たない単純な式を使用できます。
+  </para>
+
+  <para>
+<!--
+   The generated columns that are part of <literal>REPLICA IDENTITY</literal>
+   must be published explicitly either by listing them in the column list or
+   by enabling the <literal>publish_generated_columns</literal> option, in
+   order for <command>UPDATE</command> and <command>DELETE</command> operations
+   to be published.
+-->
+《機械翻訳》<literal>REPLICA IDENTITY</literal>のパートの生成カラムは、カラムリストでリストするか、<command>UPDATE</command>および<command>DELETE</command>の操作を発行するには、オーダーで<literal>publish_generated_columns</literal>オプションを有効にすることによって明示的に発行する必要があります。
   </para>
 
   <para>

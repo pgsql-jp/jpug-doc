@@ -24,7 +24,7 @@
  * for aborts (whether sync or async), since the post-crash assumption would
  * be that such transactions failed anyway.
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/backend/access/transam/clog.c
@@ -984,8 +984,8 @@ ExtendCLOG(TransactionId newestXact)
 /*
  * Remove all CLOG segments before the one holding the passed transaction ID
  *
- * Before removing any CLOG data, we must flush XLOG to disk, to ensure
- * that any recently-emitted FREEZE_PAGE records have reached disk; otherwise
+ * Before removing any CLOG data, we must flush XLOG to disk, to ensure that
+ * any recently-emitted records with freeze plans have reached disk; otherwise
  * a crash and restart might leave us with some unfrozen tuples referencing
  * removed CLOG data.  We choose to emit a special TRUNCATE XLOG record too.
  * Replaying the deletion from XLOG is not critical, since the files could
@@ -1074,7 +1074,7 @@ static void
 WriteZeroPageXlogRec(int64 pageno)
 {
 	XLogBeginInsert();
-	XLogRegisterData((char *) (&pageno), sizeof(pageno));
+	XLogRegisterData(&pageno, sizeof(pageno));
 	(void) XLogInsert(RM_CLOG_ID, CLOG_ZEROPAGE);
 }
 
@@ -1095,7 +1095,7 @@ WriteTruncateXlogRec(int64 pageno, TransactionId oldestXact, Oid oldestXactDb)
 	xlrec.oldestXactDb = oldestXactDb;
 
 	XLogBeginInsert();
-	XLogRegisterData((char *) (&xlrec), sizeof(xl_clog_truncate));
+	XLogRegisterData(&xlrec, sizeof(xl_clog_truncate));
 	recptr = XLogInsert(RM_CLOG_ID, CLOG_TRUNCATE);
 	XLogFlush(recptr);
 }

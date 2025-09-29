@@ -301,10 +301,10 @@ btree演算子族が満たさなければならない基本的な前提条件が
  <para>
 <!--
   As shown in <xref linkend="xindex-btree-support-table"/>, btree defines
-  one required and four optional support functions.  The five
+  one required and five optional support functions.  The six
   user-defined methods are:
 -->
-<xref linkend="xindex-btree-support-table"/>で示すように、btreeでは一つの必須サポート関数と、4つの省略可能なサポート関数を定義します。
+《マッチ度[91.612903]》<xref linkend="xindex-btree-support-table"/>で示すように、btreeでは一つの必須サポート関数と、4つの省略可能なサポート関数を定義します。
 5つのユーザ定義メソッドは以下の通りです。
  </para>
  <variablelist>
@@ -838,6 +838,54 @@ options(<replaceable>relopts</replaceable> <type>local_relopts *</type>) returns
 B-treeはGiST、SP-GiST、GINおよびBRINで行われているような柔軟なキーの表現を許していません。
 そのため、おそらくは<function>options</function>が現在のB-treeインデックスアクセスメソッドで多数適用されることはありません。
 それでも、統一性のためにサポート関数がB-treeに追加されました。おそらく<productname>PostgreSQL</productname>でのB-treeの更なる進化の過程で使用法を見つけ出すでしょう。
+    </para>
+   </listitem>
+  </varlistentry>
+  <varlistentry>
+   <term><function>skipsupport</function></term>
+   <listitem>
+    <para>
+<!--
+     Optionally, a btree operator family may provide a <firstterm>skip
+      support</firstterm> function, registered under support function number 6.
+     These functions give the B-tree code a way to iterate through every
+     possible value that can be represented by an operator class's underlying
+     input type, in key space order.  This is used by the core code when it
+     applies the skip scan optimization.  The APIs involved in this are
+     defined in <filename>src/include/utils/skipsupport.h</filename>.
+-->
+《マッチ度[55.925156]》任意で、btree演算子族は<firstterm>ソートサポート</firstterm>関数を提供してもよいです。これはサポート関数2番で登録されます。
+この関数は、素朴に比較サポート関数を呼び出すよりも、ソート目的により効果的な方法での比較の実装を可能にします。
+これに関するAPIは<filename>src/include/utils/sortsupport.h</filename>で定義されています。
+《機械翻訳》オプションで、btree演算子族は、スキップサポート番号6で登録された<firstterm>サポート関数</firstterm>関数を提供できます。
+これらの関数は、キースペースコードにある演算子クラスの基礎となる入力タイプで表すことができるすべての可能な値を反復する方法をBツリーオーダーに提供します。
+これは、スキップスキャン最適化を適用するときにコアコードによって使用されます。
+これに関連するAPIは<filename>src/include/utils/skipsupport.h</filename>.
+    </para>
+    <para>
+<!--
+     Operator classes that do not provide a skip support function are still
+     eligible to use skip scan.  The core code can still use its fallback
+     strategy, though that might be suboptimal for some discrete types.  It
+     usually doesn't make sense (and may not even be feasible) for operator
+     classes on continuous types to provide a skip support function.
+-->
+《機械翻訳》演算子サポート関数を提供しないスキップクラスは、依然としてスキップスキャンを使用する資格があります。
+コアコードはその代替ストラテジを引き続き使用できますが、一部の離散タイプには最適ではない場合があります。
+通常、連続タイプの演算子クラスにスキップサポート関数を提供することはmake的に意味がありません（実行可能でない場合もあります）。
+    </para>
+    <para>
+<!--
+     It is not sensible for an operator family to register a cross-type
+     <function>skipsupport</function> function, and attempting to do so will
+     result in an error.  This is because determining the next indexable value
+     must happen by incrementing a value copied from an index tuple.  The
+     values generated must all be of the same underlying data type (the
+     <quote>skipped</quote> index column's opclass input type).
+-->
+《機械翻訳》演算子族がクロスタイプ<function>skipsupport</function>関数を登録することは賢明ではなく、そうしようとするとエラーになります。
+これは、次のインデックス可能な値を決定するには、インデックスタプルからコピーされた値を増分する必要があるためです。
+生成される値はすべて、同じ基礎となるデータタイプ（<quote>スキップされた</quote>インデックスカラムのopclassの入力タイプ）である必要があります。
     </para>
    </listitem>
   </varlistentry>

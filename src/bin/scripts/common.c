@@ -4,7 +4,7 @@
  *		Common support routines for bin/scripts/
  *
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/bin/scripts/common.c
@@ -21,7 +21,6 @@
 #include "common/connect.h"
 #include "common/logging.h"
 #include "common/string.h"
-#include "fe_utils/cancel.h"
 #include "fe_utils/query_utils.h"
 #include "fe_utils/string_utils.h"
 

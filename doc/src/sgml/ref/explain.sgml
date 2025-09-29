@@ -273,10 +273,10 @@ ROLLBACK;
       query processing.
       The number of blocks shown for an
       upper-level node includes those used by all its child nodes.  In text
-      format, only non-zero values are printed.  This parameter defaults to
-      <literal>FALSE</literal>.
+      format, only non-zero values are printed.  Buffers information is
+      automatically included when <literal>ANALYZE</literal> is used.
 -->
-バッファの使用状況に関する情報を含めます。
+《マッチ度[86.416862]》バッファの使用状況に関する情報を含めます。
 具体的には、共有ブロックのヒット数、読み取り数、ダーティブロック数、書き出し数、ローカルブロックのヒット数、読み取り数、ダーティブロック数、書き出し数、一時ブロックの読み取り数、書き出し数、そして、<xref linkend="guc-track-io-timing"/>が有効にされていればデータファイルブロック、ローカルブロック、一時ファイルブロックの読み取り、書き出しに掛かった時間(ミリ秒単位)が含められます。
 <emphasis>ヒット</emphasis>とは、必要な時にキャッシュ内にそのブロックが見つかったため読み取りが避けられたことを意味します。
 共有ブロックには、通常のテーブルとインデックスからのデータが含まれます。
@@ -287,6 +287,17 @@ ROLLBACK;
 上位レベルのノードで表示されるブロック数には、その子ノードすべてで使用されるブロックが含まれます。
 テキスト形式では、非ゼロの値のみが出力されます。
 このパラメータのデフォルトは<literal>FALSE</literal>です。
+《機械翻訳》バッファの使用状況に関するinclude情報。
+特に、include、共有ブロックのヒット、読取り、ダーティ、書込みの数、ローカルブロックのヒット、読取り、ダーティ、書込みの数、一時ブロックの読取りと書込みの数、データファイルブロック、ローカル・ブロックおよび一時ファイル・ブロックの読取りと書込みにかかった時間（ミリ秒単位）（<xref linkend="guc-track-io-timing"/>が有効な場合）。
+A<emphasis>ヒット</emphasis>は、必要なときにブロックがキャッシュですでに検出されたため、読取りが回避されたことを意味します。
+共有ブロックには、通常の表および索引のデータが含まれます。
+ローカル・ブロックには、一時的表および索引のデータが含まれます。
+一時的ブロックには、ソート、ハッシュ、マテリアライズ計画ノードなどで使用される短期作業データが含まれます。
+ブロックの数<emphasis>ダーティ</emphasis>は、この問い合わせによって変更された、以前は変更されていなかったブロックの数を示します。
+一方、ブロックの数<emphasis>書込み</emphasis>は、問い合わせ処理中にこのバックエンドによってキャッシュから立ち退かされた、以前はダーティだったブロックの数を示します。
+upper-レベルノードに表示されるブロックの数には、そのすべての子ノードで使用されているブロックが含まれます。
+テキスト・フォーマットでは、ゼロ以外の値のみが出力されます。
+<literal>ANALYZE</literal>が使用される場合、バッファ情報は自動的に含まれます。
      </para>
     </listitem>
    </varlistentry>
@@ -335,15 +346,21 @@ ROLLBACK;
      <para>
 <!--
       Include information on WAL record generation. Specifically, include the
-      number of records, number of full page images (fpi) and the amount of WAL
-      generated in bytes. In text format, only non-zero values are printed.
+      number of records, number of full page images (fpi), the amount of WAL
+      generated in bytes and the number of times the WAL buffers became full.
+      In text format, only non-zero values are printed.
       This parameter may only be used when <literal>ANALYZE</literal> is also
       enabled.  It defaults to <literal>FALSE</literal>.
 -->
-WALレコード生成に関する情報を含めます。
+《マッチ度[77.979275]》WALレコード生成に関する情報を含めます。
 具体的には、レコード数、ページ全体のイメージ(fpi)の数、生成されたWALのバイト単位での量が含められます。
 テキスト形式では、非ゼロの値のみが出力されます。
 このパラメータは<literal>ANALYZE</literal>パラメータも有効である場合にのみ使用できます。
+デフォルトは<literal>FALSE</literal>です。
+《機械翻訳》WAL include生成に関するレコード情報です。
+特に、includeはレコード数、フルページイメージ数(fpi)、バイト単位で生成されたWALの量、WALバッファが一杯になった回数です。
+テキスト書式では、ゼロ以外の値のみが出力されます。
+このパラメータは<literal>ANALYZE</literal>も有効になっている場合にのみ使用されます。
 デフォルトは<literal>FALSE</literal>です。
      </para>
     </listitem>
@@ -679,14 +696,17 @@ EXPLAIN ANALYZE EXECUTE query(100, 200);
 
                                                        QUERY PLAN
 -------------------------------------------------------------------&zwsp;------------------------------------------------------
- HashAggregate  (cost=10.77..10.87 rows=10 width=12) (actual time=0.043..0.044 rows=10 loops=1)
+ HashAggregate  (cost=10.77..10.87 rows=10 width=12) (actual time=0.043..0.044 rows=10.00 loops=1)
    Group Key: foo
    Batches: 1  Memory Usage: 24kB
-   -&gt;  Index Scan using test_pkey on test  (cost=0.29..10.27 rows=99 width=8) (actual time=0.009..0.025 rows=99 loops=1)
+   Buffers: shared hit=4
+   -&gt;  Index Scan using test_pkey on test  (cost=0.29..10.27 rows=99 width=8) (actual time=0.009..0.025 rows=99.00 loops=1)
          Index Cond: ((id &gt; 100) AND (id &lt; 200))
+         Index Searches: 1
+         Buffers: shared hit=4
  Planning Time: 0.244 ms
  Execution Time: 0.073 ms
-(7 rows)
+(10 rows)
 </programlisting>
   </para>
 

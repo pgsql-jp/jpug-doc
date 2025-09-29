@@ -3,7 +3,7 @@
  * fe-protocol3.c
  *	  functions that are specific to frontend/backend protocol version 3
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -43,11 +43,13 @@
 	 (id) == PqMsg_RowDescription)
 
 
+static void handleFatalError(PGconn *conn);
 static void handleSyncLoss(PGconn *conn, char id, int msgLength);
 static int	getRowDescriptions(PGconn *conn, int msgLength);
 static int	getParamDescriptions(PGconn *conn, int msgLength);
 static int	getAnotherTuple(PGconn *conn, int msgLength);
 static int	getParameterStatus(PGconn *conn);
+static int	getBackendKeyData(PGconn *conn, int msgLength);
 static int	getNotify(PGconn *conn);
 static int	getCopyStart(PGconn *conn, ExecStatusType copytype);
 static int	getReadyForQuery(PGconn *conn);
@@ -119,12 +121,12 @@ pqParseInput3(PGconn *conn)
 									 conn))
 			{
 				/*
-				 * XXX add some better recovery code... plan is to skip over
-				 * the message using its length, then report an error. For the
-				 * moment, just treat this like loss of sync (which indeed it
-				 * might be!)
+				 * Abandon the connection.  There's not much else we can
+				 * safely do; we can't just ignore the message or we could
+				 * miss important changes to the connection state.
+				 * pqCheckInBufferSpace() already reported the error.
 				 */
-				handleSyncLoss(conn, id, msgLength);
+				handleFatalError(conn);
 			}
 			return;
 		}
@@ -308,9 +310,7 @@ pqParseInput3(PGconn *conn)
 					 * just as easy to handle it as part of the main loop.
 					 * Save the data and continue processing.
 					 */
-					if (pqGetInt(&(conn->be_pid), 4, conn))
-						return;
-					if (pqGetInt(&(conn->be_key), 4, conn))
+					if (getBackendKeyData(conn, msgLength))
 						return;
 					break;
 				case PqMsg_RowDescription:
@@ -454,12 +454,13 @@ pqParseInput3(PGconn *conn)
 		/* Successfully consumed this message */
 		if (conn->inCursor == conn->inStart + 5 + msgLength)
 		{
-			/* trace server-to-client message */
-			if (conn->Pfdebug)
-				pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
-
 			/* Normal case: parsing agrees with specified length */
-			conn->inStart = conn->inCursor;
+			pqParseDone(conn, conn->inCursor);
+		}
+		else if (conn->error_result && conn->status == CONNECTION_BAD)
+		{
+			/* The connection was abandoned and we already reported it */
+			return;
 		}
 		else
 		{
@@ -475,6 +476,23 @@ pqParseInput3(PGconn *conn)
 }
 
 /*
+ * handleFatalError: clean up after a nonrecoverable error
+ *
+ * This is for errors where we need to abandon the connection.  The caller has
+ * already saved the error message in conn->errorMessage.
+ */
+static void
+handleFatalError(PGconn *conn)
+{
+	/* build an error result holding the error message */
+	pqSaveErrorResult(conn);
+	conn->asyncStatus = PGASYNC_READY;	/* drop out of PQgetResult wait loop */
+	/* flush input data since we're giving up on processing it */
+	pqDropConnection(conn, true);
+	conn->status = CONNECTION_BAD;	/* No more connection to backend */
+}
+
+/*
  * handleSyncLoss: clean up after loss of message-boundary sync
  *
  * There isn't really a lot we can do here except abandon the connection.
@@ -484,12 +502,7 @@ handleSyncLoss(PGconn *conn, char id, int msgLength)
 {
 	libpq_append_conn_error(conn, "lost synchronization with server: got message type \"%c\", length %d",
 							id, msgLength);
-	/* build an error result holding the error message */
-	pqSaveErrorResult(conn);
-	conn->asyncStatus = PGASYNC_READY;	/* drop out of PQgetResult wait loop */
-	/* flush input data since we're giving up on processing it */
-	pqDropConnection(conn, true);
-	conn->status = CONNECTION_BAD;	/* No more connection to backend */
+	handleFatalError(conn);
 }
 
 /*
@@ -874,6 +887,7 @@ advance_and_error:
 /*
  * Attempt to read an Error or Notice response message.
  * This is possible in several places, so we break it out as a subroutine.
+ *
  * Entry: 'E' or 'N' message type and length have already been consumed.
  * Exit: returns 0 if successfully consumed message.
  *		 returns EOF if not enough data.
@@ -1403,64 +1417,106 @@ reportErrorPosition(PQExpBuffer msg, const char *query, int loc, int encoding)
 
 
 /*
- * Attempt to read a NegotiateProtocolVersion message.
+ * Attempt to read a NegotiateProtocolVersion message.  Sets conn->pversion
+ * to the version that's negotiated by the server.
+ *
  * Entry: 'v' message type and length have already been consumed.
  * Exit: returns 0 if successfully consumed message.
- *		 returns EOF if not enough data.
+ *		 returns 1 on failure. The error message is filled in.
  */
 int
 pqGetNegotiateProtocolVersion3(PGconn *conn)
 {
-	int			tmp;
-	ProtocolVersion their_version;
+	int			their_version;
 	int			num;
-	PQExpBufferData buf;
 
-	if (pqGetInt(&tmp, 4, conn) != 0)
-		return EOF;
-	their_version = tmp;
+	if (pqGetInt(&their_version, 4, conn) != 0)
+		goto eof;
 
 	if (pqGetInt(&num, 4, conn) != 0)
-		return EOF;
+		goto eof;
 
-	initPQExpBuffer(&buf);
+	/* Check the protocol version */
+	if (their_version > conn->pversion)
+	{
+		libpq_append_conn_error(conn, "received invalid protocol negotiation message: server requested downgrade to a higher-numbered version");
+		goto failure;
+	}
+
+	if (their_version < PG_PROTOCOL(3, 0))
+	{
+		libpq_append_conn_error(conn, "received invalid protocol negotiation message: server requested downgrade to pre-3.0 protocol version");
+		goto failure;
+	}
+
+	/* 3.1 never existed, we went straight from 3.0 to 3.2 */
+	if (their_version == PG_PROTOCOL(3, 1))
+	{
+		libpq_append_conn_error(conn, "received invalid protocol negotiation message: server requested downgrade to non-existent 3.1 protocol version");
+		goto failure;
+	}
+
+	if (num < 0)
+	{
+		libpq_append_conn_error(conn, "received invalid protocol negotiation message: server reported negative number of unsupported parameters");
+		goto failure;
+	}
+
+	if (their_version == conn->pversion && num == 0)
+	{
+		libpq_append_conn_error(conn, "received invalid protocol negotiation message: server negotiated but asks for no changes");
+		goto failure;
+	}
+
+	if (their_version < conn->min_pversion)
+	{
+		libpq_append_conn_error(conn, "server only supports protocol version %d.%d, but \"%s\" was set to %d.%d",
+								PG_PROTOCOL_MAJOR(their_version),
+								PG_PROTOCOL_MINOR(their_version),
+								"min_protocol_version",
+								PG_PROTOCOL_MAJOR(conn->min_pversion),
+								PG_PROTOCOL_MINOR(conn->min_pversion));
+
+		goto failure;
+	}
+
+	/* the version is acceptable */
+	conn->pversion = their_version;
+
+	/*
+	 * We don't currently request any protocol extensions, so we don't expect
+	 * the server to reply with any either.
+	 */
 	for (int i = 0; i < num; i++)
 	{
 		if (pqGets(&conn->workBuffer, conn))
 		{
-			termPQExpBuffer(&buf);
-			return EOF;
+			goto eof;
 		}
-		if (buf.len > 0)
-			appendPQExpBufferChar(&buf, ' ');
-		appendPQExpBufferStr(&buf, conn->workBuffer.data);
+		if (strncmp(conn->workBuffer.data, "_pq_.", 5) != 0)
+		{
+			libpq_append_conn_error(conn, "received invalid protocol negotiation message: server reported unsupported parameter name without a \"%s\" prefix (\"%s\")", "_pq_.", conn->workBuffer.data);
+			goto failure;
+		}
+		libpq_append_conn_error(conn, "received invalid protocol negotiation message: server reported an unsupported parameter that was not requested (\"%s\")", conn->workBuffer.data);
+		goto failure;
 	}
 
-	if (their_version < conn->pversion)
-		libpq_append_conn_error(conn, "protocol version not supported by server: client uses %u.%u, server supports up to %u.%u",
-								PG_PROTOCOL_MAJOR(conn->pversion), PG_PROTOCOL_MINOR(conn->pversion),
-								PG_PROTOCOL_MAJOR(their_version), PG_PROTOCOL_MINOR(their_version));
-	if (num > 0)
-	{
-		appendPQExpBuffer(&conn->errorMessage,
-						  libpq_ngettext("protocol extension not supported by server: %s",
-										 "protocol extensions not supported by server: %s", num),
-						  buf.data);
-		appendPQExpBufferChar(&conn->errorMessage, '\n');
-	}
-
-	/* neither -- server shouldn't have sent it */
-	if (!(their_version < conn->pversion) && !(num > 0))
-		libpq_append_conn_error(conn, "invalid %s message", "NegotiateProtocolVersion");
-
-	termPQExpBuffer(&buf);
 	return 0;
+
+eof:
+	libpq_append_conn_error(conn, "received invalid protocol negotiation message: message too short");
+failure:
+	conn->asyncStatus = PGASYNC_READY;
+	pqSaveErrorResult(conn);
+	return 1;
 }
 
 
 /*
  * Attempt to read a ParameterStatus message.
  * This is possible in several places, so we break it out as a subroutine.
+ *
  * Entry: 'S' message type and length have already been consumed.
  * Exit: returns 0 if successfully consumed message.
  *		 returns EOF if not enough data.
@@ -1481,8 +1537,73 @@ getParameterStatus(PGconn *conn)
 		return EOF;
 	}
 	/* And save it */
-	pqSaveParameterStatus(conn, conn->workBuffer.data, valueBuf.data);
+	if (!pqSaveParameterStatus(conn, conn->workBuffer.data, valueBuf.data))
+	{
+		libpq_append_conn_error(conn, "out of memory");
+		handleFatalError(conn);
+	}
 	termPQExpBuffer(&valueBuf);
+	return 0;
+}
+
+/*
+ * parseInput subroutine to read a BackendKeyData message.
+ * Entry: 'v' message type and length have already been consumed.
+ * Exit: returns 0 if successfully consumed message.
+ *		 returns EOF if not enough data.
+ */
+static int
+getBackendKeyData(PGconn *conn, int msgLength)
+{
+	int			cancel_key_len;
+
+	if (conn->be_cancel_key)
+	{
+		free(conn->be_cancel_key);
+		conn->be_cancel_key = NULL;
+		conn->be_cancel_key_len = 0;
+	}
+
+	if (pqGetInt(&(conn->be_pid), 4, conn))
+		return EOF;
+
+	cancel_key_len = 5 + msgLength - (conn->inCursor - conn->inStart);
+
+	if (cancel_key_len != 4 && conn->pversion == PG_PROTOCOL(3, 0))
+	{
+		libpq_append_conn_error(conn, "received invalid BackendKeyData message: cancel key with length %d not allowed in protocol version 3.0 (must be 4 bytes)", cancel_key_len);
+		handleFatalError(conn);
+		return 0;
+	}
+
+	if (cancel_key_len < 4)
+	{
+		libpq_append_conn_error(conn, "received invalid BackendKeyData message: cancel key with length %d is too short (minimum 4 bytes)", cancel_key_len);
+		handleFatalError(conn);
+		return 0;
+	}
+
+	if (cancel_key_len > 256)
+	{
+		libpq_append_conn_error(conn, "received invalid BackendKeyData message: cancel key with length %d is too long (maximum 256 bytes)", cancel_key_len);
+		handleFatalError(conn);
+		return 0;
+	}
+
+	conn->be_cancel_key = malloc(cancel_key_len);
+	if (conn->be_cancel_key == NULL)
+	{
+		libpq_append_conn_error(conn, "out of memory");
+		handleFatalError(conn);
+		return 0;
+	}
+	if (pqGetnchar(conn->be_cancel_key, cancel_key_len, conn))
+	{
+		free(conn->be_cancel_key);
+		conn->be_cancel_key = NULL;
+		return EOF;
+	}
+	conn->be_cancel_key_len = cancel_key_len;
 	return 0;
 }
 
@@ -1490,6 +1611,7 @@ getParameterStatus(PGconn *conn)
 /*
  * Attempt to read a Notify response message.
  * This is possible in several places, so we break it out as a subroutine.
+ *
  * Entry: 'A' message type and length have already been consumed.
  * Exit: returns 0 if successfully consumed Notify message.
  *		 returns EOF if not enough data.
@@ -1510,7 +1632,17 @@ getNotify(PGconn *conn)
 	/* must save name while getting extra string */
 	svname = strdup(conn->workBuffer.data);
 	if (!svname)
-		return EOF;
+	{
+		/*
+		 * Notify messages can arrive at any state, so we cannot associate the
+		 * error with any particular query.  There's no way to return back an
+		 * "async error", so the best we can do is drop the connection.  That
+		 * seems better than silently ignoring the notification.
+		 */
+		libpq_append_conn_error(conn, "out of memory");
+		handleFatalError(conn);
+		return 0;
+	}
 	if (pqGets(&conn->workBuffer, conn))
 	{
 		free(svname);
@@ -1525,20 +1657,25 @@ getNotify(PGconn *conn)
 	nmlen = strlen(svname);
 	extralen = strlen(conn->workBuffer.data);
 	newNotify = (PGnotify *) malloc(sizeof(PGnotify) + nmlen + extralen + 2);
-	if (newNotify)
+	if (!newNotify)
 	{
-		newNotify->relname = (char *) newNotify + sizeof(PGnotify);
-		strcpy(newNotify->relname, svname);
-		newNotify->extra = newNotify->relname + nmlen + 1;
-		strcpy(newNotify->extra, conn->workBuffer.data);
-		newNotify->be_pid = be_pid;
-		newNotify->next = NULL;
-		if (conn->notifyTail)
-			conn->notifyTail->next = newNotify;
-		else
-			conn->notifyHead = newNotify;
-		conn->notifyTail = newNotify;
+		free(svname);
+		libpq_append_conn_error(conn, "out of memory");
+		handleFatalError(conn);
+		return 0;
 	}
+
+	newNotify->relname = (char *) newNotify + sizeof(PGnotify);
+	strcpy(newNotify->relname, svname);
+	newNotify->extra = newNotify->relname + nmlen + 1;
+	strcpy(newNotify->extra, conn->workBuffer.data);
+	newNotify->be_pid = be_pid;
+	newNotify->next = NULL;
+	if (conn->notifyTail)
+		conn->notifyTail->next = newNotify;
+	else
+		conn->notifyHead = newNotify;
+	conn->notifyTail = newNotify;
 
 	free(svname);
 	return 0;
@@ -1673,12 +1810,12 @@ getCopyDataMessage(PGconn *conn)
 									 conn))
 			{
 				/*
-				 * XXX add some better recovery code... plan is to skip over
-				 * the message using its length, then report an error. For the
-				 * moment, just treat this like loss of sync (which indeed it
-				 * might be!)
+				 * Abandon the connection.  There's not much else we can
+				 * safely do; we can't just ignore the message or we could
+				 * miss important changes to the connection state.
+				 * pqCheckInBufferSpace() already reported the error.
 				 */
-				handleSyncLoss(conn, id, msgLength);
+				handleFatalError(conn);
 				return -2;
 			}
 			return 0;
@@ -1728,12 +1865,8 @@ getCopyDataMessage(PGconn *conn)
 				return -1;
 		}
 
-		/* trace server-to-client message */
-		if (conn->Pfdebug)
-			pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
-
 		/* Drop the processed message and loop around for another */
-		conn->inStart = conn->inCursor;
+		pqParseDone(conn, conn->inCursor);
 	}
 }
 
@@ -1791,13 +1924,13 @@ pqGetCopyData3(PGconn *conn, char **buffer, int async)
 			(*buffer)[msgLength] = '\0';	/* Add terminating null */
 
 			/* Mark message consumed */
-			conn->inStart = conn->inCursor + msgLength;
+			pqParseDone(conn, conn->inCursor + msgLength);
 
 			return msgLength;
 		}
 
 		/* Empty, so drop it and loop around for another */
-		conn->inStart = conn->inCursor;
+		pqParseDone(conn, conn->inCursor);
 	}
 }
 
@@ -2047,7 +2180,7 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 		}
 		else
 		{
-			if (pqPutnchar((char *) args[i].u.ptr, args[i].len, conn))
+			if (pqPutnchar(args[i].u.ptr, args[i].len, conn))
 				return NULL;
 		}
 	}
@@ -2111,12 +2244,12 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 									 conn))
 			{
 				/*
-				 * XXX add some better recovery code... plan is to skip over
-				 * the message using its length, then report an error. For the
-				 * moment, just treat this like loss of sync (which indeed it
-				 * might be!)
+				 * Abandon the connection.  There's not much else we can
+				 * safely do; we can't just ignore the message or we could
+				 * miss important changes to the connection state.
+				 * pqCheckInBufferSpace() already reported the error.
 				 */
-				handleSyncLoss(conn, id, msgLength);
+				handleFatalError(conn);
 				break;
 			}
 			continue;
@@ -2141,7 +2274,7 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 					}
 					else
 					{
-						if (pqGetnchar((char *) result_buf,
+						if (pqGetnchar(result_buf,
 									   *actual_result_len,
 									   conn))
 							continue;
@@ -2168,8 +2301,9 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 			case 'Z':			/* backend is ready for new query */
 				if (getReadyForQuery(conn))
 					continue;
-				/* consume the message and exit */
-				conn->inStart += 5 + msgLength;
+
+				/* consume the message */
+				pqParseDone(conn, conn->inStart + 5 + msgLength);
 
 				/*
 				 * If we already have a result object (probably an error), use
@@ -2194,6 +2328,7 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 						pqSaveErrorResult(conn);
 					}
 				}
+				/* and we're out */
 				return pqPrepareAsyncResult(conn);
 			case 'S':			/* parameter status */
 				if (getParameterStatus(conn))
@@ -2203,18 +2338,18 @@ pqFunctionCall3(PGconn *conn, Oid fnid,
 				/* The backend violates the protocol. */
 				libpq_append_conn_error(conn, "protocol error: id=0x%x", id);
 				pqSaveErrorResult(conn);
-				/* trust the specified message length as what to skip */
+
+				/*
+				 * We can't call parsing done due to the protocol violation
+				 * (so message tracing wouldn't work), but trust the specified
+				 * message length as what to skip.
+				 */
 				conn->inStart += 5 + msgLength;
 				return pqPrepareAsyncResult(conn);
 		}
 
-		/* trace server-to-client message */
-		if (conn->Pfdebug)
-			pqTraceOutputMessage(conn, conn->inBuffer + conn->inStart, false);
-
-		/* Completed this message, keep going */
-		/* trust the specified message length as what to skip */
-		conn->inStart += 5 + msgLength;
+		/* Completed parsing this message, keep going */
+		pqParseDone(conn, conn->inStart + 5 + msgLength);
 		needInput = false;
 	}
 

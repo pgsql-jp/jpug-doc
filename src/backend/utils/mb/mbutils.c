@@ -23,7 +23,7 @@
  * the result is validly encoded according to the destination encoding.
  *
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -39,6 +39,7 @@
 #include "mb/pg_wchar.h"
 #include "utils/fmgrprotos.h"
 #include "utils/memutils.h"
+#include "utils/relcache.h"
 #include "varatt.h"
 
 /*
@@ -310,7 +311,7 @@ InitializeClientEncoding(void)
 	{
 		Oid			utf8_to_server_proc;
 
-		Assert(IsTransactionState());
+		AssertCouldGetRelation();
 		utf8_to_server_proc =
 			FindDefaultConversionProc(PG_UTF8,
 									  current_server_encoding);

@@ -2,6 +2,12 @@
 #
 # For instructions on how to enable the CI integration in a repository and
 # further details, see src/tools/ci/README
+#
+#
+# NB: Different tasks intentionally test with different, non-default,
+# configurations, to increase the chance of catching problems. Each task with
+# non-obvious non-default documents their oddity at the top of the task,
+# prefixed by "SPECIAL:".
 
 
 env:
@@ -23,7 +29,7 @@ env:
   MTEST_ARGS: --print-errorlogs --no-rebuild -C build
   PGCTLTIMEOUT: 120 # avoids spurious failures during parallel tests
   TEMP_CONFIG: ${CIRRUS_WORKING_DIR}/src/tools/ci/pg_ci_base.conf
-  PG_TEST_EXTRA: kerberos ldap ssl libpq_encryption load_balance
+  PG_TEST_EXTRA: kerberos ldap ssl libpq_encryption load_balance oauth
 
 
 # What files to preserve in case tests fail
@@ -55,6 +61,10 @@ on_failure_meson: &on_failure_meson
 
 # To avoid unnecessarily spinning up a lot of VMs / containers for entirely
 # broken commits, have a minimal task that all others depend on.
+#
+# SPECIAL:
+# - Builds with --auto-features=disabled and thus almost no enabled
+#   dependencies
 task:
   name: SanityCheck
 
@@ -62,7 +72,7 @@ task:
   # push-wait-for-ci cycle time a bit when debugging operating system specific
   # failures. Uses skip instead of only_if, as cirrus otherwise warns about
   # only_if conditions not matching.
-  skip: $CIRRUS_CHANGE_MESSAGE =~ '.*\nci-os-only:.*'
+  skip: $CI_SANITYCHECK_ENABLED == false
 
   env:
     CPUS: 4
@@ -125,6 +135,11 @@ task:
       src/tools/ci/cores_backtrace.sh linux /tmp/cores
 
 
+# SPECIAL:
+# - Uses postgres specific CPPFLAGS that increase test coverage
+# - Specifies configuration options that test reading/writing/copying of node trees
+# - Specifies debug_parallel_query=regress, to catch related issues during CI
+# - Also runs tests against a running postgres instance, see test_running_script
 task:
   name: FreeBSD - Meson
 
@@ -136,15 +151,23 @@ task:
     DISK_SIZE: 50
 
     CCACHE_DIR: /tmp/ccache_dir
-    CPPFLAGS: -DRELCACHE_FORCE_RELEASE -DCOPY_PARSE_PLAN_TREES -DWRITE_READ_PARSE_PLAN_TREES -DRAW_EXPRESSION_COVERAGE_TEST -DENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
+    CPPFLAGS: -DRELCACHE_FORCE_RELEASE -DENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
     CFLAGS: -Og -ggdb
 
+    # Several buildfarm animals enable these options. Without testing them
+    # during CI, it would be easy to cause breakage on the buildfarm with CI
+    # passing.
+    PG_TEST_INITDB_EXTRA_OPTS: >-
+      -c debug_copy_parse_plan_trees=on
+      -c debug_write_read_parse_plan_trees=on
+      -c debug_raw_expression_coverage_test=on
+      -c debug_parallel_query=regress
     PG_TEST_PG_UPGRADE_MODE: --link
 
   <<: *freebsd_task_template
 
   depends_on: SanityCheck
-  only_if: $CIRRUS_CHANGE_MESSAGE !=~ '.*\nci-os-only:.*' || $CIRRUS_CHANGE_MESSAGE =~ '.*\nci-os-only:[^\n]*freebsd.*'
+  only_if: $CI_FREEBSD_ENABLED
 
   sysinfo_script: |
     id
@@ -154,8 +177,7 @@ task:
 
   ccache_cache:
     folder: $CCACHE_DIR
-  # Work around performance issues due to 32KB block size
-  repartition_script: src/tools/ci/gcp_freebsd_repartition.sh
+  setup_ram_disk_script: src/tools/ci/gcp_ram_disk.sh
   create_user_script: |
     pw useradd postgres
     chown -R postgres:postgres .
@@ -177,7 +199,6 @@ task:
         --buildtype=debug \
         -Dcassert=true -Dinjection_points=true \
         -Duuid=bsd -Dtcl_version=tcl86 -Ddtrace=auto \
-        -DPG_TEST_EXTRA="$PG_TEST_EXTRA" \
         -Dextra_lib_dirs=/usr/local/lib -Dextra_include_dirs=/usr/local/include/ \
         build
     EOF
@@ -216,12 +237,123 @@ task:
     cores_script: src/tools/ci/cores_backtrace.sh freebsd /tmp/cores
 
 
+task:
+  depends_on: SanityCheck
+
+  env:
+    # Below are experimentally derived to be a decent choice.
+    CPUS: 4
+    BUILD_JOBS: 8
+    TEST_JOBS: 8
+
+    # Default working directory is /tmp, but its total size (1.2 GB) is not
+    # enough, so different working and cache directory are set.
+    CIRRUS_WORKING_DIR: /home/postgres/postgres
+    CCACHE_DIR: /home/postgres/cache
+
+    PATH: /usr/sbin:$PATH
+    CORE_DUMP_DIR: /var/crash
+
+  matrix:
+    - name: NetBSD - Meson
+      # See REPO_CI_AUTOMATIC_TRIGGER_TASKS in .cirrus.star
+      trigger_type: $CI_TRIGGER_TYPE_NETBSD
+      only_if: $CI_NETBSD_ENABLED
+      env:
+        OS_NAME: netbsd
+        IMAGE_FAMILY: pg-ci-netbsd-postgres
+        PKGCONFIG_PATH: '/usr/lib/pkgconfig:/usr/pkg/lib/pkgconfig'
+        # initdb fails with: 'invalid locale settings' error on NetBSD.
+        # Force 'LANG' and 'LC_*' variables to be 'C'.
+        # See https://postgr.es/m/2490325.1734471752%40sss.pgh.pa.us
+        LANG: "C"
+        LC_ALL: "C"
+        # -Duuid is not set for the NetBSD, see the comment below, above
+        # configure_script, for more information.
+      setup_additional_packages_script: |
+        #pkgin -y install ...
+      <<: *netbsd_task_template
+
+    - name: OpenBSD - Meson
+      # See REPO_CI_AUTOMATIC_TRIGGER_TASKS in .cirrus.star
+      trigger_type: $CI_TRIGGER_TYPE_OPENBSD
+      only_if: $CI_OPENBSD_ENABLED
+      env:
+        OS_NAME: openbsd
+        IMAGE_FAMILY: pg-ci-openbsd-postgres
+        PKGCONFIG_PATH: '/usr/lib/pkgconfig:/usr/local/lib/pkgconfig'
+        UUID: -Duuid=e2fs
+        TCL: -Dtcl_version=tcl86
+      setup_additional_packages_script: |
+        #pkg_add -I ...
+      # Always core dump to ${CORE_DUMP_DIR}
+      set_core_dump_script: sysctl -w kern.nosuidcoredump=2
+      <<: *openbsd_task_template
+
+  sysinfo_script: |
+    locale
+    id
+    uname -a
+    ulimit -a -H && ulimit -a -S
+    env
+
+  ccache_cache:
+    folder: $CCACHE_DIR
+  setup_ram_disk_script: src/tools/ci/gcp_ram_disk.sh
+  create_user_script: |
+    useradd postgres
+    chown -R postgres:users /home/postgres
+    mkdir -p ${CCACHE_DIR}
+    chown -R postgres:users ${CCACHE_DIR}
+  setup_core_files_script: |
+    mkdir -p ${CORE_DUMP_DIR}
+    chmod -R 770 ${CORE_DUMP_DIR}
+    chown -R postgres:users ${CORE_DUMP_DIR}
+
+  # -Duuid=bsd is not set since 'bsd' uuid option
+  # is not working on NetBSD & OpenBSD. See
+  # https://www.postgresql.org/message-id/17358-89806e7420797025@postgresql.org
+  # And other uuid options are not available on NetBSD.
+  configure_script: |
+    su postgres <<-EOF
+      meson setup \
+        --buildtype=debugoptimized \
+        --pkg-config-path ${PKGCONFIG_PATH} \
+        -Dcassert=true -Dinjection_points=true \
+        -Dssl=openssl ${UUID} ${TCL} \
+        -DPG_TEST_EXTRA="$PG_TEST_EXTRA" \
+        build
+    EOF
+
+  build_script: su postgres -c 'ninja -C build -j${BUILD_JOBS} ${MBUILD_TARGET}'
+  upload_caches: ccache
+
+  test_world_script: |
+    su postgres <<-EOF
+      ulimit -c unlimited
+      # Otherwise tests will fail on OpenBSD, due to inability to start enough
+      # processes.
+      ulimit -p 256
+      meson test $MTEST_ARGS --num-processes ${TEST_JOBS}
+    EOF
+
+  on_failure:
+    <<: *on_failure_meson
+    cores_script: |
+      # Although we try to configure the OS to core dump inside
+      # ${CORE_DUMP_DIR}, they may not obey this. So, move core files to the
+      # ${CORE_DUMP_DIR} directory.
+      find build/ -type f -name '*.core' -exec mv '{}' ${CORE_DUMP_DIR} \;
+      src/tools/ci/cores_backtrace.sh ${OS_NAME} ${CORE_DUMP_DIR}
+
+
 # configure feature flags, shared between the task running the linux tests and
 # the CompilerWarnings task
 LINUX_CONFIGURE_FEATURES: &LINUX_CONFIGURE_FEATURES >-
   --with-gssapi
   --with-icu
   --with-ldap
+  --with-libcurl
   --with-libxml
   --with-libxslt
   --with-llvm
@@ -241,6 +373,7 @@ LINUX_MESON_FEATURES: &LINUX_MESON_FEATURES >-
   -Duuid=e2fs
 
 
+# Check SPECIAL in the matrix: below
 task:
   env:
     CPUS: 4
@@ -275,6 +408,8 @@ task:
     LDFLAGS: $SANITIZER_FLAGS
     CC: ccache gcc
     CXX: ccache g++
+    # GCC emits a warning for llvm-14, so switch to a newer one.
+    LLVM_CONFIG: llvm-config-16
 
     LINUX_CONFIGURE_FEATURES: *LINUX_CONFIGURE_FEATURES
     LINUX_MESON_FEATURES: *LINUX_MESON_FEATURES
@@ -282,7 +417,7 @@ task:
   <<: *linux_task_template
 
   depends_on: SanityCheck
-  only_if: $CIRRUS_CHANGE_MESSAGE !=~ '.*\nci-os-only:.*' || $CIRRUS_CHANGE_MESSAGE =~ '.*\nci-os-only:[^\n]*linux.*'
+  only_if: $CI_LINUX_ENABLED
 
   ccache_cache:
     folder: ${CCACHE_DIR}
@@ -317,10 +452,15 @@ task:
     #DEBIAN_FRONTEND=noninteractive apt-get -y install ...
 
   matrix:
+    # SPECIAL:
+    # - Uses address sanitizer, sanitizer failures are typically printed in
+    #   the server log
+    # - Configures postgres with a small segment size
     - name: Linux - Debian Bookworm - Autoconf
 
       env:
         SANITIZER_FLAGS: -fsanitize=address
+        PG_TEST_PG_COMBINEBACKUP_MODE: --copy-file-range
 
       # Normally, the "relation segment" code basically has no coverage in our
       # tests, because we (quite reasonably) don't generate tables large
@@ -334,10 +474,12 @@ task:
             --enable-cassert --enable-injection-points --enable-debug \
             --enable-tap-tests --enable-nls \
             --with-segsize-blocks=6 \
+            --with-libnuma \
+            --with-liburing \
             \
             ${LINUX_CONFIGURE_FEATURES} \
             \
-            CLANG="ccache clang"
+            CLANG="ccache clang-16"
         EOF
       build_script: su postgres -c "make -s -j${BUILD_JOBS} world-bin"
       upload_caches: ccache
@@ -351,11 +493,18 @@ task:
       on_failure:
         <<: *on_failure_ac
 
+    # SPECIAL:
+    # - Uses undefined behaviour and alignment sanitizers, sanitizer failures
+    #   are typically printed in the server log
+    # - Test both 64bit and 32 bit builds
+    # - uses io_method=io_uring
     - name: Linux - Debian Bookworm - Meson
 
       env:
         CCACHE_MAXSIZE: "400M" # tests two different builds
         SANITIZER_FLAGS: -fsanitize=alignment,undefined
+        PG_TEST_INITDB_EXTRA_OPTS: >-
+          -c io_method=io_uring
 
       configure_script: |
         su postgres <<-EOF
@@ -363,7 +512,6 @@ task:
             --buildtype=debug \
             -Dcassert=true -Dinjection_points=true \
             ${LINUX_MESON_FEATURES} \
-            -DPG_TEST_EXTRA="$PG_TEST_EXTRA" \
             build
         EOF
 
@@ -379,12 +527,21 @@ task:
             -Dllvm=disabled \
             --pkg-config-path /usr/lib/i386-linux-gnu/pkgconfig/ \
             -DPERL=perl5.36-i386-linux-gnu \
-            -DPG_TEST_EXTRA="$PG_TEST_EXTRA" \
+            -Dlibnuma=disabled \
             build-32
         EOF
 
-      build_script: su postgres -c 'ninja -C build -j${BUILD_JOBS} ${MBUILD_TARGET}'
-      build_32_script: su postgres -c 'ninja -C build-32 -j${BUILD_JOBS} ${MBUILD_TARGET}'
+      build_script: |
+        su postgres <<-EOF
+          ninja -C build -j${BUILD_JOBS} ${MBUILD_TARGET}
+          ninja -C build -t missingdeps
+        EOF
+
+      build_32_script: |
+        su postgres <<-EOF
+          ninja -C build-32 -j${BUILD_JOBS} ${MBUILD_TARGET}
+          ninja -C build -t missingdeps
+        EOF
 
       upload_caches: ccache
 
@@ -413,6 +570,11 @@ task:
     cores_script: src/tools/ci/cores_backtrace.sh linux /tmp/cores
 
 
+# NB: macOS is by far the most expensive OS to run CI for, therefore no
+# expensive additional checks should be added.
+#
+# SPECIAL:
+# - Enables --clone for pg_upgrade and pg_combinebackup
 task:
   name: macOS - Sonoma - Meson
 
@@ -449,11 +611,12 @@ task:
     CXXFLAGS: -Og -ggdb
 
     PG_TEST_PG_UPGRADE_MODE: --clone
+    PG_TEST_PG_COMBINEBACKUP_MODE: --clone
 
   <<: *macos_task_template
 
   depends_on: SanityCheck
-  only_if: $CIRRUS_CHANGE_MESSAGE !=~ '.*\nci-os-only:.*' || $CIRRUS_CHANGE_MESSAGE =~ '.*\nci-os-only:[^\n]*(macos|darwin|osx).*'
+  only_if: $CI_MACOS_ENABLED
 
   sysinfo_script: |
     id
@@ -502,7 +665,6 @@ task:
       -Dextra_lib_dirs=/opt/local/lib \
       -Dcassert=true -Dinjection_points=true \
       -Duuid=e2fs -Ddtrace=auto \
-      -DPG_TEST_EXTRA="$PG_TEST_EXTRA" \
       build
 
   build_script: ninja -C build -j${BUILD_JOBS} ${MBUILD_TARGET}
@@ -560,7 +722,7 @@ task:
   <<: *windows_task_template
 
   depends_on: SanityCheck
-  only_if: $CIRRUS_CHANGE_MESSAGE !=~ '.*\nci-os-only:.*' || $CIRRUS_CHANGE_MESSAGE =~ '.*\nci-os-only:[^\n]*windows.*'
+  only_if: $CI_WINDOWS_ENABLED
 
   setup_additional_packages_script: |
     REM choco install -y --no-progress ...
@@ -571,14 +733,14 @@ task:
     echo 127.0.0.3 pg-loadbalancetest >> c:\Windows\System32\Drivers\etc\hosts
     type c:\Windows\System32\Drivers\etc\hosts
 
-  # Use /DEBUG:FASTLINK to avoid high memory usage during linking
   configure_script: |
     vcvarsall x64
-    meson setup --backend ninja --buildtype debug -Dc_link_args=/DEBUG:FASTLINK -Dcassert=true -Dinjection_points=true -Db_pch=true -Dextra_lib_dirs=c:\openssl\1.1\lib -Dextra_include_dirs=c:\openssl\1.1\include -DTAR=%TAR% -DPG_TEST_EXTRA="%PG_TEST_EXTRA%" build
+    meson setup --backend ninja --buildtype debug -Dcassert=true -Dinjection_points=true -Db_pch=true -Dextra_lib_dirs=c:\openssl\1.1\lib -Dextra_include_dirs=c:\openssl\1.1\include -DTAR=%TAR% build
 
   build_script: |
     vcvarsall x64
     ninja -C build %MBUILD_TARGET%
+    ninja -C build -t missingdeps
 
   check_world_script: |
     vcvarsall x64
@@ -595,13 +757,11 @@ task:
   << : *WINDOWS_ENVIRONMENT_BASE
   name: Windows - Server 2019, MinGW64 - Meson
 
-  # due to resource constraints we don't run this task by default for now
-  trigger_type: manual
-  # worth using only_if despite being manual, otherwise this task will show up
-  # when e.g. ci-os-only: linux is used.
-  only_if: $CIRRUS_CHANGE_MESSAGE !=~ '.*\nci-os-only:.*' || $CIRRUS_CHANGE_MESSAGE =~ '.*\nci-os-only:[^\n]*mingw.*'
-  # otherwise it'll be sorted before other tasks
+  # See REPO_CI_AUTOMATIC_TRIGGER_TASKS in .cirrus.star.
+  trigger_type: $CI_TRIGGER_TYPE_MINGW
+
   depends_on: SanityCheck
+  only_if: $CI_MINGW_ENABLED
 
   env:
     TEST_JOBS: 4 # higher concurrency causes occasional failures
@@ -655,10 +815,9 @@ task:
 
   # To limit unnecessary work only run this once the SanityCheck
   # succeeds. This is particularly important for this task as we intentionally
-  # use always: to continue after failures. Task that did not run count as a
-  # success, so we need to recheck SanityChecks's condition here ...
+  # use always: to continue after failures.
   depends_on: SanityCheck
-  only_if: $CIRRUS_CHANGE_MESSAGE !=~ '.*\nci-os-only:.*'
+  only_if: $CI_COMPILERWARNINGS_ENABLED
 
   env:
     CPUS: 4
@@ -672,6 +831,9 @@ task:
 
     LINUX_CONFIGURE_FEATURES: *LINUX_CONFIGURE_FEATURES
     LINUX_MESON_FEATURES: *LINUX_MESON_FEATURES
+
+    # GCC emits a warning for llvm-14, so switch to a newer one.
+    LLVM_CONFIG: llvm-config-16
 
   <<: *linux_task_template
 
@@ -708,7 +870,7 @@ task:
         --cache gcc.cache \
         --enable-dtrace \
         ${LINUX_CONFIGURE_FEATURES} \
-        CC="ccache gcc" CXX="ccache g++" CLANG="ccache clang"
+        CC="ccache gcc" CXX="ccache g++" CLANG="ccache clang-16"
       make -s -j${BUILD_JOBS} clean
       time make -s -j${BUILD_JOBS} world-bin
 
@@ -719,7 +881,7 @@ task:
         --cache gcc.cache \
         --enable-cassert \
         ${LINUX_CONFIGURE_FEATURES} \
-        CC="ccache gcc" CXX="ccache g++" CLANG="ccache clang"
+        CC="ccache gcc" CXX="ccache g++" CLANG="ccache clang-16"
       make -s -j${BUILD_JOBS} clean
       time make -s -j${BUILD_JOBS} world-bin
 
@@ -729,7 +891,7 @@ task:
       time ./configure \
         --cache clang.cache \
         ${LINUX_CONFIGURE_FEATURES} \
-        CC="ccache clang" CXX="ccache clang++" CLANG="ccache clang"
+        CC="ccache clang" CXX="ccache clang++-16" CLANG="ccache clang-16"
       make -s -j${BUILD_JOBS} clean
       time make -s -j${BUILD_JOBS} world-bin
 
@@ -741,7 +903,7 @@ task:
         --enable-cassert \
         --enable-dtrace \
         ${LINUX_CONFIGURE_FEATURES} \
-        CC="ccache clang" CXX="ccache clang++" CLANG="ccache clang"
+        CC="ccache clang" CXX="ccache clang++-16" CLANG="ccache clang-16"
       make -s -j${BUILD_JOBS} clean
       time make -s -j${BUILD_JOBS} world-bin
 
@@ -765,9 +927,7 @@ task:
     docs_build_script: |
       time ./configure \
         --cache gcc.cache \
-        CC="ccache gcc" \
-        CXX="ccache g++" \
-        CLANG="ccache clang"
+        CC="ccache gcc" CXX="ccache g++" CLANG="ccache clang-16"
       make -s -j${BUILD_JOBS} clean
       time make -s -j${BUILD_JOBS} -C doc
 
@@ -783,7 +943,7 @@ task:
       time ./configure \
         ${LINUX_CONFIGURE_FEATURES} \
         --quiet \
-        CC="gcc" CXX"=g++" CLANG="clang"
+        CC="gcc" CXX"=g++" CLANG="clang-16"
       make -s -j${BUILD_JOBS} clean
       time make -s headerscheck EXTRAFLAGS='-fmax-errors=10'
     headers_cpluspluscheck_script: |

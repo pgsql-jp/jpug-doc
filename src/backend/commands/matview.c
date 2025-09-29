@@ -3,7 +3,7 @@
  * matview.c
  *	  materialized view support
  *
- * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -60,7 +60,7 @@ static bool transientrel_receive(TupleTableSlot *slot, DestReceiver *self);
 static void transientrel_shutdown(DestReceiver *self);
 static void transientrel_destroy(DestReceiver *self);
 static uint64 refresh_matview_datafill(DestReceiver *dest, Query *query,
-									   const char *queryString);
+									   const char *queryString, bool is_create);
 static char *make_temptable_name_n(char *tempname, int n);
 static void refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 								   int save_sec_context);
@@ -119,7 +119,7 @@ SetMatViewPopulatedState(Relation relation, bool newstate)
  */
 ObjectAddress
 ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
-				   ParamListInfo params, QueryCompletion *qc)
+				   QueryCompletion *qc)
 {
 	Oid			matviewOid;
 	LOCKMODE	lockmode;
@@ -135,8 +135,8 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
 										  RangeVarCallbackMaintainsTable,
 										  NULL);
 
-	return RefreshMatViewByOid(matviewOid, stmt->skipData, stmt->concurrent,
-							   queryString, params, qc);
+	return RefreshMatViewByOid(matviewOid, false, stmt->skipData,
+							   stmt->concurrent, queryString, qc);
 }
 
 /*
@@ -157,10 +157,13 @@ ExecRefreshMatView(RefreshMatViewStmt *stmt, const char *queryString,
  *
  * The matview's "populated" state is changed based on whether the contents
  * reflect the result set of the materialized view's query.
+ *
+ * This is also used to populate the materialized view created by CREATE
+ * MATERIALIZED VIEW command.
  */
 ObjectAddress
-RefreshMatViewByOid(Oid matviewOid, bool skipData, bool concurrent,
-					const char *queryString, ParamListInfo params,
+RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+					bool concurrent, const char *queryString,
 					QueryCompletion *qc)
 {
 	Relation	matviewRel;
@@ -170,7 +173,6 @@ RefreshMatViewByOid(Oid matviewOid, bool skipData, bool concurrent,
 	Oid			tableSpace;
 	Oid			relowner;
 	Oid			OIDNewHeap;
-	DestReceiver *dest;
 	uint64		processed = 0;
 	char		relpersistence;
 	Oid			save_userid;
@@ -249,6 +251,8 @@ RefreshMatViewByOid(Oid matviewOid, bool skipData, bool concurrent,
 		ListCell   *indexoidscan;
 		bool		hasUniqueIndex = false;
 
+		Assert(!is_create);
+
 		foreach(indexoidscan, indexoidlist)
 		{
 			Oid			indexoid = lfirst_oid(indexoidscan);
@@ -285,7 +289,9 @@ RefreshMatViewByOid(Oid matviewOid, bool skipData, bool concurrent,
 	 * NB: We count on this to protect us against problems with refreshing the
 	 * data using TABLE_INSERT_FROZEN.
 	 */
-	CheckTableNotInUse(matviewRel, "REFRESH MATERIALIZED VIEW");
+	CheckTableNotInUse(matviewRel,
+					   is_create ? "CREATE MATERIALIZED VIEW" :
+					   "REFRESH MATERIALIZED VIEW");
 
 	/*
 	 * Tentatively mark the matview as populated or not (this will roll back
@@ -313,12 +319,17 @@ RefreshMatViewByOid(Oid matviewOid, bool skipData, bool concurrent,
 	OIDNewHeap = make_new_heap(matviewOid, tableSpace,
 							   matviewRel->rd_rel->relam,
 							   relpersistence, ExclusiveLock);
-	LockRelationOid(OIDNewHeap, AccessExclusiveLock);
-	dest = CreateTransientRelDestReceiver(OIDNewHeap);
+	Assert(CheckRelationOidLockedByMe(OIDNewHeap, AccessExclusiveLock, false));
 
 	/* Generate the data, if wanted. */
 	if (!skipData)
-		processed = refresh_matview_datafill(dest, dataQuery, queryString);
+	{
+		DestReceiver *dest;
+
+		dest = CreateTransientRelDestReceiver(OIDNewHeap);
+		processed = refresh_matview_datafill(dest, dataQuery, queryString,
+											 is_create);
+	}
 
 	/* Make the matview match the newly generated data. */
 	if (concurrent)
@@ -370,9 +381,14 @@ RefreshMatViewByOid(Oid matviewOid, bool skipData, bool concurrent,
 	 * i.e., the display_rowcount flag of CMDTAG_REFRESH_MATERIALIZED_VIEW
 	 * command tag is left false in cmdtaglist.h. Otherwise, the change of
 	 * completion tag output might break applications using it.
+	 *
+	 * When called from CREATE MATERIALIZED VIEW command, the rowcount is
+	 * displayed with the command tag CMDTAG_SELECT.
 	 */
 	if (qc)
-		SetQueryCompletion(qc, CMDTAG_REFRESH_MATERIALIZED_VIEW, processed);
+		SetQueryCompletion(qc,
+						   is_create ? CMDTAG_SELECT : CMDTAG_REFRESH_MATERIALIZED_VIEW,
+						   processed);
 
 	return address;
 }
@@ -387,7 +403,7 @@ RefreshMatViewByOid(Oid matviewOid, bool skipData, bool concurrent,
  */
 static uint64
 refresh_matview_datafill(DestReceiver *dest, Query *query,
-						 const char *queryString)
+						 const char *queryString, bool is_create)
 {
 	List	   *rewritten;
 	PlannedStmt *plan;
@@ -402,7 +418,8 @@ refresh_matview_datafill(DestReceiver *dest, Query *query,
 
 	/* SELECT should never rewrite to more or less than one SELECT query */
 	if (list_length(rewritten) != 1)
-		elog(ERROR, "unexpected rewrite result for REFRESH MATERIALIZED VIEW");
+		elog(ERROR, "unexpected rewrite result for %s",
+			 is_create ? "CREATE MATERIALIZED VIEW " : "REFRESH MATERIALIZED VIEW");
 	query = (Query *) linitial(rewritten);
 
 	/* Check for user-requested abort. */
@@ -429,7 +446,7 @@ refresh_matview_datafill(DestReceiver *dest, Query *query,
 	ExecutorStart(queryDesc, 0);
 
 	/* run the plan */
-	ExecutorRun(queryDesc, ForwardScanDirection, 0, true);
+	ExecutorRun(queryDesc, ForwardScanDirection, 0);
 
 	processed = queryDesc->estate->es_processed;
 
@@ -622,8 +639,7 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 	relnatts = RelationGetNumberOfAttributes(matviewRel);
 
 	/* Open SPI context. */
-	if (SPI_connect() != SPI_OK_CONNECT)
-		elog(ERROR, "SPI_connect failed");
+	SPI_connect();
 
 	/* Analyze the temp table with the new contents. */
 	appendStringInfo(&querybuf, "ANALYZE %s", tempname);
@@ -757,16 +773,14 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 				if (!HeapTupleIsValid(cla_ht))
 					elog(ERROR, "cache lookup failed for opclass %u", opclass);
 				cla_tup = (Form_pg_opclass) GETSTRUCT(cla_ht);
-				Assert(cla_tup->opcmethod == BTREE_AM_OID);
 				opfamily = cla_tup->opcfamily;
 				opcintype = cla_tup->opcintype;
 				ReleaseSysCache(cla_ht);
 
-				op = get_opfamily_member(opfamily, opcintype, opcintype,
-										 BTEqualStrategyNumber);
+				op = get_opfamily_member_for_cmptype(opfamily, opcintype, opcintype, COMPARE_EQ);
 				if (!OidIsValid(op))
-					elog(ERROR, "missing operator %d(%u,%u) in opfamily %u",
-						 BTEqualStrategyNumber, opcintype, opcintype, opfamily);
+					elog(ERROR, "missing equality operator for (%u,%u) in opfamily %u",
+						 opcintype, opcintype, opfamily);
 
 				/*
 				 * If we find the same column with the same equality semantics
@@ -819,7 +833,10 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
 	 * That's a pretty silly thing to do.)
 	 */
 	if (!foundUniqueIndex)
-		elog(ERROR, "could not find suitable unique index on materialized view");
+		ereport(ERROR,
+				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("could not find suitable unique index on materialized view \"%s\"",
+					   RelationGetRelationName(matviewRel)));
 
 	appendStringInfoString(&querybuf,
 						   " AND newdata.* OPERATOR(pg_catalog.*=) mv.*) "
@@ -901,15 +918,10 @@ is_usable_unique_index(Relation indexRel)
 
 	/*
 	 * Must be unique, valid, immediate, non-partial, and be defined over
-	 * plain user columns (not expressions).  We also require it to be a
-	 * btree.  Even if we had any other unique index kinds, we'd not know how
-	 * to identify the corresponding equality operator, nor could we be sure
-	 * that the planner could implement the required FULL JOIN with non-btree
-	 * operators.
+	 * plain user columns (not expressions).
 	 */
 	if (indexStruct->indisunique &&
 		indexStruct->indimmediate &&
-		indexRel->rd_rel->relam == BTREE_AM_OID &&
 		indexStruct->indisvalid &&
 		RelationGetIndexPredicate(indexRel) == NIL &&
 		indexStruct->indnatts > 0)
