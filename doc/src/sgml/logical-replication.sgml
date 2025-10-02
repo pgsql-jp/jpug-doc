@@ -48,15 +48,10 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   publications within a single subscription.  This method of data replication
   is sometimes referred to as transactional replication.
 -->
-《マッチ度[79.101562]》テーブルの論理レプリケーションは、通常、パブリッシャーのデータベース上のデータのスナップショットを取り、サブスクライバーにコピーすることから始まります。
-それが完了したあとは、パブリッシャーにおける変更は、発生した時にリアルタイムでサブスクライバーに送られます。
-サブスクライバーはパブリッシャーと同じ順にデータを適用します。
+通常、テーブルの論理レプリケーションが開始されると、PostgreSQLはパブリッシャデータベースのテーブルデータのスナップショットを取得し、それをサブスクライバーにコピーします。
+完了すると、最初のコピー以降のパブリッシャーの変更がサブスクライバーに継続的に送られます。
 そのため、一つのサブスクリプション内のパブリケーションに対するトランザクションの一貫性が保証されます。
 この方式によるデータレプリケーションは、トランザクショナルレプリケーション(transactional replication)と呼ばれることがあります。
-《機械翻訳》通常、表の論理レプリケーションが開始されると、PostgreSQLはパブリッシャーデータベースにあるテーブルのデータのsnapshotを取得し、それをサブスクライバーにコピーします。
-完了すると、最初のコピー以降のパブリッシャーの変更は継続的にサブスクライバーに送信されます。
-サブスクライバーはパブリッシャーと同じオーダーのデータを適用するため、1つのサブスクリプション内のパブリケーションに対してトランザクション一貫性が保証されます。
-データレプリケーションのメソッドはトランザクションレプリケーションと呼ばれることもあります。
  </para>
 
  <para>
@@ -222,7 +217,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    transactional, so the table will start or stop replicating at the correct
    snapshot once the transaction has committed.
 -->
-《マッチ度[95.170455]》個々のテーブルは<link linkend="sql-alterpublication"><command>ALTER PUBLICATION</command></link>で動的に追加削除できます。
+個々のテーブルは<link linkend="sql-alterpublication"><command>ALTER PUBLICATION</command></link>で動的に追加削除できます。
 <literal>ADD TABLE</literal>および<literal>DROP TABLE</literal>操作はトランザクションの対象です。
 ひとたびトランザクションがコミットされれば、正しいスナップショットでテーブルのレプリケーションが開始あるいは終了されます。
   </para>
@@ -240,8 +235,8 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     and <command>DELETE</command> operations, so that appropriate rows to
     update or delete can be identified on the subscriber side.
 -->
-《機械翻訳》公開されたテーブルは、<command>UPDATE</command>および<command>DELETE</command>操作をレプリケートできるようにするために、<firstterm>レプリカアイデンティティ</firstterm>が設定されていなければなりません。
-これにより、サブスクライバー側で更新または削除する適切な行を特定できます。
+パブリッシュされたテーブルは、<command>UPDATE</command>と<command>DELETE</command>をレプリケーションできるようにするために、<firstterm>レプリカアイデンティティ</firstterm>の設定を含んでいなければなりません。
+そうすることにより、サブスクライバー側で更新または削除する対象の正しい行が特定できるようになります。
    </para>
 
    <para>
@@ -261,13 +256,13 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     <literal>FULL</literal> should only be used as a fallback if no other
     solution is possible.
 -->
-《機械翻訳》デフォルトでは、これは主キーがあればそれです。
-別の一意インデックス（特定の追加要件があります）をレプリカアイデンティティに設定することもできます。
-テーブルに適切なキーがない場合は、レプリカアイデンティティに設定できます<literal>FULL</literal>行全体がキーになることを意味します。
-レプリカアイデンティティ<literal>FULL</literal>が指定されている場合、検索行のサブスクライバー側で索引を使用できます。
-候補索引は、非部分のbtreeまたはハッシュである必要があり、左端のインデックスフィールドは、公開されたテーブル列を参照するカラム（式ではない）である必要があります。
-一意インデックス以外のプロパティに対するこれらの制限は、プライマリキーに適用されるいくつかの制限に準拠しています。
-このような適切な索引がない場合、サブスクライバー側の検索は非常に非効率的になる可能性があるため、レプリカアイデンティティ<literal>FULL</literal>他の解決策が不可能な場合にのみフォールバックとして使用する必要があります。
+デフォルトでは主キーがあれば、それがレプリカアイデンティティになります。
+他に、一意インデックス（追加の要件を伴います）もレプリカアイデンティティにできます。
+テーブルに適当なキーがなければ、レプリカアイデンティティを<literal>FULL</literal>にできます。これは、行全体がキーになることを意味します。
+レプリカアイデンティティ<literal>FULL</literal>を指定すると、行の検索にサブスクライバー側でインデックスが使えます。
+候補となるインデックスはBツリーまたはハッシュでなければならず、部分的であってはなりません。そして、左端のインデックスのフィールドはパブリッシュされたテーブル列を参照する（式でない）列でなければなりません。
+一意でないインデックスの属性に関するこれらの制限は、主キーに強制される制限の一部に準拠しています。
+そのような適切なインデックスがない場合には、サブスクライバー側での検索は非常に非効率なる可能性があるので、レプリカアイデンティティ<literal>FULL</literal>は他の解決方法がない場合のみの代替手段にすべきです。
    </para>
 
    <para>
@@ -276,7 +271,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     publisher side, a replica identity comprising the same or fewer columns
     must also be set on the subscriber side.
 -->
-《機械翻訳》パブリッシャー側に<literal>FULL</literal>以外のレプリカアイデンティティが設定されている場合は、サブスクライバー側にも同数以下の柱で構成されるレプリカアイデンティティを設定する必要があります。
+<literal>FULL</literal>以外のレプリカアイデンティティがパブリッシャー側に設定されている場合、同じか、より少ない列を含むレプリカアイデンティティがサブスクライバー側に設定されていなければなりません。
    </para>
 
    <para>
@@ -288,15 +283,15 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     included in a publication replicating these actions. Attempting such
     operations will result in an error on the publisher.
 -->
-《機械翻訳》レプリカアイデンティティが<literal>NOTHING</literal>、<literal>DEFAULT</literal>主キーなし、または<literal>USING INDEX</literal>インデックス削除として定義された表では、これらのサポートをレプリケートするパブリケーションに含まれている場合、アクション<command>UPDATE</command>または<command>DELETE</command>操作はできません。
-このような操作を試行すると、パブリッシャーにエラーが作成されます。
+レプリカアイデンティティが<literal>NOTHING</literal>、主キーのない<literal>DEFAULT</literal>、または<literal>USING INDEX</literal>として削除されたインデックスが登録されたテーブルは、<command>UPDATE</command>または<command>DELETE</command>操作をサポートできません。
+これらの操作を試みると、パブリッシャでエラーが報告されます。
    </para>
 
    <para>
 <!--
     <command>INSERT</command> operations can proceed regardless of any replica identity.
 -->
-《機械翻訳》<command>INSERT</command>レプリカアイデンティティに関係なく操作できます。
+<command>INSERT</command>操作は、レプリカアイデンティティの設定に関わらず実行されます。
    </para>
 
    <para>
@@ -304,7 +299,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     See <link linkend="sql-altertable-replica-identity"><literal>ALTER TABLE...REPLICA IDENTITY</literal></link>
     for details on how to set the replica identity.
 -->
-《機械翻訳》レプリカアイデンティティの設定方法については、<link linkend="sql-altertable-replica-identity"><literal>ALTER TABLE...REPLICA IDENTITY</literal></link>を参照してください。
+レプリカアイデンティティを設定する詳細な方法については、<link linkend="sql-altertable-replica-identity"><literal>ALTER TABLE...REPLICA IDENTITY</literal></link>をご覧ください。
    </para>
   </sect2>
 
@@ -1962,8 +1957,8 @@ Publications:
    <literal>publish_generated_columns</literal></link>. See
    <xref linkend="logical-replication-gencols"/> for details.
 -->
-《機械翻訳》生成列は、カラムリストでも指定できます。
-これにより、パブリケーションパラメータ<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>に関係なく、生成列を発行できます。
+生成列も列リストに指定できます。
+これにより、パブリケーションパラメータ<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>に関係なく生成列をパブリッシュできます。
 詳細は<xref linkend="logical-replication-gencols"/>を参照してください。
   </para>
 
@@ -2019,11 +2014,9 @@ Publications:
    then initial table synchronization won't copy generated columns even if they
    are defined in the publisher.
 -->
-《マッチ度[57.537688]》初期データの同期化時には、公開済の列のみがコピーされます。
+初期データの同期化時には、公開済の列のみがコピーされます。
 ただし、サブスクライバーが15より前のリリースの場合は、テーブルのすべての列が初期データの同期化時にコピーされ、列リストは無視されます。
-《機械翻訳》最初のデータの同期化では、発行された列のみがコピーされます。
-ただし、サブスクライバーが15より前のリリースからのものである場合、最初のテーブルの同期化では、カラム・リストは無視され、データ内のすべての列がコピーされます。
-サブスクライバーが18より前のリリースからのものである場合、パブリッシャーで定義されている列であっても、テーブルの最初の同期化では生成された列はコピーされません。
+サブスクライバーが18より前のリリースの場合、生成列がパブリッシャーで定義されている場合でも、初期テーブル同期は行われません。
   </para>
 
    <warning id="logical-replication-col-list-combining">
@@ -2190,7 +2183,7 @@ Publications:
 <!--
   <title>Generated Column Replication</title>
 -->
-  <title>《機械翻訳》生成された列のレプリケーション</title>
+  <title>生成列のレプリケーション</title>
 
   <para>
 <!--
@@ -2200,8 +2193,8 @@ Publications:
    have a matching generated column. In this case, it is always the subscriber
    table generated column value that is used.
 -->
-《機械翻訳》通常、サブスクライバーの表はパブリッシャーテーブルと同じように定義されるため、パブリッシャーテーブルに<link linkend="ddl-generated-columns"><literal>GENERATED column</literal></link>がある場合、サブスクライバーテーブルにはマッチングによって生成されたカラムが含まれます。
-このケースでは、常にサブスクライバーテーブルによって生成されたカラム値が使用されます。
+通常、サブスクライバーのテーブルはパブリッシャーのテーブルと同じように定義されます。そのため、パブリッシャーテーブルに<link linkend="ddl-generated-columns"><literal>生成列</literal></link>が存在する場合、サブスクライバーテーブルにも対応する生成列が存在します。
+この場合、常にサブスクライバーテーブルの生成列の値が使用されます。
   </para>
 
   <para>
@@ -2209,7 +2202,7 @@ Publications:
    For example, note below that subscriber table generated column value comes from the
    subscriber column's calculation.
 -->
-《機械翻訳》例の場合、そのサブスクライバーテーブルの下のノートは、サブスクライバーカラムの計算から生成されたカラム値になります。
+例えば以下の場合、サブスクライバーテーブルの生成列の値は、サブスクライバー列の計算から取得されることに注意してください。
 <programlisting>
 /* pub # */ CREATE TABLE tab_gen_to_gen (a int, b int GENERATED ALWAYS AS (a + 1) STORED);
 /* pub # */ INSERT INTO tab_gen_to_gen VALUES (1),(2),(3);
@@ -2239,7 +2232,7 @@ Publications:
    In fact, prior to version 18.0, logical replication does not publish
    <literal>GENERATED</literal> columns at all.
 -->
-《機械翻訳》実際、18.0年のバージョン以前には、論理レプリケーションはパブリッシュしない<literal>GENERATED</literal>コラムは全くない。
+実際、バージョン18.0より前では、論理レプリケーションは<literal>生成</literal>列を全くパブリッシュしません。
   </para>
 
   <para>
@@ -2247,7 +2240,7 @@ Publications:
    But, replicating a generated column to a regular column can sometimes be
    desirable.
 -->
-《機械翻訳》しかし、生成されたカラムを通常のカラムに複製することが望ましい場合もある。
+しかし、生成列の値を通常の列に複製することが望ましい場合もあります。
    <tip>
     <para>
 <!--
@@ -2255,8 +2248,7 @@ Publications:
      non-PostgreSQL database via output plugin, especially if the target database
      does not support generated columns.
 -->
-《機械翻訳》この機能は、特にデータデータベースで生成されたカラムがない場合に、アウトプット・プラグインを介してPostgreSQLを非ターゲットデータベースにレプリケートするときに便利です。
-サポート
+この機能は、出力プラグインを介してPostgreSQL以外のデータベースにデータを複製する場合、特にターゲットデータベースが生成列をサポートしていない場合に有用です。
     </para>
   </tip>
   </para>
@@ -2266,14 +2258,14 @@ Publications:
    Generated columns are not published by default, but users can opt to
    publish stored generated columns just like regular ones.
 -->
-《機械翻訳》生成された列はデフォルトによって公開されていないが、ユーザは通常の列と同様に、保存された生成列をパブリッシュすることを選択できる。
+生成列はデフォルトではパブリッシュされませんが、ユーザは格納生成列を通常の列と同様にパブリッシュすることを選択できます。
   </para>
 
   <para>
 <!--
    There are two ways to do this:
 -->
-《機械翻訳》これを行うには2つの方法があります。
+これには2つの方法があります。
    <itemizedlist>
      <listitem>
       <para>
@@ -2284,8 +2276,8 @@ Publications:
        This instructs PostgreSQL logical replication to publish current and
        future stored generated columns of the publication's tables.
 -->
-《機械翻訳》<command>PUBLICATION</command>パラメータ<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>を<literal>stored</literal>に設定します。
-これはPostgreSQL論理レプリケーションにパブリッシュ現在と将来格納されるパブリケーションのテーブルの生成列を指示します。
+<command>PUBLICATION</command>パラメータの<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>を<literal>stored</literal>に設定します。
+これは、PostgreSQL論理レプリケーションに、パブリケーションのテーブルが持つ現在または将来の格納生成列をパブリッシュするように指示します。
       </para>
      </listitem>
 
@@ -2295,7 +2287,7 @@ Publications:
        Specify a table <link linkend="logical-replication-col-lists">column list</link>
        to explicitly nominate which stored generated columns will be published.
 -->
-《機械翻訳》どの格納された生成カラムがパブリッシュされるかを明示的に指定するテーブル<link linkend="logical-replication-col-lists">カラムリスト</link>を指定します。
+どの格納生成列がパブリッシュされるかを明示的に指定する、テーブルの<link linkend="logical-replication-col-lists">列リスト</link>を設定します。
       </para>
 
       <note>
@@ -2305,7 +2297,7 @@ Publications:
         takes precedence, overriding the effect of the
         <literal>publish_generated_columns</literal> parameter.
 -->
-《機械翻訳》どのテーブル列を発行するかを決定する際には、カラムリストが優先され、<literal>publish_generated_columns</literal>パラメータの効果を上書きします。
+どのテーブル列をパブリッシュするかを決定する際には、列リストが優先され、<literal>publish_generated_columns</literal>パラメータの効果を上書きします。
        </para>
       </note>
      </listitem>
@@ -2319,22 +2311,32 @@ Publications:
    publishing generated columns is not enabled, and for when it is
    enabled.
 -->
-《機械翻訳》次のテーブルは、論理レプリケーションに生成列が含まれる場合の動作をまとめたものです。
-生成列の発行が有効でない場合の結果と、有効な場合の結果を示します。
+以下の表は、論理レプリケーションに生成列が含まれる場合の動作をまとめたものです。
+生成列のパブリッシュが有効になっていない場合と、有効になっている場合の結果を示しています。
   </para>
 
   <table id="logical-replication-gencols-table-summary">
 <!--
    <title>Replication Result Summary</title>
 -->
-   <title>《機械翻訳》レプリケーション結果の概要</title>
+   <title>レプリケーション結果の概要</title>
    <tgroup cols="4">
 
     <thead>
      <row>
+<!--
       <entry>Publish generated columns?</entry>
+-->
+      <entry>生成列をパブリッシュするか否か？</entry>
+<!--
       <entry>Publisher table column</entry>
+-->
+      <entry>パブリッシャーテーブルの列</entry>
+<!--
       <entry>Subscriber table column</entry>
+-->
+      <entry>サブスクライバーテーブルの列</entry>
+
 <!--
       <entry>Result</entry>
 -->
@@ -2344,45 +2346,117 @@ Publications:
 
     <tbody>
      <row>
+<!--
       <entry>No</entry>
+-->
+      <entry>いいえ</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>Publisher table column is not replicated. Use the subscriber table generated column value.</entry>
+-->
+      <entry>パブリッシャーテーブルの列はレプリケーションされません。サブスクライバーテーブルの生成列の値を使用します。</entry>
      </row>
 
      <row>
+<!--
       <entry>No</entry>
+-->
+      <entry>いいえ</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>regular</entry>
+-->
+      <entry>通常の列</entry>
+<!--
       <entry>Publisher table column is not replicated. Use the subscriber table regular column default value.</entry>
+-->
+      <entry>パブリッシャーテーブルの列はレプリケーションされません。サブスクライバーテーブルの通常の列の値を使用します。</entry>
      </row>
 
      <row>
+<!--
       <entry>No</entry>
+-->
+      <entry>いいえ</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>--missing--</entry>
+-->
+      <entry>--存在しない--</entry>
+<!--
       <entry>Publisher table column is not replicated. Nothing happens.</entry>
+-->
+      <entry>パブリッシャーテーブルの列はレプリケーションされません。何も起こりません。</entry>
      </row>
 
      <row>
+<!--
       <entry>Yes</entry>
+-->
+      <entry>はい</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>ERROR. Not supported.</entry>
+-->
+      <entry>エラー。サポートされていません。</entry>
      </row>
 
      <row>
+<!--
       <entry>Yes</entry>
+-->
+      <entry>はい</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>regular</entry>
+-->
+      <entry>通常の列</entry>
+<!--
       <entry>Publisher table column value is replicated to the subscriber table column.</entry>
+-->
+      <entry>パブリッシャーテーブルの列がサブスクライバーテーブルの列にレプリケーションされます。</entry>
      </row>
 
      <row>
+<!--
       <entry>Yes</entry>
+-->
+      <entry>はい</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>--missing--</entry>
-      <entry>ERROR. The column is reported as missing from the subscriber table.</entry>
+-->
+      <entry>--存在しない--</entry>
+<!--
+      <entry>Publisher table column value is replicated to the subscriber table column.</entry>
+-->
+      <entry>パブリッシャーテーブルの列がサブスクライバーテーブルの列にレプリケーションされます。</entry>
      </row>
     </tbody>
    </tgroup>
@@ -2395,7 +2469,7 @@ Publications:
     publications where the same table has been published with different column
     lists. See <xref linkend="logical-replication-col-lists"/>.
 -->
-《機械翻訳》現在、同じサポートが異なるテーブルリストで公開されている複数の出版物で構成されるサブスクリプションのカラムはありません。
+現在のところ、同じテーブルが異なる列リストでパブリッシュされている複数のパブリケーションで構成されるサブスクリプションはサポートされていません。
 <xref linkend="logical-replication-col-lists"/>を参照してください。
    </para>
 
@@ -2405,7 +2479,7 @@ Publications:
     columns, while another publication in the same subscription is not
     publishing generated columns for the same table.
 -->
-《機械翻訳》この同じシチュエーションは、あるパブリケーションが生成列を発行していて、同じパブリケーションの別のサブスクリプションが同じテーブルの生成列を発行していない場合に発生します。
+同様の状況は、あるパブリケーションが生成列をパブリッシュしている一方で、同じサブスクリプション内の別のパブリケーションが同じテーブルに対して生成列をパブリッシュしていない場合にも発生します。
    </para>
   </warning>
 
@@ -2416,7 +2490,7 @@ Publications:
     synchronization won't copy generated columns even if they are defined in
     the publisher.
 -->
-《機械翻訳》サブスクライバーが18より前のリリースからのものである場合、最初のテーブルの同期では、コピーで生成されたカラムは、パブリッシャーで定義されていても生成されません。
+サブスクライバーが18より前のリリースの場合、生成列のパブリッシュがパブリッシャーで規定されている場合でも、初期テーブル同期ではそれらの列はコピーされません。
    </para>
   </note>
  </sect1>
@@ -2438,14 +2512,12 @@ Publications:
    <firstterm>conflict</firstterm>, but does not result in an error and such
    operations will simply be skipped.
 -->
-《マッチ度[81.065089]》サブスクライバーノードでローカルにデータが変更された場合でも、データが更新されるという点では、論理レプリケーションは通常のDML操作と同じように振る舞います。
+サブスクライバーノードでローカルにデータが変更された場合でも、データが更新されるという点では、論理レプリケーションは通
+常のDML操作と同じように振る舞います。
 到着したデータが制約に違反すると、レプリケーションは停止します。
 これは、<firstterm>コンフリクト</firstterm>と呼ばれます。
-<command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションする場合は、存在しないデータによってコンフリクトは起こらず、そのような操作は単にスキップされます。
-《機械翻訳》論理レプリケーションは、サブスクライバーノードでローカルに変更された場合でもデータが更新されるという点で、通常のDML操作と同様に動作します。
-着信データが制約に違反する場合、レプリケーションは停止します。
-これは<firstterm>コンフリクト</firstterm>と呼ばれます。
-レプリケーション<command>UPDATE</command>または<command>DELETE</command>操作の場合、データがないことも<firstterm>コンフリクト</firstterm>とみなされますが、エラーにはならず、このような操作は単純にスキップされたになります。
+<command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションする場合は、
+存在しないデータも<firstterm>コンフリクト</firstterm>とみなされますが、エラーにはならずそのような操作は単にスキップされます。
   </para>
 
   <para>
@@ -2764,12 +2836,9 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
    resolved manually by the user.  Details about the conflict can be found in
    the subscriber's server log.
 -->
-《マッチ度[89.080460]》コンフリクトはエラーを生じさせ、レプリケーションを停止させます。
+コンフリクトはエラーを生じさせ、レプリケーションを停止させます。
 コンフリクトはユーザが手動で解消しなければなりません。
 コンフリクトの詳細は、サブスクライバーのサーバログに出力されます。
-《機械翻訳》コンフリクトがエラーを発生させると、レプリケーションが停止します。
-これは、ユーザが手動で解決する必要があります。
-コンフリクトの詳細は、サブスクライバーのサーバログを参照してください。
   </para>
 
   <para>
@@ -3339,8 +3408,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    Logical replication requires several configuration options to be set. These
    options are relevant only on one side of the replication.
 -->
-《機械翻訳》論理レプリケーションでは、いくつかの設定オプションを設定する必要があります。
-これらのオプションは、レプリケーションの片側にのみ関連します。
+論理レプリケーションでは、いくつかの構成オプションを設定することが必要です。
+これらのオプションは、レプリケーションの一方の側にのみ関連します。
   </para>
 
   <sect2 id="logical-replication-config-publisher">
@@ -3407,9 +3476,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     must be set to at least the number of subscriptions that will be added to
     the subscriber, plus some reserve for table synchronization.
 -->
-《マッチ度[80.991736]》<link linkend="guc-max-active-replication-origins"><varname>max_active_replication_origins</varname></link>は、少なくともサブスクライバーに追加されるサブスクリプションの数に、テーブル同期用の予約を加えた数以上に設定することが必要です。
-《機械翻訳》<link linkend="guc-max-active-replication-origins"><varname>max_active_replication_origins</varname></link>には、少なくともサブスクライバーに追加されるSubscriptionの数を設定する必要があります。
-プラスにはテーブルの同期化のための予約が必要です。
+<link linkend="guc-max-active-replication-origins"><varname>max_active_replication_origins</varname></link>は、少なくともサブスクライバーに追加されるサブスクリプションの数に、テーブル同期用の予約を加えた数以上に設定することが必要です。
    </para>
 
    <para>
