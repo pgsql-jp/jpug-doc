@@ -296,7 +296,7 @@ CRCの値はそれぞれのWALレコードを書き込む時に設定され、�
       Data pages are checksummed by default, and full page images
       recorded in WAL records are always checksum protected.
 -->
-《機械翻訳》データページはデフォルトによってチェックサムされ、WAL記録に記録されたフルページ画像は常にチェックサム保護されます。
+データページはデフォルトでチェックサム計算され、WALレコードに記録されているページ全体のイメージは常にチェックサムで保護されます。
      </para>
     </listitem>
     <listitem>
@@ -360,8 +360,8 @@ CRCの値はそれぞれのWALレコードを書き込む時に設定され、�
    the page is read. Only data pages are protected by checksums; internal data
    structures and temporary files are not.
 -->
-《マッチ度[93.333333]》デフォルトでは、データページはチェックサムで保護されていませんが、オプションでデータベースクラスタに対して有効にすることができます。
-チェックサムを有効にすると、各データページにチェックサムが含まれます。
+データページはデフォルトでチェックサムにより保護されていますが、オプションでデータベースクラスタに対して無効にすることができます。
+チェックサムが有効である場合、各データページにチェックサムが含まれます。
 チェックサムは、ページが書き込まれるときに更新され、ページが読み取られるたびに検証されます。
 チェックサムによってデータページのみ保護されます。
 内部データ構造と一時ファイルは保護されません。
@@ -375,7 +375,7 @@ CRCの値はそれぞれのWALレコードを書き込む時に設定され、�
    operation. Data checksums are enabled or disabled at the full cluster
    level, and cannot be specified individually for databases or tables.
 -->
-《マッチ度[94.900850]》チェックサムは、<link linkend="app-initdb-data-checksums"><application>initdb</application></link>を使用してデータベースクラスタを初期化するときに有効にできます。
+チェックサムは、<link linkend="app-initdb-data-checksums"><application>initdb</application></link>を使用してデータベースクラスタを初期化するときに無効にできます。
 また、オフライン操作で後から有効化または無効化することもできます。
 データチェックサムは、データベースクラスタ全体のレベルで有効または無効になり、データベースやテーブルに対して個別に指定することはできません。
   </para>
@@ -1038,8 +1038,8 @@ WALが生成されるペースにWALのアーカイブ処理が追いつかな�
    counter among the restartpoint-related ones indicates that noticeable system
    resources have been spent.
 -->
-《マッチ度[91.860465]》場合によっては、プライマリのWALサイズが急速に増加すると、例えば大規模なINSERT中のインスタンスでは、スタンバイの<structfield>restartpoints_req</structfield>カウンタがピークの増加を示すことがあります。
-これは、最後のリスタートポイント以降の安全なチェックポイントレコードがスタンバイでまだ再生されていないため、XLOG消費の増加による新規リスタートポイントの作成要求を実行できないために発生します。
+場合によっては、プライマリのWALサイズが急速に増加すると、例えば大規模な<command>INSERT</command>中のインスタンスでは、スタンバイの<structfield>restartpoints_req</structfield>カウンタがピークの増加を示すことがあります。
+これは、最後のリスタートポイント以降の安全なチェックポイントレコードがスタンバイでまだ再生されていないため、WAL消費の増加による新規リスタートポイントの作成要求を実行できないために発生します。
 この動作は正常であり、システムリソースの消費の増加にはつながりません。
 リスタートポイントに関連するカウンタの中で、顕著なシステムリソースの消費を示すのは<structfield>restartpoints_done</structfield>カウンタのみです。
   </para>
@@ -1239,22 +1239,14 @@ WALが高遅延の回転ディスクに格納されているときは、<varname
    in <structname>pg_stat_io</structname> for the <varname>object</varname>
    <literal>wal</literal>, respectively.
 -->
-《マッチ度[85.052399]》WALデータをディスクに書き込むための2つの内部関数があります。
+WALデータをディスクに書き込むための2つの内部関数があります。
 <function>XLogWrite</function>と<function>issue_xlog_fsync</function>です。
-<xref linkend="guc-track-wal-io-timing"/>が有効な場合、<function>XLogWrite</function>がWALデータをディスクに書き込み、<function>issue_xlog_fsync</function>がWALデータをディスクに同期する合計時間は、それぞれ<xref linkend="pg-stat-wal-view"/>の<literal>wal_write_time</literal>および<literal>wal_sync_time</literal>として数えられます。
+<xref linkend="guc-track-wal-io-timing"/>が有効な場合、<function>XLogWrite</function>がWALデータをディスクに書き込む合計時間と、<function>issue_xlog_fsync</function>がWALデータをディスクに同期する合計時間は、それぞれ<xref linkend="pg-stat-io-view"/>における<varname>object</varname> <literal>wal</literal>の<varname>write_time</varname>および<varname>fsync_time</varname>として数えられます。
 <function>XLogWrite</function>は、WALバッファをディスクに書き込んで<function>issue_xlog_fsync</function>を呼び出すために、通常は<function>XLogInsertRecord</function>（WALバッファに新しいレコード用の領域がない場合）、<function>XLogFlush</function>、WALライタによって呼び出されます。
 <function>issue_xlog_fsync</function>は通常、WALファイルをディスクに同期するために<function>XLogWrite</function>によって呼び出されます。
 <varname>wal_sync_method</varname>が<literal>open_datasync</literal>または<literal>open_sync</literal>の場合、<function>XLogWrite</function>での書き込み操作はディスクに書き込まれたWALデータの同期を保証し、<function>issue_xlog_fsync</function>は何も行いません。
 <varname>wal_sync_method</varname>が<literal>fdatasync</literal>、<literal>fsync</literal>、または<literal>fsync_writethrough</literal>のいずれかの場合、書き込み操作はWALバッファをカーネルキャッシュに移動し、<function>issue_xlog_fsync</function>はそれらをディスクに同期します。
-<varname>track_wal_io_timing</varname>の設定に関係なく、<function>XLogWrite</function>の書き込み回数と<function>issue_xlog_fsync</function>のディスクへのWALデータの同期回数もそれぞれ<structname>pg_stat_wal</structname>の<literal>wal_write</literal>と<literal>wal_sync</literal>としてカウントされます。
-《機械翻訳》WALデータをディスクに書き込むための内部関数は2つあります。
-<function>XLogWrite</function>と<function>issue_xlog_fsync</function>です。
-<xref linkend="guc-track-wal-io-timing"/>が有効な場合、合計時間<function>XLogWrite</function> WALデータのディスクへの書き込みと<function>issue_xlog_fsync</function>同期はそれぞれ<varname>オブジェクト</varname><literal>wal</literal>の<xref linkend="pg-stat-io-view"/>で<varname>write_time</varname>と<varname>fsync_time</varname>としてカウントされます。
-<function>XLogWrite</function>は通常<function>XLogInsertRecord</function> WALバッファ内に新しいレコードのスペースが存在しない場合<function>XLogFlush</function>とWALライタによって、ディスクと呼び出し<function>issue_xlog_fsync</function>へWALバッファを書き込むために呼び出されます。
-<function>issue_xlog_fsync</function>は通常<function>XLogWrite</function>によって、WALファイルをディスクに同期させるために呼び出されます。
-wal_sync_methodがopen_datasyncか<literal>open_sync</literal>のいずれかである場合、への書き込みオペレーションは書き込まれたWALデータをディスクに同期させることを保証し、は何もしません。
-wal_sync_methodがtick fdatasync oney、fsync、またはfsync_writethroughのいずれかである場合、writeオペレーションはWALバッファをカーネルキャッシュに移動させ、それらをディスクに同期させます。
-<varname>track_wal_io_timing</varname>の設定に関係なく、WALデータからディスクへの書き込みと同期の回数も、オブジェクトに対して、それぞれwritesとfsyncs amppg_stat_io≠としてカウントされます。
+<varname>track_wal_io_timing</varname>の設定に関係なく、<function>XLogWrite</function>の書き込み回数と<function>issue_xlog_fsync</function>のディスクへのWALデータの同期回数も、それぞれ<structname>pg_stat_io</structname>における<varname>object</varname> <literal>wal</literal>の<varname>writes</varname>と<varname>fsyncs</varname>としてカウントされます。
   </para>
 
   <para>
@@ -1269,13 +1261,9 @@ wal_sync_methodがtick fdatasync oney、fsync、またはfsync_writethroughの�
    <literal>try</literal>, which enables the feature on systems that support
    issuing read-ahead advice.
 -->
-《マッチ度[87.388988]》<xref linkend="guc-recovery-prefetch"/>パラメータは、すぐに必要になるが現在<productname>PostgreSQL</productname>のバッファプールにないディスクブロックの読み取りを開始するようカーネルに指示することにより、リカバリ中の入出力待ち時間を減らすために使用できます。
+<xref linkend="guc-recovery-prefetch"/>パラメータは、すぐに必要になるが現在<productname>PostgreSQL</productname>のバッファプールにないディスクブロックの読み取りを開始するようカーネルに指示することにより、リカバリ中の入出力待ち時間を減らすために使用できます。
 <xref linkend="guc-maintenance-io-concurrency"/>と<xref linkend="guc-wal-decode-buffer-size"/>の設定は、プリフェッチの並列度と先読み量をそれぞれ制限します。
-デフォルトでは<literal>try</literal>に設定されており、<function>posix_fadvise</function>が利用可能なシステムでこの機能が有効になります。
-《機械翻訳》<xref linkend="guc-recovery-prefetch"/>パラメータを使用すると、まもなく必要になるが現在<productname>PostgreSQL</productname>のリカバリに存在しないディスク・ブロックの読取りを開始するようにカーネルに指示することで、バッファプール中の入出力待機時間を短縮できます。
-<xref linkend="guc-maintenance-io-concurrency"/>および<xref linkend="guc-wal-decode-buffer-size"/>の設定により、プリフェッチの同時実行性および長さがそれぞれ制限されます。
-デフォルトにより、<literal>try</literal>に設定されます。
-これにより、サポートが先読みアドバイスを発行するシステム上の機能が有効になります。
+デフォルトでは<literal>try</literal>に設定されており、先読み指示の発行をサポートするシステムでこの機能が有効になります。
   </para>
  </sect1>
 
