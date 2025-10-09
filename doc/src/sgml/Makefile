@@ -208,7 +208,7 @@ MAKEINFO = makeinfo
 ##
 
 # Quick syntax check without style processing
-check: postgres.sgml $(ALL_SGML) check-tabs check-nbsp
+check: postgres.sgml $(ALL_SGML) check-tabs check-nbsp check-ng
 	$(XMLLINT) $(XMLINCLUDE) --noout --valid $<
 
 
