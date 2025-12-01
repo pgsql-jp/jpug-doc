@@ -2392,10 +2392,9 @@ CREATE RULE shoelace_ins AS ON INSERT TO shoelace
     relation such as <literal>shoelace_data.sl_name</literal>, without
     specifying <literal>OLD</literal> or <literal>NEW</literal>.
 -->
-《機械翻訳》ルールの<literal>RETURNING</literal>句内のノート<literal>OLD</literal>および<literal>NEW</literal>は、結果のレンジテーブル内の古い/新しい行ではなく、書き換えられた問い合わせに追加のリレーション項目として追加された擬似関係を参照します。
-したがって、例の場合、<command>UPDATE</command>このビューに関する問い合わせをサポートするルールでは、<literal>RETURNING</literal>句が<literal>old.sl_name</literal>を含む場合、ビュー上の問い合わせ内の<literal>RETURNING</literal>句が<literal>OLD</literal>または<literal>NEW</literal>を指定したかどうかに関係なく、古い名前が常に返されます。
-これは混乱を招く可能性があります。
-この混乱を回避し、サポートがビュー上の問い合わせで古い値と新しい値を返すように、ルール定義内の<literal>RETURNING</literal>句は<literal>OLD</literal>または<literal>NEW</literal>を指定せずに<literal>shoelace_data.sl_name</literal>などの結果リレーションの項目を参照する必要があります。
+ルールの<literal>RETURNING</literal>句内では、<literal>OLD</literal>と<literal>NEW</literal>は、結果のリレーション内の古い/新しい行ではなく、書き換えられた問い合わせに範囲テーブルの余分な項目として追加された擬似リレーションを参照することに注意してください。
+したがって、例えば、このビューで<command>UPDATE</command>の問い合わせをサポートするルールでは、<literal>RETURNING</literal>句が<literal>old.sl_name</literal>を含む場合、ビュー上の問い合わせ内の<literal>RETURNING</literal>句が<literal>OLD</literal>または<literal>NEW</literal>を指定したかどうかに関係なく、古い名前が常に返されます。これは混乱を招くかもしれません。
+この混乱を回避しビューの問い合わせで古い値と新しい値を返すことをサポートするように、ルール定義内の<literal>RETURNING</literal>句は、<literal>OLD</literal>や<literal>NEW</literal>を指定せず、<literal>shoelace_data.sl_name</literal>のように結果リレーションの項目を参照すべきです。
    </para>
 
    <para>
@@ -3092,12 +3091,12 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     significant information about the unseen rows if applied before the security
     view's row filters.
 -->
-《マッチ度[93.981946]》プランナは副作用が無い関数をもう少し柔軟に扱います。
+問い合わせプランナは副作用が無い関数をもう少し柔軟に扱います。
 これらの関数は<literal>LEAKPROOF</literal>属性を持っており、等価演算子など、単純で広く用いられる演算子も多く含まれます。
-利用者に対して不可視な行に対するこれら関数の呼び出しはいかなる情報も漏えいさせないため、プランナはこれらの関数をどのような場所でも安全に実行させる事ができます。
+利用者に対して不可視な行に対するこれら関数の呼び出しはいかなる情報も漏洩させないため、プランナはこれらの関数をどのような場所でも安全に実行させる事ができます。
 さらに、引数をとらなかったり、セキュリティバリアビューから引数を渡されない関数は、ビューからデータを渡されることは決して無いため、プッシュダウンされるための<literal>LEAKPROOF</literal>をマークする必要はありません。
-一方、受け取った引数の値に応じてエラー（例えばオーバーフローやゼロ除算など）を発生させるかもしれない関数はleak-proofではありません。
-これがもしセキュリティ・ビューの条件句でフィルタリングされるより前に適用されたなら、不可視行に関する何か重要な情報を与える事ができてしまいます。
+一方、受け取った引数の値に応じてエラー（例えばオーバーフローやゼロ除算など）を発生させるかもしれない関数は漏洩防止関数ではありません。
+これがもしセキュリティビューの条件句でフィルタリングされるより前に適用されたなら、不可視行に関する何か重要な情報を与える事ができてしまいます。
 </para>
 
 <para>
@@ -3111,9 +3110,8 @@ CREATE VIEW phone_number WITH (security_barrier) AS
     meta-command is useful to list operator families and determine which of
     their operators are marked as leakproof.
 -->
-《機械翻訳》例の場合、で使用されているインデックススキャン<literal>WHERE</literal>セキュリティバリアビューは行の演算子族に関連付けられているが、基礎となる関数がマーク<literal>LEAKPROOF</literal>されていない場合は、セキュリティの問い合わせ（またはインデックス-レベルポリシーを持つ表）にを選択できません。
-<xref linkend="app-psql"/>プログラムの<command><link linkend="app-psql-meta-command-dao">\dAo+</link></command>メタコマンドはリスト演算子ファミリーに有用であり、どの演算子が漏れ防止とマークされているかを判断できます。
-句演算子
+例えば、<literal>WHERE</literal>句で使われている演算子がインデックスの演算子族に関連付けられているものの、基礎となる関数が<literal>LEAKPROOF</literal>とマークされていない場合には、セキュリティバリアビュー（または行レベルポリシーを持つテーブル）での問い合わせにインデックススキャンは選択できません。
+<xref linkend="app-psql"/>プログラムの<command><link linkend="app-psql-meta-command-dao">\dAo+</link></command>メタコマンドは演算子族を一覧し、どの演算子が漏洩防止とマークされているか判断するのに有用です。
 </para>
 
 <para>
