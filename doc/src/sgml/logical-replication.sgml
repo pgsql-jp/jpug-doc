@@ -48,15 +48,10 @@ PostgreSQLは両方の仕組みを同時にサポートします。
   publications within a single subscription.  This method of data replication
   is sometimes referred to as transactional replication.
 -->
-《マッチ度[79.101562]》テーブルの論理レプリケーションは、通常、パブリッシャーのデータベース上のデータのスナップショットを取り、サブスクライバーにコピーすることから始まります。
-それが完了したあとは、パブリッシャーにおける変更は、発生した時にリアルタイムでサブスクライバーに送られます。
-サブスクライバーはパブリッシャーと同じ順にデータを適用します。
-そのため、一つのサブスクリプション内のパブリケーションに対するトランザクションの一貫性が保証されます。
+通常、テーブルの論理レプリケーションが開始されると、PostgreSQLはパブリッシャーデータベースのテーブルデータのスナップショットを取得し、それをサブスクライバーにコピーします。
+完了すると、最初のコピー以降のパブリッシャーの変更がサブスクライバーに継続的に送られます。
+パブリッシャーと同じ順序でデータを適用するため、一つのサブスクリプション内のパブリケーションに対するトランザクションの一貫性が保証されます。
 この方式によるデータレプリケーションは、トランザクショナルレプリケーション(transactional replication)と呼ばれることがあります。
-《機械翻訳》通常、表の論理レプリケーションが開始されると、PostgreSQLはパブリッシャーデータベースにあるテーブルのデータのsnapshotを取得し、それをサブスクライバーにコピーします。
-完了すると、最初のコピー以降のパブリッシャーの変更は継続的にサブスクライバーに送信されます。
-サブスクライバーはパブリッシャーと同じオーダーのデータを適用するため、1つのサブスクリプション内のパブリケーションに対してトランザクション一貫性が保証されます。
-データレプリケーションのメソッドはトランザクションレプリケーションと呼ばれることもあります。
  </para>
 
  <para>
@@ -222,7 +217,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
    transactional, so the table will start or stop replicating at the correct
    snapshot once the transaction has committed.
 -->
-《マッチ度[95.170455]》個々のテーブルは<link linkend="sql-alterpublication"><command>ALTER PUBLICATION</command></link>で動的に追加削除できます。
+個々のテーブルは<link linkend="sql-alterpublication"><command>ALTER PUBLICATION</command></link>で動的に追加削除できます。
 <literal>ADD TABLE</literal>および<literal>DROP TABLE</literal>操作はトランザクションの対象です。
 ひとたびトランザクションがコミットされれば、正しいスナップショットでテーブルのレプリケーションが開始あるいは終了されます。
   </para>
@@ -240,8 +235,8 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     and <command>DELETE</command> operations, so that appropriate rows to
     update or delete can be identified on the subscriber side.
 -->
-《機械翻訳》公開されたテーブルは、<command>UPDATE</command>および<command>DELETE</command>操作をレプリケートできるようにするために、<firstterm>レプリカアイデンティティ</firstterm>が設定されていなければなりません。
-これにより、サブスクライバー側で更新または削除する適切な行を特定できます。
+パブリッシュされたテーブルは、<command>UPDATE</command>と<command>DELETE</command>をレプリケーションできるようにするために、<firstterm>レプリカアイデンティティ</firstterm>の設定を含んでいなければなりません。
+そうすることにより、サブスクライバー側で更新または削除する対象の正しい行が特定できるようになります。
    </para>
 
    <para>
@@ -261,13 +256,13 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     <literal>FULL</literal> should only be used as a fallback if no other
     solution is possible.
 -->
-《機械翻訳》デフォルトでは、これは主キーがあればそれです。
-別の一意インデックス（特定の追加要件があります）をレプリカアイデンティティに設定することもできます。
-テーブルに適切なキーがない場合は、レプリカアイデンティティに設定できます<literal>FULL</literal>行全体がキーになることを意味します。
-レプリカアイデンティティ<literal>FULL</literal>が指定されている場合、検索行のサブスクライバー側で索引を使用できます。
-候補索引は、非部分のbtreeまたはハッシュである必要があり、左端のインデックスフィールドは、公開されたテーブル列を参照するカラム（式ではない）である必要があります。
-一意インデックス以外のプロパティに対するこれらの制限は、プライマリキーに適用されるいくつかの制限に準拠しています。
-このような適切な索引がない場合、サブスクライバー側の検索は非常に非効率的になる可能性があるため、レプリカアイデンティティ<literal>FULL</literal>他の解決策が不可能な場合にのみフォールバックとして使用する必要があります。
+デフォルトでは主キーがあれば、それがレプリカアイデンティティになります。
+他に、一意インデックス（追加の要件を伴います）もレプリカアイデンティティにできます。
+テーブルに適切なキーがなければ、レプリカアイデンティティを<literal>FULL</literal>にできます。これは、行全体がキーになることを意味します。
+レプリカアイデンティティ<literal>FULL</literal>を指定すると、行の検索にサブスクライバー側でインデックスが使えます。
+候補となるインデックスはBツリーまたはハッシュでなければならず、部分的であってはなりません。そして、左端のインデックスのフィールドはパブリッシュされたテーブル列を参照する（式でない）列でなければなりません。
+一意でないインデックスの属性に関するこれらの制限は、主キーに強制される制限の一部に準拠しています。
+そのような適切なインデックスがない場合には、サブスクライバー側での検索は非常に非効率なる可能性があるので、レプリカアイデンティティ<literal>FULL</literal>は他の解決方法がない場合のみの代替手段にすべきです。
    </para>
 
    <para>
@@ -276,7 +271,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     publisher side, a replica identity comprising the same or fewer columns
     must also be set on the subscriber side.
 -->
-《機械翻訳》パブリッシャー側に<literal>FULL</literal>以外のレプリカアイデンティティが設定されている場合は、サブスクライバー側にも同数以下の柱で構成されるレプリカアイデンティティを設定する必要があります。
+<literal>FULL</literal>以外のレプリカアイデンティティがパブリッシャー側に設定されている場合、同じか、より少ない列を含むレプリカアイデンティティがサブスクライバー側に設定されていなければなりません。
    </para>
 
    <para>
@@ -288,15 +283,15 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     included in a publication replicating these actions. Attempting such
     operations will result in an error on the publisher.
 -->
-《機械翻訳》レプリカアイデンティティが<literal>NOTHING</literal>、<literal>DEFAULT</literal>主キーなし、または<literal>USING INDEX</literal>インデックス削除として定義された表では、これらのサポートをレプリケートするパブリケーションに含まれている場合、アクション<command>UPDATE</command>または<command>DELETE</command>操作はできません。
-このような操作を試行すると、パブリッシャーにエラーが作成されます。
+レプリカアイデンティティが<literal>NOTHING</literal>、主キーのない<literal>DEFAULT</literal>、または<literal>USING INDEX</literal>として削除されたインデックスが登録されたテーブルは、<command>UPDATE</command>または<command>DELETE</command>操作をサポートできません。
+これらの操作を試みると、パブリッシャーでエラーが報告されます。
    </para>
 
    <para>
 <!--
     <command>INSERT</command> operations can proceed regardless of any replica identity.
 -->
-《機械翻訳》<command>INSERT</command>レプリカアイデンティティに関係なく操作できます。
+<command>INSERT</command>操作は、レプリカアイデンティティの設定に関わらず実行されます。
    </para>
 
    <para>
@@ -304,7 +299,7 @@ PostgreSQLは両方の仕組みを同時にサポートします。
     See <link linkend="sql-altertable-replica-identity"><literal>ALTER TABLE...REPLICA IDENTITY</literal></link>
     for details on how to set the replica identity.
 -->
-《機械翻訳》レプリカアイデンティティの設定方法については、<link linkend="sql-altertable-replica-identity"><literal>ALTER TABLE...REPLICA IDENTITY</literal></link>を参照してください。
+レプリカアイデンティティを設定する詳細な方法については、<link linkend="sql-altertable-replica-identity"><literal>ALTER TABLE...REPLICA IDENTITY</literal></link>をご覧ください。
    </para>
   </sect2>
 
@@ -1962,8 +1957,8 @@ Publications:
    <literal>publish_generated_columns</literal></link>. See
    <xref linkend="logical-replication-gencols"/> for details.
 -->
-《機械翻訳》生成列は、カラムリストでも指定できます。
-これにより、パブリケーションパラメータ<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>に関係なく、生成列を発行できます。
+生成列も列リストに指定できます。
+これにより、パブリケーションパラメータ<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>に関係なく生成列をパブリッシュできます。
 詳細は<xref linkend="logical-replication-gencols"/>を参照してください。
   </para>
 
@@ -2019,11 +2014,9 @@ Publications:
    then initial table synchronization won't copy generated columns even if they
    are defined in the publisher.
 -->
-《マッチ度[57.537688]》初期データの同期化時には、公開済の列のみがコピーされます。
+初期データの同期化時には、公開済の列のみがコピーされます。
 ただし、サブスクライバーが15より前のリリースの場合は、テーブルのすべての列が初期データの同期化時にコピーされ、列リストは無視されます。
-《機械翻訳》最初のデータの同期化では、発行された列のみがコピーされます。
-ただし、サブスクライバーが15より前のリリースからのものである場合、最初のテーブルの同期化では、カラム・リストは無視され、データ内のすべての列がコピーされます。
-サブスクライバーが18より前のリリースからのものである場合、パブリッシャーで定義されている列であっても、テーブルの最初の同期化では生成された列はコピーされません。
+サブスクライバーが18より前のリリースの場合、初期テーブル同期では、生成列がパブリッシャーで定義されている場合でもコピーされません。
   </para>
 
    <warning id="logical-replication-col-list-combining">
@@ -2190,7 +2183,7 @@ Publications:
 <!--
   <title>Generated Column Replication</title>
 -->
-  <title>《機械翻訳》生成された列のレプリケーション</title>
+  <title>生成列のレプリケーション</title>
 
   <para>
 <!--
@@ -2200,8 +2193,8 @@ Publications:
    have a matching generated column. In this case, it is always the subscriber
    table generated column value that is used.
 -->
-《機械翻訳》通常、サブスクライバーの表はパブリッシャーテーブルと同じように定義されるため、パブリッシャーテーブルに<link linkend="ddl-generated-columns"><literal>GENERATED column</literal></link>がある場合、サブスクライバーテーブルにはマッチングによって生成されたカラムが含まれます。
-このケースでは、常にサブスクライバーテーブルによって生成されたカラム値が使用されます。
+通常、サブスクライバーのテーブルはパブリッシャーのテーブルと同じように定義されます。そのため、パブリッシャーテーブルに<link linkend="ddl-generated-columns"><literal>GENERATED（生成）列</literal></link>が存在する場合、サブスクライバーテーブルにも対応する生成列が存在します。
+この場合、常にサブスクライバーテーブルの生成列の値が使用されます。
   </para>
 
   <para>
@@ -2209,7 +2202,7 @@ Publications:
    For example, note below that subscriber table generated column value comes from the
    subscriber column's calculation.
 -->
-《機械翻訳》例の場合、そのサブスクライバーテーブルの下のノートは、サブスクライバーカラムの計算から生成されたカラム値になります。
+例えば以下の場合、サブスクライバーテーブルの生成列の値は、サブスクライバー列の計算から取得されることに注意してください。
 <programlisting>
 /* pub # */ CREATE TABLE tab_gen_to_gen (a int, b int GENERATED ALWAYS AS (a + 1) STORED);
 /* pub # */ INSERT INTO tab_gen_to_gen VALUES (1),(2),(3);
@@ -2239,7 +2232,7 @@ Publications:
    In fact, prior to version 18.0, logical replication does not publish
    <literal>GENERATED</literal> columns at all.
 -->
-《機械翻訳》実際、18.0年のバージョン以前には、論理レプリケーションはパブリッシュしない<literal>GENERATED</literal>コラムは全くない。
+実際、バージョン18.0より前では、論理レプリケーションは<literal>生成</literal>列を全くパブリッシュしません。
   </para>
 
   <para>
@@ -2247,7 +2240,7 @@ Publications:
    But, replicating a generated column to a regular column can sometimes be
    desirable.
 -->
-《機械翻訳》しかし、生成されたカラムを通常のカラムに複製することが望ましい場合もある。
+しかし、生成列の値を通常の列に複製することが望ましい場合もあります。
    <tip>
     <para>
 <!--
@@ -2255,8 +2248,7 @@ Publications:
      non-PostgreSQL database via output plugin, especially if the target database
      does not support generated columns.
 -->
-《機械翻訳》この機能は、特にデータデータベースで生成されたカラムがない場合に、アウトプット・プラグインを介してPostgreSQLを非ターゲットデータベースにレプリケートするときに便利です。
-サポート
+この機能は、出力プラグインを介してPostgreSQL以外のデータベースにデータを複製する場合、特に対象データベースが生成列をサポートしていない場合に有用です。
     </para>
   </tip>
   </para>
@@ -2266,14 +2258,14 @@ Publications:
    Generated columns are not published by default, but users can opt to
    publish stored generated columns just like regular ones.
 -->
-《機械翻訳》生成された列はデフォルトによって公開されていないが、ユーザは通常の列と同様に、保存された生成列をパブリッシュすることを選択できる。
+生成列はデフォルトではパブリッシュされませんが、ユーザは格納生成列を通常の列と同様にパブリッシュすることを選択できます。
   </para>
 
   <para>
 <!--
    There are two ways to do this:
 -->
-《機械翻訳》これを行うには2つの方法があります。
+これには2つの方法があります。
    <itemizedlist>
      <listitem>
       <para>
@@ -2284,8 +2276,8 @@ Publications:
        This instructs PostgreSQL logical replication to publish current and
        future stored generated columns of the publication's tables.
 -->
-《機械翻訳》<command>PUBLICATION</command>パラメータ<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>を<literal>stored</literal>に設定します。
-これはPostgreSQL論理レプリケーションにパブリッシュ現在と将来格納されるパブリケーションのテーブルの生成列を指示します。
+<command>PUBLICATION</command>パラメータの<link linkend="sql-createpublication-params-with-publish-generated-columns"><literal>publish_generated_columns</literal></link>を<literal>stored</literal>に設定します。
+これは、PostgreSQL論理レプリケーションに、パブリケーションのテーブルが持つ現在または将来の格納生成列をパブリッシュするように指示します。
       </para>
      </listitem>
 
@@ -2295,7 +2287,7 @@ Publications:
        Specify a table <link linkend="logical-replication-col-lists">column list</link>
        to explicitly nominate which stored generated columns will be published.
 -->
-《機械翻訳》どの格納された生成カラムがパブリッシュされるかを明示的に指定するテーブル<link linkend="logical-replication-col-lists">カラムリスト</link>を指定します。
+どの格納生成列がパブリッシュされるかを明示的に指定する、テーブルの<link linkend="logical-replication-col-lists">列リスト</link>を設定します。
       </para>
 
       <note>
@@ -2305,7 +2297,7 @@ Publications:
         takes precedence, overriding the effect of the
         <literal>publish_generated_columns</literal> parameter.
 -->
-《機械翻訳》どのテーブル列を発行するかを決定する際には、カラムリストが優先され、<literal>publish_generated_columns</literal>パラメータの効果を上書きします。
+どのテーブル列をパブリッシュするかを決定する際には、列リストが優先され、<literal>publish_generated_columns</literal>パラメータの効果を上書きします。
        </para>
       </note>
      </listitem>
@@ -2319,22 +2311,31 @@ Publications:
    publishing generated columns is not enabled, and for when it is
    enabled.
 -->
-《機械翻訳》次のテーブルは、論理レプリケーションに生成列が含まれる場合の動作をまとめたものです。
-生成列の発行が有効でない場合の結果と、有効な場合の結果を示します。
+以下の表は、論理レプリケーションに生成列が含まれる場合の動作をまとめたものです。
+生成列のパブリッシュが有効になっていない場合と、有効になっている場合の結果を示しています。
   </para>
 
   <table id="logical-replication-gencols-table-summary">
 <!--
    <title>Replication Result Summary</title>
 -->
-   <title>《機械翻訳》レプリケーション結果の概要</title>
+   <title>レプリケーション結果の概要</title>
    <tgroup cols="4">
 
     <thead>
      <row>
+<!--
       <entry>Publish generated columns?</entry>
+-->
+      <entry>生成列をパブリッシュするか否か？</entry>
+<!--
       <entry>Publisher table column</entry>
+-->
+      <entry>パブリッシャーテーブルの列</entry>
+<!--
       <entry>Subscriber table column</entry>
+-->
+      <entry>サブスクライバーテーブルの列</entry>
 <!--
       <entry>Result</entry>
 -->
@@ -2344,45 +2345,117 @@ Publications:
 
     <tbody>
      <row>
+<!--
       <entry>No</entry>
+-->
+      <entry>いいえ</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>Publisher table column is not replicated. Use the subscriber table generated column value.</entry>
+-->
+      <entry>パブリッシャーテーブルの列はレプリケーションされません。サブスクライバーテーブルの生成列の値を使用します。</entry>
      </row>
 
      <row>
+<!--
       <entry>No</entry>
+-->
+      <entry>いいえ</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>regular</entry>
+-->
+      <entry>通常の列</entry>
+<!--
       <entry>Publisher table column is not replicated. Use the subscriber table regular column default value.</entry>
+-->
+      <entry>パブリッシャーテーブルの列はレプリケーションされません。サブスクライバーテーブルの通常の列の値を使用します。</entry>
      </row>
 
      <row>
+<!--
       <entry>No</entry>
+-->
+      <entry>いいえ</entry>
+<!--
       <entry>GENERATED</entry>
-      <entry>--missing--</entry>
+-->
+      <entry>生成列</entry>
+<!--
+      <entry>&#45;-missing&#45;-</entry>
+-->
+      <entry>--存在しない--</entry>
+<!--
       <entry>Publisher table column is not replicated. Nothing happens.</entry>
+-->
+      <entry>パブリッシャーテーブルの列はレプリケーションされません。何も起こりません。</entry>
      </row>
 
      <row>
+<!--
       <entry>Yes</entry>
+-->
+      <entry>はい</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>ERROR. Not supported.</entry>
+-->
+      <entry>エラー。サポートされていません。</entry>
      </row>
 
      <row>
+<!--
       <entry>Yes</entry>
+-->
+      <entry>はい</entry>
+<!--
       <entry>GENERATED</entry>
+-->
+      <entry>生成列</entry>
+<!--
       <entry>regular</entry>
+-->
+      <entry>通常の列</entry>
+<!--
       <entry>Publisher table column value is replicated to the subscriber table column.</entry>
+-->
+      <entry>パブリッシャーテーブルの列がサブスクライバーテーブルの列にレプリケーションされます。</entry>
      </row>
 
      <row>
+<!--
       <entry>Yes</entry>
+-->
+      <entry>はい</entry>
+<!--
       <entry>GENERATED</entry>
-      <entry>--missing--</entry>
+-->
+      <entry>生成列</entry>
+<!--
+      <entry>&#45;-missing&#45;-</entry>
+-->
+      <entry>--存在しない--</entry>
+<!--
       <entry>ERROR. The column is reported as missing from the subscriber table.</entry>
+-->
+      <entry>エラー。サブスクライバーテーブルに列が存在しないことが報告されます。</entry>
      </row>
     </tbody>
    </tgroup>
@@ -2395,7 +2468,7 @@ Publications:
     publications where the same table has been published with different column
     lists. See <xref linkend="logical-replication-col-lists"/>.
 -->
-《機械翻訳》現在、同じサポートが異なるテーブルリストで公開されている複数の出版物で構成されるサブスクリプションのカラムはありません。
+現在のところ、同じテーブルが異なる列リストでパブリッシュされている複数のパブリケーションで構成されるサブスクリプションはサポートされていません。
 <xref linkend="logical-replication-col-lists"/>を参照してください。
    </para>
 
@@ -2405,7 +2478,7 @@ Publications:
     columns, while another publication in the same subscription is not
     publishing generated columns for the same table.
 -->
-《機械翻訳》この同じシチュエーションは、あるパブリケーションが生成列を発行していて、同じパブリケーションの別のサブスクリプションが同じテーブルの生成列を発行していない場合に発生します。
+同様の状況は、あるパブリケーションが生成列をパブリッシュしている一方で、同じサブスクリプション内の別のパブリケーションが同じテーブルに対して生成列をパブリッシュしていない場合にも発生します。
    </para>
   </warning>
 
@@ -2416,7 +2489,7 @@ Publications:
     synchronization won't copy generated columns even if they are defined in
     the publisher.
 -->
-《機械翻訳》サブスクライバーが18より前のリリースからのものである場合、最初のテーブルの同期では、コピーで生成されたカラムは、パブリッシャーで定義されていても生成されません。
+サブスクライバーが18より前のリリースの場合、生成列のパブリッシュがパブリッシャーで規定されている場合でも、初期テーブル同期ではそれらの列はコピーされません。
    </para>
   </note>
  </sect1>
@@ -2438,14 +2511,10 @@ Publications:
    <firstterm>conflict</firstterm>, but does not result in an error and such
    operations will simply be skipped.
 -->
-《マッチ度[81.065089]》サブスクライバーノードでローカルにデータが変更された場合でも、データが更新されるという点では、論理レプリケーションは通常のDML操作と同じように振る舞います。
+サブスクライバーノードでローカルにデータが変更された場合でも、データが更新されるという点では、論理レプリケーションは通常のDML操作と同じように振る舞います。
 到着したデータが制約に違反すると、レプリケーションは停止します。
 これは、<firstterm>コンフリクト</firstterm>と呼ばれます。
-<command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションする場合は、存在しないデータによってコンフリクトは起こらず、そのような操作は単にスキップされます。
-《機械翻訳》論理レプリケーションは、サブスクライバーノードでローカルに変更された場合でもデータが更新されるという点で、通常のDML操作と同様に動作します。
-着信データが制約に違反する場合、レプリケーションは停止します。
-これは<firstterm>コンフリクト</firstterm>と呼ばれます。
-レプリケーション<command>UPDATE</command>または<command>DELETE</command>操作の場合、データがないことも<firstterm>コンフリクト</firstterm>とみなされますが、エラーにはならず、このような操作は単純にスキップされたになります。
+<command>UPDATE</command>あるいは<command>DELETE</command>操作をレプリケーションする場合は、存在しないデータも<firstterm>コンフリクト</firstterm>とみなされますが、エラーにはならずそのような操作は単にスキップされます。
   </para>
 
   <para>
@@ -2454,7 +2523,7 @@ Publications:
    <link linkend="monitoring-pg-stat-subscription-stats"><structname>pg_stat_subscription_stats</structname></link> view)
    in the following <firstterm>conflict</firstterm> cases:
 -->
-《機械翻訳》次の<firstterm>ロギング</firstterm>の場合は、追加のコンフリクトがトリガされ、統計処理のビューが徴収されます<link linkend="monitoring-pg-stat-subscription-stats"><structname>pg_stat_subscription_stats</structname>コンフリクトに表示されます</link>。
+次の<firstterm>コンフリクト</firstterm>の場合、追加のログが出力され、統計情報が収集されます（<link linkend="monitoring-pg-stat-subscription-stats"><structname>pg_stat_subscription_stats</structname></link>ビューに出力されます）。
    <variablelist>
     <varlistentry id="conflict-insert-exists" xreflabel="insert_exists">
      <term><literal>insert_exists</literal></term>
@@ -2468,8 +2537,9 @@ Publications:
        should be enabled on the subscriber. In this case, an error will be
        raised until the conflict is resolved manually.
 -->
-《機械翻訳》挿入競合する行の一意性制約とコミットノートの詳細<literal>NOT DEFERRABLE</literal> <link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>をログに伝えるオリジン.タイムスタンプに違反するキーは、サブスクライバーで使用可能にする必要があります。
-このケースでは、コンフリクトが手動で解決されるまでエラーが発生します。
+<literal>NOT DEFERRABLE</literal>な一意性制約に違反する行を挿入しています。
+競合するキーのオリジンやコミットタイムスタンプの詳細をログ出力するためには、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>を有効にする必要があります。
+この場合、コンフリクトが手動で解決されるまで、エラーが報告されます。
       </para>
      </listitem>
     </varlistentry>
@@ -2484,10 +2554,9 @@ Publications:
        is enabled on the subscriber. Currently, the update is always applied
        regardless of the origin of the local row.
 -->
-《機械翻訳》更新以前に別の行によって変更されたオリジン。
-このノートは、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname>が有効になっている場合にのみ検出できます。
-現在、更新は、ローカル行のオリジンに関係なく常に適用されます。
-コンフリクト</link>
+以前別のオリジンによって変更された行を更新しています。
+このコンフリクトは、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>を有効にしている場合にのみ検出されます。
+現在のところ、更新はローカル行のオリジンに関係なく常に適用されます。
       </para>
      </listitem>
     </varlistentry>
@@ -2507,10 +2576,10 @@ Publications:
        <literal>insert_exists</literal> conflict may arise if the new row
        violates a <literal>NOT DEFERRABLE</literal> unique constraint.
 -->
-《機械翻訳》行違反の更新された値は、一意性制約で有効にする必要があります<literal>NOT DEFERRABLE</literal>競合するノートのオリジンとコミットタイムスタンプの詳細をログに伝えるには、<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>。
-このケースでは、コンフリクトが手動で解決されるまでエラーが発生します。
-ノートでは、更新がテーブルを分割した場合、更新された行値が別のパーティション制約を満たし、行が新しいパーティションに挿入されると、新しい行が<literal>NOT DEFERRABLE</literal>一意性制約に違反すると<literal>insert_exists</literal>コンフリクトが発生する可能性があります。
-キーサブスクライバー
+行の更新された値が<literal>NOT DEFERRABLE</literal>な一意性制約に違反しています。
+競合するキーのオリジンやコミットタイムスタンプの詳細をログ出力するためには、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>を有効にする必要があります。
+この場合、コンフリクトが手動で解決されるまで、エラーが報告されます。
+パーティションテーブルを更新するときに、更新した行が別のパーティション制約を満たし、その結果行が別のパーティションに挿入される場合、新しい行が<literal>NOT DEFERRABLE</literal>な一意性制約に違反すると、<literal>insert_exists</literal>コンフリクトが検出される可能性があることに注意してください。
       </para>
      </listitem>
     </varlistentry>
@@ -2522,8 +2591,8 @@ Publications:
        The row to be updated was not found. The update will simply be
        skipped in this scenario.
 -->
-《機械翻訳》更新される行が見つかりませんでした。
-更新はこのシナリオのスキップされたになります。
+更新対象の行が見つかりませんでした。
+このシナリオでは更新は単純にスキップされます。
       </para>
      </listitem>
     </varlistentry>
@@ -2538,10 +2607,9 @@ Publications:
        is enabled on the subscriber. Currently, the delete is always applied
        regardless of the origin of the local row.
 -->
-《機械翻訳》削除以前に別の行によって変更されたオリジン。
-このノートは、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname>が有効になっている場合にのみ検出できます。
-現在、削除は、ローカル行のオリジンに関係なく常に適用されます。
-コンフリクト</link>
+以前別のオリジンによって変更された行を削除しています。
+このコンフリクトは、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>を有効にしている場合にのみ検出されます。
+現在のところ、削除はローカル行のオリジンに関係なく常に適用されます。
       </para>
      </listitem>
     </varlistentry>
@@ -2553,8 +2621,8 @@ Publications:
        The row to be deleted was not found. The delete will simply be
        skipped in this scenario.
 -->
-《機械翻訳》削除する行が見つかりませんでした。
-削除は単にこのシナリオのスキップされたになります。
+削除対象の行が見つかりませんでした。
+このシナリオでは削除は単純にスキップされます。
       </para>
      </listitem>
     </varlistentry>
@@ -2570,23 +2638,27 @@ Publications:
        is enabled on the subscriber. In this case, an error will be raised until
        the conflict is resolved manually.
 -->
-《機械翻訳》挿入または更新行がマルチプルに違反しています<literal>NOT DEFERRABLE</literal>一意制約。
-オリジンおよびコミットタイムスタンプに競合するキーの詳細をログに通知するノート、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>が有効になっている保証。
-このケースでは、コンフリクトが手動で解決されるまでエラーが発生します。
+挿入または更新行が、複数の<literal>NOT DEFERRABLE</literal>な一意性制約に違反しています。
+このコンフリクトは、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>を有効にしている場合にのみ検出されます。
+この場合、コンフリクトが手動で解決されるまで、エラーが報告されます。
       </para>
      </listitem>
     </varlistentry>
    </variablelist>
+<!--
     Note that there are other conflict scenarios, such as exclusion constraint
     violations. Currently, we do not provide additional details for them in the
     log.
+-->
+排他制約違反など、他にもコンフリクトのシナリオが存在することに注意してください。
+現在のところ、ログにはこれらのコンフリクトに関する詳細情報は出力されません。
   </para>
 
   <para>
 <!--
    The log format for logical replication conflicts is as follows:
 -->
-《機械翻訳》論理レプリケーション紛争のログフォーマットは以下の通りである。
+論理レプリケーションコンフリクトのログフォーマットは以下の通りです。
 <synopsis>
 LOG:  conflict detected on relation "<replaceable>schemaname</replaceable>.<replaceable>tablename</replaceable>": conflict=<replaceable>conflict_type</replaceable>
 DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
@@ -2603,7 +2675,7 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
 <!--
    The log provides the following information:
 -->
-《機械翻訳》ログでは、次の情報が提供されます。
+ログには次の情報が提供されます。
    <variablelist>
     <varlistentry>
      <term><literal>LOG</literal></term>
@@ -2615,7 +2687,7 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          <replaceable>schemaname</replaceable>.<replaceable>tablename</replaceable>
          identifies the local relation involved in the conflict.
 -->
-《機械翻訳》<replaceable>schemaname</replaceable>.<replaceable>tablename</replaceable>は、コンフリクトに含まれるローカルリレーションを識別する。
+<replaceable>schemaname</replaceable>.<replaceable>tablename</replaceable>は、コンフリクトに関係するローカルリレーションを識別します。
          </para>
         </listitem>
         <listitem>
@@ -2624,7 +2696,7 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          <replaceable>conflict_type</replaceable> is the type of conflict that occurred
          (e.g., <literal>insert_exists</literal>, <literal>update_exists</literal>).
 -->
-《機械翻訳》<replaceable>conflict_type</replaceable>は、発生したコンフリクトのタイプである<literal>insert_exists</literal>例:,<literal>update_exists</literal>。
+<replaceable>conflict_type</replaceable>は発生したコンフリクトの種類です（例：<literal>insert_exists</literal>、<literal>update_exists</literal>）。
          </para>
         </listitem>
        </itemizedlist>
@@ -2642,7 +2714,7 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          the origin, transaction ID, and commit timestamp of the transaction that
          modified the existing local row, if available.
 -->
-《機械翻訳》<replaceable class="parameter">detailed_explanation</replaceable>ローカルタイムスタンプを変更したトランザクションのオリジン、トランザクションID及びコミット行がある場合は、それを含む。
+<replaceable class="parameter">detailed_explanation</replaceable>には、既存のローカル行を変更したトランザクションのオリジンとトランザクションID、そしてコミットタイムスタンプ（利用可能であれば）が含まれます。
         </para>
        </listitem>
        <listitem>
@@ -2653,7 +2725,7 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          <literal>insert_exists</literal>, <literal>update_exists</literal> or
          <literal>multiple_unique_conflicts</literal> conflicts.
 -->
-《機械翻訳》<literal>Key</literal>セクションには、<literal>insert_exists</literal>、<literal>update_exists</literal>または<literal>multiple_unique_conflicts</literal>紛争のキーに違反したローカル行の一意性制約値が含まれる。
+<literal>Key</literal>セクションには、<literal>insert_exists</literal>、<literal>update_exists</literal>または<literal>multiple_unique_conflicts</literal>コンフリクトの一意性制約に違反したローカル行のキー値が含まれます。
         </para>
        </listitem>
        <listitem>
@@ -2666,8 +2738,8 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          <literal>insert_exists</literal>, <literal>update_exists</literal> or
          <literal>multiple_unique_conflicts</literal> conflicts.
 -->
-《機械翻訳》<literal>existing local row</literal>セクションにはローカル行が含まれます。
-ただし、そのオリジンが<literal>update_origin_differs</literal>または<literal>delete_origin_differs</literal>競合する場合のリモート行と異なる場合、またはキーの値が<literal>insert_exists</literal>、<literal>update_exists</literal>または<literal>multiple_unique_conflicts</literal>競合する場合のリモート行と競合する場合です。
+<literal>existing local row</literal>セクションにはローカル行が含まれます。
+ただし、<literal>update_origin_differs</literal>または<literal>delete_origin_differs</literal>コンフリクトではローカル行のオリジンがリモートと異なる場合、<literal>insert_exists</literal>、<literal>update_exists</literal>または<literal>multiple_unique_conflicts</literal>ではキー値がリモート行と競合する場合です。
         </para>
        </listitem>
        <listitem>
@@ -2678,8 +2750,8 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          for an update operation, the column value of the new row will be null
          if the value is unchanged and toasted.
 -->
-《機械翻訳》<literal>remote row</literal>セクションには、行を発生させたリモート挿入または更新オペレーションからの新しいコンフリクトが含まれます。
-ノート更新オペレーションの場合、値が変更されず、TOAST化されている場合、新しい行のカラム値はNULLになります。
+<literal>remote row</literal>セクションには、競合の原因となったリモート挿入または更新操作による新しい行が含まれます。
+更新操作の場合、変更されなかった列やTOASTされた列の値はNULLとなることに注意してください。
         </para>
        </listitem>
        <listitem>
@@ -2691,8 +2763,8 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          if the local relation is marked with
          <link linkend="sql-altertable-replica-identity-full"><literal>REPLICA IDENTITY FULL</literal></link>.
 -->
-《機械翻訳》<literal>replica identity</literal>セクションには、更新または削除される既存のレプリカアイデンティティキーの検索に使用されたローカル行値が含まれます。
-ローカルリレーションが<link linkend="sql-altertable-replica-identity-full"><literal>REPLICA IDENTITY FULL</literal></link>でマークされている場合は、行値全体がincludeされることがあります。
+<literal>replica identity</literal>セクションには、更新または削除対象となったローカル行の検索に使用されたレプリカアイデンティティが含まれます。
+ローカルリレーションに<link linkend="sql-altertable-replica-identity-full"><literal>REPLICA IDENTITY FULL</literal></link>が指定されている場合は、行全体の値が含まれることがあります。
         </para>
        </listitem>
        <listitem>
@@ -2705,9 +2777,9 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          the table. If column names are present, they appear in the same order
          as the corresponding column values.
 -->
-《機械翻訳》<replaceable class="parameter">column_name</replaceable>はカラム名前です。
-<literal>existing local row</literal>、<literal>remote row</literal>、および<literal>replica identity full</literal>の場合、カラム名はユーザにテーブルの権限からアクセスまでのすべての列がない場合にのみログに記録されます。
-カラム名が存在する場合は、対応するカラム値と同じオーダーに表示されます。
+<replaceable class="parameter">column_name</replaceable>は列名です。
+<literal>existing local row</literal>, <literal>remote row</literal>、および<literal>replica identity full</literal>の場合、ユーザがテーブルのすべての列に対するアクセス権限を持っていない場合にのみ列名が記録されます。
+列名が存在する場合は、対応する列の値と同じ順に表示されます。
         </para>
        </listitem>
        <listitem>
@@ -2716,8 +2788,8 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          <replaceable class="parameter">column_value</replaceable> is the column value.
          The large column values are truncated to 64 bytes.
 -->
-《機械翻訳》<replaceable class="parameter">column_value</replaceable>はカラムの値です。
-ラージのカラムの値は64バイトに切り捨てられます。
+<replaceable class="parameter">column_value</replaceable>は列の値です。
+長い列の値は64バイトに切り詰められます。
         </para>
        </listitem>
        <listitem>
@@ -2730,7 +2802,7 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
          with distinct unique
          constraints.
 -->
-《機械翻訳》ケースのノート<literal>multiple_unique_conflicts</literal>コンフリクト、マルチプル<replaceable class="parameter">detailed_explanation</replaceable>および<replaceable class="parameter">detail_values</replaceable>線が生成され、各線には個別の一意性制約に関連付けられたコンフリクト情報が詳述されます。
+<literal>multiple_unique_conflicts</literal>コンフリクトの場合は、複数の<replaceable class="parameter">detailed_explanation</replaceable>および<replaceable class="parameter">detail_values</replaceable>が生成され、それぞれが異なる一意性制約に関連付けられたコンフリクト情報を詳述することに注意してください。
         </para>
        </listitem>
       </itemizedlist>
@@ -2764,12 +2836,9 @@ DETAIL:  <replaceable class="parameter">detailed_explanation</replaceable>.
    resolved manually by the user.  Details about the conflict can be found in
    the subscriber's server log.
 -->
-《マッチ度[89.080460]》コンフリクトはエラーを生じさせ、レプリケーションを停止させます。
+コンフリクトはエラーを生じさせ、レプリケーションを停止させます。
 コンフリクトはユーザが手動で解消しなければなりません。
 コンフリクトの詳細は、サブスクライバーのサーバログに出力されます。
-《機械翻訳》コンフリクトがエラーを発生させると、レプリケーションが停止します。
-これは、ユーザが手動で解決する必要があります。
-コンフリクトの詳細は、サブスクライバーのサーバログを参照してください。
   </para>
 
   <para>
@@ -2822,27 +2891,21 @@ CONTEXT:  processing remote data for replication origin "pg_16395" during "INSER
    the existing row was modified locally. Users can manually perform a
    remote-change-win.
 -->
-《マッチ度[69.924141]》制約とレプリケーションの起点名に違反する変更を含むトランザクションのLSNは、サーバログ(LSN 0/14C0378とレプリケーション起点<literal>pg_16395</literal>)から見つけることができます。
+制約とレプリケーションの起点名に違反する変更を含むトランザクションのLSNは、サーバログ(LSN 0/14C0378とレプリケーション起点<literal>pg_16395</literal>)から見つけることができます。
 競合を発生させたトランザクションは、終了LSN(LSN 0/14C0378)で<link linkend="sql-altersubscription-params-skip"><command>ALTER SUBSCRIPTION ... SKIP</command></link>を使用してスキップできます。
 終了LSNは、パブリッシャーでトランザクションがコミットまたは準備されたLSNにすることができます。
 あるいは、<link linkend="pg-replication-origin-advance"><function>pg_replication_origin_advance()</function></link>関数を呼び出して、トランザクションをスキップすることもできます。
-この関数を使用する前に、<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用してサブスクリプションを一時的に無効にする必要があります。
-また、サブスクリプションは<link linkend="sql-createsubscription-params-with-disable-on-error"><literal>disable_on_error</literal></link>オプションを使用して使用できます。
-次に、<function>pg_replication_origin_advance()</function>関数を<parameter>node_name</parameter>(<literal>pg_16395</literal>)と終了LSNの次のLSN(0/14C0379)と共に使用できます。
-現在の起点の位置は、<link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link>システムビューで確認できます。
+この関数を使用する前に、<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用してサブスクリプションを一時的に無効にするか、
+<link linkend="sql-createsubscription-params-with-disable-on-error"><literal>disable_on_error</literal></link>オプションを使用します。
+次に、<function>pg_replication_origin_advance()</function>関数を<parameter>node_name</parameter>(<literal>pg_16395</literal>)と終了LSNの次のLSN(0/14C0379)と共に使用します。
+現在の起点の位置は、<link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link> システムビューで確認できます。
 トランザクション全体をスキップすることは、いかなる制約にも違反しない可能性のある変更をスキップすることを含むことに注意してください。
 これは容易にサブスクライバーを不整合にする可能性があります。
-《機械翻訳》トランザクションと複製元包含に違反する変更がある制約のLSNは、名前から見つけることができます（前述のケースのLSN 0/14C0378および複製元<literal>pg_16395</literal>）。
-コンフリクトを作成したトランザクションは、終了LSN（つまり、LSN 0/14C0378）で<link linkend="sql-altersubscription-params-skip"><command>ALTER SUBSCRIPTION...SKIP</command></link>を使用してスキップされたにすることができます。
-終了LSNは、トランザクションがコミットされているLSN、またはパブリッシャー上のプリペアドにすることができます。
-また、この関数を使用して<link linkend="pg-replication-origin-advance"><function>pg_replication_origin_advance()</function></link>関数.前を呼び出すことでトランザクションをスキップされたにすることもできます。
-サブスクリプションニーズは<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION...DISABLE</command></link>によって一時的に無効にするか、サブスクリプションを<link linkend="sql-createsubscription-params-with-disable-on-error"><literal>disable_on_error</literal></link>オプションで使用できます。
-次に、<function>pg_replication_origin_advance()</function>関数を<parameter>node_name</parameter>（つまり、<literal>pg_16395</literal>）および終了LSNの次のLSN（つまり、0/14C0379）と一緒に使用できます。
-元の現在の位置は<link linkend="view-pg-replication-origin-status"><structname>pg_replication_origin_status</structname></link>に表示されます。
-この情報は、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>が有効になっている場合にのみ利用可能であることに注意してください。
-ユーザはこの情報を使用して、ローカルの変更を保持するか、リモートの変更を採用するかを決定できます。
-たとえば、上記のログの<literal>DETAIL</literal>行は、既存の行がローカルで変更されたことを示しています。
-ユーザは手動でリモート変更を実行できます。
+オリジンやコミットタイムスタンプのようなコンフリクト行に関する詳細は、ログの<literal>DETAIL</literal>行で確認できます。
+しかし、これらの情報は、サブスクライバーで<link linkend="guc-track-commit-timestamp"><varname>track_commit_timestamp</varname></link>が有効な場合にのみ表示されます。
+この情報はローカルの変更を保持するか、リモートの変更を採用するかを決定する際に使用できます。
+例えば上記ログの<literal>DETAIL</literal>は、既存の行がローカルで変更されたことを示しています。
+ユーザは手動でリモート変更優先を実行できます。
   </para>
 
   <para>
@@ -3092,22 +3155,14 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
      control of the replication of the table is given back to the main apply
      process where replication continues as normal.
 -->
-《マッチ度[79.247202]》既存のサブスクライブされたテーブル中の初期データのスナップショットが取得され、特殊な適用プロセスの並列インスタンスにコピーされます。
+既存のサブスクライブされたテーブル中の初期データのスナップショットが取得され、特殊な適用プロセスの並列インスタンスにコピーされます。
+これらの特殊な適用プロセスは、同期されるテーブルごとに生成された、専用のテーブル同期ワーカーです。
 このプロセスは自身のレプリケーションスロットを作成し、既存のデータをコピーします。
 コピーが終わるとすぐにテーブル内容が他のバックエンドから見えるようになります。
 既存のデータのコピーが終わると、ワーカーは同期モードに入ります。
 このモードでは、初期データのコピー中に起こった更新を標準の論理レプリケーションを使ってストリーミングすることにより、テーブルが主適用プロセスと同期状態になることを保証します。
 この同期フェーズの間、パブリッシャーで発生したのと同じ順序で変更が適用され、コミットされます。
 ひとたび同期が完了すれば、テーブルのレプリケーションの制御は主適用プロセスに戻され、レプリケーションは通常通り継続されます。
-《機械翻訳》既存のサブスクライブされた表の初期データは、スナップショットが作成され、特殊な種類の適用パラレルのプロセスインスタンスにコピーされます。
-これらの特殊な適用プロセスは、同期化される各テーブルに対して生成された専用のテーブル同期化ワーカーです。
-各テーブル同期化プロセスは、独自のレプリケーションスロットを作成し、既存のデータをコピーします。
-コピーが終了するとすぐに、テーブルの内容は他のバックエンドに対する可視になります。
-既存のデータがコピーされると、ワーカーは同期化モードに入ります。
-これにより、標準論理レプリケーションを使用した最初のデータコピーで発生したすべての変更が、ストリーミングによってメイン適用プロセスと同期化された状態になります。
-この同期化フェーズでは、変更はパブリッシャーで発生したのと同じオーダーで適用およびコミットされます。
-同期化が完了すると、ののが適用テーブルに戻され、は通常どおり続行されます。
-テーブルプロセスコントロールレプリケーションメインレプリケーション
     </para>
     <note>
      <para>
@@ -3131,7 +3186,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       transient errors do not permanently disrupt the replication setup. See
       also <link linkend="guc-wal-retrieve-retry-interval"><varname>wal_retrieve_retry_interval</varname></link>.
 -->
-《機械翻訳》ワーカー中に表の同期のコピーが失敗した場合、適用ワーカーは障害を検出し、テーブルの同期のワーカーを再開して同期のプロセスを続行します。
+コピー中にテーブル同期ワーカーが失敗した場合、適用ワーカーが失敗を検出し、テーブル同期ワーカーを再生成して同期プロセスを続行します。
 この動作により、一時的なエラーによってレプリケーションのセットアップが永続的に中断されることがなくなります。
 <link linkend="guc-wal-retrieve-retry-interval"><varname>wal_retrieve_retry_interval</varname></link>も参照してください。
      </para>
@@ -3339,8 +3394,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    Logical replication requires several configuration options to be set. These
    options are relevant only on one side of the replication.
 -->
-《機械翻訳》論理レプリケーションでは、いくつかの設定オプションを設定する必要があります。
-これらのオプションは、レプリケーションの片側にのみ関連します。
+論理レプリケーションでは、いくつかの構成オプションを設定することが必要です。
+これらのオプションは、レプリケーションの一方の側にのみ関連します。
   </para>
 
   <sect2 id="logical-replication-config-publisher">
@@ -3371,8 +3426,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     Logical replication slots are also affected by
     <link linkend="guc-idle-replication-slot-timeout"><varname>idle_replication_slot_timeout</varname></link>.
 -->
-《マッチ度[66.013072]》論理レプリケーションのwalsenderも<link linkend="guc-wal-sender-timeout"><varname>wal_sender_timeout</varname></link>の影響を受けます。
-《機械翻訳》論理レプリケーションスロットも<link linkend="guc-idle-replication-slot-timeout"><varname>idle_replication_slot_timeout</varname></link>の影響を受けます。
+論理レプリケーションスロットも<link linkend="guc-idle-replication-slot-timeout"><varname>idle_replication_slot_timeout</varname></link>の影響を受けます。
    </para>
 
    <para>
@@ -3407,9 +3461,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     must be set to at least the number of subscriptions that will be added to
     the subscriber, plus some reserve for table synchronization.
 -->
-《マッチ度[80.991736]》<link linkend="guc-max-active-replication-origins"><varname>max_active_replication_origins</varname></link>は、少なくともサブスクライバーに追加されるサブスクリプションの数に、テーブル同期用の予約を加えた数以上に設定することが必要です。
-《機械翻訳》<link linkend="guc-max-active-replication-origins"><varname>max_active_replication_origins</varname></link>には、少なくともサブスクライバーに追加されるSubscriptionの数を設定する必要があります。
-プラスにはテーブルの同期化のための予約が必要です。
+<link linkend="guc-max-active-replication-origins"><varname>max_active_replication_origins</varname></link>は、少なくともサブスクライバーに追加されるサブスクリプションの数に、テーブル同期用の予約を加えた数以上に設定することが必要です。
    </para>
 
    <para>
@@ -3468,7 +3520,10 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
  </sect1>
 
  <sect1 id="logical-replication-upgrade">
+<!--
   <title>Upgrade</title>
+-->
+  <title>アップグレード</title>
 
   <para>
 <!--
@@ -3476,14 +3531,14 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
    is possible only when all the members of the old logical replication
    clusters are version 17.0 or later.
 -->
-《機械翻訳》<glossterm linkend="glossary-logical-replication-cluster">論理レプリケーション群</glossterm>の移行は、旧論理レプリケーション群のメンバが全てバージョン17.0以降の場合のみ可能。
+<glossterm linkend="glossary-logical-replication-cluster">論理レプリケーションクラスタ</glossterm>の移行は、旧論理レプリケーションクラスタがすべてバージョン17.0以降の場合にのみ可能です。
   </para>
 
   <sect2 id="prepare-publisher-upgrades">
 <!--
    <title>Prepare for Publisher Upgrades</title>
 -->
-   <title>《機械翻訳》パブリッシャーのアップグレードの準備</title>
+   <title>パブリッシャーのアップグレードの準備</title>
 
    <para>
 <!--
@@ -3494,10 +3549,10 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     Logical slots on clusters before version 17.0 will silently be
     ignored.
 -->
-《機械翻訳》<application>pg_upgrade</application>ロジカルスロットを移行しようとします。
-これにより、新しいロジカルで同じパブリッシャースロットを手動で定義する必要がなくなります。
-ロジカルスロットの移行は、古いクラスタがバージョン17.0以降の場合にのみサポートされます。
-クラスタ上のロジカルスロット前バージョン17.0は暗黙的に無視されます。
+<application>pg_upgrade</application>は論理スロットの移行を試みます。
+これは、新しいパブリッシャー上で同じ論理スロットを手動で定義する必要性を回避するのに役立ちます。
+論理スロットの移行は、古いクラスタがバージョン17.0以降の場合にのみサポートされます。
+バージョン17.0より前のクラスタ上の論理スロットは、警告なく無視されます。
    </para>
 
    <para>
@@ -3507,8 +3562,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     <link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>.
     Re-enable the subscription after the upgrade.
 -->
-《機械翻訳》前スタートアップグレード処理<link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を実行して、サブスクリプションが一時的に無効になっている保証パブリッシャークラスタ。
-アップグレードの後にサブスクリプションを再度有効にします。
+パブリッシャークラスタのアップグレードを開始する前に、<link linkend="sql-altersubscription"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を実行して、サブスクリプションが一時的に無効になっていることを確認してください。
+アップグレード後にサブスクリプションを再度有効にしてください。
    </para>
 
    <para>
@@ -3517,8 +3572,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     be able to upgrade the logical slots. If these are not met an error
     will be reported.
 -->
-《機械翻訳》<application>pg_upgrade</application>ロジカル枠をアップグレードできるようにするにはいくつかの前提条件があります。
-これらが満たされない場合、エラーが報告されます。
+<application>pg_upgrade</application>が論理スロットをアップグレードできるようにするための前提条件がいくつかあります。
+これらが満たされていない場合はエラーが報告されます。
    </para>
 
    <itemizedlist>
@@ -3529,8 +3584,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       <link linkend="guc-wal-level"><varname>wal_level</varname></link> as
       <literal>logical</literal>.
 -->
-《マッチ度[68.032787]》<link linkend="guc-wal-level"><varname>wal_level</varname></link>は<literal>logical</literal>に設定することが必要です。
-《機械翻訳》新しいクラスタは<link linkend="guc-wal-level"><varname>wal_level</varname></link>を<literal>logical</literal>として持つ必要があります。
+新しいクラスタは<link linkend="guc-wal-level"><varname>wal_level</varname></link>を<literal>logical</literal>にする必要があります。
      </para>
     </listitem>
     <listitem>
@@ -3541,7 +3595,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       configured to a value greater than or equal to the number of slots
       present in the old cluster.
 -->
-《機械翻訳》新しいクラスタの<link linkend="guc-max-replication-slots"><varname>max_replication_slots</varname></link>は、以上の値を古いクラスタに存在するスロットの数に設定する必要があります。
+新しいクラスタは、古いクラスタに存在するスロットの数以上の値に<link linkend="guc-max-replication-slots"><varname>max_replication_slots</varname></link>を設定する必要があります。
      </para>
     </listitem>
     <listitem>
@@ -3550,7 +3604,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       The output plugins referenced by the slots on the old cluster must be
       installed in the new PostgreSQL executable directory.
 -->
-《機械翻訳》古いクラスタのスロットで参照される出力プラグインは、新しいPostgreSQLの実行ファイル格納ディレクトリにインストールする必要があります。
+古いクラスタのスロットで参照される出力プラグインは、新しいPostgreSQLの実行ファイル格納ディレクトリにインストールする必要があります。
      </para>
     </listitem>
     <listitem>
@@ -3559,7 +3613,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       The old cluster has replicated all the transactions and logical decoding
       messages to subscribers.
 -->
-《機械翻訳》古いクラスタは、すべてのトランザクションとロジカルデコーディングメッセージをサブスクライバーに複製します。
+古いクラスタは、すべてのトランザクションとロジカルデコーディングメッセージをサブスクライバーに複製済です。
      </para>
     </listitem>
     <listitem>
@@ -3570,8 +3624,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       <link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>conflicting</structfield>
       is not <literal>true</literal>.
 -->
-《機械翻訳》古いクラスタのスロットは全て使用可能でなければなりません。
-つまり、<link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>conflicting</structfield>が<literal>true</literal>ではないスロットは存在しません。
+古いクラスタの全てのスロットが使用可能でなければなりません。
+つまり<link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>conflicting</structfield>が<literal>true</literal>であってはいけません。
      </para>
     </listitem>
     <listitem>
@@ -3582,8 +3636,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       <link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>temporary</structfield>
       is <literal>false</literal>.
 -->
-《機械翻訳》新しいクラスタは永続的なロジカルスロットを持つことはできません。
-つまり、<link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>一時的</structfield>が<literal>false</literal>であるようなスロットがあってはなりません。
+新しいクラスタは、永続的な論理スロットを持ってはなりません。
+つまり、<link linkend="view-pg-replication-slots">pg_replication_slots</link>.<structfield>temporary</structfield>が<literal>false</literal>であってはいけません。
      </para>
     </listitem>
    </itemizedlist>
@@ -3593,7 +3647,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
 <!--
    <title>Prepare for Subscriber Upgrades</title>
 -->
-   <title>《機械翻訳》サブスクライバーのアップグレードの準備</title>
+   <title>サブスクライバーのアップグレードの準備</title>
 
    <para>
 <!--
@@ -3608,11 +3662,11 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     supported when the old cluster is version 17.0 or later. Subscription
     dependencies on clusters before version 17.0 will silently be ignored.
 -->
-《機械翻訳》新しいサブスクライバーの<link linkend="logical-replication-config-subscriber">サブスクライバーの設定</link>をセットアップします。
-<application>pg_upgrade</application><link linkend="catalog-pg-subscription-rel">pg_subscription_rel</link>システムカタログとサブスクリプションの複製起点に存在するサブスクリプションのテーブル情報を含むサブスクリプションの依存性を移行しようとします。
-これにより、新しいサブスクライバーの論理レプリケーションは古いサブスクライバーがあった場所から継続することができます。
-サブスクリプションの移行の依存性は古いクラスタがバージョン17.0以降の場合にのみサポートされます。
-前バージョン17.0のクラスタ上のサブスクリプションの依存性は黙って無視されます。
+新しいサブスクライバーに<link linkend="logical-replication-config-subscriber">サブスクライバー構成</link>を設定します。
+<application>pg_upgrade</application>は、<link linkend="catalog-pg-subscription-rel">pg_subscription_rel</link>システムカタログに存在するサブスクリプションのテーブル情報と、サブスクリプションのレプリケーション元を含むサブスクリプション依存関係の移行を試みます。
+これにより、新しいサブスクライバーで論理レプリケーションを、古いサブスクライバーが存在していた場所から継続できます。
+サブスクリプションの依存関係の移行は、古いクラスタがバージョン17.0以降の場合にのみサポートされます。
+バージョン17.0より前のクラスタに対するサブスクリプションの依存関係は、警告なく無視されます。
    </para>
 
    <para>
@@ -3621,8 +3675,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     be able to upgrade the subscriptions. If these are not met an error
     will be reported.
 -->
-《機械翻訳》<application>pg_upgrade</application>定期購読をアップグレードできるようにするにはいくつかの前提条件があります。
-これらが満たされない場合、エラーが報告されます。
+<application>pg_upgrade</application>がサブスクリプションをアップグレードできるようにするための前提条件がいくつかあります。
+これらが満たされていない場合はエラーが報告されます。
    </para>
 
    <itemizedlist>
@@ -3633,9 +3687,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       <literal>i</literal> (initialize) or <literal>r</literal> (ready). This
       can be verified by checking <link linkend="catalog-pg-subscription-rel">pg_subscription_rel</link>.<structfield>srsubstate</structfield>.
 -->
-《機械翻訳》古いサブスクリプション内の全てのサブスクライバーテーブルは<literal>i</literal> initializeもしくは<literal>r</literal> readyの状態である必要があります。
-これは<link linkend="catalog-pg-subscription-rel">pg_subscription_rel</link>をチェックすることで検証することができます。
-<structfield>srsubstate</structfield>.
+古いサブスクライバーのすべてのサブスクリプションテーブルは<literal>i</literal>（初期化）または<literal>r</literal>（準備完了）の状態である必要があります。
+これは<link linkend="catalog-pg-subscription-rel">pg_subscription_rel</link>.<structfield>srsubstate</structfield>を調べることで確認できます。
      </para>
     </listitem>
     <listitem>
@@ -3647,7 +3700,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       <link linkend="catalog-pg-replication-origin">pg_replication_origin</link>
       system tables.
 -->
-《機械翻訳》各サブスクリプションに対応する複製起点エントリは、古いクラスタに存在する必要があります。
+各サブスクリプションに対応するレプリケーション起点エントリは、古いクラスタに存在する必要があります。
 これは、<link linkend="catalog-pg-subscription">pg_subscription</link>と<link linkend="catalog-pg-replication-origin">pg_replication_origin</link>システムテーブルを調べることで見つけることができます。
      </para>
     </listitem>
@@ -3659,7 +3712,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       configured to a value greater than or equal to the number of
       subscriptions present in the old cluster.
 -->
-《機械翻訳》新しいクラスタは、古い以上に存在する加入数に対するクラスタの値に設定されている必要があります<link linkend="guc-max-active-replication-origins"><varname>max_active_replication_origins</varname></link>。
+新しいクラスタは、古いクラスタに存在するサブスクリプションの数以上の値に<link linkend="guc-max-replication-slots"><varname>max_replication_slots</varname></link>を設定する必要があります。
      </para>
     </listitem>
    </itemizedlist>
@@ -3669,7 +3722,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
 <!--
    <title>Upgrading Logical Replication Clusters</title>
 -->
-   <title>《機械翻訳》論理レプリケーションクラスタのアップグレード</title>
+   <title>論理レプリケーションクラスタのアップグレード</title>
 
    <para>
 <!--
@@ -3677,8 +3730,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     publisher. These changes will be replicated to the subscriber once the
     subscriber upgrade is completed.
 -->
-《機械翻訳》アップグレード処理がサブスクライバーである間、書き込み操作はパブリッシャーで実行できます。
-これらの変更は、サブスクライバーアップグレードが完了するとサブスクライバーに複製されます。
+サブスクライバーをアップグレードしている間、書き込み操作はパブリッシャーでのみ実行できます。
+これらの変更は、サブスクライバーのアップグレードが完了すると複製されます。
    </para>
 
    <note>
@@ -3688,7 +3741,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
      upgrades also. See <xref linkend="logical-replication-restrictions"/> for
      details.
 -->
-《機械翻訳》論理レプリケーションの制限は、論理レプリケーションクラスタのアップグレードにも適用されます。
+論理レプリケーションの制限は、論理レプリケーションクラスタのアップグレードにも適用されます。
 詳細は<xref linkend="logical-replication-restrictions"/>を参照してください。
     </para>
     <para>
@@ -3697,7 +3750,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
      cluster upgrades also. See <xref linkend="prepare-publisher-upgrades"/>
      for details.
 -->
-《機械翻訳》パブリッシャーアップグレードの前提条件は、論理レプリケーションクラスタのアップグレードにも適用されます。
+パブリッシャーアップグレードの前提条件は、論理レプリケーションクラスタのアップグレードにも適用されます。
 詳細は<xref linkend="prepare-publisher-upgrades"/>を参照してください。
     </para>
     <para>
@@ -3706,8 +3759,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
      cluster upgrades also. See <xref linkend="prepare-subscriber-upgrades"/>
      for details.
 -->
-《機械翻訳》サブスクライバーアップグレードの前提条件は、論理レプリケーションクラスタのアップグレードにも適用されます。
-詳細は<xref linkend="prepare-subscriber-upgrades"/>を参照してください。
+サブスクライバーアップグレードの前提条件は、論理レプリケーションクラスタのアップグレードにも適用されます。
+詳細は<xref linkend="prepare-publisher-upgrades"/>を参照してください。
     </para>
    </note>
 
@@ -3719,8 +3772,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
      transactional, the user is advised to take backups as described in
      <xref linkend="backup-base-backup"/>.
 -->
-《機械翻訳》アップグレード処理論理レプリケーションクラスタでは、様々なノードでマルチプル手順を実行する必要があります。
-すべての操作がトランザクションではないため、ユーザは<xref linkend="backup-base-backup"/>の説明に従ってバックアップを作成することをお薦めします。
+論理レプリケーションクラスタのアップグレードは、様々なノードで複数の手順を実行する必要があります。
+すべての処理がトランザクションのように振る舞うわけではないため、<xref linkend="backup-base-backup"/>の手順に従ってバックアップを取得することをお薦めします。
     </para>
    </warning>
 
@@ -3729,7 +3782,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
     The steps to upgrade the following logical replication clusters are
     detailed below:
 -->
-《機械翻訳》次の論理レプリケーションクラスタをアップグレードする手順は以下に詳述されています。
+論理レプリケーションクラスタをアップグレードする手順は以下の通りです。
     <itemizedlist>
      <listitem>
       <para>
@@ -3738,7 +3791,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
        <xref linkend="steps-two-node-logical-replication-cluster"/> to upgrade
        a two-node logical replication cluster.
 -->
-《機械翻訳》<xref linkend="steps-two-node-logical-replication-cluster"/>で指定された手順に従って、アップグレードa 2-ノード論理レプリケーションクラスタまで行きます。
+2ノードの論理レプリケーションクラスタをアップグレードする場合は、<xref linkend="steps-two-node-logical-replication-cluster"/>に指定されている手順に従います。
       </para>
      </listitem>
      <listitem>
@@ -3748,7 +3801,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
        <xref linkend="steps-cascaded-logical-replication-cluster"/> to upgrade
        a cascaded logical replication cluster.
 -->
-《機械翻訳》<xref linkend="steps-cascaded-logical-replication-cluster"/>で指定されている手順に従って、カスケード論理レプリケーションクラスタをアップグレードします。
+カスケード論理レプリケーションクラスタをアップグレードする場合は、<xref linkend="steps-cascaded-logical-replication-cluster"/>に指定されている手順に従います。
       </para>
      </listitem>
      <listitem>
@@ -3758,7 +3811,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
        <xref linkend="steps-two-node-circular-logical-replication-cluster"/>
        to upgrade a two-node circular logical replication cluster.
 -->
-《機械翻訳》<xref linkend="steps-two-node-circular-logical-replication-cluster"/>で指定されている手順に従って、2ノード環状論理レプリケーションクラスタをアップグレードまで行きます。
+2ノードの循環論理レプリケーションクラスタをアップグレードする場合は、<xref linkend="steps-two-node-circular-logical-replication-cluster"/>に指定されている手順に従います。
       </para>
      </listitem>
     </itemizedlist>
@@ -3768,7 +3821,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
 <!--
     <title>Steps to Upgrade a Two-node Logical Replication Cluster</title>
 -->
-    <title>《機械翻訳》2ノード論理レプリケーションクラスタをアップグレードする手順</title>
+    <title>2ノードの論理レプリケーションクラスタをアップグレードする手順</title>
      <para>
 <!--
       Let's say publisher is in <literal>node1</literal> and subscriber is
@@ -3776,9 +3829,8 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
       a subscription <literal>sub1_node1_node2</literal> which is subscribing
       the changes from <literal>node1</literal>.
 -->
-《機械翻訳》パブリッシャーが<literal>node1</literal>にあり、サブスクライバーが<literal>node2</literal>にあるとします。
-サブスクライバーには<literal>node1</literal>からの変更をサブスクライブしているサブスクリプションがあります。
-<literal>node2</literal> <literal>sub1_node1_node2</literal>
+パブリッシャーが<literal>node1</literal>にあり、サブスクライバーが<literal>node2</literal>にあるとします。
+サブスクライバー<literal>node2</literal>には、<literal>node1</literal>から変更をサブスクライブしているサブスクリプション<literal>sub1_node1_node2</literal>があります。
      </para>
 
      <procedure>
@@ -3790,7 +3842,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
         <link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》<literal>node1</literal>からの変更をサブスクライブしている<literal>node2</literal>上のすべてのサブスクリプションを無効にします<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用、例:。
+<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用して、<literal>node1</literal>からの変更をサブスクライブしている<literal>node2</literal>上のすべてのサブスクリプションを無効にします。以下は、その例です。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 DISABLE;
 </programlisting>
@@ -3801,7 +3853,7 @@ WAL送信プロセスはWALのロジカルデコーディング（<xref linkend=
 <!--
         Stop the publisher server in <literal>node1</literal>, e.g.:
 -->
-《機械翻訳》パブリッシャーサーバを停止します<literal>node1</literal>例:。
+<literal>node1</literal>にあるパブリッシャーサーバを停止します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data1 stop
 </programlisting>
@@ -3814,7 +3866,7 @@ pg_ctl -D /opt/PostgreSQL/data1 stop
         Initialize <literal>data1_upgraded</literal> instance by using the
         required newer version.
 -->
-《機械翻訳》必要な新しいインスタンスを使用して、<literal>data1_upgraded</literal>バージョンを初期化します。
+必要とされる新しいバージョンを使用して、<literal>data1_upgraded</literal>インスタンスを初期化します。
        </para>
       </step>
 
@@ -3824,7 +3876,7 @@ pg_ctl -D /opt/PostgreSQL/data1 stop
         Upgrade the publisher <literal>node1</literal>'s server to the
         required newer version, e.g.:
 -->
-《機械翻訳》パブリッシャーのアップグレード<literal>node1</literal>例えば、必要とされるより新しいサーバへのバージョン。
+必要とされる新しいバージョンを使用して、<literal>node1</literal>にあるパブリッシャーサーバをアップグレードします。
 <programlisting>
 pg_upgrade
         --old-datadir "/opt/PostgreSQL/postgres/17/data1"
@@ -3840,7 +3892,7 @@ pg_upgrade
 <!--
         Start the upgraded publisher server in <literal>node1</literal>, e.g.:
 -->
-《機械翻訳》スタートのアップグレードされたパブリッシャーサーバ<literal>node1</literal>例:。
+<literal>node1</literal>にあるアップグレードされたパブリッシャーサーバを起動します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
 </programlisting>
@@ -3852,7 +3904,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
 <!--
         Stop the subscriber server in <literal>node2</literal>, e.g.:
 -->
-《機械翻訳》サブスクライバーサーバを停止します<literal>node2</literal>例:。
+<literal>node2</literal>にあるサブスクライバーサーバを停止します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data2 stop
 </programlisting>
@@ -3865,7 +3917,7 @@ pg_ctl -D /opt/PostgreSQL/data2 stop
         Initialize <literal>data2_upgraded</literal> instance by using the
         required newer version.
 -->
-《機械翻訳》必要な新しいインスタンスを使用して、<literal>data2_upgraded</literal>バージョンを初期化します。
+必要とされる新しいバージョンを使用して、<literal>data2_upgraded</literal>インスタンスを初期化します。
        </para>
       </step>
 
@@ -3875,7 +3927,7 @@ pg_ctl -D /opt/PostgreSQL/data2 stop
         Upgrade the subscriber <literal>node2</literal>'s server to
         the required new version, e.g.:
 -->
-《機械翻訳》サブスクライバーをアップグレードしてください<literal>node2</literal>例えば、必要な新しいバージョンまでのサーバ。
+必要とされる新しいバージョンを使用して、<literal>node2</literal>にあるサブスクライバーサーバをアップグレードします。
 <programlisting>
 pg_upgrade
        --old-datadir "/opt/PostgreSQL/postgres/17/data2"
@@ -3891,7 +3943,7 @@ pg_upgrade
 <!--
         Start the upgraded subscriber server in <literal>node2</literal>, e.g.:
 -->
-《機械翻訳》スタートのアップグレードされたサブスクライバーサーバ<literal>node2</literal>例:。
+<literal>node2</literal>にあるアップグレードされたサブスクライバーサーバを起動します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
 </programlisting>
@@ -3906,8 +3958,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <xref linkend="two-node-cluster-disable-subscriptions-node2"/>
         and now, e.g.:
 -->
-《機械翻訳》<literal>node2</literal>で、アップグレードされたパブリッシャー<literal>node1</literal><xref linkend="two-node-cluster-disable-subscriptions-node2"/>と現在の間のサーバで作成されたテーブルを作成します。
-例:。
+<literal>node2</literal>上で、<xref linkend="two-node-cluster-disable-subscriptions-node2"/>と現在までの間に、パブリッシャーサーバ<literal>node1</literal>で作成されたすべてのテーブルを作成します。
 <programlisting>
 /* node2 # */ CREATE TABLE distributors (did integer PRIMARY KEY, name varchar(40));
 </programlisting>
@@ -3922,8 +3973,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》から変更をサブスクライブしている上のすべてのサブスクリプションを有効にします<literal>node1</literal><link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command>を使用、例:。
-<literal>node2</literal></link>
+<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>コマンドを使用して、<literal>node1</literal>からの変更をサブスクライブする<literal>node2</literal>上のすべてのサブスクリプションを有効にします。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 ENABLE;
 </programlisting>
@@ -3937,7 +3987,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>,
         e.g.:
 -->
-《機械翻訳》リフレッシュ<literal>node2</literal><link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>を使用したサブスクリプションの出版物、例えば:。
+<link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>コマンドを使用して、<literal>node2</literal>サブスクリプションのパブリケーションをリフレッシュします。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 REFRESH PUBLICATION;
 </programlisting>
@@ -3952,8 +4002,8 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
        by the subscriber. Alternatively, the user can use similar steps to
        upgrade the subscriber first, followed by the publisher.
 -->
-《機械翻訳》前述の手順では、パブリッシャーが最初にアップグレードされ、次にサブスクライバーがアップグレードされます。
-または、ユーザも同様の手順を使用して、サブスクライバーが最初にアップグレードされ、次にパブリッシャーがアップグレードされます。
+上記の手順では、パブリッシャーが最初にアップグレードされ、次にサブスクライバーがアップグレードされます。
+または、同様の手順を使用して、まずサブスクライバーをアップグレードし、次にパブリッシャーをアップグレードすることもできます。
       </para>
      </note>
     </sect3>
@@ -3962,7 +4012,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
 <!--
      <title>Steps to Upgrade a Cascaded Logical Replication Cluster</title>
 -->
-     <title>《機械翻訳》カスケード論理レプリケーションクラスタをアップグレードする手順</title>
+     <title>カスケード論理レプリケーションクラスタをアップグレードする手順</title>
      <para>
 <!--
       Let's say we have a cascaded logical replication setup
@@ -3976,7 +4026,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
       <literal>sub1_node2_node3</literal> which is subscribing the changes from
       <literal>node2</literal>.
 -->
-《機械翻訳》カスケードされた論理レプリケーションセットアップ<literal>node1</literal>-><literal>node2</literal>-><literal>node3</literal>があるとします。
+カスケードされた論理レプリケーションセットアップ<literal>node1</literal>-><literal>node2</literal>-><literal>node3</literal>があるとします。
 ここで、<literal>node2</literal>は<literal>node1</literal>からの変更をサブスクライブしており、<literal>node3</literal>は<literal>node2</literal>からの変更をサブスクライブしています。
 <literal>node2</literal>には<literal>node1</literal>からの変更をサブスクライブしている<literal>sub1_node1_node2</literal>サブスクリプションがあります。
 <literal>node3</literal>には<literal>node2</literal>からの変更をサブスクライブしている<literal>sub1_node2_node3</literal>サブスクリプションがあります。
@@ -3992,8 +4042,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》からの変更をサブスクライブしている上のすべてのサブスクリプションを無効にします<literal>node1</literal><link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command>を使用、例:。
-<literal>node2</literal></link>
+<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用して、<literal>node1</literal>からの変更をサブスクライブしている<literal>node2</literal>上のすべてのサブスクリプションを無効にします。以下は、その例です。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 DISABLE;
 </programlisting>
@@ -4005,7 +4054,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
 <!--
         Stop the server in <literal>node1</literal>, e.g.:
 -->
-《機械翻訳》サーバを停止します<literal>node1</literal>例:。
+<literal>node1</literal>にあるサーバを停止します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data1 stop
 </programlisting>
@@ -4018,7 +4067,7 @@ pg_ctl -D /opt/PostgreSQL/data1 stop
         Initialize <literal>data1_upgraded</literal> instance by using the
         required newer version.
 -->
-《機械翻訳》必要な新しいインスタンスを使用して、<literal>data1_upgraded</literal>バージョンを初期化します。
+必要とされる新しいバージョンを使用して、<literal>data1_upgraded</literal>インスタンスを初期化します。
        </para>
       </step>
 
@@ -4028,7 +4077,7 @@ pg_ctl -D /opt/PostgreSQL/data1 stop
         Upgrade the <literal>node1</literal>'s server to the required newer
         version, e.g.:
 -->
-《機械翻訳》例えば、<literal>node1</literal>のサーバを、必要とされるより新しいバージョンまでアップグレードしてください。
+必要とされる新しいバージョンを使用して、<literal>node1</literal>にあるサーバをアップグレードします。
 <programlisting>
 pg_upgrade
         --old-datadir "/opt/PostgreSQL/postgres/17/data1"
@@ -4044,7 +4093,7 @@ pg_upgrade
 <!--
         Start the upgraded server in <literal>node1</literal>, e.g.:
 -->
-《機械翻訳》スタートアップグレードされたサーバ<literal>node1</literal>例:。
+<literal>node1</literal>にあるアップグレードされたサーバを起動します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
 </programlisting>
@@ -4059,8 +4108,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》からの変更をサブスクライブしている上のすべてのサブスクリプションを無効にします<literal>node2</literal><link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command>を使用、例:。
-<literal>node3</literal></link>
+<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用して、<literal>node2</literal>からの変更をサブスクライブしている<literal>node3</literal>上のすべてのサブスクリプションを無効にします。
 <programlisting>
 /* node3 # */ ALTER SUBSCRIPTION sub1_node2_node3 DISABLE;
 </programlisting>
@@ -4072,7 +4120,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
 <!--
         Stop the server in <literal>node2</literal>, e.g.:
 -->
-《機械翻訳》サーバを停止します<literal>node2</literal>例:。
+<literal>node2</literal>にあるサーバを停止します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data2 stop
 </programlisting>
@@ -4085,7 +4133,7 @@ pg_ctl -D /opt/PostgreSQL/data2 stop
         Initialize <literal>data2_upgraded</literal> instance by using the
         required newer version.
 -->
-《機械翻訳》必要な新しいインスタンスを使用して、<literal>data2_upgraded</literal>バージョンを初期化します。
+必要とされる新しいバージョンを使用して、<literal>data2_upgraded</literal>インスタンスを初期化します。
        </para>
       </step>
 
@@ -4095,7 +4143,7 @@ pg_ctl -D /opt/PostgreSQL/data2 stop
         Upgrade the <literal>node2</literal>'s server to the required
         new version, e.g.:
 -->
-《機械翻訳》例えば、<literal>node2</literal>のサーバから必要な新しいバージョンまでアップグレードします。
+必要とされる新しいバージョンを使用して、<literal>node2</literal>にあるサーバをアップグレードします。
 <programlisting>
 pg_upgrade
         --old-datadir "/opt/PostgreSQL/postgres/17/data2"
@@ -4111,7 +4159,7 @@ pg_upgrade
 <!--
         Start the upgraded server in <literal>node2</literal>, e.g.:
 -->
-《機械翻訳》スタートアップグレードされたサーバ<literal>node2</literal>例:。
+<literal>node2</literal>にあるアップグレードされたサーバを起動します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
 </programlisting>
@@ -4126,8 +4174,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <xref linkend="cascaded-cluster-disable-sub-node1-node2"/>
         and now, e.g.:
 -->
-《機械翻訳》<literal>node2</literal>で、アップグレードされたパブリッシャー<literal>node1</literal><xref linkend="cascaded-cluster-disable-sub-node1-node2"/>と現在の間のサーバで作成されたテーブルを作成します。
-例:。
+<literal>node2</literal>上で、<xref linkend="cascaded-cluster-disable-sub-node1-node2"/>と現在までの間に、パブリッシャーサーバ<literal>node1</literal>で作成されたすべてのテーブルを作成します。
 <programlisting>
 /* node2 # */ CREATE TABLE distributors (did integer PRIMARY KEY, name varchar(40));
 </programlisting>
@@ -4142,8 +4189,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》から変更をサブスクライブしている上のすべてのサブスクリプションを有効にします<literal>node1</literal><link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command>を使用、例:。
-<literal>node2</literal></link>
+<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>コマンドを使用して、<literal>node1</literal>からの変更をサブスクライブする<literal>node2</literal>上のすべてのサブスクリプションを有効にします。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 ENABLE;
 </programlisting>
@@ -4157,7 +4203,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>,
         e.g.:
 -->
-《機械翻訳》リフレッシュ<literal>node2</literal><link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>を使用したサブスクリプションの出版物、例えば:。
+<link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>コマンドを使用して、<literal>node2</literal>サブスクリプションのパブリケーションをリフレッシュします。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 REFRESH PUBLICATION;
 </programlisting>
@@ -4169,7 +4215,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
 <!--
         Stop the server in <literal>node3</literal>, e.g.:
 -->
-《機械翻訳》サーバを停止します<literal>node3</literal>例:。
+<literal>node3</literal>にあるサーバを停止します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data3 stop
 </programlisting>
@@ -4182,7 +4228,7 @@ pg_ctl -D /opt/PostgreSQL/data3 stop
         Initialize <literal>data3_upgraded</literal> instance by using the
         required newer version.
 -->
-《機械翻訳》必要な新しいインスタンスを使用して、<literal>data3_upgraded</literal>バージョンを初期化します。
+必要とされる新しいバージョンを使用して、<literal>data3_upgraded</literal>インスタンスを初期化します。
        </para>
       </step>
 
@@ -4192,7 +4238,7 @@ pg_ctl -D /opt/PostgreSQL/data3 stop
         Upgrade the <literal>node3</literal>'s server to the required
         new version, e.g.:
 -->
-《機械翻訳》例えば、<literal>node3</literal>のサーバから必要な新しいバージョンまでアップグレードします。
+必要とされる新しいバージョンを使用して、<literal>node3</literal>にあるサーバをアップグレードします。
 <programlisting>
 pg_upgrade
         --old-datadir "/opt/PostgreSQL/postgres/17/data3"
@@ -4208,7 +4254,7 @@ pg_upgrade
 <!--
         Start the upgraded server in <literal>node3</literal>, e.g.:
 -->
-《機械翻訳》スタートアップグレードされたサーバ<literal>node3</literal>例:。
+<literal>node3</literal>にあるアップグレードされたサーバを起動します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
 </programlisting>
@@ -4223,7 +4269,7 @@ pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
         <xref linkend="cascaded-cluster-disable-sub-node2-node3"/> and now,
         e.g.:
 -->
-《機械翻訳》<literal>node3</literal>,上で、アップグレードされた<literal>node2</literal><xref linkend="cascaded-cluster-disable-sub-node2-node3"/>と現在の間の、例えば以下のようなで作成されたテーブルを作成します。
+<literal>node3</literal>上で、<xref linkend="cascaded-cluster-disable-sub-node2-node3"/>と現在までの間に、パブリッシャーサーバ<literal>node2</literal>で作成されたすべてのテーブルを作成します。
 <programlisting>
 /* node3 # */ CREATE TABLE distributors (did integer PRIMARY KEY, name varchar(40));
 </programlisting>
@@ -4238,7 +4284,7 @@ pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》<literal>node2</literal>から変更をサブスクライブしている<literal>node3</literal>上のすべてのサブスクリプションを有効にします<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>を使用、例:。
+<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>コマンドを使用して、<literal>node2</literal>からの変更をサブスクライブする<literal>node3</literal>上のすべてのサブスクリプションを有効にします。
 <programlisting>
 /* node3 # */ ALTER SUBSCRIPTION sub1_node2_node3 ENABLE;
 </programlisting>
@@ -4252,7 +4298,7 @@ pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>,
         e.g.:
 -->
-《機械翻訳》リフレッシュ<literal>node3</literal><link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>を使用したサブスクリプションの出版物、例えば:。
+<link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>コマンドを使用して、<literal>node3</literal>サブスクリプションのパブリケーションをリフレッシュします。
 <programlisting>
 /* node3 # */ ALTER SUBSCRIPTION sub1_node2_node3 REFRESH PUBLICATION;
 </programlisting>
@@ -4265,7 +4311,7 @@ pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
 <!--
      <title>Steps to Upgrade a Two-node Circular Logical Replication Cluster</title>
 -->
-     <title>《機械翻訳》2ノード環状論理レプリケーションクラスタをアップグレードする手順</title>
+     <title>2ノードの循環論理レプリケーションクラスタをアップグレードする手順</title>
      <para>
 <!--
       Let's say we have a circular logical replication setup
@@ -4280,9 +4326,10 @@ pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
       <literal>sub1_node1_node2</literal> which is subscribing the changes from
       <literal>node1</literal>.
 -->
-《機械翻訳》円形の論理レプリケーションセットアップ<literal>node1</literal>-><literal>node2</literal>および<literal>node2</literal>-><literal>node1</literal>ここで<literal>node2</literal>は<literal>node1</literal>からの変更をサブスクライブしており、<literal>node1</literal>は<literal>node2</literal>からの変更をサブスクライブしています。
-<literal>node1</literal>は<literal>node2</literal>からの変更をサブスクライブしているサブスクリプション<literal>sub1_node2_node1</literal>を持っています。
-<literal>node2</literal>は<literal>node1</literal>からの変更をサブスクライブしているサブスクリプション<literal>sub1_node1_node2</literal>を持っています。
+循環論理レプリケーションセットアップ<literal>node1</literal>-><literal>node2</literal>および<literal>node2</literal>-><literal>node1</literal>があるとします。
+ここで、<literal>node2</literal>は<literal>node1</literal>からの変更をサブスクライブしており、<literal>node1</literal>は<literal>node2</literal>からの変更をサブスクライブしています。
+<literal>node1</literal>には<literal>node2</literal>からの変更をサブスクライブしている<literal>sub1_node2_node1</literal>サブスクリプションがあります。
+<literal>node2</literal>には<literal>node1</literal>からの変更をサブスクライブしている<literal>sub1_node1_node2</literal>サブスクリプションがあります。
      </para>
 
      <procedure>
@@ -4294,8 +4341,7 @@ pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》からの変更をサブスクライブしている上のすべてのサブスクリプションを無効にします<literal>node1</literal><link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command>を使用、例:。
-<literal>node2</literal></link>
+<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用して、<literal>node1</literal>からの変更をサブスクライブしている<literal>node2</literal>上のすべてのサブスクリプションを無効にします。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 DISABLE;
 </programlisting>
@@ -4307,7 +4353,7 @@ pg_ctl -D /opt/PostgreSQL/data3_upgraded start -l logfile
 <!--
         Stop the server in <literal>node1</literal>, e.g.:
 -->
-《機械翻訳》サーバを停止します<literal>node1</literal>例:。
+<literal>node1</literal>にあるサーバを停止します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data1 stop
 </programlisting>
@@ -4320,7 +4366,7 @@ pg_ctl -D /opt/PostgreSQL/data1 stop
         Initialize <literal>data1_upgraded</literal> instance by using the
         required newer version.
 -->
-《機械翻訳》必要な新しいインスタンスを使用して、<literal>data1_upgraded</literal>バージョンを初期化します。
+必要とされる新しいバージョンを使用して、<literal>data1_upgraded</literal>インスタンスを初期化します。
        </para>
       </step>
 
@@ -4330,7 +4376,7 @@ pg_ctl -D /opt/PostgreSQL/data1 stop
         Upgrade the <literal>node1</literal>'s server to the required
         newer version, e.g.:
 -->
-《機械翻訳》例えば、<literal>node1</literal>のサーバを、必要とされるより新しいバージョンまでアップグレードしてください。
+必要とされる新しいバージョンを使用して、<literal>node1</literal>にあるサーバをアップグレードします。
 <programlisting>
 pg_upgrade
         --old-datadir "/opt/PostgreSQL/postgres/17/data1"
@@ -4346,7 +4392,7 @@ pg_upgrade
 <!--
         Start the upgraded server in <literal>node1</literal>, e.g.:
 -->
-《機械翻訳》スタートアップグレードされたサーバ<literal>node1</literal>例:。
+<literal>node1</literal>にあるアップグレードされたサーバを起動します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
 </programlisting>
@@ -4361,7 +4407,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》<literal>node1</literal>から変更をサブスクライブしている<literal>node2</literal>上のすべてのサブスクリプションを有効にします<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>を使用、例:。
+<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>コマンドを使用して、<literal>node1</literal>からの変更をサブスクライブする<literal>node2</literal>上のすべてのサブスクリプションを有効にします。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 ENABLE;
 </programlisting>
@@ -4375,7 +4421,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
         <literal>node2</literal> between <xref linkend="circular-cluster-disable-sub-node2"/>
         and now, e.g.:
 -->
-《機械翻訳》<literal>node1</literal>,上で、<literal>node2</literal><xref linkend="circular-cluster-disable-sub-node2"/>と現在の間、例:で作成されたテーブルを作成します。
+<literal>node1</literal>上で、<xref linkend="circular-cluster-disable-sub-node2"/>と現在までの間に、パブリッシャーサーバ<literal>node2</literal>で作成されたすべてのテーブルを作成します。
 <programlisting>
 /* node1 # */ CREATE TABLE distributors (did integer PRIMARY KEY, name varchar(40));
 </programlisting>
@@ -4391,7 +4437,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>,
         e.g.:
 -->
-《機械翻訳》リフレッシュ<literal>node1</literal>コピーの最初のテーブルデータへのサブスクリプションの出版物<literal>node2</literal><link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>を使用、例えば:。
+<link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>コマンドを使用して、<literal>node1</literal>サブスクリプションのパブリケーションをリフレッシュします。
 <programlisting>
 /* node1 # */ ALTER SUBSCRIPTION sub1_node2_node1 REFRESH PUBLICATION;
 </programlisting>
@@ -4406,7 +4452,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》<literal>node2</literal>からの変更をサブスクライブしている<literal>node1</literal>上のすべてのサブスクリプションを無効にします<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用、例:。
+<link linkend="sql-altersubscription-params-disable"><command>ALTER SUBSCRIPTION ... DISABLE</command></link>を使用して、<literal>node2</literal>からの変更をサブスクライブしている<literal>node1</literal>上のすべてのサブスクリプションを無効にします。
 <programlisting>
 /* node1 # */ ALTER SUBSCRIPTION sub1_node2_node1 DISABLE;
 </programlisting>
@@ -4418,7 +4464,7 @@ pg_ctl -D /opt/PostgreSQL/data1_upgraded start -l logfile
 <!--
         Stop the server in <literal>node2</literal>, e.g.:
 -->
-《機械翻訳》サーバを停止します<literal>node2</literal>例:。
+<literal>node2</literal>にあるサーバを停止します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data2 stop
 </programlisting>
@@ -4431,7 +4477,7 @@ pg_ctl -D /opt/PostgreSQL/data2 stop
         Initialize <literal>data2_upgraded</literal> instance by using the
         required newer version.
 -->
-《機械翻訳》必要な新しいインスタンスを使用して、<literal>data2_upgraded</literal>バージョンを初期化します。
+必要とされる新しいバージョンを使用して、<literal>data2_upgraded</literal>インスタンスを初期化します。
        </para>
       </step>
 
@@ -4441,7 +4487,7 @@ pg_ctl -D /opt/PostgreSQL/data2 stop
         Upgrade the <literal>node2</literal>'s server to the required
         new version, e.g.:
 -->
-《機械翻訳》例えば、<literal>node2</literal>のサーバから必要な新しいバージョンまでアップグレードします。
+必要とされる新しいバージョンを使用して、<literal>node2</literal>にあるサーバをアップグレードします。
 <programlisting>
 pg_upgrade
         --old-datadir "/opt/PostgreSQL/postgres/17/data2"
@@ -4457,7 +4503,7 @@ pg_upgrade
 <!--
         Start the upgraded server in <literal>node2</literal>, e.g.:
 -->
-《機械翻訳》スタートアップグレードされたサーバ<literal>node2</literal>例:。
+<literal>node2</literal>にあるアップグレードされたサーバを起動します。
 <programlisting>
 pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
 </programlisting>
@@ -4472,7 +4518,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>,
         e.g.:
 -->
-《機械翻訳》<literal>node2</literal>から変更をサブスクライブしている<literal>node1</literal>上のすべてのサブスクリプションを有効にします<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>を使用、例:。
+<link linkend="sql-altersubscription-params-enable"><command>ALTER SUBSCRIPTION ... ENABLE</command></link>コマンドを使用して、<literal>node2</literal>からの変更をサブスクライブする<literal>node1</literal>上のすべてのサブスクリプションを有効にします。
 <programlisting>
 /* node1 # */ ALTER SUBSCRIPTION sub1_node2_node1 ENABLE;
 </programlisting>
@@ -4486,7 +4532,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         the upgraded <literal>node1</literal> between <xref linkend="circular-cluster-disable-sub-node1"/>
         and now, e.g.:
 -->
-《機械翻訳》<literal>node2</literal>,上で、アップグレードされた<literal>node1</literal><xref linkend="circular-cluster-disable-sub-node1"/>と現在の間の、例えば以下のようなで作成されたテーブルを作成します。
+<literal>node2</literal>上で、<xref linkend="circular-cluster-disable-sub-node1"/>と現在までの間に、パブリッシャーサーバ<literal>node1</literal>で作成されたすべてのテーブルを作成します。
 <programlisting>
 /* node2 # */ CREATE TABLE distributors (did integer PRIMARY KEY, name varchar(40));
 </programlisting>
@@ -4501,7 +4547,7 @@ pg_ctl -D /opt/PostgreSQL/data2_upgraded start -l logfile
         <link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>,
         e.g.:
 -->
-《機械翻訳》リフレッシュ<literal>node2</literal>コピーの最初のテーブルデータへのサブスクリプションの出版物<literal>node1</literal><link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>を使用、例えば:。
+<link linkend="sql-altersubscription-params-refresh-publication"><command>ALTER SUBSCRIPTION ... REFRESH PUBLICATION</command></link>コマンドを使用して、<literal>node2</literal>サブスクリプションのパブリケーションをリフレッシュします。
 <programlisting>
 /* node2 # */ ALTER SUBSCRIPTION sub1_node1_node2 REFRESH PUBLICATION;
 </programlisting>
