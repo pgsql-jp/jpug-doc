@@ -1,9 +1,15 @@
 <!-- doc/src/sgml/oauth-validators.sgml -->
 
 <chapter id="oauth-validators">
+<!--
  <title>OAuth Validator Modules</title>
+-->
+ <title>OAuth検証器モジュール</title>
  <indexterm zone="oauth-validators">
   <primary>OAuth Validators</primary>
+ </indexterm>
+ <indexterm zone="oauth-validators">
+  <primary>OAuth検証器</primary>
  </indexterm>
  <para>
 <!--
@@ -14,9 +20,8 @@
   itself; validator modules provide the integration layer between the server
   and the OAuth provider in use.
 -->
-<productname>PostgreSQL</productname>は、インフラストラクチャモジュールを作成してOAuthベアラトークンのカスタム側バリデーションを実行するためのサーバを提供します。
-OAuthの実装は非常に多様であり、ベアラトークンバリデーションは発行側に大きく依存しているため、サーバはトークン自分自身をチェックすることができません。
-バリデータモジュールはサーバと使用中のOAuthプロバイダ間の統合レイヤを提供します。
+<productname>PostgreSQL</productname>は、カスタムモジュールを作成してサーバ側のOAuthベアラトークン検証を実行するためのインフラストラクチャを提供します。
+OAuthの実装は非常に多様であり、ベアラトークン検証は発行側に大きく依存しているため、サーバはトークン自身をチェックすることができません。検証器モジュールはサーバと使用するOAuthプロバイダ間の統合レイヤを提供します。
  </para>
  <para>
 <!--
@@ -24,7 +29,7 @@ OAuthの実装は非常に多様であり、ベアラトークンバリデーシ
   (see <xref linkend="oauth-validator-init"/>) and the required callback for
   performing validation (see <xref linkend="oauth-validator-callback-validate"/>).
 -->
-OAuthバリデータモジュールは、少なくとも初期関数（<xref linkend="oauth-validator-init"/>を参照）と、バリデーションを実行するために必要なコールバック（<xref linkend="oauth-validator-callback-validate"/>を参照）で構成されている必要があります。
+OAuth検証器モジュールは、少なくとも初期関数（<xref linkend="oauth-validator-init"/>を参照）と、バリデーションを実行するために必要なコールバック（<xref linkend="oauth-validator-callback-validate"/>を参照）で構成されている必要があります。
  </para>
  <warning>
   <para>
@@ -33,13 +38,16 @@ OAuthバリデータモジュールは、少なくとも初期関数（<xref lin
    correct implementation is crucial for server safety. See
    <xref linkend="oauth-validator-design"/> for design considerations.
 -->
-不正な動作をするバリデータは、許可されていないユーザをデータベースに入れる可能性があるため、正しい実装はサーバの安全にとって非常に重要です。
-デザインの考慮事項については、<xref linkend="oauth-validator-design"/>を参照してください。
+不正な動作をする検証器は、許可されていないユーザをデータベースに入れる可能性があるため、正しい実装はサーバの安全にとって非常に重要です。
+設計の考慮事項については、<xref linkend="oauth-validator-design"/>を参照してください。
   </para>
  </warning>
 
  <sect1 id="oauth-validator-design">
+<!--
   <title>Safely Designing a Validator Module</title>
+-->
+  <title>検証器モジュールを安全に設計する</title>
   <warning>
    <para>
 <!--
@@ -49,24 +57,30 @@ OAuthバリデータモジュールは、少なくとも初期関数（<xref lin
     provides, and because it may contribute to attacks against other pieces of
     an OAuth ecosystem.
 -->
-前モジュールを実装しているこのセクションバリデータの全体を読んで理解してください。
-機能不全のバリデータは、認証が提供する偽の感覚と、OAuthエコシステムの他の部分に対する攻撃に寄与する可能性があるため、全くセキュリティがないよりも潜在的に悪いです。
+検証器モジュールを実装する前にこのセクション全体を読んで理解してください
+機能不全の検証器は、それが提供する誤った安全感と、OAuthエコシステムの他の部分に対する攻撃に寄与する可能性があるため、全くセキュリティがないよりも潜在的に悪いです。
    </para>
   </warning>
 
   <sect2 id="oauth-validator-design-responsibilities">
+<!--
    <title>Validator Responsibilities</title>
+-->
+   <title>検証器の役割</title>
    <para>
 <!--
     Although different modules may take very different approaches to token
     validation, implementations generally need to perform three separate
     actions:
 -->
-異なるモジュールは、トークンバリデーションに対して非常に異なるアプローチをとることがあるが、実装は一般に、3つの別個のアクションを実行する必要がある。
+異なるモジュールは、トークンバリデーションに対して非常に異なるアプローチをとることがありますが、実装は一般に、3つの別個のアクションを実行する必要があります。
    </para>
    <variablelist>
     <varlistentry>
+<!--
      <term>Validate the Token</term>
+-->
+     <term>トークンを検証する</term>
      <listitem>
       <para>
 <!--
@@ -78,8 +92,8 @@ OAuthバリデータモジュールは、少なくとも初期関数（<xref lin
        trusted party so that it can perform validation for you (online
        validation).
 -->
-バリデータは、まず保証に対して、提示されたトークンが実際にクライアント認証で使用するための有効な無記名トークンであることを示す必要があります。
-これを行う正しい方法はプロバイダに依存しますが、通常は、トークンがトラステッドパーティ（オフラインバリデーション）によって作成されたことを証明するための暗号化操作、またはバリデーションを実行できるようにそのトラステッドパーティ（オンラインバリデーション）にトークンを提示することが含まれます。
+検証器は、まず、提示されたトークンが実際にクライアント認証で使用するための有効なベアラトークンであることを確認する必要があります。
+これを行う正しい方法はプロバイダに依存しますが、通常は、トークンが信頼できる組織によって作成されたことを証明するための暗号処理（オフラインバリデーション）、またはバリデーションを実行できるようにその信頼できる組織にトークンを提示する（オンラインバリデーション）ことが含まれます。
       </para>
       <para>
 <!--
@@ -93,10 +107,9 @@ OAuthバリデータモジュールは、少なくとも初期関数（<xref lin
        Additionally, your provider may not provide introspection endpoints for
        use by external resource servers.
 -->
-オンラインバリデーション（通常は<ulink url="https://datatracker.ietf.org/doc/html/rfc7662">OAuthトークンイントロスペクションを介して実装される）では、バリデータモジュールの手順が少なくて済み、盗難または誤発行されたイベントのトークンを一元的に失効させることができます。
-ただし、モジュールは、認証の試行ごとに少なくとも1つのネットワーク呼び出しをmakeする必要があります（これらはすべて、構成された<xref linkend="guc-authentication-timeout"/>内で完了する必要があります）。
+オンライン検証（通常は<ulink url="https://datatracker.ietf.org/doc/html/rfc7662">OAuthトークンイントロスペクション</ulink>を介して実装される）では、検証器モジュールの手順が少なくて済み、盗難または誤用されたイベントのトークンを一元的に失効させることができます。
+ただし、モジュールは、認証の試行ごとに少なくとも1つのネットワーク呼び出しを行う必要があります（これらはすべて、設定された<xref linkend="guc-authentication-timeout"/>内で完了する必要があります）。
 また、プロバイダは、外部リソースサーバが使用するイントロスペクションエンドポイントを提供しない場合があります。
-</ulink>
       </para>
       <para>
 <!--
@@ -111,10 +124,10 @@ OAuthバリデータモジュールは、少なくとも初期関数（<xref lin
        offline validator implementations may wish to place restrictions on the
        maximum length of a token's validity period.
 -->
-オフラインバリデーションははるかに複雑であり、通常、バリデータはプロバイダのトラステッド署名キーのリストを維持し、チェックはトークンの暗号シグネチャとその内容を維持する必要があります。
+オフライン検証ははるかに複雑であり、通常検証器はプロバイダのトラステッド署名キーのリストを維持し、チェックはトークンの暗号シグネチャとその内容を維持する必要があります。
 実装は、発行者（「このトークンはどこから来たのか?」）、オーディエンス（「このトークンは誰のためのものか?」）、有効性ピリオド（「このトークンはいつ使用できるのか?」）の検証を含む、プロバイダの指示に従わなければなりません。
 モジュールとプロバイダの間には通信がないため、このメソッドを使用してトークンを一元的に取り消すことはできません。
-オフラインバリデータの実装では、トークンの有効性ピリオドの最大長さに制限を設けることができます。
+オフライン検証器の実装では、トークンの有効性ピリオドの最大長さに制限を設けることができます。
       </para>
       <para>
 <!--
@@ -123,12 +136,15 @@ OAuthバリデータモジュールは、少なくとも初期関数（<xref lin
        wasn't issued by a trusted party.
 -->
 トークンが検証できない場合、モジュールは直ちに失敗します。
-無記名認証がトークン当事者によって発行されていない場合、それ以上のトラステッド/承認は無意味です。
+ベアラトークンが信頼できる組織によって発行されていない場合、それ以上の認証／認可は無意味です。
       </para>
      </listitem>
     </varlistentry>
     <varlistentry>
+<!--
      <term>Authorize the Client</term>
+-->
+     <term>クライアントの認可</term>
      <listitem>
       <para>
 <!--
@@ -137,11 +153,8 @@ OAuthバリデータモジュールは、少なくとも初期関数（<xref lin
        checking the scopes that have been assigned to the token, to make sure
        that they cover database access for the current HBA parameters.
 -->
-次に、バリデータは保証を実行する必要があります。
-これは、エンドユーザがクライアントパーミッションをアクセスに提供したことを意味します。
-サーバはに代わります。
-これには通常、トークンにアサインされたスコープをチェックすることが含まれます。
-makeは現在HBAパラメータのカバーデータベースアクセスを確認します。
+次に検証器は、エンドユーザが、彼らに代わってサーバによるクライアントアクセスの許可を与えていることを確認しなければなりません。
+これには通常、現在のHBAパラメータによるデータベースアクセスをカバーしていることを確認するために、トークンにアサインされたスコープをチェックすることが含まれます。
       </para>
       <para>
 <!--
@@ -152,17 +165,21 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        opportunity to reject the request if the client isn't supposed to be
        using their credentials to connect to databases.
 -->
-このステップの目的は、OAuthクライアントが偽のふりをしてトークンを取得するのを防ぐことです。
-バリデータがすべてのトークンにカバーデータベースアクセスのスコープを運ぶことを要求する場合、プロバイダはフローの間にそのアクセスを許可するためにユーザをプロンプトする必要があります。
+このステップの目的は、OAuthクライアントが虚偽の理由でトークンを取得するのを防ぐことです。
+検証器がすべてのトークンにデータベースアクセスを可能にする内容を伴うことを要求する場合、処理中にプロバイダはユーザにアクセス許可を声高に求める必要があります。
 これにより、クライアントが資格情報を使用してデータベースに接続することになっていない場合に、リクエストを拒否する機会が与えられます。
       </para>
       <para>
+<!--
        While it is possible to establish client authorization without explicit
        scopes by using out-of-band knowledge of the deployed architecture, doing
        so removes the user from the loop, which prevents them from catching
        deployment mistakes and allows any such mistakes to be exploited
        silently. Access to the database must be tightly restricted to only
        trusted clients
+-->
+構築された機構に対する帯域外の明示的な知識を使わずにクライアント認証を確立することは可能ですが、そうするとユーザを処理の中から排除し、設定の誤りに気が付かなくなることになり、その誤りが気が付かないうちに悪用されることになります。
+もしユーザが追加のスコープの入力を求められないのであれば、データベースへのアクセスは信頼できるユーザにのみしっかりと制限されなければなりません。
        <footnote>
         <para>
 <!--
@@ -172,11 +189,13 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
          libpq does not usually meet this bar, since it's designed for use by
          public/untrusted clients.
 -->
-つまり、OAuthトラステッドと<productname>PostgreSQL</productname>クライアントが同じサーバによって制御されているという意味での「エンティティ」です。
-特に、libpqによってサポートされているデバイス認証クライアントフローは、パブリック/信頼できないクライアントによって使用されるように設計されているため、通常はこのバーを満たしません。
+つまり、OAuthクライアントと<productname>PostgreSQL</productname>サーバが同じエンティティによって制御されているという意味での「信頼できる」です。
+特に、libpqによってサポートされているデバイス認証クライアントフローは、パブリック/信頼できないクライアントによって使用されるように設計されているため、通常はこの基準を満たしません。
         </para>
        </footnote>
+<!--
        if users are not prompted for additional scopes.
+-->
       </para>
       <para>
 <!--
@@ -184,12 +203,15 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        authentication information from the token for use in auditing and
        debugging.
 -->
-認可が失敗した場合でも、モジュールは、監査およびデバッグで使用するために、認証からトークン情報をプルし続けることを選択できます。
+認可が失敗した場合でも、モジュールは、監査およびデバッグで使用するために、トークンから認証情報を引き続き取得し続けることを選択できます。
       </para>
      </listitem>
     </varlistentry>
     <varlistentry>
+<!--
      <term>Authenticate the End User</term>
+-->
+     <term>エンドユーザを認証する</term>
      <listitem>
       <para>
 <!--
@@ -202,7 +224,7 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        and recorded in the server logs if <xref linkend="guc-log-connections"/>
        is enabled.
 -->
-最後に、バリデータは、プロバイダにこの情報を要求するか、ユーザ識別子から情報を抽出することによって、トークンのトークン自分自身を決定し、その識別子をサーバに結果します（はHBA設定を使用して最終的な許可決定をmakeします）。
+最後に、検証器は、プロバイダにこの情報を要求するか、トークン自身からこの情報を抽出することによって、識別子をサーバに返します（サーバはHBA設定を使用して最終的な認可を決定します）。
 <xref linkend="guc-log-connections"/>が有効になっている場合、この識別子は<link linkend="functions-info-session-table"><function>system_user</function></link>を介してセッション内で使用可能になり、サーバログに記録されます。
       </para>
       <para>
@@ -217,12 +239,10 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        Ultimately, the choice of which claim (or combination of claims) to use
        comes down to the provider implementation and application requirements.
 -->
-様々なプロバイダが、あるエンドユーザの様々な認証情報を要求する場合があります。
-通常は<emphasis>要求</emphasis>と呼ばれます。
-プロバイダは通常、これらの要求のうち、許可決定に使用できるほど信頼できるものと信頼できないものをレコードします（インスタンスの場合、エンドユーザのフルネームを認証の識別子として使用することは賢明ではありません。
-多くのプロバイダでは、ユーザがディスプレイ名を任意に変更できます）。
+様々なプロバイダが、あるエンドユーザの様々な認証情報を記録する場合があります、通常は<emphasis>要求（claims）</emphasis>と呼ばれます。
+プロバイダは通常、これらの要求のうち、許可決定に使用できるほど信頼できるものと信頼できないものを記録します。
+（たとえば、多くのプロバイダでは、ユーザがディスプレイ名を任意に変更できるので、エンドユーザのフルネームを認証の識別子として使用することは賢明ではありません。）
 結局のところ、どの要求（または要求の組合せ）を使用するかの選択は、プロバイダの実装とアプリケーションの要件に依存します。
-ダウンドキュメント
       </para>
       <para>
 <!--
@@ -230,9 +250,7 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        usermap delegation; see
        <xref linkend="oauth-validator-design-usermap-delegation"/>.
 -->
-ノートの委任を有効にすることで、匿名/仮名のログインも可能です。
-<xref linkend="oauth-validator-design-usermap-delegation"/>を参照してください。
-ユーザマップ
+ユーザマップ委任を有効にすることで、匿名/仮名のログインも可能であることに注意してください。<xref linkend="oauth-validator-design-usermap-delegation"/>を参照してください。
       </para>
      </listitem>
     </varlistentry>
@@ -240,7 +258,10 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
   </sect2>
 
   <sect2 id="oauth-validator-design-guidelines">
+<!--
    <title>General Coding Guidelines</title>
+-->
+   <title>一般的なコーディングガイドライン</title>
    <para>
 <!--
     Developers should keep the following in mind when implementing token
@@ -250,7 +271,10 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
    </para>
    <variablelist>
     <varlistentry>
+<!--
      <term>Token Confidentiality</term>
+-->
+     <term>トークンの機密性</term>
      <listitem>
       <para>
 <!--
@@ -261,8 +285,7 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        disk.
 -->
 モジュールは、サーバログにトークンまたはトークンの断片を書き込むべきではありません。
-モジュールが真を無効と見なしたとしても、これはトークンです。
-クライアントを混乱させて間違いプロバイダと通信させた攻撃者は、ディスクから（そうでなければ有効な）トークンを取得できないはずです。
+モジュールがトークンを無効だと見なしたとしても、これは該当します。クライアントを混乱させて間違ったプロバイダと通信させようとする攻撃者が、ディスクから（そうでなければ有効な）トークンを取得できるべきではありません。
       </para>
       <para>
 <!--
@@ -270,12 +293,15 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        perform online token validation with a provider) must authenticate the
        peer and ensure that strong transport security is in use.
 -->
-ネットワークを越えてトークンを送る実装（例に対して、プロバイダとオンライントークンバリデーションを行うために）は、強いトランスポートセキュリティが使われている同等なと保証を認証しなくてはなりません。
+（例えば、プロバイダとオンライントークンバリデーションを行うために）ネットワークを介してトークンを送信する実装は、ピアを認証し、強力なトランスポートセキュリティが使用されていることを確認する必要があります
       </para>
      </listitem>
     </varlistentry>
     <varlistentry>
+<!--
      <term>Logging</term>
+-->
+     <term>ログ書き込み</term>
      <listitem>
       <para>
 <!--
@@ -288,11 +314,8 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        to unwind the stack, to avoid leaking information to unauthenticated
        clients.
 -->
-モジュールは、標準拡張として同じ<link linkend="error-message-reporting">ロギングファシリティ</link>を使用する場合があります。
-ただし、クライアントへのログエントリを発行するためのルールは、コネクションの認証フェーズ中に微妙に異なります。
-一般的に、モジュールは通常、<symbol>COMMERROR</symbol>レベルと結果で問題を検証する必要があります。
-代わりは<symbol>ERROR</symbol>/<symbol>FATAL</symbol>スタックを巻き戻すためにを使用して、認証されていないクライアントへの情報の漏洩を回避します。
-ログ
+モジュールは、標準拡張として同じ<link linkend="error-message-reporting">ロギングファシリティ</link>を使用する場合があります。ただし、クライアントへのログエントリを発行するためのルールは、コネクションの認証フェーズ中は微妙に異なります。
+一般的に、<symbol>ERROR</symbol>/<symbol>FATAL</symbol>を使用してスタックを巻き戻すのではなく、認証されていないクライアントへの情報の漏洩を回避するために、<symbol>COMMERROR</symbol>レベルで検証上の問題をログして、正常終了する方が良いです。
       </para>
      </listitem>
     </varlistentry>
@@ -311,17 +334,17 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        Failure to follow this guidance may result in unresponsive backend
        sessions.
 -->
-モジュールは、サーバが正しくハンドル認証タイムアウトと<application>pg_ctl</application>からのシャットダウンシグナルを処理できるように、シグナルによる割り込みが可能でなければなりません。
-例では、ソケット上のブロッキング呼び出しは、一般的にソケットイベントと競合のない割り込みの両方を処理するコードに置き換えるべきです。
-<function>WaitLatchOrSocket()</function>、<function>WaitEventSetWait()</function>、などを参照してください。
-また、長時間実行されるループは定期的に呼び出しする必要があります。
+モジュールは、サーバが正しく認証タイムアウトと<application>pg_ctl</application>からのシャットダウンシグナルを処理できるように、シグナルによる割り込みが可能でなければなりません。
+たとえば、ソケット上のブロッキング呼び出しは、一般的にソケットイベントと割り込みの両方を競合せずに処理するコードに置き換えるべきで（<function>WaitLatchOrSocket()</function>、<function>WaitEventSetWait()</function>、などを参照してください）、長時間実行されるループは<function>CHECK_FOR_INTERRUPTS()</function>定期的に呼び出しする必要があります。
 このガイダンスに従わないと、バックエンドセッションが応答しなくなる可能性があります。
-<function>CHECK_FOR_INTERRUPTS()</function>
       </para>
      </listitem>
     </varlistentry>
     <varlistentry>
+<!--
      <term>Testing</term>
+-->
+     <term>テスト</term>
      <listitem>
       <para>
 <!--
@@ -330,14 +353,17 @@ makeは現在HBAパラメータのカバーデータベースアクセスを確�
        mandatory. It's trivial to design a module that lets authorized users in;
        the whole point of the system is to keep unauthorized users out.
 -->
-OAuthシステムのテストの幅は、このスコープの文書をはるかに超えていますが、少なくともネガティブテストは必須であると考えるべきです。
+OAuthシステムのテストの幅は、この文書のスコープをはるかに超えていますが、少なくともネガティブテストは必須であると考えるべきです。
 デザインにとって、許可されたユーザを許可するモジュールは簡単です。
-システムのポイント全体は、許可されていないユーザを締め出すことです。
+システムの全体的なポイントは、許可されていないユーザを締め出すことです。
       </para>
      </listitem>
     </varlistentry>
     <varlistentry>
+<!--
      <term>Documentation</term>
+-->
+     <term>文書化</term>
      <listitem>
       <para>
 <!--
@@ -349,9 +375,9 @@ OAuthシステムのテストの幅は、このスコープの文書をはるか
        <symbol>delegate_ident_mapping=1</symbol> mode, and what additional
        configuration is required in order to do so.
 -->
-DBAはpg_identマップをバリデータするためにこの情報を使用する必要があるかもしれないので、ドキュメント実装は認証されたIDの内容とフォーマットをサーバする必要があります。
-(インスタンスの場合、メールアドレスですか?組織ID番号ですか?UUIDですか?また、モジュールを<symbol>delegate_ident_mapping=1</symbol>モードで使用するのがセーフかどうか、そしてそうするためにオーダーで必要な追加の設定は何かをドキュメントする必要があります。
-エンドユーザコンストラクト
+DBAがpg_identマップを作成するためにこの情報を使用する必要があるかもしれないので、実装はサーバに報告される各ユーザの認証されたIDの内容と形式を文書化する必要があります。
+（たとえば、それはメールアドレスか？組織ID番号か？UUIDか？）
+また、モジュールを<symbol>delegate_ident_mapping=1</symbol>モードで使用するのが安全かどうか、そしてそうするための追加の設定は何かも文書化するのが良いでしょう。
       </para>
      </listitem>
     </varlistentry>
@@ -359,7 +385,10 @@ DBAはpg_identマップをバリデータするためにこの情報を使用す
   </sect2>
 
   <sect2 id="oauth-validator-design-usermap-delegation">
+<!--
    <title>Authorizing Users (Usermap Delegation)</title>
+-->
+   <title>ユーザの認可（ユーザマップ移譲）</title>
    <para>
 <!--
     The standard deliverable of a validation module is the user identifier,
@@ -372,9 +401,9 @@ DBAはpg_identマップをバリデータするためにこの情報を使用す
     that a user may assume, and duplicating that knowledge into local usermaps
     for every server may not be desirable.
 -->
-バリデーションモジュールの標準的な成果物はユーザ識別子であり、サーバは設定された<link linkend="auth-username-maps"><filename>pg_ident.conf</filename>マッピング</link>と比較して、エンドユーザが接続を認可されているかどうかを判断します。
+検証モジュールの標準的な成果物はユーザ識別子であり、サーバは設定された<link linkend="auth-username-maps"><filename>pg_ident.conf</filename>マッピング</link>と比較して、エンドユーザが接続を認可されているかどうかを判断します。
 ただし、OAuthは自分自身で認可フレームワークであり、トークンはユーザ特権に関する情報を運ぶ場合があります。
-例の場合、トークンはユーザが属する組織グループに関連付けられたり、ユーザが引き受ける役割をリストに関連付けられたりすることがあり、その情報をすべてのサーバのローカルユーザマップに複製することは望ましくない場合があります。
+たとえば、トークンはユーザが属する組織グループに関連付けられたり、ユーザが引き受ける役割をリストに関連付けられたりすることがあり、その情報をすべてのサーバのローカルユーザマップに複製することは望ましくない場合があります。
    </para>
    <para>
 <!--
@@ -386,7 +415,7 @@ DBAはpg_identマップをバリデータするためにこの情報を使用す
     identifier will still be recorded by the server, but it plays no part in
     determining whether to continue the connection.
 -->
-バイパスでマッピング全体のユーザ名を使用し、バリデータモジュールにユーザ接続を許可する追加の責任を負わせるには、HBAを<xref linkend="auth-oauth-delegate-ident-mapping"/>で構成します。
+ユーザ名マッピングをバイパスし、検証器モジュールにユーザ接続を許可する追加の責任を負わせるには、HBAを<xref linkend="auth-oauth-delegate-ident-mapping"/>で構成します。
 モジュールは、トークンスコープまたは同等のメソッドを使用して、ユーザが目的のロールの下で接続できるかどうかを決定します。
 ユーザ識別子はサーバによって記録されますが、コネクションを継続するかどうかを決定する際にパートは使用されません。
    </para>
@@ -400,10 +429,11 @@ DBAはpg_identマップをバリデータするためにこの情報を使用す
     user-identifying information to the server. (Some providers may create an
     anonymized ID number that can be recorded instead, for later auditing.)
 -->
-この方式を使用すると、認証自分自身はオプショナルになります。
-モジュールがコネクションが許可されていることを報告する限り、ユーザ識別子がまったく記録されていなくてもログインは続行されます。
+この方式を使用すると、認証自体はオプショナルになります。
+モジュールがコネクションを許可されていることを報告する限り、ユーザ識別子がまったく記録されていなくてもログインは続行されます。
 これにより、データベースに匿名または仮名のアクセスを実装することが可能になります。
-この場合、サードパーティ・プロバイダは必要な認証をすべて実行しますが、ユーザを識別する情報をサーバに提供しません（プロバイダによっては、後で監査するために、代わりに記録できる匿名化されたID番号を作成する場合があります）。
+この場合、サードパーティプロバイダは必要な認証をすべて実行しますが、ユーザを識別する情報をサーバに提供しません。
+（プロバイダによっては、後で監査するために、代わりに記録できる匿名化されたID番号を作成する場合があります。）
    </para>
    <para>
 <!--
@@ -411,14 +441,17 @@ DBAはpg_identマップをバリデータするためにこの情報を使用す
     the validator module into a single point of failure for connection
     authorization. Use with caution.
 -->
-ユーザマップ委任は、最も柔軟なアーキテクチャを提供しますが、バリデータモジュールをコネクション認可の単一障害点にしてしまいます。
+ユーザマップ委任は、最も柔軟なアーキテクチャを提供しますが、検証器モジュールをコネクション認可の単一障害点にしてしまいます。
 注意して使用してください。
    </para>
   </sect2>
  </sect1>
 
  <sect1 id="oauth-validator-init">
+<!--
   <title>Initialization Functions</title>
+-->
+  <title>初期化関数</title>
   <indexterm zone="oauth-validator-init">
    <primary>_PG_oauth_validator_module_init</primary>
   </indexterm>
@@ -437,14 +470,12 @@ DBAはpg_identマップをバリデータするためにこの情報を使用す
    pointer must be of server lifetime, which is typically achieved by defining
    it as a <literal>static const</literal> variable in global scope.
 -->
-OAuthバリデータモジュールは、<xref linkend="guc-oauth-validator-libraries"/>にリストされている共有ライブラリから動的にロードされます。
+OAuth検証器モジュールは、<xref linkend="guc-oauth-validator-libraries"/>にリストされている共有ライブラリから動的にロードされます。
 モジュールは、進行中のログインからリクエストされたときにオンデマンドでロードされます。
 通常のライブラリ検索パスは、ライブラリの位置を特定するために使用されます。
-バリデータコールバックを提供し、ライブラリがOAuthバリデータモジュールであることを示すには、関数記名的を指定する必要があります<function>_PG_OAuth_validator_module_init</function>指定する必要があります。
-関数の戻り値は、タイプの構造体<structname>OAuthValidatorCallbacks</structname>へのポインタである必要があります。
-の構造体は包含マジックナンバーであり、モジュールのトークンバリデーション関数へのポインタです。
-戻されるポインタの存続期間はサーバである必要があります。
-これは通常、グローバル・スコープの<literal>static const</literal>変数として定義することで実現されます。
+検証器コールバックを提供し、ライブラリがOAuth検証器モジュールであることを示すには、<function>_PG_oauth_validator_module_init</function>という名前の関数を提供する必要があります。
+関数の戻り値は、<structname>OAuthValidatorCallbacks</structname>型の構造体へのポインタである必要があり、構造体はマジックナンバーとモジュールのトークン検証関数へのポインタを含みます。
+戻されるポインタの存続期間はサーバの生存期間である必要があり、これは通常、グローバルスコープの<literal>static const</literal>変数として定義することで実現されます。
 <programlisting>
 typedef struct OAuthValidatorCallbacks
 {
@@ -467,19 +498,25 @@ typedef const OAuthValidatorCallbacks *(*OAuthValidatorModuleInit) (void);
  </sect1>
 
  <sect1 id="oauth-validator-callbacks">
+<!--
   <title>OAuth Validator Callbacks</title>
+-->
+  <title>OAuth検証器コールバック</title>
   <para>
 <!--
    OAuth validator modules implement their functionality by defining a set of
    callbacks. The server will call them as required to process the
    authentication request from the user.
 -->
-OAuthバリデータモジュールは、一連のコールバックを定義することでその機能を実装する。
-サーバは、ユーザからプロセス認証リクエストまで、必要に応じてそれらを呼び出しする。
+OAuth検証器モジュールは、一連のコールバックを定義することでその機能を実装します。
+サーバは、ユーザからのプロセス認証リクエストを処理するために、必要に応じてそれらを呼び出します。
   </para>
 
   <sect2 id="oauth-validator-callback-startup">
+<!--
    <title>Startup Callback</title>
+-->
+   <title>スタートアップコールバック</title>
    <para>
 <!--
     The <function>startup_cb</function> callback is executed directly after
@@ -488,9 +525,9 @@ OAuthバリデータモジュールは、一連のコールバックを定義す
     has state it can use <structfield>state->private_data</structfield> to
     store it.
 -->
-<function>startup_cb</function>コールバックは、モジュールのロードの直後に実行されます。
+<function>startup_cb</function>コールバックは、モジュールのロード直後に実行されます。
 このコールバックは、ローカルの状態を設定し、必要に応じて追加の初期設定を実行するために使用できます。
-バリデータモジュールに状態がある場合は、<structfield>state->private_data</structfield>それを格納するために使用できます。
+検証器モジュールに状態がある場合は、<structfield>state->private_data</structfield>を使用してそれを格納できます。
 
 <programlisting>
 typedef void (*ValidatorStartupCB) (ValidatorModuleState *state);
@@ -499,15 +536,18 @@ typedef void (*ValidatorStartupCB) (ValidatorModuleState *state);
   </sect2>
 
   <sect2 id="oauth-validator-callback-validate">
+<!--
    <title>Validate Callback</title>
+-->
+   <title>検証コールバック</title>
    <para>
 <!--
     The <function>validate_cb</function> callback is executed during the OAuth
     exchange when a user attempts to authenticate using OAuth.  Any state set in
     previous calls will be available in <structfield>state->private_data</structfield>.
 -->
-<function>validate_cb</function>コールバックは、ユーザがOAuthを使用して認証しようとするときに、OAuth交換中に実行される。
-以前の呼び出しで設定された状態は、<structfield>state->private_data</structfield>で使用できる。
+<function>validate_cb</function>コールバックは、ユーザがOAuthを使用して認証しようとするときに、OAuth交換中に実行されます。
+以前の呼び出しで設定された状態は、<structfield>state->private_data</structfield>で使用できます。
 
 <programlisting>
 typedef bool (*ValidatorValidateCB) (const ValidatorModuleState *state,
@@ -524,10 +564,9 @@ typedef bool (*ValidatorValidateCB) (const ValidatorModuleState *state,
     defined as below:
 -->
 <replaceable>トークン</replaceable>には、検証対象のベアラトークンが含まれます。
-<application>PostgreSQL</application>では、トークンが構文的に整形式であることが確認されましたが、他のバリデーションは実行されていません。
-<replaceable>ロール</replaceable>には、ユーザがログに要求したロールがとして含まれます。
-コールバックは<literal>result</literal>構造体に出力パラメータを設定する必要があります。
-これは次のように定義されます。
+<application>PostgreSQL</application>は、トークンが構文的に整形式であることを確認していますが、他のバリデーションは実行されていません。
+<replaceable>ロール</replaceable>には、ユーザがログインとして要求したロールが含まれます。
+コールバックは<literal>result</literal>構造体に出力パラメータを設定する必要があり、これは次のように定義されます。
 
 <programlisting>
 typedef struct ValidatorModuleResult
@@ -546,8 +585,8 @@ typedef struct ValidatorModuleResult
     NULL if the token is valid but the associated user identity cannot be
     determined.
 -->
-モジュールが<literal>true</literal> result->認証済に設定された場合のみ、コネクションが続行されます。
-ユーザを認証するために、認証されたユーザ名前は<structfield>result->authn_id</structfield>トークンを使用して決定されたようにpallocされ、フィールドで返される必要があります。
+モジュールが<structfield>result->authorized</structfield>を<literal>true</literal>に設定した場合のみ、コネクションが続行されます。
+ユーザを認証するために、認証されたユーザ名（トークンを使用して決定されたもの）はpallocされ、<structfield>result->authn_id</structfield>フィールドで返される必要があります。
 または、<structfield>result->authn_id</structfield>トークンが有効であるが、関連付けられたユーザIDを決定できない場合は、NULLに設定される場合があります。
 <structfield></structfield>
    </para>
@@ -558,9 +597,8 @@ typedef struct ValidatorModuleResult
     Otherwise the validator should return <literal>true</literal> to indicate
     that it has processed the token and made an authorization decision.
 -->
-バリデータは、内部エラーを結果<literal>false</literal>シグナルに対してすることができます。
-この場合、ケースではすべての結果パラメータが無視され、コネクションは失敗します。
-そうでない場合、バリデータは結果<literal>true</literal>トークンを処理し、許可決定を行ったことを示すする必要があります。
+検証器は、内部エラーを示すために<literal>false</literal>を返すことができ、この場合、すべての結果パラメータが無視され、接続は失敗します。
+そうでない場合、検証器は<literal>true</literal>を返して、トークンを処理し、認可決定を行ったことを示す必要があります。
    </para>
    <para>
 <!--
@@ -574,24 +612,26 @@ typedef struct ValidatorModuleResult
     validator to ensure that the token carries enough privileges for the user to
     log in under the indicated <replaceable>role</replaceable>.
 -->
-<function>validate_cb</function> returnsの後の動作は、特定のHBAセットアップによって異なります。
-通常、<structfield>result->authn_id</structfield>ユーザ名前は、ユーザがロギングとしているロールを正確にマッチする必要があります。
-（この動作はユーザマップで変更できます。）
-しかし、<literal>delegate_ident_mapping</literal>オンでHBAルールに対して認証する場合、<productname>PostgreSQL</productname>は<structfield>result->authn_id</structfield>の値をまったくチェックしません。
-このケースでは、トークンが指示された<replaceable>role</replaceable>の下でユーザがログに対して十分な権限を持つかどうかは、バリデータから保証に委ねられます。
+<function>validate_cb</function> returnsの後の動作は、特定のHBA設定によって異なります。
+通常、<structfield>result->authn_id</structfield>ユーザ名は、ユーザがログインしようとしているロールと正確に一致する必要があります。
+（この振る舞いはユーザマップで変更できます。）
+しかし、<literal>delegate_ident_mapping</literal>が有効でHBAルールに対して認証する場合、<productname>PostgreSQL</productname>は<structfield>result->authn_id</structfield>の値をまったくチェックしません。この場合、トークンが指示された<replaceable>role</replaceable>の下でユーザがログインするのに十分な権限を持つかどうかは、検証器に委ねられます。
    </para>
   </sect2>
 
   <sect2 id="oauth-validator-callback-shutdown">
+<!--
    <title>Shutdown Callback</title>
+-->
+   <title>シャットダウンコールバック</title>
    <para>
 <!--
     The <function>shutdown_cb</function> callback is executed when the backend
     process associated with the connection exits. If the validator module has
     any allocated state, this callback should free it to avoid resource leaks.
 -->
-<function>shutdown_cb</function>コールバックは、コネクションに関連付けられたバックエンドプロセスが終了するときに実行されます。
-バリデータモジュールに割り当てられた状態がある場合、このコールバックはリソースリークを回避するためにフリーする必要があります。
+<function>shutdown_cb</function>コールバックは、接続に関連付けられたバックエンドプロセスが終了するときに実行されます。
+検証器モジュールにメモリを割り当てられた状態がある場合、このコールバックはリソースリークを回避するためにフリーする必要があります。
 <programlisting>
 typedef void (*ValidatorShutdownCB) (ValidatorModuleState *state);
 </programlisting>
