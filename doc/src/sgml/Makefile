@@ -52,12 +52,16 @@ else
 XSLTPROC = $(missing) xsltproc
 endif
 
+ifndef FOPCONF
+FOPCONF = fop.xconf
+endif
+
 override XSLTPROCFLAGS += --stringparam pg.version '$(VERSION)'
 
 
 GENERATED_SGML = version.sgml \
 	features-supported.sgml features-unsupported.sgml errcodes-table.sgml \
-	keywords-table.sgml targets-meson.sgml wait_event_types.sgml
+	keywords-table.sgml wait_event_types.sgml
 
 ALL_SGML := $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml) $(GENERATED_SGML)
 
@@ -97,22 +101,22 @@ version.sgml: $(top_srcdir)/configure
 	  echo "<!ENTITY majorversion \"$(MAJORVERSION)\">"; \
 	} > $@
 
-features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-supported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl YES $^ > $@
 
-features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt $(top_srcdir)/src/backend/catalog/sql_features.txt
+features-unsupported.sgml: $(top_srcdir)/src/backend/catalog/sql_feature_packages.txt.ja $(top_srcdir)/src/backend/catalog/sql_features.txt.ja
 	$(PERL) $(srcdir)/mk_feature_tables.pl NO $^ > $@
 
-errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt generate-errcodes-table.pl
+errcodes-table.sgml: $(top_srcdir)/src/backend/utils/errcodes.txt.ja generate-errcodes-table.pl
 	$(PERL) $(srcdir)/generate-errcodes-table.pl $< > $@
 
 keywords-table.sgml: $(top_srcdir)/src/include/parser/kwlist.h $(wildcard $(srcdir)/keywords/sql*.txt) generate-keywords-table.pl
 	$(PERL) $(srcdir)/generate-keywords-table.pl $(srcdir) > $@
 
-wait_event_types.sgml: $(top_srcdir)/src/backend/utils/activity/wait_event_names.txt $(top_srcdir)/src/backend/utils/activity/generate-wait_event_types.pl
+wait_event_types.sgml: $(top_srcdir)/src/backend/utils/activity/wait_event_names.txt.ja $(top_srcdir)/src/backend/utils/activity/generate-wait_event_types.pl
 	$(PERL) $(top_srcdir)/src/backend/utils/activity/generate-wait_event_types.pl --docs $<
 
-targets-meson.sgml: targets-meson.txt $(srcdir)/generate-targets-meson.pl
+targets-meson.sgml.en: targets-meson.txt $(srcdir)/generate-targets-meson.pl
 	$(PERL) $(srcdir)/generate-targets-meson.pl $^ > $@
 
 
@@ -122,6 +126,10 @@ targets-meson.sgml: targets-meson.txt $(srcdir)/generate-targets-meson.pl
 
 ifeq ($(STYLE),website)
 XSLTPROC_HTML_FLAGS += --param website.stylesheet 1
+endif
+
+ifdef ORIGINAL
+XSLTPROC_HTML_FLAGS += --param html.original 1
 endif
 
 html: html-stamp
@@ -158,7 +166,7 @@ XSLTPROC_FO_FLAGS += --stringparam img.src.path '$(srcdir)/'
 # There is no easy way to pipe output and capture its return code,
 # so add a final line to report the return code.
 %.pdf: %.fo $(ALL_IMAGES)
-	@ { LANG=C $(FOP) -fo $< -pdf $@ 2>&1; echo "FOP_RETURN $$?"; } | \
+	@ { LANG=C $(FOP) -c $(FOPCONF) -fo $< -pdf $@ 2>&1; echo "FOP_RETURN $$?"; } | \
 	$(AWK) 'BEGIN { warn = 0 }  $$1 != "FOP_RETURN" { print }  /not available in font/ { warn = 1 }  \
 	END { if (warn != 0) print("\nWarning: found characters that cannot be output in the PDF document;  see README.non-ASCII"); \
 	if ($$2 != 0) { exit $$2} }' 1>&2
@@ -200,7 +208,7 @@ MAKEINFO = makeinfo
 ##
 
 # Quick syntax check without style processing
-check: postgres.sgml $(ALL_SGML) check-tabs check-nbsp
+check: postgres.sgml $(ALL_SGML) check-tabs check-nbsp check-ng
 	$(XMLLINT) $(XMLINCLUDE) --noout --valid $<
 
 
@@ -272,6 +280,15 @@ check-nbsp:
 	@ ( $(PERL) -ne '/\xC2\xA0/ and print("$$ARGV:$$_"),$$n++; END {exit($$n>0)}' \
 	  $(wildcard $(srcdir)/*.sgml $(srcdir)/ref/*.sgml $(srcdir)/*.xsl $(srcdir)/images/*.xsl) ) || \
 	(echo "Non-breaking spaces appear in SGML/XML files" 1>&2;  exit 1)
+
+# words to avoid as pgsql-jp
+check-ng:
+	@ln -sf $(top_builddir)/.ng.list .ng.list
+	@if git --no-pager grep -E --color=always -f .ng.list *sgml ref/*sgml; \
+	then \
+	  echo "使用NGな語が見つかりました。";\
+	  false;\
+	fi
 
 ##
 ## Clean
