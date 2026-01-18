@@ -1,0 +1,48 @@
+on: pull_request_target
+name: label
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get label length
+        id: getlength
+        env:
+          labels: ${{ toJson(github.event.pull_request.labels) }}
+        run: |
+          echo "$labels"
+          LL=$(echo $labels | jq '. | length' )
+          echo "Label_length=$LL" >> $GITHUB_OUTPUT
+      - name: re-review
+        id: re-review
+        uses: actions/github-script@v7
+        if: contains(github.event.pull_request.labels.*.name, '指摘事項あり')
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.removeLabel({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              name: '指摘事項あり'
+            })
+            github.rest.issues.addLabels({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['再レビュー待ち']
+            })
+      - name: Output rereview conclusion
+        run: |
+            echo "re-review conclusion: ${{ steps.re-review.conclusion }}"
+            echo "steps.getlength.outputs.Label_length: ${{ steps.getlength.outputs.Label_length }}"
+      - name: review
+        id: review
+        uses: actions/github-script@v7
+        if: steps.re-review.conclusion == 'skipped' && steps.getlength.outputs.Label_length == 0
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['レビュー待ち']
+            })
