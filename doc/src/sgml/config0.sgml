@@ -2677,7 +2677,8 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
 <!--
         Controls whether huge pages are requested for the main shared memory
         area. Valid values are <literal>try</literal> (the default),
-        <literal>on</literal>, and <literal>off</literal>.  With
+        <literal>on</literal>, and <literal>off</literal>.
+        This parameter can only be set at server start. With
         <varname>huge_pages</varname> set to <literal>try</literal>, the
         server will try to request huge pages, but fall back to the default if
         that fails. With <literal>on</literal>, failure to request huge pages
@@ -2688,6 +2689,7 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
 -->
 主共有メモリ領域に対してhuge pageを要求するかどうかを管理します。
 可能な値は<literal>try</literal> (デフォルト)、<literal>on</literal>、<literal>off</literal>です。
+このパラメータはサーバ起動時のみ設定可能です。
 <varname>huge_pages</varname>を<literal>try</literal>に設定すると、サーバはhuge pageの要求を試み、失敗したらデフォルトに戻します。
 <literal>on</literal>にすると、要求に失敗した場合にサーバの起動ができなくなることになります。
 <literal>off</literal>ならhuge pageの要求は行いません。
@@ -3433,6 +3435,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         platform, is generally discouraged because it typically requires
         non-default kernel settings to allow for large allocations (see <xref
         linkend="sysvipc"/>).
+        This parameter can only be set at server start.
 -->
 <productname>PostgreSQL</productname>の共有バッファおよび他の共有データを保持する主共有メモリ領域のためにサーバが使用すべき共有メモリの実装を指定します。
 可能な値は<literal>mmap</literal>（<function>mmap</function>を使って獲得した無名共有メモリ）、<literal>sysv</literal> （<function>shmget</function>を使って獲得したSystem V共有メモリ）、<literal>windows</literal> （Windows共有メモリ）です。
@@ -3441,6 +3444,7 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
 どのプラットフォームでもデフォルトになっていない<literal>sysv</literal>オプションの利用は一般に推奨されません。
 通常、デフォルトではないカーネルの設定が大きなアロケーションでは必要になるからです。
 （<xref linkend="sysvipc"/>参照。）
+このパラメータはサーバ起動時のみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -3472,12 +3476,14 @@ Linuxでは、これは<quote>transparent huge pages</quote><indexterm><primary>
         however, it may be useful for debugging, when the
         <literal>pg_dynshmem</literal> directory is stored on a RAM disk, or when
         other shared memory facilities are not available.
+        This parameter can only be set at server start.
 -->
 サーバが使う動的共有メモリの実装を指定します。可能な値は<literal>posix</literal> (<literal>shm_open</literal>で獲得するPOSIX共有メモリ)、<literal>sysv</literal>(<literal>shmget</literal>で獲得するSystem V共有メモリ)、<literal>windows</literal> (Windows共有メモリ)、 <literal>mmap</literal>(データディレクトリ内のメモリマップファイルを使ってシミュレートする共有メモリ)です。
 すべての値がすべてのプラットフォームでサポートされているわけではありません。
 そのプラットフォームでの推奨実装が通常デフォルトになります。
 どのプラットフォームでもデフォルトになっていない<literal>mmap</literal>は、オペレーティングシステムが変更されたページをディスクに継続的に書き込み、I/O負荷を増加させるので一般的には利用が推奨されていません。
 しかし、デバッグ目的のために<literal>pg_dynshmem</literal>ディレクトリがRAMディスク上にある場合や、他の共有メモリ機能が使えない場合は有用かもしれません。
+このパラメータはサーバ起動時のみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -3639,10 +3645,12 @@ huge pageを自動管理するオペレーティングシステム上でより�
         <xref linkend="sql-notify"/> / <xref linkend="sql-listen"/> queue.
         The default value is 1048576. For 8 KB pages it allows to consume
         up to 8 GB of disk space.
+        This parameter can only be set at server start.
 -->
 <xref linkend="sql-notify"/>/<xref linkend="sql-listen"/>キューのために割り当てられたページの最大量を指定します。
 デフォルト値は1048576です。
 8キロバイトページの場合、最大8ギガバイトのディスクスペースが消費されます。
+このパラメータはサーバ起動時のみ設定可能です。
        </para>
       </listitem>
      </varlistentry>
@@ -4053,9 +4061,9 @@ huge pageを自動管理するオペレーティングシステム上でより�
 <!--
          Controls the largest I/O size in operations that combine I/O, and silently
          limits the user-settable parameter <varname>io_combine_limit</varname>.
-         This parameter can only be set in
-         the <filename>postgresql.conf</filename> file or on the server
-         command line.
+         This parameter can only be set at server start.
+         If this value is specified without units, it is taken as blocks,
+         that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
          The maximum possible size depends on the operating system and block
          size, but is typically 1MB on Unix and 128kB on Windows.
          The default is 128kB.
@@ -4084,6 +4092,8 @@ I/Oを結合する操作の最大のI/Oサイズを制御し、ユーザが設�
          higher than the <varname>io_max_combine_limit</varname> parameter, the
          lower value will silently be used instead, so both may need to be raised
          to increase the I/O size.
+         If this value is specified without units, it is taken as blocks,
+         that is <symbol>BLCKSZ</symbol> bytes, typically 8kB.
          The maximum possible size depends on the operating system and block
          size, but is typically 1MB on Unix and 128kB on Windows.
          The default is 128kB.
