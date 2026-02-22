@@ -1236,6 +1236,7 @@ OAuthクライアントフローを使用できるようにするには、接続
     the following hook API:
 -->
 OAuthフローの動作は、次のフックAPIを使用するクライアントにより変更または置き換えることができます。
+
     <variablelist>
      <varlistentry id="libpq-PQsetAuthDataHook">
       <term><function>PQsetAuthDataHook</function><indexterm><primary>PQsetAuthDataHook</primary></indexterm></term>
@@ -1339,6 +1340,7 @@ PQauthDataHook_type PQgetAuthDataHook(void);
      <replaceable>data</replaceable> structures are defined:
 -->
 次の<symbol>PGauthData</symbol>型とそれに対応する<replaceable>data</replaceable>構造体が定義されています。
+
      <variablelist>
       <varlistentry id="libpq-oauth-authdata-prompt-oauth-device">
        <term>
@@ -1454,22 +1456,27 @@ typedef struct PGoauthBearerRequest
     /* フックの入力（全ての呼び出しで一定） */
     const char *openid_configuration; /* OIDCディスカバリーURL */
     const char *scope;                /* 必要なスコープ、またはNULL */
+
 <!--
     /* Hook outputs */
 -->
     /* フックの出力 */
-<!--
-    /* Callback implementing a custom asynchronous OAuth flow. */
--->
-    /* カスタム非同期OAuthフローを実装するコールバック。 */
+
+    /*
+     * Callback implementing a custom asynchronous OAuth flow. The signature is
+     * platform-dependent: PQ_SOCKTYPE is SOCKET on Windows, and int everywhere
+     * else.
+     */
     PostgresPollingStatusType (*async) (PGconn *conn,
                                         struct PGoauthBearerRequest *request,
-                                        SOCKTYPE *altsock);
+                                        PQ_SOCKTYPE *altsock);
+
 <!--
     /* Callback to clean up custom allocations. */
 -->
     /* カスタム割り当てをクリーンアップするためのコールバック。 */
     void        (*cleanup) (PGconn *conn, struct PGoauthBearerRequest *request);
+
 <!--
     char       *token;   /* acquired Bearer token */
     void       *user;    /* hook-defined allocated data */
@@ -1547,14 +1554,14 @@ typedef struct PGoauthBearerRequest
          hook. When the callback cannot make further progress without blocking,
          it should return either <symbol>PGRES_POLLING_READING</symbol> or
          <symbol>PGRES_POLLING_WRITING</symbol> after setting
-         <literal>*pgsocket</literal> to the file descriptor that will be marked
+         <literal>*altsock</literal> to the file descriptor that will be marked
          ready to read/write when progress can be made again. (This descriptor
          is then provided to the top-level polling loop via
          <function>PQsocket()</function>.) Return <symbol>PGRES_POLLING_OK</symbol>
          after setting <replaceable>token</replaceable> when the flow is
          complete, or <symbol>PGRES_POLLING_FAILED</symbol> to indicate failure.
 -->
-これは、フックから戻るとすぐにフローを開始するために呼び出されます。
+《マッチ度[85.671192]》これは、フックから戻るとすぐにフローを開始するために呼び出されます。
 コールバックがブロッキングなしでこれ以上先に進めない場合は、<literal>*pgsocket</literal>に、処理が再開できるようになったときに読み取り/書き込みの準備完了とマークされるファイルディスクリプタを設定した後、<symbol>PGRES_POLLING_READING</symbol>または<symbol>PGRES_POLLING_WRITING</symbol>のいずれかを返す必要があります。
 （その後、このディスクリプタは<function>PQsocket()</function>を介して最上位のポーリングループに提供されます。）
 フローが完了したら<replaceable>token</replaceable>を設定した後に<symbol>PGRES_POLLING_OK</symbol>を返し、失敗した場合は<symbol>PGRES_POLLING_FAILED</symbol>を返します。

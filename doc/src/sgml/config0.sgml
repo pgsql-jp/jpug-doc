@@ -2557,7 +2557,7 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
         This parameter determines whether the passphrase command set by
         <varname>ssl_passphrase_command</varname> will also be called during a
         configuration reload if a key file needs a passphrase.  If this
-        parameter is off (the default), then
+        parameter is <literal>off</literal> (the default), then
         <varname>ssl_passphrase_command</varname> will be ignored during a
         reload and the SSL configuration will not be reloaded if a passphrase
         is needed.  That setting is appropriate for a command that requires a
@@ -2565,10 +2565,26 @@ TLS 1.0より前のプロトコルバージョン、すなわちSSLバージョ�
         running.  Setting this parameter to on might be appropriate if the
         passphrase is obtained from a file, for example.
 -->
-このパラメータは、キーにパスフレーズが必要な場合、設定ファイルの再読み込み中に<varname>ssl_passphrase_command</varname>で設定されたパスフレーズコマンドも呼び出されるかどうかを設定します。
+《マッチ度[84.087363]》このパラメータは、キーにパスフレーズが必要な場合、設定ファイルの再読み込み中に<varname>ssl_passphrase_command</varname>で設定されたパスフレーズコマンドも呼び出されるかどうかを設定します。
 このパラメータがoff（デフォルト）なら、<varname>ssl_passphrase_command</varname>は再読込の際に無視され、パスフレーズが必要な場合、SSL設定は再読込されません。
 この設定は、サーバ実行中は存在しないかもしれないTTYがプロンプトに必要なコマンドに適しています。
 たとえばパスフレーズがファイルから読み込める場合には、この設定をonにするのが適切です。
+《機械翻訳》このパラメータは、キーファイルニーズがパスフレーズである場合に、<varname>ssl_パスフレーズ_コマンド</varname>による設定コマンドセットもリロード中にコールされるかどうかを決定します。
+このパラメータが<literal>off</literal>（デフォルト）である場合、リロード中に<varname>ssl_passphrase_command</varname>は無視され、パスフレーズが必要な場合にSSL設定はリロードされません。
+この設定は、プロンプトのためにTTYを必要とするコマンドに適しています。
+TTYはサーバの実行中には使用できない場合があります。
+パスフレーズが例のファイルから取得される場合は、このパラメータをオンに設定することが適切な場合があります。
+パスフレーズ
+       </para>
+       <para>
+<!--
+        This parameter must be set to <literal>on</literal> when running on
+        <systemitem class="osname">Windows</systemitem> since all connections
+        will perform a configuration reload due to the different process model
+        of that platform.
+-->
+《機械翻訳》このパラメータは<literal>on</literal><systemitem class="osname">Windows</systemitem>で実行している場合に設定する必要があります。
+これは、そのプラットフォームの設定リロードが異なるため、すべての接続がプロセスモデルを実行するためです。
        </para>
        <para>
 <!--
@@ -3629,6 +3645,56 @@ huge pageを自動管理するオペレーティングシステム上でより�
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-file-extend-method" xreflabel="file_extend_method">
+      <term><varname>file_extend_method</varname> (<type>enum</type>)
+      <indexterm>
+       <primary><varname>file_extend_method</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+<!--
+        Specifies the method used to extend data files during bulk operations
+        such as <command>COPY</command>.  The first available option is used as
+        the default, depending on the operating system:
+-->
+《機械翻訳》<command>COPY</command>などのメソッド操作中にデータファイルを拡張するために使用されるバルクを指定します。
+デフォルトに応じて、最初に使用可能なオプションがオペレーティングシステムとして使用されます。
+        <itemizedlist>
+         <listitem>
+          <para>
+<!--
+           <literal>posix_fallocate</literal> (Unix) uses the standard POSIX
+            interface for allocating disk space, but is missing on some systems.
+            If it is present but the underlying file system doesn't support it,
+            this option silently falls back to <literal>write_zeros</literal>.
+            Current versions of BTRFS are known to disable compression when
+            this option is used.
+            This is the default on systems that have the function.
+-->
+《機械翻訳》<literal>posix_fallocate</literal> Unixは、インタフェースの割り当てに標準POSIXディスクスペースを使用しますが、一部のシステムにはありません。
+このオプションが存在しても、基礎となるファイルシステムがサポートしない場合、このオプションは警告なしにフォールバックします<literal>write_zeros</literal>.現在バージョンのBTRFSは、このオプションが使用されると圧縮を無効にすることが知られています。
+これは、デフォルトがあるシステムの関数です。
+           </para>
+         </listitem>
+         <listitem>
+          <para>
+<!--
+           <literal>write_zeros</literal> extends files by writing out blocks
+            of zero bytes.  This is the default on systems that don't have the
+            function <function>posix_fallocate</function>.
+-->
+《機械翻訳》<literal>write_zeros</literal>は、ゼロバイトのブロックを書き出すことでファイルを拡張します。
+これは、デフォルト<function>posix_fallocate</function>.を持たないシステム上の関数です。
+          </para>
+         </listitem>
+        </itemizedlist>
+        The <literal>write_zeros</literal> method is always used when data
+        files are extended by 8 blocks or fewer.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-max-notify-queue-pages" xreflabel="max_notify_queue_pages">
       <term><varname>max_notify_queue_pages</varname> (<type>integer</type>)
       <indexterm>
@@ -3991,10 +4057,13 @@ huge pageを自動管理するオペレーティングシステム上でより�
          Higher values will have the most impact on higher latency storage
          where queries otherwise experience noticeable I/O stalls and on
          devices with high IOPs. Unnecessarily high values may increase I/O
-         latency for all queries on the system
+         latency for all queries on the system.
 -->
-値が高いほど、問い合わせで顕著なI/Oストールが発生するレイテンシの高いストレージや、IOPSが高いデバイスに最も大きな影響を与えます。
+《マッチ度[84.255319]》値が高いほど、問い合わせで顕著なI/Oストールが発生するレイテンシの高いストレージや、IOPSが高いデバイスに最も大きな影響を与えます。
 不必要に高い値を設定すると、システム上のすべての問い合わせのI/O待ち時間が長くなる可能性があります。
+《機械翻訳》値を大きくすると、高いインパクトストレージで最大のレイテンシが発生します。
+このシステムでは、値を大きくしない場合に問合せで顕著な入出力停止が発生したり、IOPの高いデバイスで発生したりします。
+必要以上に値を大きくすると、この地域のすべての問合せの入出力レイテンシが増加する可能性があります。
         </para>
 
         <para>
@@ -4069,7 +4138,8 @@ huge pageを自動管理するオペレーティングシステム上でより�
          The default is 128kB.
 -->
 I/Oを結合する操作の最大のI/Oサイズを制御し、ユーザが設定可能なパラメータである<varname>io_combine_limit</varname>を暗黙的に制限します。
-このパラメータは、<filename>postgresql.conf</filename>ファイルか、サーバのコマンドラインでのみ設定可能です。
+このパラメータはサーバ起動時のみ設定可能です。
+この値が単位なしで指定された場合、ブロック、つまり通常8kBの<symbol>BLCKSZ</symbol>バイトとみなされます。
 可能な最大サイズは、オペレーティングシステムとブロックサイズによって異なりますが、通常、Unixでは1MBであり、Windowsでは128kBです。
 デフォルトは128kBです。
         </para>
@@ -4100,6 +4170,7 @@ I/Oを結合する操作の最大のI/Oサイズを制御し、ユーザが設�
 -->
 I/Oを結合する操作の最大のI/Oサイズを制御します。
 <varname>io_max_combine_limit</varname>パラメータよりも高い値に設定すると、代わりに低い値が自動的に使用されるため、I/Oサイズを増やすには両方を上げる必要がある場合があります。
+この値が単位なしで指定された場合、ブロック、つまり通常8kBの<symbol>BLCKSZ</symbol>バイトとみなされます。
 可能な最大サイズは、オペレーティングシステムとブロックサイズによって異なりますが、通常、Unixでは1MBであり、Windowsでは128kBです。
 デフォルトは128kBです。
         </para>
