@@ -340,7 +340,7 @@ reindex_one_database(ConnParams *cparams, ReindexType type,
 		{
 			case REINDEX_SCHEMA:
 				Assert(user_list != NULL);
-				/* fall through */
+				pg_fallthrough;
 
 			case REINDEX_DATABASE:
 
