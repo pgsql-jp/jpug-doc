@@ -2006,7 +2006,6 @@ builtins = [
   'ctz',
   'constant_p',
   'frame_address',
-  'popcount',
   'unreachable',
 ]
 
