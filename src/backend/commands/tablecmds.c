@@ -8675,18 +8675,6 @@ ATExecSetExpression(AlteredTableInfo *tab, Relation rel, const char *colName,
 				 errmsg("column \"%s\" of relation \"%s\" is not a generated column",
 						colName, RelationGetRelationName(rel))));
 
-	/*
-	 * TODO: This could be done, just need to recheck any constraints
-	 * afterwards.
-	 */
-	if (attgenerated == ATTRIBUTE_GENERATED_VIRTUAL &&
-		rel->rd_att->constr && rel->rd_att->constr->num_check > 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("ALTER TABLE / SET EXPRESSION is not supported for virtual generated columns in tables with check constraints"),
-				 errdetail("Column \"%s\" of relation \"%s\" is a virtual generated column.",
-						   colName, RelationGetRelationName(rel))));
-
 	if (attgenerated == ATTRIBUTE_GENERATED_VIRTUAL && attTup->attnotnull)
 		tab->verify_new_notnull = true;
 
@@ -8719,14 +8707,13 @@ ATExecSetExpression(AlteredTableInfo *tab, Relation rel, const char *colName,
 
 		/* make sure we don't conflict with later attribute modifications */
 		CommandCounterIncrement();
-
-		/*
-		 * Find everything that depends on the column (constraints, indexes,
-		 * etc), and record enough information to let us recreate the objects
-		 * after rewrite.
-		 */
-		RememberAllDependentForRebuilding(tab, AT_SetExpression, rel, attnum, colName);
 	}
+
+	/*
+	 * Find everything that depends on the column (constraints, indexes, etc),
+	 * and record enough information to let us recreate the objects.
+	 */
+	RememberAllDependentForRebuilding(tab, AT_SetExpression, rel, attnum, colName);
 
 	/*
 	 * Drop the dependency records of the GENERATED expression, in particular
