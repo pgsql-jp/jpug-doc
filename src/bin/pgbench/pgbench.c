@@ -6177,7 +6177,7 @@ findBuiltin(const char *name)
 static int
 parseScriptWeight(const char *option, char **script)
 {
-	char	   *sep;
+	const char *sep;
 	int			weight;
 
 	if ((sep = strrchr(option, WSEP)))
