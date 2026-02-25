@@ -2308,7 +2308,7 @@ CheckCompoundAffixes(CMPDAffix **ptr, char *word, int len, bool CheckInPlace)
 	}
 	else
 	{
-		char	   *affbegin;
+		const char *affbegin;
 
 		while ((*ptr)->affix)
 		{
