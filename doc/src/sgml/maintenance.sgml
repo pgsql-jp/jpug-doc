@@ -1433,15 +1433,19 @@ vacuum threshold = Minimum(vacuum max threshold, vacuum base threshold + vacuum 
 直前のバキュームの後に挿入されたタプル数が定義された挿入閾値を超えた場合も、テーブルはバキュームされます。ここで挿入閾値は以下のように定義されます。
 <programlisting>
 <!--
-vacuum insert threshold = vacuum base insert threshold + vacuum insert scale factor * number of tuples
+vacuum insert threshold = vacuum base insert threshold + vacuum insert scale factor * number of tuples * percent of table not frozen
 -->
-バキューム挿入閾値 = バキューム基礎挿入閾値 + バキューム挿入規模係数 * タプル数
+バキューム挿入閾値 = バキューム基礎挿入閾値 + バキューム挿入規模係数 * タプル数 * 凍結されていないテーブルのパーセント
 </programlisting>
 <!--
     where the vacuum insert base threshold is
     <xref linkend="guc-autovacuum-vacuum-insert-threshold"/>,
-    and vacuum insert scale factor is
-    <xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>.
+    the vacuum insert scale factor is
+    <xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>,
+    the number of tuples is
+    <structname>pg_class</structname>.<structfield>reltuples</structfield>,
+    and the percent of the table not frozen is
+    <literal>1 - pg_class.relallfrozen / pg_class.relpages</literal>.
     Such vacuums may allow portions of the table to be marked as
     <firstterm>all visible</firstterm> and also allow tuples to be frozen, which
     can reduce the work required in subsequent vacuums.
@@ -1458,7 +1462,7 @@ vacuum insert threshold = vacuum base insert threshold + vacuum insert scale fac
     an aggressive vacuum is performed to freeze old tuples and advance
     <structfield>relfrozenxid</structfield>.
 -->
-ここで、バキューム挿入基礎閾値は<xref linkend="guc-autovacuum-vacuum-insert-threshold"/>、バキューム挿入規模係数は<xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>です。
+ここで、バキューム挿入基礎閾値は<xref linkend="guc-autovacuum-vacuum-insert-threshold"/>、バキューム挿入規模係数は<xref linkend="guc-autovacuum-vacuum-insert-scale-factor"/>、タプル数は<structname>pg_class</structname>.<structfield>reltuples</structfield>、凍結されていないテーブルのパーセントは<literal>1 - pg_class.relallfrozen / pg_class.relpages</literal>です。
 そのようなバキュームは、テーブルの一部を<firstterm>全可視</firstterm>と印づけたり、タプルを凍結したりもできますので、後続のバキュームで必要となる作業を減らせます。
 より早いバキュームによりタプルを凍結できますので、<command>INSERT</command>操作を受けたものの<command>UPDATE</command>/<command>DELETE</command>操作を全くもしくはほとんど受けていないテーブルに対しては、テーブルの<xref linkend="reloption-autovacuum-freeze-min-age"/>を低くすることが有益な場合があります。
 不要となったタプル数と挿入されたタプル数は、累積統計情報システムから取得されます。
