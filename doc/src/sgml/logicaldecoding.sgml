@@ -243,7 +243,7 @@ $ pg_recvlogical -d postgres --slot=test --drop-slot
   Note that we will stream the entire transaction after the commit if it
   is not already decoded.
 -->
-以下の例では、準備されたトランザクションのデコードに使用できるSQLインタフェースを示します。
+以下の例では、プリペアドトランザクションのデコードに使用できるSQLインタフェースを示します。
 2相コミットコマンドを使用する前に、<varname>max_prepared_transactions</varname>を少なくとも1に設定しなければなりません。
 <function>pg_create_logical_replication_slot</function>を使用してスロットを作成する際に、2相パラメータを'true'に設定しておく必要もあります。
 トランザクションがまだデコードされていない場合は、コミット後にトランザクション全体をストリームすることに注意してください。
@@ -269,7 +269,7 @@ postgres=# select * from pg_logical_slot_get_changes('regression_slot', NULL, NU
 (4 row)
 
 postgres=#-- you can also rollback a prepared transaction
-postgres=#-- 準備されたトランザクションをロールバックすることもできます
+postgres=#-- プリペアドトランザクションをロールバックすることもできます
 postgres=# BEGIN;
 postgres=*# INSERT INTO data(data) VALUES('6');
 postgres=*# PREPARE TRANSACTION 'test_prepared2';
@@ -1027,7 +1027,7 @@ SQLで変更データを見るような場合、任意のかたちでデータ�
 指定したトランザクションに含まれる更新だけが<literal>begin</literal>と<literal>commit</literal>の間のコールバックによってデコードされます。
 明示的あるいは暗黙的にロールバックされたトランザクションは、決してデコードされません。
 成功したセーブポイントは、実行された順番にセーブポイントが実行されたトランザクションの中に折り込まれます。
-<command>PREPARE TRANSACTION</command>を使用して2相コミット用に準備されたトランザクションも、デコードに必要な出力プラグインコールバックが提供されていればデコードされます。
+<command>PREPARE TRANSACTION</command>を使用して2相コミット用のプリペアドトランザクションも、デコードに必要な出力プラグインコールバックが提供されていればデコードされます。
 <command>ROLLBACK PREPARED</command>コマンドを使用して、現在準備されているトランザクションが同時にアボートされる可能性があります。
 その場合、このトランザクションのロジカルデコーディングもアボートされます。
 そのようなトランザクションのすべての変更は、アボートが検出され、<function>prepare_cb</function>コールバックが呼び出されるとスキップされます。
@@ -1444,7 +1444,7 @@ typedef bool (*LogicalDecodeFilterPrepareCB) (struct LogicalDecodingContext *ctx
       in which case it can either error out or skip the remaining changes of
       the transaction.
 -->
-必須である<function>begin_prepare_cb</function>コールバックは、準備されたトランザクションの開始がデコードされるたびに呼び出されます。
+必須である<function>begin_prepare_cb</function>コールバックは、プリペアドトランザクションの開始がデコードされるたびに呼び出されます。
 <parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドをこのコールバックで使用して、プラグインがこの<command>PREPARE</command>を既に受信しているかどうかをチェックできます。
 この場合、エラーになるか、トランザクションの残りの変更をスキップできます。
 <programlisting>
@@ -1469,7 +1469,7 @@ typedef void (*LogicalDecodeBeginPrepareCB) (struct LogicalDecodingContext *ctx,
       rows. The <parameter>gid</parameter> field, which is part of the
       <parameter>txn</parameter> parameter, can be used in this callback.
 -->
-必須である<function>prepare_cb</function>コールバックは、2相コミット用に準備されたトランザクションがデコードされるたびに呼び出されます。
+必須である<function>prepare_cb</function>コールバックは、2相コミット用にプリペアドトランザクションがデコードされるたびに呼び出されます。
 修正された行がある場合、すべての修正された行に対する<function>change_cb</function>コールバックはこの前に呼び出されています。
 <parameter>txn</parameter>パラメータの一部である<parameter>gid</parameter>フィールドは、このコールバックで使用できます。
 <programlisting>
@@ -1528,7 +1528,7 @@ typedef void (*LogicalDecodeCommitPreparedCB) (struct LogicalDecodingContext *ct
 この場合、プラグインはロールバックを適用できます。
 そうでない場合は、ロールバック操作をスキップできます。
 <parameter>gid</parameter>だけでは十分ではありません。
-なぜなら、下流ノードは同じ識別子を持つ準備されたトランザクションを持つことができるからです。
+なぜなら、下流ノードは同じ識別子を持つプリペアドトランザクションを持つことができるからです。
 <programlisting>
 typedef void (*LogicalDecodeRollbackPreparedCB) (struct LogicalDecodingContext *ctx,
                                                  ReorderBufferTXN *txn,
@@ -2109,7 +2109,7 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
 -->
 2相コミットコマンドをデコードするための出力プラグインコールバックが提供されている場合、<command>PREPARE TRANSACTION</command>で、そのトランザクションの変更がデコードされ、出力プラグインに渡され、<function>prepare_cb</function>コールバックが呼び出されます。
 これは、トランザクションがコミットされたときにのみ変更が出力プラグインに渡される基本的なデコード設定とは異なります。
-準備されたトランザクションの開始は、<function>begin_prepare_cb</function>コールバックによって示されます。
+プリペアドトランザクションの開始は、<function>begin_prepare_cb</function>コールバックによって示されます。
    </para>
 
    <para>
@@ -2120,8 +2120,8 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
     prepared transaction is committed using <command>COMMIT PREPARED</command>,
     then the <function>commit_prepared_cb</function> callback is invoked.
 -->
-準備されたトランザクションが<command>ROLLBACK PREPARED</command>を使用してロールバックされると、<function>rollback_prepared_cb</function>コールバックが呼び出されます。
-準備されたトランザクションが<command>COMMIT PREPARED</command>を使用してコミットされると、<function>commit_prepared_cb</function>コールバックが呼び出されます。
+プリペアドトランザクションが<command>ROLLBACK PREPARED</command>を使用してロールバックされると、<function>rollback_prepared_cb</function>コールバックが呼び出されます。
+プリペアドトランザクションが<command>COMMIT PREPARED</command>を使用してコミットされると、<function>commit_prepared_cb</function>コールバックが呼び出されます。
    </para>
 
    <para>
@@ -2141,7 +2141,7 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
     The users that want to decode prepared transactions need to be careful about
     below mentioned points:
 -->
-準備されたトランザクションをデコードしようとするユーザは、以下の点に注意する必要があります。
+プリペアドトランザクションをデコードしようとするユーザは、以下の点に注意する必要があります。
 
     <itemizedlist>
      <listitem>
@@ -2150,7 +2150,7 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
        If the prepared transaction has locked [user] catalog tables exclusively
        then decoding prepare can block till the main transaction is committed.
 -->
-準備されたトランザクションが[user]カタログテーブルを排他的にロックしている場合、メイントランザクションがコミットされるまで準備のデコードをブロックできます。
+プリペアドトランザクションが[user]カタログテーブルを排他的にロックしている場合、メイントランザクションがコミットされるまで準備のデコードをブロックできます。
       </para>
      </listitem>
 
@@ -2164,7 +2164,7 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
        in such transactions.
        See <xref linkend="logicaldecoding-synchronous-caveats"/> for the details.
 -->
-この機能を使用して分散2相コミットを構築する論理レプリケーションソリューションは、準備されたトランザクションが[user]カタログテーブルを排他的にロックした場合にデッドロックを発生する可能性があります。
+この機能を使用して分散2相コミットを構築する論理レプリケーションソリューションは、プリペアドトランザクションが[user]カタログテーブルを排他的にロックした場合にデッドロックを発生する可能性があります。
 これを回避するために、ユーザはこのようなトランザクションでカタログテーブルをロック(例えば明示的な<command>LOCK</command>コマンド)しないようにしなければなりません。
 詳細については<xref linkend="logicaldecoding-synchronous-caveats"/>を参照してください。
       </para>
