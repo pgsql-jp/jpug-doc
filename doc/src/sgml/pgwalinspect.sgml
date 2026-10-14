@@ -1,28 +1,40 @@
 <!-- doc/src/sgml/pgwalinspect.sgml -->
 
 <sect1 id="pgwalinspect" xreflabel="pg_walinspect">
+<!--
  <title>pg_walinspect &mdash; low-level WAL inspection</title>
+-->
+ <title>pg_walinspect &mdash; 低レベルのWAL検査</title>
 
  <indexterm zone="pgwalinspect">
   <primary>pg_walinspect</primary>
  </indexterm>
 
  <para>
+<!--
   The <filename>pg_walinspect</filename> module provides SQL functions that
   allow you to inspect the contents of write-ahead log of
   a running <productname>PostgreSQL</productname> database cluster at a low
   level, which is useful for debugging, analytical, reporting or
   educational purposes. It is similar to <xref linkend="pgwaldump"/>, but
   accessible through SQL rather than a separate utility.
+-->
+<filename>pg_walinspect</filename>モジュールは、実行中の<productname>PostgreSQL</productname>データベースクラスタの先行書き込みログ（WAL）の内容を低レベルで検査することを可能にするSQL関数を提供します。
+これはデバッグ、分析、報告、教育目的に有用です。
+<xref linkend="pgwaldump"/>と似ていますが、独立したユーティリティではなくSQLを通してアクセスできます。
  </para>
 
  <para>
+<!--
   All the functions of this module will provide the WAL information using the
   server's current timeline ID.
+-->
+このモジュールのすべての関数は、サーバの現在のタイムラインIDを使用してWAL情報を提供します。
  </para>
 
  <note>
   <para>
+<!--
    The <filename>pg_walinspect</filename> functions are often called
    using an LSN argument that specifies the location at which a known
    WAL record of interest <emphasis>begins</emphasis>.  However, some
@@ -30,34 +42,52 @@
    <function><link linkend="pg-logical-emit-message">pg_logical_emit_message</link></function>,
    return the LSN <emphasis>after</emphasis> the record that was just
    inserted.
+-->
+<filename>pg_walinspect</filename>関数は、しばしば、関心のある既知のWALレコードの<emphasis>開始</emphasis>位置を指定するLSN引数を使用して呼び出されます。
+しかし、<function><link linkend="pg-logical-emit-message">pg_logical_emit_message</link></function>のようないくつかの関数は、挿入されたレコードの<emphasis>後</emphasis>のLSNを返します。
   </para>
  </note>
  <tip>
   <para>
+<!--
    All of the <filename>pg_walinspect</filename> functions that show
    information about records that fall within a certain LSN range are
    permissive about accepting <replaceable>end_lsn</replaceable>
    arguments that are after the server's current LSN.  Using an
    <replaceable>end_lsn</replaceable> <quote>from the future</quote>
    will not raise an error.
+-->
+あるLSN範囲内にあるレコードに関する情報を表示する<filename>pg_walinspect</filename>関数はすべて、サーバの現在のLSNより後の<replaceable>end_lsn</replaceable>引数を受け入れることに対して寛容です。
+<quote>未来の</quote><replaceable>end_lsn</replaceable>を使用することはエラーを引き起こしません。
   </para>
   <para>
+<!--
    It may be convenient to provide the value
    <literal>FFFFFFFF/FFFFFFFF</literal> (the maximum valid
    <type>pg_lsn</type> value) as an <replaceable>end_lsn</replaceable>
    argument.  This is equivalent to providing an
    <replaceable>end_lsn</replaceable> argument matching the server's
    current LSN.
+-->
+<literal>FFFFFFFF/FFFFFFFF</literal>（最大有効<type>pg_lsn</type>値）を<replaceable>end_lsn</replaceable>引数として指定すると便利です。
+これは、サーバの現在のLSNに一致する<replaceable>end_lsn</replaceable>引数を指定することと同じです。
   </para>
  </tip>
  <para>
+<!--
   By default, use of these functions is restricted to superusers and members of
   the <literal>pg_read_server_files</literal> role. Access may be granted by
   superusers to others using <command>GRANT</command>.
+-->
+デフォルトでは、これらの関数の使用はスーパーユーザと<literal>pg_read_server_files</literal>ロールのメンバに制限されています。
+スーパーユーザは<command>GRANT</command>を使用して他のユーザにアクセスを許可できます。
  </para>
 
  <sect2 id="pgwalinspect-funcs">
+<!--
   <title>General Functions</title>
+-->
+  <title>一般的な関数</title>
 
   <variablelist>
    <varlistentry id="pgwalinspect-funcs-pg-get-wal-record-info">
@@ -67,9 +97,13 @@
 
     <listitem>
      <para>
+<!--
       Gets WAL record information about a record that is located at or
       after the <replaceable>in_lsn</replaceable> argument.  For
       example:
+-->
+<replaceable>in_lsn</replaceable>引数以降のレコードに関するWALレコード情報を取得します。
+例を示します。
 <screen>
 postgres=# SELECT * FROM pg_get_wal_record_info('0/E419E28');
 -[ RECORD 1 ]----+-------------------------------------------------
@@ -87,10 +121,14 @@ block_ref        | blkref #0: rel 1663/16385/1249 fork main blk 364
 </screen>
      </para>
      <para>
+<!--
       If <replaceable>in_lsn</replaceable> isn't at the start of a WAL
       record, information about the next valid WAL record is shown
       instead.  If there is no next valid WAL record, the function
       raises an error.
+-->
+<replaceable>in_lsn</replaceable>がWALレコードの先頭にない場合、次の有効なWALレコードに関する情報が代わりに表示されます。
+次の有効なWALレコードがない場合、関数はエラーを発生します。
      </para>
     </listitem>
    </varlistentry>
@@ -105,9 +143,14 @@ block_ref        | blkref #0: rel 1663/16385/1249 fork main blk 364
 
     <listitem>
      <para>
+<!--
       Gets information of all the valid WAL records between
       <replaceable>start_lsn</replaceable> and <replaceable>end_lsn</replaceable>.
       Returns one row per WAL record.  For example:
+-->
+<replaceable>start_lsn</replaceable>と<replaceable>end_lsn</replaceable>の間のすべての有効なWALレコードの情報を取得します。
+WALレコードごとに1つの行が返されます。
+例を示します。
 <screen>
 postgres=# SELECT * FROM pg_get_wal_records_info('0/1E913618', '0/1E913740') LIMIT 1;
 -[ RECORD 1 ]----+--------------------------------------------------------------
@@ -125,8 +168,11 @@ block_ref        |
 </screen>
      </para>
      <para>
+<!--
       The function raises an error if
       <replaceable>start_lsn</replaceable> is not available.
+-->
+<replaceable>start_lsn</replaceable>が利用できない場合、この関数はエラーを発生します。
      </para>
     </listitem>
    </varlistentry>
@@ -134,15 +180,24 @@ block_ref        |
    <varlistentry id="pgwalinspect-funcs-pg-get-wal-block-info">
     <term>
      <function>pg_get_wal_block_info(start_lsn pg_lsn, end_lsn pg_lsn, show_data boolean DEFAULT true) returns setof record</function>
+     <function>
+      pg_get_wal_records_info_till_end_of_wal(start_lsn pg_lsn)
+      returns setof record
+     </function>
     </term>
 
     <listitem>
      <para>
+<!--
       Gets information about each block reference from all the valid
       WAL records between <replaceable>start_lsn</replaceable> and
       <replaceable>end_lsn</replaceable> with one or more block
       references.  Returns one row per block reference per WAL record.
       For example:
+-->
+<replaceable>start_lsn</replaceable>と<replaceable>end_lsn</replaceable>の間のすべての有効なWALレコードから、1つ以上のブロック参照を持つすべてのブロック参照に関する情報を取得します。
+WALレコードのブロック参照ごとに1行返します。
+例を示します。
 <screen>
 postgres=# SELECT * FROM pg_get_wal_block_info('0/1230278', '0/12302B8');
 -[ RECORD 1 ]-----+-----------------------------------
@@ -169,6 +224,7 @@ block_fpi_data    |
 </screen>
      </para>
      <para>
+<!--
       This example involves a WAL record that only contains one block
       reference, but many WAL records contain several block
       references.  Rows output by
@@ -176,8 +232,12 @@ block_fpi_data    |
       have a unique combination of
       <replaceable>start_lsn</replaceable> and
       <replaceable>block_id</replaceable> values.
+-->
+この例は、1つのブロック参照のみを含むWALレコードを含んでいますが、多くのWALレコードには複数のブロック参照が含まれています。
+ <function>pg_get_wal_block_info</function>によって出力される行は、一意の<replaceable>start_lsn</replaceable>と<replaceable>block_id</replaceable>値の組み合わせを持つことが保証されています。
      </para>
      <para>
+<!--
       Much of the information shown here matches the output that
       <function>pg_get_wal_records_info</function> would show, given
       the same arguments.  However,
@@ -192,8 +252,14 @@ block_fpi_data    |
       returned, so <function>pg_get_wal_block_info</function> may
       actually return <emphasis>fewer</emphasis> rows than
       <function>pg_get_wal_records_info</function>.
+-->
+ここに示す情報の多くは、<function>pg_get_wal_records_info</function>に同じ引数を与えた場合に出力される出力と一致します。
+しかし、<function>pg_get_wal_block_info</function>は、各WALレコードをブロック参照ごとに展開した形式で情報を展開するため、ブロック参照レベルでは全体のレコードよりも多くの行が出力されます。
+この構造は、個々のブロックが時間の経過とともにどのように変化したかを追跡する問い合わせで役立ちます。
+ブロック参照を持たないレコード（例えば、<literal>COMMIT</literal>WALレコード）は行を返さないので、<function>pg_get_wal_block_info</function>は実際には<function>pg_get_wal_records_info</function>よりも<emphasis>少ない</emphasis>行を返すかもしれません。
      </para>
      <para>
+<!--
       The <structfield>reltablespace</structfield>,
       <structfield>reldatabase</structfield>, and
       <structfield>relfilenode</structfield> parameters reference
@@ -204,15 +270,23 @@ block_fpi_data    |
       field is the fork number within the relation for the block
       reference; see <filename>common/relpath.h</filename> for
       details.
+-->
+<structfield>reltablespace</structfield>、<structfield>reldatabase</structfield>、<structfield>relfilenode</structfield>パラメータは、<link linkend="catalog-pg-tablespace"><structname>pg_tablespace</structname></link>.<structfield>oid</structfield>、<link linkend="catalog-pg-database"><structname>pg_database</structname></link>.<structfield>oid</structfield>、<link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>oid</structfield>、<link linkend="catalog-pg-class"><structname>pg_class</structname></link>.<structfield>relfilenode</structfield>を参照します。
+<structfield>relforknumber</structfield>は、ブロック参照のリレーション内のフォーク番号です。
+詳細は<filename>common/relpath.h</filename>を参照してください。
      </para>
      <tip>
       <para>
+<!--
        The <function>pg_filenode_relation</function> function (see
        <xref linkend="functions-admin-dblocation"/>) can help you to
        determine which relation was modified during original execution.
+-->
+<function>pg_filenode_relation</function>関数（<xref linkend="functions-admin-dblocation"/>を参照）は、元の実行中にどのリレーションが変更されたかを判断するのに役立ちます。
       </para>
      </tip>
      <para>
+<!--
       It is possible for clients to avoid the overhead of
       materializing block data.  This may make function execution
       significantly faster.  When <replaceable>show_data</replaceable>
@@ -223,10 +297,18 @@ block_fpi_data    |
       arguments are <literal>NULL</literal> for all rows returned).
       Obviously, this optimization is only feasible with queries where
       block data isn't truly required.
+-->
+クライアントは、ブロックデータの取り出しによるオーバーヘッドを回避することができます。
+これにより、関数の実行が大幅に高速化されます。
+ <replaceable>show_data</replaceable>が<literal>false</literal>に設定されている場合、<structfield>block_data</structfield>と<structfield>block_fpi_data</structfield>の値は省略されます（つまり、返されたすべての行に対して<structfield>block_data</structfield>と<structfield>block_fpi_data</structfield>の<literal>OUT</literal>引数は<literal>NULL</literal>）。
+明らかに、この最適化はブロックデータが本当に必要でない問い合わせでのみ許されます。
      </para>
      <para>
+<!--
       The function raises an error if
       <replaceable>start_lsn</replaceable> is not available.
+-->
+<replaceable>start_lsn</replaceable>が利用できない場合、この関数はエラーを発生します。
      </para>
     </listitem>
    </varlistentry>
@@ -241,6 +323,7 @@ block_fpi_data    |
 
     <listitem>
      <para>
+<!--
       Gets statistics of all the valid WAL records between
       <replaceable>start_lsn</replaceable> and
       <replaceable>end_lsn</replaceable>. By default, it returns one row per
@@ -248,6 +331,11 @@ block_fpi_data    |
       <replaceable>per_record</replaceable> is set to <literal>true</literal>,
       it returns one row per <replaceable>record_type</replaceable>.
       For example:
+-->
+<replaceable>start_lsn</replaceable>と<replaceable>end_lsn</replaceable>の間のすべての有効なWALレコードの統計を取得します。
+デフォルトでは、<replaceable>resource_manager</replaceable>型ごとに1つの行を返します。
+<replaceable>per_record</replaceable>が<literal>true</literal>に設定されている場合、<replaceable>record_type</replaceable>ごとに1つの行を返します。
+例を示します。
 <screen>
 postgres=# SELECT * FROM pg_get_wal_stats('0/1E847D00', '0/1E84F500')
            WHERE count > 0 AND
@@ -266,8 +354,11 @@ combined_size_percentage     | 2.8634072910530795
 </screen>
      </para>
      <para>
+<!--
       The function raises an error if
       <replaceable>start_lsn</replaceable> is not available.
+-->
+<replaceable>start_lsn</replaceable>が利用できない場合、この関数はエラーを発生します。
      </para>
     </listitem>
    </varlistentry>
@@ -276,7 +367,10 @@ combined_size_percentage     | 2.8634072910530795
  </sect2>
 
  <sect2 id="pgwalinspect-author">
+<!--
   <title>Author</title>
+-->
+  <title>作者</title>
 
   <para>
    Bharath Rupireddy <email>bharath.rupireddyforpostgres@gmail.com</email>
