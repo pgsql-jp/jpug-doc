@@ -902,6 +902,7 @@ GINと同様に、またB-treeやGiSTとは異なり、インデックス検索�
   </para>
 
   <para>
+<!--
    By default, B-tree indexes store their entries in ascending order
    with nulls last (table TID is treated as a tiebreaker column among
    otherwise equal entries).  This means that a forward scan of an
@@ -911,6 +912,11 @@ GINと同様に、またB-treeやGiSTとは異なり、インデックス検索�
    <literal>ORDER BY x DESC</literal>
    (or more verbosely, <literal>ORDER BY x DESC NULLS FIRST</literal>, since
    <literal>NULLS FIRST</literal> is the default for <literal>ORDER BY DESC</literal>).
+-->
+《マッチ度[92.492013]》《タグ不一致》デフォルトでは、B-treeインデックスは項目を昇順で格納し、NULLを最後に格納します。
+（テーブルTIDはそれ以外が等しいエントリの中で勝ちを決める列として扱われます）。
+これは、<literal>x</literal>列に対するインデックスの前方方向のスキャンで<literal>ORDER BY x</literal>（より冗長にいえば<literal>ORDER BY x ASC NULLS LAST</literal>）を満たす出力を生成することを意味します。
+また、インデックスを後方方向にスキャンすることもでき、この場合、<literal>ORDER BY x DESC</literal>（より冗長にいえば<literal>ORDER BY x DESC NULLS FIRST</literal>。<literal>NULLS FIRST</literal>が<literal>ORDER BY DESC</literal>のデフォルトだからです。）を満たす出力を生成します。
   </para>
 
   <para>
@@ -1058,6 +1064,7 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
   </para>
 
   <para>
+<!--
    In all but the simplest applications, there are various combinations of
    indexes that might be useful, and the database developer must make
    trade-offs to decide which indexes to provide.  Sometimes multicolumn
@@ -1086,6 +1093,23 @@ CREATE INDEX test3_desc_index ON test3 (id DESC NULLS LAST);
    common.  If one of the types of query is much less common than the
    others, you'd probably settle for creating just the two indexes that
    best match the common types.
+-->
+《マッチ度[87.437186]》《タグ不一致》もっとも単純なアプリケーション以外のほとんどすべてのアプリケーションでは、インデックスの有用な組み合わせはいろいろあります。
+このため、データベース開発者は妥協点を探してどのようなインデックスを提供するかを決定しなければなりません。
+複数列インデックスが最善な場合がありますし、別々のインデックスを作成し、インデックスの組み合わせ機能に依存する方が優れている場合もあります。
+例えば、作業に<literal>x</literal>列のみを含む場合と<literal>y</literal>列のみを含む場合、両方の列を含む場合が混在する問い合わせが含まれる場合、<literal>x</literal>と<literal>y</literal>に対し、別個に2つのインデックスを作成し、両方の列を使用する問い合わせを処理する時にインデックスの組み合わせに依存することを選ぶことができます。
+また、<literal>(x, y)</literal>に対する複数列インデックスを作成することもできます。
+両方の列を含む問い合わせでは、通常このインデックスの方がインデックスの組み合わせよりも効率的です。
+しかし、<xref linkend="indexes-multicolumn"/>で説明した通り、<literal>y</literal>のみを含む問い合わせはあまり有用ではありません。
+どの程度有用かどうかは、B-treeインデックスのスキップスキャン最適化がどれほど効果的か次第です。
+<literal>x</literal>の個別値が数百個以下である場合、スキップスキャンは<literal>y</literal>の値をかなり効率的に検索するでしょう。
+<literal>(x, y)</literal>に対する複数列インデックスと<literal>y</literal>に対する別のインデックスの組み合わせもかなりよく役に立ちます。
+<literal>x</literal>のみを含む問い合わせでは、複数列インデックスを使用することができます。
+しかし、これはより大きくなりますので、<literal>x</literal>のみのインデックスよりも低速になります。
+最後の別方法は、3つのインデックスすべてを作成することです。
+しかしこれはおそらく、テーブルの検索頻度が更新頻度よりもかなり高く、3種類の問い合わせすべてが良く使用される場合のみ合理的です。
+問い合わせの中の1つの頻度が他よりも少なければ、おそらく良く使用される種類にもっとも合うように2つだけインデックスを作成した方がよいでしょう。
+《機械翻訳》«In all but the simplest applications, there are various combinations of indexes that might be useful, and the database developer must make trade-offs to decide which indexes to provide. Sometimes multicolumn indexes are best, but sometimes it's better to create separate indexes and rely on the index-combination feature. For example, if your workload includes a mix of queries that sometimes involve only column <structfield>x</structfield>, sometimes only column <structfield>y</structfield>, and sometimes both columns, you might choose to create two separate indexes on <structfield>x</structfield> and <structfield>y</structfield>, relying on index combination to process the queries that use both columns. You could also create a multicolumn index on <literal>(x, y)</literal>. This index would typically be more efficient than index combination for queries involving both columns, but as discussed in <xref linkend="indexes-multicolumn"/>, it would be less useful for queries involving only <literal>y</literal>. Just how useful will depend on how effective the B-tree index skip scan optimization is; if <structfield>x</structfield> has no more than several hundred distinct values, skip scan will make searches for specific <structfield>y</structfield> values execute reasonably efficiently. A combination of a multicolumn index on <literal>(x, y)</literal> and a separate index on <structfield>y</structfield> might also serve reasonably well. For queries involving only <structfield>x</structfield>, the multicolumn index could be used, though it would be larger and hence slower than an index on <structfield>x</structfield> alone. The last alternative is to create all three indexes, but this is probably only reasonable if the table is searched much more often than it is updated and all three types of query are common. If one of the types of query is much less common than the others, you'd probably settle for creating just the two indexes that best match the common types.»
   </para>
 
  </sect1>
@@ -1794,10 +1818,15 @@ GiSTとSP-GiSTは一部の演算子クラスでインデックスオンリース
 
     <listitem>
      <para>
+<!--
       The query must reference only columns stored in the index.  For
       example, given an index on columns <structfield>x</structfield>
       and <structfield>y</structfield> of a table that also has a
       column <structfield>z</structfield>, these queries could use index-only scans:
+-->
+《マッチ度[71.320755]》《タグ不一致》問い合わせはインデックスに格納されている列だけを参照しなければなりません。
+例えばテーブルの列<literal>x</literal>と<literal>y</literal>にインデックスがあり、そのテーブルにはさらに列<literal>z</literal>がある場合、次の問い合わせはインデックスオンリースキャンを使用できます。
+《機械翻訳》«The query must reference only columns stored in the index. For example, given an index on columns <structfield>x</structfield> and <structfield>y</structfield> of a table that also has a column <structfield>z</structfield>, these queries could use index-only scans:»
 <programlisting>
 SELECT x, y FROM tab WHERE x = 'key';
 SELECT x FROM tab WHERE x = 'key' AND y &lt; 42;
@@ -1923,19 +1952,31 @@ CREATE INDEX tab_x_y ON tab(x) INCLUDE (y);
   </para>
 
   <para>
+<!--
    Because column <structfield>y</structfield> is not part of the index's search
    key, it does not have to be of a data type that the index can handle;
    it's merely stored in the index and is not interpreted by the index
    machinery.  Also, if the index is a unique index, that is
+-->
+《マッチ度[88.602941]》《タグ不一致》<literal>y</literal>列はインデックスの検索キーの一部ではないため、インデックスが処理できるデータ型である必要はありません。
+単にインデックスに格納されているだけで、インデックス機構によって解釈されることはありません。
+また、インデックスが一意インデックスの場合は、
+《機械翻訳》«Because column <structfield>y</structfield> is not part of the index's search key, it does not have to be of a data type that the index can handle; it's merely stored in the index and is not interpreted by the index machinery. Also, if the index is a unique index, that is»
 <programlisting>
 CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
 </programlisting>
+<!--
    the uniqueness condition applies to just column <structfield>x</structfield>,
    not to the combination of <structfield>x</structfield> and <structfield>y</structfield>.
    (An <literal>INCLUDE</literal> clause can also be written
    in <literal>UNIQUE</literal> and <literal>PRIMARY KEY</literal>
    constraints, providing alternative syntax for setting up an index like
    this.)
+-->
+《マッチ度[80.327869]》《タグ不一致》<literal>x</literal>列のみに一意性条件が適用されます。
+<literal>x</literal>と<literal>y</literal>の組み合わせではありません。
+（<literal>INCLUDE</literal>句は、インデックスを設定するための代替構文を提供する<literal>UNIQUE</literal>や<literal>PRIMARY KEY</literal>の制約として書くことも出来ます。）
+《機械翻訳》«the uniqueness condition applies to just column <structfield>x</structfield>, not to the combination of <structfield>x</structfield> and <structfield>y</structfield>. (An <literal>INCLUDE</literal> clause can also be written in <literal>UNIQUE</literal> and <literal>PRIMARY KEY</literal> constraints, providing alternative syntax for setting up an index like this.)»
   </para>
 
   <para>
@@ -1972,12 +2013,18 @@ CREATE UNIQUE INDEX tab_x_y ON tab(x) INCLUDE (y);
 <programlisting>
 CREATE INDEX tab_x_y ON tab(x, y);
 </programlisting>
+<!--
    even though they had no intention of ever using <structfield>y</structfield> as
    part of a <literal>WHERE</literal> clause.  This works fine as long as
    the extra columns are trailing columns; making them be leading columns is
    unwise for the reasons explained in <xref linkend="indexes-multicolumn"/>.
    However, this method doesn't support the case where you want the index to
    enforce uniqueness on the key column(s).
+-->
+《マッチ度[91.041162]》《タグ不一致》これは、<literal>y</literal>を<literal>WHERE</literal>句の一部で使用するつもりがなかったとしても書いています。
+余分な列が末尾の列である限り、これはうまく機能します。
+それらを先頭側の列にすることは、<xref linkend="indexes-multicolumn"/>で説明されている理由から賢明ではありません。
+しかし、この方法では、キー列に一意性を強制するインデックスがサポートされません。
   </para>
 
   <para>
@@ -2013,6 +2060,7 @@ CREATE INDEX tab_x_y ON tab(x, y);
 <programlisting>
 SELECT f(x) FROM tab WHERE f(x) &lt; 1;
 </programlisting>
+<!--
    as an index-only scan; and this is very attractive
    if <literal>f()</literal> is an expensive-to-compute function.
    However, <productname>PostgreSQL</productname>'s planner is currently not
@@ -2024,6 +2072,13 @@ SELECT f(x) FROM tab WHERE f(x) &lt; 1;
    concludes that an index-only scan is not possible.  If an index-only scan
    seems sufficiently worthwhile, this can be worked around by
    adding <structfield>x</structfield> as an included column, for example
+-->
+《マッチ度[92.520776]》《タグ不一致》そして、関数<literal>f()</literal>の計算が高価なら、この方法は非常に魅力的です。
+しかし<productname>PostgreSQL</productname>のプランナは現在のところ、このような場合についてあまり賢くありません。
+プランナは、問い合わせで必要となるすべての<emphasis>列</emphasis>がインデックスから利用可能な場合にのみ、その問い合わせが潜在的にインデックスオンリースキャンで実行可能と考えます。
+この例では、<literal>f(x)</literal>という文脈でしか<literal>x</literal>は必要になりませんが、プランナはそのことに気付かないため、インデックスオンリースキャンは不可能であると結論します。
+インデックスオンリースキャンは十分に価値があると思われるなら、含める列として<literal>x</literal>を追加することで回避できます。
+例をあげます。
 <programlisting>
 CREATE INDEX tab_f_x ON tab (f(x)) INCLUDE (x);
 </programlisting>

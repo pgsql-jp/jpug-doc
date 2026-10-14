@@ -76,11 +76,16 @@ PostgreSQLは、SQLによって実行された更新結果を外部の消費者�
    </para>
 
    <para>
+<!--
     Before you can use logical decoding, you must set
     <xref linkend="guc-wal-level"/> to <literal>replica</literal> or higher and
     <xref linkend="guc-max-replication-slots"/> to at least 1.  Then, you
     should connect to the target database (in the example
     below, <literal>postgres</literal>) as a superuser.
+-->
+《マッチ度[88.666667]》ロジカルデコーディングを使う前に、<xref linkend="guc-wal-level"/>を<literal>logical</literal>に、そして<xref linkend="guc-max-replication-slots"/>を少なくとも1に設定しなければなりません。
+次に、使用するデータベースにスーパーユーザ(以下の例では<literal>postgres</literal>)として接続します。
+《機械翻訳》«Before you can use logical decoding, you must set <xref linkend="guc-wal-level"/> to <literal>replica</literal> or higher and <xref linkend="guc-max-replication-slots"/> to at least 1. Then, you should connect to the target database (in the example below, <literal>postgres</literal>) as a superuser.»
    </para>
 
 <programlisting>
@@ -318,27 +323,40 @@ postgres=# SELECT * from pg_logical_slot_get_changes('regression_slot', NULL, NU
     </para>
 
     <para>
+<!--
      Logical decoding becomes available in two conditions:
+-->
+《機械翻訳》«Logical decoding becomes available in two conditions:»
     </para>
     <itemizedlist>
      <listitem>
       <para>
+<!--
        When <xref linkend="guc-wal-level"/> is set to <literal>logical</literal>.
+-->
+《機械翻訳》«When <xref linkend="guc-wal-level"/> is set to <literal>logical</literal>.»
       </para>
      </listitem>
      <listitem>
       <para>
+<!--
        When <xref linkend="guc-wal-level"/> is set to <literal>replica</literal>
        and at least one valid logical replication slot exists on the system.
+-->
+《機械翻訳》«When <xref linkend="guc-wal-level"/> is set to <literal>replica</literal> and at least one valid logical replication slot exists on the system.»
       </para>
      </listitem>
     </itemizedlist>
     <para>
+<!--
      If either condition is met, the operational WAL level becomes equivalent
      to <literal>logical</literal>, which can be monitored through the
      <xref linkend="guc-effective-wal-level"/> parameter.
+-->
+《機械翻訳》«If either condition is met, the operational WAL level becomes equivalent to <literal>logical</literal>, which can be monitored through the <xref linkend="guc-effective-wal-level"/> parameter.»
     </para>
     <para>
+<!--
      When <varname>wal_level</varname> is set to <literal>replica</literal>,
      logical decoding is automatically activated upon creation of the first
      logical replication slot. This activation process involves several steps
@@ -348,13 +366,18 @@ postgres=# SELECT * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      or invalidated, logical decoding is automatically disabled. Note that the
      deactivation of logical decoding might take some time as it is performed
      asynchronously by the checkpointer process.
+-->
+《機械翻訳》«When <varname>wal_level</varname> is set to <literal>replica</literal>, logical decoding is automatically activated upon creation of the first logical replication slot. This activation process involves several steps and requires synchronization among processes, ensuring system-wide consistency. Conversely, if <varname>wal_level</varname> is set to <literal>replica</literal> and the last logical replication slot is dropped or invalidated, logical decoding is automatically disabled. Note that the deactivation of logical decoding might take some time as it is performed asynchronously by the checkpointer process.»
     </para>
 
     <caution>
      <para>
+<!--
       When <varname>wal_level</varname> is set to <literal>replica</literal>,
       dropping or invalidating the last logical slot disables logical decoding
       on the primary, resulting in slots on standbys being invalidated.
+-->
+《機械翻訳》«When <varname>wal_level</varname> is set to <literal>replica</literal>, dropping or invalidating the last logical slot disables logical decoding on the primary, resulting in slots on standbys being invalidated.»
      </para>
     </caution>
    </sect2>
@@ -452,6 +475,7 @@ postgres=# SELECT * from pg_logical_slot_get_changes('regression_slot', NULL, NU
     </para>
 
     <para>
+<!--
      A logical replication slot can also be created on a hot standby. To prevent
      <command>VACUUM</command> from removing required rows from the system
      catalogs, <varname>hot_standby_feedback</varname> should be set on the
@@ -469,6 +493,16 @@ postgres=# SELECT * from pg_logical_slot_get_changes('regression_slot', NULL, NU
      It means that, for walsenders that are lagging (if any), some WAL records up
      to the <varname>wal_level</varname> parameter change on the primary won't be
      decoded.
+-->
+《マッチ度[91.563055]》論理レプリケーションスロットは、ホットスタンバイ上でも作成できます。
+システムカタログから必要な行を<command>VACUUM</command>が削除するのを防ぐためには、スタンバイ上で<varname>hot_standby_feedback</varname>を設定する必要があります。
+それでも、必要な行が削除されると、スロットは無効になります。
+プライマリとスタンバイの間に物理スロットを使用することを強くお勧めします。
+そうしないと、<varname>hot_standby_feedback</varname>が動作するのは接続が生きている間だけです（たとえばノードの再起動で破壊されます）。
+その場合、プライマリはスタンバイ上のロジカルデコーディングが必要とするシステムカタログ行を削除するかもしれません（スタンバイ上の<literal>catalog_xmin</literal>については知らないため）。
+既存のスタンバイ上のロジカルスロットも、プライマリ上の<varname>wal_level</varname>が<literal>logical</literal>よりも小さくなると無効になります。
+これはスタンバイがWALストリームでそのような変更を検出したときにすぐに行われます。
+これは、遅れているwalsender（もしあれば）に対して、プライマリでの<varname>wal_level</varname>パラメータの変更までの一部のWALレコードがデコードされないことを意味します。
     </para>
 
     <para>
@@ -564,6 +598,7 @@ postgres=# SELECT * from pg_logical_slot_get_changes('regression_slot', NULL, NU
 
     <note>
      <para>
+<!--
       While enabling <link linkend="guc-sync-replication-slots">
       <varname>sync_replication_slots</varname></link> allows for automatic
       periodic synchronization of failover slots, they can also be manually
@@ -576,6 +611,14 @@ postgres=# SELECT * from pg_logical_slot_get_changes('regression_slot', NULL, NU
       synchronization via <varname>sync_replication_slots</varname> provides
       continuous slot updates, enabling seamless failover and supporting high
       availability. Therefore, it is the recommended method for synchronizing slots.
+-->
+《マッチ度[58.342923]》<link linkend="guc-sync-replication-slots"><varname>sync_replication_slots</varname></link>を有効にすると、フェイルオーバースロットの定期的な自動同期が可能になりますが、スタンバイ上で<link linkend="pg-sync-replication-slots"><function>pg_sync_replication_slots</function></link>関数を使用して手動で同期することもできます。
+ただし、この関数は主にテストとデバッグを目的としており、注意して使用する必要があります。
+自動同期とは異なり、周期的な再試行が行われないため、同期が失敗しやすくなります。
+特に、スロットに必要なWALファイルまたはカタログ行がすでに削除されているか、スタンバイ上で削除されている可能性がある初期同期のシナリオではその傾向が強くなります。
+それとは対照的に、<varname>sync_replication_slots</varname>を介した自動同期はスロットを継続的に更新するため、シームレスなフェイルオーバーと高可用性を実現します。
+そのため、スロットの同期には自動同期を推奨します。
+《機械翻訳》«While enabling <link linkend="guc-sync-replication-slots"> <varname>sync_replication_slots</varname></link> allows for automatic periodic synchronization of failover slots, they can also be manually synchronized using the <link linkend="pg-sync-replication-slots"> <function>pg_sync_replication_slots</function></link> function on the standby. However, unlike automatic synchronization, it does not perform incremental updates. It retries cyclically until all the failover slots that existed on primary at the start of the function call are synchronized. Any slots created after the function begins will not be synchronized. In contrast, automatic synchronization via <varname>sync_replication_slots</varname> provides continuous slot updates, enabling seamless failover and supporting high availability. Therefore, it is the recommended method for synchronizing slots.»
      </para>
     </note>
 
@@ -818,10 +861,13 @@ SQLでは使用できません。
    <title>Logical Decoding Output Plugins</title>
 
    <para>
+<!--
     <productname>PostgreSQL</productname> provides two logical decoding
     output plugins, <xref linkend="logicaldecoding-pgoutput"/> and
     <xref linkend="test-decoding"/>.  You can also develop custom output plugins
     (see <xref linkend="logicaldecoding-output-plugin-writing"/> for details).
+-->
+《機械翻訳》«<productname>PostgreSQL</productname> provides two logical decoding output plugins, <xref linkend="logicaldecoding-pgoutput"/> and <xref linkend="test-decoding"/>. You can also develop custom output plugins (see <xref linkend="logicaldecoding-output-plugin-writing"/> for details).»
    </para>
 
    <sect2 id="logicaldecoding-pgoutput" xreflabel="pgoutput">
@@ -832,10 +878,13 @@ SQLでは使用できません。
     </indexterm>
 
     <para>
+<!--
      <filename>pgoutput</filename> is the standard logical decoding output
      plugin provided by <productname>PostgreSQL</productname>.
      It's used for the built-in <link linkend="logical-replication">
      logical replication</link>.
+-->
+《機械翻訳》«<filename>pgoutput</filename> is the standard logical decoding output plugin provided by <productname>PostgreSQL</productname>. It's used for the built-in <link linkend="logical-replication"> logical replication</link>.»
     </para>
 
     <sect3 id="logicaldecoding-pgoutput-options">
@@ -849,27 +898,39 @@ SQLでは使用できません。
        <term><varname>proto_version</varname> (<type>integer</type>)</term>
        <listitem>
         <para>
+<!--
          Specifies the protocol version.
          Currently versions <literal>1</literal>, <literal>2</literal>,
          <literal>3</literal>, and <literal>4</literal> are supported.  A valid
          version is required.
+-->
+《機械翻訳》«Specifies the protocol version. Currently versions <literal>1</literal>, <literal>2</literal>, <literal>3</literal>, and <literal>4</literal> are supported. A valid version is required.»
         </para>
         <para>
+<!--
          Version <literal>2</literal> is supported on server version 14
          and above, and is required when <varname>streaming</varname>
          is set to <literal>on</literal> to stream large in-progress
          transactions.
+-->
+《機械翻訳》«Version <literal>2</literal> is supported on server version 14 and above, and is required when <varname>streaming</varname> is set to <literal>on</literal> to stream large in-progress transactions.»
         </para>
         <para>
+<!--
          Version <literal>3</literal> is supported on server version 15
          and above, and is required when <varname>two_phase</varname>
          is enabled to stream two-phase commits.
+-->
+《機械翻訳》«Version <literal>3</literal> is supported on server version 15 and above, and is required when <varname>two_phase</varname> is enabled to stream two-phase commits.»
         </para>
         <para>
+<!--
          Version <literal>4</literal> is supported on server version 16
          and above, and is required when <varname>streaming</varname>
          is set to <literal>parallel</literal> to stream large in-progress
          transactions to be applied in parallel.
+-->
+《機械翻訳》«Version <literal>4</literal> is supported on server version 16 and above, and is required when <varname>streaming</varname> is set to <literal>parallel</literal> to stream large in-progress transactions to be applied in parallel.»
         </para>
        </listitem>
       </varlistentry>
@@ -878,10 +939,13 @@ SQLでは使用できません。
        <term><varname>publication_names</varname> (<type>string</type>)</term>
        <listitem>
         <para>
+<!--
          A comma-separated list of publication names to subscribe to.
          The individual publication names are treated
          as standard objects names and can be quoted the same as needed.
          At least one publication name is required.
+-->
+《機械翻訳》«A comma-separated list of publication names to subscribe to. The individual publication names are treated as standard objects names and can be quoted the same as needed. At least one publication name is required.»
         </para>
        </listitem>
       </varlistentry>
@@ -890,9 +954,12 @@ SQLでは使用できません。
        <term><varname>binary</varname> (<type>boolean</type>)</term>
        <listitem>
         <para>
+<!--
          Enables binary transfer mode.  Binary mode is faster
          than the text mode but slightly less robust.
          The default is <literal>off</literal>.
+-->
+《機械翻訳》«Enables binary transfer mode. Binary mode is faster than the text mode but slightly less robust. The default is <literal>off</literal>.»
         </para>
        </listitem>
       </varlistentry>
@@ -901,9 +968,12 @@ SQLでは使用できません。
        <term><varname>messages</varname> (<type>boolean</type>)</term>
        <listitem>
         <para>
+<!--
          Enables sending the messages that are written by
          <function><link linkend="pg-logical-emit-message">pg_logical_emit_message</link></function>.
          The default is <literal>off</literal>.
+-->
+《機械翻訳》«Enables sending the messages that are written by <function><link linkend="pg-logical-emit-message">pg_logical_emit_message</link></function>. The default is <literal>off</literal>.»
         </para>
        </listitem>
       </varlistentry>
@@ -912,25 +982,37 @@ SQLでは使用できません。
        <term><varname>streaming</varname> (<type>enum</type>)</term>
        <listitem>
         <para>
+<!--
          Enables streaming of in-progress transactions. Valid values are
          <literal>off</literal> (the default), <literal>on</literal> and
          <literal>parallel</literal>.
+-->
+《機械翻訳》«Enables streaming of in-progress transactions. Valid values are <literal>off</literal> (the default), <literal>on</literal> and <literal>parallel</literal>.»
         </para>
         <para>
+<!--
          When set to <literal>off</literal>, <filename>pgoutput</filename>
          fully decodes a transaction before sending it as a whole.
          This mode works with any protocol version.
+-->
+《機械翻訳》«When set to <literal>off</literal>, <filename>pgoutput</filename> fully decodes a transaction before sending it as a whole. This mode works with any protocol version.»
         </para>
         <para>
+<!--
          When set to <literal>on</literal>, <filename>pgoutput</filename>
          streams large in-progress transactions.
          This requires protocol version 2 or higher.
+-->
+《機械翻訳》«When set to <literal>on</literal>, <filename>pgoutput</filename> streams large in-progress transactions. This requires protocol version 2 or higher.»
         </para>
         <para>
+<!--
          When set to <literal>parallel</literal>, <filename>pgoutput</filename>
          streams large in-progress transactions and also sends
          extra information in some messages to support parallel processing.
          This requires protocol version 4 or higher.
+-->
+《機械翻訳》«When set to <literal>parallel</literal>, <filename>pgoutput</filename> streams large in-progress transactions and also sends extra information in some messages to support parallel processing. This requires protocol version 4 or higher.»
         </para>
        </listitem>
       </varlistentry>
@@ -939,9 +1021,12 @@ SQLでは使用できません。
        <term><varname>two_phase</varname> (<type>boolean</type>)</term>
        <listitem>
         <para>
+<!--
          Enables sending two-phase transactions.
          Minimum protocol version 3 is required to turn it on.
          The default is <literal>off</literal>.
+-->
+《機械翻訳》«Enables sending two-phase transactions. Minimum protocol version 3 is required to turn it on. The default is <literal>off</literal>.»
         </para>
        </listitem>
       </varlistentry>
@@ -950,6 +1035,7 @@ SQLでは使用できません。
        <term><varname>origin</varname> (<type>enum</type>)</term>
        <listitem>
         <para>
+<!--
          Specifies whether to send changes by their origin.  Possible values are
          <literal>none</literal> to only send the changes that have no origin
          associated, or <literal>any</literal>
@@ -957,6 +1043,8 @@ SQLでは使用できません。
          to avoid loops (infinite replication of the same data) among
          replication nodes.
          The default is <literal>any</literal>.
+-->
+《機械翻訳》«Specifies whether to send changes by their origin. Possible values are <literal>none</literal> to only send the changes that have no origin associated, or <literal>any</literal> to send the changes regardless of their origin. This can be used to avoid loops (infinite replication of the same data) among replication nodes. The default is <literal>any</literal>.»
         </para>
        </listitem>
       </varlistentry>
@@ -971,6 +1059,7 @@ SQLでは使用できません。
      <title>注釈</title>
 
      <para>
+<!--
       <filename>pgoutput</filename> produces binary output,
       so functions expecting textual data (
       <function><link linkend="pg-logical-slot-peek-changes">pg_logical_slot_peek_changes</link></function> and
@@ -979,6 +1068,8 @@ SQLでは使用できません。
       <function><link linkend="pg-logical-slot-peek-binary-changes">pg_logical_slot_peek_binary_changes</link></function> or
       <function><link linkend="pg-logical-slot-get-binary-changes">pg_logical_slot_get_binary_changes</link></function>
       instead.
+-->
+《機械翻訳》«<filename>pgoutput</filename> produces binary output, so functions expecting textual data ( <function><link linkend="pg-logical-slot-peek-changes">pg_logical_slot_peek_changes</link></function> and <function><link linkend="pg-logical-slot-get-changes">pg_logical_slot_get_changes</link></function>) cannot be used with it. Use <function><link linkend="pg-logical-slot-peek-binary-changes">pg_logical_slot_peek_binary_changes</link></function> or <function><link linkend="pg-logical-slot-get-binary-changes">pg_logical_slot_get_binary_changes</link></function> instead.»
      </para>
     </sect3>
    </sect2>
@@ -2207,6 +2298,7 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
    </para>
 
    <para>
+<!--
     Similar to spill-to-disk behavior, streaming is triggered when the total
     amount of changes decoded from the WAL (for all in-progress transactions)
     exceeds the limit defined by <varname>logical_decoding_work_mem</varname> setting.
@@ -2216,6 +2308,10 @@ commit_prepared_cb(...);  &lt;-- commit of the prepared transaction
     because we exceed the memory threshold but still have not decoded the
     complete tuple e.g., only decoded TOAST table insert but not the main table
     insert.
+-->
+《マッチ度[93.126023]》ディスクへのスピル動作と同様に、ストリーミングは、WALからデコードされた変更の合計量(すべての継続中のトランザクションについて)が<varname>logical_decoding_work_mem</varname>設定で定義された制限を超えたときにトリガされます。
+その時点で、最大のトップレベルトランザクション(デコードされた変更に現在使用されているメモリ量で測定されます)が選択され、ストリーミングされます。
+ただし、場合によっては、ストリーミングが有効になっていても、メモリしきい値を超えても完全なタプルがまだデコードされていない(例えば、メインテーブルの挿入ではなくトーストテーブルの挿入のみがデコードされているなど)ため、ディスクへのスピルが必要になることがあります。
    </para>
 
    <para>

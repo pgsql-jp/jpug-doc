@@ -338,6 +338,7 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
   </para>
 
  <para>
+<!--
    There are five methods that an index operator class for
    <acronym>GiST</acronym> must provide, and seven that are optional.
    Correctness of the index is ensured
@@ -364,6 +365,23 @@ CREATE INDEX ON my_table USING GIST (my_inet_column inet_ops);
    used by the operator class.  This lets the core code look up operators for
    temporal constraint indexes.
    All these methods are described in more detail below.
+-->
+《マッチ度[65.389527]》《タグ不一致》<acronym>GiST</acronym>用の演算子クラスが提供しなければならないメソッドが5つ、オプションで提供可能なメソッドが7つあります。
+インデックスの正確性は、<function>same</function>、<function>consistent</function>、<function>union</function>メソッドを適切に実装することで保証されます。
+一方、インデックスの効率（容量と速度）は<function>penalty</function>と<function>picksplit</function>メソッドに依存します。
+オプションのメソッドの２つは、<function>compress</function>と<function>decompress</function>です。これによりインデックスはインデックス付けするデータと異なるデータ型のツリーデータを内部で持つことができるようになります。
+リーフはインデックス付けするデータ型となりますが、他のツリーノードは何らかのC構造体を取ることができます。
+（しかしここでも<productname>PostgreSQL</productname>のデータ型規約に従わなければなりません。
+容量が可変のデータに関しては<literal>varlena</literal>を参照してください。）
+ツリーの内部データ型がSQLレベルで存在する場合、<command>CREATE OPERATOR CLASS</command>コマンドの<literal>STORAGE</literal>オプションを使用することができます。
+オプションの8番目のメソッドは<function>distance</function>です。
+これは演算子クラスに順序付けスキャン（最近傍検索）をサポートさせたい場合に必要です。
+オプションの9番目のメソッド<function>fetch</function>は、<function>compress</function>メソッドが省略されている場合を除き、演算子クラスがインデックスオンリースキャンをサポートしたい場合に必要になります。
+オプションの10番目のメソッド<function>options</function>は、演算子クラスがユーザに固有のパラメータを持つ場合に必要です。
+オプションの11番目のメソッド<function>sortsupport</function>は、<acronym>GiST</acronym>インデックスの構築を高速にするのに使われます。
+オプションの12番目のメソッド<function>stratnum</function>は、（<filename>src/include/access/cmptype.h</filename>にある）比較型を演算子クラスで使用されるストラテジ番号に変換します。
+これにより、コアコードは時間的な制約インデックスの演算子を検索できます。
+《機械翻訳》«There are five methods that an index operator class for <acronym>GiST</acronym> must provide, and seven that are optional. Correctness of the index is ensured by proper implementation of the <function>same</function>, <function>consistent</function> and <function>union</function> methods, while efficiency (size and speed) of the index will depend on the <function>penalty</function> and <function>picksplit</function> methods. Two optional methods are <function>compress</function> and <function>decompress</function>, which allow an index to store keys that are of a different type than the data it indexes, or are a compressed representation of that type. The optional eighth method <function>distance</function> is needed if the operator class wishes to support ordered scans (nearest-neighbor searches). The optional ninth method <function>fetch</function> is needed if the operator class wishes to support index-only scans, except when the <function>compress</function> method is omitted. The optional tenth method <function>options</function> is needed if the operator class has user-specified parameters. The optional eleventh method <function>sortsupport</function> is used to speed up building a <acronym>GiST</acronym> index. The optional twelfth method <function>stratnum</function> is used to translate compare types (from <filename>src/include/access/cmptype.h</filename>) into strategy numbers used by the operator class. This lets the core code look up operators for temporal constraint indexes. All these methods are described in more detail below.»
  </para>
 
  <variablelist>
@@ -620,6 +638,7 @@ my_union(PG_FUNCTION_ARGS)
       </para>
 
       <para>
+<!--
        Use the <literal>STORAGE</literal> option of the <command>CREATE
        OPERATOR CLASS</command> command to define the data type that is
        stored in the index, if it is different from the data type being
@@ -635,6 +654,8 @@ my_union(PG_FUNCTION_ARGS)
        representations for leaf keys than for keys on higher-level index
        pages, so long as both representations match
        the <literal>STORAGE</literal> data type.
+-->
+《機械翻訳》«Use the <literal>STORAGE</literal> option of the <command>CREATE OPERATOR CLASS</command> command to define the data type that is stored in the index, if it is different from the data type being indexed. Be aware however that the <literal>STORAGE</literal> data type is only used to define the physical properties of the index entries (their <replaceable>typlen</replaceable>, <replaceable>typbyval</replaceable>, and <replaceable>typalign</replaceable> attributes). What is actually in the index datums is under the control of the <function>compress</function> and <function>decompress</function> methods, so long as the stored datums match those properties. It is allowed for <function>compress</function> to produce different representations for leaf keys than for keys on higher-level index pages, so long as both representations match the <literal>STORAGE</literal> data type.»
       </para>
 
       <para>
