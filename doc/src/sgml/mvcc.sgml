@@ -603,7 +603,9 @@
 リードコミッティドモードでは、挿入を提案された各行が挿入または更新されます。
 無関係なエラーが発生しなければ、それら2つの結果のうち1つが保証されます。
 まだその結果が<command>INSERT</command>に対して可視になっていない他のトランザクションに起因する競合では、慣習的な意味でそのコマンドに対して可視のバージョンの行が存在<emphasis>しない</emphasis>にも関わらず、<command>UPDATE</command>句がその行に対して動作します。
-《機械翻訳》«<command>INSERT</command> with an <literal>ON CONFLICT DO SELECT</literal> clause behaves similarly to <literal>ON CONFLICT DO UPDATE</literal>. In Read Committed mode, each row proposed for insertion is guaranteed to either insert or return the conflicting row (unless there are unrelated errors). If a conflict originates in another transaction whose effects are not yet visible to the <command>INSERT</command>, the command will wait for that transaction to commit or roll back, then return the conflicting row if it was committed (even though that row was not visible when the command started).»
+《機械翻訳》<command>INSERT</command><literal>ON CONFLICT DO SELECT</literal>句は<literal>ON CONFLICT DO UPDATE</literal>と同様に動作します。
+リードコミッティドモードでは、挿入が提案された各行は、競合する行の挿入または結果のいずれかを実行することが保証されます（無関係なエラーがない場合を除く）。
+コンフリクトが別のトランザクションから発生しており、その影響がまだ可視から<command>INSERT</command>に及んでいない場合、コマンドはそのトランザクションがコミットまたはロールバックに到達するのを待ち、競合する行が実行された場合は結果になります（コマンドが開始されたときにその行が可視ではなかった場合でも）。
    </para>
 
    <para>
@@ -1659,7 +1661,11 @@ ERROR:  could not serialize access due to read/write dependencies among transact
 《マッチ度[64.809384]》《タグ不一致》<command>DROP TABLE</command>、<command>TRUNCATE</command>、<command>REINDEX</command>、<command>CLUSTER</command>、<command>VACUUM FULL</command>、（<option>CONCURRENTLY</option>なしの）<command>REFRESH MATERIALIZED VIEW</command>コマンドによって獲得されます。
 <command>ALTER INDEX</command>と<command>ALTER TABLE</command>の多くの形式もこのレベルでロックを獲得します。
 これはまた、明示的にモードを指定しない<command>LOCK TABLE</command>文のデフォルトのロックモードです。
-《機械翻訳》«Acquired by the <command>DROP TABLE</command>, <command>TRUNCATE</command>, <command>REINDEX</command>, <command>CLUSTER</command>, <command>VACUUM FULL</command>, and <command>REFRESH MATERIALIZED VIEW</command> (without <option>CONCURRENTLY</option>) commands. <command>REPACK</command> also acquires this lock mode. When run with <option>CONCURRENTLY</option>, <command>REPACK</command> acquires it only while swapping the table and index files. Many forms of <command>ALTER INDEX</command> and <command>ALTER TABLE</command> also acquire a lock at this level. This is also the default lock mode for <command>LOCK TABLE</command> statements that do not specify a mode explicitly.»
+《機械翻訳》<command>DROP TABLE</command>、<command>TRUNCATE</command>、<command>REINDEX</command>、<command>CLUSTER</command>、<command>VACUUM FULL</command>、および<command>REFRESH MATERIALIZED VIEW</command><option>CONCURRENTLY</option>なしコマンドによって取得されます。
+<command>REPACK</command>でもこのロックモードが取得されます。
+<option>CONCURRENTLY</option>を使用して実行した場合、<command>REPACK</command>はスワッピングでテーブルファイルとインデックスファイルがある場合にのみロックを取得します。
+<command>ALTER INDEX</command>および<command>ALTER TABLE</command>の多くの形式も、このレベルでデフォルトを取得します。
+これは、モードを明示的に指定しない<command>LOCK TABLE</command>ステートメントのロックモードでもあります。
         </para>
        </listitem>
       </varlistentry>
@@ -2725,7 +2731,13 @@ SELECT pg_advisory_lock(q.id) FROM
 これは、DDLコマンドをコミットする前に取得したスナップショットを使っていると、切り詰めまたは書き換えのコミット後に、同時実行トランザクションに対してテーブルが空に見えることを意味しています。
 該当するテーブルにDDLコマンドが開始する前にアクセスしなかったトランザクションにとってのみ、これは問題となるでしょう&mdash;開始前にアクセスしたトランザクションは少なくとも<literal>ACCESS SHARE</literal>テーブルロックを保持しており、そのトランザクションが完了するまでDDLコマンドはブロックされるでしょう。
 ですので、対象のテーブルに対する連続した問い合わせで、このコマンドはテーブルの内容の見かけ上の不整合の原因とはなりません。しかし、対象のテーブルとデータベース内の他のテーブルの内容の間の可視の不整合の原因となるかもしれません。
-《機械翻訳》«Some commands, currently only <link linkend="sql-truncate"><command>TRUNCATE</command></link>, the table-rewriting forms of <link linkend="sql-altertable"><command>ALTER TABLE</command></link> and <command>REPACK</command> with the <literal>CONCURRENTLY</literal> option, are not MVCC-safe. This means that after the truncation or rewrite commits, the table will appear empty to concurrent transactions, if they are using a snapshot taken before the command committed. This will only be an issue for a transaction that did not access the table in question before the command started &mdash; any transaction that has done so would hold at least an <literal>ACCESS SHARE</literal> table lock, which would block the truncating or rewriting command until that transaction completes. So these commands will not cause any apparent inconsistency in the table contents for successive queries on the target table, but they could cause visible inconsistency between the contents of the target table and other tables in the database.»
+《機械翻訳》一部のコマンドは、MVCCテーブルではありません。
+現在は<link linkend="sql-truncate"><command>TRUNCATE</command></link>、<literal>CONCURRENTLY</literal>オプションを使用した<link linkend="sql-altertable"><command>ALTER TABLE</command></link>および<command>REPACK</command>のセーフ書き換え形式のみです。
+これは、トランケーションまたはリライトのコミット後、テーブルがコミットされたsnapshotを取得した前を使用している場合、同時トランザクションに対してコマンドが空であるように見えることを意味します。
+これは、問題のテーブルにアクセスしていないトランザクションでのみ問題となります。
+前、コマンドが&mdash;を開始しました。
+これを行ったトランザクションは、少なくとも<literal>ACCESS SHARE</literal>テーブルロックを保持し、トランザクションが完了するまでコマンドのトランケートまたはリライトをブロックします。
+したがって、これらのコマンドは、ターゲットテーブルでの連続した問い合わせーに対してテーブルの内容に明らかな不整合を引き起こすことはありませんが、の内容とデータベース内の他のテーブルとの間で可視の不整合を引き起こす可能性があります。
    </para>
 
    <para>
