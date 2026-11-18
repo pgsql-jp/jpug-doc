@@ -1,0 +1,70 @@
+name: release docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag name (e.g. v18.0)'
+        required: true
+        type: string
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: apt update
+        run: sudo apt update
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y \
+            docbook-xml \
+            docbook-xsl \
+            libbsd-dev \
+            libedit-dev \
+            libpam0g-dev \
+            libperl-dev \
+            libxml2-utils \
+            xsltproc \
+            fop \
+            dbtoepub
+
+      - name: Install Gen Shin Gothic fonts
+        run: |
+          wget -q https://github.com/pgsql-jp/jpug-doc/releases/download/fonts-v1/genshin-fonts.tar.gz
+          mkdir ~/.fonts/
+          tar xzf genshin-fonts.tar.gz -C ~/.fonts/
+          fc-cache -f
+
+      - name: configure
+        run: ./configure
+      - name: Build release documents
+        timeout-minutes: 120
+        run: |
+          cd doc/src/sgml/
+          make ORIGINAL=1 html
+          make postgres-A4.pdf
+          make postgres.epub
+          make man
+          tar cvzf man.tar.gz man1 man3 man7
+          tar cvzf html.tar.gz html
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+          files: |
+            doc/src/sgml/postgres-A4.pdf
+            doc/src/sgml/postgres.epub
+            doc/src/sgml/man.tar.gz
+            doc/src/sgml/html.tar.gz

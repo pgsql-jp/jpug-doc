@@ -98,7 +98,7 @@ if ($gen_code)
 foreach my $line (@lines_sorted)
 {
 	die "unable to parse wait_event_names.txt for line $line\n"
-	  unless $line =~ /^(\w+)\t+(\w+)\t+("\w.*\.")$/;
+	  unless $line =~ /^(\w+)\t+(\w+)\t+(".*(?:\.|\xE3\x80\x82)")$/;
 
 	(my $waitclassname, my $waiteventname, my $waitevendocsentence) =
 	  ($1, $2, $3);

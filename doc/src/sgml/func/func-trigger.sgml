@@ -1,7 +1,11 @@
   <sect1 id="functions-trigger">
+<!--
    <title>Trigger Functions</title>
+-->
+   <title>トリガ関数</title>
 
   <para>
+<!--
    While many uses of triggers involve user-written trigger functions,
    <productname>PostgreSQL</productname> provides a few built-in trigger
    functions that can be used directly in user-defined triggers.  These
@@ -9,26 +13,46 @@
    (Additional built-in trigger functions exist, which implement foreign
    key constraints and deferred index constraints.  Those are not documented
    here since users need not use them directly.)
+-->
+多くの場合トリガにはユーザ記述のトリガ関数が必要になりますが、<productname>PostgreSQL</productname>はユーザ定義トリガで直接使用できる小数の組み込みの取り化関数を提供しています。
+これらは<xref linkend="builtin-triggers-table"/>にまとめられています。
+（追加の組み込みトリガ関数があり、外部キー制約と遅延インデックス制約を実装しています。
+ユーザがこれらを直接必要とすることはないので、ここには記述されていません。）
   </para>
 
   <para>
+<!--
    For more information about creating triggers, see
    <xref linkend="sql-createtrigger"/>.
+-->
+トリガ作成についてのより詳細は<xref linkend="sql-createtrigger"/>を参照してください。
   </para>
 
    <table id="builtin-triggers-table">
+<!--
     <title>Built-In Trigger Functions</title>
+-->
+    <title>組み込みトリガ関数</title>
     <tgroup cols="1">
      <thead>
       <row>
        <entry role="func_table_entry"><para role="func_signature">
+<!--
         Function
+-->
+関数
        </para>
        <para>
+<!--
         Description
+-->
+説明
        </para>
        <para>
+<!--
         Example Usage
+-->
+使用例
        </para></entry>
       </row>
      </thead>
@@ -43,7 +67,11 @@
         <returnvalue>trigger</returnvalue>
        </para>
        <para>
+<!--
         Suppresses do-nothing update operations.  See below for details.
+-->
+do-nothing更新操作を抑止します。
+詳細は以下を参照してください。
        </para>
        <para>
         <literal>CREATE TRIGGER ... suppress_redundant_updates_trigger()</literal>
@@ -59,10 +87,15 @@
         <returnvalue>trigger</returnvalue>
        </para>
        <para>
+<!--
         Automatically updates a <type>tsvector</type> column from associated
         plain-text document column(s).  The text search configuration to use
         is specified by name as a trigger argument.  See
         <xref linkend="textsearch-update-triggers"/> for details.
+-->
+関連付けされた平文文書列から自動的に<type>tsvector</type>列を更新します。
+使用するテキスト検索設定はトリガ引数で指定します。
+詳細は<xref linkend="textsearch-update-triggers"/>をご覧ください。
        </para>
        <para>
         <literal>CREATE TRIGGER ... tsvector_update_trigger(tsvcol, 'pg_catalog.swedish', title, body)</literal>
@@ -78,10 +111,15 @@
         <returnvalue>trigger</returnvalue>
        </para>
        <para>
+<!--
         Automatically updates a <type>tsvector</type> column from associated
         plain-text document column(s).  The text search configuration to use
         is taken from a <type>regconfig</type> column of the table.  See
         <xref linkend="textsearch-update-triggers"/> for details.
+-->
+関連付けされた平文文書列から自動的に<type>tsvector</type>列を更新します。
+使用するテキスト検索設定はテーブルの<type>regconfig</type>列が用いられます。
+詳細は<xref linkend="textsearch-update-triggers"/>をご覧ください。
        </para>
        <para>
         <literal>CREATE TRIGGER ... tsvector_update_trigger_column(tsvcol, tsconfigcol, title, body)</literal>
@@ -92,6 +130,7 @@
    </table>
 
    <para>
+<!--
       The <function>suppress_redundant_updates_trigger</function> function,
       when applied as a row-level <literal>BEFORE UPDATE</literal> trigger,
       will prevent any update that does not actually change the data in the
@@ -100,9 +139,14 @@
       regardless of whether or not the data has changed. (This normal behavior
       makes updates run faster, since no checking is required, and is also
       useful in certain cases.)
+-->
+行レベル<literal>BEFORE UPDATE</literal>トリガとして<function>suppress_redundant_updates_trigger</function>関数が適用されると、実際には行の中でデータを変更しない更新が行われるのを防ぎます。
+これはデータが変更されるかどうかに関わらず、物理的に行の更新を行う通常の振る舞いを置き換えます。
+（この通常の動作は、検査を必要としないため更新をより迅速に行い、場合によっては便利です。）
     </para>
 
     <para>
+<!--
       Ideally, you should avoid running updates that don't actually
       change the data in the record. Redundant updates can cost considerable
       unnecessary time, especially if there are lots of indexes to alter,
@@ -115,21 +159,40 @@
       however. The trigger takes a small but non-trivial time for each record,
       so if most of the records affected by updates do actually change,
       use of this trigger will make updates run slower on average.
+-->
+理想的には、通常実際レコード内のデータを変更しない更新の実行を避けるべきです。
+冗長な更新により、特に変更対象の多くのインデックスが存在する場合、無視できない不要な時間にかかるコストが発生することがあります。
+また、最後にはバキュームしなければならなくなる不要行が場所を取ることになります。
+しかし、こうした状況をクライアント側で判定することは常に簡単ではありません。
+また、可能であったとしても、それを検知するための式の記述はエラーを招きがちです。
+他の方法として、<function>suppress_redundant_updates_trigger</function>を使用することがあります。
+これはデータを変更しない更新をスキップします。
+しかしこの関数は注意して使用しなければなりません。
+このトリガはレコードごとに小さな、しかし僅かではない時間がかかります。
+このため、更新が影響するレコードのほとんどが実際に変更された場合、このトリガは平均すると更新の実行を低速にします。
     </para>
 
     <para>
+<!--
       The <function>suppress_redundant_updates_trigger</function> function can be
       added to a table like this:
+-->
+<function>suppress_redundant_updates_trigger</function>関数は以下のようにテーブルに追加できます。
 <programlisting>
 CREATE TRIGGER z_min_update
 BEFORE UPDATE ON tablename
 FOR EACH ROW EXECUTE FUNCTION suppress_redundant_updates_trigger();
 </programlisting>
+<!--
       In most cases, you need to fire this trigger last for each row, so that
       it does not override other triggers that might wish to alter the row.
       Bearing in mind that triggers fire in name order, you would therefore
       choose a trigger name that comes after the name of any other trigger
       you might have on the table.  (Hence the <quote>z</quote> prefix in the
       example.)
+-->
+ほとんどの場合、行を変更するかも知れない他のトリガを置き換えないために、それぞれの行に対しこのトリガを最後に起動させる必要があります。
+トリガは名前順に起動されることを判っているとして、テーブル上に存在する可能性のある他のトリガの名前の後に続くようトリガ名を選択できます。
+（それで例中に<quote>z</quote>接頭辞があります。）
     </para>
   </sect1>
